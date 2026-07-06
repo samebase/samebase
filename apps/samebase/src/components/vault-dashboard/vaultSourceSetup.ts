@@ -31,12 +31,10 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
       return "sync tree";
     case "claim_infra":
       return "claim infra";
-    case "ensure_convex":
-      return "ensure Convex";
-    case "ensure_convex_preview":
-      return "ensure Convex preview";
-    case "ensure_cloudflare":
-      return "ensure Cloudflare";
+    case "attach_convex":
+      return "attach Convex";
+    case "attach_worker":
+      return "attach Worker";
     case "wire_builds":
       return "wire Builds";
     case "wire_convex_build_access":

@@ -85,7 +85,9 @@ Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BR
 script uses `WORKERS_CI_BRANCH` to choose between `PROD_CONVEX_DEPLOY_KEY` on `main` and
 `PREVIEW_CONVEX_DEPLOY_KEY` on non-production branches. The build environment must not set a generic
 `CONVEX_DEPLOY_KEY`; the script passes the selected split key to Convex under that generic name only
-for the child process.
+for the child process. The Workers Builds variable table contains both split deploy keys. It does
+not store `VITE_CONVEX_URL`; `convex deploy --cmd` supplies the selected production or preview
+deployment URL to the child build command.
 
 ### Static Page Prerendering And SPA Shell
 

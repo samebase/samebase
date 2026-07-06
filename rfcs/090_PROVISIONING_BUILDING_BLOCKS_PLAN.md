@@ -75,9 +75,15 @@ Rules:
   has no Convex inputs. Trigger env vars at this stage carry no Convex values.
 - `wire_convex_build_access` requires `attach_convex` and `wire_builds` to have completed. It
   ensures the preview deployment (persisting its identity, unlike today), mints the two deploy keys,
-  records their ids on the Convex row, and PATCHes both triggers' env vars (`PROD_CONVEX_DEPLOY_KEY`
-  / `PREVIEW_CONVEX_DEPLOY_KEY` / `VITE_CONVEX_URL`). Key material never touches the workflow
-  journal (existing doctrine).
+  records their ids on the Convex row, and PATCHes the Workers Builds env vars with both split
+  deploy keys (`PROD_CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`) on each trigger record.
+  This matches the manually configured Cloudflare UI shape: the visible Build variables table holds
+  both keys. This block patches only those deploy-key variables; key material never touches the
+  workflow journal (existing doctrine).
+- The temporary dashboard repair path exposes the same blocks after manual or partial setup:
+  `Connect GitHub repo` runs `wire_builds` when an attached Worker is not connected to the vault's
+  GitHub repository, and `Set Convex deploy keys` runs `wire_convex_build_access` when the same app
+  root has Convex, connected Builds, and missing Convex build access.
 - Blocks keep the existing run machinery: one `appProvisioningRuns` run per block execution, the
   claim/ensure/finish ownership pattern, events for progress. The triplicated claim helper stack
   should collapse into one shared implementation as blocks land.
@@ -91,6 +97,9 @@ Flow compositions:
 - Imported repo moving to Cloudflare (the chessmerge.com case, Convex exists + Netlify today):
   1(import) → 2(select existing) → 3(create or discovered) → 4 → 5.
 - Late Convex adoption: 2 + 5 against an already-built Worker (env-var PATCH only).
+- Manual repair after partial setup: run 4 from the Cloudflare row when the Worker is not connected
+  to the GitHub repository; run 5 from the Cloudflare row when only the Convex deploy keys are
+  missing.
 
 ## Worker Deployment State Model
 
@@ -183,8 +192,8 @@ Verification probes required before implementation (one-time, live):
 - Per-resource detach (the inverse blocks). Noted dead end to resolve later: monorepo conversion
   errors with "Disconnect root providers before converting" while no disconnect flow exists.
 - Custom domains and routing automation.
-- Convex resource discovery (only weak evidence exists: visible `VITE_CONVEX_URL` values) and any
-  auto-creation of Convex projects during Cloudflare work.
+- Convex resource discovery from provider build/runtime env vars and any auto-creation of Convex
+  projects during Cloudflare work.
 - A generic provider framework or resource registry.
 
 ## Open Questions

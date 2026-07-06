@@ -13,10 +13,10 @@ describe("formatProvisioningLogLine", () => {
       formatProvisioningLogLine({
         createdAt: Date.UTC(2026, 4, 2, 12, 30, 5),
         level: "info",
-        step: "ensure_cloudflare",
+        step: "attach_worker",
         message: "Cloudflare Worker ready.",
       }),
-    ).toBe("2026-05-02T12:30:05.000Z INFO  ensure Cloudflare - Cloudflare Worker ready.");
+    ).toBe("2026-05-02T12:30:05.000Z INFO  attach Worker - Cloudflare Worker ready.");
   });
 });
 
@@ -33,14 +33,14 @@ describe("formatProvisioningLogText", () => {
         {
           createdAt: 1,
           level: "error",
-          step: "ensure_convex",
+          step: "attach_convex",
           message: "Provisioning failed during Convex provisioning.",
         },
       ]),
     ).toBe(
       [
         "1970-01-01T00:00:00.000Z INFO  initialize vault - Created the initializing Samebase vault.",
-        "1970-01-01T00:00:00.001Z ERROR ensure Convex - Provisioning failed during Convex provisioning.",
+        "1970-01-01T00:00:00.001Z ERROR attach Convex - Provisioning failed during Convex provisioning.",
       ].join("\n"),
     );
   });
@@ -53,7 +53,7 @@ describe("buildProvisioningLogDocumentEvents", () => {
         {
           createdAt: Date.UTC(2026, 4, 2, 12, 30, 5),
           level: "info",
-          step: "ensure_cloudflare",
+          step: "attach_worker",
           message:
             'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"PROD_CONVEX_DEPLOY_KEY":"[secret]","build_command":"pnpm run build"},"params":{"path":{"account_id":"[redacted]"}}}',
         },
@@ -62,7 +62,7 @@ describe("buildProvisioningLogDocumentEvents", () => {
       {
         time: "2026-05-02T12:30:05.000Z",
         level: "info",
-        step: "ensure Cloudflare",
+        step: "attach Worker",
         api: {
           provider: "Cloudflare",
           method: "PATCH",

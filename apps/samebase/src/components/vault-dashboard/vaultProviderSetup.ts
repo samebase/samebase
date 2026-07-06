@@ -48,10 +48,9 @@ export function resolveVaultProviderSetupStepProvider(
     case "validate_connections":
     case "claim_infra":
       return providerSetup.provider;
-    case "ensure_convex":
-    case "ensure_convex_preview":
+    case "attach_convex":
       return "convex";
-    case "ensure_cloudflare":
+    case "attach_worker":
     case "wire_builds":
     case "wire_convex_build_access":
     case "record_domains":

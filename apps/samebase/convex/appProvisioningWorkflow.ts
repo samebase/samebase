@@ -1,13 +1,16 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { vResultValidator, type RunResult } from "@convex-dev/workpool";
-import { WorkflowManager } from "@convex-dev/workflow";
+import { WorkflowManager, type WorkflowCtx } from "@convex-dev/workflow";
 import { components, internal } from "./_generated/api";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
+import type { AppProvisioningStep } from "./schema";
 import { vVaultCloudflareOrigin, vVaultConvexConnectionTarget } from "./vault/model";
+import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
-const { boolean, id, object, string } = v;
+const { boolean, id, null: nullValue, object, string, union } = v;
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
   initialBackoffMs: 1_000,
@@ -18,6 +21,28 @@ const workflowCompletionContext = object({
   runId: id("appProvisioningRuns"),
 });
 const createAppDescription = v.union(string(), v.null());
+const composedInfrastructureState = object({
+  appRoot: string(),
+  convex: object({
+    projectName: string(),
+    attached: boolean(),
+  }),
+  cloudflare: object({
+    accountId: string(),
+    workerName: string(),
+    attached: boolean(),
+    buildsConnected: boolean(),
+    convexBuildAccessWired: boolean(),
+    workersDevUrl: union(string(), nullValue()),
+  }),
+});
+type ComposedInfrastructureState = Infer<typeof composedInfrastructureState>;
+const composedInfrastructureRetryContext = object({
+  userId: id("users"),
+  defaultBranch: string(),
+});
+type ComposedInfrastructureRetryContext = Infer<typeof composedInfrastructureRetryContext>;
+const COMPOSED_INFRASTRUCTURE_STALE_MS = 10 * 60 * 1000;
 
 export function resolveWorkflowCompletionError(result: RunResult): string | null {
   switch (result.kind) {
@@ -34,63 +59,651 @@ export function resolveWorkflowCompletionError(result: RunResult): string | null
   }
 }
 
+export const readComposedInfrastructureState = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+  },
+  returns: composedInfrastructureState,
+  handler: async (ctx, args): Promise<ComposedInfrastructureState> => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+
+    const target = await ctx.db
+      .query("vaultInfrastructureTargets")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (!target) {
+      throw new Error("Infrastructure target not found for vault.");
+    }
+
+    const [convexDeployment, worker] = await Promise.all([
+      ctx.db
+        .query("vaultConvexDeployments")
+        .withIndex("by_vault_and_appRoot", (q) =>
+          q.eq("vaultId", args.vaultId).eq("appRoot", target.appRoot),
+        )
+        .first(),
+      ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault_and_appRoot", (q) =>
+          q.eq("vaultId", args.vaultId).eq("appRoot", target.appRoot),
+        )
+        .first(),
+    ]);
+
+    return {
+      appRoot: target.appRoot,
+      convex: {
+        projectName: target.convex.projectName,
+        attached: convexDeployment !== null,
+      },
+      cloudflare: {
+        accountId: target.cloudflare.accountId,
+        workerName: target.cloudflare.workerName,
+        attached: worker !== null,
+        buildsConnected: worker?.deployment.builds.state === "connected",
+        convexBuildAccessWired: worker?.deployment.convexBuildAccess.state === "wired",
+        workersDevUrl: worker?.workersDevUrl ?? null,
+      },
+    };
+  },
+});
+
+export const readComposedInfrastructureRetryContext = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+  },
+  returns: composedInfrastructureRetryContext,
+  handler: async (ctx, args): Promise<ComposedInfrastructureRetryContext> => {
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.vaultId !== args.vaultId) {
+      throw new Error("Provisioning run not found.");
+    }
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== run.userId) {
+      throw new Error("Vault not found.");
+    }
+
+    return {
+      userId: run.userId,
+      defaultBranch: vault.defaultBranch,
+    };
+  },
+});
+
+export const claimComposedInfrastructureProvisioning = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+  },
+  returns: object({ claimed: boolean() }),
+  handler: async (ctx, args): Promise<{ claimed: boolean }> => {
+    const run = await ctx.db.get(args.runId);
+    if (
+      !run ||
+      run.vaultId !== args.vaultId ||
+      run.userId !== args.userId ||
+      (run.trigger !== "create" && run.trigger !== "retry")
+    ) {
+      throw new Error("Composed infrastructure run does not match vault.");
+    }
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    const target = await ctx.db
+      .query("vaultInfrastructureTargets")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (!target) {
+      throw new Error("Infrastructure target not found for vault.");
+    }
+
+    const now = Date.now();
+    const ownership = await ctx.db
+      .query("vaultInfrastructureOwnership")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (
+      ownership &&
+      ownership.state === "active" &&
+      ownership.runId !== args.runId &&
+      now - ownership.updatedAt < COMPOSED_INFRASTRUCTURE_STALE_MS
+    ) {
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId: args.runId,
+        step: "claim_infra",
+        level: "warn",
+        message: "Infrastructure provisioning is already running.",
+        state: "canceled",
+      });
+      return { claimed: false };
+    }
+
+    if (ownership) {
+      if (ownership.state === "active" && ownership.runId !== args.runId) {
+        await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+          runId: ownership.runId,
+          step: "claim_infra",
+          level: "warn",
+          message: "Infrastructure provisioning was superseded by a newer run.",
+          state: "canceled",
+        });
+      }
+      await ctx.db.patch(ownership._id, {
+        runId: args.runId,
+        state: "active",
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        state: "active",
+        updatedAt: now,
+      });
+    }
+
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: "claim_infra",
+      level: "info",
+      message: `Started infrastructure provisioning for ${target.appRoot}.`,
+      state: "running",
+    });
+
+    return { claimed: true };
+  },
+});
+
+export const finishComposedInfrastructureProvisioning = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const run = await ctx.db.get(args.runId);
+    if (
+      !run ||
+      run.vaultId !== args.vaultId ||
+      run.userId !== args.userId ||
+      (run.trigger !== "create" && run.trigger !== "retry")
+    ) {
+      throw new Error("Composed infrastructure run does not match vault.");
+    }
+    const ownership = await ctx.db
+      .query("vaultInfrastructureOwnership")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (!ownership || ownership.state !== "active" || ownership.runId !== args.runId) {
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
+    }
+
+    await ctx.db.patch(ownership._id, {
+      state: "succeeded",
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+async function readCurrentComposedInfrastructureState(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    name: string;
+  },
+): Promise<ComposedInfrastructureState> {
+  return await step.runQuery(
+    internal.appProvisioningWorkflow.readComposedInfrastructureState,
+    {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    },
+    { name: args.name },
+  );
+}
+
+async function markComposedInfrastructureRunFailed(
+  step: WorkflowCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    name: string;
+    error: unknown;
+  },
+): Promise<void> {
+  await step
+    .runMutation(
+      internal.infraProvisioning.markWorkflowProvisioningFailed,
+      {
+        runId: args.runId,
+        workflowId: step.workflowId,
+        message: toErrorMessage(args.error),
+      },
+      { name: args.name, unstableArgs: true },
+    )
+    .catch((failureError: unknown) => {
+      console.warn("app:provision:composed_block_failure_record_failed", {
+        runId: args.runId,
+        error: toErrorMessage(failureError),
+      });
+    });
+}
+
+async function appendComposedInfrastructureParentEvent(
+  step: WorkflowCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+    message: string;
+  },
+): Promise<void> {
+  await step.runMutation(
+    internal.appProvisioningRuns.appendRunEvent,
+    {
+      runId: args.runId,
+      step: args.step,
+      level: "info",
+      message: args.message,
+      state: "running",
+    },
+    { name: `parent_${args.step}` },
+  );
+}
+
+async function runComposedConvexAttachment(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    parentRunId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    state: ComposedInfrastructureState;
+  },
+): Promise<void> {
+  if (args.state.convex.attached) {
+    return;
+  }
+
+  try {
+    await step.runAction(
+      internal.vault.convex.ensureConvexDeploymentConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        target: {
+          mode: "create_project",
+          appRoot: args.state.appRoot,
+          projectName: args.state.convex.projectName,
+        },
+      },
+      { name: "attach_convex", retry: idempotentProviderStepRetry },
+    );
+    await step.runMutation(
+      internal.vault.convexMutations.finishConvexDeploymentConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        appRoot: args.state.appRoot,
+      },
+      { name: "finish_attach_convex" },
+    );
+  } catch (error) {
+    await markComposedInfrastructureRunFailed(step, {
+      runId: args.parentRunId,
+      name: "mark_attach_convex_failed",
+      error,
+    });
+    throw error;
+  }
+}
+
+async function runComposedCloudflareAttachment(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    parentRunId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    state: ComposedInfrastructureState;
+  },
+): Promise<void> {
+  if (args.state.cloudflare.attached) {
+    return;
+  }
+
+  try {
+    await step.runAction(
+      internal.vault.cloudflare.ensureCloudflareWorkerConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        appRoot: args.state.appRoot,
+        accountId: args.state.cloudflare.accountId,
+        workerName: args.state.cloudflare.workerName,
+        origin: "provisioned",
+      },
+      { name: "attach_worker", retry: false },
+    );
+    await step.runMutation(
+      internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        appRoot: args.state.appRoot,
+      },
+      { name: "finish_attach_worker" },
+    );
+  } catch (error) {
+    await markComposedInfrastructureRunFailed(step, {
+      runId: args.parentRunId,
+      name: "mark_attach_worker_failed",
+      error,
+    });
+    throw error;
+  }
+}
+
+async function runComposedCloudflareBuildsWiring(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    parentRunId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    state: ComposedInfrastructureState;
+  },
+): Promise<void> {
+  if (args.state.cloudflare.buildsConnected) {
+    return;
+  }
+
+  try {
+    await step.runAction(
+      internal.vault.cloudflare.ensureCloudflareBuildsWiring,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        appRoot: args.state.appRoot,
+      },
+      { name: "wire_builds", retry: false },
+    );
+    await step.runMutation(
+      internal.vault.cloudflareMutations.finishCloudflareBuildsWiring,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        appRoot: args.state.appRoot,
+      },
+      { name: "finish_wire_builds" },
+    );
+  } catch (error) {
+    await markComposedInfrastructureRunFailed(step, {
+      runId: args.parentRunId,
+      name: "mark_wire_builds_failed",
+      error,
+    });
+    throw error;
+  }
+}
+
+async function runComposedCloudflareConvexBuildAccessWiring(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    appRoot: string;
+    runId: Id<"appProvisioningRuns">;
+  },
+): Promise<void> {
+  try {
+    await step.runAction(
+      internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+      },
+      { name: "wire_convex_build_access", retry: false },
+    );
+    await step.runMutation(
+      internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+      },
+      { name: "finish_wire_convex_build_access" },
+    );
+  } catch (error) {
+    await markComposedInfrastructureRunFailed(step, {
+      runId: args.runId,
+      name: "mark_wire_convex_build_access_failed",
+      error,
+    });
+    throw error;
+  }
+}
+
+async function recordComposedCloudflareDefaultDomain(
+  step: WorkflowCtx,
+  args: {
+    parentRunId: Id<"appProvisioningRuns">;
+    vaultId: Id<"vaults">;
+    defaultBranch: string;
+    state: ComposedInfrastructureState;
+  },
+): Promise<void> {
+  const workersDevUrl = args.state.cloudflare.workersDevUrl;
+  if (!workersDevUrl) {
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.parentRunId,
+        step: "record_domains",
+        level: "warn",
+        message: "Cloudflare Worker ready, but workers.dev URL was not available yet.",
+        state: "running",
+      },
+      { name: "record_domains_missing_workers_dev_url" },
+    );
+    return;
+  }
+
+  const { applied } = await step.runMutation(
+    internal.infraProvisioning.upsertDomainRecord,
+    {
+      vaultId: args.vaultId,
+      branch: args.defaultBranch,
+      kind: "main",
+      url: workersDevUrl,
+      source: "cloudflare_workers_default",
+      active: true,
+    },
+    { name: "upsert_workers_dev_domain" },
+  );
+  if (!applied) {
+    throw new Error("Could not record Cloudflare Worker default domain.");
+  }
+  await step.runMutation(
+    internal.appProvisioningRuns.appendRunEvent,
+    {
+      runId: args.parentRunId,
+      step: "record_domains",
+      level: "info",
+      message: `Recorded production URL: ${workersDevUrl}.`,
+      state: "running",
+    },
+    { name: "record_workers_dev_domain" },
+  );
+}
+
+async function runComposedInfrastructure(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    parentRunId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    defaultBranch: string;
+  },
+): Promise<void> {
+  const initialState = await readCurrentComposedInfrastructureState(step, {
+    vaultId: args.vaultId,
+    userId: args.userId,
+    name: "read_infra_target",
+  });
+  const { claimed } = await step.runMutation(
+    internal.appProvisioningWorkflow.claimComposedInfrastructureProvisioning,
+    {
+      vaultId: args.vaultId,
+      runId: args.parentRunId,
+      userId: args.userId,
+    },
+    { name: "claim_composed_infrastructure" },
+  );
+  if (!claimed) {
+    return;
+  }
+
+  if (!initialState.convex.attached) {
+    await appendComposedInfrastructureParentEvent(step, {
+      runId: args.parentRunId,
+      step: "attach_convex",
+      message: "Attaching Convex deployment.",
+    });
+  }
+  await runComposedConvexAttachment(step, {
+    vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
+    userId: args.userId,
+    state: initialState,
+  });
+
+  const afterConvex = await readCurrentComposedInfrastructureState(step, {
+    vaultId: args.vaultId,
+    userId: args.userId,
+    name: "read_infra_after_convex",
+  });
+  if (!afterConvex.cloudflare.attached) {
+    await appendComposedInfrastructureParentEvent(step, {
+      runId: args.parentRunId,
+      step: "attach_worker",
+      message: "Attaching Cloudflare Worker.",
+    });
+  }
+  await runComposedCloudflareAttachment(step, {
+    vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
+    userId: args.userId,
+    state: afterConvex,
+  });
+
+  const afterWorker = await readCurrentComposedInfrastructureState(step, {
+    vaultId: args.vaultId,
+    userId: args.userId,
+    name: "read_infra_after_worker",
+  });
+  if (!afterWorker.cloudflare.buildsConnected) {
+    await appendComposedInfrastructureParentEvent(step, {
+      runId: args.parentRunId,
+      step: "wire_builds",
+      message: "Wiring Cloudflare Workers Builds.",
+    });
+  }
+  await runComposedCloudflareBuildsWiring(step, {
+    vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
+    userId: args.userId,
+    state: afterWorker,
+  });
+
+  const afterBuilds = await readCurrentComposedInfrastructureState(step, {
+    vaultId: args.vaultId,
+    userId: args.userId,
+    name: "read_infra_after_builds",
+  });
+  if (afterBuilds.convex.attached && !afterBuilds.cloudflare.convexBuildAccessWired) {
+    await appendComposedInfrastructureParentEvent(step, {
+      runId: args.parentRunId,
+      step: "wire_convex_build_access",
+      message: "Wiring Convex build access.",
+    });
+    await runComposedCloudflareConvexBuildAccessWiring(step, {
+      vaultId: args.vaultId,
+      runId: args.parentRunId,
+      userId: args.userId,
+      appRoot: afterBuilds.appRoot,
+    });
+  }
+
+  const finalState = await readCurrentComposedInfrastructureState(step, {
+    vaultId: args.vaultId,
+    userId: args.userId,
+    name: "read_infra_after_convex_build_access",
+  });
+  await recordComposedCloudflareDefaultDomain(step, {
+    parentRunId: args.parentRunId,
+    vaultId: args.vaultId,
+    defaultBranch: args.defaultBranch,
+    state: finalState,
+  });
+  await step.runMutation(
+    internal.appProvisioningWorkflow.finishComposedInfrastructureProvisioning,
+    {
+      vaultId: args.vaultId,
+      runId: args.parentRunId,
+      userId: args.userId,
+    },
+    { name: "finish_composed_infrastructure_ownership" },
+  );
+  await step.runMutation(
+    internal.appProvisioningRuns.appendRunEvent,
+    {
+      runId: args.parentRunId,
+      step: "finish",
+      level: "info",
+      message: "App infrastructure is ready.",
+      state: "succeeded",
+    },
+    { name: "finish_composed_infra" },
+  );
+}
+
 export const provisionVaultInfrastructure = workflow.define({
   args: {
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
-    force: boolean(),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    const { claimed } = await step.runMutation(
-      internal.infraProvisioning.claimWorkflowProvisioning,
-      args,
-      { name: "claim_infra" },
-    );
-    if (!claimed) {
-      return null;
-    }
-
-    await step.runAction(
-      internal.infraProvisioning.validateProvisioningConnections,
+    const retryContext: ComposedInfrastructureRetryContext = await step.runQuery(
+      internal.appProvisioningWorkflow.readComposedInfrastructureRetryContext,
       {
         vaultId: args.vaultId,
         runId: args.runId,
       },
-      { name: "validate_connections", retry: false },
+      { name: "read_retry_context" },
     );
-    await step.runAction(
-      internal.infraProvisioning.ensureConvexInfrastructure,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "ensure_convex", retry: idempotentProviderStepRetry },
-    );
-    await step.runAction(
-      internal.infraProvisioning.ensureConvexPreviewInfrastructure,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "ensure_convex_preview", retry: idempotentProviderStepRetry },
-    );
-    await step.runAction(
-      internal.infraProvisioning.ensureCloudflareInfrastructure,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "ensure_cloudflare", retry: false },
-    );
-    await step.runMutation(
-      internal.infraProvisioning.finishWorkflowProvisioning,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "finish" },
-    );
+    await runComposedInfrastructure(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.runId,
+      userId: retryContext.userId,
+      defaultBranch: retryContext.defaultBranch,
+    });
 
     return null;
   },
@@ -170,59 +783,12 @@ export const provisionApp = workflow.define({
       },
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
-    const { claimed } = await step.runMutation(
-      internal.infraProvisioning.claimWorkflowProvisioning,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        force: false,
-      },
-      { name: "claim_infra" },
-    );
-    if (!claimed) {
-      return null;
-    }
-
-    await step.runAction(
-      internal.infraProvisioning.validateProvisioningConnections,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "validate_infra_connections", retry: false },
-    );
-    await step.runAction(
-      internal.infraProvisioning.ensureConvexInfrastructure,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "ensure_convex", retry: idempotentProviderStepRetry },
-    );
-    await step.runAction(
-      internal.infraProvisioning.ensureConvexPreviewInfrastructure,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "ensure_convex_preview", retry: idempotentProviderStepRetry },
-    );
-    await step.runAction(
-      internal.infraProvisioning.ensureCloudflareInfrastructure,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "ensure_cloudflare", retry: false },
-    );
-    await step.runMutation(
-      internal.infraProvisioning.finishWorkflowProvisioning,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      { name: "finish" },
-    );
+    await runComposedInfrastructure(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.runId,
+      userId: args.userId,
+      defaultBranch: repository.defaultBranch,
+    });
 
     return null;
   },
@@ -321,8 +887,22 @@ export const connectCloudflareWorker = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "attach_worker",
+        level: "info",
+        message:
+          args.origin === "provisioned"
+            ? "Creating Cloudflare Worker."
+            : "Connecting Cloudflare Worker.",
+        state: "running",
+      },
+      { name: "start_attach_worker" },
+    );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareWorkerConnection, args, {
-      name: "ensure_cloudflare",
+      name: "attach_worker",
       retry: false,
     });
     let buildRunId: typeof args.runId | null = null;
@@ -424,6 +1004,17 @@ export const wireCloudflareBuilds = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "wire_builds",
+        level: "info",
+        message: "Wiring Cloudflare Workers Builds.",
+        state: "running",
+      },
+      { name: "start_wire_builds_step" },
+    );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareBuildsWiring, args, {
       name: "wire_builds",
       retry: false,
@@ -499,6 +1090,17 @@ export const wireCloudflareConvexBuildAccess = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "wire_convex_build_access",
+        level: "info",
+        message: "Wiring Convex build access.",
+        state: "running",
+      },
+      { name: "start_wire_convex_build_access_step" },
+    );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring, args, {
       name: "wire_convex_build_access",
       retry: false,
@@ -541,8 +1143,19 @@ export const connectConvexDeployment = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "attach_convex",
+        level: "info",
+        message: "Attaching Convex deployment.",
+        state: "running",
+      },
+      { name: "start_attach_convex" },
+    );
     await step.runAction(internal.vault.convex.ensureConvexDeploymentConnection, args, {
-      name: "ensure_convex",
+      name: "attach_convex",
       retry: false,
     });
     await step.runMutation(
@@ -644,7 +1257,6 @@ export const startVaultInfrastructureProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
-    force: boolean(),
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
@@ -654,7 +1266,6 @@ export const startVaultInfrastructureProvisioning = internalMutation({
       {
         vaultId: args.vaultId,
         runId: args.runId,
-        force: args.force,
       },
       {
         startAsync: true,

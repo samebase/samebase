@@ -13,6 +13,10 @@ import {
 type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
+type VaultDashboardProviderSetupStep = Extract<
+  VaultDashboardVault["providerSetup"],
+  { status: "failed" | "running" }
+>["step"];
 
 function resolveSourceSetupResourceProvider(
   sourceSetup: VaultDashboardSourceSetup,
@@ -34,10 +38,9 @@ function resolveSourceSetupResourceProvider(
     case "sync_tree":
     case "claim_infra":
       return "github";
-    case "ensure_convex":
-    case "ensure_convex_preview":
+    case "attach_convex":
       return "convex";
-    case "ensure_cloudflare":
+    case "attach_worker":
     case "wire_builds":
     case "wire_convex_build_access":
     case "record_domains":
@@ -55,6 +58,59 @@ function isVaultResourceSetupBlockingManualActions(vault: VaultDashboardVault): 
   }
 
   return vault.providerSetup.status === "running" || vault.providerSetup.status === "failed";
+}
+
+function canRepairCloudflareWorker(vault: VaultDashboardVault): boolean {
+  if (vault.state !== "ready") {
+    return false;
+  }
+  if (vault.sourceSetup.status === "running" || vault.sourceSetup.status === "failed") {
+    return false;
+  }
+
+  return vault.providerSetup.status !== "running";
+}
+
+function isCloudflareWorkerWiringStep(step: VaultDashboardProviderSetupStep | null): boolean {
+  if (step === null) {
+    return false;
+  }
+
+  switch (step) {
+    case "wire_builds":
+    case "wire_convex_build_access":
+      return true;
+    case "run_created":
+    case "initialize_vault":
+    case "validate_connections":
+    case "create_github_repo":
+    case "fetch_github_repo":
+    case "connect_github":
+    case "create_vault":
+    case "seed_starter":
+    case "sync_tree":
+    case "claim_infra":
+    case "attach_convex":
+    case "attach_worker":
+    case "record_domains":
+    case "finish":
+      return false;
+  }
+  step satisfies never;
+  return false;
+}
+
+function hasCurrentMissingCloudflareBuildsTriggerFailure(
+  vault: VaultDashboardVault,
+  worker: VaultDashboardVault["cloudflareWorkers"][number],
+): boolean {
+  const providerSetup = vault.providerSetup;
+  return (
+    providerSetup.status === "failed" &&
+    providerSetup.step === "wire_convex_build_access" &&
+    providerSetup.message.includes("Retry Workers Builds wiring") &&
+    providerSetup.updatedAt >= worker.lastObservedAt
+  );
 }
 
 function normalizeResourceScope(value: string | undefined): string | undefined {
@@ -113,29 +169,42 @@ export function buildVaultDashboardResourceRailState({
   addCloudflareWorkerOnClick,
   buildAddConvexHref,
   addConvexOnClick,
+  connectCloudflareGithubRepoOnClick,
   buildAddAppRootHref,
   addAppRootOnClick,
   githubRepositoryUrl,
+  isConnectingCloudflareGithubRepo,
   isRetryingInfrastructure,
+  isSettingCloudflareConvexDeployKeys,
   retryInfrastructureOnClick,
+  setCloudflareConvexDeployKeysOnClick,
   vault,
 }: {
   buildAddCloudflareWorkerHref?: (appRoot: string) => string;
   addCloudflareWorkerOnClick?: (appRoot: string) => void;
   buildAddConvexHref?: (appRoot: string) => string;
   addConvexOnClick?: (appRoot: string) => void;
+  connectCloudflareGithubRepoOnClick?: (appRoot: string) => void;
   buildAddAppRootHref?: () => string;
   addAppRootOnClick?: () => void;
   githubRepositoryUrl: string;
+  isConnectingCloudflareGithubRepo?: (appRoot: string) => boolean;
   isRetryingInfrastructure?: boolean;
+  isSettingCloudflareConvexDeployKeys?: (appRoot: string) => boolean;
   retryInfrastructureOnClick?: () => void;
+  setCloudflareConvexDeployKeysOnClick?: (appRoot: string) => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
     vault.state === "ready" && !isVaultResourceSetupBlockingManualActions(vault);
+  const canRepairCloudflareWorkers = canRepairCloudflareWorker(vault);
   const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
   const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
+  const providerSetupStep =
+    vault.providerSetup.status === "failed" || vault.providerSetup.status === "running"
+      ? vault.providerSetup.step
+      : null;
   const appRootSet = new Set(vault.appRoots.map((app) => app.appRoot));
   const canConfigureRootAppRoot = appRootSet.has(".");
   let githubRow: VaultResourceRailRowState<"github">;
@@ -205,6 +274,30 @@ export function buildVaultDashboardResourceRailState({
       label: isRetryingInfrastructure ? "Retrying..." : "Retry",
       disabled: isRetryingInfrastructure || !retryInfrastructureOnClick,
       onClick: retryInfrastructureOnClick,
+    };
+  }
+
+  function buildConnectCloudflareGithubRepoAction(appRoot: string): VaultResourceRailAction {
+    const isConnecting = isConnectingCloudflareGithubRepo?.(appRoot) ?? false;
+    return {
+      kind: "connect",
+      label: isConnecting ? "Connecting GitHub repo..." : "Connect GitHub repo",
+      disabled: isConnecting || !connectCloudflareGithubRepoOnClick,
+      onClick: connectCloudflareGithubRepoOnClick
+        ? () => connectCloudflareGithubRepoOnClick(appRoot)
+        : undefined,
+    };
+  }
+
+  function buildSetCloudflareConvexDeployKeysAction(appRoot: string): VaultResourceRailAction {
+    const isSetting = isSettingCloudflareConvexDeployKeys?.(appRoot) ?? false;
+    return {
+      kind: "set",
+      label: isSetting ? "Setting Convex deploy keys..." : "Set Convex deploy keys",
+      disabled: isSetting || !setCloudflareConvexDeployKeysOnClick,
+      onClick: setCloudflareConvexDeployKeysOnClick
+        ? () => setCloudflareConvexDeployKeysOnClick(appRoot)
+        : undefined,
     };
   }
 
@@ -289,7 +382,8 @@ export function buildVaultDashboardResourceRailState({
   } else if (
     vault.providerSetup.status === "failed" &&
     providerSetupProvider === "cloudflare" &&
-    providerSetup?.status === "failed"
+    providerSetup?.status === "failed" &&
+    !isCloudflareWorkerWiringStep(providerSetupStep)
   ) {
     cloudflareRowsByAppRoot.set(".", {
       provider: "cloudflare",
@@ -317,7 +411,27 @@ export function buildVaultDashboardResourceRailState({
         left.workerName.localeCompare(right.workerName),
     );
     for (const worker of sortedCloudflareWorkers) {
+      let cloudflareAction: VaultResourceRailAction | undefined;
+      let cloudflareDescription: string | undefined;
+      const missingBuildsTriggerFailure = hasCurrentMissingCloudflareBuildsTriggerFailure(
+        vault,
+        worker,
+      );
+      if (
+        canRepairCloudflareWorkers &&
+        (worker.githubRepositoryConnection.state === "not_connected" || missingBuildsTriggerFailure)
+      ) {
+        cloudflareDescription = missingBuildsTriggerFailure
+          ? "Cloudflare's saved Workers Builds trigger is missing."
+          : "Cloudflare is not connected to this GitHub repository.";
+        cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.appRoot);
+      } else if (canRepairCloudflareWorkers && worker.convexDeployKeys.state === "missing") {
+        cloudflareDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
+        cloudflareAction = buildSetCloudflareConvexDeployKeysAction(worker.appRoot);
+      }
       cloudflareRowsByAppRoot.set(worker.appRoot, {
+        actions: cloudflareAction ? [cloudflareAction] : undefined,
+        description: cloudflareDescription,
         provider: "cloudflare",
         status: "ready",
         value: worker.workerName,

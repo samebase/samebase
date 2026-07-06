@@ -238,8 +238,9 @@ Required Workers operations:
 4. create or reuse a Workers Builds build token for that credential
 5. create or patch the production build trigger
 6. create or patch the preview/non-production build trigger
-7. set `PROD_CONVEX_DEPLOY_KEY` and production Convex build vars/secrets
-8. set `PREVIEW_CONVEX_DEPLOY_KEY` and preview Convex build vars/secrets
+7. set both split Convex deploy-key secrets in Workers Builds: `PROD_CONVEX_DEPLOY_KEY` and
+   `PREVIEW_CONVEX_DEPLOY_KEY`
+8. do not set `VITE_CONVEX_URL` in Workers Builds; Convex deploy supplies it to the child build
 9. trigger the first production build
 10. read build status and logs
 11. record production URL and Worker tag

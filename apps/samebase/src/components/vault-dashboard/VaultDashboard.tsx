@@ -318,6 +318,11 @@ type VaultDashboardDeletionStep = Extract<
   VaultDashboardDeletion,
   { state: "deleting" | "delete_failed" }
 >["currentStep"];
+type CloudflareWorkerRepairActionInFlight = {
+  appRoot: string;
+  kind: "connect_github_repo" | "set_convex_deploy_keys";
+  vaultId: Id<"vaults">;
+};
 
 function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProviderSetup): string {
   switch (providerSetup.status) {
@@ -2815,6 +2820,7 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
 type VaultDashboardViewProps = {
   deleteModeActive: boolean;
   developerToolsVisible: boolean;
+  cloudflareWorkerRepairActionInFlight: CloudflareWorkerRepairActionInFlight | null;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   retryingInfrastructureVaultId: Id<"vaults"> | null;
@@ -2827,6 +2833,7 @@ type VaultDashboardViewProps = {
   persistedVaultResourceLinksOpenByVaultId: Map<string, boolean>;
   schemaGraphAccessEnabled: boolean;
   rootRouteSearch: RootRouteSearch;
+  onConnectCloudflareGithubRepository: (vaultId: Id<"vaults">, appRoot: string) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
@@ -2836,6 +2843,7 @@ type VaultDashboardViewProps = {
     nextVaultBranchFilters: VaultBranchFiltersState,
   ) => void;
   onResourceLinksOpenChange: (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => void;
+  onSetCloudflareConvexDeployKeys: (vaultId: Id<"vaults">, appRoot: string) => void;
 };
 
 function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
@@ -3029,6 +3037,7 @@ export function VaultDashboardPaneMessage({ children }: { children: ReactNode })
 export function VaultDashboardView({
   deleteModeActive,
   developerToolsVisible,
+  cloudflareWorkerRepairActionInFlight,
   isRemovingVault,
   retryingDeletionRunId,
   retryingInfrastructureVaultId,
@@ -3041,12 +3050,14 @@ export function VaultDashboardView({
   persistedVaultResourceLinksOpenByVaultId,
   schemaGraphAccessEnabled,
   rootRouteSearch,
+  onConnectCloudflareGithubRepository,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
   onResourceLinksOpenChange,
+  onSetCloudflareConvexDeployKeys,
 }: VaultDashboardViewProps) {
   const navigate = useNavigate();
   const dashboardRoutePathname = useLocation({
@@ -3120,6 +3131,8 @@ export function VaultDashboardView({
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
         const developerToolsOpen =
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
+        const isCloudflareWorkerRepairActionInFlight =
+          cloudflareWorkerRepairActionInFlight !== null;
         const resourceRailState = buildVaultDashboardResourceRailState({
           buildAddAppRootHref: () =>
             buildVaultDashboardAddAppRootHref({
@@ -3149,12 +3162,30 @@ export function VaultDashboardView({
           addConvexOnClick: (appRoot) => {
             openProviderAddDialog({ appRoot, provider: "convex" });
           },
+          connectCloudflareGithubRepoOnClick: isCloudflareWorkerRepairActionInFlight
+            ? undefined
+            : (appRoot) => {
+                onConnectCloudflareGithubRepository(vault._id, appRoot);
+              },
           githubRepositoryUrl,
+          isConnectingCloudflareGithubRepo: (appRoot) =>
+            cloudflareWorkerRepairActionInFlight?.kind === "connect_github_repo" &&
+            cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
+            cloudflareWorkerRepairActionInFlight.appRoot === appRoot,
           isRetryingInfrastructure: retryingInfrastructureVaultId === vault._id,
+          isSettingCloudflareConvexDeployKeys: (appRoot) =>
+            cloudflareWorkerRepairActionInFlight?.kind === "set_convex_deploy_keys" &&
+            cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
+            cloudflareWorkerRepairActionInFlight.appRoot === appRoot,
           retryInfrastructureOnClick: isInfrastructureRetryInFlight
             ? undefined
             : () => {
                 onRetryInfrastructureProvisioning(vault._id);
+              },
+          setCloudflareConvexDeployKeysOnClick: isCloudflareWorkerRepairActionInFlight
+            ? undefined
+            : (appRoot) => {
+                onSetCloudflareConvexDeployKeys(vault._id, appRoot);
               },
           vault,
         });
@@ -3448,6 +3479,10 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
   const connectExistingCloudflareWorker = useAction(api.vault.cloudflare.connectExistingWorker);
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
+  const wireCloudflareBuilds = useAction(api.vault.cloudflare.wireBuilds);
+  const wireCloudflareConvexBuildAccess = useAction(api.vault.cloudflare.wireConvexBuildAccess);
+  const [cloudflareWorkerRepairActionInFlight, setCloudflareWorkerRepairActionInFlight] =
+    useState<CloudflareWorkerRepairActionInFlight | null>(null);
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
     useState<Id<"vaults"> | null>(null);
   const createVaultAppRoot = useMutation(api.vault.dashboard.createVaultAppRoot);
@@ -4338,6 +4373,55 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
+  const handleConnectCloudflareGithubRepository = async (
+    vaultId: Id<"vaults">,
+    appRoot: string,
+  ) => {
+    if (cloudflareWorkerRepairActionInFlight) {
+      return;
+    }
+
+    setCloudflareWorkerRepairActionInFlight({
+      appRoot,
+      kind: "connect_github_repo",
+      vaultId,
+    });
+    try {
+      await wireCloudflareBuilds({ appRoot, vaultId });
+    } catch (error) {
+      toast({
+        title: "Could not connect Cloudflare to GitHub",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCloudflareWorkerRepairActionInFlight(null);
+    }
+  };
+
+  const handleSetCloudflareConvexDeployKeys = async (vaultId: Id<"vaults">, appRoot: string) => {
+    if (cloudflareWorkerRepairActionInFlight) {
+      return;
+    }
+
+    setCloudflareWorkerRepairActionInFlight({
+      appRoot,
+      kind: "set_convex_deploy_keys",
+      vaultId,
+    });
+    try {
+      await wireCloudflareConvexBuildAccess({ appRoot, vaultId });
+    } catch (error) {
+      toast({
+        title: "Could not set Convex deploy keys in Cloudflare",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCloudflareWorkerRepairActionInFlight(null);
+    }
+  };
+
   const handleCommitBeforeRemove = async () => {
     if (!vaultToDelete || isCommitting || isDeleting) return;
 
@@ -4467,6 +4551,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       <VaultDashboardView
         deleteModeActive={deleteModeActive}
         developerToolsVisible={developerToolsVisible}
+        cloudflareWorkerRepairActionInFlight={cloudflareWorkerRepairActionInFlight}
         isRemovingVault={isDeleting || isCommitting}
         retryingDeletionRunId={retryingDeletionRunId}
         retryingInfrastructureVaultId={retryingInfrastructureVaultId}
@@ -4486,6 +4571,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
         schemaGraphAccessEnabled={schemaGraphAccessEnabled}
         rootRouteSearch={rootRouteSearch}
+        onConnectCloudflareGithubRepository={(vaultId, appRoot) => {
+          void handleConnectCloudflareGithubRepository(vaultId, appRoot);
+        }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
         onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
         onRetryInfrastructureProvisioning={(vaultId) => {
@@ -4496,6 +4584,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         }}
         onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
         onResourceLinksOpenChange={handleVaultResourceLinksOpenChange}
+        onSetCloudflareConvexDeployKeys={(vaultId, appRoot) => {
+          void handleSetCloudflareConvexDeployKeys(vaultId, appRoot);
+        }}
       />
     );
 

@@ -386,7 +386,7 @@ describe("vault Convex deployment connection actions", () => {
           projectSlug: "alpha-project",
         },
         state: "failed",
-        currentStep: "ensure_convex",
+        currentStep: "attach_convex",
         lastError: "Convex attach failed.",
         createdAt: 20,
         updatedAt: 25,

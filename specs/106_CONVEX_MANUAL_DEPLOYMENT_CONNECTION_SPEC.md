@@ -23,15 +23,16 @@ The dashboard resource rail should let a ready GitHub-connected vault:
 - connect an existing Convex project from the connected Convex team
 - create a new Convex project with a production deployment
 
-Both flows attach the selected or created project's default production deployment to `vault.convex`
-and record enough `vaultInfrastructure` metadata for dashboard links and later provider wiring.
+Both flows attach the selected or created project's default production deployment to
+`vaultConvexDeployments`, keyed by vault and app root. That row stores dashboard links and later
+provider wiring metadata.
 
 ## Goals
 
 - Let an existing GitHub vault attach an existing Convex project.
 - Let an existing GitHub vault create a new Convex project and attach its production deployment.
 - Store the attached Convex identity on the vault as the durable product state.
-- Store Convex dashboard/link metadata in `vaultInfrastructure`.
+- Store Convex dashboard/link metadata in `vaultConvexDeployments`.
 - Queue attach/create work as a durable Workflow run so the dialog only waits for submission and the
   vault header can show provider-specific progress.
 - Preserve per-resource cleanup safety through an explicit resource origin.
@@ -47,27 +48,36 @@ and record enough `vaultInfrastructure` metadata for dashboard links and later p
 
 ## State Model
 
-`vault.convex` owns the attached Convex production resource identity:
+`vaultConvexDeployments` owns the attached Convex production resource identity for one vault app
+root:
 
 ```ts
-type VaultConvexState =
-  | { state: "not_configured" }
-  | { state: "provisioning"; runId: Id<"appProvisioningRuns">; startedAt: number }
-  | {
-      state: "connected";
-      projectId: string;
-      projectSlug: string;
-      deploymentName: string;
-      origin: "provisioned" | "selected_existing";
-      connectedAt: number;
-    }
-  | { state: "failed"; runId: Id<"appProvisioningRuns">; failedAt: number };
+type VaultConvexDeployment = {
+  vaultId: Id<"vaults">;
+  userId: Id<"users">;
+  appRoot: string;
+  projectId: string;
+  teamSlug: string;
+  projectSlug: string;
+  deploymentName: string;
+  deploymentType: "prod";
+  cloudUrl: string;
+  siteUrl: string;
+  previewDeployment:
+    | { state: "not_ensured" }
+    | { state: "ensured"; deploymentName: string; cloudUrl: string };
+  deployKeys: {
+    production: { state: "not_created" } | { state: "created"; id: string };
+    preview: { state: "not_created" } | { state: "created"; id: string };
+  };
+  origin: "provisioned" | "selected_existing";
+  connectedAt: number;
+  lastObservedAt: number;
+};
 ```
 
-During the initial rollout, code may tolerate older connected rows without `origin`; new writes must
-set it. Rows without `origin` should be treated as provisioned only when existing Samebase-created
-infrastructure already proves Samebase created the resource. Destructive cleanup must otherwise fail
-closed.
+No internal backwards-compatibility adapter is kept for older connected-row shapes. Local/operator
+data can be cleared instead of carrying old `vault.convex` or `vaultInfrastructure` state forward.
 
 `origin` answers how this vault attached to the Convex production deployment:
 
@@ -76,24 +86,6 @@ closed.
 
 Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
 flows, while `selected_existing` projects are external.
-
-`vaultInfrastructure` stores dashboard and later wiring metadata:
-
-```ts
-type VaultInfrastructureConvexFields = {
-  convexProjectId: string;
-  convexTeamSlug: string;
-  convexProjectSlug: string;
-  convexDeploymentName: string;
-  convexDeploymentType: "prod";
-  convexCloudUrl: string;
-  convexSiteUrl: string;
-  convexDeployKeys: {
-    production: { state: "not_created" };
-    preview: { state: "not_created" };
-  };
-};
-```
 
 Manual connection does not create deploy keys, so both deploy-key states start as `not_created`.
 
@@ -148,8 +140,8 @@ The run is intentionally narrow:
 
 1. claim provider work for the vault
 2. verify or create the Convex project/deployment
-3. record `vaultInfrastructure`
-4. attach the deployment to `vault.convex`
+3. write `vaultConvexDeployments`
+4. attach the deployment to the target app root
 5. mark the run complete
 
 The modal submit action should return after the Workflow is queued. The modal closes by clearing
@@ -169,10 +161,16 @@ The dialog closes by clearing `add-convex` while preserving the selected vault r
 
 ## Deployment Wiring
 
-Deployment wiring is a later state model. The two separate wiring relationships are:
+Deployment wiring is separate from Convex attach/create. The two wiring relationships are:
 
 - repository source to Convex functions/schema deployment
 - Cloudflare Workers Builds to Convex build access through deploy keys
 
 Attaching or creating a Convex production deployment does not imply either wiring relationship
-exists.
+exists. If a Worker already has connected builds, Samebase can later run `wire_convex_build_access`
+to ensure the preview deployment, mint deploy keys, patch Cloudflare trigger environment variables,
+and mark `vaultCloudflareWorkers.deployment.convexBuildAccess` as wired. Until this state is wired,
+the dashboard shows the Cloudflare row message
+`Cloudflare does not have this Convex deployment's deploy keys.` with a `Set Convex deploy keys`
+action when the same app root has both an attached Convex deployment and connected Cloudflare
+Builds.

@@ -248,7 +248,6 @@ async function startVaultInfrastructureProvisioningOrFail(
   args: {
     vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
-    force: boolean;
   },
 ): Promise<void> {
   try {
@@ -867,7 +866,6 @@ export const retryInfrastructureProvisioning = action({
     await startVaultInfrastructureProvisioningOrFail(ctx, {
       vaultId: args.vaultId,
       runId,
-      force: true,
     });
 
     return null;

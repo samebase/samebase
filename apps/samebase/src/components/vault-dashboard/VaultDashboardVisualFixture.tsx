@@ -55,6 +55,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
   | "vault-dashboard-cloudflare-github-app-auth-failure"
+  | "vault-dashboard-cloudflare-build-trigger-missing"
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-large-branch-list"
@@ -542,6 +543,9 @@ const LIST_SPACING_VAULT = {
   cloudflareWorkers: [
     {
       appRoot: "apps/domain-router",
+      convexDeployKeys: { state: "not_applicable" },
+      githubRepositoryConnection: { state: "connected" },
+      lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "domain-router",
       workersDevUrl: "https://domain-router.nicu.workers.dev",
       projectDashboardUrl:
@@ -549,6 +553,9 @@ const LIST_SPACING_VAULT = {
     },
     {
       appRoot: "apps/samebase",
+      convexDeployKeys: { state: "set" },
+      githubRepositoryConnection: { state: "connected" },
+      lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "samebase-worker",
       workersDevUrl: "https://samebase-worker.nicu.workers.dev",
       projectDashboardUrl:
@@ -566,6 +573,58 @@ const LIST_SPACING_VAULT = {
       siteUrl: "https://calm-swan-123.convex.site",
       projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/settings",
       deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
+    },
+  ],
+} satisfies VaultDashboardVault;
+
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8e");
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
+  ...LIST_SPACING_VAULT,
+  _id: CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID,
+  _creationTime: FIXTURE_NOW - 3_600_000,
+  ghRepoOwner: "nicu-chiciuc",
+  ghRepoName: "tmp-my-super-app-2",
+  repositoryFullName: "nicu-chiciuc/tmp-my-super-app-2",
+  commitSHA: "abcdef1234567890abcdef1234567890abcdef12",
+  fileCount: 9,
+  lastTreeRefreshAt: FIXTURE_NOW - 3_480_000,
+  sourceSetup: { status: "ready" },
+  providerSetup: {
+    status: "failed",
+    provider: "cloudflare",
+    source: "manual",
+    runId: fakeProvisioningRunId(),
+    step: "wire_convex_build_access",
+    message:
+      "Cannot connect Cloudflare Worker 4d41accaab0042ef83bc3fc78e1ec644 to nicu-chiciuc/tmp-my-super-app-2: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
+    updatedAt: FIXTURE_NOW - 1_000,
+  },
+  appRoots: [{ appRoot: "." }],
+  cloudflareWorkers: [
+    {
+      appRoot: ".",
+      convexDeployKeys: { state: "not_applicable" },
+      githubRepositoryConnection: { state: "not_connected" },
+      lastObservedAt: FIXTURE_NOW - 2_000,
+      workerName: "tmp-my-super-app-234",
+      workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
+      projectDashboardUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/tmp-my-super-app-234/production/deployments",
+    },
+  ],
+  convexDeployments: [
+    {
+      appRoot: ".",
+      projectId: "tmp-my-super-app-2",
+      projectSlug: "tmp-my-super-app-2",
+      teamSlug: "nicu",
+      deploymentName: "valiant-panda-123",
+      cloudUrl: "https://valiant-panda-123.convex.cloud",
+      siteUrl: "https://valiant-panda-123.convex.site",
+      projectSettingsDashboardUrl:
+        "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/settings",
+      deploymentDashboardUrl:
+        "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/valiant-panda-123",
     },
   ],
 } satisfies VaultDashboardVault;
@@ -643,6 +702,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
+          cloudflareWorkerRepairActionInFlight={null}
           isRemovingVault={false}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
@@ -671,6 +731,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           schemaGraphAccessEnabled
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
@@ -685,6 +746,52 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
               setResourceLinksOpen(nextOpen);
             }
           }}
+          onSetCloudflareConvexDeployKeys={() => {}}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardCloudflareBuildTriggerMissingFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-cloudflare-build-trigger-missing"
+      className="w-full bg-background text-foreground"
+    >
+      <TestRouterProvider initialEntries={["/vault/nicu-chiciuc/tmp-my-super-app-2"]}>
+        <VaultDashboardView
+          deleteModeActive={false}
+          developerToolsVisible={false}
+          cloudflareWorkerRepairActionInFlight={null}
+          isRemovingVault={false}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          now={FIXTURE_NOW}
+          viewModel={{
+            vaults: [CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT],
+            remoteBranchCatalogByVaultId: new Map(),
+            remoteBranchPagesByVaultId: new Map(),
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
+          logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultBranchFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={
+            new Map([[CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID, true]])
+          }
+          schemaGraphAccessEnabled={false}
+          rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          onConnectCloudflareGithubRepository={() => {}}
+          onOpenDeveloperToolsChange={() => {}}
+          onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultBranchFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
+          onSetCloudflareConvexDeployKeys={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -713,6 +820,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
           <VaultDashboardView
             deleteModeActive={false}
             developerToolsVisible={false}
+            cloudflareWorkerRepairActionInFlight={null}
             isRemovingVault={false}
             retryingDeletionRunId={null}
             retryingInfrastructureVaultId={null}
@@ -744,12 +852,14 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             persistedVaultResourceLinksOpenByVaultId={new Map()}
             schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+            onConnectCloudflareGithubRepository={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onManualRepositoryRefresh={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
             onSaveVaultBranchFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
+            onSetCloudflareConvexDeployKeys={() => {}}
           />
         }
       />
@@ -1563,23 +1673,23 @@ function VaultDashboardProvisioningLogFixture() {
                       {
                         createdAt: Date.parse("2026-05-02T12:30:04Z"),
                         level: "info",
-                        step: "ensure_convex",
+                        step: "attach_convex",
                         message:
                           'API Convex POST /teams/{team_id}/create_project values={"body":{"deploymentType":"prod","projectName":"[redacted]"},"params":{"path":{"team_id":"[redacted]"}}}',
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:08Z"),
                         level: "info",
-                        step: "ensure_cloudflare",
+                        step: "attach_worker",
                         message:
                           'API Cloudflare POST /accounts/{account_id}/workers/workers values={"body":{"logpush":false,"name":"[redacted]","observability":{"enabled":true,"head_sampling_rate":1},"subdomain":{"enabled":true,"previews_enabled":true}},"params":{"path":{"account_id":"[redacted]"}}}',
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:10Z"),
                         level: "info",
-                        step: "ensure_cloudflare",
+                        step: "attach_worker",
                         message:
-                          'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"PROD_CONVEX_DEPLOY_KEY":"[secret]","VITE_CONVEX_URL":{"is_secret":"[secret]","value":"[redacted]"}},"params":{"path":{"account_id":"[redacted]","trigger_uuid":"[redacted]"}}}',
+                          'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"PREVIEW_CONVEX_DEPLOY_KEY":"[secret]","PROD_CONVEX_DEPLOY_KEY":"[secret]"},"params":{"path":{"account_id":"[redacted]","trigger_uuid":"[redacted]"}}}',
                       },
                     ]}
                   />
@@ -1628,7 +1738,7 @@ function VaultDashboardInfrastructureSetupFixture() {
                     {
                       createdAt: Date.parse("2026-05-08T09:15:05Z"),
                       level: "info",
-                      step: "ensure_convex",
+                      step: "attach_convex",
                       message: "Ensuring Convex project and production deployment.",
                     },
                   ]}
@@ -1665,7 +1775,7 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
                   provider: "cloudflare",
                   source: "managed",
                   runId: fakeProvisioningRunId(),
-                  step: "ensure_cloudflare",
+                  step: "attach_worker",
                   message:
                     "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include noter-guest/tmp-manual-test, then retry.",
                   updatedAt: Date.parse("2026-06-24T12:00:00Z"),
@@ -1893,6 +2003,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-cloudflare-github-app-auth-failure") {
     return <VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture />;
+  }
+
+  if (mode === "vault-dashboard-cloudflare-build-trigger-missing") {
+    return <VaultDashboardCloudflareBuildTriggerMissingFixture />;
   }
 
   if (mode === "vault-dashboard-provisioning-log") {

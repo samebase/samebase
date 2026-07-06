@@ -22,21 +22,37 @@ connection and separate from deployment wiring.
 
 ## State Model
 
-`vault.cloudflare` owns the attached Worker identity:
+`vaultCloudflareWorkers` owns the attached Worker identity for one vault app root:
 
 ```ts
-type VaultCloudflareState =
-  | { state: "not_configured" }
-  | {
-      state: "connected";
-      accountId: string;
-      workerName: string;
-      workerTag: string;
-      workersDevUrl?: string;
-      origin: "provisioned" | "selected_existing";
-      connectedAt: number;
-      lastObservedAt: number;
-    };
+type VaultCloudflareWorker = {
+  vaultId: Id<"vaults">;
+  userId: Id<"users">;
+  appRoot: string;
+  accountId: string;
+  workerName: string;
+  workerTag: string;
+  workersDevUrl?: string;
+  origin: "provisioned" | "selected_existing";
+  deployment: {
+    builds:
+      | { state: "not_connected" }
+      | {
+          state: "connected";
+          rootDirectory: string;
+          buildCommand: string;
+          deployCommand: string;
+          previewDeployCommand: string;
+          pathIncludes: string[];
+          pathExcludes: string[];
+          production: { triggerUuid: string; buildTokenUuid: string };
+          preview: { triggerUuid: string; buildTokenUuid: string };
+        };
+    convexBuildAccess: { state: "not_wired" } | { state: "wired" };
+  };
+  connectedAt: number;
+  lastObservedAt: number;
+};
 ```
 
 `workersDevUrl` is optional because selected existing Workers can be configured only through custom
@@ -47,6 +63,9 @@ The app must not require the account-level workers.dev subdomain endpoint before
 creating a Worker. The real Cloudflare MCP OAuth grant can verify accounts and Worker identity while
 that specific endpoint can return an authentication error; attachment should still succeed and leave
 `workersDevUrl` absent until a later build/domain observation can fill it in.
+
+`appRoot` answers which deployable root inside the repository this Worker serves. Samebase should
+show Cloudflare's observed root-directory evidence in the picker before attachment when it is known.
 
 `origin` answers how this vault attached to the Worker.
 
@@ -92,12 +111,13 @@ type VaultInfrastructureTargetCloudflare = {
   state: "planned";
   accountId: string;
   workerName: string;
+  build: VaultCloudflareBuildConfig;
 };
 ```
 
 Full-app provisioning can use this target to keep retries deterministic. The target keeps the
-planned name and selected account, not the created Worker identity. Once a Worker is attached, the
-Worker identity belongs in `vault.cloudflare`.
+planned name, selected account, and intended build config. Once a Worker is attached, the Worker
+identity belongs in `vaultCloudflareWorkers`.
 
 Because existing data is not a compatibility constraint for this slice, full-app Cloudflare
 provisioning should fail closed if the target is missing instead of reconstructing a target from
@@ -121,11 +141,12 @@ attached or unavailable.
 
 Manual Worker attach/create uses `appProvisioningRuns` with trigger `connect_cloudflare_worker`. The
 run is intentionally narrow: it claims Cloudflare provider work, ensures the selected or newly
-created Worker, attaches the Worker to `vault.cloudflare`, then marks the run complete.
+created Worker, writes `vaultCloudflareWorkers`, then marks the run complete.
 
 Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
 run is active or failed, dashboard state is derived from `vaultInfrastructureOwnership` plus the run
-events. Once the Worker is attached, `vault.cloudflare` remains the only durable resource identity.
+events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable resource
+identity.
 
 The modal submit action should return after the Workflow is queued. The modal then closes by
 clearing `add-cloudflare`, and the vault header/resource rail shows the Cloudflare row as running,
@@ -146,9 +167,15 @@ The dialog closes by clearing `add-cloudflare` while preserving the selected vau
 
 ## Deployment Wiring
 
-Deployment wiring is a later state model. The two separate wiring relationships are:
+Deployment wiring is separate from Worker attach/create. The two wiring relationships are:
 
 - GitHub to Cloudflare Workers Builds.
 - Cloudflare Workers Builds to Convex build access through deploy keys.
 
-Attaching a Worker does not imply either wiring relationship exists.
+Attaching a Worker does not imply either wiring relationship exists. Samebase-provisioned Workers
+created by full app provisioning auto-queue `wire_builds`; selected existing Workers require an
+explicit user action so Samebase does not mutate a preexisting Cloudflare setup without approval.
+After attach, the dashboard exposes that explicit action as `Connect GitHub repo` when the Worker is
+not connected to the vault's GitHub repository through Cloudflare Workers Builds. If the same app
+root also has an attached Convex deployment after Builds is connected, the dashboard exposes
+`Set Convex deploy keys` to run `wire_convex_build_access`.

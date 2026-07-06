@@ -292,6 +292,30 @@ function readManualProviderFromRun(
   }
 }
 
+function resolveCloudflareWorkerGithubRepositoryConnection(worker: ConnectedCloudflareWorker): {
+  state: "connected" | "not_connected";
+} {
+  return {
+    state: worker.deployment.builds.state === "connected" ? "connected" : "not_connected",
+  };
+}
+
+function resolveCloudflareWorkerConvexDeployKeys(
+  worker: ConnectedCloudflareWorker,
+  convexDeployments: ConnectedConvexDeployment[],
+): { state: "missing" | "not_applicable" | "set" } {
+  const hasConvexDeployment = convexDeployments.some(
+    (deployment) => deployment.appRoot === worker.appRoot,
+  );
+  if (!hasConvexDeployment || worker.deployment.builds.state !== "connected") {
+    return { state: "not_applicable" };
+  }
+
+  return {
+    state: worker.deployment.convexBuildAccess.state === "wired" ? "set" : "missing",
+  };
+}
+
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: ConnectedVault,
@@ -778,6 +802,9 @@ async function readUserVaults(
       );
       const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
         appRoot: worker.appRoot,
+        convexDeployKeys: resolveCloudflareWorkerConvexDeployKeys(worker, convexDeployments),
+        githubRepositoryConnection: resolveCloudflareWorkerGithubRepositoryConnection(worker),
+        lastObservedAt: worker.lastObservedAt,
         workerName: worker.workerName,
         workersDevUrl: worker.workersDevUrl,
         projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),
