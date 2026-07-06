@@ -65,6 +65,8 @@ describe("starterSeedManifest", () => {
   });
 
   it("documents Convex deploy-key permissions for Workers builds", () => {
+    expect(starterTemplateManifest.files["README.md"]).toContain("`CONVEX_DEPLOY_KEY`");
+    expect(starterTemplateManifest.files["README.md"]).not.toContain("`PROD_CONVEX_DEPLOY_KEY`");
     expect(starterTemplateManifest.files["README.md"]).toContain(
       "`deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and\n  `deployment:data:view`",
     );
@@ -73,6 +75,15 @@ describe("starterSeedManifest", () => {
     );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
       "deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view",
+    );
+    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
+      "const CONVEX_DEPLOY_KEY =",
+    );
+    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
+      "PROD_CONVEX_DEPLOY_KEY",
+    );
+    expect(starterTemplateManifest.files["scripts/build-cloudflare.test.ts"]).toContain(
+      'deployKeyName: "CONVEX_DEPLOY_KEY"',
     );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
       '"--preview-name"',
