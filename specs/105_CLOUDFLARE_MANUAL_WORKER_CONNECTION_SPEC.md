@@ -175,3 +175,7 @@ Deployment wiring is separate from Worker attach/create. The two wiring relation
 Attaching a Worker does not imply either wiring relationship exists. Samebase-provisioned Workers
 created by full app provisioning auto-queue `wire_builds`; selected existing Workers require an
 explicit user action so Samebase does not mutate a preexisting Cloudflare setup without approval.
+After attach, the dashboard exposes that explicit action as `Connect GitHub repo` when the Worker is
+not connected to the vault's GitHub repository through Cloudflare Workers Builds. If the same app
+root also has an attached Convex deployment after Builds is connected, the dashboard exposes
+`Set Convex deploy keys` to run `wire_convex_build_access`.

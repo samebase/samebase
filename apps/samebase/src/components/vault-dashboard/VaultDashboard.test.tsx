@@ -79,6 +79,7 @@ function makeCloudflareDialogWorker(
 }
 
 type ResourceRailBuilderVault = Parameters<typeof buildVaultDashboardResourceRailState>[0]["vault"];
+type ResourceRailCloudflareWorker = ResourceRailBuilderVault["cloudflareWorkers"][number];
 
 function getResourceRailAppRow(
   state: ReturnType<typeof buildVaultDashboardResourceRailState>,
@@ -94,6 +95,18 @@ function getResourceRailAppRow(
     throw new Error(`Expected ${provider} row in ${appRoot} app group.`);
   }
   return row;
+}
+
+function makeResourceRailCloudflareWorker(
+  overrides: Partial<ResourceRailCloudflareWorker>,
+): ResourceRailCloudflareWorker {
+  return {
+    appRoot: ".",
+    convexDeployKeys: { state: "not_applicable" },
+    githubRepositoryConnection: { state: "connected" },
+    workerName: "demo-worker",
+    ...overrides,
+  };
 }
 
 function makeResourceRailBuilderVault(
@@ -597,6 +610,7 @@ describe("VaultDashboardRepositoryCard", () => {
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
+          cloudflareWorkerRepairActionInFlight={null}
           isRemovingVault={false}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
@@ -614,12 +628,14 @@ describe("VaultDashboardRepositoryCard", () => {
           persistedVaultResourceLinksOpenByVaultId={new Map()}
           schemaGraphAccessEnabled={false}
           rootRouteSearch={rootRouteSearch}
+          onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
+          onSetCloudflareConvexDeployKeys={() => {}}
         />
       </TestRouterProvider>,
     );
@@ -1889,13 +1905,13 @@ describe("buildVaultDashboardResourceRailState", () => {
           },
         ],
         cloudflareWorkers: [
-          {
+          makeResourceRailCloudflareWorker({
             appRoot: ".",
             workerName: "demo-worker",
             workersDevUrl: "https://demo-worker.ada.workers.dev",
             projectDashboardUrl:
               "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
-          },
+          }),
         ],
       }),
     });
@@ -1918,6 +1934,90 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain("Open Cloudflare: ada/demo-worker");
   });
 
+  it("shows a Cloudflare action when the worker is not connected to the GitHub repo", () => {
+    const connectCloudflareGithubRepo = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      connectCloudflareGithubRepoOnClick: connectCloudflareGithubRepo,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            appRoot: ".",
+            githubRepositoryConnection: { state: "not_connected" },
+            workerName: "demo-worker",
+            workersDevUrl: "https://demo-worker.ada.workers.dev",
+          }),
+        ],
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      description: "Cloudflare is not connected to this GitHub repository.",
+      actions: [{ kind: "connect", label: "Connect GitHub repo", disabled: false }],
+    });
+    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
+      throw new Error("Expected Cloudflare row with GitHub connection action.");
+    }
+    cloudflareRow.actions[0].onClick?.();
+    expect(connectCloudflareGithubRepo).toHaveBeenCalledWith(".");
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Cloudflare is not connected to this GitHub repository.");
+    expect(markup).toContain("Connect GitHub repo");
+  });
+
+  it("shows a Cloudflare action when Convex deploy keys are missing", () => {
+    const setCloudflareConvexDeployKeys = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      setCloudflareConvexDeployKeysOnClick: setCloudflareConvexDeployKeys,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        convexDeployments: [
+          {
+            appRoot: ".",
+            projectId: "project-1",
+            projectSlug: "demo-project",
+            teamSlug: "demo-team",
+            deploymentName: "demo-production",
+            cloudUrl: "https://demo-production.convex.cloud",
+            siteUrl: "https://demo-production.convex.site",
+          },
+        ],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            appRoot: ".",
+            convexDeployKeys: { state: "missing" },
+            githubRepositoryConnection: { state: "connected" },
+            workerName: "demo-worker",
+            workersDevUrl: "https://demo-worker.ada.workers.dev",
+          }),
+        ],
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      description: "Cloudflare does not have this Convex deployment's deploy keys.",
+      actions: [{ kind: "set", label: "Set Convex deploy keys", disabled: false }],
+    });
+    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
+      throw new Error("Expected Cloudflare row with Convex deploy-key action.");
+    }
+    cloudflareRow.actions[0].onClick?.();
+    expect(setCloudflareConvexDeployKeys).toHaveBeenCalledWith(".");
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Cloudflare does not have this Convex deployment&#x27;s deploy keys.");
+    expect(markup).toContain("Set Convex deploy keys");
+  });
+
   it("keeps root provider rows from offering duplicate provider adds", () => {
     const addCloudflareWorker = vi.fn();
     const buildAddCloudflareWorkerHref = vi.fn((appRoot: string) =>
@@ -1932,11 +2032,11 @@ describe("buildVaultDashboardResourceRailState", () => {
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
         cloudflareWorkers: [
-          {
+          makeResourceRailCloudflareWorker({
             appRoot: ".",
             workerName: "demo-worker",
             workersDevUrl: "https://demo-worker.ada.workers.dev",
-          },
+          }),
         ],
       }),
     });
@@ -1969,16 +2069,16 @@ describe("buildVaultDashboardResourceRailState", () => {
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }, { appRoot: "apps/admin" }],
         cloudflareWorkers: [
-          {
+          makeResourceRailCloudflareWorker({
             appRoot: ".",
             workerName: "demo-worker",
             workersDevUrl: "https://demo-worker.ada.workers.dev",
-          },
-          {
+          }),
+          makeResourceRailCloudflareWorker({
             appRoot: "apps/admin",
             workerName: "admin-worker",
             workersDevUrl: "https://admin-worker.ada.workers.dev",
-          },
+          }),
         ],
       }),
     });
@@ -2060,11 +2160,11 @@ describe("buildVaultDashboardResourceRailState", () => {
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "apps/samebase" }],
         cloudflareWorkers: [
-          {
+          makeResourceRailCloudflareWorker({
             appRoot: "apps/samebase",
             workerName: "samebase-worker",
             workersDevUrl: "https://samebase-worker.ada.workers.dev",
-          },
+          }),
         ],
       }),
     });

@@ -237,7 +237,8 @@ sequenceDiagram
 - `vaultCloudflareWorkers.deployment.builds` moves from `not_connected` to `connected` after
   `wire_builds`.
 - `vaultCloudflareWorkers.deployment.convexBuildAccess` moves from `not_wired` to `wired` after
-  `wire_convex_build_access`.
+  `wire_convex_build_access`. The temporary dashboard repair action may perform the same transition
+  after the app root has an attached Convex deployment and the Worker has connected Builds.
 - `vaultInfrastructureOwnership` records the active/succeeded/failed writer run.
 - `appProvisioningRuns` and `appProvisioningEvents` record workflow progress and user-visible
   failures.
@@ -254,6 +255,12 @@ In `VaultDashboard`:
   `api.vault.actions.retryInfrastructureProvisioning`.
 - Failed manual Convex or Cloudflare setup reopens the matching `?add-convex` or `?add-cloudflare`
   provider dialog for the app root.
+- An attached Cloudflare Worker whose Builds connection is missing shows
+  `Cloudflare is not connected to this GitHub repository.` with a `Connect GitHub repo` action.
+- An attached Cloudflare Worker for an app root that also has Convex, connected Builds, and missing
+  Convex build access shows `Cloudflare does not have this Convex deployment's deploy keys.` with a
+  `Set Convex deploy keys` action. The action patches only `PROD_CONVEX_DEPLOY_KEY` and
+  `PREVIEW_CONVEX_DEPLOY_KEY` into Cloudflare Workers Builds.
 
 Dashboard external links:
 

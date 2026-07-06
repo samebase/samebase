@@ -38,6 +38,12 @@ export const vSourceSetupSummary = union(
 
 const providerSetupProvider = union(literal("convex"), literal("cloudflare"));
 const providerSetupSource = union(literal("managed"), literal("manual"));
+const vCloudflareWorkerGithubRepositoryConnection = object({
+  state: union(literal("connected"), literal("not_connected")),
+});
+const vCloudflareWorkerConvexDeployKeys = object({
+  state: union(literal("missing"), literal("not_applicable"), literal("set")),
+});
 
 export const vProviderSetupSummary = union(
   object({
@@ -131,6 +137,8 @@ export const getUserVaultsContract = {
       cloudflareWorkers: array(
         object({
           appRoot: string(),
+          convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
+          githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
           workerName: string(),
           workersDevUrl: optional(string()),
           projectDashboardUrl: optional(string()),

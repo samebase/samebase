@@ -78,8 +78,12 @@ Rules:
   records their ids on the Convex row, and PATCHes the Workers Builds env vars with both split
   deploy keys (`PROD_CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`) on each trigger record.
   This matches the manually configured Cloudflare UI shape: the visible Build variables table holds
-  both keys, while `convex deploy --cmd` supplies the selected deployment URL as `VITE_CONVEX_URL`
-  during the build. Key material never touches the workflow journal (existing doctrine).
+  both keys. This block patches only those deploy-key variables; key material never touches the
+  workflow journal (existing doctrine).
+- The temporary dashboard repair path exposes the same blocks after manual or partial setup:
+  `Connect GitHub repo` runs `wire_builds` when an attached Worker is not connected to the vault's
+  GitHub repository, and `Set Convex deploy keys` runs `wire_convex_build_access` when the same app
+  root has Convex, connected Builds, and missing Convex build access.
 - Blocks keep the existing run machinery: one `appProvisioningRuns` run per block execution, the
   claim/ensure/finish ownership pattern, events for progress. The triplicated claim helper stack
   should collapse into one shared implementation as blocks land.
@@ -93,6 +97,9 @@ Flow compositions:
 - Imported repo moving to Cloudflare (the chessmerge.com case, Convex exists + Netlify today):
   1(import) → 2(select existing) → 3(create or discovered) → 4 → 5.
 - Late Convex adoption: 2 + 5 against an already-built Worker (env-var PATCH only).
+- Manual repair after partial setup: run 4 from the Cloudflare row when the Worker is not connected
+  to the GitHub repository; run 5 from the Cloudflare row when only the Convex deploy keys are
+  missing.
 
 ## Worker Deployment State Model
 

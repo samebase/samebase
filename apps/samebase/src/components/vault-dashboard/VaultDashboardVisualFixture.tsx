@@ -542,6 +542,8 @@ const LIST_SPACING_VAULT = {
   cloudflareWorkers: [
     {
       appRoot: "apps/domain-router",
+      convexDeployKeys: { state: "not_applicable" },
+      githubRepositoryConnection: { state: "connected" },
       workerName: "domain-router",
       workersDevUrl: "https://domain-router.nicu.workers.dev",
       projectDashboardUrl:
@@ -549,6 +551,8 @@ const LIST_SPACING_VAULT = {
     },
     {
       appRoot: "apps/samebase",
+      convexDeployKeys: { state: "set" },
+      githubRepositoryConnection: { state: "connected" },
       workerName: "samebase-worker",
       workersDevUrl: "https://samebase-worker.nicu.workers.dev",
       projectDashboardUrl:
@@ -643,6 +647,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
+          cloudflareWorkerRepairActionInFlight={null}
           isRemovingVault={false}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
@@ -671,6 +676,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           schemaGraphAccessEnabled
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
@@ -685,6 +691,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
               setResourceLinksOpen(nextOpen);
             }
           }}
+          onSetCloudflareConvexDeployKeys={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -713,6 +720,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
           <VaultDashboardView
             deleteModeActive={false}
             developerToolsVisible={false}
+            cloudflareWorkerRepairActionInFlight={null}
             isRemovingVault={false}
             retryingDeletionRunId={null}
             retryingInfrastructureVaultId={null}
@@ -744,12 +752,14 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             persistedVaultResourceLinksOpenByVaultId={new Map()}
             schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+            onConnectCloudflareGithubRepository={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onManualRepositoryRefresh={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
             onSaveVaultBranchFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
+            onSetCloudflareConvexDeployKeys={() => {}}
           />
         }
       />

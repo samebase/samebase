@@ -112,22 +112,30 @@ export function buildVaultDashboardResourceRailState({
   addCloudflareWorkerOnClick,
   buildAddConvexHref,
   addConvexOnClick,
+  connectCloudflareGithubRepoOnClick,
   buildAddAppRootHref,
   addAppRootOnClick,
   githubRepositoryUrl,
+  isConnectingCloudflareGithubRepo,
   isRetryingInfrastructure,
+  isSettingCloudflareConvexDeployKeys,
   retryInfrastructureOnClick,
+  setCloudflareConvexDeployKeysOnClick,
   vault,
 }: {
   buildAddCloudflareWorkerHref?: (appRoot: string) => string;
   addCloudflareWorkerOnClick?: (appRoot: string) => void;
   buildAddConvexHref?: (appRoot: string) => string;
   addConvexOnClick?: (appRoot: string) => void;
+  connectCloudflareGithubRepoOnClick?: (appRoot: string) => void;
   buildAddAppRootHref?: () => string;
   addAppRootOnClick?: () => void;
   githubRepositoryUrl: string;
+  isConnectingCloudflareGithubRepo?: (appRoot: string) => boolean;
   isRetryingInfrastructure?: boolean;
+  isSettingCloudflareConvexDeployKeys?: (appRoot: string) => boolean;
   retryInfrastructureOnClick?: () => void;
+  setCloudflareConvexDeployKeysOnClick?: (appRoot: string) => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
@@ -204,6 +212,30 @@ export function buildVaultDashboardResourceRailState({
       label: isRetryingInfrastructure ? "Retrying..." : "Retry",
       disabled: isRetryingInfrastructure || !retryInfrastructureOnClick,
       onClick: retryInfrastructureOnClick,
+    };
+  }
+
+  function buildConnectCloudflareGithubRepoAction(appRoot: string): VaultResourceRailAction {
+    const isConnecting = isConnectingCloudflareGithubRepo?.(appRoot) ?? false;
+    return {
+      kind: "connect",
+      label: isConnecting ? "Connecting GitHub repo..." : "Connect GitHub repo",
+      disabled: isConnecting || !connectCloudflareGithubRepoOnClick,
+      onClick: connectCloudflareGithubRepoOnClick
+        ? () => connectCloudflareGithubRepoOnClick(appRoot)
+        : undefined,
+    };
+  }
+
+  function buildSetCloudflareConvexDeployKeysAction(appRoot: string): VaultResourceRailAction {
+    const isSetting = isSettingCloudflareConvexDeployKeys?.(appRoot) ?? false;
+    return {
+      kind: "set",
+      label: isSetting ? "Setting Convex deploy keys..." : "Set Convex deploy keys",
+      disabled: isSetting || !setCloudflareConvexDeployKeysOnClick,
+      onClick: setCloudflareConvexDeployKeysOnClick
+        ? () => setCloudflareConvexDeployKeysOnClick(appRoot)
+        : undefined,
     };
   }
 
@@ -316,7 +348,21 @@ export function buildVaultDashboardResourceRailState({
         left.workerName.localeCompare(right.workerName),
     );
     for (const worker of sortedCloudflareWorkers) {
+      let cloudflareAction: VaultResourceRailAction | undefined;
+      let cloudflareDescription: string | undefined;
+      if (
+        canConfigureMissingResources &&
+        worker.githubRepositoryConnection.state === "not_connected"
+      ) {
+        cloudflareDescription = "Cloudflare is not connected to this GitHub repository.";
+        cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.appRoot);
+      } else if (canConfigureMissingResources && worker.convexDeployKeys.state === "missing") {
+        cloudflareDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
+        cloudflareAction = buildSetCloudflareConvexDeployKeysAction(worker.appRoot);
+      }
       cloudflareRowsByAppRoot.set(worker.appRoot, {
+        actions: cloudflareAction ? [cloudflareAction] : undefined,
+        description: cloudflareDescription,
         provider: "cloudflare",
         status: "ready",
         value: worker.workerName,

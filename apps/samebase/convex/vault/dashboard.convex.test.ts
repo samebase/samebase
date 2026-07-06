@@ -1676,6 +1676,195 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("exposes Cloudflare GitHub and Convex deploy-key repair states", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/cloudflare-state",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 30,
+        completedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "cloudflare-state",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+
+      for (const appRoot of [".", "apps/api", "apps/web"]) {
+        await ctx.db.insert("vaultApps", {
+          vaultId,
+          userId,
+          appRoot,
+          createdAt: 21,
+        });
+      }
+
+      for (const appRoot of ["apps/api", "apps/web"]) {
+        await ctx.db.insert("vaultConvexDeployments", {
+          vaultId,
+          userId,
+          appRoot,
+          projectId: `${appRoot}-project`,
+          teamSlug: "ada-team",
+          projectSlug: `${appRoot.replace("/", "-")}-project`,
+          deploymentName: `${appRoot.replace("/", "-")}-production`,
+          deploymentType: "prod",
+          cloudUrl: `https://${appRoot.replace("/", "-")}.convex.cloud`,
+          siteUrl: `https://${appRoot.replace("/", "-")}.convex.site`,
+          previewDeployment: { state: "not_ensured" },
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: { state: "not_created" },
+          },
+          origin: "provisioned",
+          connectedAt: 25,
+          lastObservedAt: 25,
+        });
+      }
+
+      const connectedBuilds = {
+        state: "connected" as const,
+        rootDirectory: "apps/api",
+        buildCommand: "pnpm run build",
+        deployCommand: "pnpm run deploy",
+        previewDeployCommand: "pnpm run deploy:preview",
+        pathIncludes: ["apps/api/*"],
+        pathExcludes: [],
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-token",
+        },
+      };
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appRoot: ".",
+        accountId: "cloudflare-account",
+        workerName: "not-connected-worker",
+        workerTag: "not-connected-worker-tag",
+        workersDevUrl: "https://not-connected-worker.example.workers.dev",
+        origin: "provisioned",
+        deployment: {
+          builds: { state: "not_connected" },
+          convexBuildAccess: { state: "not_wired" },
+        },
+        connectedAt: 26,
+        lastObservedAt: 26,
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appRoot: "apps/api",
+        accountId: "cloudflare-account",
+        workerName: "missing-keys-worker",
+        workerTag: "missing-keys-worker-tag",
+        workersDevUrl: "https://missing-keys-worker.example.workers.dev",
+        origin: "provisioned",
+        deployment: {
+          builds: connectedBuilds,
+          convexBuildAccess: { state: "not_wired" },
+        },
+        connectedAt: 27,
+        lastObservedAt: 27,
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appRoot: "apps/web",
+        accountId: "cloudflare-account",
+        workerName: "set-keys-worker",
+        workerTag: "set-keys-worker-tag",
+        workersDevUrl: "https://set-keys-worker.example.workers.dev",
+        origin: "provisioned",
+        deployment: {
+          builds: {
+            ...connectedBuilds,
+            rootDirectory: "apps/web",
+            pathIncludes: ["apps/web/*"],
+            production: {
+              triggerUuid: "web-production-trigger",
+              buildTokenUuid: "web-production-token",
+            },
+            preview: {
+              triggerUuid: "web-preview-trigger",
+              buildTokenUuid: "web-preview-token",
+            },
+          },
+          convexBuildAccess: { state: "wired" },
+        },
+        connectedAt: 28,
+        lastObservedAt: 28,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 29,
+      });
+
+      return { userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    expect(vaults).toHaveLength(1);
+    const workersByName = new Map(
+      vaults[0].cloudflareWorkers.map((worker) => [worker.workerName, worker]),
+    );
+
+    expect(workersByName.get("not-connected-worker")).toMatchObject({
+      githubRepositoryConnection: { state: "not_connected" },
+      convexDeployKeys: { state: "not_applicable" },
+    });
+    expect(workersByName.get("missing-keys-worker")).toMatchObject({
+      githubRepositoryConnection: { state: "connected" },
+      convexDeployKeys: { state: "missing" },
+    });
+    expect(workersByName.get("set-keys-worker")).toMatchObject({
+      githubRepositoryConnection: { state: "connected" },
+      convexDeployKeys: { state: "set" },
+    });
+  });
+
   it("returns infrastructure domains in a stable display order", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

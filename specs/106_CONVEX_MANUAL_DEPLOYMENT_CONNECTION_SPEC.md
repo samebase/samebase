@@ -169,4 +169,8 @@ Deployment wiring is separate from Convex attach/create. The two wiring relation
 Attaching or creating a Convex production deployment does not imply either wiring relationship
 exists. If a Worker already has connected builds, Samebase can later run `wire_convex_build_access`
 to ensure the preview deployment, mint deploy keys, patch Cloudflare trigger environment variables,
-and mark `vaultCloudflareWorkers.deployment.convexBuildAccess` as wired.
+and mark `vaultCloudflareWorkers.deployment.convexBuildAccess` as wired. Until this state is wired,
+the dashboard shows the Cloudflare row message
+`Cloudflare does not have this Convex deployment's deploy keys.` with a `Set Convex deploy keys`
+action when the same app root has both an attached Convex deployment and connected Cloudflare
+Builds.

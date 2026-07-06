@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import {
   ChevronDown,
   Clock,
+  GitBranch,
+  KeyRound,
   Loader2,
   Plus,
   RotateCw,
@@ -16,7 +18,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, type MouseEvent } from "react";
 
-type VaultResourceRailActionKind = "add" | "retry";
+type VaultResourceRailActionKind = "add" | "connect" | "retry" | "set";
 
 export type VaultResourceRailAction = {
   ariaLabel?: string;
@@ -47,6 +49,7 @@ type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> = 
 
 type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
   actions?: VaultResourceRailActionList;
+  description?: string;
   href?: string;
   provider: TProvider;
   scope?: string;
@@ -103,7 +106,9 @@ const PROVIDER_LOGOS = {
 
 const ACTION_ICONS = {
   add: Plus,
+  connect: GitBranch,
   retry: RotateCw,
+  set: KeyRound,
 } satisfies Record<VaultResourceRailActionKind, LucideIcon>;
 
 const STATUS_ICON_CLASS_NAMES = {
@@ -118,6 +123,7 @@ const RESOURCE_ROW_CLASS_NAME =
   "grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-sm leading-6 text-foreground";
 const RESOURCE_LOGO_SLOT_CLASS_NAME = "flex h-5 w-5 shrink-0 items-center justify-center";
 const RESOURCE_CONTENT_CLASS_NAME = "flex min-w-0 flex-wrap items-center gap-1.5";
+const RESOURCE_DESCRIPTION_CLASS_NAME = "basis-full text-xs leading-5 text-muted-foreground";
 const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
 const RESOURCE_LINK_VALUE_CLASS_NAME =
   "min-w-0 max-w-64 truncate underline decoration-muted-foreground/40 underline-offset-4 group-hover:decoration-current";
@@ -158,6 +164,26 @@ function getRowActions(row: VaultResourceRailRowState): VaultResourceRailActionL
   return undefined;
 }
 
+function getActionLabel(args: {
+  action: VaultResourceRailAction;
+  provider: VaultResourceRailProvider;
+}): string {
+  if (args.action.ariaLabel) {
+    return args.action.ariaLabel;
+  }
+
+  switch (args.action.kind) {
+    case "add":
+      return `Add ${PROVIDER_LABELS[args.provider]}`;
+    case "connect":
+    case "set":
+    case "retry":
+      return `${args.action.label} ${PROVIDER_LABELS[args.provider]}`;
+  }
+  args.action.kind satisfies never;
+  return args.action.label;
+}
+
 function getRowIconStatus(row: VaultResourceRailRowState): VaultResourceRailIconStatus | undefined {
   switch (row.status) {
     case "failed":
@@ -166,6 +192,20 @@ function getRowIconStatus(row: VaultResourceRailRowState): VaultResourceRailIcon
       return row.status;
     case "action_required":
     case "ready":
+      return undefined;
+  }
+  row satisfies never;
+  return undefined;
+}
+
+function getRowDescription(row: VaultResourceRailRowState): string | undefined {
+  switch (row.status) {
+    case "ready":
+      return row.description;
+    case "action_required":
+    case "failed":
+    case "pending":
+    case "running":
       return undefined;
   }
   row satisfies never;
@@ -209,11 +249,7 @@ function VaultResourceRailActions({
       {actions.map((action) => {
         const Icon = ACTION_ICONS[action.kind];
         const isDisabled = action.disabled || (!action.href && !action.onClick);
-        const actionLabel =
-          action.ariaLabel ??
-          (action.kind === "add"
-            ? `Add ${PROVIDER_LABELS[provider]}`
-            : `${action.label} ${PROVIDER_LABELS[provider]}`);
+        const actionLabel = getActionLabel({ action, provider });
         if (action.href) {
           return (
             <a
@@ -311,6 +347,7 @@ function VaultResourceRailStatusIcon({ status }: { status: VaultResourceRailIcon
 function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
   const ProviderLogo = PROVIDER_LOGOS[row.provider];
   const actions = getRowActions(row);
+  const description = getRowDescription(row);
   const iconStatus = getRowIconStatus(row);
   const value = getRowValue(row);
   const scope = getRowScope(row);
@@ -323,6 +360,7 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
         <VaultResourceRailValue className={RESOURCE_VALUE_CLASS_NAME} scope={scope} value={value} />
       ) : null}
       {actions ? <VaultResourceRailActions actions={actions} provider={row.provider} /> : null}
+      {description ? <span className={RESOURCE_DESCRIPTION_CLASS_NAME}>{description}</span> : null}
     </div>
   );
 
@@ -346,6 +384,9 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
             />
           </a>
           <VaultResourceRailActions actions={actions} provider={row.provider} />
+          {row.description ? (
+            <span className={RESOURCE_DESCRIPTION_CLASS_NAME}>{row.description}</span>
+          ) : null}
         </div>
       </div>
     );
