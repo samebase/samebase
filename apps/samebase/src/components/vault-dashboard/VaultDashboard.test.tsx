@@ -953,6 +953,7 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
+          appRoots: [],
           hasAppRoots: false,
           hasRootAppRoot: false,
           id: fakeVaultId(),
@@ -983,6 +984,7 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
+          appRoots: [],
           hasAppRoots: false,
           hasRootAppRoot: false,
           id: fakeVaultId(),
@@ -1012,6 +1014,7 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
+          appRoots: ["."],
           hasAppRoots: true,
           hasRootAppRoot: true,
           id: fakeVaultId(),

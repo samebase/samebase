@@ -430,6 +430,15 @@ test("vault dashboard fixture (add app root dialog)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+
+  await appRootDialog.getByRole("textbox", { name: "App root" }).fill("same");
+  await expect(appRootDialog.getByRole("option", { name: "apps/samebase" })).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-add-app-root-suggestions.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (add first app root dialog)", async ({ page }) => {

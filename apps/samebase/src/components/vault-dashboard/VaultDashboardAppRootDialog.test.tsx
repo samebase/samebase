@@ -34,9 +34,19 @@ function fakeVaultId(): Id<"vaults"> {
 }
 
 function renderAppRootDialog({
+  appRoot = ".",
+  folderSuggestions = [],
+  mode = "app",
+  onAppRootChange = vi.fn(),
   onModeChange,
+  onSubmit = vi.fn(),
 }: {
+  appRoot?: string;
+  folderSuggestions?: readonly string[];
+  mode?: "app" | "monorepo";
+  onAppRootChange?: (appRoot: string) => void;
   onModeChange: (mode: "app" | "monorepo") => void;
+  onSubmit?: () => void;
 }) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -45,16 +55,18 @@ function renderAppRootDialog({
   act(() => {
     root?.render(
       <VaultDashboardAppRootDialog
-        appRoot="."
+        appRoot={appRoot}
         error={null}
+        folderSuggestions={folderSuggestions}
         isSubmitting={false}
-        mode="app"
-        onAppRootChange={vi.fn()}
+        mode={mode}
+        onAppRootChange={onAppRootChange}
         onModeChange={onModeChange}
         onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
+        onSubmit={onSubmit}
         open
         vault={{
+          appRoots: [],
           hasAppRoots: false,
           hasRootAppRoot: false,
           id: fakeVaultId(),
@@ -96,5 +108,36 @@ describe("VaultDashboardAppRootDialog interactions", () => {
     });
 
     expect(onModeChange).toHaveBeenCalledWith("monorepo");
+  });
+
+  it("selects a folder suggestion with Enter before submitting", () => {
+    const onAppRootChange = vi.fn();
+    const onModeChange = vi.fn();
+    const onSubmit = vi.fn();
+    const container = renderAppRootDialog({
+      appRoot: "api",
+      folderSuggestions: ["apps/api", "apps/samebase"],
+      mode: "monorepo",
+      onAppRootChange,
+      onModeChange,
+      onSubmit,
+    });
+    const appRootInput = container.querySelector('input[aria-label="App root"]');
+    if (!(appRootInput instanceof HTMLInputElement)) {
+      throw new Error("Expected app root input.");
+    }
+
+    act(() => {
+      appRootInput.focus();
+    });
+
+    expect(container.textContent).toContain("apps/api");
+
+    act(() => {
+      appRootInput.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    });
+
+    expect(onAppRootChange).toHaveBeenCalledWith("apps/api");
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

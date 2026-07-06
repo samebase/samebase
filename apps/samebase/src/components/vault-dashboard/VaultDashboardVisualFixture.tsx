@@ -1478,6 +1478,8 @@ function VaultDashboardConnectCloudflareOpenFixture() {
 }
 
 function VaultDashboardAddAppRootConvertOpenFixture() {
+  const [appRoot, setAppRoot] = useState("");
+
   return (
     <div
       data-testid="vault-dashboard-visual-fixture"
@@ -1497,16 +1499,18 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardAppRootDialog
-          appRoot=""
+          appRoot={appRoot}
           error={null}
+          folderSuggestions={["apps/domain-router", "apps/samebase", "packages/sync"]}
           isSubmitting={false}
           mode="monorepo"
-          onAppRootChange={() => {}}
+          onAppRootChange={setAppRoot}
           onModeChange={() => {}}
           onOpenChange={() => {}}
           onSubmit={() => {}}
           open={true}
           vault={{
+            appRoots: ["."],
             hasAppRoots: true,
             hasRootAppRoot: true,
             id: fakeVaultId(),
@@ -1548,6 +1552,7 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
           onSubmit={() => {}}
           open={true}
           vault={{
+            appRoots: [],
             hasAppRoots: false,
             hasRootAppRoot: false,
             id: fakeVaultId(),
