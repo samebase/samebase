@@ -55,6 +55,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
   | "vault-dashboard-cloudflare-github-app-auth-failure"
+  | "vault-dashboard-cloudflare-build-trigger-missing"
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-large-branch-list"
@@ -574,6 +575,57 @@ const LIST_SPACING_VAULT = {
   ],
 } satisfies VaultDashboardVault;
 
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8e");
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
+  ...LIST_SPACING_VAULT,
+  _id: CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID,
+  _creationTime: FIXTURE_NOW - 3_600_000,
+  ghRepoOwner: "nicu-chiciuc",
+  ghRepoName: "tmp-my-super-app-2",
+  repositoryFullName: "nicu-chiciuc/tmp-my-super-app-2",
+  commitSHA: "abcdef1234567890abcdef1234567890abcdef12",
+  fileCount: 9,
+  lastTreeRefreshAt: FIXTURE_NOW - 3_480_000,
+  sourceSetup: { status: "ready" },
+  providerSetup: {
+    status: "failed",
+    provider: "cloudflare",
+    source: "manual",
+    runId: fakeProvisioningRunId(),
+    step: "wire_convex_build_access",
+    message:
+      "wire Convex build access: Cannot connect Cloudflare Worker 4d41accaab0042ef83bc3fc78e1ec644 to nicu-chiciuc/tmp-my-super-app-2: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
+    updatedAt: FIXTURE_NOW - 1_000,
+  },
+  appRoots: [{ appRoot: "." }],
+  cloudflareWorkers: [
+    {
+      appRoot: ".",
+      convexDeployKeys: { state: "missing" },
+      githubRepositoryConnection: { state: "connected" },
+      workerName: "tmp-my-super-app-234",
+      workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
+      projectDashboardUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/tmp-my-super-app-234/production/deployments",
+    },
+  ],
+  convexDeployments: [
+    {
+      appRoot: ".",
+      projectId: "tmp-my-super-app-2",
+      projectSlug: "tmp-my-super-app-2",
+      teamSlug: "nicu",
+      deploymentName: "valiant-panda-123",
+      cloudUrl: "https://valiant-panda-123.convex.cloud",
+      siteUrl: "https://valiant-panda-123.convex.site",
+      projectSettingsDashboardUrl:
+        "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/settings",
+      deploymentDashboardUrl:
+        "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/valiant-panda-123",
+    },
+  ],
+} satisfies VaultDashboardVault;
+
 const SIDEBAR_LIST_SELECTED_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8c");
 const SIDEBAR_LIST_VAULTS = [
   {
@@ -691,6 +743,51 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
               setResourceLinksOpen(nextOpen);
             }
           }}
+          onSetCloudflareConvexDeployKeys={() => {}}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardCloudflareBuildTriggerMissingFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-cloudflare-build-trigger-missing"
+      className="w-full bg-background text-foreground"
+    >
+      <TestRouterProvider initialEntries={["/vault/nicu-chiciuc/tmp-my-super-app-2"]}>
+        <VaultDashboardView
+          deleteModeActive={false}
+          developerToolsVisible={false}
+          cloudflareWorkerRepairActionInFlight={null}
+          isRemovingVault={false}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          now={FIXTURE_NOW}
+          viewModel={{
+            vaults: [CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT],
+            remoteBranchCatalogByVaultId: new Map(),
+            remoteBranchPagesByVaultId: new Map(),
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
+          logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultBranchFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={
+            new Map([[CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID, true]])
+          }
+          schemaGraphAccessEnabled={false}
+          rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          onConnectCloudflareGithubRepository={() => {}}
+          onOpenDeveloperToolsChange={() => {}}
+          onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultBranchFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
           onSetCloudflareConvexDeployKeys={() => {}}
         />
       </TestRouterProvider>
@@ -1903,6 +2000,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-cloudflare-github-app-auth-failure") {
     return <VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture />;
+  }
+
+  if (mode === "vault-dashboard-cloudflare-build-trigger-missing") {
+    return <VaultDashboardCloudflareBuildTriggerMissingFixture />;
   }
 
   if (mode === "vault-dashboard-provisioning-log") {

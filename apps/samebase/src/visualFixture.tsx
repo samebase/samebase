@@ -188,6 +188,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-delete-open",
   "vault-dashboard-infra-setup",
   "vault-dashboard-cloudflare-github-app-auth-failure",
+  "vault-dashboard-cloudflare-build-trigger-missing",
   "vault-dashboard-provisioning-log",
   "vault-dashboard-sticky-header",
   "vault-dashboard-large-branch-list",
@@ -383,6 +384,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-delete-open" ||
     mode === "vault-dashboard-infra-setup" ||
     mode === "vault-dashboard-cloudflare-github-app-auth-failure" ||
+    mode === "vault-dashboard-cloudflare-build-trigger-missing" ||
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-sticky-header" ||
     mode === "vault-dashboard-large-branch-list" ||

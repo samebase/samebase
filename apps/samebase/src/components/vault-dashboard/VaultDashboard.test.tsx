@@ -791,10 +791,10 @@ describe("resolveVaultProviderSetupStatus", () => {
       updatedAt: 0,
     } satisfies ResourceRailBuilderVault["providerSetup"];
 
-    expect(resolveVaultProviderSetupStepProvider(providerSetup)).toBe("convex");
+    expect(resolveVaultProviderSetupStepProvider(providerSetup)).toBe("cloudflare");
     expect(resolveVaultProviderSetupStatus(providerSetup)).toEqual({
       status: "running",
-      label: "Convex: provisioning",
+      label: "Cloudflare: provisioning",
     });
   });
 });
@@ -1847,7 +1847,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(addCloudflareWorker).toHaveBeenCalledWith(".");
   });
 
-  it("keeps Convex preview progress on the Convex row", () => {
+  it("keeps Convex build access progress on the Cloudflare row", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
@@ -1863,6 +1863,15 @@ describe("buildVaultDashboardResourceRailState", () => {
             siteUrl: "https://demo-production.convex.site",
           },
         ],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            appRoot: ".",
+            convexDeployKeys: { state: "missing" },
+            githubRepositoryConnection: { state: "connected" },
+            workerName: "demo-worker",
+            workersDevUrl: "https://demo-worker.ada.workers.dev",
+          }),
+        ],
         providerSetup: {
           status: "running",
           provider: "cloudflare",
@@ -1876,12 +1885,12 @@ describe("buildVaultDashboardResourceRailState", () => {
 
     expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
       provider: "convex",
-      status: "running",
+      status: "ready",
       value: "demo-project",
     });
     expect(getResourceRailAppRow(state, ".", "cloudflare")).toEqual({
       provider: "cloudflare",
-      status: "pending",
+      status: "running",
       value: "demo",
     });
   });
@@ -2016,6 +2025,74 @@ describe("buildVaultDashboardResourceRailState", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Cloudflare does not have this Convex deployment&#x27;s deploy keys.");
     expect(markup).toContain("Set Convex deploy keys");
+  });
+
+  it("keeps the Cloudflare Worker row actionable after Convex build access fails", () => {
+    const connectCloudflareGithubRepo = vi.fn();
+    const setCloudflareConvexDeployKeys = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      connectCloudflareGithubRepoOnClick: connectCloudflareGithubRepo,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      setCloudflareConvexDeployKeysOnClick: setCloudflareConvexDeployKeys,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        convexDeployments: [
+          {
+            appRoot: ".",
+            projectId: "project-1",
+            projectSlug: "demo-project",
+            teamSlug: "demo-team",
+            deploymentName: "demo-production",
+            cloudUrl: "https://demo-production.convex.cloud",
+            siteUrl: "https://demo-production.convex.site",
+          },
+        ],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            appRoot: ".",
+            convexDeployKeys: { state: "missing" },
+            githubRepositoryConnection: { state: "connected" },
+            workerName: "demo-worker",
+            workersDevUrl: "https://demo-worker.ada.workers.dev",
+          }),
+        ],
+        providerSetup: {
+          status: "failed",
+          provider: "cloudflare",
+          source: "manual",
+          runId: fakeRunId(),
+          step: "wire_convex_build_access",
+          message:
+            "wire Convex build access: Cannot connect Cloudflare Worker worker-tag to ada/demo: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
+      provider: "convex",
+      status: "ready",
+      value: "demo-project",
+    });
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      value: "demo-worker",
+      description: "Cloudflare's saved Workers Builds trigger is missing.",
+      actions: [{ kind: "connect", label: "Connect GitHub repo", disabled: false }],
+    });
+    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
+      throw new Error("Expected Cloudflare row with GitHub connection action.");
+    }
+    cloudflareRow.actions[0].onClick?.();
+    expect(connectCloudflareGithubRepo).toHaveBeenCalledWith(".");
+    expect(setCloudflareConvexDeployKeys).not.toHaveBeenCalled();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Cloudflare&#x27;s saved Workers Builds trigger is missing.");
+    expect(markup).toContain("Connect GitHub repo");
+    expect(markup).not.toContain("?add-convex");
   });
 
   it("keeps root provider rows from offering duplicate provider adds", () => {

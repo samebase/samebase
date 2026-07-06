@@ -677,6 +677,30 @@ test("vault dashboard fixture (Cloudflare GitHub App authorization failure)", as
   ).toHaveAttribute("href", "https://github.com/apps/cloudflare-workers-and-pages");
 });
 
+test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 420 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-cloudflare-build-trigger-missing");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("Cloudflare setup failed.")).toBeVisible();
+  await expect(fixture.getByText("Convex setup failed.")).toHaveCount(0);
+  await expect(fixture.getByText("?add-convex")).toHaveCount(0);
+  await expect(fixture.getByText("nicu/tmp-my-super-app-2")).toBeVisible();
+  await expect(fixture.getByText("pfp/tmp-my-super-app-234")).toBeVisible();
+  await expect(
+    fixture.getByText("Cloudflare's saved Workers Builds trigger is missing."),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("button", { name: "Connect GitHub repo Cloudflare" }),
+  ).toBeVisible();
+  await expect(fixture).toHaveScreenshot("vault-dashboard-cloudflare-build-trigger-missing.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1100 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
