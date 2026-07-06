@@ -32,7 +32,7 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_TEMP_REPO_PREFIX=tmp-e19d-c
 ```
 
 ```sh
-PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME=nicu-chiciuc/tmp-my-new-app-2 PLAYWRIGHT_TEMP_REPO_PREFIX=tmp-e19d-create-stack pnpm exec playwright test -c apps/samebase/playwright.live.config.ts apps/samebase/e2e/vault-create-app.live.spec.ts --project=chromium-desktop
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME=nicu-chiciuc/tmp-my-new-app-2 PLAYWRIGHT_TEMP_REPO_PREFIX=tmp-e19d-create-stack pnpm exec playwright test -c apps/samebase/playwright.live.config.ts apps/samebase/e2e/vault-create-app.live.spec.ts --project=chromium-desktop
 ```
 
 ```sh
