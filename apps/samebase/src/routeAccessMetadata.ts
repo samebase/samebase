@@ -14,7 +14,10 @@ type RouteMetadata = Pick<
  */
 const routeAccessMetadataByPath = {
   "/": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
-  "/connect-repo": { access: "access_repo_connect" },
+  "/connect-repo": {
+    access: "access_repo_connect",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/indexDB": { access: "access_admin" },
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
@@ -35,7 +38,10 @@ const routeAccessMetadataByPath = {
   "/logo/transition/transforms": { access: "access_admin" },
   "/machines": { access: "access_machines" },
   "/machines/connect": { access: "access_machines" },
-  "/new-app": { access: "access_app_create" },
+  "/new-app": {
+    access: "access_app_create",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/oauth/mcp/consent": { access: "access_public", pathSuggestion: "hidden" },
   "/pitch": { access: "access_admin" },
   "/pitch/print": { access: "access_admin" },

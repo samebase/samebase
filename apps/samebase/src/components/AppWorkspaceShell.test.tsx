@@ -414,7 +414,15 @@ describe("AppWorkspaceShell", () => {
   });
 
   it("server-renders static no-left routes without the default left pane", () => {
-    for (const route of ["/", "/terms", "/privacy", "/landing-preview", "/vault/"]) {
+    for (const route of [
+      "/",
+      "/connect-repo",
+      "/new-app",
+      "/terms",
+      "/privacy",
+      "/landing-preview",
+      "/vault/",
+    ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>
           <AppWorkspaceShell>
