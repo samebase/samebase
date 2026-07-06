@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clsx } from "clsx";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { linkStyle } from "@/components/styles";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
 import {
   buildDefaultAppResourceName,
   validateAppResourceName,
@@ -1035,6 +1035,11 @@ export function NewAppPage() {
   const handleCreateRepository = async () => {
     const repoName = newRepositoryName.trim();
     if (!repoName || isCreating) return;
+    const routeRepoName = toSafeRepoName(repoName);
+    if (!routeRepoName) {
+      setCreateError("Repository name is required.");
+      return;
+    }
     if (!hasConnectedCreateProviders) {
       setCreateError("Connect GitHub, Convex, and Cloudflare before creating an app.");
       return;
@@ -1102,7 +1107,7 @@ export function NewAppPage() {
       setCloudflareWorkerNameMode("auto");
       await navigate({
         href: buildPathWithTanStackSearch({
-          pathname: DASHBOARD_ROUTE,
+          pathname: buildVaultDashboardRoute({ owner, repoName: routeRepoName }),
           search: location.search,
         }),
       });

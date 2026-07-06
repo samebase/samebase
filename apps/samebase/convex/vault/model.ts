@@ -1,6 +1,7 @@
 import { Infer, v } from "convex/values";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultDeletionState } from "./deletion/model";
+export { parseRepositoryFullName } from "../../shared/repoName";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -28,22 +29,6 @@ export type GithubTreeData = Infer<typeof vGithubTreeData>;
  */
 export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
 export type GitHubRepositoryVisibility = Infer<typeof vGitHubRepositoryVisibility>;
-
-export function parseRepositoryFullName(repositoryFullName: string): {
-  owner: string;
-  name: string;
-} {
-  const parts = repositoryFullName.split("/");
-  if (parts.length !== 2) {
-    throw new Error("Invalid repository full name");
-  }
-  const owner = parts[0].trim();
-  const name = parts[1].trim();
-  if (!owner || !name) {
-    throw new Error("Invalid repository full name");
-  }
-  return { owner, name };
-}
 
 export const vTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;

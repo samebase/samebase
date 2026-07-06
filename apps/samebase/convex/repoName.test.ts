@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vite-plus/test";
 
-import { toSafeRepoName } from "../shared/repoName";
+import {
+  parseRepositoryFullName,
+  toSafeRepoName,
+  tryParseRepositoryFullName,
+} from "../shared/repoName";
 
 describe("toSafeRepoName", () => {
   it("sanitizes repository names", () => {
@@ -27,5 +31,25 @@ describe("toSafeRepoName", () => {
     for (const { input, output } of cases) {
       expect(toSafeRepoName(input)).toBe(output);
     }
+  });
+});
+
+describe("repository full name parsing", () => {
+  it("parses owner and repository name", () => {
+    expect(parseRepositoryFullName(" samebase / samebase ")).toEqual({
+      owner: "samebase",
+      name: "samebase",
+    });
+  });
+
+  it("returns null for invalid repository full names", () => {
+    expect(tryParseRepositoryFullName("samebase")).toBeNull();
+    expect(tryParseRepositoryFullName("samebase/")).toBeNull();
+    expect(tryParseRepositoryFullName("/samebase")).toBeNull();
+    expect(tryParseRepositoryFullName("samebase/samebase/extra")).toBeNull();
+  });
+
+  it("throws for invalid repository full names", () => {
+    expect(() => parseRepositoryFullName("samebase")).toThrow("Invalid repository full name");
   });
 });

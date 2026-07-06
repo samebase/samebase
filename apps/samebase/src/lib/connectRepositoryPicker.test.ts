@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { parseRepositoryFullName } from "../../shared/repoName";
 import { resolveDisplayedRepositories } from "./connectRepositoryPicker";
 
 function buildRepository(id: number, fullName: string) {
-  const [ownerName, repoName] = fullName.split("/");
+  const { owner, name } = parseRepositoryFullName(fullName);
 
   return {
     id,
-    name: repoName,
+    name,
     full_name: fullName,
-    html_url: `https://github.com/${ownerName}/${repoName}`,
+    html_url: `https://github.com/${owner}/${name}`,
     description: null,
     private: true,
     fork: false,

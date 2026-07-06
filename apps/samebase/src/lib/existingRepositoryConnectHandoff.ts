@@ -1,6 +1,7 @@
 import { type RegisteredRouter, type RouterState } from "@tanstack/react-router";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
+import { parseRepositoryFullName } from "../../shared/repoName";
 
 type RouteSearch = RouterState<RegisteredRouter["routeTree"]>["location"]["search"];
 
@@ -24,9 +25,10 @@ export async function queueExistingRepositoryAndNavigateToDashboard(args: {
   search: RouteSearch;
 }) {
   await args.connectRepository({ repositoryFullName: args.repositoryFullName });
+  const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
   await args.navigateByHref(
     buildPathWithTanStackSearch({
-      pathname: DASHBOARD_ROUTE,
+      pathname: buildVaultDashboardRoute({ owner, repoName: name }),
       search: args.search,
     }),
     args.replace ? { replace: true } : undefined,
