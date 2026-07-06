@@ -100,11 +100,16 @@ function isCloudflareWorkerWiringStep(step: VaultDashboardProviderSetupStep | nu
   return false;
 }
 
-function hasMissingCloudflareBuildsTriggerFailure(vault: VaultDashboardVault): boolean {
+function hasCurrentMissingCloudflareBuildsTriggerFailure(
+  vault: VaultDashboardVault,
+  worker: VaultDashboardVault["cloudflareWorkers"][number],
+): boolean {
+  const providerSetup = vault.providerSetup;
   return (
-    vault.providerSetup.status === "failed" &&
-    vault.providerSetup.step === "wire_convex_build_access" &&
-    vault.providerSetup.message.includes("Retry Workers Builds wiring")
+    providerSetup.status === "failed" &&
+    providerSetup.step === "wire_convex_build_access" &&
+    providerSetup.message.includes("Retry Workers Builds wiring") &&
+    providerSetup.updatedAt >= worker.lastObservedAt
   );
 }
 
@@ -408,11 +413,15 @@ export function buildVaultDashboardResourceRailState({
     for (const worker of sortedCloudflareWorkers) {
       let cloudflareAction: VaultResourceRailAction | undefined;
       let cloudflareDescription: string | undefined;
+      const missingBuildsTriggerFailure = hasCurrentMissingCloudflareBuildsTriggerFailure(
+        vault,
+        worker,
+      );
       if (
         canRepairCloudflareWorkers &&
-        worker.githubRepositoryConnection.state === "not_connected"
+        (worker.githubRepositoryConnection.state === "not_connected" || missingBuildsTriggerFailure)
       ) {
-        cloudflareDescription = hasMissingCloudflareBuildsTriggerFailure(vault)
+        cloudflareDescription = missingBuildsTriggerFailure
           ? "Cloudflare's saved Workers Builds trigger is missing."
           : "Cloudflare is not connected to this GitHub repository.";
         cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.appRoot);

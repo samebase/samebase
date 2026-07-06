@@ -804,6 +804,7 @@ async function readUserVaults(
         appRoot: worker.appRoot,
         convexDeployKeys: resolveCloudflareWorkerConvexDeployKeys(worker, convexDeployments),
         githubRepositoryConnection: resolveCloudflareWorkerGithubRepositoryConnection(worker),
+        lastObservedAt: worker.lastObservedAt,
         workerName: worker.workerName,
         workersDevUrl: worker.workersDevUrl,
         projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),

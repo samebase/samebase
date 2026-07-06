@@ -545,6 +545,7 @@ const LIST_SPACING_VAULT = {
       appRoot: "apps/domain-router",
       convexDeployKeys: { state: "not_applicable" },
       githubRepositoryConnection: { state: "connected" },
+      lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "domain-router",
       workersDevUrl: "https://domain-router.nicu.workers.dev",
       projectDashboardUrl:
@@ -554,6 +555,7 @@ const LIST_SPACING_VAULT = {
       appRoot: "apps/samebase",
       convexDeployKeys: { state: "set" },
       githubRepositoryConnection: { state: "connected" },
+      lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "samebase-worker",
       workersDevUrl: "https://samebase-worker.nicu.workers.dev",
       projectDashboardUrl:
@@ -603,6 +605,7 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
       appRoot: ".",
       convexDeployKeys: { state: "not_applicable" },
       githubRepositoryConnection: { state: "not_connected" },
+      lastObservedAt: FIXTURE_NOW - 2_000,
       workerName: "tmp-my-super-app-234",
       workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
       projectDashboardUrl:

@@ -139,6 +139,7 @@ export const getUserVaultsContract = {
           appRoot: string(),
           convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
           githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
+          lastObservedAt: number(),
           workerName: string(),
           workersDevUrl: optional(string()),
           projectDashboardUrl: optional(string()),
