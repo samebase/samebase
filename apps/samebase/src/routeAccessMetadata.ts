@@ -21,6 +21,7 @@ const routeAccessMetadataByPath = {
   "/indexDB": { access: "access_admin" },
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
+  "/docs/receipts": { access: "access_public", pathSuggestion: "hidden" },
   "/docs/the-stack": { access: "access_public", pathSuggestion: "hidden" },
   "/landing-preview": {
     access: "access_public",

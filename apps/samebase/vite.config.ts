@@ -455,6 +455,66 @@ function syncStaticSamebaseSyncScriptAssetPlugin() {
   };
 }
 
+/**
+ * Corpus docs pages are markdown-sourced (`src/content/docs-*.md`) and rendered
+ * as HTML routes. Agents also fetch them raw, so the same source files ship as
+ * static `.md` assets alongside the prerendered pages (rfcs/111, Phase 1).
+ */
+const contentDocsMarkdownAssets = [
+  { assetPath: "docs/do-it-yourself.md", sourcePath: "src/content/docs-do-it-yourself.md" },
+  { assetPath: "docs/receipts.md", sourcePath: "src/content/docs-receipts.md" },
+  { assetPath: "docs/the-stack.md", sourcePath: "src/content/docs-the-stack.md" },
+] as const;
+
+function serveContentDocsMarkdownPlugin() {
+  const readContentMarkdown = (sourcePath: string) =>
+    readFileSync(path.resolve(currentDir, sourcePath), "utf8");
+
+  return {
+    name: "serve-content-docs-markdown",
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use(
+        (
+          request: IncomingMessage,
+          response: ServerResponse<IncomingMessage>,
+          next: (error?: Error) => void,
+        ) => {
+          const requestPath = (() => {
+            if (!request.url) {
+              return null;
+            }
+
+            try {
+              return new URL(request.url, "http://vite.local").pathname;
+            } catch {
+              return null;
+            }
+          })();
+
+          const asset = contentDocsMarkdownAssets.find(
+            ({ assetPath }) => requestPath === `/${assetPath}`,
+          );
+          if (!asset) {
+            next();
+            return;
+          }
+
+          response.statusCode = 200;
+          response.setHeader("Content-Type", "text/markdown; charset=utf-8");
+          response.end(readContentMarkdown(asset.sourcePath));
+        },
+      );
+    },
+    closeBundle() {
+      for (const { assetPath, sourcePath } of contentDocsMarkdownAssets) {
+        const builtAssetPath = path.resolve(currentDir, "dist/client", assetPath);
+        mkdirSync(path.dirname(builtAssetPath), { recursive: true });
+        writeFileSync(builtAssetPath, readContentMarkdown(sourcePath), "utf8");
+      }
+    },
+  };
+}
+
 function syncRuntimeSamebaseConnectConfigAssetPlugin() {
   const writeRuntimeConfig = async () => {
     const runtimeConfig = await buildRuntimeSamebaseConnectConfig();
@@ -568,6 +628,7 @@ export default defineConfig({
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticSamebaseSyncScriptAssetPlugin(),
     syncRuntimeSamebaseConnectConfigAssetPlugin(),
+    serveContentDocsMarkdownPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),

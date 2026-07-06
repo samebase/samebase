@@ -21,6 +21,7 @@ import {
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
@@ -29,11 +30,12 @@ import {
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
+import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 
-type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack";
+type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts";
 
 const LANDING_CORRECT_DEFINITION = [
   "samebase.com uses the exact same stack it recommends.",
@@ -49,6 +51,7 @@ const DOCS_SIDEBAR_LINKS = [
   { label: "Overview", to: LANDING_PREVIEW_ROUTE },
   { label: "The stack", to: DOCS_THE_STACK_ROUTE },
   { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
+  { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
 ] as const;
 
 function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
@@ -896,6 +899,16 @@ function DocsDoItYourselfDocument() {
   );
 }
 
+function DocsReceiptsDocument() {
+  return (
+    <MarkdownLandingDocument
+      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
+      markdown={docsReceiptsMarkdown}
+    />
+  );
+}
+
 function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
   if (documentKey === "overview") {
     return <LandingPreviewOverview />;
@@ -903,6 +916,10 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 
   if (documentKey === "theStack") {
     return <DocsTheStackDocument />;
+  }
+
+  if (documentKey === "receipts") {
+    return <DocsReceiptsDocument />;
   }
 
   return <DocsDoItYourselfDocument />;
@@ -935,4 +952,8 @@ export function DocsDoItYourselfPage() {
 
 export function DocsTheStackPage() {
   return <LandingPreviewChromePage documentKey="theStack" showDocsSidebar />;
+}
+
+export function DocsReceiptsPage() {
+  return <LandingPreviewChromePage documentKey="receipts" showDocsSidebar />;
 }
