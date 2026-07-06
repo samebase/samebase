@@ -55,7 +55,7 @@ describe("buildProvisioningLogDocumentEvents", () => {
           level: "info",
           step: "attach_worker",
           message:
-            'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"PROD_CONVEX_DEPLOY_KEY":"[secret]","build_command":"pnpm run build"},"params":{"path":{"account_id":"[redacted]"}}}',
+            'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"CONVEX_DEPLOY_KEY":"[secret]","build_command":"pnpm run build"},"params":{"path":{"account_id":"[redacted]"}}}',
         },
       ]),
     ).toEqual([
@@ -69,7 +69,7 @@ describe("buildProvisioningLogDocumentEvents", () => {
           endpoint: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
           values: {
             body: {
-              PROD_CONVEX_DEPLOY_KEY: "[secret]",
+              CONVEX_DEPLOY_KEY: "[secret]",
               build_command: "pnpm run build",
             },
             params: {

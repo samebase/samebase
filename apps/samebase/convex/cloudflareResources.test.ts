@@ -264,19 +264,26 @@ describe("cloudflare resources", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
-  it("uses both split Convex deploy keys for Workers builds", () => {
+  it("uses trigger-specific Convex deploy keys for Workers builds", () => {
     expect(
       buildCloudflareWorkersEnvVars({
-        previewConvexDeployKey: "preview-key",
+        triggerKind: "production",
         productionConvexDeployKey: "prod-key",
+      }),
+    ).toEqual({
+      CONVEX_DEPLOY_KEY: {
+        value: "prod-key",
+        is_secret: true,
+      },
+    });
+    expect(
+      buildCloudflareWorkersEnvVars({
+        triggerKind: "preview",
+        previewConvexDeployKey: "preview-key",
       }),
     ).toEqual({
       PREVIEW_CONVEX_DEPLOY_KEY: {
         value: "preview-key",
-        is_secret: true,
-      },
-      PROD_CONVEX_DEPLOY_KEY: {
-        value: "prod-key",
         is_secret: true,
       },
     });
@@ -434,12 +441,16 @@ describe("cloudflare resources", () => {
     expect(buildIndex).toBeGreaterThan(previewPatchIndex);
     expect(buildIndex).toBeGreaterThan(productionVerifyIndex);
     expect(buildIndex).toBeGreaterThan(previewVerifyIndex);
-    const convexEnvVars = buildCloudflareWorkersEnvVars({
-      previewConvexDeployKey: "preview-key",
+    const productionConvexEnvVars = buildCloudflareWorkersEnvVars({
+      triggerKind: "production",
       productionConvexDeployKey: "prod-key",
     });
-    expect(requests[productionPatchIndex]?.body).toEqual(convexEnvVars);
-    expect(requests[previewPatchIndex]?.body).toEqual(convexEnvVars);
+    const previewConvexEnvVars = buildCloudflareWorkersEnvVars({
+      triggerKind: "preview",
+      previewConvexDeployKey: "preview-key",
+    });
+    expect(requests[productionPatchIndex]?.body).toEqual(productionConvexEnvVars);
+    expect(requests[previewPatchIndex]?.body).toEqual(previewConvexEnvVars);
   });
 
   it("fails closed when Cloudflare does not read back the preview deploy key", async () => {

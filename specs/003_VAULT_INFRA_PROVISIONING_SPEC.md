@@ -259,8 +259,8 @@ In `VaultDashboard`:
   `Cloudflare is not connected to this GitHub repository.` with a `Connect GitHub repo` action.
 - An attached Cloudflare Worker for an app root that also has Convex, connected Builds, and missing
   Convex build access shows `Cloudflare does not have this Convex deployment's deploy keys.` with a
-  `Set Convex deploy keys` action. The action patches only `PROD_CONVEX_DEPLOY_KEY` and
-  `PREVIEW_CONVEX_DEPLOY_KEY` into Cloudflare Workers Builds.
+  `Set Convex deploy keys` action. The action patches `CONVEX_DEPLOY_KEY` into the production
+  Workers Builds trigger and `PREVIEW_CONVEX_DEPLOY_KEY` into the preview trigger.
 
 Dashboard external links:
 

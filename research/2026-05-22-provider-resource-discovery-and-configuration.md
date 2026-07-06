@@ -204,7 +204,7 @@ link.
 
 Noter-created Workers Builds triggers currently receive:
 
-1. `PROD_CONVEX_DEPLOY_KEY` as a secret
+1. `CONVEX_DEPLOY_KEY` as a secret
 2. `PREVIEW_CONVEX_DEPLOY_KEY` as a secret
 3. `VITE_CONVEX_URL` as a non-secret build variable
 

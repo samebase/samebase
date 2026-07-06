@@ -1435,6 +1435,7 @@ export const trackedFilePaths = [
   "research/2026-07-01-vault-sidebar-dashboard.md",
   "research/2026-07-02-landing-copy-interview.md",
   "research/2026-07-02-landing-copy-receipts.md",
+  "research/2026-07-06-cloudflare-worker-create-connect-live-test-matrix.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",

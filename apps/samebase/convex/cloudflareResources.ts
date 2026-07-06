@@ -63,7 +63,7 @@ const CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE = "8000008";
 const CLOUDFLARE_GITHUB_APP_RECOVERY_URL =
   "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
 const BUILD_TOKEN_PAGE_SIZE = 100;
-const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
+const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
@@ -128,20 +128,36 @@ function requireCloudflareString(value: string | null | undefined, message: stri
   throw new Error(message);
 }
 
-export function buildCloudflareWorkersEnvVars(vars: {
-  previewConvexDeployKey: string;
-  productionConvexDeployKey: string;
-}): CloudflareBuildEnvVars {
-  return {
-    [PREVIEW_CONVEX_DEPLOY_KEY]: {
-      value: vars.previewConvexDeployKey,
-      is_secret: true,
-    },
-    [PROD_CONVEX_DEPLOY_KEY]: {
-      value: vars.productionConvexDeployKey,
-      is_secret: true,
-    },
-  };
+export function buildCloudflareWorkersEnvVars(
+  vars:
+    | {
+        triggerKind: "production";
+        productionConvexDeployKey: string;
+      }
+    | {
+        triggerKind: "preview";
+        previewConvexDeployKey: string;
+      },
+): CloudflareBuildEnvVars {
+  switch (vars.triggerKind) {
+    case "production":
+      return {
+        [CONVEX_DEPLOY_KEY]: {
+          value: vars.productionConvexDeployKey,
+          is_secret: true,
+        },
+      };
+    case "preview":
+      return {
+        [PREVIEW_CONVEX_DEPLOY_KEY]: {
+          value: vars.previewConvexDeployKey,
+          is_secret: true,
+        },
+      };
+    default:
+      vars satisfies never;
+      return vars;
+  }
 }
 
 type CloudflareWorkerIdentity = {
@@ -1759,16 +1775,20 @@ export async function wireCloudflareWorkerConvexBuildAccess(
     });
 
     step = "set_environment_variables";
-    const convexEnvVars = buildCloudflareWorkersEnvVars({
-      previewConvexDeployKey: args.convex.preview.deployKey,
+    const productionConvexEnvVars = buildCloudflareWorkersEnvVars({
+      triggerKind: "production",
       productionConvexDeployKey: args.convex.production.deployKey,
+    });
+    const previewConvexEnvVars = buildCloudflareWorkersEnvVars({
+      triggerKind: "preview",
+      previewConvexDeployKey: args.convex.preview.deployKey,
     });
     await Promise.all([
       setTriggerEnvironmentVariables({
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.production.triggerUuid,
-        envVars: convexEnvVars,
+        envVars: productionConvexEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
       }),
@@ -1776,7 +1796,7 @@ export async function wireCloudflareWorkerConvexBuildAccess(
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.preview.triggerUuid,
-        envVars: convexEnvVars,
+        envVars: previewConvexEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
       }),
@@ -1803,13 +1823,13 @@ export async function wireCloudflareWorkerConvexBuildAccess(
       triggerKind: "production",
       triggerUuid: args.build.production.triggerUuid,
       envVars: productionVerifiedEnvVars,
-      expected: convexEnvVars,
+      expected: productionConvexEnvVars,
     });
     assertTriggerEnvironmentVariables({
       triggerKind: "preview",
       triggerUuid: args.build.preview.triggerUuid,
       envVars: previewVerifiedEnvVars,
-      expected: convexEnvVars,
+      expected: previewConvexEnvVars,
     });
 
     step = "trigger_initial_build";

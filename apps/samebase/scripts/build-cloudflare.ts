@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
-const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
+const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 const PROD_POSTHOG_PROJECT_TOKEN = "PROD_POSTHOG_PROJECT_TOKEN";
 const PRODUCTION_POSTHOG_PROXY_HOST = "https://e.samebase.com";
@@ -16,7 +16,7 @@ type ConvexDeployPlan =
   | {
       kind: "deploy";
       deployKey: string;
-      deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY;
+      deployKeyName: typeof CONVEX_DEPLOY_KEY;
       postHogProjectToken: string | null;
       routeEnvironment: BuildRouteEnvironment;
       args: readonly string[];
@@ -72,16 +72,16 @@ function isWorkersBuild(env: NodeJS.ProcessEnv) {
 function readDeployKey(args: {
   env: NodeJS.ProcessEnv;
   branch: string;
-  deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY | typeof PREVIEW_CONVEX_DEPLOY_KEY;
+  deployKeyName: typeof CONVEX_DEPLOY_KEY | typeof PREVIEW_CONVEX_DEPLOY_KEY;
 }) {
   const deployKey = args.env[args.deployKeyName];
   if (deployKey) {
     return deployKey;
   }
 
-  if (args.deployKeyName === PROD_CONVEX_DEPLOY_KEY) {
+  if (args.deployKeyName === CONVEX_DEPLOY_KEY) {
     throw new Error(
-      `Set ${PROD_CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.`,
+      `Set ${CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.`,
     );
   }
 
@@ -94,14 +94,6 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
   if (isPagesBuild(env)) {
     throw new Error(
       "Cloudflare Pages builds are disabled for Samebase production during the Workers cutover. Keep the last good Pages deployment active until the Worker is public.",
-    );
-  }
-
-  // Convex expects CONVEX_DEPLOY_KEY, but the build environment must not store
-  // that generic name because one Cloudflare UI table feeds both branch types.
-  if (env.CONVEX_DEPLOY_KEY) {
-    throw new Error(
-      `Do not set CONVEX_DEPLOY_KEY in Cloudflare Workers build variables. Set ${PROD_CONVEX_DEPLOY_KEY} and ${PREVIEW_CONVEX_DEPLOY_KEY}; this script selects the right key by branch.`,
     );
   }
 
@@ -125,9 +117,9 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       );
     }
 
-    if (env[PROD_CONVEX_DEPLOY_KEY] || env[PREVIEW_CONVEX_DEPLOY_KEY]) {
+    if (env[CONVEX_DEPLOY_KEY] || env[PREVIEW_CONVEX_DEPLOY_KEY]) {
       throw new Error(
-        `Set WORKERS_CI_BRANCH to choose ${PROD_CONVEX_DEPLOY_KEY} or ${PREVIEW_CONVEX_DEPLOY_KEY}, or unset both keys for a frontend-only local build.`,
+        `Set WORKERS_CI_BRANCH to choose ${CONVEX_DEPLOY_KEY} or ${PREVIEW_CONVEX_DEPLOY_KEY}, or unset both keys for a frontend-only local build.`,
       );
     }
 
@@ -160,11 +152,11 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
 
   return {
     kind: "deploy",
-    deployKeyName: PROD_CONVEX_DEPLOY_KEY,
+    deployKeyName: CONVEX_DEPLOY_KEY,
     deployKey: readDeployKey({
       env,
       branch,
-      deployKeyName: PROD_CONVEX_DEPLOY_KEY,
+      deployKeyName: CONVEX_DEPLOY_KEY,
     }),
     postHogProjectToken: env[PROD_POSTHOG_PROJECT_TOKEN] ?? null,
     routeEnvironment: "production",
@@ -177,7 +169,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
 
   if (plan.kind === "frontendOnly") {
     console.warn(
-      `${PROD_CONVEX_DEPLOY_KEY} and ${PREVIEW_CONVEX_DEPLOY_KEY} are not set; building static assets without deploying Convex.`,
+      `${CONVEX_DEPLOY_KEY} and ${PREVIEW_CONVEX_DEPLOY_KEY} are not set; building static assets without deploying Convex.`,
     );
     await run("pnpm", ["run", "build:app"], {
       ...env,

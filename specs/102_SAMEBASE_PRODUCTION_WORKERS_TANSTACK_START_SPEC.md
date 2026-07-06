@@ -82,12 +82,11 @@ convention, and shadcn is configured through `apps/samebase/components.json` wit
 separate repo-wide cleanup, but it is not part of the hosting cutover.
 
 Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BRANCH`. The app build
-script uses `WORKERS_CI_BRANCH` to choose between `PROD_CONVEX_DEPLOY_KEY` on `main` and
-`PREVIEW_CONVEX_DEPLOY_KEY` on non-production branches. The build environment must not set a generic
-`CONVEX_DEPLOY_KEY`; the script passes the selected split key to Convex under that generic name only
-for the child process. The Workers Builds variable table contains both split deploy keys. It does
-not store `VITE_CONVEX_URL`; `convex deploy --cmd` supplies the selected production or preview
-deployment URL to the child build command.
+script uses `WORKERS_CI_BRANCH` to choose between `CONVEX_DEPLOY_KEY` on `main` and
+`PREVIEW_CONVEX_DEPLOY_KEY` on non-production branches. Preview builds must require the preview key
+instead of falling back to the production key. The Workers Builds variable table does not store
+`VITE_CONVEX_URL`; `convex deploy --cmd` supplies the selected production or preview deployment URL
+to the child build command.
 
 ### Static Page Prerendering And SPA Shell
 
@@ -242,10 +241,11 @@ Samebase production itself.
 2. Keep a local app build script that runs typecheck/codegen and TanStack Start build without
    deploying Convex.
 3. Keep a Cloudflare build script that:
-   - rejects generic `CONVEX_DEPLOY_KEY` in the parent build environment
-   - deploys Convex production from `PROD_CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is `main`
+   - deploys Convex production from `CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is `main`
    - creates a Convex preview deployment from `PREVIEW_CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH`
      is a non-production branch
+   - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
+     `CONVEX_DEPLOY_KEY` is present
    - falls back to a frontend-only build for local dry runs without a deploy key
 4. Add production deploy and preview upload scripts around Wrangler.
 5. Use the Worker name supplied by Workers Builds when available, with one local override for
