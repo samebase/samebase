@@ -24,8 +24,9 @@ Registry state is trust-on-write. The rfcs/090 blocks record durable state when 
 (`deployment.builds`, `deployment.convexBuildAccess` on `vaultCloudflareWorkers`), and every
 downstream surface derives from that record alone: `getUserVaults` resolves `convexDeployKeys` from
 `deployment.convexBuildAccess.state` (`apps/samebase/convex/vault/dashboard.ts:329`) without ever
-re-reading the live trigger. Nothing in the product re-observes provider state after a block
-succeeds.
+re-reading the live trigger. On-demand status reads exist (`readCloudflareWorkerStatus` lists live
+triggers for the approved read paths, `apps/samebase/convex/infraRead.ts:249`), but nothing ever
+writes what it observed back into the registry.
 
 Live state and the wiring contract both move underneath the record:
 
@@ -52,11 +53,11 @@ Verification is the missing verb for both.
 
 ## Locked Decisions
 
-1. One new block, `verify_infrastructure`, joins the rfcs/090 block set. It is vault-scoped
-   (`{ vaultId }`, covering every app's provider rows in the vault, matching
-   `retry_infrastructure_provisioning`). It re-reads the live provider facts behind the status noun
-   and patches the registry rows to what it observed. It renders nothing new: the refreshed noun and
-   `nextAction` resurface the existing repair actions.
+1. One new block, `verify_infrastructure`, joins the rfcs/090 block set. It is app-scoped
+   (`{ vaultId, appRoot }`), matching the wire repair verbs and the app-root-keyed Worker rows it
+   verifies; a vault-wide sweep, if ever needed, is a wrapper over per-app runs. It re-reads the
+   live provider facts behind the status noun and patches the registry rows to what it observed. It
+   renders nothing new: the refreshed noun and `nextAction` resurface the existing repair actions.
 2. Presence-only assertions. Verification checks only the facts the Samebase contract depends on —
    the expected variable names on the expected triggers, the trigger's binding to the recorded repo
    and root directory. Anything else on the trigger is the user's configuration: never judged, never
@@ -65,21 +66,29 @@ Verification is the missing verb for both.
    never fetched, stored, logged, or compared (existing rfcs/090 doctrine).
 4. Fail closed on unverifiable. A provider error, a missing or expired connection, or a Worker-scope
    404 writes nothing. Only a successful authoritative read that contradicts the record flips state.
-   "Could not verify" and "verified false" are different outcomes; only the second writes.
+   "Could not verify" and "verified false" are different outcomes; only the second writes. Writes
+   are per-row atomic: every live read a row needs must succeed before that row's single conditional
+   patch, so a mid-run provider failure never leaves a half-verified row.
 5. On-demand only. No cron, no background reconciliation, no polling. Freshness is expressed by
-   `lastObservedAt`, which already exists on `vaultCloudflareWorkers` and `vaultConvexDeployments`
-   and is today written once at attach; verification stamps it on every row it confirms or corrects.
+   `lastObservedAt`, which already exists on both `vaultCloudflareWorkers` and
+   `vaultConvexDeployments` (written at attach/wire, and refreshed on the Convex row by schema
+   snapshot reads, `apps/samebase/convex/vault/convexSchemaGraph.ts:1291`). Phase 1 stamps it only
+   on Worker rows it actually confirmed or corrected — it means Cloudflare-trigger freshness,
+   nothing broader.
 6. Existing run machinery. One `appProvisioningRuns` run per execution with trigger
-   `verify_infrastructure`, the same single-owner fencing, events for progress. Verification refuses
-   to start while another run for the vault is active.
+   `verify_infrastructure` — one new literal in `vAppProvisioningRunTrigger`
+   (`apps/samebase/convex/schema.ts:108`), the only validator edit in Phase 1 — fenced by the same
+   `vaultInfrastructureOwnership` claim pattern the blocks use, events for progress. Verification
+   refuses to start while another run for the vault is active.
 
 ## Verification Checks (Phase 1)
 
-| Axis                           | Live read                                                            | Flips when                                                                                         | Remedy the noun then names   |
-| ------------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `deployment.builds`            | Triggers by recorded `triggerUuid`; repo binding and `rootDirectory` | Trigger gone or bound to a different repo/root while the Worker itself is present                  | `wire_builds`                |
-| `deployment.convexBuildAccess` | Variable names on the recorded production and preview triggers       | `CONVEX_DEPLOY_KEY` absent on the production trigger or `PREVIEW_CONVEX_DEPLOY_KEY` on the preview | `wire_convex_build_access`   |
-| Confirmed rows                 | —                                                                    | —                                                                                                  | none; stamp `lastObservedAt` |
+| Axis                                               | Live read                                                         | Flips when                                                                                         | Remedy the noun then names                                                      |
+| -------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `deployment.builds`                                | Recorded production and preview triggers fetched by `triggerUuid` | A recorded trigger is gone (404) while the Worker itself is present                                | `wire_builds`                                                                   |
+| `deployment.convexBuildAccess`                     | Variable names on the recorded production and preview triggers    | `CONVEX_DEPLOY_KEY` absent on the production trigger or `PREVIEW_CONVEX_DEPLOY_KEY` on the preview | `wire_convex_build_access`                                                      |
+| `deployment.convexBuildAccess` (registry-internal) | none — recorded rows only                                         | Recorded `wired` with no Convex deployment row for the app root                                    | none until `attach_convex` (noun shows keys not-applicable); then the wire verb |
+| Confirmed rows                                     | —                                                                 | —                                                                                                  | none; stamp `lastObservedAt`                                                    |
 
 Rules:
 
@@ -87,26 +96,36 @@ Rules:
   `not_connected`. A Worker-scope 404 is not authoritative in Phase 1 and writes nothing: recording
   `builds: not_connected` against a deleted Worker would point the noun at `wire_builds`, which
   cannot succeed. Worker existence is Phase 2.
+- A trigger that exists but is bound to a different repo or root also does not flip in Phase 1:
+  today's `wire_builds` throws on a conflicting same-kind trigger
+  (`assertBuildTriggerMatchesRepositoryAndRoot`, `apps/samebase/convex/cloudflareResources.ts:1229`)
+  instead of repairing it, so flipping would point the noun at a dead-end remedy. Rebind detection
+  ships in Phase 2 together with that `wire_builds` repair path.
 - Flipping `builds` to `not_connected` also resets `convexBuildAccess` to `not_wired`, the
   `buildVaultCloudflareDeploymentNotConfigured` pairing: the keys were wired into triggers that no
   longer exist, and re-wiring builds creates new triggers that need access wired again.
-- Phase 1 requires no schema change. It writes existing union variants plus `lastObservedAt`.
+- Phase 1 needs no provider-row schema change — it writes existing union variants plus
+  `lastObservedAt`. The single validator edit is the new `verify_infrastructure` run-trigger literal
+  (Locked Decision 6).
 
 ## Phases
 
-Phase 1 — **Block and dashboard action**: the `verify_infrastructure` block covering the two
-Cloudflare deployment axes above; a "Verify infrastructure" entry in the app resource rail, shown
-when the vault has at least one attached Worker row, disabled while any run is active; no result UI
-beyond the refreshed noun. Truth-table tests extend the existing `nextAction` enumeration.
+Phase 1 — **Block, contract, dashboard action**: the `verify_infrastructure` block covering the
+checks above, with its action contract module shipping alongside the dashboard button (the rfcs/093
+invariant: no new operational UI button without a contract; only MCP exposure defers); a "Verify
+infrastructure" entry in the app resource rail, shown when the app has an attached Worker row,
+disabled while any run is active; no result UI beyond the refreshed noun. Truth-table tests extend
+the existing `nextAction` enumeration.
 
 Phase 2 — **Existence checks**: Worker and Convex deployment existence, each with a new explicit
 missing-upstream variant on its row and a `nextAction` mapping to `connect_cloudflare_worker` /
 `connect_convex_deployment` / `retry_infrastructure_provisioning`. This is a state-shape change and
-ships as its own reviewed slice.
+ships as its own reviewed slice. Phase 2 also takes trigger rebinding (a live trigger pointing at a
+different repo or root): detecting it requires first teaching `wire_builds` to repair a conflicting
+same-kind trigger instead of throwing, so detection and remedy land together.
 
-Phase 3 — **MCP exposure**: a `verify_infrastructure` contract joins the rfcs/093 Phase 2c catalog
-slice. For an agent the verb closes the operate loop — read the noun, act, verify, read the noun —
-and per rfcs/093 exposure is a contract file, not new provisioning code.
+Phase 3 — **MCP exposure**: the Phase 1 contract joins the rfcs/093 Phase 2c catalog slice. For an
+agent the verb closes the operate loop — read the noun, act, verify, read the noun.
 
 ## Rollout Notes
 
@@ -134,7 +153,9 @@ and per rfcs/093 exposure is a contract file, not new provisioning code.
 ## Risks
 
 - **False degraded flip**: verification wrongly marks a healthy axis. Bounded by the fail-closed
-  rule, and the cost is one redundant re-run of an idempotent wire block.
+  rule; the cost is one redundant wire re-run, which is not a silent no-op — re-running
+  `wire_convex_build_access` rotates the deploy keys (recorded keys are deleted and re-minted,
+  `apps/samebase/convex/vault/cloudflare.ts:1078`) and starts a production build.
 - **Racing an active run**: excluded by run fencing (Locked Decision 6).
 - **Builds API drift**: the env-var listing endpoint is the same one `wire_convex_build_access`
   already uses for read-back verification; both go through one shared helper.
