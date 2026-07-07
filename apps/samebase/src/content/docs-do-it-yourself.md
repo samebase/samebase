@@ -39,18 +39,15 @@ Use whatever login method you prefer. Samebase does not own these accounts.
 
 ## 2: Put the app code in GitHub
 
-Create a GitHub repository for your app. Until the Samebase starter repository is public, start from
-the official provider templates or from your own Vite app:
+The app Samebase deploys is the starter template `samebase/app`. The template is built by hand,
+commit by commit, with every option chosen and tested so the pieces work together. It is private
+today and becomes public at release; until then, the template arrives in your GitHub account through
+Samebase's `create_repository`.
+
+Without the template, bring your own app: the rest of this guide assumes a repository whose build
+outputs static assets and whose backend is Convex. Add Convex from the project checkout:
 
 ```bash
-pnpm create cloudflare@latest my-app --framework=react
-```
-
-That Cloudflare starter creates a Workers project with static assets. Add Convex to the app from the
-project checkout:
-
-```bash
-cd my-app
 pnpm add convex
 pnpm exec convex dev
 ```
