@@ -1,18 +1,7 @@
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  array,
-  bad,
-  boolean,
-  good,
-  isObject,
-  object,
-  optional,
-  string,
-  sure,
-  type InferGood,
-} from "@samebase/sure";
+import { array, boolean, isObject, object, optional, string, type InferGood } from "@samebase/sure";
 import { createServer } from "vite";
 
 import { formatWithVpFmt } from "../../../scripts/format-with-vp-fmt.ts";
@@ -56,7 +45,6 @@ const actionContractSchema = object({
 type ActionContractDoc = InferGood<typeof actionContractSchema>;
 
 const toolJsonSchema = object({
-  properties: sure((value) => (isObject(value) ? good(value) : bad({}))),
   required: optional(array(string)),
 });
 
@@ -134,18 +122,22 @@ async function loadCatalog(): Promise<LoadedCatalog> {
     const argumentLinesByMcpName = new Map<string, string>();
     contracts.forEach((contract, index) => {
       const rawContract = rawContracts[index];
-      if (!isObject(rawContract) || !isObject(rawContract.mcp)) {
+      if (
+        !isObject(rawContract) ||
+        !isObject(rawContract.args) ||
+        !isObject(rawContract.mcp) ||
+        !isObject(rawContract.mcp.inputDescriptions)
+      ) {
         throw new Error(`Contract ${contract.mcp.name} lost its raw shape during load.`);
       }
-      const [schemaIsValid, schema] = toolJsonSchema(
-        convertArgs(rawContract.args, rawContract.mcp.inputDescriptions),
-      );
-      if (!schemaIsValid) {
+      const converted = convertArgs(rawContract.args, rawContract.mcp.inputDescriptions);
+      const [schemaIsValid, schema] = toolJsonSchema(converted);
+      if (!schemaIsValid || !isObject(converted) || !isObject(converted.properties)) {
         throw new Error(`Tool input schema for ${contract.mcp.name} has an unexpected shape.`);
       }
       argumentLinesByMcpName.set(
         contract.mcp.name,
-        renderArgumentLines(schema.properties, new Set(schema.required ?? [])),
+        renderArgumentLines(converted.properties, new Set(schema.required ?? [])),
       );
     });
 
