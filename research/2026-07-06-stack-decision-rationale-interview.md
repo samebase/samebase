@@ -40,7 +40,9 @@ Cost is one input among several; the receipts page currently over-indexes on it.
   `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`,
   `rfcs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`). In June 2026 Cloudflare shipped
   self-managed public OAuth clients (receipt already gathered: changelog 2026-06-03) — the operator
-  reads that as the bet validating itself.
+  reads that as the bet validating itself. Samebase adopted the standard flow days later (v1554,
+  2026-06-22) as the primary connection path; the legacy MCP OAuth flow remains mounted pending
+  removal (see the verified answers below).
 - **Room to grow without new accounts.** Cloudflare is AWS/GCP-like in product breadth. The stack is
   deliberately as small as possible, so users are expected to outgrow it — and when they do, they
   should not face a new "AWS or Google?" decision, because the account they already connected
@@ -93,7 +95,9 @@ undocumented as an audience.
   that built Radix now works on Base UI — so Base UI is the correct pick. This is the "vibes" method
   made explicit: landscape monitoring (following the people who build the tools) plus
   agent-delegated background research, converging on a defensible call. No repo doc mentions Base UI
-  at all (spec trace) — capture-worthy on its own.
+  at all (spec trace) — capture-worthy on its own. Where it actually landed is inverted from the
+  operator's memory: samebase.com runs Base UI, the starter template still runs Radix (see the
+  verified answers below).
 
 ## Auth: the open decision
 
@@ -136,19 +140,42 @@ where a decision leans on one (e.g., the June 2026 Cloudflare OAuth changelog re
 "excluded" to load-bearing under the Cloudflare decision). First records to write:
 Cloudflare-beyond-cost, TypeScript-everywhere, Vite+, TanStack Start, Base UI, and Convex-as-bet.
 
-## Open questions for the operator (the interview continues)
+## Answers, verified (2026-07-06)
 
-1. Cloudflare OAuth timeline: is a migration from the MCP-OAuth workaround to the June 2026 public
-   OAuth clients planned/underway, and does the user-visible connect flow change?
-2. The "you'd use Cloudflare anyway for protection" argument — publish it (it is receipt-able via
-   traffic-share data), and is domain management (`vaultDomains`) near-term story or roadmap-only?
-3. Convex revert condition: what event would make you reconsider the bet (pricing, licensing,
-   acquisition, self-host maturity)? Does the local/self-hosted Convex path (already used in
-   worktree dev) count as the published escape hatch?
-4. Partial adoption (GitHub-only vaults, no Convex/Cloudflare): a supported audience worth
-   documenting, or an architectural accident not to advertise yet?
-5. Template auth: is "Convex Auth + basic JWT keys, extend via your agent" the position to publish
-   now, or does it wait until the samebase.com-vs-personal-app tension resolves?
-6. Base UI: has the template actually switched shadcn to Base UI mode, or is that decided but
-   pending? (samebase.com itself is on Radix per the architecture notes — worth recording which
-   surface uses which.)
+The operator answered the six open questions the same day; each answer was then checked against
+code, git history, the template repo, and primary sources rather than taken on faith.
+
+1. **Cloudflare OAuth migration** — "already done." Half true: the standard public-OAuth-client flow
+   shipped as v1554 (PR #1061, 2026-06-22, `apps/samebase/convex/cloudflareOAuth.ts:18-19`) and is
+   the primary path for infra reads and provisioning (`infraRead.ts`, `infraProvisioning.ts`); the
+   legacy MCP OAuth flow is still mounted alongside it (`apps/samebase/convex/http.ts:3-4`). Removal
+   flagged as a follow-up task.
+2. **The protection argument / provider UIs** — direction set: rather than reproduce provider
+   consoles, Samebase links out to them — "we don't expect you to stay in our golden cage." Pattern
+   verified: dashboard URL builders at `apps/samebase/convex/vault/dashboard.ts:482,502`, outbound
+   links in the resource rail (`vaultResourceRailState.ts:442`) and deployment rows
+   (`VaultDashboard.tsx:2865`).
+3. **Convex revert condition** — the bet became safe when Convex released the backend
+   source-available: "even if something dramatically changes, you can still self-host." Deeper:
+   "even if I'd use something else, in the end I'd just reimplement the Convex DX" — the bet is on
+   the DX shape, not the vendor. Now receipted with precision on the receipts page
+   (FSL-1.1-Apache-2.0, each release converting to Apache 2.0 after two years; self-hosting covers
+   backend, dashboard, and CLI; announced 2024-03-12).
+4. **Partial adoption** — document it: "otherwise it might seem that we are interested only in
+   people that use ONLY our stack, when in reality we're a tool that can be used in multiple
+   different ways." Verified origin: the repo seeded 2025-07-18 from a stock `npm create convex`
+   starter (a basic chat app), grew GitHub-repo editing immediately after — matching the stated
+   original intent of editing a GitHub-backed Obsidian repo from a phone — and was renamed "Noter" →
+   "noter.md" on 2026-05-01 (`03cc7f7d7`), then `noter-monorepo` → `samebase-monorepo` on 2026-06-20
+   (`b6568204d`). Editing GitHub-backed text remains a supported way to use the product.
+5. **Template auth** — "for now Convex Auth is good enough; when we get more adoption we can see
+   what people need." That is the position, not yet the shipped state: the `samebase/app` template
+   today is an unauthenticated todos app — no `@convex-dev/auth` dependency, no `auth.config.ts`
+   (only bundled agent-skill reference docs mention auth). Gap to close before the corpus claims an
+   auth baseline.
+6. **Base UI** — "switched pretty early on." True for samebase.com, inverted for the template:
+   `apps/samebase` runs Base UI (`@base-ui/react`, no Radix dependency), while `samebase/app` is on
+   Radix (`radix-ui ^1.4.3`, style `radix-nova`) from its single shadcn-init commit (2026-04-19)
+   with no migration since. AGENTS.md's architecture line said "Radix UI" for the app — stale the
+   other way — and is fixed alongside this capture. The decisions page should record which surface
+   runs which until the template migrates.

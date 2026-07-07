@@ -67,6 +67,15 @@ Last full check: 2026-07-02.
 - The Professional plan is $25 per developer per month, including 25M function calls per month and
   50 GB database storage. Source: [Convex pricing](https://www.convex.dev/pricing), checked
   2026-07-02.
+- The escape hatch is real: the Convex backend, dashboard, and CLI are source-available under
+  FSL-1.1-Apache-2.0, and each release converts to plain Apache 2.0 two years after publication.
+  Convex's own docs: self-hosting runs "the same fully up-to-date code the cloud service uses." We
+  say "source-available," not "open source" — FSL restricts building a competing hosted product
+  until the conversion. Sources:
+  [the license](https://github.com/get-convex/convex-backend/blob/main/LICENSE.md),
+  [self-hosting docs](https://docs.convex.dev/self-hosting), and the
+  [March 12, 2024 announcement](https://news.convex.dev/convex-goes-open-source/), checked
+  2026-07-06.
 
 ## The pricing contrast: Netlify
 
