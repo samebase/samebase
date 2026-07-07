@@ -15,6 +15,7 @@ export const cloudflareListAccountsContract = {
   access: ACCESS_APP_CREATE,
   args: {},
   returns: array(vCloudflareAccountResult),
+  structuredContent: object({ accounts: array(vCloudflareAccountResult) }),
   mcp: {
     name: "vault_cloudflare_listAccounts",
     description:

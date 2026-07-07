@@ -77,6 +77,7 @@ export const cloudflareListWorkersContract = {
     accountId: string(),
   },
   returns: array(vCloudflareWorkerResult),
+  structuredContent: object({ workers: array(vCloudflareWorkerResult) }),
   mcp: {
     name: "vault_cloudflare_listWorkers",
     description:

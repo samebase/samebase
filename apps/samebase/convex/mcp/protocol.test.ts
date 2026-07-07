@@ -215,7 +215,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["access_dashboard", "access_app_create"]);
+      expect(result.value.scopes).toEqual(["access_app_create", "access_dashboard"]);
     }
   });
 
@@ -232,7 +232,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["access_dashboard", "access_app_create"]);
+      expect(result.value.scopes).toEqual(["access_app_create", "access_dashboard"]);
     }
   });
   it("rejects unsupported scopes", () => {

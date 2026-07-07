@@ -23,10 +23,4 @@ axes name exactly that). Progress and failure are readable through `get_user_vau
 
 ## Returns
 
-Convex validator JSON of the tool's `structuredContent`:
-
-```json
-{
-  "type": "null"
-}
-```
+The reply is confirmation text only; the tool sets no `structuredContent`.

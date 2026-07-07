@@ -21,10 +21,4 @@ step, message, and `nextAction`).
 
 ## Returns
 
-Convex validator JSON of the tool's `structuredContent`:
-
-```json
-{
-  "type": "null"
-}
-```
+The reply is confirmation text only; the tool sets no `structuredContent`.

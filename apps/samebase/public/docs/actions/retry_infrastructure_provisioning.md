@@ -19,10 +19,4 @@ repositories repair through the manual attach and wire actions instead, exactly 
 
 ## Returns
 
-Convex validator JSON of the tool's `structuredContent`:
-
-```json
-{
-  "type": "null"
-}
-```
+The reply is confirmation text only; the tool sets no `structuredContent`.

@@ -34,18 +34,14 @@ const toolStatus = union(literal("ok"), literal("error"), literal("blocked"));
 const createRepositoryToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(createRepositoryContract.returns),
+  structuredContent: optional(createRepositoryContract.structuredContent),
 });
 type CreateRepositoryToolResult = Infer<typeof createRepositoryToolResultValidator>;
 
 const getUserVaultsToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(
-    object({
-      vaults: getUserVaultsContract.returns,
-    }),
-  ),
+  structuredContent: optional(getUserVaultsContract.structuredContent),
 });
 type GetUserVaultsToolResult = Infer<typeof getUserVaultsToolResultValidator>;
 
@@ -122,7 +118,7 @@ export const getUserVaultsTool = internalAction({
 const connectRepositoryToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(connectRepositoryContract.returns),
+  structuredContent: optional(connectRepositoryContract.structuredContent),
 });
 type ConnectRepositoryToolResult = Infer<typeof connectRepositoryToolResultValidator>;
 
@@ -164,11 +160,7 @@ export const connectRepositoryTool = internalAction({
 const convexListProjectsToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(
-    object({
-      projects: convexListProjectsContract.returns,
-    }),
-  ),
+  structuredContent: optional(convexListProjectsContract.structuredContent),
 });
 type ConvexListProjectsToolResult = Infer<typeof convexListProjectsToolResultValidator>;
 
@@ -209,11 +201,7 @@ export const convexListProjectsTool = internalAction({
 const cloudflareListAccountsToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(
-    object({
-      accounts: cloudflareListAccountsContract.returns,
-    }),
-  ),
+  structuredContent: optional(cloudflareListAccountsContract.structuredContent),
 });
 type CloudflareListAccountsToolResult = Infer<typeof cloudflareListAccountsToolResultValidator>;
 
@@ -254,11 +242,7 @@ export const cloudflareListAccountsTool = internalAction({
 const cloudflareListWorkersToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(
-    object({
-      workers: cloudflareListWorkersContract.returns,
-    }),
-  ),
+  structuredContent: optional(cloudflareListWorkersContract.structuredContent),
 });
 type CloudflareListWorkersToolResult = Infer<typeof cloudflareListWorkersToolResultValidator>;
 

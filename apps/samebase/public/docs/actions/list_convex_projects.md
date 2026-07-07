@@ -19,34 +19,42 @@ Convex validator JSON of the tool's `structuredContent`:
 
 ```json
 {
-  "type": "array",
+  "type": "object",
   "value": {
-    "type": "object",
-    "value": {
-      "projectId": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
+    "projects": {
+      "fieldType": {
+        "type": "array",
+        "value": {
+          "type": "object",
+          "value": {
+            "projectId": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
+            },
+            "projectName": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
+            },
+            "projectSlug": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
+            },
+            "teamSlug": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
+            }
+          }
+        }
       },
-      "projectName": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
-      },
-      "projectSlug": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
-      },
-      "teamSlug": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
-      }
+      "optional": false
     }
   }
 }

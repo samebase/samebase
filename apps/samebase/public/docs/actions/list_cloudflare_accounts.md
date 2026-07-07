@@ -20,22 +20,30 @@ Convex validator JSON of the tool's `structuredContent`:
 
 ```json
 {
-  "type": "array",
+  "type": "object",
   "value": {
-    "type": "object",
-    "value": {
-      "accountId": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
+    "accounts": {
+      "fieldType": {
+        "type": "array",
+        "value": {
+          "type": "object",
+          "value": {
+            "accountId": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
+            },
+            "accountName": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
+            }
+          }
+        }
       },
-      "accountName": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
-      }
+      "optional": false
     }
   }
 }

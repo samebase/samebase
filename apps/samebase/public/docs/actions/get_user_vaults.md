@@ -32,1196 +32,1204 @@ Convex validator JSON of the tool's `structuredContent`:
 
 ```json
 {
-  "type": "array",
+  "type": "object",
   "value": {
-    "type": "object",
-    "value": {
-      "_id": {
-        "fieldType": {
-          "type": "id",
-          "tableName": "vaults"
-        },
-        "optional": false
-      },
-      "_creationTime": {
-        "fieldType": {
-          "type": "number"
-        },
-        "optional": false
-      },
-      "ghRepoOwner": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
-      },
-      "ghRepoName": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
-      },
-      "repositoryFullName": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": false
-      },
-      "commitSHA": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": true
-      },
-      "fileCount": {
-        "fieldType": {
-          "type": "number"
-        },
-        "optional": false
-      },
-      "lastEditTime": {
-        "fieldType": {
-          "type": "number"
-        },
-        "optional": true
-      },
-      "lastTreeRefreshAt": {
-        "fieldType": {
-          "type": "number"
-        },
-        "optional": true
-      },
-      "treeRefreshStartedAt": {
-        "fieldType": {
-          "type": "number"
-        },
-        "optional": true
-      },
-      "lastTreeRefreshFailedAt": {
-        "fieldType": {
-          "type": "number"
-        },
-        "optional": true
-      },
-      "treeRefreshFailureKind": {
-        "fieldType": {
-          "type": "union",
-          "value": [
-            {
-              "type": "literal",
-              "value": "failed"
+    "vaults": {
+      "fieldType": {
+        "type": "array",
+        "value": {
+          "type": "object",
+          "value": {
+            "_id": {
+              "fieldType": {
+                "type": "id",
+                "tableName": "vaults"
+              },
+              "optional": false
             },
-            {
-              "type": "literal",
-              "value": "rate_limited"
-            }
-          ]
-        },
-        "optional": true
-      },
-      "treeRefreshFailureMessage": {
-        "fieldType": {
-          "type": "string"
-        },
-        "optional": true
-      },
-      "treeRefreshCooldownUntil": {
-        "fieldType": {
-          "type": "number"
-        },
-        "optional": true
-      },
-      "state": {
-        "fieldType": {
-          "type": "union",
-          "value": [
-            {
-              "type": "literal",
-              "value": "copying_files"
+            "_creationTime": {
+              "fieldType": {
+                "type": "number"
+              },
+              "optional": false
             },
-            {
-              "type": "literal",
-              "value": "ready"
+            "ghRepoOwner": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
             },
-            {
-              "type": "literal",
-              "value": "failed"
-            }
-          ]
-        },
-        "optional": false
-      },
-      "sourceSetup": {
-        "fieldType": {
-          "type": "union",
-          "value": [
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
-                    "type": "literal",
-                    "value": "not_applicable"
-                  },
-                  "optional": false
-                }
-              }
+            "ghRepoName": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
             },
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
-                    "type": "literal",
-                    "value": "ready"
-                  },
-                  "optional": false
-                }
-              }
+            "repositoryFullName": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": false
             },
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
-                    "type": "literal",
-                    "value": "running"
-                  },
-                  "optional": false
-                },
-                "runId": {
-                  "fieldType": {
-                    "type": "id",
-                    "tableName": "appProvisioningRuns"
-                  },
-                  "optional": false
-                },
-                "step": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "run_created"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "initialize_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "validate_connections"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "fetch_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "seed_starter"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "connect_github"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "sync_tree"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "claim_infra"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_worker"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_builds"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_convex_build_access"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "record_domains"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "finish"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "updatedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                }
-              }
+            "commitSHA": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": true
             },
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
+            "fileCount": {
+              "fieldType": {
+                "type": "number"
+              },
+              "optional": false
+            },
+            "lastEditTime": {
+              "fieldType": {
+                "type": "number"
+              },
+              "optional": true
+            },
+            "lastTreeRefreshAt": {
+              "fieldType": {
+                "type": "number"
+              },
+              "optional": true
+            },
+            "treeRefreshStartedAt": {
+              "fieldType": {
+                "type": "number"
+              },
+              "optional": true
+            },
+            "lastTreeRefreshFailedAt": {
+              "fieldType": {
+                "type": "number"
+              },
+              "optional": true
+            },
+            "treeRefreshFailureKind": {
+              "fieldType": {
+                "type": "union",
+                "value": [
+                  {
                     "type": "literal",
                     "value": "failed"
                   },
-                  "optional": false
-                },
-                "runId": {
-                  "fieldType": {
-                    "type": "id",
-                    "tableName": "appProvisioningRuns"
-                  },
-                  "optional": false
-                },
-                "step": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "run_created"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "initialize_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "validate_connections"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "fetch_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "seed_starter"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "connect_github"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "sync_tree"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "claim_infra"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_worker"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_builds"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_convex_build_access"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "record_domains"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "finish"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "message": {
-                  "fieldType": {
-                    "type": "string"
-                  },
-                  "optional": false
-                },
-                "updatedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                }
-              }
-            }
-          ]
-        },
-        "optional": false
-      },
-      "providerSetup": {
-        "fieldType": {
-          "type": "union",
-          "value": [
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
+                  {
                     "type": "literal",
-                    "value": "not_applicable"
-                  },
-                  "optional": false
-                }
-              }
+                    "value": "rate_limited"
+                  }
+                ]
+              },
+              "optional": true
             },
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
+            "treeRefreshFailureMessage": {
+              "fieldType": {
+                "type": "string"
+              },
+              "optional": true
+            },
+            "treeRefreshCooldownUntil": {
+              "fieldType": {
+                "type": "number"
+              },
+              "optional": true
+            },
+            "state": {
+              "fieldType": {
+                "type": "union",
+                "value": [
+                  {
+                    "type": "literal",
+                    "value": "copying_files"
+                  },
+                  {
                     "type": "literal",
                     "value": "ready"
                   },
-                  "optional": false
-                }
-              }
-            },
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
-                    "type": "literal",
-                    "value": "running"
-                  },
-                  "optional": false
-                },
-                "provider": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cloudflare"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "source": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "managed"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "manual"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "runId": {
-                  "fieldType": {
-                    "type": "id",
-                    "tableName": "appProvisioningRuns"
-                  },
-                  "optional": false
-                },
-                "step": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "run_created"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "initialize_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "validate_connections"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "fetch_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "seed_starter"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "connect_github"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "sync_tree"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "claim_infra"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_worker"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_builds"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_convex_build_access"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "record_domains"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "finish"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "updatedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                }
-              }
-            },
-            {
-              "type": "object",
-              "value": {
-                "status": {
-                  "fieldType": {
+                  {
                     "type": "literal",
                     "value": "failed"
-                  },
-                  "optional": false
-                },
-                "provider": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cloudflare"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "source": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "managed"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "manual"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "runId": {
-                  "fieldType": {
-                    "type": "id",
-                    "tableName": "appProvisioningRuns"
-                  },
-                  "optional": false
-                },
-                "step": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "run_created"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "initialize_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "validate_connections"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "fetch_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "seed_starter"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "connect_github"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "create_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "sync_tree"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "claim_infra"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "attach_worker"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_builds"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_convex_build_access"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "record_domains"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "finish"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "message": {
-                  "fieldType": {
-                    "type": "string"
-                  },
-                  "optional": false
-                },
-                "updatedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                },
-                "nextAction": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "retry_infrastructure_provisioning"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "connect_convex_deployment"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "connect_cloudflare_worker"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_builds"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "wire_convex_build_access"
-                      }
-                    ]
-                  },
-                  "optional": false
-                }
-              }
-            }
-          ]
-        },
-        "optional": false
-      },
-      "deletion": {
-        "fieldType": {
-          "type": "union",
-          "value": [
-            {
-              "type": "object",
-              "value": {
-                "state": {
-                  "fieldType": {
-                    "type": "literal",
-                    "value": "not_deleting"
-                  },
-                  "optional": false
-                },
-                "deleteAction": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "object",
-                        "value": {
-                          "state": {
-                            "fieldType": {
-                              "type": "literal",
-                              "value": "available"
-                            },
-                            "optional": false
-                          }
-                        }
-                      },
-                      {
-                        "type": "object",
-                        "value": {
-                          "state": {
-                            "fieldType": {
-                              "type": "literal",
-                              "value": "disabled"
-                            },
-                            "optional": false
-                          },
-                          "reason": {
-                            "fieldType": {
-                              "type": "string"
-                            },
-                            "optional": false
-                          }
-                        }
-                      }
-                    ]
-                  },
-                  "optional": false
-                }
-              }
-            },
-            {
-              "type": "object",
-              "value": {
-                "state": {
-                  "fieldType": {
-                    "type": "literal",
-                    "value": "deleting"
-                  },
-                  "optional": false
-                },
-                "runId": {
-                  "fieldType": {
-                    "type": "id",
-                    "tableName": "vaultDeletionRuns"
-                  },
-                  "optional": false
-                },
-                "requestedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                },
-                "currentStep": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "initialize_deletion"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "lock_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_codespaces"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_cloudflare"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_editor_state"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_source_caches"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_runtime_state"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_access_state"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "detach_agent_context"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_provisioning_history"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "finish"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "message": {
-                  "fieldType": {
-                    "type": "string"
-                  },
-                  "optional": false
-                },
-                "updatedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                }
-              }
-            },
-            {
-              "type": "object",
-              "value": {
-                "state": {
-                  "fieldType": {
-                    "type": "literal",
-                    "value": "delete_failed"
-                  },
-                  "optional": false
-                },
-                "runId": {
-                  "fieldType": {
-                    "type": "id",
-                    "tableName": "vaultDeletionRuns"
-                  },
-                  "optional": false
-                },
-                "failedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                },
-                "currentStep": {
-                  "fieldType": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "initialize_deletion"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "lock_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_codespaces"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_cloudflare"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_convex"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_github_repo"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_editor_state"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_source_caches"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_runtime_state"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_access_state"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "detach_agent_context"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "cleanup_provisioning_history"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "delete_vault"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "finish"
-                      }
-                    ]
-                  },
-                  "optional": false
-                },
-                "message": {
-                  "fieldType": {
-                    "type": "string"
-                  },
-                  "optional": false
-                },
-                "lastError": {
-                  "fieldType": {
-                    "type": "string"
-                  },
-                  "optional": false
-                },
-                "updatedAt": {
-                  "fieldType": {
-                    "type": "number"
-                  },
-                  "optional": false
-                }
-              }
-            }
-          ]
-        },
-        "optional": false
-      },
-      "isSamebaseManaged": {
-        "fieldType": {
-          "type": "boolean"
-        },
-        "optional": false
-      },
-      "hasConnectedGitHubRepository": {
-        "fieldType": {
-          "type": "boolean"
-        },
-        "optional": false
-      },
-      "hasConvexProvision": {
-        "fieldType": {
-          "type": "boolean"
-        },
-        "optional": false
-      },
-      "hasCloudflareProvision": {
-        "fieldType": {
-          "type": "boolean"
-        },
-        "optional": false
-      },
-      "canRemoveConvexProvision": {
-        "fieldType": {
-          "type": "boolean"
-        },
-        "optional": false
-      },
-      "canRemoveCloudflareProvision": {
-        "fieldType": {
-          "type": "boolean"
-        },
-        "optional": false
-      },
-      "appRoots": {
-        "fieldType": {
-          "type": "array",
-          "value": {
-            "type": "object",
-            "value": {
-              "appRoot": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              }
-            }
-          }
-        },
-        "optional": false
-      },
-      "cloudflareWorkers": {
-        "fieldType": {
-          "type": "array",
-          "value": {
-            "type": "object",
-            "value": {
-              "appRoot": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
+                  }
+                ]
               },
-              "convexDeployKeys": {
-                "fieldType": {
-                  "type": "union",
-                  "value": [
-                    {
-                      "type": "object",
-                      "value": {
-                        "state": {
-                          "fieldType": {
-                            "type": "literal",
-                            "value": "missing"
-                          },
-                          "optional": false
+              "optional": false
+            },
+            "sourceSetup": {
+              "fieldType": {
+                "type": "union",
+                "value": [
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "not_applicable"
                         },
-                        "nextAction": {
-                          "fieldType": {
-                            "type": "literal",
-                            "value": "wire_convex_build_access"
-                          },
-                          "optional": false
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "value": {
-                        "state": {
-                          "fieldType": {
-                            "type": "literal",
-                            "value": "not_applicable"
-                          },
-                          "optional": false
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "value": {
-                        "state": {
-                          "fieldType": {
-                            "type": "literal",
-                            "value": "set"
-                          },
-                          "optional": false
-                        }
+                        "optional": false
                       }
                     }
-                  ]
-                },
-                "optional": false
-              },
-              "githubRepositoryConnection": {
-                "fieldType": {
-                  "type": "union",
-                  "value": [
-                    {
-                      "type": "object",
-                      "value": {
-                        "state": {
-                          "fieldType": {
-                            "type": "literal",
-                            "value": "connected"
-                          },
-                          "optional": false
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "value": {
-                        "state": {
-                          "fieldType": {
-                            "type": "literal",
-                            "value": "not_connected"
-                          },
-                          "optional": false
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "ready"
                         },
-                        "nextAction": {
-                          "fieldType": {
-                            "type": "literal",
-                            "value": "wire_builds"
-                          },
-                          "optional": false
-                        }
+                        "optional": false
                       }
                     }
-                  ]
-                },
-                "optional": false
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "running"
+                        },
+                        "optional": false
+                      },
+                      "runId": {
+                        "fieldType": {
+                          "type": "id",
+                          "tableName": "appProvisioningRuns"
+                        },
+                        "optional": false
+                      },
+                      "step": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "run_created"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "initialize_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "validate_connections"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "fetch_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "seed_starter"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "connect_github"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "sync_tree"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "claim_infra"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_worker"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_builds"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_convex_build_access"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "record_domains"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "finish"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "updatedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "failed"
+                        },
+                        "optional": false
+                      },
+                      "runId": {
+                        "fieldType": {
+                          "type": "id",
+                          "tableName": "appProvisioningRuns"
+                        },
+                        "optional": false
+                      },
+                      "step": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "run_created"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "initialize_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "validate_connections"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "fetch_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "seed_starter"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "connect_github"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "sync_tree"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "claim_infra"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_worker"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_builds"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_convex_build_access"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "record_domains"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "finish"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "message": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "updatedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      }
+                    }
+                  }
+                ]
               },
-              "lastObservedAt": {
-                "fieldType": {
-                  "type": "number"
-                },
-                "optional": false
+              "optional": false
+            },
+            "providerSetup": {
+              "fieldType": {
+                "type": "union",
+                "value": [
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "not_applicable"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "ready"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "running"
+                        },
+                        "optional": false
+                      },
+                      "provider": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cloudflare"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "source": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "managed"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "manual"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "runId": {
+                        "fieldType": {
+                          "type": "id",
+                          "tableName": "appProvisioningRuns"
+                        },
+                        "optional": false
+                      },
+                      "step": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "run_created"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "initialize_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "validate_connections"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "fetch_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "seed_starter"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "connect_github"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "sync_tree"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "claim_infra"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_worker"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_builds"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_convex_build_access"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "record_domains"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "finish"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "updatedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "status": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "failed"
+                        },
+                        "optional": false
+                      },
+                      "provider": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cloudflare"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "source": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "managed"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "manual"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "runId": {
+                        "fieldType": {
+                          "type": "id",
+                          "tableName": "appProvisioningRuns"
+                        },
+                        "optional": false
+                      },
+                      "step": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "run_created"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "initialize_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "validate_connections"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "fetch_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "seed_starter"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "connect_github"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "create_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "sync_tree"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "claim_infra"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "attach_worker"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_builds"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_convex_build_access"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "record_domains"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "finish"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "message": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "updatedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      },
+                      "nextAction": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "retry_infrastructure_provisioning"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "connect_convex_deployment"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "connect_cloudflare_worker"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_builds"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wire_convex_build_access"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      }
+                    }
+                  }
+                ]
               },
-              "workerName": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
+              "optional": false
+            },
+            "deletion": {
+              "fieldType": {
+                "type": "union",
+                "value": [
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "not_deleting"
+                        },
+                        "optional": false
+                      },
+                      "deleteAction": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "object",
+                              "value": {
+                                "state": {
+                                  "fieldType": {
+                                    "type": "literal",
+                                    "value": "available"
+                                  },
+                                  "optional": false
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "value": {
+                                "state": {
+                                  "fieldType": {
+                                    "type": "literal",
+                                    "value": "disabled"
+                                  },
+                                  "optional": false
+                                },
+                                "reason": {
+                                  "fieldType": {
+                                    "type": "string"
+                                  },
+                                  "optional": false
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "deleting"
+                        },
+                        "optional": false
+                      },
+                      "runId": {
+                        "fieldType": {
+                          "type": "id",
+                          "tableName": "vaultDeletionRuns"
+                        },
+                        "optional": false
+                      },
+                      "requestedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      },
+                      "currentStep": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "initialize_deletion"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "lock_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_codespaces"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_cloudflare"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_editor_state"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_source_caches"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_runtime_state"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_access_state"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "detach_agent_context"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_provisioning_history"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "finish"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "message": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "updatedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "delete_failed"
+                        },
+                        "optional": false
+                      },
+                      "runId": {
+                        "fieldType": {
+                          "type": "id",
+                          "tableName": "vaultDeletionRuns"
+                        },
+                        "optional": false
+                      },
+                      "failedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      },
+                      "currentStep": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "initialize_deletion"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "lock_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_codespaces"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_cloudflare"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_convex"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_github_repo"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_editor_state"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_source_caches"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_runtime_state"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_access_state"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "detach_agent_context"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "cleanup_provisioning_history"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "delete_vault"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "finish"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "message": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "lastError": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "updatedAt": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      }
+                    }
+                  }
+                ]
               },
-              "workersDevUrl": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": true
+              "optional": false
+            },
+            "isSamebaseManaged": {
+              "fieldType": {
+                "type": "boolean"
               },
-              "projectDashboardUrl": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": true
-              }
+              "optional": false
+            },
+            "hasConnectedGitHubRepository": {
+              "fieldType": {
+                "type": "boolean"
+              },
+              "optional": false
+            },
+            "hasConvexProvision": {
+              "fieldType": {
+                "type": "boolean"
+              },
+              "optional": false
+            },
+            "hasCloudflareProvision": {
+              "fieldType": {
+                "type": "boolean"
+              },
+              "optional": false
+            },
+            "canRemoveConvexProvision": {
+              "fieldType": {
+                "type": "boolean"
+              },
+              "optional": false
+            },
+            "canRemoveCloudflareProvision": {
+              "fieldType": {
+                "type": "boolean"
+              },
+              "optional": false
+            },
+            "appRoots": {
+              "fieldType": {
+                "type": "array",
+                "value": {
+                  "type": "object",
+                  "value": {
+                    "appRoot": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    }
+                  }
+                }
+              },
+              "optional": false
+            },
+            "cloudflareWorkers": {
+              "fieldType": {
+                "type": "array",
+                "value": {
+                  "type": "object",
+                  "value": {
+                    "appRoot": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "convexDeployKeys": {
+                      "fieldType": {
+                        "type": "union",
+                        "value": [
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "missing"
+                                },
+                                "optional": false
+                              },
+                              "nextAction": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "wire_convex_build_access"
+                                },
+                                "optional": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "not_applicable"
+                                },
+                                "optional": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "set"
+                                },
+                                "optional": false
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "optional": false
+                    },
+                    "githubRepositoryConnection": {
+                      "fieldType": {
+                        "type": "union",
+                        "value": [
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "connected"
+                                },
+                                "optional": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "not_connected"
+                                },
+                                "optional": false
+                              },
+                              "nextAction": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "wire_builds"
+                                },
+                                "optional": false
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "optional": false
+                    },
+                    "lastObservedAt": {
+                      "fieldType": {
+                        "type": "number"
+                      },
+                      "optional": false
+                    },
+                    "workerName": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "workersDevUrl": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": true
+                    },
+                    "projectDashboardUrl": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": true
+                    }
+                  }
+                }
+              },
+              "optional": false
+            },
+            "convexDeployments": {
+              "fieldType": {
+                "type": "array",
+                "value": {
+                  "type": "object",
+                  "value": {
+                    "appRoot": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "projectId": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "projectSlug": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "teamSlug": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "deploymentName": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "cloudUrl": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "siteUrl": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "projectSettingsDashboardUrl": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": true
+                    },
+                    "deploymentDashboardUrl": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": true
+                    }
+                  }
+                }
+              },
+              "optional": false
             }
           }
-        },
-        "optional": false
+        }
       },
-      "convexDeployments": {
-        "fieldType": {
-          "type": "array",
-          "value": {
-            "type": "object",
-            "value": {
-              "appRoot": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              },
-              "projectId": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              },
-              "projectSlug": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              },
-              "teamSlug": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              },
-              "deploymentName": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              },
-              "cloudUrl": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              },
-              "siteUrl": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": false
-              },
-              "projectSettingsDashboardUrl": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": true
-              },
-              "deploymentDashboardUrl": {
-                "fieldType": {
-                  "type": "string"
-                },
-                "optional": true
-              }
-            }
-          }
-        },
-        "optional": false
-      }
+      "optional": false
     }
   }
 }

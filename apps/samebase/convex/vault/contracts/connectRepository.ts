@@ -4,16 +4,19 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 
 const { id, object, string } = v;
 
+const vConnectRepositoryResult = object({
+  vaultId: id("vaults"),
+  runId: id("appProvisioningRuns"),
+});
+
 export const connectRepositoryContract = {
   id: "connect_existing_repository",
   access: "access_repo_connect",
   args: {
     repositoryFullName: string(),
   },
-  returns: object({
-    vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
-  }),
+  returns: vConnectRepositoryResult,
+  structuredContent: vConnectRepositoryResult,
   mcp: {
     name: "vault_actions_connectRepository",
     description:

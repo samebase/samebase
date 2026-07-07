@@ -135,64 +135,67 @@ export const vVaultDeletionSummary = union(
   }),
 );
 
+const vUserVaultsResult = array(
+  object({
+    _id: id("vaults"),
+    _creationTime: number(),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    repositoryFullName: string(),
+    commitSHA: optional(string()),
+    fileCount: number(),
+    lastEditTime: optional(number()),
+    lastTreeRefreshAt: optional(number()),
+    treeRefreshStartedAt: optional(number()),
+    ...treeRefreshFailureFields,
+    state: union(literal("copying_files"), literal("ready"), literal("failed")),
+    sourceSetup: vSourceSetupSummary,
+    providerSetup: vProviderSetupSummary,
+    deletion: vVaultDeletionSummary,
+    isSamebaseManaged: boolean(),
+    hasConnectedGitHubRepository: boolean(),
+    hasConvexProvision: boolean(),
+    hasCloudflareProvision: boolean(),
+    canRemoveConvexProvision: boolean(),
+    canRemoveCloudflareProvision: boolean(),
+    appRoots: array(
+      object({
+        appRoot: string(),
+      }),
+    ),
+    cloudflareWorkers: array(
+      object({
+        appRoot: string(),
+        convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
+        githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
+        lastObservedAt: number(),
+        workerName: string(),
+        workersDevUrl: optional(string()),
+        projectDashboardUrl: optional(string()),
+      }),
+    ),
+    convexDeployments: array(
+      object({
+        appRoot: string(),
+        projectId: string(),
+        projectSlug: string(),
+        teamSlug: string(),
+        deploymentName: string(),
+        cloudUrl: string(),
+        siteUrl: string(),
+        projectSettingsDashboardUrl: optional(string()),
+        deploymentDashboardUrl: optional(string()),
+      }),
+    ),
+  }),
+);
+
 export const getUserVaultsContract = {
   id: "get_user_vaults",
   access: "access_dashboard",
   args: {},
-  returns: array(
-    object({
-      _id: id("vaults"),
-      _creationTime: number(),
-      ghRepoOwner: string(),
-      ghRepoName: string(),
-      repositoryFullName: string(),
-      commitSHA: optional(string()),
-      fileCount: number(),
-      lastEditTime: optional(number()),
-      lastTreeRefreshAt: optional(number()),
-      treeRefreshStartedAt: optional(number()),
-      ...treeRefreshFailureFields,
-      state: union(literal("copying_files"), literal("ready"), literal("failed")),
-      sourceSetup: vSourceSetupSummary,
-      providerSetup: vProviderSetupSummary,
-      deletion: vVaultDeletionSummary,
-      isSamebaseManaged: boolean(),
-      hasConnectedGitHubRepository: boolean(),
-      hasConvexProvision: boolean(),
-      hasCloudflareProvision: boolean(),
-      canRemoveConvexProvision: boolean(),
-      canRemoveCloudflareProvision: boolean(),
-      appRoots: array(
-        object({
-          appRoot: string(),
-        }),
-      ),
-      cloudflareWorkers: array(
-        object({
-          appRoot: string(),
-          convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
-          githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
-          lastObservedAt: number(),
-          workerName: string(),
-          workersDevUrl: optional(string()),
-          projectDashboardUrl: optional(string()),
-        }),
-      ),
-      convexDeployments: array(
-        object({
-          appRoot: string(),
-          projectId: string(),
-          projectSlug: string(),
-          teamSlug: string(),
-          deploymentName: string(),
-          cloudUrl: string(),
-          siteUrl: string(),
-          projectSettingsDashboardUrl: optional(string()),
-          deploymentDashboardUrl: optional(string()),
-        }),
-      ),
-    }),
-  ),
+  returns: vUserVaultsResult,
+  structuredContent: object({ vaults: vUserVaultsResult }),
   mcp: {
     name: "vault_dashboard_getUserVaults",
     description:

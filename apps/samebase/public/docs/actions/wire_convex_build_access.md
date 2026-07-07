@@ -22,10 +22,4 @@ Cloudflare, both in the caller's own accounts; no user data is touched.
 
 ## Returns
 
-Convex validator JSON of the tool's `structuredContent`:
-
-```json
-{
-  "type": "null"
-}
-```
+The reply is confirmation text only; the tool sets no `structuredContent`.

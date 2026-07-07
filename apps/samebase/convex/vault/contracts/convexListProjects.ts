@@ -17,6 +17,7 @@ export const convexListProjectsContract = {
   access: ACCESS_APP_CREATE,
   args: {},
   returns: array(vConvexProjectResult),
+  structuredContent: object({ projects: array(vConvexProjectResult) }),
   mcp: {
     name: "vault_convex_listProjects",
     description:

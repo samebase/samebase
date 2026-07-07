@@ -5,6 +5,11 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 
 const { boolean, id, object, optional, string } = v;
 
+const vCreateRepositoryResult = object({
+  vaultId: id("vaults"),
+  runId: id("appProvisioningRuns"),
+});
+
 export const createRepositoryContract = {
   id: "create_repository",
   access: ACCESS_APP_CREATE,
@@ -16,10 +21,8 @@ export const createRepositoryContract = {
     description: optional(string()),
     private: optional(boolean()),
   },
-  returns: object({
-    vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
-  }),
+  returns: vCreateRepositoryResult,
+  structuredContent: vCreateRepositoryResult,
   mcp: {
     name: "vault_actions_createRepository",
     description:
