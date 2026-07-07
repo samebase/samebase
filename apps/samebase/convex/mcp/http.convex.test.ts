@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { makeConvexTest } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
+import { isRecord } from "../jsonUtils";
+import { sha256Hex } from "./tokens";
 import {
   buildMcpToolInvocationArgs,
   listMcpToolsForAccess,
@@ -229,5 +231,116 @@ describe("MCP usage attribution dimensions", () => {
     expect(readMcpToolNameForUsage({ name: "caller controlled text" })).toBe("unknown");
     expect(readMcpToolNameForUsage({ name: "" })).toBe("unknown");
     expect(readMcpToolNameForUsage(null)).toBe("unknown");
+  });
+});
+
+describe("MCP tools/call access enforcement", () => {
+  async function seedMcpBearer(args: { isApproved: boolean }) {
+    const t = makeConvexTest();
+    const metadataResponse = await t.fetch("/.well-known/oauth-protected-resource");
+    const metadata = await metadataResponse.json();
+    if (!isRecord(metadata) || typeof metadata.resource !== "string") {
+      throw new Error("Protected resource metadata did not expose the MCP resource.");
+    }
+    const resource = metadata.resource;
+
+    const accessToken = "test-mcp-access-token";
+    const tokenHash = await sha256Hex(accessToken);
+    const now = Date.now();
+    const userId = await t.run(async (ctx) => {
+      const seededUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: args.isApproved,
+      });
+      await ctx.db.insert("mcpOauthClients", {
+        clientId: "client_test",
+        redirectUris: ["https://example.com/callback"],
+        grantTypes: ["authorization_code"],
+        responseTypes: ["code"],
+        tokenEndpointAuthMethod: "none",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "dynamic_registration",
+        registrationStatus: "active",
+        metadataJson: "{}",
+      });
+      await ctx.db.insert("mcpGrants", {
+        grantId: "grant_test",
+        userId: seededUserId,
+        clientId: "client_test",
+        resource,
+        scope: "access_dashboard access_app_create",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("mcpAccessTokens", {
+        tokenHash,
+        grantId: "grant_test",
+        clientId: "client_test",
+        userId: seededUserId,
+        resource,
+        scope: "access_dashboard access_app_create",
+        createdAt: now,
+        expiresAt: now + 60 * 60 * 1000,
+      });
+      return seededUserId;
+    });
+
+    const callTool = async (name: string) => {
+      const response = await t.fetch("/mcp", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name, arguments: {} },
+        }),
+      });
+      return await response.json();
+    };
+
+    return { callTool, userId };
+  }
+
+  it("rejects a scoped token when the user's current access no longer allows the tool", async () => {
+    // role_pending_access carries neither access_dashboard nor
+    // access_app_create, while the token still names both scopes — the exact
+    // stale-token-after-downgrade case the dispatch gate exists for.
+    const { callTool } = await seedMcpBearer({ isApproved: false });
+
+    const payload = await callTool("vault_actions_createRepository");
+    expect(payload).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: "Insufficient access for vault_actions_createRepository.",
+          },
+        ],
+      },
+    });
+  });
+
+  it("executes the tool when scopes and current access both allow it", async () => {
+    const { callTool } = await seedMcpBearer({ isApproved: true });
+
+    const payload = await callTool("vault_dashboard_getUserVaults");
+    expect(payload).toMatchObject({
+      result: {
+        content: [
+          {
+            type: "text",
+            text: "Found 0 vaults.",
+          },
+        ],
+      },
+    });
   });
 });
