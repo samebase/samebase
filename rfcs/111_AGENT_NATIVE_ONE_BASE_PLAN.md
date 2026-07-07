@@ -21,7 +21,9 @@
 - Related research: `research/2026-07-02-landing-copy-interview.md`,
   `research/2026-07-02-landing-copy-receipts.md`,
   `research/2026-05-18-convex-native-ai-app-builder-competitors.md`,
-  `research/2026-06-25-noter-guest-create-app-manual-test.md`
+  `research/2026-06-25-noter-guest-create-app-manual-test.md`,
+  `research/2026-07-06-samebase-pitch-language.md`,
+  `research/2026-07-06-stack-decision-rationale-interview.md`
 
 ## Thesis
 
@@ -241,6 +243,10 @@ Phase 1 — **Corpus** (no product-behavior changes; independent of Phase 2):
   raw `.md` renderings of the markdown-sourced docs, `/llms.txt`, and the eval question panel in
   `research/2026-07-06-agent-landing-eval-questions.md`.
 - The Lovable comparison ships as its own follow-up PR; the most sensitive copy gets focused review.
+- Follow-up corpus item: a `/docs/decisions` page — one record per stack decision (context →
+  decision → validating events, dated → tier: baked-in / replaceable default / open → revert
+  condition), sourced from `research/2026-07-06-stack-decision-rationale-interview.md`. Receipts
+  stay facts-only; decisions cross-link the receipts they lean on.
 - Run the first manual eval round once this slice deploys; fix the corpus until answers are correct
   and fair.
 
