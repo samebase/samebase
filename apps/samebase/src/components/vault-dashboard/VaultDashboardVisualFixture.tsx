@@ -1510,7 +1510,6 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
           onSubmit={() => {}}
           open={true}
           vault={{
-            appRoots: ["."],
             hasAppRoots: true,
             hasRootAppRoot: true,
             id: fakeVaultId(),
@@ -1544,6 +1543,7 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
         <VaultDashboardAppRootDialog
           appRoot="."
           error={null}
+          folderSuggestions={[]}
           isSubmitting={false}
           mode="app"
           onAppRootChange={() => {}}
@@ -1552,7 +1552,6 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
           onSubmit={() => {}}
           open={true}
           vault={{
-            appRoots: [],
             hasAppRoots: false,
             hasRootAppRoot: false,
             id: fakeVaultId(),

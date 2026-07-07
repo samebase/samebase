@@ -527,6 +527,12 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
       });
+      await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        appRoot: "apps",
+        createdAt: 21,
+      });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
         branch: "main",
@@ -556,7 +562,7 @@ describe("vault dashboard Convex contract", () => {
       asUser.query(api.vault.dashboard.listVaultAppRootFolderSuggestions, {
         vaultId: ids.vaultId,
       }),
-    ).resolves.toEqual(["apps", "apps/samebase", "packages"]);
+    ).resolves.toEqual(["apps/samebase", "packages"]);
   });
 
   it("blocks monorepo conversion while root providers are attached", async () => {

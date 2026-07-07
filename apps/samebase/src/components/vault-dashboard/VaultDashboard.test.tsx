@@ -945,6 +945,7 @@ describe("VaultDashboardAppRootDialog", () => {
       <VaultDashboardAppRootDialog
         appRoot="."
         error={null}
+        folderSuggestions={[]}
         isSubmitting={false}
         mode="app"
         onAppRootChange={vi.fn()}
@@ -953,7 +954,6 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
-          appRoots: [],
           hasAppRoots: false,
           hasRootAppRoot: false,
           id: fakeVaultId(),
@@ -976,6 +976,7 @@ describe("VaultDashboardAppRootDialog", () => {
       <VaultDashboardAppRootDialog
         appRoot="apps/domain-router"
         error={null}
+        folderSuggestions={[]}
         isSubmitting={false}
         mode="monorepo"
         onAppRootChange={vi.fn()}
@@ -984,7 +985,6 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
-          appRoots: [],
           hasAppRoots: false,
           hasRootAppRoot: false,
           id: fakeVaultId(),
@@ -1006,6 +1006,7 @@ describe("VaultDashboardAppRootDialog", () => {
       <VaultDashboardAppRootDialog
         appRoot="apps/domain-router"
         error={null}
+        folderSuggestions={[]}
         isSubmitting={false}
         mode="monorepo"
         onAppRootChange={vi.fn()}
@@ -1014,7 +1015,6 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
-          appRoots: ["."],
           hasAppRoots: true,
           hasRootAppRoot: true,
           id: fakeVaultId(),

@@ -39,6 +39,7 @@ function renderAppRootDialog({
   mode = "app",
   onAppRootChange = vi.fn(),
   onModeChange,
+  onOpenChange = vi.fn(),
   onSubmit = vi.fn(),
 }: {
   appRoot?: string;
@@ -46,6 +47,7 @@ function renderAppRootDialog({
   mode?: "app" | "monorepo";
   onAppRootChange?: (appRoot: string) => void;
   onModeChange: (mode: "app" | "monorepo") => void;
+  onOpenChange?: (isOpen: boolean) => void;
   onSubmit?: () => void;
 }) {
   rootElement = document.createElement("div");
@@ -62,11 +64,10 @@ function renderAppRootDialog({
         mode={mode}
         onAppRootChange={onAppRootChange}
         onModeChange={onModeChange}
-        onOpenChange={vi.fn()}
+        onOpenChange={onOpenChange}
         onSubmit={onSubmit}
         open
         vault={{
-          appRoots: [],
           hasAppRoots: false,
           hasRootAppRoot: false,
           id: fakeVaultId(),
@@ -110,7 +111,72 @@ describe("VaultDashboardAppRootDialog interactions", () => {
     expect(onModeChange).toHaveBeenCalledWith("monorepo");
   });
 
-  it("selects a folder suggestion with Enter before submitting", () => {
+  it("keeps suggestions closed when the empty input receives focus", () => {
+    const onModeChange = vi.fn();
+    const container = renderAppRootDialog({
+      appRoot: "",
+      folderSuggestions: ["apps/api", "apps/samebase"],
+      mode: "monorepo",
+      onModeChange,
+    });
+    const appRootInput = container.querySelector('input[aria-label="App root"]');
+    if (!(appRootInput instanceof HTMLInputElement)) {
+      throw new Error("Expected app root input.");
+    }
+
+    act(() => {
+      appRootInput.focus();
+    });
+
+    expect(container.querySelector('[role="option"]')).toBeNull();
+  });
+
+  it("leaves Enter available for typed app-root submission until a suggestion is selected", () => {
+    const onAppRootChange = vi.fn();
+    const onModeChange = vi.fn();
+    const onSubmit = vi.fn();
+    const container = renderAppRootDialog({
+      appRoot: "api",
+      folderSuggestions: ["apps/api", "apps/samebase"],
+      mode: "monorepo",
+      onAppRootChange,
+      onModeChange,
+      onSubmit,
+    });
+    const appRootInput = container.querySelector('input[aria-label="App root"]');
+    if (!(appRootInput instanceof HTMLInputElement)) {
+      throw new Error("Expected app root input.");
+    }
+    const form = container.querySelector("form");
+    if (!(form instanceof HTMLFormElement)) {
+      throw new Error("Expected app root form.");
+    }
+
+    act(() => {
+      appRootInput.focus();
+    });
+
+    expect(container.textContent).toContain("apps/api");
+
+    const keyEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    });
+    act(() => {
+      appRootInput.dispatchEvent(keyEvent);
+    });
+    expect(keyEvent.defaultPrevented).toBe(false);
+    expect(onAppRootChange).not.toHaveBeenCalled();
+
+    act(() => {
+      form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+    });
+
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("selects a folder suggestion with ArrowDown then Enter before submitting", () => {
     const onAppRootChange = vi.fn();
     const onModeChange = vi.fn();
     const onSubmit = vi.fn();
@@ -134,10 +200,77 @@ describe("VaultDashboardAppRootDialog interactions", () => {
     expect(container.textContent).toContain("apps/api");
 
     act(() => {
+      appRootInput.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
+    });
+    act(() => {
       appRootInput.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
     });
 
     expect(onAppRootChange).toHaveBeenCalledWith("apps/api");
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("closes suggestions with Escape without bubbling to the document", () => {
+    const onModeChange = vi.fn();
+    const documentKeyDown = vi.fn();
+    document.addEventListener("keydown", documentKeyDown);
+    const container = renderAppRootDialog({
+      appRoot: "api",
+      folderSuggestions: ["apps/api", "apps/samebase"],
+      mode: "monorepo",
+      onModeChange,
+    });
+    const appRootInput = container.querySelector('input[aria-label="App root"]');
+    if (!(appRootInput instanceof HTMLInputElement)) {
+      throw new Error("Expected app root input.");
+    }
+
+    act(() => {
+      appRootInput.focus();
+    });
+
+    const escapeEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Escape",
+    });
+    act(() => {
+      appRootInput.dispatchEvent(escapeEvent);
+    });
+    document.removeEventListener("keydown", documentKeyDown);
+
+    expect(escapeEvent.defaultPrevented).toBe(true);
+    expect(documentKeyDown).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="option"]')).toBeNull();
+  });
+
+  it("selects a suggestion on pointer down", () => {
+    const onAppRootChange = vi.fn();
+    const onModeChange = vi.fn();
+    const container = renderAppRootDialog({
+      appRoot: "api",
+      folderSuggestions: ["apps/api", "apps/samebase"],
+      mode: "monorepo",
+      onAppRootChange,
+      onModeChange,
+    });
+    const appRootInput = container.querySelector('input[aria-label="App root"]');
+    if (!(appRootInput instanceof HTMLInputElement)) {
+      throw new Error("Expected app root input.");
+    }
+
+    act(() => {
+      appRootInput.focus();
+    });
+    const option = container.querySelector('[role="option"]');
+    if (!(option instanceof HTMLElement)) {
+      throw new Error("Expected app root suggestion.");
+    }
+
+    act(() => {
+      option.dispatchEvent(new Event("pointerdown", { bubbles: true, cancelable: true }));
+    });
+
+    expect(onAppRootChange).toHaveBeenCalledWith("apps/api");
   });
 });

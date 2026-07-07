@@ -739,8 +739,12 @@ export const listVaultAppRootFolderSuggestions = query({
       return [];
     }
 
+    const existingAppRoots = new Set(
+      (await readVaultAppsForVault(ctx, args.vaultId)).map((app) => app.appRoot),
+    );
+
     return defaultBranchTree.treeData.tree
-      .filter((item) => item.type === "tree")
+      .filter((item) => item.type === "tree" && !existingAppRoots.has(item.path))
       .map((item) => item.path)
       .sort((left, right) => left.localeCompare(right));
   },

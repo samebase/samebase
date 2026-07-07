@@ -37,11 +37,14 @@ export function fuzzyMatch(needle: string, haystack: string): { score: number; m
 
 export type FuzzyPathMatch = {
   path: string;
-  score: number;
   matches: number[];
 };
 
-function compareFuzzyPathMatch(left: FuzzyPathMatch, right: FuzzyPathMatch): number {
+type RankedFuzzyPathMatch = FuzzyPathMatch & {
+  score: number;
+};
+
+function compareFuzzyPathMatch(left: RankedFuzzyPathMatch, right: RankedFuzzyPathMatch): number {
   return right.score - left.score || left.path.localeCompare(right.path);
 }
 
@@ -50,33 +53,24 @@ export function rankFuzzyPathMatches(args: {
   query: string;
   limit: number;
 }): FuzzyPathMatch[] {
-  const seenPaths = new Set<string>();
-  const uniquePaths = args.paths.filter((path) => {
-    if (seenPaths.has(path)) {
-      return false;
-    }
-    seenPaths.add(path);
-    return true;
-  });
-  const limit = Math.max(0, args.limit);
   const query = args.query.trim();
 
   if (query.length === 0) {
-    return uniquePaths.slice(0, limit).map((path) => ({
+    return args.paths.slice(0, args.limit).map((path) => ({
       path,
-      score: 0,
       matches: [],
     }));
   }
 
-  return uniquePaths
+  return args.paths
     .map((path) => ({
       path,
       ...fuzzyMatch(query, path),
     }))
     .filter((match) => match.score >= 0)
     .sort(compareFuzzyPathMatch)
-    .slice(0, limit);
+    .slice(0, args.limit)
+    .map(({ matches, path }) => ({ matches, path }));
 }
 
 export function highlightMatches(text: string, matches: number[]): React.ReactNode {

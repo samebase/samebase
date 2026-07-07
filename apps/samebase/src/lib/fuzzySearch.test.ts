@@ -11,8 +11,8 @@ describe("rankFuzzyPathMatches", () => {
         limit: 2,
       }),
     ).toEqual([
-      { path: "apps", score: 0, matches: [] },
-      { path: "apps/samebase", score: 0, matches: [] },
+      { path: "apps", matches: [] },
+      { path: "apps/samebase", matches: [] },
     ]);
   });
 
@@ -26,13 +26,13 @@ describe("rankFuzzyPathMatches", () => {
     ).toEqual(["apps/api", "apps/samebase", "packages/app"]);
   });
 
-  it("deduplicates paths before ranking", () => {
+  it("limits fuzzy results", () => {
     expect(
       rankFuzzyPathMatches({
-        paths: ["apps/api", "apps/api", "apps/samebase"],
-        query: "api",
-        limit: 8,
+        paths: ["apps/api", "apps/samebase", "packages/app"],
+        query: "app",
+        limit: 2,
       }).map((match) => match.path),
-    ).toEqual(["apps/api"]);
+    ).toEqual(["apps/api", "apps/samebase"]);
   });
 });
