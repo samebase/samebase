@@ -179,8 +179,10 @@ Codex side (spawning Codex workers, e.g. from Claude Code):
   so exec-spawned threads never appear there. The operator confirmed the absence empirically,
   including after an app restart.
 - The app registers the `codex://` URL scheme with an open-in-app handler for
-  `codex://threads/<thread-id>`, so `open "codex://threads/<id>"` is the handoff that shows a
-  spawned thread in the app (binary-verified handler; pending a click-test).
+  `codex://threads/<thread-id>`, but an operator click-test (2026-07-07) did not surface an
+  exec-spawned thread through it. Net: exec threads have no desktop-app surface at all today —
+  handoff is the TUI (`codex resume <id>`), and GUI following means the cloud (`codex cloud exec` +
+  chatgpt.com/codex).
 - Every app-server client runs its own process with in-memory thread status, so an externally
   spawned thread cannot stream live into the desktop app's window
   ([thread_status.rs](https://github.com/openai/codex/blob/main/codex-rs/app-server/src/thread_status.rs)).
@@ -209,8 +211,11 @@ Remote-control GA (0.142.0) postdates the stale cask — a concrete casualty of 
 
 ## Follow-Ups
 
-- Operator click-test pending: `open "codex://threads/<id>"` focusing the exact thread view (handler
-  verified in the app binary, not yet clicked).
+- Click-test result (2026-07-07): `open "codex://threads/<id>"` did not surface an exec thread in
+  the app — no desktop-app surface exists for exec threads. If GUI-following local Codex threads
+  becomes important, the in-product lever is a samebase thread browser over `~/.codex/sessions`
+  rollouts (the RFC 078 / thread-browser lineage), or upstream adding non-interactive sources to the
+  app's lists.
 - Operator: install the official plugin from an interactive Claude Code session (commands above)
   only if the `/codex:*` commands are wanted interactively; the skill works without it and is the
   visibility-correct path.

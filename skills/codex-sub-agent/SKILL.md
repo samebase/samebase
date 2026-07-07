@@ -73,18 +73,17 @@ Prior context carries over (verified: a resumed thread recalled its earlier answ
 
 ## Operator Handoff And GUI Visibility
 
-- The Codex desktop app sidebar never lists exec-spawned threads — it requests interactive-source
-  threads only (cli/vscode), and exec rollouts are tagged `source: "exec"`. Absence there is by
-  design; do not debug it.
-- To show a spawned thread in the app, hand the operator a deep link:
-  `open "codex://threads/<thread-id>"` (the app registers the `codex://` scheme).
-- Terminal: `codex resume <thread-id>` opens the thread in the TUI; the picker and `--last` need
-  `--include-non-interactive`. `codex fork` branches it.
-- Live GUI following of local threads is phone-first by design: `codex remote-control start` pairs
-  the ChatGPT mobile app (GA since CLI 0.142.0 — another reason to use the app-bundled binary).
-  `codex cloud exec` plus chatgpt.com/codex is the zero-setup web fallback, at the cost of running
-  in OpenAI's cloud instead of on this machine.
-- Always report thread ids (and the `codex://threads/<id>` link) in the final response.
+- The Codex desktop app has no surface for exec-spawned threads today: the sidebar requests
+  interactive-source threads only (exec rollouts are tagged `source: "exec"`), and the registered
+  `codex://threads/<thread-id>` deep link also failed an operator click-test (2026-07-07). Absence
+  in the app is by design; do not debug it or promise it.
+- Terminal handoff always works: `codex resume <thread-id>` opens the thread in the TUI; the picker
+  and `--last` need `--include-non-interactive`. `codex fork` branches it.
+- GUI following today means the cloud: `codex cloud exec` tasks are followable at chatgpt.com/codex,
+  at the cost of running in OpenAI's cloud instead of on this machine. The ChatGPT mobile app's
+  remote-control path (`codex remote-control start`, GA since CLI 0.142.0) streams threads started
+  through that daemon, not exec rollouts.
+- Always report thread ids in the final response so the operator can resume or fork them.
 
 ## Model, Effort, Cost
 
