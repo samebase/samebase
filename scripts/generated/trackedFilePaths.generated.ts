@@ -1298,6 +1298,7 @@ export const trackedFilePaths = [
   "docs/samebase-pr-preview-cleanup.md",
   "docs/tracked-file-paths.md",
   "links.md",
+  "main_idea.md",
   "manual-tests/.runs/.gitignore",
   "manual-tests/MCP-001-phase1-foundation-and-discovery.md",
   "manual-tests/MCP-002-phase2-token-and-mcp-flow.md",
