@@ -48,4 +48,8 @@ regardless of other scores: it is exactly the failure the hero prompt exists to 
 
 ## Round log
 
-- (none yet — first round runs once the Phase 1 corpus slice deploys)
+- 2026-07-07 round 1: `research/2026-07-07-agent-landing-eval-round-1-findings.md`,
+  `research/2026-07-07-agent-landing-eval-round-1-claude.md`, and
+  `research/2026-07-07-agent-landing-eval-round-1-codex.md`. Result: no-go for Phase 3 landing swap;
+  corpus fix required for the stale DIY Cloudflare Pages path, and public pricing remains a
+  product-decision blocker.
