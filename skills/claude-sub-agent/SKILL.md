@@ -62,6 +62,19 @@ claude stop <id>
 claude rm <id>
 ```
 
+When the operator should be able to watch the job in a GUI, add `--remote-control=<name>`:
+
+```bash
+claude --safe-mode --bg --remote-control=<name> --name "<repo>-<short-purpose>" --permission-mode plan --tools '' --model claude-opus-4-8 --effort max "<prompt>"
+```
+
+The session then appears by name (green dot) at claude.ai/code and in the Claude mobile app's Code
+tab, live-streamed and steerable, while `claude agents`/`claude logs` keep working for the spawning
+thread. Plain `--bg` jobs are visible only in terminals — the desktop app keeps a separate session
+history. Use the `=` form: `--remote-control` takes an optional value and would otherwise swallow
+the prompt. Requires claude.ai OAuth (v2.1.51+) and direct `api.anthropic.com` (no
+`ANTHROPIC_BASE_URL` gateway).
+
 Use a Codex subagent as a monitor only when the main thread has useful work to continue. Give it the
 Claude job id, ask it to poll `agents --json` and `logs`, and have it report completion, stalls,
 daemon/log errors, and cleanup needs.

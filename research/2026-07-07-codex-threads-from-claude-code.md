@@ -20,8 +20,8 @@ Three layers, in order of usefulness for this repo:
    resumable thread. No bridge, server, or plugin is needed. The mechanics, safety rules, and
    verified flag surface live in `skills/codex-sub-agent/SKILL.md`, mirroring the existing
    `skills/claude-sub-agent/SKILL.md` (the same pattern in the opposite direction).
-2. **Interactive layer (recommended, operator-installed): the official OpenAI plugin for Claude
-   Code**, [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) (~26.5k stars, pushed
+2. **Interactive layer (optional, operator-installed): the official OpenAI plugin for Claude Code**,
+   [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) (~26.5k stars, pushed
    2026-06-23). Adds `/codex:review`, `/codex:adversarial-review`, `/codex:rescue` (background
    delegation with `--resume`, `--model`, `--effort`), `/codex:status` / `/codex:result` /
    `/codex:cancel`, and `/codex:transfer` (exports the current Claude Code transcript into a
@@ -35,6 +35,11 @@ Three layers, in order of usefulness for this repo:
    /plugin install codex@openai-codex
    /codex:setup
    ```
+
+   Source caveat (verified 2026-07-07 from the plugin repo): it drives the app-server protocol
+   rather than `codex exec`; reviews run `ephemeral: true` (no thread persisted, nothing to resume),
+   rescue tasks persist with `source: appServer`, and no plugin job appears in any GUI — status is
+   text-only via `/codex:status`. Good for interactive delegation; not the visibility layer.
 
 3. **Rejected: third-party MCP wrappers around Codex.** Superseded by the official plugin for
    interactive use and by plain `codex exec` for automation; several default to sandbox-bypass flags
@@ -145,6 +150,51 @@ Verified against the 0.133.0 binary plus [official docs](https://developers.open
   a five-hour usage window (plus weekly caps) on ChatGPT-plan auth; no documented cap on concurrent
   `codex exec` processes — parallel threads just drain the shared pool faster.
 
+## Operator Visibility In GUIs (Verified 2026-07-07)
+
+The operator's requirement: threads spawned by an agent must be followable in a GUI, in both
+directions.
+
+Claude Code side (spawning Claude workers, e.g. from Codex):
+
+- Plain `claude --bg` workers are terminal-only (`claude agents` view); the desktop app keeps a
+  separate session history ([desktop docs](https://code.claude.com/docs/en/desktop)).
+- Adding `--remote-control=<name>` makes the worker appear by name, live-streamed and steerable, at
+  [claude.ai/code](https://claude.ai/code) and in the Claude mobile app's Code tab
+  ([Remote Control docs](https://code.claude.com/docs/en/remote-control)). Live-verified on v2.1.178
+  and sighted by the operator (the `codex-rc-visibility-test` probe with its model label). Requires
+  claude.ai OAuth and direct `api.anthropic.com`. Encoded in `skills/claude-sub-agent/SKILL.md`.
+- `claude://code/new?q=...&folder=...` deep links open a prefilled, not auto-sent, new session in
+  Claude Desktop
+  ([help center](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link));
+  `claude --cloud` sessions are web-followable but run on Anthropic VMs cloned from the GitHub
+  remote ([docs](https://code.claude.com/docs/en/claude-code-on-the-web)).
+
+Codex side (spawning Codex workers, e.g. from Claude Code):
+
+- The Codex desktop app sidebar requests interactive-source, non-ephemeral threads only
+  (`INTERACTIVE_SESSION_SOURCES` excludes `Exec` and `AppServer` —
+  [rollout/src/lib.rs](https://github.com/openai/codex/blob/main/codex-rs/rollout/src/lib.rs),
+  [ThreadListParams](https://github.com/openai/codex/blob/main/codex-rs/app-server-protocol/schema/typescript/v2/ThreadListParams.ts)),
+  so exec-spawned threads never appear there. The operator confirmed the absence empirically,
+  including after an app restart.
+- The app registers the `codex://` URL scheme with an open-in-app handler for
+  `codex://threads/<thread-id>`, so `open "codex://threads/<id>"` is the handoff that shows a
+  spawned thread in the app (binary-verified handler; pending a click-test).
+- Every app-server client runs its own process with in-memory thread status, so an externally
+  spawned thread cannot stream live into the desktop app's window
+  ([thread_status.rs](https://github.com/openai/codex/blob/main/codex-rs/app-server/src/thread_status.rs)).
+  Live GUI following of local threads is the ChatGPT mobile app via `codex remote-control start` (GA
+  in CLI 0.142.0 — [changelog](https://developers.openai.com/codex/changelog)); the web fallback is
+  `codex cloud exec` plus [chatgpt.com/codex](https://chatgpt.com/codex), which runs in OpenAI's
+  cloud instead of on the machine.
+
+Binary correction (2026-07-07): the brew cask symlink `/opt/homebrew/bin/codex` pins the
+install-time CLI (0.133.0, linked May 22) and does not follow the app's self-updates, while the
+app-bundled `/Applications/Codex.app/Contents/Resources/codex` was 0.142.5 the same day. The
+operator confirmed the homebrew one is "not the correct one"; the skill pins the app-bundled path.
+Remote-control GA (0.142.0) postdates the stale cask — a concrete casualty of the drift.
+
 ## Why Shell-Out Beats An MCP Bridge Here
 
 - Claude Code background Bash tasks already provide parallel workers, completion notifications, and
@@ -159,6 +209,11 @@ Verified against the 0.133.0 binary plus [official docs](https://developers.open
 
 ## Follow-Ups
 
-- Operator: install the official plugin from an interactive Claude Code session (commands above) if
-  the `/codex:*` commands are wanted; the skill works without it.
+- Operator click-test pending: `open "codex://threads/<id>"` focusing the exact thread view (handler
+  verified in the app binary, not yet clicked).
+- Operator: install the official plugin from an interactive Claude Code session (commands above)
+  only if the `/codex:*` commands are wanted interactively; the skill works without it and is the
+  visibility-correct path.
+- Operator: fix or remove the stale `codex` brew cask symlink; the skills pin the app-bundled binary
+  either way.
 - Separate task chip: fix the stale `--ask-for-approval` flag in `scripts/samebase-pr-connect.ts`.

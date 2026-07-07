@@ -13,8 +13,15 @@ Every `codex exec` run is a real persisted Codex thread. Capture its thread id, 
 `codex exec resume <thread-id>`, and the operator can open the same thread interactively with
 `codex resume <thread-id>`. No MCP server or extra plugin is required for this repo's flows.
 
-Verified on codex-cli 0.133.0 (2026-07-07). After a Codex upgrade, re-check flags with
-`codex exec --help` before trusting this file.
+Binary first: invoke the Codex.app-bundled CLI explicitly —
+`/Applications/Codex.app/Contents/Resources/codex` — because it self-updates with the app. The
+`/opt/homebrew/bin/codex` cask symlink pins the install-time version and goes stale (0.133.0 vs the
+app's 0.142.5 on 2026-07-07); Nicu confirmed the homebrew one is not the correct one. The command
+blocks below write bare `codex` for readability.
+
+Verified on codex-cli 0.133.0 and spot-checked on 0.142.5 (2026-07-07): the full flag surface used
+here exists identically on both. After a Codex upgrade, re-check flags with `codex exec --help`
+before trusting this file.
 
 ## Sandbox First
 
@@ -64,11 +71,20 @@ codex exec resume <thread-id> -c 'sandbox_mode="read-only"' --json \
 Prior context carries over (verified: a resumed thread recalled its earlier answer verbatim).
 `--last` targets the newest session instead of an id; `--all` lifts its default cwd filtering.
 
-## Operator Handoff
+## Operator Handoff And GUI Visibility
 
-Report spawned thread ids in the final response. The operator can continue any of them interactively
-with `codex resume <thread-id>` or branch one with `codex fork`. The bare `codex resume` picker and
-`codex resume --last` hide exec-spawned sessions unless `--include-non-interactive` is passed.
+- The Codex desktop app sidebar never lists exec-spawned threads — it requests interactive-source
+  threads only (cli/vscode), and exec rollouts are tagged `source: "exec"`. Absence there is by
+  design; do not debug it.
+- To show a spawned thread in the app, hand the operator a deep link:
+  `open "codex://threads/<thread-id>"` (the app registers the `codex://` scheme).
+- Terminal: `codex resume <thread-id>` opens the thread in the TUI; the picker and `--last` need
+  `--include-non-interactive`. `codex fork` branches it.
+- Live GUI following of local threads is phone-first by design: `codex remote-control start` pairs
+  the ChatGPT mobile app (GA since CLI 0.142.0 — another reason to use the app-bundled binary).
+  `codex cloud exec` plus chatgpt.com/codex is the zero-setup web fallback, at the cost of running
+  in OpenAI's cloud instead of on this machine.
+- Always report thread ids (and the `codex://threads/<id>` link) in the final response.
 
 ## Model, Effort, Cost
 
@@ -99,7 +115,8 @@ with `codex resume <thread-id>` or branch one with `codex fork`. The bare `codex
 - `-c` values parse as TOML, so keep the quotes: `-c model_reasoning_effort="medium"`.
 - Sessions persist under `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl`. Rollouts are internal
   artifacts; never commit them to a repo.
-- For interactive-first delegation from Claude Code sessions, the official
-  [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) plugin adds `/codex:review`,
-  `/codex:rescue` (background jobs, `--resume`), and `/codex:transfer`; this skill stays the
-  dependency-free baseline for scripts and repo automation.
+- The official [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) plugin
+  (`/codex:review`, `/codex:rescue`) is fine for interactive delegation, but source-verified: it
+  drives the app-server protocol, its reviews run `ephemeral: true` (no thread persisted, nothing to
+  resume), and none of its jobs appear in any GUI — status is text-only. For operator-visible,
+  resumable threads, prefer this skill's `codex exec` shape.
