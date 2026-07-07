@@ -1,12 +1,15 @@
-# 093 Agent Action Docs Registry Plan
+# 094 Agent Action Docs Registry Plan
 
 ## Document Control
 
 - Status: Proposed
 - Owner: Samebase platform, MCP/action surfaces, public developer artifacts
 - Created: 2026-07-06
-- Last updated: 2026-07-06
+- Last updated: 2026-07-07 (renumbered from 093 — that number was taken on `main` by
+  `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md` first, per the `rfcs/README.md` renumber-before-merge
+  rule — and the relationship section below was added)
 - Related docs:
+  - `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md`
   - `docs/repo-documentation-standard.md`
   - `docs/artifacts/samebase-app/README.md`
   - `docs/tracked-file-paths.md`
@@ -32,6 +35,23 @@ artifact into multiple surfaces:
 The public raw-file repository is useful, but it should be a generated distribution target, not the
 editable source of truth. The source of truth should be a Samebase-owned action-docs registry with a
 manifest, validation, provenance, and generated exports.
+
+## Relationship To RFC 093 (Agent-Native One-Base Plan)
+
+This RFC and `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md` were written in parallel from the same
+operator prompt and converge; they split one system into two layers rather than competing:
+
+- **RFC 093 owns the contract layer**: per-action contract modules colocated with Convex functions
+  (access, args, returns, MCP tool metadata, `nextAction` vocabulary), the MCP tool catalog, and the
+  short per-action reference docs _generated_ from those contracts.
+- **This RFC owns the guide layer**: hand-written long-form action/workflow explanations (provider
+  limitations, credential contracts, operate recipes) in `packages/action-docs`, with frontmatter
+  binding each guide to catalog action ids, MCP resources, provenance, and public export.
+- Shared seams: guide frontmatter references catalog snake_case action ids and MCP tool names, and
+  registry validation checks them against the catalog (goal 5 below) so the two layers cannot drift;
+  the `/docs/operate/*` referral docs planned in RFC 093 Phase 2 become this registry's first
+  entries; RFC 093's shipped same-origin raw serving (`/docs/*.md`, `/llms.txt`) is the serving
+  surface now, and this RFC's public-repo export is the later distribution target.
 
 ## Problem
 
