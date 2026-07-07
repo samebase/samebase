@@ -28,6 +28,8 @@ import {
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
 import { createRepositoryContract, type CreateRepositoryArgs } from "./createRepositoryContract";
+import { connectRepositoryContract } from "./connectRepositoryContract";
+import { retryInfrastructureProvisioningContract } from "./retryInfrastructureProvisioningContract";
 
 const { array, boolean, literal, null: nullValue, object, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
@@ -662,49 +664,51 @@ export const listRepositoryOwners = action({
   },
 });
 
+export type ConnectRepositoryResult = Infer<typeof connectRepositoryContract.returns>;
+
+export async function connectRepositoryForUser(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: { userId: Id<"users">; repositoryFullName: string },
+): Promise<ConnectRepositoryResult> {
+  const userId = args.userId;
+  const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
+  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
+  if (githubConnection?.kind !== "github") {
+    throw new Error("GitHub is not connected");
+  }
+
+  const { vaultId, runId } = await ctx.runMutation(
+    internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+    {
+      userId,
+      ghRepoOwner: owner,
+      ghRepoName: name,
+    },
+  );
+  await startConnectExistingRepositoryProvisioningOrFail(ctx, {
+    vaultId,
+    runId,
+    userId,
+    repositoryOwner: owner,
+    repositoryName: name,
+  });
+
+  return { vaultId, runId };
+}
+
 export const connectRepository = action({
-  access: "access_repo_connect",
-  args: {
-    repositoryFullName: v.string(),
-  },
-  returns: v.object({
-    vaultId: v.id("vaults"),
-    runId: v.id("appProvisioningRuns"),
-  }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{
-    vaultId: Id<"vaults">;
-    runId: Id<"appProvisioningRuns">;
-  }> => {
-    const userId = ctx.viewer.userId;
-    const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
+  access: connectRepositoryContract.access,
+  args: connectRepositoryContract.args,
+  returns: connectRepositoryContract.returns,
+  mcp: connectRepositoryContract.mcp,
+  handler: async (ctx, args): Promise<ConnectRepositoryResult> => {
+    return await connectRepositoryForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
     });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
-      {
-        userId,
-        ghRepoOwner: owner,
-        ghRepoName: name,
-      },
-    );
-    await startConnectExistingRepositoryProvisioningOrFail(ctx, {
-      vaultId,
-      runId,
-      userId,
-      repositoryOwner: owner,
-      repositoryName: name,
-    });
-
-    return { vaultId, runId };
   },
 });
 
@@ -841,34 +845,43 @@ export const checkCreateRepositoryResourceNames = action({
   },
 });
 
-export const retryInfrastructureProvisioning = action({
-  access: "access_app_create",
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
-    });
-    if (!vault || vault.userId !== userId) {
-      throw new Error("Vault not found");
-    }
-    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
-      throw new Error("Infrastructure retry is available only for live Samebase-managed vaults");
-    }
-    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-      userId,
-      vaultId: args.vaultId,
-      trigger: "retry",
-    });
-    await startVaultInfrastructureProvisioningOrFail(ctx, {
-      vaultId: args.vaultId,
-      runId,
-    });
+export async function retryInfrastructureProvisioningForUser(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+): Promise<null> {
+  const userId = args.userId;
+  const vault = await ctx.runQuery(internal.vault.records.getById, {
+    id: args.vaultId,
+  });
+  if (!vault || vault.userId !== userId) {
+    throw new Error("Vault not found");
+  }
+  if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
+    throw new Error("Infrastructure retry is available only for live Samebase-managed vaults");
+  }
+  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    userId,
+    vaultId: args.vaultId,
+    trigger: "retry",
+  });
+  await startVaultInfrastructureProvisioningOrFail(ctx, {
+    vaultId: args.vaultId,
+    runId,
+  });
 
-    return null;
+  return null;
+}
+
+export const retryInfrastructureProvisioning = action({
+  access: retryInfrastructureProvisioningContract.access,
+  args: retryInfrastructureProvisioningContract.args,
+  returns: retryInfrastructureProvisioningContract.returns,
+  mcp: retryInfrastructureProvisioningContract.mcp,
+  handler: async (ctx, args): Promise<null> => {
+    return await retryInfrastructureProvisioningForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 

@@ -48,77 +48,22 @@ import {
   type VaultCloudflareOrigin,
 } from "./model";
 import type { AppProvisioningStep } from "../schema";
+import {
+  cloudflareListAccountsContract,
+  vCloudflareAccountResult,
+} from "./cloudflareListAccountsContract";
+import {
+  cloudflareListWorkersContract,
+  vCloudflareWorkerResult,
+} from "./cloudflareListWorkersContract";
+import { cloudflareConnectExistingWorkerContract } from "./cloudflareConnectExistingWorkerContract";
+import { cloudflareWireBuildsContract } from "./cloudflareWireBuildsContract";
+import { cloudflareWireConvexBuildAccessContract } from "./cloudflareWireConvexBuildAccessContract";
 
-const { array, id, literal, null: nullValue, object, string, union } = v;
+const { id, null: nullValue, string } = v;
 
-const cloudflareAccountResult = object({
-  accountId: string(),
-  accountName: string(),
-});
-const cloudflareWorkerRepositoryEvidence = union(
-  object({
-    state: literal("none"),
-  }),
-  object({
-    state: literal("matching_repo"),
-    repoId: string(),
-    repoName: union(string(), nullValue()),
-    triggerName: union(string(), nullValue()),
-    rootDirectory: string(),
-  }),
-  object({
-    state: literal("same_repo_different_root"),
-    repoId: string(),
-    repoName: union(string(), nullValue()),
-    triggerName: union(string(), nullValue()),
-    rootDirectory: string(),
-    expectedRootDirectory: string(),
-  }),
-  object({
-    state: literal("different_repo"),
-    repoId: string(),
-    repoName: union(string(), nullValue()),
-    triggerName: union(string(), nullValue()),
-  }),
-  object({
-    state: literal("deleted_repo_connection"),
-    repoId: union(string(), nullValue()),
-    repoName: union(string(), nullValue()),
-    triggerName: union(string(), nullValue()),
-  }),
-  object({
-    state: literal("missing_repo_id"),
-    repoName: union(string(), nullValue()),
-    triggerName: union(string(), nullValue()),
-  }),
-  object({
-    state: literal("missing_root_directory"),
-    repoId: string(),
-    repoName: union(string(), nullValue()),
-    triggerName: union(string(), nullValue()),
-    expectedRootDirectory: string(),
-  }),
-  object({
-    state: literal("trigger_read_failed"),
-    message: string(),
-  }),
-);
-const cloudflareWorkerResult = object({
-  workerName: string(),
-  workerTag: string(),
-  discovery: object({
-    classification: union(
-      literal("recommended"),
-      literal("available"),
-      literal("blocked"),
-      literal("unknown"),
-    ),
-    evidence: cloudflareWorkerRepositoryEvidence,
-  }),
-});
-
-type CloudflareAccountResult = Infer<typeof cloudflareAccountResult>;
-type CloudflareWorkerResult = Infer<typeof cloudflareWorkerResult>;
+type CloudflareAccountResult = Infer<typeof vCloudflareAccountResult>;
+type CloudflareWorkerResult = Infer<typeof vCloudflareWorkerResult>;
 type CloudflareActionConnection = {
   auth:
     | {
@@ -598,17 +543,24 @@ async function readActiveCloudflareConvexBuildAccessWiring(
   );
 }
 
+export async function listCloudflareAccountsForUser(
+  ctx: ActionCtx,
+  args: { userId: Id<"users"> },
+): Promise<CloudflareAccountResult[]> {
+  const connection = await resolveCloudflareConnection(ctx, args.userId);
+  return await listAccountsForConnection({
+    token: connection.token,
+    transport: connection.transport,
+  });
+}
+
 export const listAccounts = action({
-  access: "access_app_create",
-  args: {},
-  returns: array(cloudflareAccountResult),
+  access: cloudflareListAccountsContract.access,
+  args: cloudflareListAccountsContract.args,
+  returns: cloudflareListAccountsContract.returns,
+  mcp: cloudflareListAccountsContract.mcp,
   handler: async (ctx): Promise<CloudflareAccountResult[]> => {
-    const userId = ctx.viewer.userId;
-    const connection = await resolveCloudflareConnection(ctx, userId);
-    return await listAccountsForConnection({
-      token: connection.token,
-      transport: connection.transport,
-    });
+    return await listCloudflareAccountsForUser(ctx, { userId: ctx.viewer.userId });
   },
 });
 
@@ -637,95 +589,114 @@ export const selectDefaultAccount = action({
   },
 });
 
+export async function listCloudflareWorkersForUser(
+  ctx: ActionCtx,
+  args: { userId: Id<"users">; vaultId: Id<"vaults">; appRoot: string; accountId: string },
+): Promise<CloudflareWorkerResult[]> {
+  const userId = args.userId;
+  const connection = await resolveCloudflareConnection(ctx, userId);
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
+    vaultId: args.vaultId,
+    userId,
+    appRoot,
+  });
+  const account = await resolveAccount(ctx, {
+    token: connection.token,
+    transport: connection.transport,
+    accountId: args.accountId,
+  });
+  return await listCloudflareWorkersWithRepositoryDiscovery({
+    token: connection.token,
+    transport: connection.transport,
+    accountId: account.accountId,
+    limit: 100,
+    expectedRepoId: discoveryContext.ghRepoId,
+    expectedRootDirectory: discoveryContext.expectedRootDirectory,
+  });
+}
+
 export const listWorkers = action({
-  access: "access_app_create",
-  args: {
-    vaultId: id("vaults"),
-    appRoot: string(),
-    accountId: string(),
-  },
-  returns: array(cloudflareWorkerResult),
+  access: cloudflareListWorkersContract.access,
+  args: cloudflareListWorkersContract.args,
+  returns: cloudflareListWorkersContract.returns,
+  mcp: cloudflareListWorkersContract.mcp,
   handler: async (ctx, args): Promise<CloudflareWorkerResult[]> => {
-    const userId = ctx.viewer.userId;
-    const connection = await resolveCloudflareConnection(ctx, userId);
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
-      vaultId: args.vaultId,
-      userId,
-      appRoot,
-    });
-    const account = await resolveAccount(ctx, {
-      token: connection.token,
-      transport: connection.transport,
-      accountId: args.accountId,
-    });
-    return await listCloudflareWorkersWithRepositoryDiscovery({
-      token: connection.token,
-      transport: connection.transport,
-      accountId: account.accountId,
-      limit: 100,
-      expectedRepoId: discoveryContext.ghRepoId,
-      expectedRootDirectory: discoveryContext.expectedRootDirectory,
+    return await listCloudflareWorkersForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
     });
   },
 });
 
-export const connectExistingWorker = action({
-  access: "access_app_create",
+export async function connectExistingCloudflareWorkerForUser(
+  ctx: ActionCtx,
   args: {
-    vaultId: id("vaults"),
-    appRoot: string(),
-    accountId: string(),
-    workerName: string(),
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    appRoot: string;
+    accountId: string;
+    workerName: string;
   },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const accountId = args.accountId.trim();
-    const workerName = args.workerName.trim();
-    if (!accountId) {
-      throw new Error("Cloudflare account is required.");
-    }
-    if (!workerName) {
-      throw new Error("Cloudflare Worker is required.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
-      vaultId: args.vaultId,
-      userId,
-      appRoot,
-    });
-    const connection = await resolveCloudflareConnection(ctx, userId);
-    const account = await resolveAccount(ctx, {
-      token: connection.token,
-      transport: connection.transport,
-      accountId,
-    });
-    await resolveSelectableExistingWorker({
-      token: connection.token,
-      transport: connection.transport,
-      accountId: account.accountId,
-      workerName,
-      repositoryFullName: discoveryContext.repositoryFullName,
-      expectedRepoId: discoveryContext.ghRepoId,
-      expectedRootDirectory: discoveryContext.expectedRootDirectory,
-    });
-    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-      userId,
-      vaultId: args.vaultId,
-      trigger: "connect_cloudflare_worker",
-    });
-    await startCloudflareWorkerConnectionOrFail(ctx, {
-      vaultId: args.vaultId,
-      runId,
-      userId,
-      appRoot,
-      accountId: account.accountId,
-      workerName,
-      origin: "selected_existing",
-    });
+): Promise<null> {
+  const userId = args.userId;
+  const accountId = args.accountId.trim();
+  const workerName = args.workerName.trim();
+  if (!accountId) {
+    throw new Error("Cloudflare account is required.");
+  }
+  if (!workerName) {
+    throw new Error("Cloudflare Worker is required.");
+  }
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
+    vaultId: args.vaultId,
+    userId,
+    appRoot,
+  });
+  const connection = await resolveCloudflareConnection(ctx, userId);
+  const account = await resolveAccount(ctx, {
+    token: connection.token,
+    transport: connection.transport,
+    accountId,
+  });
+  await resolveSelectableExistingWorker({
+    token: connection.token,
+    transport: connection.transport,
+    accountId: account.accountId,
+    workerName,
+    repositoryFullName: discoveryContext.repositoryFullName,
+    expectedRepoId: discoveryContext.ghRepoId,
+    expectedRootDirectory: discoveryContext.expectedRootDirectory,
+  });
+  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    userId,
+    vaultId: args.vaultId,
+    trigger: "connect_cloudflare_worker",
+  });
+  await startCloudflareWorkerConnectionOrFail(ctx, {
+    vaultId: args.vaultId,
+    runId,
+    userId,
+    appRoot,
+    accountId: account.accountId,
+    workerName,
+    origin: "selected_existing",
+  });
 
-    return null;
+  return null;
+}
+
+export const connectExistingWorker = action({
+  access: cloudflareConnectExistingWorkerContract.access,
+  args: cloudflareConnectExistingWorkerContract.args,
+  returns: cloudflareConnectExistingWorkerContract.returns,
+  mcp: cloudflareConnectExistingWorkerContract.mcp,
+  handler: async (ctx, args): Promise<null> => {
+    return await connectExistingCloudflareWorkerForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 
@@ -774,55 +745,71 @@ export const createWorker = action({
   },
 });
 
-export const wireBuilds = action({
-  access: "access_app_create",
-  args: {
-    vaultId: id("vaults"),
-    appRoot: string(),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-      userId,
-      vaultId: args.vaultId,
-      trigger: "wire_builds",
-    });
-    await startCloudflareBuildsWiringOrFail(ctx, {
-      vaultId: args.vaultId,
-      runId,
-      userId,
-      appRoot,
-    });
+export async function wireCloudflareBuildsForUser(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: { userId: Id<"users">; vaultId: Id<"vaults">; appRoot: string },
+): Promise<null> {
+  const userId = args.userId;
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    userId,
+    vaultId: args.vaultId,
+    trigger: "wire_builds",
+  });
+  await startCloudflareBuildsWiringOrFail(ctx, {
+    vaultId: args.vaultId,
+    runId,
+    userId,
+    appRoot,
+  });
 
-    return null;
+  return null;
+}
+
+export const wireBuilds = action({
+  access: cloudflareWireBuildsContract.access,
+  args: cloudflareWireBuildsContract.args,
+  returns: cloudflareWireBuildsContract.returns,
+  mcp: cloudflareWireBuildsContract.mcp,
+  handler: async (ctx, args): Promise<null> => {
+    return await wireCloudflareBuildsForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 
-export const wireConvexBuildAccess = action({
-  access: "access_app_create",
-  args: {
-    vaultId: id("vaults"),
-    appRoot: string(),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-      userId,
-      vaultId: args.vaultId,
-      trigger: "wire_convex_build_access",
-    });
-    await startCloudflareConvexBuildAccessWiringOrFail(ctx, {
-      vaultId: args.vaultId,
-      runId,
-      userId,
-      appRoot,
-    });
+export async function wireCloudflareConvexBuildAccessForUser(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: { userId: Id<"users">; vaultId: Id<"vaults">; appRoot: string },
+): Promise<null> {
+  const userId = args.userId;
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    userId,
+    vaultId: args.vaultId,
+    trigger: "wire_convex_build_access",
+  });
+  await startCloudflareConvexBuildAccessWiringOrFail(ctx, {
+    vaultId: args.vaultId,
+    runId,
+    userId,
+    appRoot,
+  });
 
-    return null;
+  return null;
+}
+
+export const wireConvexBuildAccess = action({
+  access: cloudflareWireConvexBuildAccessContract.access,
+  args: cloudflareWireConvexBuildAccessContract.args,
+  returns: cloudflareWireConvexBuildAccessContract.returns,
+  mcp: cloudflareWireConvexBuildAccessContract.mcp,
+  handler: async (ctx, args): Promise<null> => {
+    return await wireCloudflareConvexBuildAccessForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 

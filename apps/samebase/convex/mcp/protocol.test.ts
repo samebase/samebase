@@ -16,7 +16,11 @@ describe("buildMcpProtectedResourceMetadata", () => {
     expect(metadata.resource).toBe("https://samebase.com/mcp");
     expect(metadata.authorization_servers).toEqual(["https://samebase.com"]);
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
-    expect(metadata.scopes_supported).toEqual(["access_app_create", "access_dashboard"]);
+    expect(metadata.scopes_supported).toEqual([
+      "access_dashboard",
+      "access_app_create",
+      "access_repo_connect",
+    ]);
   });
 });
 
@@ -211,7 +215,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["access_app_create", "access_dashboard"]);
+      expect(result.value.scopes).toEqual([
+        "access_dashboard",
+        "access_app_create",
+        "access_repo_connect",
+      ]);
     }
   });
 
@@ -228,7 +236,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["access_app_create", "access_dashboard"]);
+      expect(result.value.scopes).toEqual([
+        "access_dashboard",
+        "access_app_create",
+        "access_repo_connect",
+      ]);
     }
   });
   it("rejects unsupported scopes", () => {
