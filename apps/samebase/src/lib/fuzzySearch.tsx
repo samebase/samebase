@@ -35,6 +35,44 @@ export function fuzzyMatch(needle: string, haystack: string): { score: number; m
   return { score: -1, matches: [] };
 }
 
+export type FuzzyPathMatch = {
+  path: string;
+  matches: number[];
+};
+
+type RankedFuzzyPathMatch = FuzzyPathMatch & {
+  score: number;
+};
+
+function compareFuzzyPathMatch(left: RankedFuzzyPathMatch, right: RankedFuzzyPathMatch): number {
+  return right.score - left.score || left.path.localeCompare(right.path);
+}
+
+export function rankFuzzyPathMatches(args: {
+  paths: readonly string[];
+  query: string;
+  limit: number;
+}): FuzzyPathMatch[] {
+  const query = args.query.trim();
+
+  if (query.length === 0) {
+    return args.paths.slice(0, args.limit).map((path) => ({
+      path,
+      matches: [],
+    }));
+  }
+
+  return args.paths
+    .map((path) => ({
+      path,
+      ...fuzzyMatch(query, path),
+    }))
+    .filter((match) => match.score >= 0)
+    .sort(compareFuzzyPathMatch)
+    .slice(0, args.limit)
+    .map(({ matches, path }) => ({ matches, path }));
+}
+
 export function highlightMatches(text: string, matches: number[]): React.ReactNode {
   if (matches.length === 0) return text;
 

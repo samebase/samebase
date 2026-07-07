@@ -28,6 +28,7 @@ import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
+import { highlightMatches, rankFuzzyPathMatches } from "@/lib/fuzzySearch.tsx";
 import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import { useNow } from "@/hooks/useNow";
 import {
@@ -40,6 +41,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -202,6 +204,7 @@ type VaultAppRootDialogTarget = {
   id: Id<"vaults">;
   repositoryFullName: string;
 };
+const EMPTY_APP_ROOT_FOLDER_SUGGESTIONS: readonly string[] = [];
 type VaultCloudflareDialogTarget = {
   fixedAppRoot: string;
   id: Id<"vaults">;
@@ -1127,6 +1130,7 @@ export function VaultDashboardDeleteDialog({
 export function VaultDashboardAppRootDialog({
   appRoot,
   error,
+  folderSuggestions,
   isSubmitting,
   mode,
   onAppRootChange,
@@ -1138,6 +1142,7 @@ export function VaultDashboardAppRootDialog({
 }: {
   appRoot: string;
   error: string | null;
+  folderSuggestions: readonly string[];
   isSubmitting: boolean;
   mode: AddAppRootMode;
   onAppRootChange: (appRoot: string) => void;
@@ -1159,6 +1164,53 @@ export function VaultDashboardAppRootDialog({
     : vault?.hasRootAppRoot
       ? "Add a folder app root to convert this repository to a monorepo."
       : "Add another folder app root.";
+  const appRootSuggestionContainerRef = useRef<HTMLDivElement>(null);
+  const appRootSuggestionListId = useId();
+  const [appRootSuggestionsOpen, setAppRootSuggestionsOpen] = useState(false);
+  const [selectedAppRootSuggestionIndex, setSelectedAppRootSuggestionIndex] = useState<
+    number | null
+  >(null);
+  const appRootQuery = appRoot.trim();
+  const appRootSuggestionMatches = useMemo(() => {
+    if (!showAppRootInput || appRootQuery.length === 0) {
+      return [];
+    }
+
+    return rankFuzzyPathMatches({
+      paths: folderSuggestions,
+      query: appRootQuery,
+      limit: 8,
+    });
+  }, [appRootQuery, folderSuggestions, showAppRootInput]);
+  const showAppRootSuggestions =
+    appRootSuggestionsOpen && showAppRootInput && appRootSuggestionMatches.length > 0;
+  const activeAppRootSuggestionIndex =
+    selectedAppRootSuggestionIndex === null || appRootSuggestionMatches.length === 0
+      ? null
+      : Math.min(selectedAppRootSuggestionIndex, appRootSuggestionMatches.length - 1);
+  const selectedAppRootSuggestion =
+    showAppRootSuggestions && activeAppRootSuggestionIndex !== null
+      ? appRootSuggestionMatches[activeAppRootSuggestionIndex]
+      : undefined;
+  const activeAppRootSuggestionId = selectedAppRootSuggestion
+    ? `${appRootSuggestionListId}-${activeAppRootSuggestionIndex}`
+    : undefined;
+  useEffect(() => {
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
+
+      const container = appRootSuggestionContainerRef.current;
+      if (container && !container.contains(event.target)) {
+        setAppRootSuggestionsOpen(false);
+        setSelectedAppRootSuggestionIndex(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+    return () => document.removeEventListener("pointerdown", handleDocumentPointerDown);
+  }, []);
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitDisabled) {
@@ -1166,15 +1218,50 @@ export function VaultDashboardAppRootDialog({
     }
     onSubmit();
   };
+  const handleAppRootSuggestionSelect = (folderPath: string) => {
+    onAppRootChange(folderPath);
+    setAppRootSuggestionsOpen(false);
+    setSelectedAppRootSuggestionIndex(null);
+  };
   const handleAppRootInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") {
-      return;
+    switch (event.key) {
+      case "ArrowDown":
+        if (appRootSuggestionMatches.length > 0) {
+          event.preventDefault();
+          setAppRootSuggestionsOpen(true);
+          setSelectedAppRootSuggestionIndex((current) =>
+            current === null || !appRootSuggestionsOpen
+              ? 0
+              : Math.min(current + 1, appRootSuggestionMatches.length - 1),
+          );
+        }
+        return;
+      case "ArrowUp":
+        if (appRootSuggestionMatches.length > 0) {
+          event.preventDefault();
+          setAppRootSuggestionsOpen(true);
+          setSelectedAppRootSuggestionIndex((current) =>
+            current === null || !appRootSuggestionsOpen
+              ? appRootSuggestionMatches.length - 1
+              : Math.max(current - 1, 0),
+          );
+        }
+        return;
+      case "Enter":
+        if (selectedAppRootSuggestion) {
+          event.preventDefault();
+          handleAppRootSuggestionSelect(selectedAppRootSuggestion.path);
+        }
+        return;
+      case "Escape":
+        if (appRootSuggestionsOpen) {
+          event.preventDefault();
+          event.stopPropagation();
+          setAppRootSuggestionsOpen(false);
+          setSelectedAppRootSuggestionIndex(null);
+        }
+        return;
     }
-    event.preventDefault();
-    if (submitDisabled) {
-      return;
-    }
-    onSubmit();
   };
 
   return (
@@ -1222,14 +1309,57 @@ export function VaultDashboardAppRootDialog({
                 </div>
               ) : null}
               {showAppRootInput ? (
-                <Input
-                  aria-label="App root"
-                  value={appRoot}
-                  onChange={(event) => onAppRootChange(event.target.value)}
-                  onKeyDown={handleAppRootInputKeyDown}
-                  disabled={isSubmitting}
-                  placeholder="apps/samebase"
-                />
+                <div ref={appRootSuggestionContainerRef} className="relative">
+                  <Input
+                    aria-activedescendant={activeAppRootSuggestionId}
+                    aria-autocomplete="list"
+                    aria-controls={showAppRootSuggestions ? appRootSuggestionListId : undefined}
+                    aria-expanded={showAppRootSuggestions}
+                    aria-label="App root"
+                    autoComplete="off"
+                    value={appRoot}
+                    onChange={(event) => {
+                      const nextAppRoot = event.target.value;
+                      onAppRootChange(nextAppRoot);
+                      setAppRootSuggestionsOpen(nextAppRoot.trim().length > 0);
+                      setSelectedAppRootSuggestionIndex(null);
+                    }}
+                    onFocus={() => setAppRootSuggestionsOpen(appRootQuery.length > 0)}
+                    onKeyDown={handleAppRootInputKeyDown}
+                    disabled={isSubmitting}
+                    placeholder="apps/samebase"
+                  />
+                  {showAppRootSuggestions ? (
+                    <div
+                      id={appRootSuggestionListId}
+                      role="listbox"
+                      aria-label="App root suggestions"
+                      className="corner-notch-1 absolute z-50 mt-1 max-h-56 w-full overflow-y-auto border bg-popover text-popover-foreground shadow-md"
+                    >
+                      {appRootSuggestionMatches.map((suggestion, index) => (
+                        <button
+                          key={suggestion.path}
+                          id={`${appRootSuggestionListId}-${index}`}
+                          type="button"
+                          role="option"
+                          aria-selected={index === activeAppRootSuggestionIndex}
+                          className={clsx(
+                            "block w-full cursor-pointer truncate px-3 py-2 text-left font-mono text-sm hover:bg-accent hover:text-accent-foreground",
+                            index === activeAppRootSuggestionIndex &&
+                              "bg-accent text-accent-foreground",
+                          )}
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            handleAppRootSuggestionSelect(suggestion.path);
+                          }}
+                          onClick={() => handleAppRootSuggestionSelect(suggestion.path)}
+                        >
+                          {highlightMatches(suggestion.path, suggestion.matches)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
               {error ? <div className="text-sm text-red-600">{error}</div> : null}
             </div>
@@ -3721,6 +3851,10 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     };
   }, [addCloudflareWorkerDialogVault, canOpenScopedCloudflareDialog, providerAddAppRoot]);
   const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
+  const addAppRootFolderSuggestions = useConvexQuery(
+    api.vault.dashboard.listVaultAppRootFolderSuggestions,
+    vaultToAddAppRoot ? { vaultId: vaultToAddAppRoot.id } : "skip",
+  );
   const connectedCodespacesCount = useConvexQuery(
     api.codespaces.mutations.getConnectedCodespacesCount,
     CODESPACES_ENABLED && vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
@@ -4602,6 +4736,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       <VaultDashboardAppRootDialog
         appRoot={addAppRootValue}
         error={addAppRootError}
+        folderSuggestions={addAppRootFolderSuggestions ?? EMPTY_APP_ROOT_FOLDER_SUGGESTIONS}
         isSubmitting={isSubmittingAppRoot}
         mode={addAppRootMode}
         onAppRootChange={setAddAppRootDialogAppRoot}

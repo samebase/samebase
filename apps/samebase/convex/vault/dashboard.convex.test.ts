@@ -490,6 +490,81 @@ describe("vault dashboard Convex contract", () => {
     expect(appRoots).toEqual(["apps/samebase"]);
   });
 
+  it("lists app-root folder suggestions from the cached default branch tree", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        appRoot: "apps",
+        createdAt: 21,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        lastTreeRefreshAt: 30,
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [
+            { path: "docs/readme.md", mode: "100644", type: "blob", sha: "docs-readme" },
+            { path: "apps/samebase", mode: "040000", type: "tree", sha: "apps-samebase" },
+            { path: "apps", mode: "040000", type: "tree", sha: "apps" },
+            { path: "packages", mode: "040000", type: "tree", sha: "packages" },
+          ],
+        },
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    await expect(
+      asUser.query(api.vault.dashboard.listVaultAppRootFolderSuggestions, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual(["apps/samebase", "packages"]);
+  });
+
   it("blocks monorepo conversion while root providers are attached", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

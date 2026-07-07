@@ -717,6 +717,39 @@ export const createVaultAppRoot = mutation({
   },
 });
 
+export const listVaultAppRootFolderSuggestions = query({
+  access: "access_repo_connect",
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: array(string()),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== ctx.viewer.userId) {
+      return [];
+    }
+
+    const defaultBranchTree = await ctx.db
+      .query("vaultBranchTrees")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", vault.defaultBranch),
+      )
+      .first();
+    if (!defaultBranchTree) {
+      return [];
+    }
+
+    const existingAppRoots = new Set(
+      (await readVaultAppsForVault(ctx, args.vaultId)).map((app) => app.appRoot),
+    );
+
+    return defaultBranchTree.treeData.tree
+      .filter((item) => item.type === "tree" && !existingAppRoots.has(item.path))
+      .map((item) => item.path)
+      .sort((left, right) => left.localeCompare(right));
+  },
+});
+
 // Get user's vaults with optional file staging stats
 async function readUserVaults(
   ctx: Pick<QueryCtx, "db">,
