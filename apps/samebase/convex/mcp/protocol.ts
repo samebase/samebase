@@ -29,8 +29,10 @@ export const MCP_V1_SUPPORTED_SCOPES: readonly AccessKey[] = Array.from(
 // Some MCP clients omit `scope`. Omission must not silently widen as the
 // catalog grows: clients that never asked keep exactly the original v1
 // surface (status reads plus app creation); every newer scope, starting with
-// access_repo_connect, has to be requested explicitly.
-const DEFAULT_MCP_SCOPE = [getUserVaultsContract.access, createRepositoryContract.access].join(" ");
+// access_repo_connect, has to be requested explicitly. Token order is
+// load-bearing: oauth.ts reuses grants by exact string comparison, and every
+// grant stored before the catalog existed used this order.
+const DEFAULT_MCP_SCOPE = [createRepositoryContract.access, getUserVaultsContract.access].join(" ");
 
 type McpSupportedScope = AccessKey;
 

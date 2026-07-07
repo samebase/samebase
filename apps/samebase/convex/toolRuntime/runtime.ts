@@ -330,7 +330,7 @@ export const convexConnectExistingProjectTool = internalAction({
       await connectExistingConvexProjectForUser(ctx, connectArgs);
       return {
         status: "ok",
-        text: "Connected.",
+        text: "Started connect_convex_deployment run.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -373,7 +373,7 @@ export const cloudflareConnectExistingWorkerTool = internalAction({
       await connectExistingCloudflareWorkerForUser(ctx, connectArgs);
       return {
         status: "ok",
-        text: "Connected.",
+        text: "Started connect_cloudflare_worker run.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
