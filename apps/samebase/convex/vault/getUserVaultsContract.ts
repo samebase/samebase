@@ -38,12 +38,41 @@ export const vSourceSetupSummary = union(
 
 const providerSetupProvider = union(literal("convex"), literal("cloudflare"));
 const providerSetupSource = union(literal("managed"), literal("manual"));
-const vCloudflareWorkerGithubRepositoryConnection = object({
-  state: union(literal("connected"), literal("not_connected")),
-});
-const vCloudflareWorkerConvexDeployKeys = object({
-  state: union(literal("missing"), literal("not_applicable"), literal("set")),
-});
+
+/**
+Degraded variants carry their own remedy: `nextAction` names the exact action
+that repairs the state (rfcs/111 one-base invariant). Dashboard repair buttons
+and MCP consumers read the same field, so "what is wrong and what fixes it"
+has one answer. The values are the snake_case names of shipped operations:
+`retry_infrastructure_provisioning` (managed run retry), the manual
+reconnect flows (specs 105/106), and the wire_* provisioning blocks.
+*/
+const vCloudflareWorkerGithubRepositoryConnection = union(
+  object({
+    state: literal("connected"),
+  }),
+  object({
+    state: literal("not_connected"),
+    nextAction: literal("wire_builds"),
+  }),
+);
+const vCloudflareWorkerConvexDeployKeys = union(
+  object({
+    state: literal("missing"),
+    nextAction: literal("wire_convex_build_access"),
+  }),
+  object({
+    state: literal("not_applicable"),
+  }),
+  object({
+    state: literal("set"),
+  }),
+);
+const vProviderSetupFailedNextAction = union(
+  literal("retry_infrastructure_provisioning"),
+  literal("connect_convex_deployment"),
+  literal("connect_cloudflare_worker"),
+);
 
 export const vProviderSetupSummary = union(
   object({
@@ -68,6 +97,7 @@ export const vProviderSetupSummary = union(
     step: vAppProvisioningRunStep,
     message: string(),
     updatedAt: number(),
+    nextAction: vProviderSetupFailedNextAction,
   }),
 );
 
@@ -163,7 +193,7 @@ export const getUserVaultsContract = {
   mcp: {
     name: "vault_dashboard_getUserVaults",
     description:
-      "List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources.",
+      "List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -176,6 +206,10 @@ export const getUserVaultsContract = {
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;
 export type ProviderSetupSummary = Infer<typeof vProviderSetupSummary>;
+export type CloudflareWorkerGithubRepositoryConnection = Infer<
+  typeof vCloudflareWorkerGithubRepositoryConnection
+>;
+export type CloudflareWorkerConvexDeployKeys = Infer<typeof vCloudflareWorkerConvexDeployKeys>;
 export type VaultDeletionSummary = Infer<typeof vVaultDeletionSummary>;
 export type UserVaultsResult = Infer<typeof getUserVaultsContract.returns>;
 export type UserVaultResult = UserVaultsResult[number];

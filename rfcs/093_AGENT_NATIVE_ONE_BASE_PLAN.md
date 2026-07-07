@@ -267,7 +267,9 @@ Phase 1 — **Corpus** (no product-behavior changes; independent of Phase 2):
 - Run the first manual eval round once this slice deploys; fix the corpus until answers are correct
   and fair.
 
-Phase 2 — **Catalog** (extends live rfcs/089 machinery):
+Phase 2 — **Catalog** (extends live rfcs/089 machinery). Ships as three PR slices, each its own
+review: (2a) the `nextAction` status-noun change; (2b) contract doc bodies and generated exports;
+(2c) the new MCP contracts — separated because 2c widens the MCP write surface:
 
 - Add `nextAction` to `getUserVaults` (contract-name values; dashboard buttons consume it too). This
   also closes the "dashboard looks incomplete after successful provisioning" gap from

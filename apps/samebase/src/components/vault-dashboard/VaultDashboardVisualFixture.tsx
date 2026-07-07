@@ -598,13 +598,14 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
     message:
       "Cannot connect Cloudflare Worker 4d41accaab0042ef83bc3fc78e1ec644 to nicu-chiciuc/tmp-my-super-app-2: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
     updatedAt: FIXTURE_NOW - 1_000,
+    nextAction: "connect_cloudflare_worker",
   },
   appRoots: [{ appRoot: "." }],
   cloudflareWorkers: [
     {
       appRoot: ".",
       convexDeployKeys: { state: "not_applicable" },
-      githubRepositoryConnection: { state: "not_connected" },
+      githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
       lastObservedAt: FIXTURE_NOW - 2_000,
       workerName: "tmp-my-super-app-234",
       workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
@@ -1783,6 +1784,7 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
                   message:
                     "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include noter-guest/tmp-manual-test, then retry.",
                   updatedAt: Date.parse("2026-06-24T12:00:00Z"),
+                  nextAction: "retry_infrastructure_provisioning",
                 }}
               />
             }
