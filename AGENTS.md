@@ -220,7 +220,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Backend: Convex
 - Auth: Convex Auth app login plus provider OAuth/API-key connection flows
 - Editor: Monaco plus CodeMirror 6 / `@prosemark/core`
-- UI: Tailwind CSS, Radix UI, shadcn/ui
+- UI: Tailwind CSS, Base UI, shadcn/ui
 - State: Convex subscriptions plus TanStack Query
 
 Key domain entities:

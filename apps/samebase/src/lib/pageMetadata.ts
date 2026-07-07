@@ -6,6 +6,7 @@ import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_RECEIPTS_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ROUTE,
 } from "@/routeSearch/landingPreview";
@@ -146,6 +147,14 @@ export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
+  title: "Receipts | Samebase",
+  description: "Every factual Samebase claim with its primary source and check date.",
+  canonicalPath: DOCS_RECEIPTS_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE) {
     return "Vaults | Samebase";
@@ -201,6 +210,10 @@ export function resolveAppPageTitle(pathname: string): string {
 
   if (pathname === DOCS_THE_STACK_ROUTE) {
     return DOCS_THE_STACK_PAGE_METADATA.title;
+  }
+
+  if (pathname === DOCS_RECEIPTS_ROUTE) {
+    return DOCS_RECEIPTS_PAGE_METADATA.title;
   }
 
   if (pathname === LOCAL_STORAGE_ROUTE) {
@@ -260,6 +273,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_THE_STACK_ROUTE) {
     return DOCS_THE_STACK_PAGE_METADATA;
+  }
+
+  if (args.pathname === DOCS_RECEIPTS_ROUTE) {
+    return DOCS_RECEIPTS_PAGE_METADATA;
   }
 
   if (args.pathname === LOCAL_STORAGE_ROUTE) {

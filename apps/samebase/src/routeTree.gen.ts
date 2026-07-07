@@ -37,6 +37,7 @@ import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams"
 import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
+import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
@@ -191,6 +192,11 @@ const docsTheStackRoute = docsTheStackRouteImport.update({
   path: "/docs/the-stack",
   getParentRoute: () => rootRouteImport,
 } as any);
+const docsReceiptsRoute = docsReceiptsRouteImport.update({
+  id: "/docs/receipts",
+  path: "/docs/receipts",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
   id: "/docs/do-it-yourself",
   path: "/docs/do-it-yourself",
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
+  "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
@@ -315,6 +322,7 @@ export interface FileRoutesByTo {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
+  "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
@@ -358,6 +366,7 @@ export interface FileRoutesById {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
+  "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
@@ -402,6 +411,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/docs/do-it-yourself"
+    | "/docs/receipts"
     | "/docs/the-stack"
     | "/logo/iso"
     | "/logo/raster"
@@ -444,6 +454,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault"
     | "/docs/do-it-yourself"
+    | "/docs/receipts"
     | "/docs/the-stack"
     | "/logo/iso"
     | "/logo/raster"
@@ -486,6 +497,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/docs/do-it-yourself"
+    | "/docs/receipts"
     | "/docs/the-stack"
     | "/logo/iso"
     | "/logo/raster"
@@ -529,6 +541,7 @@ export interface RootRouteChildren {
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
+  docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoRasterRoute: typeof logoRasterRoute;
@@ -751,6 +764,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof docsTheStackRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/docs/receipts": {
+      id: "/docs/receipts";
+      path: "/docs/receipts";
+      fullPath: "/docs/receipts";
+      preLoaderRoute: typeof docsReceiptsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/docs/do-it-yourself": {
       id: "/docs/do-it-yourself";
       path: "/docs/do-it-yourself";
@@ -857,6 +877,7 @@ const rootRouteChildren: RootRouteChildren = {
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
+  docsReceiptsRoute: docsReceiptsRoute,
   docsTheStackRoute: docsTheStackRoute,
   logoIsoRoute: logoIsoRoute,
   logoRasterRoute: logoRasterRoute,

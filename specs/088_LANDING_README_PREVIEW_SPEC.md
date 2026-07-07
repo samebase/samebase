@@ -4,7 +4,8 @@
 
 - Status: Accepted
 - Owner: Samebase landing/onboarding
-- Last updated: 2026-06-18
+- Last updated: 2026-07-07 (access contract amended to match the shipped public overview role; see
+  `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md`)
 - Related files:
   - `apps/samebase/src/routes/landing-preview.tsx`
   - `apps/samebase/src/components/LandingMarkdownPreviewPage.tsx`
@@ -16,9 +17,9 @@
 
 ## Summary
 
-`/landing-preview` is the admin-only preview surface for the README-shaped landing document. It lets
-the operator review `samebase/app` README-style onboarding pages in Samebase's `WorkspaceLayoutV2`
-chrome before any content is promoted to the public landing route.
+`/landing-preview` is the README-shaped overview surface (originally an admin-only preview; public
+since the 2026-07-07 amendment). It renders `samebase/app` README-style onboarding pages in
+Samebase's `WorkspaceLayoutV2` chrome.
 
 The preview is intentionally a constrained Markdown renderer, not a general GitHub clone. The
 authoring baseline is content that renders clearly in the `samebase/app` GitHub README and uses only
@@ -28,14 +29,12 @@ the subset Samebase currently supports.
 
 ### Access And Layout
 
-The product intent is admin-only access. Route metadata must classify `/landing-preview` as
-`access_admin`, and the URL editor may expose it only to viewers whose effective access list
-contains that key. The root runtime route-access gate is the authorization boundary for this route;
-authenticated access alone is not sufficient.
-
-Authenticated sidebar chrome must not add a separate `/landing-preview` path link. Public
-unauthenticated navigation must not expose preview links. Unauthenticated users should see the
-normal sign-in flow.
+Amended 2026-07-07: the route outgrew the original admin-only preview intent and now serves as the
+public overview page of the docs corpus. Route metadata classifies `/landing-preview` as
+`access_public` with a hidden path suggestion (`apps/samebase/src/routeAccessMetadata.ts`), the page
+is prerendered with the other public routes, and the docs sidebar links to it as "Overview". The
+admin-only clauses below this point are superseded by that shipped state; the rendering and chrome
+constraints in the rest of this spec still apply.
 
 The preview must render through the same `PublicLayoutShell` sidebar chrome as the public landing
 page. That shell owns the `WorkspaceLayoutV2` frame and the right public sidebar, so the preview
@@ -99,7 +98,7 @@ tags require tests that show both the allowed behavior and rejected unsafe attri
 Changes to this route should update or add:
 
 - renderer tests for newly supported Markdown or HTML constructs
-- route coverage proving `/landing-preview` stays an explicit admin-only route
+- route coverage matching the amended access contract (`access_public`, hidden path suggestion)
 - visual coverage for the WorkspaceLayoutV2 preview surface
 
 When mirrored media or README structure changes, update the visual snapshot so the PR shows what the

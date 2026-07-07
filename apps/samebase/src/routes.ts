@@ -8,6 +8,7 @@ import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_RECEIPTS_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ROUTE,
 } from "./routeSearch/landingPreview";
@@ -47,6 +48,7 @@ export const routes = rootRoute("root.tsx", [
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/landing", "landing.tsx"),
   route(DOCS_DO_IT_YOURSELF_ROUTE, "docs-do-it-yourself.tsx"),
+  route(DOCS_RECEIPTS_ROUTE, "docs-receipts.tsx"),
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),

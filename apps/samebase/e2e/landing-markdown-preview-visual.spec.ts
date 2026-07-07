@@ -1,13 +1,19 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 
-const expectedLandingPreviewSidebarFiles = ["Overview", "The stack", "Do it yourself"] as const;
+const expectedLandingPreviewSidebarFiles = [
+  "Overview",
+  "The stack",
+  "Do it yourself",
+  "Receipts",
+] as const;
 const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-1-create-accounts.mp4",
   "/landing-preview/step-2-use-template.mp4",
@@ -67,6 +73,10 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
     "href",
     new RegExp(`^${DOCS_DO_IT_YOURSELF_ROUTE}(\\?|$)`),
+  );
+  await expect(sidebar.getByRole("link", { name: "Receipts" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${DOCS_RECEIPTS_ROUTE}(\\?|$)`),
   );
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
@@ -211,6 +221,38 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
     .toBeLessThan(81);
+});
+
+test("docs receipts route renders the claims ledger", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  await page.goto(DOCS_RECEIPTS_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
+
+  await expect(sidebar).toBeVisible();
+  await expectSidebarFiles(sidebar);
+  await expect(article.getByRole("heading", { exact: true, name: "Receipts" })).toBeVisible();
+  await expect(article).toContainText("Requests to static assets are free and unlimited.");
+  await expect(article).toContainText("security researcher Matt Palmer");
+  await expect(article).toContainText("Last full check: 2026-07-02");
+  await expect(article).toContainText("deleted, not softened");
+  await expect(article.locator("video")).toHaveCount(0);
+
+  await expect(page).toHaveScreenshot("docs-receipts-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 });
 
 test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({ page }) => {
