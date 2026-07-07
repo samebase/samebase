@@ -15,6 +15,7 @@ import {
 } from "@samebase/sure";
 import { createServer } from "vite";
 
+import { formatWithVpFmt } from "../../../scripts/format-with-vp-fmt.ts";
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 import {
   appInfo,
@@ -284,6 +285,14 @@ function renderSubmissionJson(contracts: ActionContractDoc[]): string {
   return `${JSON.stringify(submission, null, 2)}\n`;
 }
 
+/**
+Generated output runs through the repo formatter before writing, so the committed files, the
+pre-commit hook's formatting pass, and CI's verify regeneration all agree byte for byte.
+*/
+async function writeFormatted(filePath: string, contents: string) {
+  writeFileSync(filePath, await formatWithVpFmt(filePath, contents));
+}
+
 const { contracts, argumentLinesByMcpName } = await loadCatalog();
 
 rmSync(actionsOutputDir, { force: true, recursive: true });
@@ -293,13 +302,14 @@ for (const contract of contracts) {
   if (!argumentLines) {
     throw new Error(`Missing rendered arguments for ${contract.mcp.name}.`);
   }
-  writeFileSync(
+  await writeFormatted(
     path.resolve(actionsOutputDir, `${contract.id}.md`),
     renderActionDoc(contract, argumentLines),
   );
 }
+// llms.txt stays unformatted: vp fmt (and the pre-commit hook glob) do not cover .txt files.
 writeFileSync(llmsTxtPath, renderLlmsTxt(contracts));
-writeFileSync(submissionPath, renderSubmissionJson(contracts));
+await writeFormatted(submissionPath, renderSubmissionJson(contracts));
 
 const generatedFiles = readdirSync(actionsOutputDir).length;
 console.log(
