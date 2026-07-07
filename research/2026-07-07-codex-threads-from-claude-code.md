@@ -113,6 +113,15 @@ setups:
 - Theo's (t3.gg) setup, per [his X thread](https://x.com/theo/status/2072481845363822914) and
   secondary write-ups: CLAUDE.md routing prose plus a thin wrapper agent running `codex exec` via
   Bash — the same shell-out pattern, never published as an installable artifact.
+- Theo's loops iteration — the video that prompted this research
+  ([I guess we're writing loops now?](https://www.youtube.com/watch?v=iJVJwmCKW9o), per
+  [coverage of the episode](https://finance.biggo.com/news/3e8cd4fa5414197c) and the
+  [overnight stacked-PRs write-up](https://finance.biggo.com/news/0630550c86453c18)): Claude Code as
+  orchestrator with a global CLAUDE.md decision matrix, one goal-prompt ("define the end state, not
+  the path"), sub-agents in isolated worktrees plus heartbeat threads polling review comments, Codex
+  shell-outs for bulk mechanical work — and no agent-GUI monitoring at all: he follows the loop
+  through PRs and commits on GitHub from his phone, with review bots as mandatory merge gates. His
+  cost lesson: verifying the work burned more tokens than producing it.
 - Pattern write-ups that match the shipped skill:
   [madewithlove — Claude up front, Codex in the back](https://madewithlove.com/blog/claude-up-front-codex-in-the-back/),
   [amanhimself — headless Codex inside Claude Code](https://amanhimself.dev/blog/running-headless-codex-cli-inside-claude-code/),
@@ -190,6 +199,12 @@ Codex side (spawning Codex workers, e.g. from Claude Code):
   in CLI 0.142.0 — [changelog](https://developers.openai.com/codex/changelog)); the web fallback is
   `codex cloud exec` plus [chatgpt.com/codex](https://chatgpt.com/codex), which runs in OpenAI's
   cloud instead of on the machine.
+
+Perspective check from Theo's loops setup (the video that prompted this research): he does not
+follow threads in agent GUIs at all — workers publish PRs, commits, and review responses, and he
+follows the loop on GitHub from his phone. The GUI question this section answers matters for
+watching a thread think; for watching a loop deliver, the observable surface is the repo, and this
+codebase's push-early/PR-links-everywhere rules already provide it.
 
 Binary correction (2026-07-07): the brew cask symlink `/opt/homebrew/bin/codex` pins the
 install-time CLI (0.133.0, linked May 22) and does not follow the app's self-updates, while the
