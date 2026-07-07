@@ -6,6 +6,7 @@ import type { AppFunctionMcpMetadata } from "../../shared/convexFunctionPolicyTy
 const { boolean, id, object, optional, string } = v;
 
 export const createRepositoryContract = {
+  id: "create_repository",
   access: ACCESS_APP_CREATE,
   args: {
     name: string(),
@@ -38,6 +39,24 @@ export const createRepositoryContract = {
       private: "Whether to create a private GitHub repository. Defaults to true.",
     },
   } satisfies AppFunctionMcpMetadata,
+  doc: `Creates a complete Samebase app in one action: a GitHub repository under the caller's
+connected owner, seeded with the starter template, a Convex project and dev/prod deployments, a
+Cloudflare Worker, Workers Builds wired to the repository (push to the default branch deploys,
+pull requests get preview deploys), and Convex deploy keys placed into the build triggers.
+
+Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the
+target names must be available on each provider (the dashboard checks availability first; over
+MCP, a name collision fails the run with a named step and a \`nextAction\`).
+
+What it writes: one repository (private by default), one Convex project, one Worker, and two
+Workers Builds triggers with \`CONVEX_DEPLOY_KEY\` / \`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All
+resources live in the caller's own provider accounts — deleting the Samebase account does not
+remove or stop any of them.
+
+Progress and failure are readable through \`get_user_vaults\`: while running, \`providerSetup\`
+carries the current step; on failure it carries the failed step, a message, and the \`nextAction\`
+that repairs it (\`retry_infrastructure_provisioning\` for managed runs). Cost: the created
+resources run on the providers' free tiers; an idle app costs $0/month.`,
 } as const;
 
 const createRepositoryArgsValidator = object(createRepositoryContract.args);

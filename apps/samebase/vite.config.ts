@@ -462,6 +462,14 @@ function syncStaticSamebaseSyncScriptAssetPlugin() {
  */
 const contentDocsMarkdownAssets = [
   { assetPath: "docs/do-it-yourself.md", sourcePath: "src/content/docs-do-it-yourself.md" },
+  {
+    assetPath: "docs/operate/custom-domain.md",
+    sourcePath: "src/content/docs-operate-custom-domain.md",
+  },
+  {
+    assetPath: "docs/operate/production-logs.md",
+    sourcePath: "src/content/docs-operate-production-logs.md",
+  },
   { assetPath: "docs/receipts.md", sourcePath: "src/content/docs-receipts.md" },
   { assetPath: "docs/the-stack.md", sourcePath: "src/content/docs-the-stack.md" },
 ] as const;

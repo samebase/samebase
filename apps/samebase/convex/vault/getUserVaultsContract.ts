@@ -134,6 +134,7 @@ export const vVaultDeletionSummary = union(
 );
 
 export const getUserVaultsContract = {
+  id: "get_user_vaults",
   access: "access_dashboard",
   args: {},
   returns: array(
@@ -202,6 +203,22 @@ export const getUserVaultsContract = {
     },
     inputDescriptions: {},
   } satisfies AppFunctionMcpMetadata,
+  doc: `Returns every app the authenticated account can see, with enough state to act on: source
+setup, provider setup, per-worker Workers Builds connection and Convex deploy-key state, deletion
+state, and the provider coordinates for going direct (Convex \`deploymentName\`, \`teamSlug\`,
+\`projectSlug\`, \`cloudUrl\`; Cloudflare \`workerName\`, \`workersDevUrl\`, dashboard URLs).
+
+Degraded states name their own remedy in a \`nextAction\` field; the value is the snake_case name
+of the repairing action. Current vocabulary: \`retry_infrastructure_provisioning\` (failed managed
+provisioning run), \`connect_convex_deployment\` / \`connect_cloudflare_worker\` (failed manual
+attach — rerun the matching connect), \`wire_builds\` (Worker exists but Workers Builds is not
+connected to the repository), \`wire_convex_build_access\` (builds connected but Convex deploy
+keys missing). A state without \`nextAction\` is either healthy or not applicable; nothing is
+implicitly broken.
+
+Read this before any repair or day-2 operation: the coordinates it returns are the inputs for
+provider-direct work (see the operate guides), and the \`nextAction\` values are the exact
+Samebase actions to call when the record itself is degraded.`,
 } as const;
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;
