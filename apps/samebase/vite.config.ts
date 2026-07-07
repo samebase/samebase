@@ -458,7 +458,7 @@ function syncStaticSamebaseSyncScriptAssetPlugin() {
 /**
  * Corpus docs pages are markdown-sourced (`src/content/docs-*.md`) and rendered
  * as HTML routes. Agents also fetch them raw, so the same source files ship as
- * static `.md` assets alongside the prerendered pages (rfcs/111, Phase 1).
+ * static `.md` assets alongside the prerendered pages (rfcs/093, Phase 1).
  */
 const contentDocsMarkdownAssets = [
   { assetPath: "docs/do-it-yourself.md", sourcePath: "src/content/docs-do-it-yourself.md" },

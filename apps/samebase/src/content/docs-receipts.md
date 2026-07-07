@@ -13,9 +13,12 @@ Last full check: 2026-07-02.
 ## Hosting: Cloudflare Workers
 
 - Requests to static assets served by Workers are free and unlimited on both the Free and Paid
-  plans. Verbatim: "Requests to static assets are free and unlimited." Source:
-  [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), checked
-  2026-07-02.
+  plans. Verbatim: "Requests to static assets are free and unlimited." The precise boundary:
+  requests that invoke the Worker script itself — server-side rendering, or routes matched by
+  `run_worker_first` — bill as normal Worker requests. Sources:
+  [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and
+  [static assets billing](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/),
+  checked 2026-07-07.
 - The Workers Free plan includes 100,000 requests per day (10ms CPU per invocation). The Paid plan
   is a $5/month minimum that includes 10 million requests per month. Source:
   [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), checked
@@ -50,8 +53,8 @@ Last full check: 2026-07-02.
   Verbatim from Convex's docs: "This architecture lets you check every public request against any
   authorization rules you can define in code. This means Convex doesn't need an opinionated
   authorization framework like RLS, which is required in client oriented databases like Firebase or
-  Supabase." Source: [Convex docs, Understanding](https://docs.convex.dev/understanding/), checked
-  2026-07-02.
+  Supabase." Source: [Convex docs, Auth overview](https://docs.convex.dev/auth/overview), checked
+  2026-07-07.
 - Convex states the same on row-level security directly: "RLS is necessary on platforms that expose
   your database directly to end-users, but your Convex database is only accessible via server
   functions where you can apply authorization checks directly." Source:

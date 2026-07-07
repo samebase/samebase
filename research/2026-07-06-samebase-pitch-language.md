@@ -1,9 +1,9 @@
 # Samebase Pitch Language
 
 Positioning language for spoken and written pitches, drafted by a third party (Claude Fable 5
-session, 2026-07-06) after the RFC 111 research pass over the specs, receipts, competitor notes, and
+session, 2026-07-06) after the RFC 093 research pass over the specs, receipts, competitor notes, and
 the landing-copy interview. Companion to `research/2026-07-02-landing-copy-interview.md` and
-`rfcs/111_AGENT_NATIVE_ONE_BASE_PLAN.md`. Every factual beat below is receipts-backed
+`rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md`. Every factual beat below is receipts-backed
 (`apps/samebase/src/content/docs-receipts.md`); if a receipt dies, retire the beat.
 
 The diagnosis behind all of it: Samebase is hard to explain because it fits no existing category,

@@ -1,6 +1,6 @@
 # Agent Landing Eval — Question Panel
 
-Part of `rfcs/111_AGENT_NATIVE_ONE_BASE_PLAN.md` Phase 1 ("marketing as CI"). The landing strategy
+Part of `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md` Phase 1 ("marketing as CI"). The landing strategy
 is a paste-able prompt, so its correctness is testable: run fresh agent sessions against these
 questions and grade the answers. Run a round before any landing copy change ships, and after any
 meaningful corpus change.

@@ -3,7 +3,7 @@
 Voice-interview capture (2026-07-06, cleaned from voice-to-text), same genre as
 `research/2026-07-02-landing-copy-interview.md`. The operator's rationale for the stack decisions,
 recorded so it stops living only in chat. This is the raw material for a future `/docs/decisions`
-corpus page (rfcs/111 Phase 1 follow-up): receipts stay verifiable facts; decisions carry the
+corpus page (rfcs/093 Phase 1 follow-up): receipts stay verifiable facts; decisions carry the
 rationale, the events that validated them, and how hard each is to revert.
 
 A repo-status caveat from the accompanying spec trace: `rfcs/` headers stay "Proposed" forever even
@@ -108,7 +108,7 @@ call for the template: ship Convex Auth with the basic JWT key setup — the mos
 authentication — and let the user's agent (Codex, Claude) extend it with email or other logins on
 request. No repo doc records the auth-provider decision (spec trace); the 2026-07-06 session
 separately decided samebase.com itself stays on Convex Auth + its own OAuth server rather than
-adopting WorkOS (see the auth.md discussion in the rfcs/111 session).
+adopting WorkOS (see the auth.md discussion in the rfcs/093 session).
 
 ## Things around the stack
 
