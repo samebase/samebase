@@ -1,6 +1,8 @@
 import { includes } from "@samebase/dependent/main";
 import { asRecord } from "../jsonUtils";
 import { actionContracts } from "../toolRuntime/actionCatalog";
+import { createRepositoryContract } from "../vault/createRepositoryContract";
+import { getUserVaultsContract } from "../vault/getUserVaultsContract";
 import type { AccessKey } from "../../shared/accessModel";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
@@ -24,10 +26,11 @@ const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 export const MCP_V1_SUPPORTED_SCOPES: readonly AccessKey[] = Array.from(
   new Set(actionContracts.map((contract) => contract.access)),
 );
-// Some MCP clients omit `scope`. Samebase's v1 app integration is meant to
-// install with the full public tool surface, including app creation; consent,
-// token scopes, and role access still gate execution.
-const DEFAULT_MCP_SCOPE = MCP_V1_SUPPORTED_SCOPES.join(" ");
+// Some MCP clients omit `scope`. Omission must not silently widen as the
+// catalog grows: clients that never asked keep exactly the original v1
+// surface (status reads plus app creation); every newer scope, starting with
+// access_repo_connect, has to be requested explicitly.
+const DEFAULT_MCP_SCOPE = [getUserVaultsContract.access, createRepositoryContract.access].join(" ");
 
 type McpSupportedScope = AccessKey;
 

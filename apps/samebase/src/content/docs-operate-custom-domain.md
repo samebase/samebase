@@ -13,8 +13,9 @@ If the domain's DNS is on Cloudflare (recommended — it is the same account):
    certificate; propagation is usually minutes.
 
 Command-line equivalent, from the app repository: add the hostname under `routes` with
-`custom_domain: true` in `wrangler.jsonc`, then deploy (the next push does it — Workers Builds run
-`wrangler deploy`).
+`custom_domain: true` in `wrangler.jsonc`, then let the next production deploy ship it (generated
+apps deploy through their `pnpm run deploy` script, which passes the Worker name explicitly — pushes
+to the default branch trigger it; preview deploys do not apply domain routes).
 
 ## What stays unchanged
 

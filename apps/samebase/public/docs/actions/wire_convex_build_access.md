@@ -10,10 +10,22 @@ and `PREVIEW_CONVEX_DEPLOY_KEY`. This is the remedy behind `nextAction: "wire_co
 on the Worker's `convexDeployKeys` axis and the dashboard's "Set Convex deploy keys" button — the
 same operation.
 
-Requires the Worker's Builds connection to exist first (`wire_builds` otherwise). Writes deploy keys
-on Convex and trigger variables on Cloudflare, both in the caller's own accounts.
+Requires the Worker's Builds connection to exist first (`wire_builds` otherwise). This is a key
+rotation: previously recorded deploy keys are deleted once replacements are installed (and its own
+new keys are cleaned up if the run fails). Writes deploy keys on Convex and trigger variables on
+Cloudflare, both in the caller's own accounts; no user data is touched.
 
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app whose builds need Convex deploy keys.
 - `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+
+## Returns
+
+Convex validator JSON of the tool's `structuredContent`:
+
+```json
+{
+  "type": "null"
+}
+```

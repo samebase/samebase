@@ -25,7 +25,7 @@ const noDestructiveActions =
 export const toolJustifications: Record<string, ToolJustifications | undefined> = {
   vault_dashboard_getUserVaults: {
     read_only_justification:
-      "Only lists Samebase apps and repository metadata available to the authenticated user.",
+      "Lists the authenticated user's Samebase apps with repository metadata, provisioning state, and the user's own provider coordinates (Convex deployment names and URLs, Cloudflare worker names and dashboard links).",
     open_world_justification:
       "Does not create, publish, or modify public internet state or third-party systems.",
     destructive_justification: noDestructiveActions,
@@ -71,24 +71,26 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
   },
   vault_cloudflare_connectExistingWorker: {
     read_only_justification:
-      "Records an existing Cloudflare Worker on the Samebase app after validating it belongs to the app's repository, then starts the connection run.",
+      "Records an existing Cloudflare Worker on the Samebase app and starts the connection run; Workers wired to a different repository are rejected rather than adopted.",
     open_world_justification:
       "Reads Worker metadata from Cloudflare and records Samebase state; rejects Workers wired to other repositories.",
     destructive_justification: noDestructiveActions,
   },
   vault_cloudflare_wireBuilds: {
     read_only_justification:
-      "Creates Workers Builds production and preview triggers connecting the app's Worker to its repository.",
+      "Creates or updates the app's own Workers Builds production and preview triggers connecting its Worker to its repository, and may create a Workers Builds API token under API-key auth.",
     open_world_justification:
-      "Creates build triggers on the caller's own Cloudflare account for the caller's own repository.",
-    destructive_justification: noDestructiveActions,
+      "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository.",
+    destructive_justification:
+      "May update the app's own existing build trigger configuration; does not delete user data, repositories, deployments, or Workers.",
   },
   vault_cloudflare_wireConvexBuildAccess: {
     read_only_justification:
-      "Mints Convex deploy keys for the app and writes them into its Workers Builds trigger variables.",
+      "Rotates the app's Convex deploy keys and writes them into its Workers Builds trigger variables.",
     open_world_justification:
       "Creates deploy keys on the caller's Convex deployment and sets variables on the caller's Cloudflare build triggers.",
-    destructive_justification: noDestructiveActions,
+    destructive_justification:
+      "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. Does not delete user data, deployments, or Workers.",
   },
   vault_actions_retryInfrastructureProvisioning: {
     read_only_justification:

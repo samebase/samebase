@@ -34,6 +34,8 @@ wrong-repo guard (a trigger belonging to a different repository is never adopted
 remedy behind \`nextAction: "wire_builds"\` on the Worker's \`githubRepositoryConnection\` axis and
 the dashboard's "Connect GitHub repo" button — the same operation.
 
-Writes Workers Builds triggers on the caller's Cloudflare account. Follow with
-\`wire_convex_build_access\` if deploy keys are still missing afterwards.`,
+Writes Workers Builds triggers on the caller's Cloudflare account — updating the app's own
+existing trigger configuration when one matches — and may create a Workers Builds API token when
+the connection uses API-key auth. Follow with \`wire_convex_build_access\` if deploy keys are
+still missing afterwards.`,
 } as const;

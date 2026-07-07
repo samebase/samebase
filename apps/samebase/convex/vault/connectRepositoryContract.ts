@@ -28,7 +28,8 @@ export const connectRepositoryContract = {
       repositoryFullName: 'Full repository name to import, as "owner/name".',
     },
   } satisfies AppFunctionMcpMetadata,
-  doc: `Brings a repository the caller already owns under Samebase's record: creates the vault,
+  doc: `Brings a repository the caller's GitHub connection can read under Samebase's record
+(access is what is checked — not ownership): creates the vault,
 syncs the tree, and leaves the providers deliberately unconfigured — importing never touches
 Convex or Cloudflare. This is the adoption entry point for existing projects; attach providers
 afterwards with \`connect_convex_deployment\` and \`connect_cloudflare_worker\`, or leave the app

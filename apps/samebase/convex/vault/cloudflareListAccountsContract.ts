@@ -30,5 +30,6 @@ export const cloudflareListAccountsContract = {
   doc: `Discovery read for the manual Cloudflare attach flow: returns the accounts on the caller's
 connected Cloudflare login. Use the chosen \`accountId\` with \`list_cloudflare_workers\` and
 \`connect_cloudflare_worker\`. Requires a Cloudflare provider connection; reads from Cloudflare's
-API and writes nothing.`,
+API — the only writes are Samebase's own connection bookkeeping (OAuth token refresh and token
+health) when the connection needs it.`,
 } as const;

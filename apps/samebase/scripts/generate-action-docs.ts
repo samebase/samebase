@@ -77,6 +77,7 @@ const contractSourceByMcpName: Record<string, string> = {
 type LoadedCatalog = {
   contracts: ActionContractDoc[];
   argumentLinesByMcpName: Map<string, string>;
+  returnsJsonByMcpName: Map<string, string>;
 };
 
 /**
@@ -120,6 +121,7 @@ async function loadCatalog(): Promise<LoadedCatalog> {
     }
 
     const argumentLinesByMcpName = new Map<string, string>();
+    const returnsJsonByMcpName = new Map<string, string>();
     contracts.forEach((contract, index) => {
       const rawContract = rawContracts[index];
       if (
@@ -139,9 +141,19 @@ async function loadCatalog(): Promise<LoadedCatalog> {
         contract.mcp.name,
         renderArgumentLines(converted.properties, new Set(schema.required ?? [])),
       );
+
+      // Convex validators expose their JSON metadata; that is the returns
+      // contract an MCP caller sees in structuredContent, rendered verbatim.
+      if (!isObject(rawContract.returns) || rawContract.returns.json === undefined) {
+        throw new Error(`Contract ${contract.mcp.name} has no returns validator JSON.`);
+      }
+      returnsJsonByMcpName.set(
+        contract.mcp.name,
+        JSON.stringify(rawContract.returns.json, null, 2),
+      );
     });
 
-    return { contracts, argumentLinesByMcpName };
+    return { contracts, argumentLinesByMcpName, returnsJsonByMcpName };
   } finally {
     await server.close();
   }
@@ -164,7 +176,11 @@ function actionTitle(contract: ActionContractDoc): string {
   return contract.id.replaceAll("_", " ").replace(/^./, (first) => first.toUpperCase());
 }
 
-function renderActionDoc(contract: ActionContractDoc, argumentLines: string): string {
+function renderActionDoc(
+  contract: ActionContractDoc,
+  argumentLines: string,
+  returnsJson: string,
+): string {
   const sourcePath = contractSourceByMcpName[contract.mcp.name];
   if (!sourcePath) {
     throw new Error(`No contract source path registered for ${contract.mcp.name}.`);
@@ -181,6 +197,14 @@ ${contract.doc.trim()}
 ## Arguments
 
 ${argumentLines}
+
+## Returns
+
+Convex validator JSON of the tool's \`structuredContent\`:
+
+\`\`\`json
+${returnsJson}
+\`\`\`
 `;
 }
 
@@ -202,7 +226,8 @@ function renderLlmsTxt(contracts: ActionContractDoc[]): string {
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
 Deleting the Samebase account does not stop a running app.
 
-The \`.md\` links below return raw markdown; the same paths without \`.md\` serve the HTML pages.
+The \`.md\` links under Docs return raw markdown, and the same paths without \`.md\` serve the
+HTML pages. Action and operate docs are raw markdown only.
 
 ## Docs
 
@@ -285,18 +310,19 @@ async function writeFormatted(filePath: string, contents: string) {
   writeFileSync(filePath, await formatWithVpFmt(filePath, contents));
 }
 
-const { contracts, argumentLinesByMcpName } = await loadCatalog();
+const { contracts, argumentLinesByMcpName, returnsJsonByMcpName } = await loadCatalog();
 
 rmSync(actionsOutputDir, { force: true, recursive: true });
 mkdirSync(actionsOutputDir, { recursive: true });
 for (const contract of contracts) {
   const argumentLines = argumentLinesByMcpName.get(contract.mcp.name);
-  if (!argumentLines) {
-    throw new Error(`Missing rendered arguments for ${contract.mcp.name}.`);
+  const returnsJson = returnsJsonByMcpName.get(contract.mcp.name);
+  if (!argumentLines || !returnsJson) {
+    throw new Error(`Missing rendered arguments or returns for ${contract.mcp.name}.`);
   }
   await writeFormatted(
     path.resolve(actionsOutputDir, `${contract.id}.md`),
-    renderActionDoc(contract, argumentLines),
+    renderActionDoc(contract, argumentLines, returnsJson),
   );
 }
 // llms.txt stays unformatted: vp fmt (and the pre-commit hook glob) do not cover .txt files.

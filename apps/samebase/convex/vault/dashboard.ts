@@ -118,18 +118,31 @@ function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
 
 /**
  * Managed runs only exist on Samebase-managed vaults (create workflow), where
- * the run retry action is available; manual runs repair by re-running the
- * matching manual connect flow (specs 105/106).
+ * the run retry action is available. A failed manual run repairs by re-running
+ * the action that failed, so the remedy follows the run's own trigger — a
+ * failed wire_builds run must not route to the attach action (specs 105/106,
+ * rfcs/093).
  */
 export function readProviderSetupFailedNextAction(args: {
   provider: "convex" | "cloudflare";
   source: "managed" | "manual";
+  trigger?: Doc<"appProvisioningRuns">["trigger"];
 }): Extract<ProviderSetupSummary, { status: "failed" }>["nextAction"] {
-  if (args.source === "manual") {
-    return args.provider === "convex" ? "connect_convex_deployment" : "connect_cloudflare_worker";
+  if (args.source !== "manual") {
+    return "retry_infrastructure_provisioning";
   }
 
-  return "retry_infrastructure_provisioning";
+  switch (args.trigger) {
+    case "connect_convex_deployment":
+    case "connect_cloudflare_worker":
+    case "wire_builds":
+    case "wire_convex_build_access":
+      return args.trigger;
+    default:
+      // Run row missing (fallback summaries): the connect flow is the safe
+      // re-entry point for the provider.
+      return args.provider === "convex" ? "connect_convex_deployment" : "connect_cloudflare_worker";
+  }
 }
 
 async function readProviderRunSummary(
@@ -176,7 +189,7 @@ async function readProviderRunSummary(
     step: run.currentStep,
     message,
     updatedAt: run.updatedAt,
-    nextAction: readProviderSetupFailedNextAction(args),
+    nextAction: readProviderSetupFailedNextAction({ ...args, trigger: run.trigger }),
   };
 }
 

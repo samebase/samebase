@@ -8,10 +8,410 @@ Discovery read for the manual Cloudflare attach flow: lists Workers on the chose
 classifies each against the app's repository — `recommended` (already tied to this repo and root),
 `available`, `blocked` (tied to a different repository; attaching would be wrong), or `unknown`.
 Pick a recommended or available `workerName` for `connect_cloudflare_worker`; never attach a blocked
-one. Scoped to the caller's own vault; reads only.
+one. Scoped to the caller's own vault; reads from Cloudflare — the only writes are Samebase's own
+connection bookkeeping (OAuth token refresh) when needed.
 
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app the Worker would attach to.
 - `appRoot` (string, required): App root within the repository ("." for single-app repositories).
 - `accountId` (string, required): Cloudflare account id from list_cloudflare_accounts.
+
+## Returns
+
+Convex validator JSON of the tool's `structuredContent`:
+
+```json
+{
+  "type": "array",
+  "value": {
+    "type": "object",
+    "value": {
+      "workerName": {
+        "fieldType": {
+          "type": "string"
+        },
+        "optional": false
+      },
+      "workerTag": {
+        "fieldType": {
+          "type": "string"
+        },
+        "optional": false
+      },
+      "discovery": {
+        "fieldType": {
+          "type": "object",
+          "value": {
+            "classification": {
+              "fieldType": {
+                "type": "union",
+                "value": [
+                  {
+                    "type": "literal",
+                    "value": "recommended"
+                  },
+                  {
+                    "type": "literal",
+                    "value": "available"
+                  },
+                  {
+                    "type": "literal",
+                    "value": "blocked"
+                  },
+                  {
+                    "type": "literal",
+                    "value": "unknown"
+                  }
+                ]
+              },
+              "optional": false
+            },
+            "evidence": {
+              "fieldType": {
+                "type": "union",
+                "value": [
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "none"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "matching_repo"
+                        },
+                        "optional": false
+                      },
+                      "repoId": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "repoName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "triggerName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "rootDirectory": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "same_repo_different_root"
+                        },
+                        "optional": false
+                      },
+                      "repoId": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "repoName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "triggerName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "rootDirectory": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "expectedRootDirectory": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "different_repo"
+                        },
+                        "optional": false
+                      },
+                      "repoId": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "repoName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "triggerName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "deleted_repo_connection"
+                        },
+                        "optional": false
+                      },
+                      "repoId": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "repoName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "triggerName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "missing_repo_id"
+                        },
+                        "optional": false
+                      },
+                      "repoName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "triggerName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "missing_root_directory"
+                        },
+                        "optional": false
+                      },
+                      "repoId": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      },
+                      "repoName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "triggerName": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      },
+                      "expectedRootDirectory": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "value": {
+                      "state": {
+                        "fieldType": {
+                          "type": "literal",
+                          "value": "trigger_read_failed"
+                        },
+                        "optional": false
+                      },
+                      "message": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": false
+                      }
+                    }
+                  }
+                ]
+              },
+              "optional": false
+            }
+          }
+        },
+        "optional": false
+      }
+    }
+  }
+}
+```

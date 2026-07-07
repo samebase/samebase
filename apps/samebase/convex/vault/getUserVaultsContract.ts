@@ -72,6 +72,8 @@ const vProviderSetupFailedNextAction = union(
   literal("retry_infrastructure_provisioning"),
   literal("connect_convex_deployment"),
   literal("connect_cloudflare_worker"),
+  literal("wire_builds"),
+  literal("wire_convex_build_access"),
 );
 
 export const vProviderSetupSummary = union(
@@ -208,13 +210,15 @@ setup, provider setup, per-worker Workers Builds connection and Convex deploy-ke
 state, and the provider coordinates for going direct (Convex \`deploymentName\`, \`teamSlug\`,
 \`projectSlug\`, \`cloudUrl\`; Cloudflare \`workerName\`, \`workersDevUrl\`, dashboard URLs).
 
-Degraded states name their own remedy in a \`nextAction\` field; the value is the snake_case name
-of the repairing action. Current vocabulary: \`retry_infrastructure_provisioning\` (failed managed
-provisioning run), \`connect_convex_deployment\` / \`connect_cloudflare_worker\` (failed manual
-attach — rerun the matching connect), \`wire_builds\` (Worker exists but Workers Builds is not
-connected to the repository), \`wire_convex_build_access\` (builds connected but Convex deploy
-keys missing). A state without \`nextAction\` is either healthy or not applicable; nothing is
-implicitly broken.
+Degraded provider and connection states name their own remedy in a \`nextAction\` field; the value
+is the snake_case name of the repairing action. Current vocabulary:
+\`retry_infrastructure_provisioning\` (failed managed provisioning run), the failed manual run's
+own action (\`connect_convex_deployment\`, \`connect_cloudflare_worker\`, \`wire_builds\`, or
+\`wire_convex_build_access\` — rerun what failed), \`wire_builds\` (Worker not connected to its
+repository), \`wire_convex_build_access\` (deploy keys missing). One exception: a failed
+\`sourceSetup\` does not carry \`nextAction\` yet — treat \`sourceSetup.status: "failed"\` as
+degraded and use its \`message\`. Elsewhere, a state without \`nextAction\` is healthy or not
+applicable.
 
 Read this before any repair or day-2 operation: the coordinates it returns are the inputs for
 provider-direct work (see the operate guides), and the \`nextAction\` values are the exact

@@ -10,8 +10,9 @@ Worker, Workers Builds wired to the repository (push to the default branch deplo
 get preview deploys), and Convex deploy keys placed into the build triggers.
 
 Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the target
-names must be available on each provider (the dashboard checks availability first; over MCP, a name
-collision fails the run with a named step and a `nextAction`).
+names must be available on each provider. A name collision fails the call immediately — before any
+vault or run is created — so pick different names and call again; failures after provisioning starts
+surface through `get_user_vaults` instead.
 
 What it writes: one repository (private by default), one Convex project, one Worker, and two Workers
 Builds triggers with `CONVEX_DEPLOY_KEY` / `PREVIEW_CONVEX_DEPLOY_KEY` variables. All resources live
@@ -32,3 +33,29 @@ on the providers' free tiers; an idle app costs $0/month.
 - `cloudflareWorkerName` (string, required): Cloudflare Worker name to provision for the app.
 - `description` (string, optional): Optional GitHub repository description.
 - `private` (boolean, optional): Whether to create a private GitHub repository. Defaults to true.
+
+## Returns
+
+Convex validator JSON of the tool's `structuredContent`:
+
+```json
+{
+  "type": "object",
+  "value": {
+    "vaultId": {
+      "fieldType": {
+        "type": "id",
+        "tableName": "vaults"
+      },
+      "optional": false
+    },
+    "runId": {
+      "fieldType": {
+        "type": "id",
+        "tableName": "appProvisioningRuns"
+      },
+      "optional": false
+    }
+  }
+}
+```

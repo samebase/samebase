@@ -1046,6 +1046,26 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       });
     }
 
+    // Token scopes are granted at consent time; the user's role access can
+    // shrink afterwards. tools/list already filters on current access, and
+    // execution must enforce the same boundary or a stale token outlives a
+    // revoked role.
+    const currentAccessKeys = await readMcpUserAccessKeys(ctx, tokenValidation.userId);
+    if (!canAccess(tool.access, currentAccessKeys)) {
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: `Insufficient access for ${toolName}.`,
+            },
+          ],
+          isError: true,
+        },
+      });
+    }
+
     try {
       const result = await tool.call(ctx, {
         input,

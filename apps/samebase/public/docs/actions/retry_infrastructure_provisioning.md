@@ -4,9 +4,10 @@
 
 MCP tool `vault_actions_retryInfrastructureProvisioning` · scope `access_app_create` · write
 
-The remedy behind `nextAction: "retry_infrastructure_provisioning"`: starts a new run that resumes
-the managed provisioning composition from the failed step, reusing everything that already succeeded
-(blocks are idempotent where the provider allows it).
+The remedy behind `nextAction: "retry_infrastructure_provisioning"`: starts a fresh managed
+provisioning run that re-reads the app's current infrastructure state and skips the blocks whose
+resources already exist, so completed work is not redone. It does not require or inspect a prior
+failed run.
 
 Only valid for live Samebase-managed apps — apps created by `create_repository`; imported
 repositories repair through the manual attach and wire actions instead, exactly as their
@@ -15,3 +16,13 @@ repositories repair through the manual attach and wire actions instead, exactly 
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app whose managed provisioning failed.
+
+## Returns
+
+Convex validator JSON of the tool's `structuredContent`:
+
+```json
+{
+  "type": "null"
+}
+```

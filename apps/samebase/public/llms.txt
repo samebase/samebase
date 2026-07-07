@@ -8,7 +8,8 @@
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
 Deleting the Samebase account does not stop a running app.
 
-The `.md` links below return raw markdown; the same paths without `.md` serve the HTML pages.
+The `.md` links under Docs return raw markdown, and the same paths without `.md` serve the
+HTML pages. Action and operate docs are raw markdown only.
 
 ## Docs
 

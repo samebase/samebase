@@ -18,3 +18,13 @@ step, message, and `nextAction`).
 - `vaultId` (string, required): Samebase vault id of the app to attach the Convex project to.
 - `appRoot` (string, required): App root within the repository ("." for single-app repositories).
 - `projectId` (string, required): Convex project id from list_convex_projects.
+
+## Returns
+
+Convex validator JSON of the tool's `structuredContent`:
+
+```json
+{
+  "type": "null"
+}
+```

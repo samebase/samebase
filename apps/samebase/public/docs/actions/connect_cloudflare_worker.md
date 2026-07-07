@@ -20,3 +20,13 @@ axes name exactly that). Progress and failure are readable through `get_user_vau
 - `accountId` (string, required): Cloudflare account id from list_cloudflare_accounts.
 - `workerName` (string, required): Worker name from list_cloudflare_workers (recommended or
   available only).
+
+## Returns
+
+Convex validator JSON of the tool's `structuredContent`:
+
+```json
+{
+  "type": "null"
+}
+```

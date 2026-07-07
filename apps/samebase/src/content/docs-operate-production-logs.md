@@ -10,11 +10,13 @@ already has them; Samebase's job is handing over the coordinates. Get them from 
 From the app's repository checkout:
 
 ```
-npx convex logs --prod --history 50
+CONVEX_DEPLOY_KEY= npx convex logs --prod --history 50
 ```
 
-The CLI resolves the production deployment from the repo's Convex configuration. Outside a checkout,
-open the deployment dashboard instead — the `deploymentDashboardUrl` from `get_user_vaults` links
+The CLI resolves the production deployment from the repo's Convex configuration. The
+`CONVEX_DEPLOY_KEY=` prefix matters: if an env file carries a deploy key, the CLI silently targets
+that key's deployment and ignores `--prod`, so clear it for read commands. Outside a checkout, open
+the deployment dashboard instead — the `deploymentDashboardUrl` from `get_user_vaults` links
 directly to the deployment's logs and data.
 
 ## Cloudflare (delivery) logs
