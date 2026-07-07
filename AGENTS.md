@@ -433,6 +433,8 @@ UI code:
   `skills/samebase-playwright-live/SKILL.md`.
 - For PR authoring details, use `skills/create-pr/SKILL.md`.
 - For macOS UI control, use `skills/mac-app-control/SKILL.md`.
+- For spawning resumable Codex CLI threads as sub-agents (from Claude Code or scripts), use
+  `skills/codex-sub-agent/SKILL.md`.
 
 <!-- convex-ai-start -->
 

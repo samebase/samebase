@@ -54,6 +54,8 @@ time with evidence the supervisor can verify.
   probes.
 - **Fast worker:** cheap model without a worktree for bounded searches, summaries, or evidence
   gathering.
+- **Codex worker:** real resumable Codex CLI thread for cross-model probes, second-model reviews, or
+  Codex-native implementation; follow `skills/codex-sub-agent/SKILL.md`.
 
 For broad delegated slices, tell the sub-agent to run its own delegation pass when useful and to
 include its child delegation tree in the handoff.
