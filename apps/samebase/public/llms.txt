@@ -8,7 +8,8 @@
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
 Deleting the Samebase account does not stop a running app.
 
-The `.md` links below return raw markdown; the same paths without `.md` serve the HTML pages.
+The `.md` links under Docs return raw markdown, and the same paths without `.md` serve the
+HTML pages. Action and operate docs are raw markdown only.
 
 ## Docs
 
@@ -21,11 +22,31 @@ The `.md` links below return raw markdown; the same paths without `.md` serve th
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
   and the date it was last checked
 
+## Actions
+
+Every operational action, one contract each — the same actions the dashboard buttons run. Degraded
+app states name their remedy in a `nextAction` field whose values are these action ids.
+
+- [Get user vaults](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.
+- [Create repository](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.
+- [Connect existing repository](https://samebase.com/docs/actions/connect_existing_repository.md): Import an existing GitHub repository as a Samebase app. Creates the Samebase record and syncs the repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.
+- [List convex projects](https://samebase.com/docs/actions/list_convex_projects.md): List the Convex projects available on the caller's connected Convex account, for choosing an attach target.
+- [List cloudflare accounts](https://samebase.com/docs/actions/list_cloudflare_accounts.md): List the Cloudflare accounts available on the caller's connected Cloudflare login, for choosing where a Worker lives.
+- [List cloudflare workers](https://samebase.com/docs/actions/list_cloudflare_workers.md): List the Workers on a Cloudflare account, classified against the app's repository so safe attach targets are marked recommended.
+- [Connect convex deployment](https://samebase.com/docs/actions/connect_convex_deployment.md): Attach an existing Convex project to a Samebase app (manual attach): records the deployment and starts the connection run.
+- [Connect cloudflare worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Attach an existing Cloudflare Worker to a Samebase app (manual attach): validates the Worker against the repository and starts the connection run.
+- [Wire builds](https://samebase.com/docs/actions/wire_builds.md): Connect the app's Cloudflare Worker to its GitHub repository through Workers Builds: production and preview triggers, so pushes deploy and pull requests get previews.
+- [Wire convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place them into its Workers Builds triggers (CONVEX_DEPLOY_KEY for production, PREVIEW_CONVEX_DEPLOY_KEY for previews).
+- [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
+
 ## Operate
 
 - [MCP server](https://samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
-  browser). Tools today: create app (`vault_actions_createRepository`) and list apps with
-  provisioning state (`vault_dashboard_getUserVaults`).
+  browser); the tools are the actions listed above.
+- [Production logs](https://samebase.com/docs/operate/production-logs.md): read backend and Worker
+  logs provider-direct, with coordinates from get_user_vaults
+- [Custom domain](https://samebase.com/docs/operate/custom-domain.md): attach a domain to the
+  app's Worker in your own Cloudflare account
 
 ## Optional
 

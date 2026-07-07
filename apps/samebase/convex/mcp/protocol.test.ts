@@ -16,7 +16,11 @@ describe("buildMcpProtectedResourceMetadata", () => {
     expect(metadata.resource).toBe("https://samebase.com/mcp");
     expect(metadata.authorization_servers).toEqual(["https://samebase.com"]);
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
-    expect(metadata.scopes_supported).toEqual(["access_app_create", "access_dashboard"]);
+    expect(metadata.scopes_supported).toEqual([
+      "access_dashboard",
+      "access_app_create",
+      "access_repo_connect",
+    ]);
   });
 });
 
@@ -199,7 +203,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
       expect(result.value.resource).toBe("https://samebase.com/mcp");
     }
   });
-  it("defaults missing scope to the full app MCP tool surface", () => {
+  it("defaults missing scope to the original v1 surface without newer scopes", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -215,7 +219,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     }
   });
 
-  it("defaults blank scope to the full app MCP tool surface", () => {
+  it("defaults blank scope to the original v1 surface without newer scopes", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");

@@ -1,9 +1,9 @@
 import { v, type Infer } from "convex/values";
 
-import { vAppProvisioningRunStep } from "../schema";
-import { vTreeRefreshFailureKind } from "./model";
-import { vVaultDeletionStep } from "./deletion/model";
-import type { AppFunctionMcpMetadata } from "../../shared/convexFunctionPolicyTypes";
+import { vAppProvisioningRunStep } from "../../schema";
+import { vTreeRefreshFailureKind } from "../model";
+import { vVaultDeletionStep } from "../deletion/model";
+import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -72,6 +72,8 @@ const vProviderSetupFailedNextAction = union(
   literal("retry_infrastructure_provisioning"),
   literal("connect_convex_deployment"),
   literal("connect_cloudflare_worker"),
+  literal("wire_builds"),
+  literal("wire_convex_build_access"),
 );
 
 export const vProviderSetupSummary = union(
@@ -133,63 +135,67 @@ export const vVaultDeletionSummary = union(
   }),
 );
 
+const vUserVaultsResult = array(
+  object({
+    _id: id("vaults"),
+    _creationTime: number(),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    repositoryFullName: string(),
+    commitSHA: optional(string()),
+    fileCount: number(),
+    lastEditTime: optional(number()),
+    lastTreeRefreshAt: optional(number()),
+    treeRefreshStartedAt: optional(number()),
+    ...treeRefreshFailureFields,
+    state: union(literal("copying_files"), literal("ready"), literal("failed")),
+    sourceSetup: vSourceSetupSummary,
+    providerSetup: vProviderSetupSummary,
+    deletion: vVaultDeletionSummary,
+    isSamebaseManaged: boolean(),
+    hasConnectedGitHubRepository: boolean(),
+    hasConvexProvision: boolean(),
+    hasCloudflareProvision: boolean(),
+    canRemoveConvexProvision: boolean(),
+    canRemoveCloudflareProvision: boolean(),
+    appRoots: array(
+      object({
+        appRoot: string(),
+      }),
+    ),
+    cloudflareWorkers: array(
+      object({
+        appRoot: string(),
+        convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
+        githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
+        lastObservedAt: number(),
+        workerName: string(),
+        workersDevUrl: optional(string()),
+        projectDashboardUrl: optional(string()),
+      }),
+    ),
+    convexDeployments: array(
+      object({
+        appRoot: string(),
+        projectId: string(),
+        projectSlug: string(),
+        teamSlug: string(),
+        deploymentName: string(),
+        cloudUrl: string(),
+        siteUrl: string(),
+        projectSettingsDashboardUrl: optional(string()),
+        deploymentDashboardUrl: optional(string()),
+      }),
+    ),
+  }),
+);
+
 export const getUserVaultsContract = {
+  id: "get_user_vaults",
   access: "access_dashboard",
   args: {},
-  returns: array(
-    object({
-      _id: id("vaults"),
-      _creationTime: number(),
-      ghRepoOwner: string(),
-      ghRepoName: string(),
-      repositoryFullName: string(),
-      commitSHA: optional(string()),
-      fileCount: number(),
-      lastEditTime: optional(number()),
-      lastTreeRefreshAt: optional(number()),
-      treeRefreshStartedAt: optional(number()),
-      ...treeRefreshFailureFields,
-      state: union(literal("copying_files"), literal("ready"), literal("failed")),
-      sourceSetup: vSourceSetupSummary,
-      providerSetup: vProviderSetupSummary,
-      deletion: vVaultDeletionSummary,
-      isSamebaseManaged: boolean(),
-      hasConnectedGitHubRepository: boolean(),
-      hasConvexProvision: boolean(),
-      hasCloudflareProvision: boolean(),
-      canRemoveConvexProvision: boolean(),
-      canRemoveCloudflareProvision: boolean(),
-      appRoots: array(
-        object({
-          appRoot: string(),
-        }),
-      ),
-      cloudflareWorkers: array(
-        object({
-          appRoot: string(),
-          convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
-          githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
-          lastObservedAt: number(),
-          workerName: string(),
-          workersDevUrl: optional(string()),
-          projectDashboardUrl: optional(string()),
-        }),
-      ),
-      convexDeployments: array(
-        object({
-          appRoot: string(),
-          projectId: string(),
-          projectSlug: string(),
-          teamSlug: string(),
-          deploymentName: string(),
-          cloudUrl: string(),
-          siteUrl: string(),
-          projectSettingsDashboardUrl: optional(string()),
-          deploymentDashboardUrl: optional(string()),
-        }),
-      ),
-    }),
-  ),
+  returns: vUserVaultsResult,
+  structuredContent: object({ vaults: vUserVaultsResult }),
   mcp: {
     name: "vault_dashboard_getUserVaults",
     description:
@@ -202,6 +208,24 @@ export const getUserVaultsContract = {
     },
     inputDescriptions: {},
   } satisfies AppFunctionMcpMetadata,
+  doc: `Returns every app the authenticated account can see, with enough state to act on: source
+setup, provider setup, per-worker Workers Builds connection and Convex deploy-key state, deletion
+state, and the provider coordinates for going direct (Convex \`deploymentName\`, \`teamSlug\`,
+\`projectSlug\`, \`cloudUrl\`; Cloudflare \`workerName\`, \`workersDevUrl\`, dashboard URLs).
+
+Degraded provider and connection states name their own remedy in a \`nextAction\` field; the value
+is the snake_case name of the repairing action. Current vocabulary:
+\`retry_infrastructure_provisioning\` (failed managed provisioning run), the failed manual run's
+own action (\`connect_convex_deployment\`, \`connect_cloudflare_worker\`, \`wire_builds\`, or
+\`wire_convex_build_access\` — rerun what failed), \`wire_builds\` (Worker not connected to its
+repository), \`wire_convex_build_access\` (deploy keys missing). One exception: a failed
+\`sourceSetup\` does not carry \`nextAction\` yet — treat \`sourceSetup.status: "failed"\` as
+degraded and use its \`message\`. Elsewhere, a state without \`nextAction\` is healthy or not
+applicable.
+
+Read this before any repair or day-2 operation: the coordinates it returns are the inputs for
+provider-direct work (see the operate guides), and the \`nextAction\` values are the exact
+Samebase actions to call when the record itself is degraded.`,
 } as const;
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;

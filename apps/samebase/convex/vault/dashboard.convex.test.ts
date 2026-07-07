@@ -2448,13 +2448,51 @@ describe("vault dashboard Convex contract", () => {
 });
 
 describe("provider setup failed nextAction", () => {
-  it("maps every provider/source combination to its shipped remedy", () => {
+  it("maps managed failures to the run retry regardless of trigger", () => {
     expect(readProviderSetupFailedNextAction({ provider: "convex", source: "managed" })).toBe(
       "retry_infrastructure_provisioning",
     );
-    expect(readProviderSetupFailedNextAction({ provider: "cloudflare", source: "managed" })).toBe(
-      "retry_infrastructure_provisioning",
-    );
+    expect(
+      readProviderSetupFailedNextAction({
+        provider: "cloudflare",
+        source: "managed",
+        trigger: "create",
+      }),
+    ).toBe("retry_infrastructure_provisioning");
+  });
+
+  it("maps failed manual runs to the action that failed, by trigger", () => {
+    expect(
+      readProviderSetupFailedNextAction({
+        provider: "convex",
+        source: "manual",
+        trigger: "connect_convex_deployment",
+      }),
+    ).toBe("connect_convex_deployment");
+    expect(
+      readProviderSetupFailedNextAction({
+        provider: "cloudflare",
+        source: "manual",
+        trigger: "connect_cloudflare_worker",
+      }),
+    ).toBe("connect_cloudflare_worker");
+    expect(
+      readProviderSetupFailedNextAction({
+        provider: "cloudflare",
+        source: "manual",
+        trigger: "wire_builds",
+      }),
+    ).toBe("wire_builds");
+    expect(
+      readProviderSetupFailedNextAction({
+        provider: "cloudflare",
+        source: "manual",
+        trigger: "wire_convex_build_access",
+      }),
+    ).toBe("wire_convex_build_access");
+  });
+
+  it("falls back to the provider's connect flow when the run row is missing", () => {
     expect(readProviderSetupFailedNextAction({ provider: "convex", source: "manual" })).toBe(
       "connect_convex_deployment",
     );

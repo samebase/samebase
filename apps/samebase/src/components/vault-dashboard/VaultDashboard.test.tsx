@@ -2077,7 +2077,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           message:
             "Cannot connect Cloudflare Worker worker-tag to ada/demo: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
           updatedAt: 30,
-          nextAction: "connect_cloudflare_worker",
+          nextAction: "wire_convex_build_access",
         },
       }),
     });
@@ -2147,7 +2147,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           message:
             "Cannot connect Cloudflare Worker worker-tag to ada/demo: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
           updatedAt: 30,
-          nextAction: "connect_cloudflare_worker",
+          nextAction: "wire_convex_build_access",
         },
       }),
     });

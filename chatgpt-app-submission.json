@@ -8,6 +8,18 @@
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
+    "vault_dashboard_getUserVaults": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists the authenticated user's Samebase apps with repository metadata, provisioning state, and the user's own provider coordinates (Convex deployment names and URLs, Cloudflare worker names and dashboard links).",
+        "open_world_justification": "Does not create, publish, or modify public internet state or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
     "vault_actions_createRepository": {
       "annotations": {
         "readOnlyHint": false,
@@ -20,15 +32,111 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
-    "vault_dashboard_getUserVaults": {
+    "vault_actions_connectRepository": {
       "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
+        "readOnlyHint": false,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only lists Samebase apps and repository metadata available to the authenticated user.",
-        "open_world_justification": "Does not create, publish, or modify public internet state or third-party systems.",
+        "read_only_justification": "Creates the Samebase app record for an existing repository and starts a tree sync; provider resources are not modified.",
+        "open_world_justification": "Reads repository metadata from GitHub; creates no external resources beyond Samebase's own record.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
+    "vault_convex_listProjects": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists Convex projects readable with the caller's connected Convex account.",
+        "open_world_justification": "Reads from the Convex management API; writes nothing anywhere.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
+    "vault_cloudflare_listAccounts": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists Cloudflare accounts readable with the caller's connected Cloudflare login.",
+        "open_world_justification": "Reads from the Cloudflare API; writes nothing anywhere.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
+    "vault_cloudflare_listWorkers": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists Workers on the chosen Cloudflare account, classified against the app's repository.",
+        "open_world_justification": "Reads from the Cloudflare API; writes nothing anywhere.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
+    "vault_convex_connectExistingProject": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Records an existing Convex project on the Samebase app and starts the connection run.",
+        "open_world_justification": "Reads the chosen project from Convex and records Samebase state; the project itself is not modified.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
+    "vault_cloudflare_connectExistingWorker": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Records an existing Cloudflare Worker on the Samebase app and starts the connection run; Workers wired to a different repository are rejected rather than adopted.",
+        "open_world_justification": "Reads Worker metadata from Cloudflare and records Samebase state; rejects Workers wired to other repositories.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
+    "vault_cloudflare_wireBuilds": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates or updates the app's own Workers Builds production and preview triggers connecting its Worker to its repository, and may create a Workers Builds API token under API-key auth.",
+        "open_world_justification": "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository.",
+        "destructive_justification": "May update the app's own existing build trigger configuration; does not delete user data, repositories, deployments, or Workers."
+      }
+    },
+    "vault_cloudflare_wireConvexBuildAccess": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Rotates the app's Convex deploy keys and writes them into its Workers Builds trigger variables.",
+        "open_world_justification": "Creates deploy keys on the caller's Convex deployment and sets variables on the caller's Cloudflare build triggers.",
+        "destructive_justification": "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. Does not delete user data, deployments, or Workers."
+      }
+    },
+    "vault_actions_retryInfrastructureProvisioning": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",
+        "open_world_justification": "Resumes resource creation in GitHub, Convex, and Cloudflare on the caller's own accounts.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     }
@@ -72,6 +180,14 @@
       "file_attachment_urls": null,
       "tools_triggered": "vault_dashboard_getUserVaults, vault_actions_createRepository",
       "expected_output": "Lists the current Samebase apps, then starts provisioning for the requested new app and reports the created vault and run identifiers.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Repair a Worker whose Builds connection is missing, guided by nextAction.",
+      "user_prompt": "One of my Samebase apps says its Cloudflare Worker is not connected to GitHub. Fix it.",
+      "file_attachment_urls": null,
+      "tools_triggered": "vault_dashboard_getUserVaults, vault_cloudflare_wireBuilds",
+      "expected_output": "Reads the app state, finds the worker whose githubRepositoryConnection carries nextAction wire_builds, and starts the Builds wiring run for that app root.",
       "expected_output_url": null
     }
   ],

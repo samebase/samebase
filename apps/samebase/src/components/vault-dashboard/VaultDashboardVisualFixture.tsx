@@ -598,7 +598,7 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
     message:
       "Cannot connect Cloudflare Worker 4d41accaab0042ef83bc3fc78e1ec644 to nicu-chiciuc/tmp-my-super-app-2: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
     updatedAt: FIXTURE_NOW - 1_000,
-    nextAction: "connect_cloudflare_worker",
+    nextAction: "wire_convex_build_access",
   },
   appRoots: [{ appRoot: "." }],
   cloudflareWorkers: [

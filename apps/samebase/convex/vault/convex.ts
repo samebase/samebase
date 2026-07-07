@@ -21,17 +21,12 @@ import {
   type VaultConvexOrigin,
 } from "./model";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
+import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
+import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
 
-const { array, id, null: nullValue, object, string } = v;
+const { id, null: nullValue, string } = v;
 
-const convexProjectResult = object({
-  projectId: string(),
-  projectName: string(),
-  projectSlug: string(),
-  teamSlug: string(),
-});
-
-type ConvexProjectResult = Infer<typeof convexProjectResult>;
+type ConvexProjectResult = Infer<typeof vConvexProjectResult>;
 type ConvexActionConnection = {
   token: string;
   teamId: string;
@@ -388,54 +383,68 @@ async function recordConvexDeployment(
   return attached;
 }
 
+export async function listConvexProjectsForUser(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users"> },
+): Promise<ConvexProjectResult[]> {
+  const connection = await resolveConvexConnection(ctx, args.userId);
+  return await listProjectsForConnection(connection);
+}
+
 export const listProjects = action({
-  access: "access_app_create",
-  args: {},
-  returns: array(convexProjectResult),
+  access: convexListProjectsContract.access,
+  args: convexListProjectsContract.args,
+  returns: convexListProjectsContract.returns,
+  mcp: convexListProjectsContract.mcp,
   handler: async (ctx): Promise<ConvexProjectResult[]> => {
-    const userId = ctx.viewer.userId;
-    const connection = await resolveConvexConnection(ctx, userId);
-    return await listProjectsForConnection(connection);
+    return await listConvexProjectsForUser(ctx, { userId: ctx.viewer.userId });
   },
 });
 
-export const connectExistingProject = action({
-  access: "access_app_create",
-  args: {
-    vaultId: id("vaults"),
-    appRoot: string(),
-    projectId: string(),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const projectId = args.projectId.trim();
-    if (!projectId) {
-      throw new Error("Convex project is required.");
-    }
-    await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
-      vaultId: args.vaultId,
-      userId,
+export async function connectExistingConvexProjectForUser(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: { userId: Id<"users">; vaultId: Id<"vaults">; appRoot: string; projectId: string },
+): Promise<null> {
+  const userId = args.userId;
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const projectId = args.projectId.trim();
+  if (!projectId) {
+    throw new Error("Convex project is required.");
+  }
+  await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
+    vaultId: args.vaultId,
+    userId,
+    appRoot,
+  });
+  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    userId,
+    vaultId: args.vaultId,
+    trigger: "connect_convex_deployment",
+  });
+  await startConvexDeploymentConnectionOrFail(ctx, {
+    vaultId: args.vaultId,
+    runId,
+    userId,
+    target: {
+      mode: "connect_existing_project",
       appRoot,
-    });
-    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-      userId,
-      vaultId: args.vaultId,
-      trigger: "connect_convex_deployment",
-    });
-    await startConvexDeploymentConnectionOrFail(ctx, {
-      vaultId: args.vaultId,
-      runId,
-      userId,
-      target: {
-        mode: "connect_existing_project",
-        appRoot,
-        projectId,
-      },
-    });
+      projectId,
+    },
+  });
 
-    return null;
+  return null;
+}
+
+export const connectExistingProject = action({
+  access: convexConnectExistingProjectContract.access,
+  args: convexConnectExistingProjectContract.args,
+  returns: convexConnectExistingProjectContract.returns,
+  mcp: convexConnectExistingProjectContract.mcp,
+  handler: async (ctx, args): Promise<null> => {
+    return await connectExistingConvexProjectForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 

@@ -13,6 +13,15 @@ export type SamebaseUsageMcpMethod =
 export type SamebaseUsageMcpToolName =
   | "vault_actions_createRepository"
   | "vault_dashboard_getUserVaults"
+  | "vault_actions_connectRepository"
+  | "vault_convex_listProjects"
+  | "vault_cloudflare_listAccounts"
+  | "vault_cloudflare_listWorkers"
+  | "vault_convex_connectExistingProject"
+  | "vault_cloudflare_connectExistingWorker"
+  | "vault_cloudflare_wireBuilds"
+  | "vault_cloudflare_wireConvexBuildAccess"
+  | "vault_actions_retryInfrastructureProvisioning"
   | "unknown";
 
 type SamebaseUsageContextLog = {

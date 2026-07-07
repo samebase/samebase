@@ -1,7 +1,9 @@
 import { includes } from "@samebase/dependent/main";
 import { asRecord } from "../jsonUtils";
-import { createRepositoryContract } from "../vault/createRepositoryContract";
-import { getUserVaultsContract } from "../vault/getUserVaultsContract";
+import { actionContracts } from "../toolRuntime/actionCatalog";
+import { createRepositoryContract } from "../vault/contracts/createRepository";
+import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
+import type { AccessKey } from "../../shared/accessModel";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DEFAULT_RESPONSE_TYPES = ["code"] as const;
@@ -18,16 +20,21 @@ const MAX_STATE_LENGTH = 4096;
 const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
-export const MCP_V1_SUPPORTED_SCOPES = [
-  createRepositoryContract.access,
-  getUserVaultsContract.access,
-] as const;
-// Some MCP clients omit `scope`. Samebase's v1 app integration is meant to
-// install with the full public tool surface, including app creation; consent,
-// token scopes, and role access still gate execution.
-const DEFAULT_MCP_SCOPE = MCP_V1_SUPPORTED_SCOPES.join(" ");
+// The v1 MCP OAuth scope vocabulary is exactly the unique access keys behind
+// the action catalog (rfcs/093), in catalog presentation order: one scope per
+// distinct access key a cataloged tool requires, not one scope per tool.
+export const MCP_V1_SUPPORTED_SCOPES: readonly AccessKey[] = Array.from(
+  new Set(actionContracts.map((contract) => contract.access)),
+);
+// Some MCP clients omit `scope`. Omission must not silently widen as the
+// catalog grows: clients that never asked keep exactly the original v1
+// surface (status reads plus app creation); every newer scope, starting with
+// access_repo_connect, has to be requested explicitly. Token order is
+// load-bearing: oauth.ts reuses grants by exact string comparison, and every
+// grant stored before the catalog existed used this order.
+const DEFAULT_MCP_SCOPE = [createRepositoryContract.access, getUserVaultsContract.access].join(" ");
 
-type McpSupportedScope = (typeof MCP_V1_SUPPORTED_SCOPES)[number];
+type McpSupportedScope = AccessKey;
 
 export type DynamicClientRegistrationInput = {
   clientName: string | null;
