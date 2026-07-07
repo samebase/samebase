@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import type { AppFunctionMcpMetadata } from "../../shared/convexFunctionPolicyTypes";
+import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { id, object, string } = v;
 

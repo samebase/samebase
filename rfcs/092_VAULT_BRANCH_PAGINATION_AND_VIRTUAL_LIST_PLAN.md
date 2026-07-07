@@ -17,7 +17,7 @@
   - `apps/samebase/convex/schema.ts`
   - `apps/samebase/convex/vault/branches.ts`
   - `apps/samebase/convex/vault/dashboard.ts`
-  - `apps/samebase/convex/vault/getUserVaultsContract.ts`
+  - `apps/samebase/convex/vault/contracts/getUserVaults.ts`
   - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/samebase/src/components/vault-dashboard/VaultDashboardBranchSectionState.ts`
   - `apps/samebase/src/components/vault-dashboard/vaultDashboardBranchFilters.ts`

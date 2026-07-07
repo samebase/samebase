@@ -100,7 +100,6 @@ import type * as vault_convexDeployKeys from "../vault/convexDeployKeys.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
 import type * as vault_convexSchemaGraph from "../vault/convexSchemaGraph.js";
 import type * as vault_convexSchemaGraphModel from "../vault/convexSchemaGraphModel.js";
-import type * as vault_createRepositoryContract from "../vault/createRepositoryContract.js";
 import type * as vault_dashboard from "../vault/dashboard.js";
 import type * as vault_database from "../vault/database.js";
 import type * as vault_deletion_cleanup from "../vault/deletion/cleanup.js";
@@ -111,7 +110,6 @@ import type * as vault_deletion_providerActions from "../vault/deletion/provider
 import type * as vault_deletion_runs from "../vault/deletion/runs.js";
 import type * as vault_deletion_state from "../vault/deletion/state.js";
 import type * as vault_deletion_workflow from "../vault/deletion/workflow.js";
-import type * as vault_getUserVaultsContract from "../vault/getUserVaultsContract.js";
 import type * as vault_model from "../vault/model.js";
 import type * as vault_records from "../vault/records.js";
 import type * as vault_resourceLinksStateModel from "../vault/resourceLinksStateModel.js";
@@ -218,7 +216,6 @@ declare const fullApi: ApiFromModules<{
   "vault/convexMutations": typeof vault_convexMutations;
   "vault/convexSchemaGraph": typeof vault_convexSchemaGraph;
   "vault/convexSchemaGraphModel": typeof vault_convexSchemaGraphModel;
-  "vault/createRepositoryContract": typeof vault_createRepositoryContract;
   "vault/dashboard": typeof vault_dashboard;
   "vault/database": typeof vault_database;
   "vault/deletion/cleanup": typeof vault_deletion_cleanup;
@@ -229,7 +226,6 @@ declare const fullApi: ApiFromModules<{
   "vault/deletion/runs": typeof vault_deletion_runs;
   "vault/deletion/state": typeof vault_deletion_state;
   "vault/deletion/workflow": typeof vault_deletion_workflow;
-  "vault/getUserVaultsContract": typeof vault_getUserVaultsContract;
   "vault/model": typeof vault_model;
   "vault/records": typeof vault_records;
   "vault/resourceLinksStateModel": typeof vault_resourceLinksStateModel;

@@ -49,28 +49,32 @@ const toolJsonSchema = object({
 });
 
 const contractSourceByMcpName: Record<string, string> = {
-  vault_dashboard_getUserVaults: samebaseAppFilePath("convex/vault/getUserVaultsContract.ts"),
-  vault_actions_createRepository: samebaseAppFilePath("convex/vault/createRepositoryContract.ts"),
-  vault_actions_connectRepository: samebaseAppFilePath("convex/vault/connectRepositoryContract.ts"),
-  vault_convex_listProjects: samebaseAppFilePath("convex/vault/convexListProjectsContract.ts"),
+  vault_dashboard_getUserVaults: samebaseAppFilePath("convex/vault/contracts/getUserVaults.ts"),
+  vault_actions_createRepository: samebaseAppFilePath("convex/vault/contracts/createRepository.ts"),
+  vault_actions_connectRepository: samebaseAppFilePath(
+    "convex/vault/contracts/connectRepository.ts",
+  ),
+  vault_convex_listProjects: samebaseAppFilePath("convex/vault/contracts/convexListProjects.ts"),
   vault_cloudflare_listAccounts: samebaseAppFilePath(
-    "convex/vault/cloudflareListAccountsContract.ts",
+    "convex/vault/contracts/cloudflareListAccounts.ts",
   ),
   vault_cloudflare_listWorkers: samebaseAppFilePath(
-    "convex/vault/cloudflareListWorkersContract.ts",
+    "convex/vault/contracts/cloudflareListWorkers.ts",
   ),
   vault_convex_connectExistingProject: samebaseAppFilePath(
-    "convex/vault/convexConnectExistingProjectContract.ts",
+    "convex/vault/contracts/convexConnectExistingProject.ts",
   ),
   vault_cloudflare_connectExistingWorker: samebaseAppFilePath(
-    "convex/vault/cloudflareConnectExistingWorkerContract.ts",
+    "convex/vault/contracts/cloudflareConnectExistingWorker.ts",
   ),
-  vault_cloudflare_wireBuilds: samebaseAppFilePath("convex/vault/cloudflareWireBuildsContract.ts"),
+  vault_cloudflare_wireBuilds: samebaseAppFilePath(
+    "convex/vault/contracts/cloudflareWireBuilds.ts",
+  ),
   vault_cloudflare_wireConvexBuildAccess: samebaseAppFilePath(
-    "convex/vault/cloudflareWireConvexBuildAccessContract.ts",
+    "convex/vault/contracts/cloudflareWireConvexBuildAccess.ts",
   ),
   vault_actions_retryInfrastructureProvisioning: samebaseAppFilePath(
-    "convex/vault/retryInfrastructureProvisioningContract.ts",
+    "convex/vault/contracts/retryInfrastructureProvisioning.ts",
   ),
 };
 

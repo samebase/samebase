@@ -1,14 +1,14 @@
-import { createRepositoryContract } from "../vault/createRepositoryContract";
-import { getUserVaultsContract } from "../vault/getUserVaultsContract";
-import { connectRepositoryContract } from "../vault/connectRepositoryContract";
-import { convexListProjectsContract } from "../vault/convexListProjectsContract";
-import { cloudflareListAccountsContract } from "../vault/cloudflareListAccountsContract";
-import { cloudflareListWorkersContract } from "../vault/cloudflareListWorkersContract";
-import { convexConnectExistingProjectContract } from "../vault/convexConnectExistingProjectContract";
-import { cloudflareConnectExistingWorkerContract } from "../vault/cloudflareConnectExistingWorkerContract";
-import { cloudflareWireBuildsContract } from "../vault/cloudflareWireBuildsContract";
-import { cloudflareWireConvexBuildAccessContract } from "../vault/cloudflareWireConvexBuildAccessContract";
-import { retryInfrastructureProvisioningContract } from "../vault/retryInfrastructureProvisioningContract";
+import { createRepositoryContract } from "../vault/contracts/createRepository";
+import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
+import { connectRepositoryContract } from "../vault/contracts/connectRepository";
+import { convexListProjectsContract } from "../vault/contracts/convexListProjects";
+import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
+import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
+import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
+import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
+import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
+import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
+import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 
 /**
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with

@@ -21,8 +21,8 @@ import {
   type VaultConvexOrigin,
 } from "./model";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-import { convexListProjectsContract, vConvexProjectResult } from "./convexListProjectsContract";
-import { convexConnectExistingProjectContract } from "./convexConnectExistingProjectContract";
+import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
+import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
 
 const { id, null: nullValue, string } = v;
 

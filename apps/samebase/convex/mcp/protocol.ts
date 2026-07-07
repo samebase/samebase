@@ -1,8 +1,8 @@
 import { includes } from "@samebase/dependent/main";
 import { asRecord } from "../jsonUtils";
 import { actionContracts } from "../toolRuntime/actionCatalog";
-import { createRepositoryContract } from "../vault/createRepositoryContract";
-import { getUserVaultsContract } from "../vault/getUserVaultsContract";
+import { createRepositoryContract } from "../vault/contracts/createRepository";
+import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import type { AccessKey } from "../../shared/accessModel";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;

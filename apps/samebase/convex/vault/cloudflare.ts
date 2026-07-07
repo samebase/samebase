@@ -51,14 +51,14 @@ import type { AppProvisioningStep } from "../schema";
 import {
   cloudflareListAccountsContract,
   vCloudflareAccountResult,
-} from "./cloudflareListAccountsContract";
+} from "./contracts/cloudflareListAccounts";
 import {
   cloudflareListWorkersContract,
   vCloudflareWorkerResult,
-} from "./cloudflareListWorkersContract";
-import { cloudflareConnectExistingWorkerContract } from "./cloudflareConnectExistingWorkerContract";
-import { cloudflareWireBuildsContract } from "./cloudflareWireBuildsContract";
-import { cloudflareWireConvexBuildAccessContract } from "./cloudflareWireConvexBuildAccessContract";
+} from "./contracts/cloudflareListWorkers";
+import { cloudflareConnectExistingWorkerContract } from "./contracts/cloudflareConnectExistingWorker";
+import { cloudflareWireBuildsContract } from "./contracts/cloudflareWireBuilds";
+import { cloudflareWireConvexBuildAccessContract } from "./contracts/cloudflareWireConvexBuildAccess";
 
 const { id, null: nullValue, string } = v;
 

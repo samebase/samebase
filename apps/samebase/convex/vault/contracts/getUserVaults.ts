@@ -1,9 +1,9 @@
 import { v, type Infer } from "convex/values";
 
-import { vAppProvisioningRunStep } from "../schema";
-import { vTreeRefreshFailureKind } from "./model";
-import { vVaultDeletionStep } from "./deletion/model";
-import type { AppFunctionMcpMetadata } from "../../shared/convexFunctionPolicyTypes";
+import { vAppProvisioningRunStep } from "../../schema";
+import { vTreeRefreshFailureKind } from "../model";
+import { vVaultDeletionStep } from "../deletion/model";
+import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 

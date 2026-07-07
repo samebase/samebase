@@ -25,7 +25,7 @@ import {
   type UserVaultsResult,
   type VaultDeletionSummary,
   vProviderSetupSummary,
-} from "./getUserVaultsContract";
+} from "./contracts/getUserVaults";
 
 const { array, boolean, id, object, optional, string } = v;
 type SourceSetupVault = Extract<

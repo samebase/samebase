@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
-import { ACCESS_APP_CREATE } from "../../shared/accessModel";
-import type { AppFunctionMcpMetadata } from "../../shared/convexFunctionPolicyTypes";
+import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
+import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, object, string } = v;
 

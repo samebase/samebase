@@ -27,9 +27,9 @@ import {
   validateAppResourceName,
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
-import { createRepositoryContract, type CreateRepositoryArgs } from "./createRepositoryContract";
-import { connectRepositoryContract } from "./connectRepositoryContract";
-import { retryInfrastructureProvisioningContract } from "./retryInfrastructureProvisioningContract";
+import { createRepositoryContract, type CreateRepositoryArgs } from "./contracts/createRepository";
+import { connectRepositoryContract } from "./contracts/connectRepository";
+import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 
 const { array, boolean, literal, null: nullValue, object, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
