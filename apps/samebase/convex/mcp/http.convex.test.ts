@@ -276,6 +276,16 @@ describe("MCP usage attribution dimensions", () => {
 });
 
 describe("MCP tools/call access enforcement", () => {
+  function expectMcpBearerChallenge(response: Response, errorDescription: string) {
+    const header = response.headers.get("WWW-Authenticate");
+    expect(header).toContain("Bearer ");
+    expect(header).toContain('resource_metadata="');
+    expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
+    expect(header).toContain('scope="access_dashboard access_app_create access_repo_connect"');
+    expect(header).toContain('error="invalid_token"');
+    expect(header).toContain(`error_description="${errorDescription}"`);
+  }
+
   async function seedMcpBearer(args: { isApproved: boolean }) {
     const t = makeConvexTest();
     const metadataResponse = await t.fetch("/.well-known/oauth-protected-resource");
@@ -348,6 +358,55 @@ describe("MCP tools/call access enforcement", () => {
 
     return { callTool, userId };
   }
+
+  it("advertises OAuth metadata when the bearer token is missing", async () => {
+    const t = makeConvexTest();
+
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+
+    expect(response.status).toBe(401);
+    expectMcpBearerChallenge(response, "Invalid or missing bearer token.");
+    await expect(response.json()).resolves.toEqual({
+      error: "invalid_token",
+      error_description: "Authorization header must be provided.",
+    });
+  });
+
+  it("advertises OAuth metadata when the bearer token is rejected", async () => {
+    const t = makeConvexTest();
+
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer rejected-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+
+    expect(response.status).toBe(401);
+    expectMcpBearerChallenge(response, "Access token rejected.");
+    await expect(response.json()).resolves.toEqual({
+      error: "invalid_token",
+      error_description: "Access token is invalid.",
+    });
+  });
 
   it("rejects a scoped token when the user's current access no longer allows the tool", async () => {
     // role_pending_access carries neither access_dashboard nor
