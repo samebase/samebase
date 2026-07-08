@@ -12,9 +12,9 @@ and the provider coordinates for going direct (Convex `deploymentName`, `teamSlu
 Degraded provider and connection states name their own remedy in a `nextAction` field; the value is
 the snake_case name of the repairing action. Current vocabulary: `retry_infrastructure_provisioning`
 (failed managed provisioning run), the failed manual run's own action (`connect_convex_deployment`,
-`connect_cloudflare_worker`, `wire_builds`, or `wire_convex_build_access` — rerun what failed),
+`connect_cloudflare_worker`, `wire_builds`, or `wire_convex_build_access` (rerun what failed),
 `wire_builds` (Worker not connected to its repository), `wire_convex_build_access` (deploy keys
-missing). One exception: a failed `sourceSetup` does not carry `nextAction` yet — treat
+missing). One exception: a failed `sourceSetup` does not carry `nextAction` yet. Treat
 `sourceSetup.status: "failed"` as degraded and use its `message`. Elsewhere, a state without
 `nextAction` is healthy or not applicable.
 

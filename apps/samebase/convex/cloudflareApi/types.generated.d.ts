@@ -4553,7 +4553,7 @@ export interface components {
        * @enum {string}
        */
       type: "string" | "number" | "boolean";
-      /** @description Comparison value. Must match actual values in your data — verify with the values endpoint. Ensure the value type (string/number/boolean) matches the field type. String comparisons are case-sensitive. Regex uses RE2 syntax (no lookaheads/lookbehinds). */
+      /** @description Comparison value. Must match actual values in your data - verify with the values endpoint. Ensure the value type (string/number/boolean) matches the field type. String comparisons are case-sensitive. Regex uses RE2 syntax (no lookaheads/lookbehinds). */
       value?: string | number | boolean;
     };
     /** @description Complete results of a query run. The populated fields depend on the requested view type (events, calculations, invocations, traces, or agents). */
@@ -10026,13 +10026,13 @@ export interface operations {
           offsetBy?: number;
           /** @description Pagination direction: 'next' for forward, 'prev' for backward. */
           offsetDirection?: string;
-          /** @description Query parameters defining what data to retrieve — filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters. */
+          /** @description Query parameters defining what data to retrieve - filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters. */
           parameters?: {
             /** @description Aggregation calculations to compute (e.g. count, avg, p99). Each calculation produces aggregate values and optional time-series data. */
             calculations?: {
               /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
               alias?: string;
-              /** @description Field name to calculate over. Must exist in the data — verify with the keys endpoint. Omit for operators that don't require a key (e.g. count). */
+              /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Omit for operators that don't require a key (e.g. count). */
               key?: string;
               /**
                * @description Data type of the key. Required when key is provided to ensure correct aggregation.
@@ -10748,13 +10748,13 @@ export interface operations {
           offsetBy?: number;
           /** @description Pagination direction: 'next' for forward, 'prev' for backward. */
           offsetDirection?: string;
-          /** @description Query parameters defining what data to retrieve — filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters. */
+          /** @description Query parameters defining what data to retrieve - filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters. */
           parameters?: {
             /** @description Aggregation calculations to compute (e.g. count, avg, p99). Each calculation produces aggregate values and optional time-series data. */
             calculations?: {
               /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
               alias?: string;
-              /** @description Field name to calculate over. Must exist in the data — verify with the keys endpoint. Omit for operators that don't require a key (e.g. count). */
+              /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Omit for operators that don't require a key (e.g. count). */
               key?: string;
               /**
                * @description Data type of the key. Required when key is provided to ensure correct aggregation.
@@ -11168,7 +11168,7 @@ export interface operations {
                 /** @description Worker or service name that produced the events. */
                 service: string;
               }[];
-              /** @description Total ABR-adjusted event count for the period — sum of all breakdown bins. */
+              /** @description Total ABR-adjusted event count for the period - sum of all breakdown bins. */
               events: number;
             };
             /** @enum {boolean} */

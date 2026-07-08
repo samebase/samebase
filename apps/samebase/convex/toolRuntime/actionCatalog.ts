@@ -12,7 +12,7 @@ import { retryInfrastructureProvisioningContract } from "../vault/contracts/retr
 
 /**
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with
-its Convex function, and every agent-facing surface renders from this list — the MCP tool catalog,
+its Convex function, and every agent-facing surface renders from this list: the MCP tool catalog,
 the supported OAuth scopes, usage attribution names, the generated /docs/actions pages, llms.txt
 entries, and the ChatGPT submission file. `id` is the catalog vocabulary (snake_case; also the
 `nextAction` value space), `mcp.name` is the wire-level MCP tool name.

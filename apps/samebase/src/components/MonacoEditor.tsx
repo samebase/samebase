@@ -81,7 +81,7 @@ const addedExtraLibs = new Set<string>();
 /**
  * Register project files as extra libs so the TypeScript worker can resolve
  * imports across the project. Unlike createModel(), addExtraLib() does NOT
- * trigger diagnostics for each file — it's read-only type context, which
+ * trigger diagnostics for each file. It's read-only type context, which
  * avoids the out-of-memory crashes from the worker trying to validate
  * hundreds of models at once.
  */

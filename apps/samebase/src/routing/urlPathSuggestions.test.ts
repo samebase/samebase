@@ -92,13 +92,13 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/connect-repo");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/new-app");
-    expect(suggestions).toContain("/pricing");
     expect(suggestions).toContain("/providers");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/machines");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
+    expect(suggestions).not.toContain("/pricing");
   });
 
   it("hides local-only route paths from the prod UI environment", () => {

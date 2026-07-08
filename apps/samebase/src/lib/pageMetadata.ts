@@ -6,6 +6,7 @@ import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ROUTE,
@@ -151,6 +152,14 @@ export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
   title: "Receipts | Samebase",
   description: "Every factual Samebase claim with its primary source and check date.",
   canonicalPath: DOCS_RECEIPTS_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
+export const DOCS_PRICING_PAGE_METADATA: PageMetadata = {
+  title: "Pricing | Samebase",
+  description: "What stays free, what will be metered, and why there is no price list yet.",
+  canonicalPath: DOCS_PRICING_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };

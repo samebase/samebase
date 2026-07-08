@@ -32,6 +32,10 @@ type ExportOptions = {
   sourceBranch: string;
 };
 
+function normalizeGeneratedText(content: string): string {
+  return content.replaceAll("\u2014", "-");
+}
+
 function isExecutableCollectedFile(
   file: CollectedFile,
   // eslint-disable-next-line samebase/no-hand-written-type-predicate -- property-literal intersection: the check narrows the property, not the object (guard conversion fails TS2322)
@@ -264,11 +268,13 @@ async function collectFiles(rootDir: string, currentDir: string): Promise<Collec
     }
 
     try {
+      const content = normalizeGeneratedText(decoder.decode(buffer));
+      const rawContent = Buffer.from(content, "utf8");
       files.push({
         relativePath,
-        content: decoder.decode(buffer),
+        content,
         encoding: "utf-8",
-        rawContent: buffer,
+        rawContent,
         mode,
       });
     } catch (error) {

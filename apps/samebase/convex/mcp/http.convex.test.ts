@@ -310,7 +310,7 @@ describe("MCP tools/call access enforcement", () => {
 
   it("rejects a scoped token when the user's current access no longer allows the tool", async () => {
     // role_pending_access carries neither access_dashboard nor
-    // access_app_create, while the token still names both scopes — the exact
+    // access_app_create, while the token still names both scopes. This is the exact
     // stale-token-after-downgrade case the dispatch gate exists for.
     const { callTool } = await seedMcpBearer({ isApproved: false });
 

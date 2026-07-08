@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
@@ -13,6 +14,7 @@ const expectedLandingPreviewSidebarFiles = [
   "The stack",
   "Do it yourself",
   "Receipts",
+  "Pricing",
 ] as const;
 
 async function expectDesktopPaneWidths(
@@ -70,6 +72,10 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar.getByRole("link", { name: "Receipts" })).toHaveAttribute(
     "href",
     new RegExp(`^${DOCS_RECEIPTS_ROUTE}(\\?|$)`),
+  );
+  await expect(sidebar.getByRole("link", { name: "Pricing" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${DOCS_PRICING_ROUTE}(\\?|$)`),
   );
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
@@ -217,6 +223,35 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
   await expect(article.locator("video")).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("docs-receipts-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("pricing route renders the public pricing page", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  await page.goto(DOCS_PRICING_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
+
+  await expect(sidebar).toBeVisible();
+  await expectSidebarFiles(sidebar);
+  await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
+  await expect(article).toContainText("Creating an app is free, and the free tier is permanent.");
+  await expect(article).toContainText("no tiers, no placeholder numbers");
+
+  await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,

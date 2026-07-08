@@ -6,7 +6,7 @@ MCP tool `vault_convex_connectExistingProject` · scope `access_app_create` · w
 
 The manual Convex attach: binds an existing Convex project (from `list_convex_projects`) to the
 app's record and starts the connection run. This is also the remedy `get_user_vaults` names as
-`nextAction: "connect_convex_deployment"` after a failed manual Convex attach — rerunning it with a
+`nextAction: "connect_convex_deployment"` after a failed manual Convex attach. Rerunning it with a
 valid target is the repair.
 
 Writes Samebase's deployment record and reads the project from Convex; it does not modify the

@@ -1,6 +1,6 @@
 # Samebase
 
-> Samebase is a control plane for web apps on an opinionated stack — code in your GitHub
+> Samebase is a control plane for web apps on an opinionated stack: code in your GitHub
 > repository, Convex backend, Cloudflare Workers hosting. Humans use a dashboard; coding agents use
 > the same actions over MCP. The knowledge is free: you can build the identical stack with no
 > Samebase account.
@@ -21,11 +21,13 @@ HTML pages. Action and operate docs are raw markdown only.
   $0/month, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
   and the date it was last checked
+- [Pricing](https://samebase.com/pricing.md): what stays free, what will be metered, and why there
+  is no price list yet
 
 ## Actions
 
-Every operational action, one contract each — the same actions the dashboard buttons run. Degraded
-app states name their remedy in a `nextAction` field whose values are these action ids.
+Every operational action has one contract, and these are the same actions the dashboard buttons run.
+Degraded app states name their remedy in a `nextAction` field whose values are these action ids.
 
 - [Get user vaults](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.
 - [Create repository](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.

@@ -1,27 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { PricingPage } from "@/components/PricingPage";
+import { DocsPricingPage } from "@/components/LandingPreviewPage";
 import {
-  PRICING_ROUTE_SEARCH_STATIC_DATA,
-  validatePricingRouteSearch,
-} from "@/routeSearch/pricing";
+  DOCS_PRICING_ROUTE,
+  DOCS_ROUTE_SEARCH_STATIC_DATA,
+  validateDocsRouteSearch,
+} from "@/routeSearch/landingPreview";
+import { DOCS_PRICING_PAGE_METADATA } from "@/lib/pageMetadata";
+import { usePageMetadata } from "@/lib/usePageMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
-const pathname = "/pricing";
+function DocsPricingRouteComponent() {
+  usePageMetadata(DOCS_PRICING_PAGE_METADATA);
 
-function PricingRouteComponent() {
-  return (
-    <AuthenticatedAppRoutePage>
-      <PricingPage />
-    </AuthenticatedAppRoutePage>
-  );
+  return <DocsPricingPage />;
 }
 
 export const Route = createFileRoute("/pricing")({
   staticData: {
-    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    ...PRICING_ROUTE_SEARCH_STATIC_DATA,
+    ...ROUTE_ACCESS_METADATA_BY_PATH[DOCS_PRICING_ROUTE],
+    ...DOCS_ROUTE_SEARCH_STATIC_DATA,
   },
-  component: PricingRouteComponent,
-  validateSearch: validatePricingRouteSearch,
+  component: DocsPricingRouteComponent,
+  validateSearch: validateDocsRouteSearch,
 });
