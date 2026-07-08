@@ -139,8 +139,8 @@ Re-curate 37 commits → ~20, folding the tail into the steps it belongs to:
 | 14. teach Workers self-deployment         | `ede4d69` + `548b2cb`                         |
 | 15. dynamic Worker name + Node 24 scripts | `6ff01dd` + `5929490` + `830b32d` + `5df04d0` |
 | 16. Convex deploy keys (final contract)   | `a1f1798` + `2932b48` + `922faf2`             |
-| 17. add guest auth                        | `62d7848` + `4e8dd96` + `f216b20` + `e6ea4c9` |
-| 18. show authors and harden todo limits   | `8699cd9` + `5c08750`                         |
+| 17. add guest auth                        | `62d7848` + `4e8dd96`                         |
+| 18. share the todo list publicly          | `8699cd9` + `5c08750` + `f216b20` + `e6ea4c9` |
 | 19. add home and about prerendering       | `accbaf0` (gains its missing section)         |
 
 The rebrand commits (`f82dfc2`, `155f7fa`) disappear — samebase naming baked into every step.
@@ -202,3 +202,28 @@ optionally revisit spec 088's mirrored media now that raw URLs are stable.
 3. Timing: the re-curation is independent of RFC 093's eval rounds, but the eval keeps reading the
    README through the corpus story — doing the rewrite before eval round 2 avoids grading against a
    template that is about to change.
+
+## Execution record (2026-07-08)
+
+The re-curation ran the same day and is pushed as `v6-tanstack-start-workers` in samebase/app: root
+`8a85721` plus 19 numbered steps, every commit's tree a real original tree plus deterministic fold
+transforms, final tree byte-identical to `922faf2` except the rewritten `REPO_HISTORY.md`. Instead
+of `git rebase -i`, a reconstruction driver rebuilt each step's tree wholesale and enforced
+assertions per step (no `noter`/`notermd`, no `PROD_CONVEX`, no Geist, no `run-anon-dev`, no
+`--preview-create`; every replacement must match exactly once).
+
+Two deviations from the fold table above, both because every step must be a real tested tree, not an
+invented intermediate state:
+
+- `f216b20` (fallback guest names) moved from step 17 to step 18: it fixes the fallback introduced
+  by `5c08750`, so it belongs with the limits fold. Step 17 is the `4e8dd96` tree; step 18 is the
+  `e6ea4c9` tree, titled "share the todo list publicly" (public list + author display + caps are one
+  coherent product step, and the ownership reversal disappears inside its net diff).
+- `scripts/build-cloudflare.test.ts` lands in step 19, not 16: vitest enters the tree with the
+  prerender commit (`accbaf0`), and adding it earlier would require inventing lockfile state.
+
+Steps were not individually build-verified (no per-step `vp` install/build run); the final tree
+equals the deployed v5 tip, and intermediate trees are original trees plus string-level folds.
+Remaining before the swap: review the branch, run the per-step build check if wanted
+(`git rebase -i --root -x 'pnpm install && pnpm run check'` on a throwaway copy), then the
+rename-based swap and monorepo follow-up above.
