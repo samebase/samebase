@@ -13,8 +13,10 @@
   wiring.
 - Related rfcs: `rfcs/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md` (the block set this extends),
   `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md` (the status noun and `nextAction` that render
-  verification results), `rfcs/094_AGENT_ACTION_DOCS_REGISTRY_PLAN.md` (guide layer; the long-form
-  `verify_infrastructure` guide lands there once the registry ships)
+  verification results), and the agent action docs registry plan (guide layer; pending as
+  `rfcs/094_AGENT_ACTION_DOCS_REGISTRY_PLAN.md` on branch `codex-agent-docs-registry-rfc`, already
+  referenced from rfcs/093 on main — the long-form `verify_infrastructure` guide lands there once it
+  merges)
 - Related specs: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`,
   `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`,
   `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
@@ -51,46 +53,60 @@ Each rfcs/090 block writes one durable registry axis (`wire_builds` → `deploym
 `wire_convex_build_access` → `deployment.convexBuildAccess`, `attach_worker` → the Worker row,
 `attach_convex` → the deployment row). Verification pairs with that write, not with a central list:
 
-1. Every provisioning block declares its verification story in one registry entry: either a
-   **verifier** for the axis it writes, or an explicit **not-verifiable declaration** with a reason.
-   The registry is exhaustively typed against the block union (`satisfies`), so adding a block
-   without deciding its verification story fails typecheck instead of relying on review memory:
+1. Every provisioning block that owns a durable registry axis declares its verification story in one
+   registry entry: either a **verifier** for that axis, or a **not-verifiable declaration** carrying
+   a closed-union `category` plus prose `detail`. The registry is exhaustively typed against the
+   union of axis-owning blocks (`satisfies`), so adding a block without deciding its verification
+   story fails typecheck instead of relying on review memory — and a reason outside the taxonomy
+   fails the same way:
 
    ```ts
    const blockVerification = {
      wire_builds: { verify: verifyConnectedBuilds },
      wire_convex_build_access: { verify: verifyConvexBuildAccess },
      attach_worker: {
-       notVerifiable: "existence verifier lands in Phase 2 with the missing-upstream variant",
+       notVerifiable: {
+         category: "state_shape_not_ready",
+         detail: "existence verifier lands in Phase 2 with the missing-upstream variant",
+       },
      },
      attach_convex: {
-       notVerifiable: "existence verifier lands in Phase 2 with the missing-upstream variant",
+       notVerifiable: {
+         category: "state_shape_not_ready",
+         detail: "existence verifier lands in Phase 2 with the missing-upstream variant",
+       },
      },
      source_setup: {
-       notVerifiable: "no remedy verb for drifted GitHub source state; revisit with one in hand",
+       notVerifiable: {
+         category: "no_remedy",
+         detail: "a deleted or renamed source repo has no re-create/re-link verb in the catalog",
+       },
      },
-   } satisfies Record<ProvisioningBlockId, BlockVerification>;
+   } satisfies Record<DurableAxisBlockId, BlockVerification>;
    ```
 
 2. A verifier is a pure decision over (recorded row, live reads) returning
    `confirmed | contradicted | unverifiable`. `unverifiable` is a first-class honest outcome, never
    an error path — a fake verifier written to satisfy the type is worse than a declared gap.
-3. A `notVerifiable` reason must name one of these categories (extend this list in this RFC when a
-   real new category appears; "we didn't bother" is not one):
-   - **No remedy exists** — detection would surface a dead-end. `source_setup`: a deleted or renamed
+3. The `category` is a closed union on the registry shape, so an unlisted reason fails typecheck
+   rather than review — "we didn't bother" is unrepresentable. Extend the union (and this list) only
+   when a real new category appears:
+   - **`no_remedy`** — detection would surface a dead-end. `source_setup`: a deleted or renamed
      source repo has no re-create/re-link verb in the catalog.
-   - **State shape cannot record the result yet** — the read is possible but there is no truthful
-     variant to write. `attach_worker` / `attach_convex` until Phase 2's missing-upstream variant.
-   - **No authoritative provider read** — trigger variable values are write-only in the Builds API;
+   - **`state_shape_not_ready`** — the read is possible but there is no truthful variant to write.
+     `attach_worker` / `attach_convex` until Phase 2's missing-upstream variant.
+   - **`no_authoritative_read`** — trigger variable values are write-only in the Builds API;
      variable names are the honest proxy, the values stay permanently unverifiable.
-   - **Correction needs user intent** — a moved app root is detectable against the synced tree, but
-     the fix is the user re-picking the root, not a mechanical repair; declared until such a flow
-     exists as a verb.
-   - **Owned elsewhere** — provider token validity belongs to the existing connection health checks;
-     a verifier would duplicate a fact that already has one owner.
-4. The rule covers blocks that write durable registry state. Read-only discovery contracts and
-   one-shot events that leave no ongoing claim (the initial production build trigger, for example)
-   have nothing to re-verify and stay out.
+   - **`needs_user_intent`** — a moved app root is detectable against the synced tree, but the fix
+     is the user re-picking the root, not a mechanical repair; declared until such a flow exists as
+     a verb.
+   - **`owned_elsewhere`** — provider token validity belongs to the existing connection health
+     checks; a verifier would duplicate a fact that already has one owner.
+4. The registry key union is exactly the blocks that own a durable registry axis. Read-only
+   discovery contracts and one-shot events that leave no ongoing claim (the initial production build
+   trigger, for example) have nothing to re-verify. `verify_infrastructure` itself owns no axis — it
+   writes corrections into axes owned by the blocks above — so it is the registry's consumer, not an
+   entry; there is no recursive verification story.
 
 ## Locked Decisions
 
