@@ -68,6 +68,20 @@ const vCloudflareWorkerConvexDeployKeys = union(
     state: literal("set"),
   }),
 );
+const vProviderResourceMissingUpstreamNextAction = union(
+  literal("connect_convex_deployment"),
+  literal("connect_cloudflare_worker"),
+  literal("retry_infrastructure_provisioning"),
+);
+const vProviderResourceUpstream = union(
+  object({
+    state: literal("present"),
+  }),
+  object({
+    state: literal("missing_upstream"),
+    nextAction: vProviderResourceMissingUpstreamNextAction,
+  }),
+);
 const vProviderSetupFailedNextAction = union(
   literal("retry_infrastructure_provisioning"),
   literal("connect_convex_deployment"),
@@ -169,6 +183,7 @@ const vUserVaultsResult = array(
         appRoot: string(),
         convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
         githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
+        upstream: vProviderResourceUpstream,
         lastObservedAt: number(),
         workerName: string(),
         workersDevUrl: optional(string()),
@@ -182,6 +197,7 @@ const vUserVaultsResult = array(
         projectSlug: string(),
         teamSlug: string(),
         deploymentName: string(),
+        upstream: vProviderResourceUpstream,
         cloudUrl: string(),
         siteUrl: string(),
         projectSettingsDashboardUrl: optional(string()),
@@ -235,6 +251,7 @@ export type CloudflareWorkerGithubRepositoryConnection = Infer<
   typeof vCloudflareWorkerGithubRepositoryConnection
 >;
 export type CloudflareWorkerConvexDeployKeys = Infer<typeof vCloudflareWorkerConvexDeployKeys>;
+export type ProviderResourceUpstream = Infer<typeof vProviderResourceUpstream>;
 export type VaultDeletionSummary = Infer<typeof vVaultDeletionSummary>;
 export type UserVaultsResult = Infer<typeof getUserVaultsContract.returns>;
 export type UserVaultResult = UserVaultsResult[number];

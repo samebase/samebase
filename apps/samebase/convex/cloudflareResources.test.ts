@@ -208,10 +208,55 @@ function buildCloudflareWorkerListItem(
   };
 }
 
+function buildMatchingProductionTrigger(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    trigger_uuid: "production-trigger",
+    build_token_uuid: "build-token",
+    branch_includes: ["main"],
+    branch_excludes: [],
+    build_command: "pnpm build",
+    deploy_command: "pnpm deploy",
+    root_directory: ".",
+    path_includes: ["**/*"],
+    path_excludes: [],
+    repo_connection: {
+      repo_connection_uuid: "repo-connection",
+      repo_id: "123",
+      repo_name: "ada/samebase-app",
+    },
+    ...overrides,
+  };
+}
+
+function buildMatchingPreviewTrigger(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    trigger_uuid: "preview-trigger",
+    build_token_uuid: "build-token",
+    branch_includes: ["*"],
+    branch_excludes: ["main"],
+    build_command: "pnpm build",
+    deploy_command: "pnpm deploy:preview",
+    root_directory: ".",
+    path_includes: ["**/*"],
+    path_excludes: [],
+    repo_connection: {
+      repo_connection_uuid: "repo-connection",
+      repo_id: "123",
+      repo_name: "ada/samebase-app",
+    },
+    ...overrides,
+  };
+}
+
 function stubEnsureCloudflareResourcesFetch(args: {
   triggers: readonly unknown[];
   requests: RecordedCloudflareRequest[];
   dropReadEnvKeys?: Record<string, readonly string[]>;
+  missingWorker?: boolean;
   readEnvVars?: Record<string, RecordedCloudflareEnvironmentVariables>;
 }): void {
   let createdTriggerCount = 0;
@@ -265,6 +310,17 @@ function stubEnsureCloudflareResourcesFetch(args: {
         case "/client/v4/accounts/account-id/builds/repos/connections":
           return cloudflareSuccessResponse({ repo_connection_uuid: "repo-connection" });
         case "/client/v4/accounts/account-id/builds/workers/worker-tag/triggers":
+          if (args.missingWorker) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                errors: [{ code: 10007, message: "Worker not found" }],
+                messages: [],
+                result: null,
+              }),
+              { status: 404, headers: { "Content-Type": "application/json" } },
+            );
+          }
           return cloudflareSuccessResponse(args.triggers);
         case "/client/v4/accounts/account-id/builds/tokens":
           return cloudflareSuccessResponse([
@@ -322,16 +378,10 @@ describe("cloudflare resources", () => {
       verify: expect.any(Function),
     });
     expect(blockVerification.attach_worker).toEqual({
-      notVerifiable: {
-        category: "state_shape_not_ready",
-        detail: "existence verifier lands in Phase 2 with the missing-upstream variant",
-      },
+      verify: expect.any(Function),
     });
     expect(blockVerification.attach_convex).toEqual({
-      notVerifiable: {
-        category: "state_shape_not_ready",
-        detail: "existence verifier lands in Phase 2 with the missing-upstream variant",
-      },
+      verify: expect.any(Function),
     });
     expect(blockVerification.source_setup).toEqual({
       notVerifiable: {
@@ -390,18 +440,7 @@ describe("cloudflare resources", () => {
           },
         },
       },
-      triggers: [
-        {
-          trigger_uuid: "production-trigger",
-          branch_includes: ["main"],
-          branch_excludes: [],
-        },
-        {
-          trigger_uuid: "preview-trigger",
-          branch_includes: ["*"],
-          branch_excludes: ["main"],
-        },
-      ],
+      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
     });
 
     await expect(
@@ -410,6 +449,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
+      worker: "confirmed",
       builds: "confirmed",
       convexBuildAccess: "confirmed",
     });
@@ -465,6 +505,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: false,
       }),
     ).resolves.toEqual({
+      worker: "confirmed",
       builds: "adopted",
       connectedBuilds: {
         state: "connected",
@@ -535,6 +576,28 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: false,
       }),
     ).resolves.toEqual({
+      worker: "confirmed",
+      builds: "not_checked",
+      convexBuildAccess: "not_checked",
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("marks the attached Worker missing when Cloudflare no longer returns it", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      missingWorker: true,
+      triggers: [],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      worker: "missing_upstream",
       builds: "not_checked",
       convexBuildAccess: "not_checked",
     });
@@ -545,12 +608,35 @@ describe("cloudflare resources", () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
+      triggers: [buildMatchingPreviewTrigger()],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      worker: "confirmed",
+      builds: "contradicted",
+      convexBuildAccess: "not_checked",
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("contradicts connected Builds when a recorded trigger is rebound to another repo", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
       triggers: [
-        {
-          trigger_uuid: "preview-trigger",
-          branch_includes: ["*"],
-          branch_excludes: ["main"],
-        },
+        buildMatchingProductionTrigger({
+          repo_connection: {
+            repo_connection_uuid: "other-repo-connection",
+            repo_id: "999",
+            repo_name: "ada/other-app",
+          },
+        }),
+        buildMatchingPreviewTrigger(),
       ],
     });
 
@@ -560,6 +646,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
+      worker: "confirmed",
       builds: "contradicted",
       convexBuildAccess: "not_checked",
     });
@@ -579,18 +666,7 @@ describe("cloudflare resources", () => {
           },
         },
       },
-      triggers: [
-        {
-          trigger_uuid: "production-trigger",
-          branch_includes: ["main"],
-          branch_excludes: [],
-        },
-        {
-          trigger_uuid: "preview-trigger",
-          branch_includes: ["*"],
-          branch_excludes: ["main"],
-        },
-      ],
+      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
     });
 
     await expect(
@@ -599,6 +675,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
+      worker: "confirmed",
       builds: "confirmed",
       convexBuildAccess: "contradicted",
     });
@@ -1178,7 +1255,7 @@ describe("cloudflare resources", () => {
     ).toBe(true);
   });
 
-  it("does not patch an existing Workers Builds trigger connected to a different root directory", async () => {
+  it("recreates an existing Workers Builds trigger connected to a different root directory", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -1198,11 +1275,7 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
-    ).rejects.toThrow(
-      "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: its existing production Workers Builds trigger is connected to root directory apps/admin. Expected /. Disconnect Builds in Cloudflare or choose another Worker.",
-    );
+    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
     expect(
       requests.some(
         (request) =>
@@ -1214,13 +1287,21 @@ describe("cloudflare resources", () => {
     expect(
       requests.some(
         (request) =>
+          request.method === "DELETE" &&
+          request.path ===
+            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+      ),
+    ).toBe(true);
+    expect(
+      requests.some(
+        (request) =>
           request.method === "POST" &&
           request.path === "/client/v4/accounts/account-id/builds/triggers",
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("does not patch an existing Workers Builds trigger connected to a different GitHub repository", async () => {
+  it("recreates an existing Workers Builds trigger connected to a different GitHub repository", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -1239,11 +1320,7 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
-    ).rejects.toThrow(
-      "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: its existing production Workers Builds trigger is connected to GitHub repository ada/other-app (999). Disconnect Builds in Cloudflare or choose another Worker.",
-    );
+    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
     expect(
       requests.some(
         (request) =>
@@ -1255,13 +1332,21 @@ describe("cloudflare resources", () => {
     expect(
       requests.some(
         (request) =>
+          request.method === "DELETE" &&
+          request.path ===
+            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+      ),
+    ).toBe(true);
+    expect(
+      requests.some(
+        (request) =>
           request.method === "POST" &&
           request.path === "/client/v4/accounts/account-id/builds/triggers",
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("does not patch an existing Workers Builds trigger when Cloudflare omits the repository id", async () => {
+  it("recreates an existing Workers Builds trigger when Cloudflare omits the repository id", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -1279,11 +1364,7 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
-    ).rejects.toThrow(
-      "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: Cloudflare did not return a GitHub repository id for the existing production Workers Builds trigger. Disconnect Builds in Cloudflare or choose another Worker.",
-    );
+    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
     expect(
       requests.some(
         (request) =>
@@ -1295,13 +1376,21 @@ describe("cloudflare resources", () => {
     expect(
       requests.some(
         (request) =>
+          request.method === "DELETE" &&
+          request.path ===
+            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+      ),
+    ).toBe(true);
+    expect(
+      requests.some(
+        (request) =>
           request.method === "POST" &&
           request.path === "/client/v4/accounts/account-id/builds/triggers",
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("does not patch an existing Workers Builds trigger connected through a deleted repository connection", async () => {
+  it("recreates an existing Workers Builds trigger connected through a deleted repository connection", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -1321,11 +1410,7 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
-    ).rejects.toThrow(
-      "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: its existing production Workers Builds trigger references a deleted Cloudflare GitHub repository connection. Disconnect Builds in Cloudflare or choose another Worker.",
-    );
+    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
     expect(
       requests.some(
         (request) =>
@@ -1337,10 +1422,18 @@ describe("cloudflare resources", () => {
     expect(
       requests.some(
         (request) =>
+          request.method === "DELETE" &&
+          request.path ===
+            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+      ),
+    ).toBe(true);
+    expect(
+      requests.some(
+        (request) =>
           request.method === "POST" &&
           request.path === "/client/v4/accounts/account-id/builds/triggers",
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("ignores deleted Workers Builds triggers when connecting a GitHub repository", async () => {

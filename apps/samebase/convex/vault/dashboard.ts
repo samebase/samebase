@@ -19,6 +19,7 @@ import {
   getUserVaultsContract,
   type CloudflareWorkerConvexDeployKeys,
   type CloudflareWorkerGithubRepositoryConnection,
+  type ProviderResourceUpstream,
   type ProviderSetupSummary,
   type SourceSetupSummary,
   type UserVaultResult,
@@ -26,6 +27,7 @@ import {
   type VaultDeletionSummary,
   vProviderSetupSummary,
 } from "./contracts/getUserVaults";
+import { readVaultProviderUpstreamPresence } from "./model";
 
 const { array, boolean, id, object, optional, string } = v;
 type SourceSetupVault = Extract<
@@ -41,6 +43,38 @@ const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
 function canRemoveConvexProvisionForDeployment(deployment: ConnectedConvexDeployment): boolean {
   return deployment.origin === "provisioned";
+}
+
+function resolveConvexDeploymentUpstream(
+  deployment: ConnectedConvexDeployment,
+): ProviderResourceUpstream {
+  const upstream = readVaultProviderUpstreamPresence(deployment);
+  if (upstream.state === "present") {
+    return { state: "present" };
+  }
+  return {
+    state: "missing_upstream",
+    nextAction:
+      deployment.origin === "provisioned"
+        ? "retry_infrastructure_provisioning"
+        : "connect_convex_deployment",
+  };
+}
+
+function resolveCloudflareWorkerUpstream(
+  worker: ConnectedCloudflareWorker,
+): ProviderResourceUpstream {
+  const upstream = readVaultProviderUpstreamPresence(worker);
+  if (upstream.state === "present") {
+    return { state: "present" };
+  }
+  return {
+    state: "missing_upstream",
+    nextAction:
+      worker.origin === "provisioned"
+        ? "retry_infrastructure_provisioning"
+        : "connect_cloudflare_worker",
+  };
 }
 
 async function readLatestRunErrorMessage(
@@ -340,7 +374,9 @@ function resolveCloudflareWorkerConvexDeployKeys(
   convexDeployments: ConnectedConvexDeployment[],
 ): CloudflareWorkerConvexDeployKeys {
   const hasConvexDeployment = convexDeployments.some(
-    (deployment) => deployment.appRoot === worker.appRoot,
+    (deployment) =>
+      deployment.appRoot === worker.appRoot &&
+      readVaultProviderUpstreamPresence(deployment).state === "present",
   );
   if (!hasConvexDeployment || worker.deployment.builds.state !== "connected") {
     return { state: "not_applicable" };
@@ -853,6 +889,7 @@ async function readUserVaults(
         projectSlug: deployment.projectSlug,
         teamSlug: deployment.teamSlug,
         deploymentName: deployment.deploymentName,
+        upstream: resolveConvexDeploymentUpstream(deployment),
         cloudUrl: deployment.cloudUrl,
         siteUrl: deployment.siteUrl,
         projectSettingsDashboardUrl: buildConvexProjectSettingsDashboardUrl({
@@ -872,6 +909,7 @@ async function readUserVaults(
         appRoot: worker.appRoot,
         convexDeployKeys: resolveCloudflareWorkerConvexDeployKeys(worker, convexDeployments),
         githubRepositoryConnection: resolveCloudflareWorkerGithubRepositoryConnection(worker),
+        upstream: resolveCloudflareWorkerUpstream(worker),
         lastObservedAt: worker.lastObservedAt,
         workerName: worker.workerName,
         workersDevUrl: worker.workersDevUrl,

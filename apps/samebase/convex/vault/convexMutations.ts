@@ -9,7 +9,11 @@ import {
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-import { vVaultConvexOrigin } from "./model";
+import {
+  isVaultProviderUpstreamPresent,
+  vVaultConvexOrigin,
+  VAULT_PROVIDER_UPSTREAM_PRESENT,
+} from "./model";
 import { isLiveConnectedVault } from "./state";
 
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
@@ -117,7 +121,7 @@ async function assertNoExistingConvexDeploymentTarget(
   },
 ): Promise<void> {
   const existingAppRootDeployment = await readConvexDeploymentForAppRoot(ctx, args);
-  if (existingAppRootDeployment) {
+  if (existingAppRootDeployment && isVaultProviderUpstreamPresent(existingAppRootDeployment)) {
     throw new Error("Vault already has a Convex deployment for this app root.");
   }
   if (args.projectId) {
@@ -125,7 +129,12 @@ async function assertNoExistingConvexDeploymentTarget(
       vaultId: args.vaultId,
       projectId: args.projectId,
     });
-    if (existingProject) {
+    if (
+      existingProject &&
+      (isVaultProviderUpstreamPresent(existingProject) ||
+        !existingAppRootDeployment ||
+        existingProject._id !== existingAppRootDeployment._id)
+    ) {
       throw new Error("Convex project is already attached to this vault.");
     }
   }
@@ -348,7 +357,8 @@ export const readActiveConvexDeploymentConnection = internalQuery({
     ]);
     return {
       active:
-        !deployment && isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId }),
+        (!deployment || !isVaultProviderUpstreamPresent(deployment)) &&
+        isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId }),
     };
   },
 });
@@ -371,6 +381,10 @@ export const attachDeploymentForRun = internalMutation({
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    const existingAppRootDeployment = await readConvexDeploymentForAppRoot(ctx, {
       vaultId: args.vaultId,
       appRoot,
     });
@@ -407,6 +421,33 @@ export const attachDeploymentForRun = internalMutation({
     }
 
     const now = Date.now();
+    if (existingAppRootDeployment) {
+      await ctx.db.patch(existingAppRootDeployment._id, {
+        projectId: args.convex.convexProjectId,
+        teamSlug: args.convex.convexTeamSlug,
+        projectSlug: args.convex.convexProjectSlug,
+        deploymentName: args.convex.convexDeploymentName,
+        deploymentType: args.convex.convexDeploymentType,
+        cloudUrl: args.convex.convexCloudUrl,
+        siteUrl: args.convex.convexSiteUrl,
+        previewDeployment: CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED,
+        deployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
+        origin: args.origin,
+        upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
+        connectedAt: now,
+        lastObservedAt: now,
+      });
+      await appendConvexDeploymentConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "attach_convex",
+        level: "info",
+        message: `Convex deployment ready for ${appRoot}: ${args.convex.convexDeploymentName}.`,
+        state: "running",
+      });
+
+      return { attached: true };
+    }
+
     await ctx.db.insert("vaultConvexDeployments", {
       vaultId: args.vaultId,
       userId: args.userId,
@@ -421,6 +462,7 @@ export const attachDeploymentForRun = internalMutation({
       previewDeployment: CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED,
       deployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
       origin: args.origin,
+      upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
       connectedAt: now,
       lastObservedAt: now,
     });
@@ -533,7 +575,7 @@ export const finishConvexDeploymentConnection = internalMutation({
       vaultId: args.vaultId,
       appRoot,
     });
-    if (!deployment) {
+    if (!deployment || !isVaultProviderUpstreamPresent(deployment)) {
       throw new Error("Convex deployment connection did not attach a deployment.");
     }
 

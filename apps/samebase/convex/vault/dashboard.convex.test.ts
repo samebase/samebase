@@ -1752,6 +1752,156 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("exposes missing-upstream provider resources with repair actions", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/upstream-state",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 30,
+        completedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "upstream-state",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      const roots = [
+        "apps/manual-convex",
+        "apps/managed-convex",
+        "apps/manual-worker",
+        "apps/managed-worker",
+      ];
+      for (const root of roots) {
+        await ctx.db.insert("vaultApps", {
+          vaultId,
+          userId,
+          appRoot: root,
+          createdAt: 21,
+        });
+      }
+      for (const root of ["apps/manual-convex", "apps/managed-convex"]) {
+        await ctx.db.insert("vaultConvexDeployments", {
+          vaultId,
+          userId,
+          appRoot: root,
+          projectId: `${root}-project`,
+          teamSlug: "ada-team",
+          projectSlug: root.replace("/", "-"),
+          deploymentName: `${root.replace("/", "-")}-production`,
+          deploymentType: "prod",
+          cloudUrl: `https://${root.replace("/", "-")}.convex.cloud`,
+          siteUrl: `https://${root.replace("/", "-")}.convex.site`,
+          upstream: { state: "missing_upstream" },
+          previewDeployment: { state: "not_ensured" },
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: { state: "not_created" },
+          },
+          origin: root === "apps/managed-convex" ? "provisioned" : "selected_existing",
+          connectedAt: 25,
+          lastObservedAt: 25,
+        });
+      }
+      for (const root of ["apps/manual-worker", "apps/managed-worker"]) {
+        await ctx.db.insert("vaultCloudflareWorkers", {
+          vaultId,
+          userId,
+          appRoot: root,
+          accountId: "cloudflare-account",
+          workerName: `${root.replace("/", "-")}-worker`,
+          workerTag: `${root.replace("/", "-")}-tag`,
+          workersDevUrl: `https://${root.replace("/", "-")}.example.workers.dev`,
+          origin: root === "apps/managed-worker" ? "provisioned" : "selected_existing",
+          upstream: { state: "missing_upstream" },
+          deployment: {
+            builds: { state: "not_connected" },
+            convexBuildAccess: { state: "not_wired" },
+          },
+          connectedAt: 26,
+          lastObservedAt: 26,
+        });
+      }
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 29,
+      });
+
+      return { userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    expect(vaults).toHaveLength(1);
+    const convexByRoot = new Map(
+      vaults[0].convexDeployments.map((deployment) => [deployment.appRoot, deployment]),
+    );
+    const workersByRoot = new Map(
+      vaults[0].cloudflareWorkers.map((worker) => [worker.appRoot, worker]),
+    );
+
+    expect(convexByRoot.get("apps/manual-convex")).toMatchObject({
+      upstream: {
+        state: "missing_upstream",
+        nextAction: "connect_convex_deployment",
+      },
+    });
+    expect(convexByRoot.get("apps/managed-convex")).toMatchObject({
+      upstream: {
+        state: "missing_upstream",
+        nextAction: "retry_infrastructure_provisioning",
+      },
+    });
+    expect(workersByRoot.get("apps/manual-worker")).toMatchObject({
+      upstream: {
+        state: "missing_upstream",
+        nextAction: "connect_cloudflare_worker",
+      },
+    });
+    expect(workersByRoot.get("apps/managed-worker")).toMatchObject({
+      upstream: {
+        state: "missing_upstream",
+        nextAction: "retry_infrastructure_provisioning",
+      },
+    });
+  });
+
   it("exposes Cloudflare GitHub and Convex deploy-key repair states", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

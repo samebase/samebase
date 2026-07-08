@@ -106,6 +106,38 @@ export const vVaultApp = object({
 });
 export type VaultApp = Infer<typeof vVaultApp>;
 
+export const vVaultProviderUpstreamPresence = union(
+  object({
+    state: literal("present"),
+  }),
+  object({
+    state: literal("missing_upstream"),
+  }),
+);
+export type VaultProviderUpstreamPresence = Infer<typeof vVaultProviderUpstreamPresence>;
+
+export const VAULT_PROVIDER_UPSTREAM_PRESENT = {
+  state: "present",
+} as const satisfies VaultProviderUpstreamPresence;
+
+export const VAULT_PROVIDER_UPSTREAM_MISSING = {
+  state: "missing_upstream",
+} as const satisfies VaultProviderUpstreamPresence;
+
+type VaultProviderUpstreamCarrier = {
+  upstream?: VaultProviderUpstreamPresence;
+};
+
+export function readVaultProviderUpstreamPresence(
+  row: VaultProviderUpstreamCarrier,
+): VaultProviderUpstreamPresence {
+  return row.upstream ?? VAULT_PROVIDER_UPSTREAM_PRESENT;
+}
+
+export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
+  return readVaultProviderUpstreamPresence(row).state === "present";
+}
+
 export const vVaultConvexDeployment = object({
   vaultId: id("vaults"),
   userId: id("users"),
@@ -120,6 +152,7 @@ export const vVaultConvexDeployment = object({
   previewDeployment: vConvexPreviewDeployment,
   deployKeys: vConvexDeployKeys,
   origin: vVaultConvexOrigin,
+  upstream: optional(vVaultProviderUpstreamPresence),
   connectedAt: number(),
   lastObservedAt: number(),
 });
@@ -233,6 +266,7 @@ export const vVaultCloudflareWorker = object({
   workerTag: string(),
   workersDevUrl: optional(string()),
   origin: vVaultCloudflareOrigin,
+  upstream: optional(vVaultProviderUpstreamPresence),
   deployment: vVaultCloudflareDeployment,
   connectedAt: number(),
   lastObservedAt: number(),

@@ -6,7 +6,11 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./schema";
-import { vVaultCloudflareOrigin, vVaultConvexConnectionTarget } from "./vault/model";
+import {
+  isVaultProviderUpstreamPresent,
+  vVaultCloudflareOrigin,
+  vVaultConvexConnectionTarget,
+} from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -93,20 +97,26 @@ export const readComposedInfrastructureState = internalQuery({
         )
         .first(),
     ]);
+    const convexDeploymentAttached =
+      convexDeployment !== null && isVaultProviderUpstreamPresent(convexDeployment);
+    const cloudflareWorkerAttached = worker !== null && isVaultProviderUpstreamPresent(worker);
 
     return {
       appRoot: target.appRoot,
       convex: {
         projectName: target.convex.projectName,
-        attached: convexDeployment !== null,
+        attached: convexDeploymentAttached,
       },
       cloudflare: {
         accountId: target.cloudflare.accountId,
         workerName: target.cloudflare.workerName,
-        attached: worker !== null,
-        buildsConnected: worker?.deployment.builds.state === "connected",
-        convexBuildAccessWired: worker?.deployment.convexBuildAccess.state === "wired",
-        workersDevUrl: worker?.workersDevUrl ?? null,
+        attached: cloudflareWorkerAttached,
+        buildsConnected: cloudflareWorkerAttached && worker.deployment.builds.state === "connected",
+        convexBuildAccessWired:
+          convexDeploymentAttached &&
+          cloudflareWorkerAttached &&
+          worker.deployment.convexBuildAccess.state === "wired",
+        workersDevUrl: cloudflareWorkerAttached ? (worker.workersDevUrl ?? null) : null,
       },
     };
   },

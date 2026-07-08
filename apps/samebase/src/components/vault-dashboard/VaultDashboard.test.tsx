@@ -80,6 +80,7 @@ function makeCloudflareDialogWorker(
 
 type ResourceRailBuilderVault = Parameters<typeof buildVaultDashboardResourceRailState>[0]["vault"];
 type ResourceRailCloudflareWorker = ResourceRailBuilderVault["cloudflareWorkers"][number];
+type ResourceRailConvexDeployment = ResourceRailBuilderVault["convexDeployments"][number];
 
 function getResourceRailAppRow(
   state: ReturnType<typeof buildVaultDashboardResourceRailState>,
@@ -104,8 +105,25 @@ function makeResourceRailCloudflareWorker(
     appRoot: ".",
     convexDeployKeys: { state: "not_applicable" },
     githubRepositoryConnection: { state: "connected" },
+    upstream: { state: "present" },
     lastObservedAt: 0,
     workerName: "demo-worker",
+    ...overrides,
+  };
+}
+
+function makeResourceRailConvexDeployment(
+  overrides: Partial<ResourceRailConvexDeployment>,
+): ResourceRailConvexDeployment {
+  return {
+    appRoot: ".",
+    projectId: "demo-project-id",
+    projectSlug: "demo-project",
+    teamSlug: "demo-team",
+    deploymentName: "demo-production",
+    upstream: { state: "present" },
+    cloudUrl: "https://demo-production.convex.cloud",
+    siteUrl: "https://demo-production.convex.site",
     ...overrides,
   };
 }
@@ -426,6 +444,7 @@ describe("VaultBranchLinkContent", () => {
               deploymentName: "samebase-production",
               cloudUrl: "https://samebase-production.convex.cloud",
               siteUrl: "https://samebase-production.convex.site",
+              upstream: { state: "present" },
             },
           ]}
           schemaGraphAccessEnabled
@@ -464,6 +483,7 @@ describe("VaultBranchLinkContent", () => {
               deploymentName: "samebase-production",
               cloudUrl: "https://samebase-production.convex.cloud",
               siteUrl: "https://samebase-production.convex.site",
+              upstream: { state: "present" },
             },
           ]}
         />
@@ -1809,6 +1829,126 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain('href="/vault/ada/demo?add-convex"');
   });
 
+  it("lets missing-upstream manual Convex deployments reopen the deployment dialog", () => {
+    const addConvex = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      addConvexOnClick: addConvex,
+      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        convexDeployments: [
+          makeResourceRailConvexDeployment({
+            upstream: {
+              state: "missing_upstream",
+              nextAction: "connect_convex_deployment",
+            },
+          }),
+        ],
+      }),
+    });
+
+    const convexRow = getResourceRailAppRow(state, ".", "convex");
+    expect(convexRow).toMatchObject({
+      provider: "convex",
+      status: "failed",
+      value: "demo-project",
+      actions: [
+        {
+          kind: "add",
+          label: "?add-convex",
+          disabled: false,
+          href: "/vault/ada/demo?add-convex",
+        },
+      ],
+    });
+    if (convexRow.status !== "failed") {
+      throw new Error("Expected failed Convex row.");
+    }
+    convexRow.actions[0].onClick?.();
+    expect(addConvex).toHaveBeenCalledWith(".");
+  });
+
+  it("lets missing-upstream manual Cloudflare Workers reopen the Worker dialog", () => {
+    const addCloudflareWorker = vi.fn();
+    const connectCloudflareGithubRepo = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      addCloudflareWorkerOnClick: addCloudflareWorker,
+      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
+      connectCloudflareGithubRepoOnClick: connectCloudflareGithubRepo,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
+            upstream: {
+              state: "missing_upstream",
+              nextAction: "connect_cloudflare_worker",
+            },
+          }),
+        ],
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "failed",
+      value: "demo-worker",
+      actions: [
+        {
+          kind: "add",
+          label: "?add-cloudflare",
+          disabled: false,
+          href: "/vault/ada/demo?add-cloudflare",
+        },
+      ],
+    });
+    if (cloudflareRow.status !== "failed") {
+      throw new Error("Expected failed Cloudflare row.");
+    }
+    cloudflareRow.actions[0].onClick?.();
+    expect(addCloudflareWorker).toHaveBeenCalledWith(".");
+    expect(connectCloudflareGithubRepo).not.toHaveBeenCalled();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("?add-cloudflare");
+    expect(markup).not.toContain("Connect GitHub repo");
+  });
+
+  it("lets missing-upstream managed Cloudflare Workers retry infrastructure", () => {
+    const retryInfrastructure = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      retryInfrastructureOnClick: retryInfrastructure,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            upstream: {
+              state: "missing_upstream",
+              nextAction: "retry_infrastructure_provisioning",
+            },
+          }),
+        ],
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "failed",
+      value: "demo-worker",
+      actions: [{ kind: "retry", label: "Retry", disabled: false }],
+    });
+    if (cloudflareRow.status !== "failed") {
+      throw new Error("Expected failed Cloudflare row.");
+    }
+    cloudflareRow.actions[0].onClick?.();
+    expect(retryInfrastructure).toHaveBeenCalledOnce();
+  });
+
   it("shows missing provider actions after setup is idle", () => {
     const addCloudflareWorker = vi.fn();
     const addConvex = vi.fn();
@@ -1872,6 +2012,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             deploymentName: "demo-production",
             cloudUrl: "https://demo-production.convex.cloud",
             siteUrl: "https://demo-production.convex.site",
+            upstream: { state: "present" },
           },
         ],
         cloudflareWorkers: [
@@ -1921,6 +2062,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             deploymentName: "demo-production",
             cloudUrl: "https://demo-production.convex.cloud",
             siteUrl: "https://demo-production.convex.site",
+            upstream: { state: "present" },
             projectSettingsDashboardUrl:
               "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
           },
@@ -2017,6 +2159,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             deploymentName: "demo-production",
             cloudUrl: "https://demo-production.convex.cloud",
             siteUrl: "https://demo-production.convex.site",
+            upstream: { state: "present" },
           },
         ],
         cloudflareWorkers: [
@@ -2110,6 +2253,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             deploymentName: "demo-production",
             cloudUrl: "https://demo-production.convex.cloud",
             siteUrl: "https://demo-production.convex.site",
+            upstream: { state: "present" },
           },
         ],
         cloudflareWorkers: [
@@ -2187,6 +2331,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             deploymentName: "demo-production",
             cloudUrl: "https://demo-production.convex.cloud",
             siteUrl: "https://demo-production.convex.site",
+            upstream: { state: "present" },
           },
         ],
         cloudflareWorkers: [
@@ -2345,6 +2490,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             deploymentName: "demo-production",
             cloudUrl: "https://demo-production.convex.cloud",
             siteUrl: "https://demo-production.convex.site",
+            upstream: { state: "present" },
           },
         ],
       }),
