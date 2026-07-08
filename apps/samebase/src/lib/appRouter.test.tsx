@@ -113,10 +113,6 @@ vi.mock("@/components/McpConsentRoutePage", () => ({
   McpConsentRoutePage: () => <div data-testid="mcp-consent-page">MCP consent page</div>,
 }));
 
-vi.mock("@/components/PricingPage", () => ({
-  PricingPage: () => <div data-testid="pricing-page">Pricing page</div>,
-}));
-
 vi.mock("@/components/ConnectRepository", () => ({
   ConnectRepository: () => <div data-testid="connect-repository-page">Connect repository page</div>,
 }));
@@ -141,6 +137,7 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   DocsDoItYourselfPage: () => (
     <div data-testid="docs-do-it-yourself-page">Docs do it yourself page</div>
   ),
+  DocsPricingPage: () => <div data-testid="docs-pricing-page">Docs pricing page</div>,
   LandingPreviewPage: () => <div data-testid="landing-preview-page">Landing preview page</div>,
 }));
 
@@ -627,10 +624,10 @@ describe("appRouter", () => {
   });
 
   it("renders pricing through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/pricing?checkout=success");
+    await renderRoute("/pricing");
 
-    expect(rootElement?.querySelector('[data-testid="pricing-page"]')?.textContent).toBe(
-      "Pricing page",
+    expect(rootElement?.querySelector('[data-testid="docs-pricing-page"]')?.textContent).toBe(
+      "Docs pricing page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
@@ -647,8 +644,8 @@ describe("appRouter", () => {
   it("accepts a trailing slash on the promoted pricing route", async () => {
     await renderRoute("/pricing/");
 
-    expect(rootElement?.querySelector('[data-testid="pricing-page"]')?.textContent).toBe(
-      "Pricing page",
+    expect(rootElement?.querySelector('[data-testid="docs-pricing-page"]')?.textContent).toBe(
+      "Docs pricing page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

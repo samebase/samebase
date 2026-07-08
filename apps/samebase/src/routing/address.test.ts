@@ -225,11 +225,11 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/logo",
-        draftRouteAddress: "/pricing?checkout=success&zoom=0.0",
+        draftRouteAddress: "/pricing?left&zoom=0.0",
       }),
     ).toEqual({
       kind: "readyNormalized",
-      routeAddress: "/pricing?checkout=success&zoom=0",
+      routeAddress: "/pricing?left&zoom=0",
     });
   });
 

@@ -21,6 +21,7 @@ import {
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
@@ -30,12 +31,13 @@ import {
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
+import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 
-type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts";
+type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts" | "pricing";
 
 const LANDING_CORRECT_DEFINITION = [
   "samebase.com uses the exact same stack it recommends.",
@@ -52,6 +54,7 @@ const DOCS_SIDEBAR_LINKS = [
   { label: "The stack", to: DOCS_THE_STACK_ROUTE },
   { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
   { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
+  { label: "Pricing", to: DOCS_PRICING_ROUTE },
 ] as const;
 
 function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
@@ -909,6 +912,16 @@ function DocsReceiptsDocument() {
   );
 }
 
+function DocsPricingDocument() {
+  return (
+    <MarkdownLandingDocument
+      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
+      markdown={docsPricingMarkdown}
+    />
+  );
+}
+
 function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
   if (documentKey === "overview") {
     return <LandingPreviewOverview />;
@@ -920,6 +933,10 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 
   if (documentKey === "receipts") {
     return <DocsReceiptsDocument />;
+  }
+
+  if (documentKey === "pricing") {
+    return <DocsPricingDocument />;
   }
 
   return <DocsDoItYourselfDocument />;
@@ -956,4 +973,8 @@ export function DocsTheStackPage() {
 
 export function DocsReceiptsPage() {
   return <LandingPreviewChromePage documentKey="receipts" showDocsSidebar />;
+}
+
+export function DocsPricingPage() {
+  return <LandingPreviewChromePage documentKey="pricing" showDocsSidebar />;
 }
