@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
@@ -28,6 +29,9 @@ describe("MCP HTTP tool invocation args", () => {
       });
       return { argumentUserId, tokenUserId };
     });
+    const viewer = await t.query(internal.functions.resolveViewerForUserId, {
+      userId: ids.tokenUserId,
+    });
 
     const toolArgs = buildMcpToolInvocationArgs({
       input: {
@@ -40,6 +44,7 @@ describe("MCP HTTP tool invocation args", () => {
       },
       userId: ids.tokenUserId,
       grantedScopes: [],
+      viewer,
     });
 
     expect(toolArgs).toMatchObject({

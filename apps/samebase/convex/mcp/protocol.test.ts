@@ -17,7 +17,6 @@ describe("buildMcpProtectedResourceMetadata", () => {
     expect(metadata.authorization_servers).toEqual(["https://samebase.com"]);
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
     expect(metadata.scopes_supported).toEqual([
-      "access_public",
       "access_dashboard",
       "access_app_create",
       "access_repo_connect",

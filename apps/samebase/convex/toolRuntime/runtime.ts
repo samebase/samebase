@@ -2,7 +2,6 @@
 
 import { v, type Infer } from "convex/values";
 import { internalAction } from "../_generated/server";
-import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticationStatus";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
@@ -42,77 +41,12 @@ const createRepositoryToolResultValidator = object({
 });
 type CreateRepositoryToolResult = Infer<typeof createRepositoryToolResultValidator>;
 
-const getAuthenticationStatusToolResultValidator = object({
-  status: toolStatus,
-  text: string(),
-  structuredContent: optional(getAuthenticationStatusContract.structuredContent),
-});
-type GetAuthenticationStatusToolResult = Infer<typeof getAuthenticationStatusToolResultValidator>;
-
 const getUserVaultsToolResultValidator = object({
   status: toolStatus,
   text: string(),
   structuredContent: optional(getUserVaultsContract.structuredContent),
 });
 type GetUserVaultsToolResult = Infer<typeof getUserVaultsToolResultValidator>;
-
-export const getAuthenticationStatusTool = internalAction({
-  args: object({
-    userId: id("users"),
-    grantedScopes: array(string()),
-  }),
-  returns: getAuthenticationStatusToolResultValidator,
-  handler: async (ctx, args): Promise<GetAuthenticationStatusToolResult> => {
-    if (!mcpScopeAllowsAccess(getAuthenticationStatusContract.access, args.grantedScopes)) {
-      return {
-        status: "blocked",
-        text: `Insufficient scope for ${getAuthenticationStatusContract.mcp.name}.`,
-      };
-    }
-
-    try {
-      const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
-        userId: args.userId,
-      });
-      const authentication = {
-        authenticated: viewer.user !== null,
-        user:
-          viewer.user === null
-            ? null
-            : {
-                userId: viewer.user._id,
-                ...(viewer.user.name !== undefined ? { name: viewer.user.name } : {}),
-                ...(viewer.user.email !== undefined ? { email: viewer.user.email } : {}),
-              },
-        role: viewer.role,
-        accessKeys: [...viewer.accessKeys],
-        grantedScopes: [...args.grantedScopes],
-      };
-
-      if (authentication.user === null) {
-        return {
-          status: "ok",
-          text: "MCP token is valid, but its Samebase account is no longer active.",
-          structuredContent: { authentication },
-        };
-      }
-
-      const accountLabel =
-        authentication.user.email ?? authentication.user.name ?? authentication.user.userId;
-      return {
-        status: "ok",
-        text: `Authenticated as ${accountLabel}.`,
-        structuredContent: { authentication },
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Tool execution failed.";
-      return {
-        status: "error",
-        text: message,
-      };
-    }
-  },
-});
 
 export const createRepositoryTool = internalAction({
   args: object({

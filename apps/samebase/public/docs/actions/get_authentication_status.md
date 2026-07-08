@@ -27,19 +27,20 @@ Convex validator JSON of the tool's `structuredContent`:
   "value": {
     "authentication": {
       "fieldType": {
-        "type": "object",
-        "value": {
-          "authenticated": {
-            "fieldType": {
-              "type": "boolean"
-            },
-            "optional": false
-          },
-          "user": {
-            "fieldType": {
-              "type": "union",
-              "value": [
-                {
+        "type": "union",
+        "value": [
+          {
+            "type": "object",
+            "value": {
+              "authenticated": {
+                "fieldType": {
+                  "type": "literal",
+                  "value": true
+                },
+                "optional": false
+              },
+              "user": {
+                "fieldType": {
                   "type": "object",
                   "value": {
                     "userId": {
@@ -63,110 +64,221 @@ Convex validator JSON of the tool's `structuredContent`:
                     }
                   }
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "optional": false
-          },
-          "role": {
-            "fieldType": {
-              "type": "union",
-              "value": [
-                {
-                  "type": "literal",
-                  "value": "role_anonymous"
+                "optional": false
+              },
+              "role": {
+                "fieldType": {
+                  "type": "union",
+                  "value": [
+                    {
+                      "type": "literal",
+                      "value": "role_anonymous"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "role_pending_access"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "role_member"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "role_staff"
+                    }
+                  ]
                 },
-                {
-                  "type": "literal",
-                  "value": "role_pending_access"
-                },
-                {
-                  "type": "literal",
-                  "value": "role_member"
-                },
-                {
-                  "type": "literal",
-                  "value": "role_staff"
-                }
-              ]
-            },
-            "optional": false
-          },
-          "accessKeys": {
-            "fieldType": {
-              "type": "array",
-              "value": {
-                "type": "union",
-                "value": [
-                  {
-                    "type": "literal",
-                    "value": "access_public"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_user_preferences"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_dashboard"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_provider_connections"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_repo_connect"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_app_create"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_app_refresh"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_files_read"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_files_write"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_machines"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_mcp"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_schema_graph"
-                  },
-                  {
-                    "type": "literal",
-                    "value": "access_admin"
+                "optional": false
+              },
+              "accessKeys": {
+                "fieldType": {
+                  "type": "array",
+                  "value": {
+                    "type": "union",
+                    "value": [
+                      {
+                        "type": "literal",
+                        "value": "access_public"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_user_preferences"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_dashboard"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_provider_connections"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_repo_connect"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_app_create"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_app_refresh"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_files_read"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_files_write"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_machines"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_mcp"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_schema_graph"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_admin"
+                      }
+                    ]
                   }
-                ]
+                },
+                "optional": false
+              },
+              "grantedScopes": {
+                "fieldType": {
+                  "type": "array",
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "optional": false
               }
-            },
-            "optional": false
+            }
           },
-          "grantedScopes": {
-            "fieldType": {
-              "type": "array",
-              "value": {
-                "type": "string"
+          {
+            "type": "object",
+            "value": {
+              "authenticated": {
+                "fieldType": {
+                  "type": "literal",
+                  "value": false
+                },
+                "optional": false
+              },
+              "user": {
+                "fieldType": {
+                  "type": "null"
+                },
+                "optional": false
+              },
+              "role": {
+                "fieldType": {
+                  "type": "union",
+                  "value": [
+                    {
+                      "type": "literal",
+                      "value": "role_anonymous"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "role_pending_access"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "role_member"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "role_staff"
+                    }
+                  ]
+                },
+                "optional": false
+              },
+              "accessKeys": {
+                "fieldType": {
+                  "type": "array",
+                  "value": {
+                    "type": "union",
+                    "value": [
+                      {
+                        "type": "literal",
+                        "value": "access_public"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_user_preferences"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_dashboard"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_provider_connections"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_repo_connect"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_app_create"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_app_refresh"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_files_read"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_files_write"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_machines"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_mcp"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_schema_graph"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_admin"
+                      }
+                    ]
+                  }
+                },
+                "optional": false
+              },
+              "grantedScopes": {
+                "fieldType": {
+                  "type": "array",
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "optional": false
               }
-            },
-            "optional": false
+            }
           }
-        }
+        ]
       },
       "optional": false
     }

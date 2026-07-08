@@ -1,9 +1,9 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 import { vAccessKey, vViewerRole } from "../../accessModelValidators";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, boolean, id, null: nullValue, object, optional, string, union } = v;
+const { array, id, literal, null: nullValue, object, optional, string, union } = v;
 
 const vMcpAuthenticationStatusUser = object({
   userId: id("users"),
@@ -11,13 +11,24 @@ const vMcpAuthenticationStatusUser = object({
   email: optional(string()),
 });
 
-const vMcpAuthenticationStatus = object({
-  authenticated: boolean(),
-  user: union(vMcpAuthenticationStatusUser, nullValue()),
+const mcpAuthenticationStatusFields = {
   role: vViewerRole,
   accessKeys: array(vAccessKey),
   grantedScopes: array(string()),
-});
+} as const;
+
+const vMcpAuthenticationStatus = union(
+  object({
+    authenticated: literal(true),
+    user: vMcpAuthenticationStatusUser,
+    ...mcpAuthenticationStatusFields,
+  }),
+  object({
+    authenticated: literal(false),
+    user: nullValue(),
+    ...mcpAuthenticationStatusFields,
+  }),
+);
 
 export const getAuthenticationStatusContract = {
   id: "get_authentication_status",
@@ -46,3 +57,5 @@ as, and what can this token currently do?" A valid token for a deleted or otherw
 account returns \`authenticated: false\` with the current public access shape; invalid or missing
 tokens are rejected by the MCP HTTP endpoint before any tool runs.`,
 } as const;
+
+export type McpAuthenticationStatus = Infer<typeof vMcpAuthenticationStatus>;
