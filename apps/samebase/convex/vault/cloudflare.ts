@@ -1130,10 +1130,7 @@ export const ensureCloudflareBuildsWiring = internalAction({
         runId: args.runId,
         userId: args.userId,
         appRoot: args.appRoot,
-        builds: {
-          state: "connected",
-          ...build,
-        },
+        builds: build,
       },
     );
     if (!applied) {
@@ -1321,26 +1318,6 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
       return null;
     }
 
-    if (active.worker.deployment.builds.state !== "connected") {
-      const { applied } = await ctx.runMutation(
-        internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification,
-        {
-          vaultId: args.vaultId,
-          runId: args.runId,
-          userId: args.userId,
-          appRoot: args.appRoot,
-          providerResult: {
-            builds: "not_checked",
-            convexBuildAccess: "not_checked",
-          },
-        },
-      );
-      if (!applied) {
-        throw new Error("Infrastructure verification was superseded.");
-      }
-      return null;
-    }
-
     let providerResult: CloudflareWorkerInfrastructureVerificationResult;
     try {
       const cloudflareConnection = await resolveCloudflareConnection(ctx, args.userId);
@@ -1356,7 +1333,10 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
         cloudflareToken: cloudflareConnection.token,
         cloudflareAuthMethod: cloudflareConnection.auth.method,
         accountId: account.accountId,
+        defaultBranch: active.defaultBranch,
+        expectedRepoId: active.ghRepoId,
         build: active.worker.deployment.builds,
+        buildConfig: toCloudflareBuildConfig(active.buildConfig),
         verifyConvexBuildAccess:
           active.hasConvexDeployment &&
           active.worker.deployment.convexBuildAccess.state === "wired",

@@ -109,6 +109,47 @@ function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
   };
 }
 
+function buildTestVerifyCloudflareWorkerInfrastructureArgs(): Parameters<
+  typeof verifyCloudflareWorkerInfrastructure
+>[0] {
+  return {
+    vaultId: "vault-id",
+    workerName: "samebase-app",
+    workerTag: "worker-tag",
+    cloudflareToken: "oauth-token",
+    cloudflareAuthMethod: "oauth",
+    accountId: "account-id",
+    defaultBranch: "main",
+    expectedRepoId: "123",
+    buildConfig: {
+      rootDir: ".",
+      buildCommand: "pnpm build",
+      deployCommand: "pnpm deploy",
+      previewDeployCommand: "pnpm deploy:preview",
+      pathIncludes: ["**/*"],
+      pathExcludes: [],
+    },
+    build: {
+      state: "connected",
+      rootDirectory: ".",
+      buildCommand: "pnpm build",
+      deployCommand: "pnpm deploy",
+      previewDeployCommand: "pnpm deploy:preview",
+      pathIncludes: ["**/*"],
+      pathExcludes: [],
+      production: {
+        triggerUuid: "production-trigger",
+        buildTokenUuid: "build-token",
+      },
+      preview: {
+        triggerUuid: "preview-trigger",
+        buildTokenUuid: "build-token",
+      },
+    },
+    verifyConvexBuildAccess: true,
+  };
+}
+
 function cloudflareSuccessResponse(result: unknown): Response {
   return new Response(JSON.stringify({ success: true, errors: [], messages: [], result }), {
     status: 200,
@@ -330,22 +371,7 @@ describe("cloudflare resources", () => {
 
     await expect(
       verifyCloudflareWorkerInfrastructure({
-        vaultId: "vault-id",
-        workerName: "samebase-app",
-        workerTag: "worker-tag",
-        cloudflareToken: "oauth-token",
-        cloudflareAuthMethod: "oauth",
-        accountId: "account-id",
-        build: {
-          production: {
-            triggerUuid: "production-trigger",
-            buildTokenUuid: "build-token",
-          },
-          preview: {
-            triggerUuid: "preview-trigger",
-            buildTokenUuid: "build-token",
-          },
-        },
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -355,6 +381,129 @@ describe("cloudflare resources", () => {
     expect(
       requests.filter((request) => request.path.includes("environment_variables")),
     ).toHaveLength(2);
+  });
+
+  it("adopts matching Workers Builds triggers when the Worker was attached before Builds were recorded", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          build_token_uuid: "production-build-token",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          build_command: "pnpm build",
+          deploy_command: "pnpm deploy",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          build_token_uuid: "preview-build-token",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+          build_command: "pnpm build",
+          deploy_command: "pnpm deploy:preview",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        build: { state: "not_connected" },
+        verifyConvexBuildAccess: false,
+      }),
+    ).resolves.toEqual({
+      builds: "adopted",
+      connectedBuilds: {
+        state: "connected",
+        rootDirectory: ".",
+        buildCommand: "pnpm build",
+        deployCommand: "pnpm deploy",
+        previewDeployCommand: "pnpm deploy:preview",
+        pathIncludes: ["**/*"],
+        pathExcludes: [],
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-build-token",
+        },
+      },
+      convexBuildAccess: "not_checked",
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("does not adopt Workers Builds triggers when the existing trigger config differs", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          build_token_uuid: "production-build-token",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          build_command: "npm run build",
+          deploy_command: "pnpm deploy",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          build_token_uuid: "preview-build-token",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+          build_command: "pnpm build",
+          deploy_command: "pnpm deploy:preview",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        build: { state: "not_connected" },
+        verifyConvexBuildAccess: false,
+      }),
+    ).resolves.toEqual({
+      builds: "not_checked",
+      convexBuildAccess: "not_checked",
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
   it("contradicts connected Builds when a recorded trigger is missing", async () => {
@@ -372,22 +521,7 @@ describe("cloudflare resources", () => {
 
     await expect(
       verifyCloudflareWorkerInfrastructure({
-        vaultId: "vault-id",
-        workerName: "samebase-app",
-        workerTag: "worker-tag",
-        cloudflareToken: "oauth-token",
-        cloudflareAuthMethod: "oauth",
-        accountId: "account-id",
-        build: {
-          production: {
-            triggerUuid: "production-trigger",
-            buildTokenUuid: "build-token",
-          },
-          preview: {
-            triggerUuid: "preview-trigger",
-            buildTokenUuid: "build-token",
-          },
-        },
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -426,22 +560,7 @@ describe("cloudflare resources", () => {
 
     await expect(
       verifyCloudflareWorkerInfrastructure({
-        vaultId: "vault-id",
-        workerName: "samebase-app",
-        workerTag: "worker-tag",
-        cloudflareToken: "oauth-token",
-        cloudflareAuthMethod: "oauth",
-        accountId: "account-id",
-        build: {
-          production: {
-            triggerUuid: "production-trigger",
-            buildTokenUuid: "build-token",
-          },
-          preview: {
-            triggerUuid: "preview-trigger",
-            buildTokenUuid: "build-token",
-          },
-        },
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({

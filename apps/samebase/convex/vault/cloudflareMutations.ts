@@ -76,10 +76,22 @@ const cloudflareConvexBuildAccessWiringState = union(
     }),
   }),
 );
-const cloudflareInfrastructureVerificationResult = object({
-  builds: union(literal("confirmed"), literal("contradicted"), literal("not_checked")),
-  convexBuildAccess: union(literal("confirmed"), literal("contradicted"), literal("not_checked")),
-});
+const cloudflareInfrastructureVerificationConvexBuildAccess = union(
+  literal("confirmed"),
+  literal("contradicted"),
+  literal("not_checked"),
+);
+const cloudflareInfrastructureVerificationResult = union(
+  object({
+    builds: literal("adopted"),
+    connectedBuilds: vVaultCloudflareConnectedBuilds,
+    convexBuildAccess: cloudflareInfrastructureVerificationConvexBuildAccess,
+  }),
+  object({
+    builds: union(literal("confirmed"), literal("contradicted"), literal("not_checked")),
+    convexBuildAccess: cloudflareInfrastructureVerificationConvexBuildAccess,
+  }),
+);
 type CloudflareInfrastructureVerificationResult = Infer<
   typeof cloudflareInfrastructureVerificationResult
 >;
@@ -89,7 +101,10 @@ const cloudflareInfrastructureVerificationState = union(
   }),
   object({
     active: literal(true),
+    ghRepoId: string(),
+    defaultBranch: string(),
     hasConvexDeployment: boolean(),
+    buildConfig: vVaultCloudflareBuildConfig,
     worker: object({
       accountId: string(),
       workerName: string(),
@@ -1483,6 +1498,8 @@ function resolveInfrastructureVerificationPatch(args: {
   const currentDeployment = args.worker.deployment;
   if (currentDeployment.builds.state === "connected") {
     switch (args.providerResult.builds) {
+      case "adopted":
+        break;
       case "confirmed":
         break;
       case "contradicted":
@@ -1494,7 +1511,28 @@ function resolveInfrastructureVerificationPatch(args: {
       case "not_checked":
         break;
       default:
-        args.providerResult.builds satisfies never;
+        args.providerResult satisfies never;
+    }
+  }
+
+  if (currentDeployment.builds.state === "not_connected") {
+    switch (args.providerResult.builds) {
+      case "adopted": {
+        return {
+          deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
+            builds: args.providerResult.connectedBuilds,
+            convexBuildAccess: currentDeployment.convexBuildAccess,
+          }),
+          message: `Cloudflare Workers Builds already match ${args.appRoot}; recorded Builds connected.`,
+          shouldPatchWorker: true,
+        };
+      }
+      case "confirmed":
+      case "contradicted":
+      case "not_checked":
+        break;
+      default:
+        args.providerResult satisfies never;
     }
   }
 
@@ -1651,7 +1689,10 @@ export const readActiveCloudflareInfrastructureVerification = internalQuery({
 
     return {
       active: true as const,
+      ghRepoId: vault.ghRepoId,
+      defaultBranch: vault.defaultBranch,
       hasConvexDeployment: convexDeployment !== null,
+      buildConfig: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }),
       worker: {
         accountId: worker.accountId,
         workerName: worker.workerName,
