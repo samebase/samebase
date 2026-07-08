@@ -20,18 +20,20 @@ const MAX_STATE_LENGTH = 4096;
 const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
-// The v1 MCP OAuth scope vocabulary is exactly the unique access keys behind
-// the action catalog (rfcs/093), in catalog presentation order: one scope per
-// distinct access key a cataloged tool requires, not one scope per tool.
+// The v1 MCP OAuth scope vocabulary is the unique non-public access keys
+// behind the action catalog (rfcs/093), in catalog presentation order: one
+// scope per distinct protected access key a cataloged tool requires, not one
+// scope per tool. Public tools are allowed independently at dispatch.
 export const MCP_V1_SUPPORTED_SCOPES: readonly AccessKey[] = Array.from(
   new Set(actionContracts.map((contract) => contract.access)),
-);
+).filter((access) => access !== "access_public");
 // Some MCP clients omit `scope`. Omission must not silently widen as the
 // catalog grows: clients that never asked keep exactly the original v1
-// surface (status reads plus app creation); every newer scope, starting with
-// access_repo_connect, has to be requested explicitly. Token order is
-// load-bearing: oauth.ts reuses grants by exact string comparison, and every
-// grant stored before the catalog existed used this order.
+// operational surface (app status reads plus app creation); public status
+// tools are allowed independently at dispatch. Every newer non-public scope,
+// starting with access_repo_connect, has to be requested explicitly. Token
+// order is load-bearing: oauth.ts reuses grants by exact string comparison,
+// and every grant stored before the catalog existed used this order.
 const DEFAULT_MCP_SCOPE = [createRepositoryContract.access, getUserVaultsContract.access].join(" ");
 
 type McpSupportedScope = AccessKey;

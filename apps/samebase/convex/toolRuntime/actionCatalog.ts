@@ -1,3 +1,4 @@
+import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticationStatus";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
@@ -22,6 +23,7 @@ Order is the presentation order in generated docs: the status noun first, then c
 discovery reads, then attach, then repairs.
 */
 export const actionContracts = [
+  getAuthenticationStatusContract,
   getUserVaultsContract,
   createRepositoryContract,
   connectRepositoryContract,

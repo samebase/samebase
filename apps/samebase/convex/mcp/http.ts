@@ -11,6 +11,10 @@ import {
   type SamebaseUsageMcpMethod,
   type SamebaseUsageMcpToolName,
 } from "../usageAttribution";
+import {
+  getAuthenticationStatusContract,
+  type McpAuthenticationStatus,
+} from "./contracts/getAuthenticationStatus";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
@@ -29,6 +33,7 @@ import {
 } from "../../shared/mcpOAuth";
 import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
+import { mcpScopeAllowsAccess } from "../toolRuntime/mcpScopes";
 import {
   createAccessTokenValue,
   createAuthorizationCodeValue,
@@ -58,10 +63,17 @@ const mcpToolCallParams = object({
   arguments: optional(unknownValue),
 });
 
+async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
+  return await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
+}
+
+type McpResolvedViewer = Awaited<ReturnType<typeof readMcpViewer>>;
+
 export type McpToolInvocation = {
   input: JsonRecord;
   userId: Id<"users">;
   grantedScopes: string[];
+  viewer: McpResolvedViewer;
 };
 
 export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
@@ -72,6 +84,45 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
     ...input,
     userId: invocation.userId,
     grantedScopes: invocation.grantedScopes,
+  };
+}
+
+function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpToolInvocation) {
+  const authentication: McpAuthenticationStatus =
+    invocation.viewer.user === null
+      ? {
+          authenticated: false,
+          user: null,
+          role: invocation.viewer.role,
+          accessKeys: invocation.viewer.accessKeys,
+          grantedScopes: invocation.grantedScopes,
+        }
+      : {
+          authenticated: true,
+          user: {
+            userId: invocation.viewer.user._id,
+            name: invocation.viewer.user.name,
+            email: invocation.viewer.user.email,
+          },
+          role: invocation.viewer.role,
+          accessKeys: invocation.viewer.accessKeys,
+          grantedScopes: invocation.grantedScopes,
+        };
+
+  if (authentication.user === null) {
+    return {
+      status: "ok",
+      text: "MCP token is valid, but its Samebase account is no longer active.",
+      structuredContent: { authentication },
+    };
+  }
+
+  const accountLabel =
+    authentication.user.email ?? authentication.user.name ?? authentication.user.userId;
+  return {
+    status: "ok",
+    text: `Authenticated as ${accountLabel}.`,
+    structuredContent: { authentication },
   };
 }
 
@@ -184,6 +235,17 @@ async function callRetryInfrastructureProvisioningMcpTool(
 }
 
 const mcpToolCatalog = [
+  {
+    access: getAuthenticationStatusContract.access,
+    name: getAuthenticationStatusContract.mcp.name,
+    description: getAuthenticationStatusContract.mcp.description,
+    annotations: getAuthenticationStatusContract.mcp.annotations,
+    inputSchema: convexArgsToToolInputSchema(
+      getAuthenticationStatusContract.args,
+      getAuthenticationStatusContract.mcp.inputDescriptions,
+    ),
+    call: callGetAuthenticationStatusMcpTool,
+  },
   {
     access: getUserVaultsContract.access,
     name: getUserVaultsContract.mcp.name,
@@ -325,7 +387,8 @@ export function listMcpToolsForAccess(args: {
   return mcpToolCatalog
     .filter(
       (tool) =>
-        args.grantedScopes.includes(tool.access) && canAccess(tool.access, args.currentAccessKeys),
+        mcpScopeAllowsAccess(tool.access, args.grantedScopes) &&
+        canAccess(tool.access, args.currentAccessKeys),
     )
     .map((tool) => ({
       name: tool.name,
@@ -333,11 +396,6 @@ export function listMcpToolsForAccess(args: {
       annotations: tool.annotations,
       inputSchema: tool.inputSchema,
     }));
-}
-
-async function readMcpUserAccessKeys(ctx: ActionCtx, userId: Id<"users">): Promise<AccessKey[]> {
-  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
-  return viewer.accessKeys;
 }
 
 type McpConsentRedirectSearchParams = {
@@ -499,6 +557,9 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
 
   const toolName = toolCallParams.name.trim();
+  if (toolName === getAuthenticationStatusContract.mcp.name) {
+    return "samebase_auth_getAuthenticationStatus";
+  }
   if (toolName === createRepositoryContract.mcp.name) {
     return "vault_actions_createRepository";
   }
@@ -1008,11 +1069,14 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       return new Response(null, { status: 202 });
     }
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
-    const currentAccessKeys = await readMcpUserAccessKeys(ctx, tokenValidation.userId);
+    const currentViewer = await readMcpViewer(ctx, tokenValidation.userId);
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
       result: {
-        tools: listMcpToolsForAccess({ grantedScopes, currentAccessKeys }),
+        tools: listMcpToolsForAccess({
+          grantedScopes,
+          currentAccessKeys: currentViewer.accessKeys,
+        }),
       },
     });
   }
@@ -1076,8 +1140,8 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     // shrink afterwards. tools/list already filters on current access, and
     // execution must enforce the same boundary or a stale token outlives a
     // revoked role.
-    const currentAccessKeys = await readMcpUserAccessKeys(ctx, tokenValidation.userId);
-    if (!canAccess(tool.access, currentAccessKeys)) {
+    const currentViewer = await readMcpViewer(ctx, tokenValidation.userId);
+    if (!canAccess(tool.access, currentViewer.accessKeys)) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
         result: {
@@ -1097,6 +1161,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         input,
         userId: tokenValidation.userId,
         grantedScopes,
+        viewer: currentViewer,
       });
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,

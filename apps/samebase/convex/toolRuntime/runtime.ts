@@ -29,6 +29,7 @@ import {
   verifyCloudflareInfrastructureForUser,
 } from "../vault/cloudflare";
 import { internal } from "../_generated/api";
+import { mcpScopeAllowsAccess } from "./mcpScopes";
 
 const { array, id, literal, null: nullValue, object, optional, string, union } = v;
 const toolStatus = union(literal("ok"), literal("error"), literal("blocked"));
@@ -58,7 +59,7 @@ export const createRepositoryTool = internalAction({
     ctx,
     { grantedScopes, ...createRepositoryArgs },
   ): Promise<CreateRepositoryToolResult> => {
-    if (!grantedScopes.includes(createRepositoryContract.access)) {
+    if (!mcpScopeAllowsAccess(createRepositoryContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${createRepositoryContract.mcp.name}.`,
@@ -89,7 +90,7 @@ export const getUserVaultsTool = internalAction({
   }),
   returns: getUserVaultsToolResultValidator,
   handler: async (ctx, args): Promise<GetUserVaultsToolResult> => {
-    if (!args.grantedScopes.includes(getUserVaultsContract.access)) {
+    if (!mcpScopeAllowsAccess(getUserVaultsContract.access, args.grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${getUserVaultsContract.mcp.name}.`,
@@ -135,7 +136,7 @@ export const connectRepositoryTool = internalAction({
     ctx,
     { grantedScopes, ...connectRepositoryArgs },
   ): Promise<ConnectRepositoryToolResult> => {
-    if (!grantedScopes.includes(connectRepositoryContract.access)) {
+    if (!mcpScopeAllowsAccess(connectRepositoryContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${connectRepositoryContract.mcp.name}.`,
@@ -174,7 +175,7 @@ export const convexListProjectsTool = internalAction({
   }),
   returns: convexListProjectsToolResultValidator,
   handler: async (ctx, { grantedScopes, userId }): Promise<ConvexListProjectsToolResult> => {
-    if (!grantedScopes.includes(convexListProjectsContract.access)) {
+    if (!mcpScopeAllowsAccess(convexListProjectsContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${convexListProjectsContract.mcp.name}.`,
@@ -215,7 +216,7 @@ export const cloudflareListAccountsTool = internalAction({
   }),
   returns: cloudflareListAccountsToolResultValidator,
   handler: async (ctx, { grantedScopes, userId }): Promise<CloudflareListAccountsToolResult> => {
-    if (!grantedScopes.includes(cloudflareListAccountsContract.access)) {
+    if (!mcpScopeAllowsAccess(cloudflareListAccountsContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${cloudflareListAccountsContract.mcp.name}.`,
@@ -259,7 +260,7 @@ export const cloudflareListWorkersTool = internalAction({
     ctx,
     { grantedScopes, ...cloudflareListWorkersArgs },
   ): Promise<CloudflareListWorkersToolResult> => {
-    if (!grantedScopes.includes(cloudflareListWorkersContract.access)) {
+    if (!mcpScopeAllowsAccess(cloudflareListWorkersContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${cloudflareListWorkersContract.mcp.name}.`,
@@ -305,7 +306,7 @@ export const convexConnectExistingProjectTool = internalAction({
     ctx,
     { grantedScopes, ...connectArgs },
   ): Promise<ConvexConnectExistingProjectToolResult> => {
-    if (!grantedScopes.includes(convexConnectExistingProjectContract.access)) {
+    if (!mcpScopeAllowsAccess(convexConnectExistingProjectContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${convexConnectExistingProjectContract.mcp.name}.`,
@@ -348,7 +349,7 @@ export const cloudflareConnectExistingWorkerTool = internalAction({
     ctx,
     { grantedScopes, ...connectArgs },
   ): Promise<CloudflareConnectExistingWorkerToolResult> => {
-    if (!grantedScopes.includes(cloudflareConnectExistingWorkerContract.access)) {
+    if (!mcpScopeAllowsAccess(cloudflareConnectExistingWorkerContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${cloudflareConnectExistingWorkerContract.mcp.name}.`,
@@ -386,7 +387,7 @@ export const cloudflareWireBuildsTool = internalAction({
   }),
   returns: cloudflareWireBuildsToolResultValidator,
   handler: async (ctx, { grantedScopes, ...wireArgs }): Promise<CloudflareWireBuildsToolResult> => {
-    if (!grantedScopes.includes(cloudflareWireBuildsContract.access)) {
+    if (!mcpScopeAllowsAccess(cloudflareWireBuildsContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${cloudflareWireBuildsContract.mcp.name}.`,
@@ -429,7 +430,7 @@ export const cloudflareWireConvexBuildAccessTool = internalAction({
     ctx,
     { grantedScopes, ...wireArgs },
   ): Promise<CloudflareWireConvexBuildAccessToolResult> => {
-    if (!grantedScopes.includes(cloudflareWireConvexBuildAccessContract.access)) {
+    if (!mcpScopeAllowsAccess(cloudflareWireConvexBuildAccessContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${cloudflareWireConvexBuildAccessContract.mcp.name}.`,
@@ -515,7 +516,7 @@ export const retryInfrastructureProvisioningTool = internalAction({
     ctx,
     { grantedScopes, ...retryArgs },
   ): Promise<RetryInfrastructureProvisioningToolResult> => {
-    if (!grantedScopes.includes(retryInfrastructureProvisioningContract.access)) {
+    if (!mcpScopeAllowsAccess(retryInfrastructureProvisioningContract.access, grantedScopes)) {
       return {
         status: "blocked",
         text: `Insufficient scope for ${retryInfrastructureProvisioningContract.mcp.name}.`,

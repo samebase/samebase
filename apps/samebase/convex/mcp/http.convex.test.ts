@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
@@ -28,6 +29,9 @@ describe("MCP HTTP tool invocation args", () => {
       });
       return { argumentUserId, tokenUserId };
     });
+    const viewer = await t.query(internal.functions.resolveViewerForUserId, {
+      userId: ids.tokenUserId,
+    });
 
     const toolArgs = buildMcpToolInvocationArgs({
       input: {
@@ -40,6 +44,7 @@ describe("MCP HTTP tool invocation args", () => {
       },
       userId: ids.tokenUserId,
       grantedScopes: [],
+      viewer,
     });
 
     expect(toolArgs).toMatchObject({
@@ -54,6 +59,15 @@ describe("MCP HTTP tool invocation args", () => {
 });
 
 describe("MCP tool listing access", () => {
+  it("exposes the public auth status tool without requiring a granted scope", () => {
+    expect(
+      listMcpToolsForAccess({
+        grantedScopes: [],
+        currentAccessKeys: ["access_public"],
+      }).map((tool) => tool.name),
+    ).toEqual(["samebase_auth_getAuthenticationStatus"]);
+  });
+
   it("requires both granted scopes and current user access", () => {
     expect(
       listMcpToolsForAccess({
@@ -79,9 +93,17 @@ describe("MCP tool listing access", () => {
     expect(
       listMcpToolsForAccess({
         grantedScopes: ["access_app_create", "access_dashboard"],
-        currentAccessKeys: ["access_dashboard", "access_app_create"],
+        currentAccessKeys: ["access_public", "access_dashboard", "access_app_create"],
       }),
     ).toEqual([
+      expect.objectContaining({
+        name: "samebase_auth_getAuthenticationStatus",
+        annotations: {
+          readOnlyHint: true,
+          openWorldHint: false,
+          destructiveHint: false,
+        },
+      }),
       expect.objectContaining({
         name: "vault_dashboard_getUserVaults",
         annotations: {
@@ -176,7 +198,12 @@ describe("MCP tool listing access", () => {
   it("uses Claude-compatible public tool names", () => {
     const tools = listMcpToolsForAccess({
       grantedScopes: ["access_app_create", "access_dashboard", "access_repo_connect"],
-      currentAccessKeys: ["access_dashboard", "access_app_create", "access_repo_connect"],
+      currentAccessKeys: [
+        "access_public",
+        "access_dashboard",
+        "access_app_create",
+        "access_repo_connect",
+      ],
     });
 
     for (const tool of tools) {
@@ -206,6 +233,9 @@ describe("MCP usage attribution dimensions", () => {
   });
 
   it("maps tool call params to catalog names or unknown", () => {
+    expect(readMcpToolNameForUsage({ name: "samebase_auth_getAuthenticationStatus" })).toBe(
+      "samebase_auth_getAuthenticationStatus",
+    );
     expect(readMcpToolNameForUsage({ name: "vault_actions_createRepository" })).toBe(
       "vault_actions_createRepository",
     );
@@ -351,6 +381,35 @@ describe("MCP tools/call access enforcement", () => {
             text: "Found 0 vaults.",
           },
         ],
+      },
+    });
+  });
+
+  it("reports authentication status for a valid MCP bearer token", async () => {
+    const { callTool, userId } = await seedMcpBearer({ isApproved: true });
+
+    const payload = await callTool("samebase_auth_getAuthenticationStatus");
+    expect(payload).toMatchObject({
+      result: {
+        content: [
+          {
+            type: "text",
+            text: "Authenticated as ada@example.com.",
+          },
+        ],
+        structuredContent: {
+          authentication: {
+            authenticated: true,
+            user: {
+              userId,
+              name: "Ada",
+              email: "ada@example.com",
+            },
+            role: "role_member",
+            accessKeys: expect.arrayContaining(["access_public", "access_mcp"]),
+            grantedScopes: ["access_dashboard", "access_app_create"],
+          },
+        },
       },
     });
   });
