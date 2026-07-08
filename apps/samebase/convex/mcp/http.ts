@@ -47,6 +47,7 @@ import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
   getDefaultMcpProtocolValidationOptions,
+  MCP_V1_SUPPORTED_SCOPES,
   readBearerTokenFromAuthorizationHeader,
   redirectUriMatchesRegistered,
   validateAuthorizeRequestFromUrl,
@@ -429,6 +430,29 @@ function oauthErrorResponse(args: {
 
 function parseOrigin(request: Request): string {
   return new URL(request.url).origin;
+}
+
+function buildMcpProtectedResourceMetadataUrl(request: Request): string {
+  return `${parseOrigin(request)}/.well-known/oauth-protected-resource/mcp`;
+}
+
+function quoteWwwAuthenticateValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function buildMcpBearerChallenge(args: {
+  request: Request;
+  error: "invalid_token";
+  errorDescription: string;
+}): string {
+  return [
+    ["resource_metadata", buildMcpProtectedResourceMetadataUrl(args.request)],
+    ["scope", MCP_V1_SUPPORTED_SCOPES.join(" ")],
+    ["error", args.error],
+    ["error_description", args.errorDescription],
+  ]
+    .map(([key, value]) => `${key}="${quoteWwwAuthenticateValue(value)}"`)
+    .join(", ");
 }
 
 function resolveAppUrl(request: Request): URL | null {
@@ -975,7 +999,11 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     });
     response.headers.set(
       "WWW-Authenticate",
-      'Bearer error="invalid_token", error_description="Invalid or missing bearer token."',
+      `Bearer ${buildMcpBearerChallenge({
+        request,
+        error: "invalid_token",
+        errorDescription: "Invalid or missing bearer token.",
+      })}`,
     );
     return response;
   }
@@ -994,7 +1022,11 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     });
     response.headers.set(
       "WWW-Authenticate",
-      'Bearer error="invalid_token", error_description="Access token rejected."',
+      `Bearer ${buildMcpBearerChallenge({
+        request,
+        error: "invalid_token",
+        errorDescription: "Access token rejected.",
+      })}`,
     );
     return response;
   }
