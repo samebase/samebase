@@ -201,6 +201,14 @@
       "tools_triggered": "vault_dashboard_getUserVaults, vault_cloudflare_wireBuilds",
       "expected_output": "Reads the app state, finds the worker whose githubRepositoryConnection carries nextAction wire_builds, and starts the Builds wiring run for that app root.",
       "expected_output_url": null
+    },
+    {
+      "description": "Verify recorded Cloudflare infrastructure when a user suspects drift.",
+      "user_prompt": "One of my Samebase apps has stale Cloudflare infrastructure. Check it and mark anything that needs repair.",
+      "file_attachment_urls": null,
+      "tools_triggered": "vault_dashboard_getUserVaults, vault_cloudflare_verifyInfrastructure",
+      "expected_output": "Reads the app state, identifies the attached Cloudflare Worker to verify, runs infrastructure verification for that app root, and reports any repair action surfaced by the refreshed app state.",
+      "expected_output_url": null
     }
   ],
   "negative_test_cases": [

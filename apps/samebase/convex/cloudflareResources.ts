@@ -1604,6 +1604,8 @@ function hasRecordedBuildTrigger(args: {
   triggers: readonly CloudflareBuildTrigger[];
   triggerUuid: string;
 }): boolean {
+  // Phase 1 only verifies recorded trigger existence; repo/root rebind detection
+  // waits for the wire_builds repair path that can fix conflicting triggers.
   return args.triggers.some(
     (trigger) => !trigger.deleted_on && trigger.trigger_uuid === args.triggerUuid,
   );
@@ -1613,6 +1615,8 @@ function hasCloudflareBuildEnvironmentVariable(args: {
   envVars: CloudflareBuildEnvVarsResponse;
   key: string;
 }): boolean {
+  // Build variable values are write-only in Cloudflare, so the verifier uses
+  // variable names as the authoritative repair signal.
   return Object.prototype.hasOwnProperty.call(args.envVars, args.key);
 }
 
