@@ -75,8 +75,22 @@ Each rfcs/090 block writes one durable registry axis (`wire_builds` → `deploym
 2. A verifier is a pure decision over (recorded row, live reads) returning
    `confirmed | contradicted | unverifiable`. `unverifiable` is a first-class honest outcome, never
    an error path — a fake verifier written to satisfy the type is worse than a declared gap.
-3. The rule covers blocks that write durable registry state. Read-only discovery contracts and
-   operations that leave no record have nothing to re-verify and stay out.
+3. A `notVerifiable` reason must name one of these categories (extend this list in this RFC when a
+   real new category appears; "we didn't bother" is not one):
+   - **No remedy exists** — detection would surface a dead-end. `source_setup`: a deleted or renamed
+     source repo has no re-create/re-link verb in the catalog.
+   - **State shape cannot record the result yet** — the read is possible but there is no truthful
+     variant to write. `attach_worker` / `attach_convex` until Phase 2's missing-upstream variant.
+   - **No authoritative provider read** — trigger variable values are write-only in the Builds API;
+     variable names are the honest proxy, the values stay permanently unverifiable.
+   - **Correction needs user intent** — a moved app root is detectable against the synced tree, but
+     the fix is the user re-picking the root, not a mechanical repair; declared until such a flow
+     exists as a verb.
+   - **Owned elsewhere** — provider token validity belongs to the existing connection health checks;
+     a verifier would duplicate a fact that already has one owner.
+4. The rule covers blocks that write durable registry state. Read-only discovery contracts and
+   one-shot events that leave no ongoing claim (the initial production build trigger, for example)
+   have nothing to re-verify and stay out.
 
 ## Locked Decisions
 
