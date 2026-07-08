@@ -1,31 +1,25 @@
 # Do it yourself: deploy the Samebase stack for $0/month
 
-You do not need a Samebase account to use the stack Samebase recommends. The stack is ordinary
-provider infrastructure:
+You do not need a Samebase account to use the stack Samebase recommends:
 
 - GitHub for the repository
 - Convex for the backend and database
-- Cloudflare Workers for delivery, with static assets served by Workers
+- Cloudflare Workers for delivery, static assets included
 
-Samebase exists to make the provider joins one action, keep a truthful registry, and expose the same
-operations to coding agents over MCP. The providers are still yours.
+This page is the manual path. It is more clicks than Samebase, but you end in the same place: every
+resource in your own provider accounts.
 
 ## What costs $0/month
 
-An idle or small app can fit inside the providers' free tiers:
+An idle or small app fits inside the providers' free tiers:
 
 - GitHub Free includes private repositories.
-- Convex Free & Starter includes a real deployment with included function calls and storage.
-- Cloudflare Workers serves static assets for free and unlimited requests. Dynamic Worker requests
-  use the Workers request and CPU limits.
+- Convex Free & Starter includes a real deployment with function calls and storage included.
+- On Cloudflare Workers, requests to static assets are free and unlimited. Requests that invoke the
+  Worker itself use the Workers request and CPU limits.
 - Workers Builds includes free monthly build minutes for deploying from Git.
 
 The receipt ledger has the source links and current limits: [Receipts](/docs/receipts).
-
-## Manual path
-
-This is the provider-direct path. It is more work than Samebase, but it leaves you with the same
-ownership shape.
 
 ## 1: Create provider accounts
 
@@ -35,14 +29,11 @@ Create or sign in to:
 - [Convex](https://www.convex.dev/)
 - [Cloudflare](https://www.cloudflare.com/)
 
-Use whatever login method you prefer. Samebase does not own these accounts.
-
 ## 2: Put the app code in GitHub
 
-The app Samebase deploys is the starter template `samebase/app`. The template is built by hand,
-commit by commit, with every option chosen and tested so the pieces work together. It is private
-today and becomes public at release; until then, the template arrives in your GitHub account through
-Samebase's `create_repository`.
+The app Samebase deploys is the starter template `samebase/app`, built by hand, commit by commit, so
+it stays small and readable. It is private today and becomes public at release; until then, the
+template arrives in your GitHub account through Samebase's `create_repository`.
 
 Without the template, bring your own app: the rest of this guide assumes a repository whose build
 outputs static assets and whose backend is Convex. Add Convex from the project checkout:
@@ -56,27 +47,24 @@ Commit the project and push it to GitHub.
 
 ## 3: Create a Convex project
 
-In the Convex dashboard, create a project for the app. Convex gives the app its backend functions,
-database, and realtime sync. The database is reached through Convex functions, not directly from the
-browser.
+In the Convex dashboard, create a project for the app.
 
 For Cloudflare builds, create a Convex deploy key for production. If you want pull-request previews
 with their own Convex deployment, create a separate preview deploy key too.
 
 ## 4: Deploy on Cloudflare Workers
 
-Use Cloudflare Workers, not a new Cloudflare Pages project. Cloudflare's own guidance for new
-projects is to start on Workers, and Workers can deploy both the Worker code and the static assets
-as one unit.
+Use Cloudflare Workers, not a new Cloudflare Pages project: Cloudflare points new projects at
+Workers, and one Worker deploys both the code and the static assets.
 
 Connect the GitHub repository to Workers Builds. Configure the build command your app uses, then add
 the Convex deploy key as `CONVEX_DEPLOY_KEY` in the production build environment. If you created a
 preview deploy key, add it as `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds.
 
 After the first successful build, Cloudflare serves the app from your Worker. Pushes to the default
-branch deploy production; pull requests can deploy previews when previews are configured.
+branch deploy production; pull requests deploy previews when previews are configured.
 
-## 5: Operate it provider-direct
+## 5: Operate it
 
 Use the provider tools directly:
 
@@ -84,24 +72,23 @@ Use the provider tools directly:
 - Convex owns backend logs, data, functions, deploy keys, and deployments.
 - Cloudflare owns Worker deploys, request logs, routes, and domains.
 
-Samebase's operate docs give the provider-direct commands for logs and domains:
+The operate docs give the provider-direct commands for logs and domains:
 
 - [Production logs](/docs/operate/production-logs)
 - [Custom domain](/docs/operate/custom-domain)
 
 ## What the Samebase account adds
 
-The account adds convenience and coordination, not lock-in:
-
-- `create_repository` creates the GitHub repository, seeds the app, provisions Convex, provisions a
-  Cloudflare Worker, wires Workers Builds, and installs the Convex deploy keys in one action.
+- `create_repository` runs this whole page as one action: it creates the GitHub repository, seeds
+  the app, provisions Convex and a Cloudflare Worker, wires Workers Builds, and installs the deploy
+  keys.
 - `connect_existing_repository` imports a repository without touching Convex or Cloudflare.
 - `connect_convex_deployment` and `connect_cloudflare_worker` attach provider resources you created
   yourself.
 - `get_user_vaults` returns the current registry state and names the next repair action when
   infrastructure is degraded.
 
-Those are the same operations the dashboard buttons run and the Samebase MCP server exposes to
+These are the same operations the dashboard buttons run and the Samebase MCP server exposes to
 coding agents.
 
 ## Deleting Samebase
