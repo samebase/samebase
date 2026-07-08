@@ -223,7 +223,14 @@ invented intermediate state:
   prerender commit (`accbaf0`), and adding it earlier would require inventing lockfile state.
 
 Steps were not individually build-verified (no per-step `vp` install/build run); the final tree
-equals the deployed v5 tip, and intermediate trees are original trees plus string-level folds.
-Remaining before the swap: review the branch, run the per-step build check if wanted
-(`git rebase -i --root -x 'pnpm install && pnpm run check'` on a throwaway copy), then the
-rename-based swap and monorepo follow-up above.
+equals the deployed v5 tip, and intermediate trees are original trees plus string-level folds. The
+optional per-step build check remains available
+(`git rebase -i --root -x 'pnpm install && pnpm run check'` on a throwaway copy; needs the Vite+
+toolchain because `prepare` runs `vp config`).
+
+The swap executed 2026-07-08: old `main` saved as `v3-router-pages` via the branch-rename API, v6
+force-pushed as `main`, default branch re-pointed, dead branches deleted (`dev` + four `codex-*`),
+`v0`–`v5` kept as the edition museum. Gotcha for next time: GitHub's branch rename leaves an
+old-name redirect that rejects plain pushes recreating the old name — `git push --force` overrides
+it with a warning; saving the old tip as a plain new branch and force-pushing `main` directly would
+have avoided the dance. Remaining: the monorepo seed flip to `main` (operator PR; recipe above).
