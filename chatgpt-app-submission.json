@@ -8,6 +8,18 @@
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
+    "samebase_auth_getAuthenticationStatus": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reports the authenticated Samebase account, current role, access keys, and MCP token scopes for the caller's own bearer token.",
+        "open_world_justification": "Reads Samebase authentication state for the caller's own token; writes nothing and does not contact third-party provider APIs.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
     "vault_dashboard_getUserVaults": {
       "annotations": {
         "readOnlyHint": true,

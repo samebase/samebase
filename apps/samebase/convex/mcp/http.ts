@@ -11,6 +11,7 @@ import {
   type SamebaseUsageMcpMethod,
   type SamebaseUsageMcpToolName,
 } from "../usageAttribution";
+import { getAuthenticationStatusContract } from "./contracts/getAuthenticationStatus";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
@@ -29,6 +30,7 @@ import {
 } from "../../shared/mcpOAuth";
 import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
+import { mcpScopeAllowsAccess } from "../toolRuntime/mcpScopes";
 import {
   createAccessTokenValue,
   createAuthorizationCodeValue,
@@ -73,6 +75,13 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
     userId: invocation.userId,
     grantedScopes: invocation.grantedScopes,
   };
+}
+
+async function callGetAuthenticationStatusMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.getAuthenticationStatusTool,
+    buildMcpToolInvocationArgs(invocation),
+  );
 }
 
 async function callCreateRepositoryMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
@@ -184,6 +193,17 @@ async function callRetryInfrastructureProvisioningMcpTool(
 }
 
 const mcpToolCatalog = [
+  {
+    access: getAuthenticationStatusContract.access,
+    name: getAuthenticationStatusContract.mcp.name,
+    description: getAuthenticationStatusContract.mcp.description,
+    annotations: getAuthenticationStatusContract.mcp.annotations,
+    inputSchema: convexArgsToToolInputSchema(
+      getAuthenticationStatusContract.args,
+      getAuthenticationStatusContract.mcp.inputDescriptions,
+    ),
+    call: callGetAuthenticationStatusMcpTool,
+  },
   {
     access: getUserVaultsContract.access,
     name: getUserVaultsContract.mcp.name,
@@ -325,7 +345,8 @@ export function listMcpToolsForAccess(args: {
   return mcpToolCatalog
     .filter(
       (tool) =>
-        args.grantedScopes.includes(tool.access) && canAccess(tool.access, args.currentAccessKeys),
+        mcpScopeAllowsAccess(tool.access, args.grantedScopes) &&
+        canAccess(tool.access, args.currentAccessKeys),
     )
     .map((tool) => ({
       name: tool.name,
@@ -499,6 +520,9 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
 
   const toolName = toolCallParams.name.trim();
+  if (toolName === getAuthenticationStatusContract.mcp.name) {
+    return "samebase_auth_getAuthenticationStatus";
+  }
   if (toolName === createRepositoryContract.mcp.name) {
     return "vault_actions_createRepository";
   }

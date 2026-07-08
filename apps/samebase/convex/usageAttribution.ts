@@ -11,6 +11,7 @@ export type SamebaseUsageMcpMethod =
   | "tools/call"
   | "other";
 export type SamebaseUsageMcpToolName =
+  | "samebase_auth_getAuthenticationStatus"
   | "vault_actions_createRepository"
   | "vault_dashboard_getUserVaults"
   | "vault_actions_connectRepository"

@@ -23,6 +23,13 @@ const noDestructiveActions =
   "Does not delete, overwrite, revoke access, or perform irreversible destructive actions.";
 
 export const toolJustifications: Record<string, ToolJustifications | undefined> = {
+  samebase_auth_getAuthenticationStatus: {
+    read_only_justification:
+      "Reports the authenticated Samebase account, current role, access keys, and MCP token scopes for the caller's own bearer token.",
+    open_world_justification:
+      "Reads Samebase authentication state for the caller's own token; writes nothing and does not contact third-party provider APIs.",
+    destructive_justification: noDestructiveActions,
+  },
   vault_dashboard_getUserVaults: {
     read_only_justification:
       "Lists the authenticated user's Samebase apps with repository metadata, provisioning state, and the user's own provider coordinates (Convex deployment names and URLs, Cloudflare worker names and dashboard links).",

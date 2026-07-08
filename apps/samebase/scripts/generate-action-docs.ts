@@ -49,6 +49,9 @@ const toolJsonSchema = object({
 });
 
 const contractSourceByMcpName: Record<string, string> = {
+  samebase_auth_getAuthenticationStatus: samebaseAppFilePath(
+    "convex/mcp/contracts/getAuthenticationStatus.ts",
+  ),
   vault_dashboard_getUserVaults: samebaseAppFilePath("convex/vault/contracts/getUserVaults.ts"),
   vault_actions_createRepository: samebaseAppFilePath("convex/vault/contracts/createRepository.ts"),
   vault_actions_connectRepository: samebaseAppFilePath(
