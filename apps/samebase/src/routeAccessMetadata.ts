@@ -47,7 +47,7 @@ const routeAccessMetadataByPath = {
   "/pitch": { access: "access_admin" },
   "/pitch/print": { access: "access_admin" },
   "/pitch/print/mobile": { access: "access_admin" },
-  "/pricing": { access: "access_dashboard" },
+  "/pricing": { access: "access_public", pathSuggestion: "hidden" },
   "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/providers": { access: "access_provider_connections" },
   "/research/codex-app-server": { access: "access_admin" },

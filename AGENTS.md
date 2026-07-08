@@ -14,6 +14,12 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
   `Local backend isn't running`, run `pnpm dev --once` and retry.
 
+## Punctuation
+
+- Never use the U+2014 em dash character in repo-authored text, code comments, UI copy, docs, PR
+  text, or agent responses. Rephrase with commas, colons, parentheses, or separate sentences
+  instead.
+
 ## Workflow Shortcuts
 
 When the user says one of these commands, execute it directly:
@@ -127,7 +133,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Format documents with oxfmt.
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
 - Assume responses may be read from a phone: every reference must be a tappable URL reachable off
-  this machine — clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
+  this machine: clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
   alongside any localhost URL, and samebase.com vault file URLs instead of local filesystem paths
   whenever the branch is pushed.
 - When pointing the operator at code, include a precise location such as a 1-based line number or
@@ -142,8 +148,8 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Preserve unrelated query params when changing app URLs. Use the shared query param helpers instead
   of hand-building URLs.
 - UI affordances (slider drag ranges, preset lists) may suggest values; only a real product
-  invariant may reject typed input, URL params, or API values — never convert a UI convenience into
-  a hard limit.
+  invariant may reject typed input, URL params, or API values. Never convert a UI convenience into a
+  hard limit.
 - For Playwright and browser automation rules (isolated sessions, never steal OS focus, never kill
   all Chrome, mobile emulation from launch, touch-gesture anchoring), follow
   `skills/samebase-playwright-live/SKILL.md`.
@@ -196,7 +202,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   implementation, research, review, workflow, or shortcut tasks. It may keep a small task local, but
   consulting it is not optional.
 - This is a standing repo-level request and permission to use sub-agents whenever they would improve
-  the work; decide by critical path, independence, cost, and expected signal — do not wait for the
+  the work; decide by critical path, independence, cost, and expected signal. Do not wait for the
   user to say "delegate".
 - Treat sub-agent tooling as a cheap default for sidecar research, log/test sweeps, public-doc
   comparisons, or technical spikes whose details are not needed in the main thread.
@@ -210,7 +216,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   into the main thread or final response unless the user asks for it.
 - When delegating or testing shortcut commands such as `clean`, `wait`, or `create pr`, start the
   sub-agent in the intended checkout context and send only the exact command shape the operator used
-  — no expanded checklists.
+  with no expanded checklists.
 - For experiments that may edit files, give each sub-agent an isolated worktree and a disjoint write
   scope, and keep exploratory changes out of the main worktree until intentionally integrated.
 
@@ -251,11 +257,11 @@ for production), `npx convex dashboard`, `npx convex env list`.
 ## Code Guardrails
 
 One-line index; the canonical full wording with rationale and examples lives in
-`docs/code-guardrails.md` — read it before non-trivial implementation work.
+`docs/code-guardrails.md`; read it before non-trivial implementation work.
 
 Types and validation:
 
-- Type-unsafety must be explicit, searchable, and quarantined — hiding a type gap is worse than
+- Type-unsafety must be explicit, searchable, and quarantined: hiding a type gap is worse than
   declaring one; TypeScript serves the mental model, not the other way around.
 - Never use `any` or type assertions except `as const`; use the narrowest `@ts-expect-error` plus a
   runtime fact for unavoidable gaps. Rare `any` is limited to type-level generics where
@@ -266,7 +272,7 @@ Types and validation:
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@samebase/dependent`), never costume types the code cannot earn.
 - Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` claim TS
-  cannot check — a disconnected predicate keeps narrowing to a stale shape when the source evolves,
+  cannot check. A disconnected predicate keeps narrowing to a stale shape when the source evolves,
   with no error. Derive predicates with `guard<Input, Target>` from `@samebase/dependent`
   (generics-first; the callback returns the narrowed value or null; identity-checked); where a sure
   schema proves the shape, let the validator's own result narrow. Plain local boolean checks may
@@ -286,7 +292,7 @@ Types and validation:
   unless method semantics are required; this avoids VS Code TextMate tokenization bugs.
 - Put the discriminant property first in union variant shapes.
 - Let `pure(...)`/`sure(...)` infer inline validator inputs; no redundant `unknown` annotations.
-- When a schema exists, derive the type from it; one source-of-truth schema per boundary — no
+- When a schema exists, derive the type from it; one source-of-truth schema per boundary, with no
   parallel hand-written types, strict companions, or validator-issue translation.
 - Convex: result validators before handlers, `Infer<typeof ...>`, destructure validator builders
   once; reserve the `v` prefix for reusable Convex validators (`vProviderAuth`), system-specific
@@ -319,8 +325,8 @@ Simplicity and deletion:
 - App-internal refactors are delete-first: no pass-through props, wrappers, or shims; internal
   backwards compatibility is a non-goal.
 - No runtime statements whose only job is appeasing the type checker (presence checks, redundant
-  guards) — declare the gap instead.
-- No barrel files for app code; no same-name re-export shims — update imports directly and delete
+  guards). Declare the gap instead.
+- No barrel files for app code; no same-name re-export shims. Update imports directly and delete
   shims when found.
 - Separate business logic from generic mechanics; small typed utilities in focused shared modules
   whose path carries the context (`pick` in an object module).
@@ -332,10 +338,10 @@ Effects and reads:
 
 - Justify every `useEffect`/`useLayoutEffect`; prefer route lifecycle, data/cache APIs, handlers,
   derived state, or CSS; collapse duplicate effects. In curated VMs such as the route URL editor,
-  effects, observers, and polling need even stronger proof — drop nice-to-have features instead.
+  effects, observers, and polling need even stronger proof. Drop nice-to-have features instead.
 - Avoid `"use node"` unless truly required.
-- Truthiness checks for `true | undefined` flags; existence checks when existence is the meaning —
-  exact `!== undefined`/`typeof` checks only when that exact state is modeled.
+- Truthiness checks for `true | undefined` flags; existence checks when existence is the meaning.
+  Exact `!== undefined`/`typeof` checks only when that exact state is modeled.
 - Use `notEmpty` from `@samebase/dependent` for filtering nullable arrays.
 - Repeated `?.` on one value is a correctness smell: narrow once with an explicit missing branch.
 - Direct conditions over intermediates; no `!!` or named booleans for engineering theater.

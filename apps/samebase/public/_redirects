@@ -37,6 +37,10 @@
 /oauth/mcp/consent/ /oauth/mcp/consent/index.html 200
 /oauth/mcp/consent/index.html /oauth/mcp/consent/index.html 200
 
+/pricing /pricing/index.html 200
+/pricing/ /pricing/index.html 200
+/pricing/index.html /pricing/index.html 200
+
 /privacy /privacy/index.html 200
 /privacy/ /privacy/index.html 200
 /privacy/index.html /privacy/index.html 200

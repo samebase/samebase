@@ -9,7 +9,8 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 ## Eval gate (before the landing swap)
 
 - [ ] Merge and deploy the round-1 corpus fixes (PR #1181)
-- [ ] Public pricing / early-access posture page (also answers the Q7 maturity flag)
+- [x] Public pricing / early-access posture page (also answers the Q7 maturity flag): `/pricing`,
+      permanent free tier, "Samebase is early" posture in the metering paragraph
 - [ ] Tighten MCP/operate wording: Samebase gives coordinates and repair actions; provider-direct
       tools perform logs and domains
 - [ ] Eval round 2 against the deployed corpus
@@ -33,9 +34,10 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 
 ## Pricing track
 
-- [ ] Public `/pricing` route (unauthenticated, prerendered, linked from llms.txt) with the truthful
-      model: cheap standard flow free, FileView named as the metered-later feature, no tiers, no
-      placeholder numbers, no funding-status claims
+- [x] Public `/pricing` route (unauthenticated, prerendered, linked from llms.txt) with the truthful
+      model: permanent free tier, cheap standard flow free, FileView named as the metered-later
+      feature, no tiers, no placeholder numbers, no funding-status claims (replaced the never-public
+      Polar tier mock; Polar backend removal is a follow-up)
 - [ ] Cost-model research: PostHog compute attribution; FileView mirroring/collab cost per vault
 - [ ] Infra-cost ledger: one-time archaeology of past payments (personal cards, email receipts),
       then an ongoing recording system; once it exists, publish the real infra bill as a dated

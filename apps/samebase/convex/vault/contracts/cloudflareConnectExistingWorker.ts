@@ -33,7 +33,7 @@ export const cloudflareConnectExistingWorkerContract = {
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `The manual Cloudflare attach: binds an existing Worker (validated against the app's
-repository — a Worker wired to a different repository is rejected rather than adopted) and starts
+repository; a Worker wired to a different repository is rejected rather than adopted) and starts
 the connection run. This is also the remedy \`get_user_vaults\` names as
 \`nextAction: "connect_cloudflare_worker"\` after a failed manual Cloudflare attach.
 

@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { DocsDoItYourselfPage, LandingPreviewPage } from "@/components/LandingPreviewPage";
+import {
+  DocsDoItYourselfPage,
+  DocsPricingPage,
+  LandingPreviewPage,
+} from "@/components/LandingPreviewPage";
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -117,9 +121,11 @@ describe("LandingPreviewPage", () => {
     expect(sidebarMarkup).toContain("Overview");
     expect(sidebarMarkup).toContain("The stack");
     expect(sidebarMarkup).toContain("Do it yourself");
+    expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain('href="/landing-preview"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
+    expect(sidebarMarkup).toContain('href="/pricing"');
     expect(sidebarMarkup).not.toContain("Start here");
     expect(sidebarMarkup).not.toContain("samebase.com");
     expect(sidebarMarkup).not.toContain('href="#');
@@ -132,5 +138,13 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Do it yourself: deploy the Samebase stack for $0/month");
     expect(markup).toContain('href="/docs/receipts"');
     expect(markup).toContain("What the Samebase account adds");
+  });
+
+  it("renders the pricing page separately", () => {
+    const markup = renderToStaticMarkup(<DocsPricingPage />);
+
+    expect(markup).toContain("Creating an app is free, and the free tier is permanent");
+    expect(markup).toContain("What will cost money");
+    expect(markup).toContain("no tiers, no placeholder numbers");
   });
 });

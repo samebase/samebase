@@ -1,7 +1,7 @@
 # Receipts
 
 Every factual claim Samebase leans on, with its primary source and the date it was last checked.
-This page exists so you — or your coding agent — can verify the claims instead of trusting the copy.
+This page exists so you and your coding agent can verify the claims instead of trusting the copy.
 Quotes are verbatim. If a source changes and a claim stops being true, the claim gets deleted, not
 softened.
 
@@ -14,8 +14,8 @@ Last full check: 2026-07-02.
 
 - Requests to static assets served by Workers are free and unlimited on both the Free and Paid
   plans. Verbatim: "Requests to static assets are free and unlimited." The precise boundary:
-  requests that invoke the Worker script itself — server-side rendering, or routes matched by
-  `run_worker_first` — bill as normal Worker requests. Sources:
+  requests that invoke the Worker script itself, such as server-side rendering or routes matched by
+  `run_worker_first`, bill as normal Worker requests. Sources:
   [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and
   [static assets billing](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/),
   checked 2026-07-07.
@@ -73,8 +73,8 @@ Last full check: 2026-07-02.
 - The escape hatch is real: the Convex backend, dashboard, and CLI are source-available under
   FSL-1.1-Apache-2.0, and each release converts to plain Apache 2.0 two years after publication.
   Convex's own docs: self-hosting runs "the same fully up-to-date code the cloud service uses." We
-  say "source-available," not "open source" — FSL restricts building a competing hosted product
-  until the conversion. Sources:
+  say "source-available," not "open source" because FSL restricts building a competing hosted
+  product until the conversion. Sources:
   [the license](https://github.com/get-convex/convex-backend/blob/main/LICENSE.md),
   [self-hosting docs](https://docs.convex.dev/self-hosting), and the
   [March 12, 2024 announcement](https://news.convex.dev/convex-goes-open-source/), checked
@@ -90,7 +90,7 @@ matters most when an agent is doing the shipping, because agents deploy far more
   [How credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/),
   checked 2026-07-02.
 - Since the April 14, 2026 repricing, Netlify Pro is $20/month for 3,000 credits with unlimited
-  seats. Spent on nothing else, that is roughly 200 production deploys per month — and bandwidth,
+  seats. Spent on nothing else, that is roughly 200 production deploys per month. Bandwidth,
   compute, and web requests draw from the same pool, so the real deploy budget is lower. Sources:
   [April 2026 pricing update](https://www.netlify.com/changelog/2026-04-14-pricing-updates-april-2026/)
   and
@@ -101,7 +101,7 @@ matters most when an agent is doing the shipping, because agents deploy far more
   not burn credits; production releases do. Source:
   [How credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/),
   checked 2026-07-02.
-- The free tier is 300 credits per month — about 20 production deploys. When a team's credits run
+- The free tier is 300 credits per month, about 20 production deploys. When a team's credits run
   out, all of its sites are paused and visitors see a "Site not available" page until the next
   billing cycle. Source:
   [How credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/),
@@ -114,8 +114,8 @@ matters most when an agent is doing the shipping, because agents deploy far more
 ## The exposure record: client-reachable databases
 
 Fairness first: Firebase and Supabase can be configured safely, and row-level security is a real
-mechanism. The record below is about what the default architecture — a database reachable from the
-client, guarded by per-table policy — produces in practice, at scale, when defaults are left in
+mechanism. The record below is about what the default architecture with a database reachable from
+the client and guarded by per-table policy produces in practice, at scale, when defaults are left in
 place. Convex removes this class by construction: there is no client-reachable database to
 misconfigure (see the Convex section above).
 
@@ -141,7 +141,7 @@ misconfigure (see the Convex section above).
   Source: [TNW report](https://thenextweb.com/news/lovable-vibe-coding-security-crisis-exposed),
   published 2026-04.
 - 2025, Tea: the dating-safety app's breach came from an unsecured legacy Firebase storage bucket
-  reachable with no authentication — 72,000 images including ~13,000 photo IDs, followed by 1.1
+  reachable with no authentication: 72,000 images including ~13,000 photo IDs, followed by 1.1
   million private messages. Source:
   [Engadget](https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html),
   incident 2025-07.
@@ -152,7 +152,7 @@ misconfigure (see the Convex section above).
 
 ## Toolchain
 
-- Cloudflare acquired VoidZero — the company behind Vite, Vitest, and Vite+ — on June 4, 2026. The
+- Cloudflare acquired VoidZero, the company behind Vite, Vitest, and Vite+, on June 4, 2026. The
   tools stay MIT-licensed, and Cloudflare committed $1M to an independent Vite ecosystem fund.
   Sources:
   [Cloudflare press release](https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/)

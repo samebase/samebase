@@ -10,6 +10,7 @@ describe("readPublicPrerenderPages", () => {
     expect(paths).toContain("/docs/do-it-yourself");
     expect(paths).toContain("/docs/the-stack");
     expect(paths).toContain("/landing-preview");
+    expect(paths).toContain("/pricing");
     expect(paths).toContain("/privacy");
     expect(paths).toContain("/terms");
     expect(paths).not.toContain("/add");

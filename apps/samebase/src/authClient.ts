@@ -168,7 +168,7 @@ export function openAuthPopup(
     popupPath: string;
   },
 ) {
-  // Don't call signIn directly — the library would try window.location.href
+  // Don't call signIn directly; the library would try window.location.href
   // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
   // Listen for auth tokens sent from the popup via postMessage.
   setAuthProvider(provider);

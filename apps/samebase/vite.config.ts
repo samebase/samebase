@@ -472,6 +472,7 @@ const contentDocsMarkdownAssets = [
   },
   { assetPath: "docs/receipts.md", sourcePath: "src/content/docs-receipts.md" },
   { assetPath: "docs/the-stack.md", sourcePath: "src/content/docs-the-stack.md" },
+  { assetPath: "pricing.md", sourcePath: "src/content/docs-pricing.md" },
 ] as const;
 
 function serveContentDocsMarkdownPlugin() {

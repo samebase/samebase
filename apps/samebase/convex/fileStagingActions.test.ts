@@ -1510,7 +1510,7 @@ describe("createCommitWithMultipleFiles", () => {
       }),
     ).rejects.toThrow("Internal Server Error");
 
-    // Only one attempt — no retry on 500
+    // Only one attempt, no retry on 500.
     expect(createTreeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -1604,7 +1604,7 @@ describe("createCommitWithMultipleFiles", () => {
   });
 
   /**
-   * Test 8: No createBlob calls — content is inline in tree entries
+   * Test 8: No createBlob calls; content is inline in tree entries
    * Input: 3 modified files
    * Verify: createBlob is never called
    * Verify: tree entries use content field
@@ -1656,7 +1656,7 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
     });
 
-    // createBlob should never be called — content is inline
+    // createBlob should never be called. Content is inline.
     expect(createBlobSpy).not.toHaveBeenCalled();
 
     // Verify tree entries have inline content

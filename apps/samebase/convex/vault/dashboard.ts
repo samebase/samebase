@@ -119,7 +119,7 @@ function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
 /**
  * Managed runs only exist on Samebase-managed vaults (create workflow), where
  * the run retry action is available. A failed manual run repairs by re-running
- * the action that failed, so the remedy follows the run's own trigger — a
+ * the action that failed, so the remedy follows the run's own trigger. A
  * failed wire_builds run must not route to the attach action (specs 105/106,
  * rfcs/093).
  */

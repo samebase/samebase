@@ -6,7 +6,7 @@ import { makeConvexTest } from "../test.setup";
 /**
 Every runtime bridge must enforce its contract's scope before touching any
 product helper. Granting no scopes at all must block all twelve tools with the
-tool's own MCP name in the message — the per-bridge half of the authorization
+tool's own MCP name in the message, the per-bridge half of the authorization
 story (the dispatch layer's current-access gate is covered in
 mcp/http.convex.test.ts).
 */

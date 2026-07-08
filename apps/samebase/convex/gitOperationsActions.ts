@@ -150,7 +150,7 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
       const storedItems: StagedStored[] = staged.filter((x) => x.kind === "stored");
 
       await Promise.all([
-        // 3) Write inline blobs to DB (no storage) — throttle lightly
+        // 3) Write inline blobs to DB (no storage), throttled lightly.
         allLimited(
           inlineItems.map((item) => async () => {
             const { filePath, oid, size, mime, text } = item;
@@ -171,7 +171,7 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
           DB_CONCURRENCY,
         ),
 
-        // 4) Upload storage blobs (heavy) + write metadata — throttle harder
+        // 4) Upload storage blobs (heavy) and write metadata, throttled harder.
         allLimited(
           storedItems.map((item) => async () => {
             const { filePath, oid, size, mime, u8, ext } = item;
