@@ -93,6 +93,20 @@ type CloudflareActionConnection = {
   tokenHealth?: McpTokenHealth;
 };
 
+class CloudflareConnectionRequiredError extends Error {
+  constructor() {
+    super("Cloudflare connection is required.");
+    this.name = "CloudflareConnectionRequiredError";
+  }
+}
+
+class CloudflareAccountUnavailableError extends Error {
+  constructor() {
+    super("Cloudflare account is not available for this connection.");
+    this.name = "CloudflareAccountUnavailableError";
+  }
+}
+
 async function resolveCloudflareConnection(
   ctx: ActionCtx,
   userId: Id<"users">,
@@ -102,7 +116,7 @@ async function resolveCloudflareConnection(
   });
   const token = connection?.auth.credential.trim();
   if (!connection || !token) {
-    throw new Error("Cloudflare connection is required.");
+    throw new CloudflareConnectionRequiredError();
   }
 
   return {
@@ -225,7 +239,7 @@ async function resolveAccount(
   const accounts = await listAccountsForConnection(args);
   const account = accounts.find((candidate) => candidate.accountId === args.accountId);
   if (!account) {
-    throw new Error("Cloudflare account is not available for this connection.");
+    throw new CloudflareAccountUnavailableError();
   }
   return account;
 }
@@ -598,13 +612,11 @@ function resolveInfrastructureVerificationUnverifiableMessage(error: unknown): s
   if (error instanceof CloudflareApiError) {
     return "Cloudflare infrastructure could not be verified because Cloudflare did not return a verifiable response.";
   }
-  if (error instanceof Error) {
-    if (error.message === "Cloudflare connection is required.") {
-      return "Cloudflare infrastructure could not be verified because the Cloudflare connection is missing.";
-    }
-    if (error.message === "Cloudflare account is not available for this connection.") {
-      return "Cloudflare infrastructure could not be verified because the recorded Cloudflare account is unavailable.";
-    }
+  if (error instanceof CloudflareConnectionRequiredError) {
+    return "Cloudflare infrastructure could not be verified because the Cloudflare connection is missing.";
+  }
+  if (error instanceof CloudflareAccountUnavailableError) {
+    return "Cloudflare infrastructure could not be verified because the recorded Cloudflare account is unavailable.";
   }
   return null;
 }

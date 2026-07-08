@@ -73,10 +73,6 @@ function canRepairCloudflareWorker(vault: VaultDashboardVault): boolean {
   return vault.providerSetup.status !== "running";
 }
 
-function canVerifyCloudflareWorker(vault: VaultDashboardVault): boolean {
-  return canRepairCloudflareWorker(vault);
-}
-
 function isCloudflareWorkerWiringStep(step: VaultDashboardProviderSetupStep | null): boolean {
   if (step === null) {
     return false;
@@ -209,7 +205,7 @@ export function buildVaultDashboardResourceRailState({
   const canConfigureMissingResources =
     vault.state === "ready" && !isVaultResourceSetupBlockingManualActions(vault);
   const canRepairCloudflareWorkers = canRepairCloudflareWorker(vault);
-  const canVerifyCloudflareWorkers = canVerifyCloudflareWorker(vault);
+  const canVerifyCloudflareWorkers = canRepairCloudflareWorkers;
   const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
   const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
