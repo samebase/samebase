@@ -9,7 +9,7 @@ stale `main` still shows the notermd/Cloudflare-Pages era, and the live line is
 
 Operator framing (2026-07-08): each edition starts as a new orphan branch so `main` carries only the
 necessary commits; each step is as small as possible so it is easy to see what is inside; keeping
-the history perfectly clean forever is not sustainable — "works for the beginning but with time we
+the history perfectly clean forever is not sustainable: "works for the beginning but with time we
 kinda have to not be so focused on that."
 
 Method: three parallel research lanes (git archaeology of the samebase/app clone, monorepo
@@ -34,7 +34,7 @@ three squash-merged `codex-*` PR sources, one abandoned Base UI experiment.
 v5's shape confirms the operator framing exactly:
 
 - Commits 1–20 (`088f8c3`..`a1f1798`, 2026-05-14/17) are disciplined numbered teaching steps, each
-  adding its own `REPO_HISTORY.md` section in the same commit — 1:1 through step 20.
+  adding its own `REPO_HISTORY.md` section in the same commit, 1:1 through step 20.
 - The next 16 commits are the degradation tail: 9 have no `REPO_HISTORY.md` trace at all (including
   the 484-line prerender feature `accbaf0`), 3 reverse earlier steps (`a62cc00` reverses step 4's
   `@/*` alias for package imports; `1f93187` reverses step 5's Geist font; `922faf2` reverses step
@@ -47,8 +47,8 @@ still names `PROD_CONVEX_DEPLOY_KEY` with no supersession note (renamed back in 
 
 ## The load-bearing fact: the file outreaches the git log
 
-`REPO_HISTORY.md` ships inside the seed manifest, so every repo created through Samebase — and every
-"Use this template" copy, which GitHub always squashes to a single commit — receives the teaching
+`REPO_HISTORY.md` ships inside the seed manifest, so every repo created through Samebase (and every
+"Use this template" copy, which GitHub always squashes to a single commit) receives the teaching
 narrative as a file while receiving zero git history. Forking is the only way anyone ever sees the
 curated commits. Curation effort therefore ranks:
 
@@ -58,14 +58,14 @@ curated commits. Curation effort therefore ranks:
 
 ## What the monorepo depends on
 
-Nothing in the monorepo depends on template git history — only on tree content:
+Nothing in the monorepo depends on template git history, only on tree content:
 
 - `scripts/export-samebase-app-manifest.ts:15` pins
   `defaultSourceBranch = "v5-tanstack-start-workers"`; the script resolves the branch to a tip sha
   and downloads that one commit's tarball (no `.git`, no history).
 - `apps/samebase/convex/starterSeedManifest.test.ts:8` asserts the branch name exactly; shas are
   matched by regex only. The remaining assertions (`:44-137`) are content strings (README deploy-key
-  wording, guest-name flow, no-webfont) — they guard content changes, not rewrites.
+  wording, guest-name flow, no-webfont); they guard content changes, not rewrites.
 - Runtime seeding (`starterSeed.ts`) reads `files`/`binaryFiles`/`fileModes` and never reads
   provenance. No CI job runs or freshness-checks the export; it is manual by design.
 - Shipped template content contains zero `github.com/samebase/...` URLs and zero branch names, so
@@ -86,30 +86,30 @@ Nothing in the monorepo depends on template git history — only on tree content
   introducing commit, standing force-push warning in the README, old edition kept as a
   `historical/old` branch); microblog (one commit per chapter, editions maintained by rebase +
   force-push with tags re-pointed, old editions frozen); redux-essentials (squashed starting point
-  for users, curated steps on a separate branch — samebase/app gets this split for free because the
+  for users, curated steps on a separate branch; samebase/app gets this split for free because the
   template button and seed manifest already deliver squashed content). Common rules: one linear
   branch, never merge into the teaching line, freeze editions under names.
 
 ## Recommended model: curated prefix per edition, tolerated tail, re-curate at boundaries
 
-The founding idea and the degradation are not in conflict — they are the two phases of an edition's
+The founding idea and the degradation are not in conflict; they are the two phases of an edition's
 life. Make that the explicit policy instead of a failure:
 
 1. **Edition start** (new orphan branch, as with v0–v5): hand-curated numbered steps, each as small
    as possible, each adding its own `REPO_HISTORY.md` section in the same commit.
 2. **Edition life**: normal small PRs append to `main`. A commit that teaches something new gets a
    number and a section; fixes and churn land unnumbered without guilt. Unnumbered commits are fold
-   candidates by definition — no ongoing rebasing, no fix-at-the-introducing-commit discipline
+   candidates by definition: no ongoing rebasing, no fix-at-the-introducing-commit discipline
    (chibicc's policy is right for a book, too expensive for a solo operator shipping a product).
-3. **Re-curation events** are rare and named: (a) once, now, before the repo goes public — the only
+3. **Re-curation events** are rare and named: (a) once, now, before the repo goes public, the only
    free window; (b) at the next edition boundary (v6 = next stack-story change), where the tail's
    lessons get folded into the new edition's curated prefix anyway.
 4. **A reversal of an earlier step is the fold trigger.** A history that teaches an approach and
-   later reverses it (deploy-key naming, Geist, `@/*` alias) is worse than no step at all — an agent
+   later reverses it (deploy-key naming, Geist, `@/*` alias) is worse than no step at all: an agent
    reading the story learns the wrong thing first. Reversals do not wait for the edition boundary;
    they justify a rewrite while private, and a numbered "we changed our minds because X" step after
    publication.
-5. **After publication, `main` history is frozen** — append-only. If a mid-edition rewrite ever
+5. **After publication, `main` history is frozen** (append-only). If a mid-edition rewrite ever
    becomes necessary anyway, adopt chibicc's loud standing README warning first; otherwise cut v6.
 
 ## The one-time migration (do before the repo goes public)
@@ -143,7 +143,7 @@ Re-curate 37 commits → ~20, folding the tail into the steps it belongs to:
 | 18. share the todo list publicly          | `8699cd9` + `5c08750` + `f216b20` + `e6ea4c9` |
 | 19. add home and about prerendering       | `accbaf0` (gains its missing section)         |
 
-The rebrand commits (`f82dfc2`, `155f7fa`) disappear — samebase naming baked into every step.
+The rebrand commits (`f82dfc2`, `155f7fa`) disappear; the samebase naming is baked into every step.
 `REPO_HISTORY.md` is rewritten alongside: sections 4, 5, 12, 13, 15, 16, 17 updated to the folded
 end state, §19 added for prerendering, the §20/§22-vs-§23 supersession churn deleted. The step-16
 fold is the flagship: four commits and ±400 lines of deploy-key back-and-forth collapse into one
@@ -163,8 +163,8 @@ Then the branch swap, in order:
 
 Monorepo follow-up (complete required set, from the integration sweep):
 
-1. `scripts/export-samebase-app-manifest.ts:15` — `defaultSourceBranch = "main"`.
-2. `apps/samebase/convex/starterSeedManifest.test.ts:8` — expect `"main"`.
+1. `scripts/export-samebase-app-manifest.ts:15`: `defaultSourceBranch = "main"`.
+2. `apps/samebase/convex/starterSeedManifest.test.ts:8`: expect `"main"`.
 3. `SAMEBASE_TEMPLATE_GITHUB_TOKEN=… pnpm template:export` to regenerate the manifest (content
    changes only where the fold changed the tree; the string assertions in
    `starterSeedManifest.test.ts:44-137` are the acceptance gate).
@@ -200,7 +200,7 @@ optionally revisit spec 088's mirrored media now that raw URLs are stable.
    new edition or dropped until the English README stabilizes; recommendation: drop for now,
    delete-first.
 3. Timing: the re-curation is independent of RFC 093's eval rounds, but the eval keeps reading the
-   README through the corpus story — doing the rewrite before eval round 2 avoids grading against a
+   README through the corpus story; doing the rewrite before eval round 2 avoids grading against a
    template that is about to change.
 
 ## Execution record (2026-07-08)
@@ -231,6 +231,6 @@ toolchain because `prepare` runs `vp config`).
 The swap executed 2026-07-08: old `main` saved as `v3-router-pages` via the branch-rename API, v6
 force-pushed as `main`, default branch re-pointed, dead branches deleted (`dev` + four `codex-*`),
 `v0`–`v5` kept as the edition museum. Gotcha for next time: GitHub's branch rename leaves an
-old-name redirect that rejects plain pushes recreating the old name — `git push --force` overrides
-it with a warning; saving the old tip as a plain new branch and force-pushing `main` directly would
+old-name redirect that rejects plain pushes recreating the old name; `git push --force` overrides it
+with a warning; saving the old tip as a plain new branch and force-pushing `main` directly would
 have avoided the dance. Remaining: the monorepo seed flip to `main` (operator PR; recipe above).
