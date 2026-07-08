@@ -1,174 +1,98 @@
-# Do it yourself: Deploy a production-ready, real-time web app for $0/month
+# Do it yourself: deploy the Samebase stack for $0/month
 
-## Manual setup TLDR
+You do not need a Samebase account to use the stack Samebase recommends:
 
-The web-app is deployed Cloudflare Pages and uses Convex as database. Stack: Vite+, Tanstack Router,
-Tailwind, ShadCN (BaseUI)
+- GitHub for the repository
+- Convex for the backend and database
+- Cloudflare Workers for delivery, static assets included
 
-For the fastest Codex Cloud startup, add this environment setup script:
+This page is the manual path. It is more clicks than Samebase, but you end in the same place: every
+resource in your own provider accounts.
+
+## What costs $0/month
+
+An idle or small app fits inside the providers' free tiers:
+
+- GitHub Free includes private repositories.
+- Convex Free & Starter includes a real deployment with function calls and storage included.
+- On Cloudflare Workers, requests to static assets are free and unlimited. Requests that invoke the
+  Worker itself use the Workers request and CPU limits.
+- Workers Builds includes free monthly build minutes for deploying from Git.
+
+The receipt ledger has the source links and current limits: [Receipts](/docs/receipts).
+
+## 1: Create provider accounts
+
+Create or sign in to:
+
+- [GitHub](https://github.com/)
+- [Convex](https://www.convex.dev/)
+- [Cloudflare](https://www.cloudflare.com/)
+
+## 2: Put the app code in GitHub
+
+The app Samebase deploys is the starter template `samebase/app`, built by hand, commit by commit, so
+it stays small and readable. It is private today and becomes public at release; until then, the
+template arrives in your GitHub account through Samebase's `create_repository`.
+
+Without the template, bring your own app: the rest of this guide assumes a repository whose build
+outputs static assets and whose backend is Convex. Add Convex from the project checkout:
 
 ```bash
-curl -fsSL https://vite.plus | bash
+pnpm add convex
+pnpm exec convex dev
 ```
 
-The "samebase" organization name was chosen without a "-" because the default Android keyboard makes
-it hard to type a "-".
+Commit the project and push it to GitHub.
 
-We need just 1 `CONVEX_DEPLOY_KEY` for **Production** and one for **Preview**, That way each PR has
-it's own link and database different from a Production/Dev databases.
+## 3: Create a Convex project
 
-Then use the dev tool you already know. Codex Cloud is one option, but Codex local or another editor
-also works. There are instructions for running it locally and in git worktrees since Codex supports
-that from the start. Since you already have Cloudflare you can use Cloudflare Tunnels instead of
-grok so you can share even server running on personal machine. This implies that it's easily
-extendable to support external server that can be accessed by exposing a single port (we can expose
-Convex through Vite so no need for 2 ports).
+In the Convex dashboard, create a project for the app.
 
-## 1: Create Github, Convex, and Cloudflare accounts
+For Cloudflare builds, create a Convex deploy key for production. If you want pull-request previews
+with their own Convex deployment, create a separate preview deploy key too.
 
-Start with **a Google or an Apple** account on a **phone or desktop**
+## 4: Deploy on Cloudflare Workers
 
-- [ ] **1: Create Github using Google/Apple :** https://github.com/<br>
-      <img src="/landing-preview/logos/github.svg" alt="GitHub" height="32"><br> GitHub by Microsoft
-      is the place where engineers store their code.
-- [ ] **2: Create Convex using Github :** https://www.convex.dev/<br>
-      <img src="/landing-preview/logos/convex.svg" alt="Convex" height="32"><br> Convex is the best
-      database I have personally used. The simplicity of my stack proves how good it is. It also has
-      its own Node server.
-- [ ] **3: Create CloudFlare using Github :** https://www.cloudflare.com/<br>
-      <img src="/landing-preview/logos/cloudflare.jpg" alt="Cloudflare" height="32"><br> Your
-      frontend code is deployed as static files. Ensures the safety of your app and users
+Use Cloudflare Workers, not a new Cloudflare Pages project: Cloudflare points new projects at
+Workers, and one Worker deploys both the code and the static assets.
 
-It's fine if you signed up differently, as long as you have these 3 service accounts you can deploy
-an app.
+Connect the GitHub repository to Workers Builds. Configure the build command your app uses, then add
+the Convex deploy key as `CONVEX_DEPLOY_KEY` in the production build environment. If you created a
+preview deploy key, add it as `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds.
 
-<video controls preload="metadata" width="540" height="1194" src="/landing-preview/step-1-create-accounts.mp4"></video>
+After the first successful build, Cloudflare serves the app from your Worker. Pushes to the default
+branch deploy production; pull requests deploy previews when previews are configured.
 
-## 2: Copy the app code to your GitHub account
+## 5: Operate it
 
-Visit https://github.com/samebase/app
+Use the provider tools directly:
 
-- [ ] click big green "Use this template"
-- [ ] make it private or leave it public
+- GitHub owns the code, pull requests, and repository settings.
+- Convex owns backend logs, data, functions, deploy keys, and deployments.
+- Cloudflare owns Worker deploys, request logs, routes, and domains.
 
-<video controls preload="metadata" width="540" height="1194" src="/landing-preview/step-2-use-template.mp4"></video>
+The operate docs give the provider-direct commands for logs and domains:
 
-<details>
-<summary>"Fork" if you want to preserver the git history</summary>
+- [Production logs](/docs/operate/production-logs)
+- [Custom domain](/docs/operate/custom-domain)
 
-Check the full Git History here: https://github.com/samebase/app/commits/main/
+## What the Samebase account adds
 
-It is manually made so it's as small, clear and simple as possible.
+- `create_repository` runs this whole page as one action: it creates the GitHub repository, seeds
+  the app, provisions Convex and a Cloudflare Worker, wires Workers Builds, and installs the deploy
+  keys.
+- `connect_existing_repository` imports a repository without touching Convex or Cloudflare.
+- `connect_convex_deployment` and `connect_cloudflare_worker` attach provider resources you created
+  yourself.
+- `get_user_vaults` returns the current registry state and names the next repair action when
+  infrastructure is degraded.
 
-"Use this template" is nicer because the button is green but it squashes the whole history inside a
-single commit, so it makes it a bit harder for AI to understand it.
+These are the same operations the dashboard buttons run and the Samebase MCP server exposes to
+coding agents.
 
-</details>
+## Deleting Samebase
 
-## 3: Connect Cloudflare Pages to Github
-
-Cloudflare Pages will automatically deploy your app whenever the code changes on GitHub.
-
-You need to do this only once and afterwards you'll be able to create as many apps as you want.
-
-But it's a bit tricky since the Cloudflare side sometimes has issues.
-
-- [ ] Access _Cloudflare Pages_ from the sidebar "Compute > Workers & Pages"
-- [ ] Click "Create Application"
-- [ ] Click "Connect to GitHub" to `Install & Authorize Cloudflare Workers & Pages`
-
-It's not clear what the issue is, but very often, Cloudflare doesn't notice that the connection
-already exists.
-
-Try opening Cloudflare Pages from a Desktop instead of Mobile, this usually helps.
-
-<video controls preload="metadata" width="940" height="662" src="/landing-preview/step-3-connect-cloudflare-pages.mp4"></video>
-
-<details>
-<summary>Connecting CloudFlare Pages to Github issues</summary>
-
-Cloudflare Workers & Pages sometimes has issues after installing, you can wait a bit. You can also
-go to github "Settings > Applications > Authorized GitHub Apps" to remove or revoke the installed
-apps, and try doing it again from Cloudflare.
-
-You can check all your installed GitHub apps here: https://github.com/settings/installations
-
-</details>
-
-## 4: Create a Convex project and a CONVEX_DEPLOY_KEY
-
-- [ ] Visit https://dashboard.convex.dev/
-- [ ] Click "+ Create Project" and give whatever name
-- [ ] Click the pill on the top to view your Production deployment (you may need to click twice)
-- [ ] Click "+ Create Deploy Key", you'll need it to connect to Cloudflare, so don't press "Done"
-      yet
-
-If you press "Done" you won't be able to see the deploy key again, but it's fine, you can delete it
-and create a new deploy key.
-
-<video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-4-create-convex-project.mp4"></video>
-
-<details>
-<summary>What are CONVEX_DEPLOY_KEY?</summary>
-
-They are a sort of password used between servers. In our case it is used by Cloudflare to update the
-database on each change.
-
-</details>
-
-## 5: Create a Cloudflare Pages Deploy
-
-- [ ] Access _Cloudflare Pages_ from the sidebar "Compute > Workers & Pages"
-- [ ] Click "Create Application"
-- [ ] **Make sure you click "Get Started" at the bottom** so you create "Pages" and not "Workers"!
-- [ ] Set `Build Command` to `pnpm build:cloudflare`
-- [ ] Set `Build output directory` to `dist`
-- [ ] Add Environment Variable `CONVEX_DEPLOY_KEY` and use the Production deploy key from the
-      previous step
-
-<video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-5-create-cloudflare-pages-deploy.mp4"></video>
-
----
-
-🚀🚀 Congrats, you shipped your first app 🚀🚀
-
-Any change that you make to the `main` branch in your github repo, will be deployed automatically.
-
-## 6: Connect your dev tool to GitHub
-
-If you use Codex Cloud, connect it to GitHub once. OpenAI Codex uses the same connection method as
-Cloudflare so you might encounter some issues, but need to do it just once. If you use local Codex
-or another editor, connect it to the repository the way that tool expects.
-
-## 7: Get a separate deployment for each change
-
-You were seeing errors in the Pull Requests because the cloudflare deploys a preview and it cannot
-connect to your production database. To solve this, you can create a "Preview Deploy Key" from
-Convex and set it to Cloudflare, that way each Pull Requests will have it's own database.
-
-## 8: Deleting the app
-
-To delete an app you deployed you'll have to
-
-- [ ] Delete Cloudflare Pages app
-- [ ] Delete Convex project
-- [ ] Delete GitHub repository
-
-## 9: Create an app in a single step using samebase.com
-
-samebase.com connects with Github, Cloudflare & Convex once, then allows you to create an app with a
-single click of a button. It also allows you to remove it just as easily.
-
-So apps become disposable, you can create an app and to create a game and use it for night-out with
-your friends
-
-- OR -
-
-you can decide to continue maintaining it and base your business on it, since it's standard
-infrastructure in your own accounts.
-
-### Why is samebase.com free?
-
-I already have this functionality and much more for my own apps, it doesn't cost me much to share it
-with everybody. If you want more things, like editing files on the go, monitoring multiple apps or
-multiple branches of the same app, then it starts costing me more so that's not released yet.
+If you created the app through Samebase, deleting the Samebase account does not stop the running
+app. The repository is in your GitHub account, the backend is in your Convex team, and the Worker is
+in your Cloudflare account. Remove those provider resources directly when you want the app gone.

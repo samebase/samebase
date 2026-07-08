@@ -129,8 +129,8 @@ describe("LandingPreviewPage", () => {
   it("renders the do-it-yourself guide separately", () => {
     const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
 
-    expect(markup).toContain("Do it yourself: Deploy a production-ready");
-    expect(markup).toContain("/landing-preview/step-1-create-accounts.mp4");
-    expect(markup).toContain("Manual setup TLDR");
+    expect(markup).toContain("Do it yourself: deploy the Samebase stack for $0/month");
+    expect(markup).toContain('href="/docs/receipts"');
+    expect(markup).toContain("What the Samebase account adds");
   });
 });

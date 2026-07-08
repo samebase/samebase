@@ -133,7 +133,7 @@ export const LANDING_PREVIEW_PAGE_METADATA: PageMetadata = {
 
 export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   title: "Do it yourself | Samebase",
-  description: "Manual setup guide for building a Samebase-style app yourself.",
+  description: "Deploy the Samebase stack by hand, with no Samebase account.",
   canonicalPath: DOCS_DO_IT_YOURSELF_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",

@@ -14,13 +14,6 @@ const expectedLandingPreviewSidebarFiles = [
   "Do it yourself",
   "Receipts",
 ] as const;
-const expectedLandingPreviewVideoSrcs = [
-  "/landing-preview/step-1-create-accounts.mp4",
-  "/landing-preview/step-2-use-template.mp4",
-  "/landing-preview/step-3-connect-cloudflare-pages.mp4",
-  "/landing-preview/step-4-create-convex-project.mp4",
-  "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
-] as const;
 
 async function expectDesktopPaneWidths(
   page: Page,
@@ -80,18 +73,6 @@ async function expectSidebarFiles(sidebar: Locator) {
   );
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
-}
-
-async function hideLandingPreviewVideosForScreenshot(page: Page) {
-  // Linux browser images do not all decode the MP4 assets, so visual coverage
-  // keeps video layout in place while leaving frame rendering to src assertions.
-  await page.addStyleTag({
-    content: `
-      video[src^="/landing-preview/"] {
-        visibility: hidden !important;
-      }
-    `,
-  });
 }
 
 test("landing preview route renders the React overview in workspace chrome", async ({ page }) => {
@@ -181,42 +162,30 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(rightSidebar).toHaveCSS("width", "288px");
   await expect(
     article.getByRole("heading", {
-      name: "Do it yourself: Deploy a production-ready, real-time web app for $0/month",
+      name: "Do it yourself: deploy the Samebase stack for $0/month",
     }),
   ).toBeVisible();
-  await expect(
-    article.locator('[id="1-create-github-convex-and-cloudflare-accounts"]'),
-  ).toContainText("1: Create Github, Convex, and Cloudflare accounts");
-  await expect(article.locator("details")).toHaveCount(3);
-  await expect(article.locator("details video")).toHaveCount(0);
-  const videos = article.locator("video");
-  await expect(videos).toHaveCount(expectedLandingPreviewVideoSrcs.length);
-  for (const [index, expectedVideoSrc] of expectedLandingPreviewVideoSrcs.entries()) {
-    const video = videos.nth(index);
-    await expect(video).toBeVisible();
-    await expect(video).toHaveAttribute("src", expectedVideoSrc);
-  }
+  await expect(article.locator('[id="1-create-provider-accounts"]')).toContainText(
+    "1: Create provider accounts",
+  );
+  await expect(article.locator("details")).toHaveCount(0);
+  await expect(article.locator("video")).toHaveCount(0);
 
-  const firstTaskCheckbox = article.locator('input[type="checkbox"]').first();
-  await expect(firstTaskCheckbox).toBeEnabled();
-  await firstTaskCheckbox.check();
-  await expect(firstTaskCheckbox).toBeChecked();
-
-  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#6-connect-your-dev-tool-to-github`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#4-deploy-on-cloudflare-workers`, {
     waitUntil: "domcontentloaded",
   });
   await expect(
     page
       .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
-      .locator('[id="6-connect-your-dev-tool-to-github"]'),
+      .locator('[id="4-deploy-on-cloudflare-workers"]'),
   ).toBeInViewport();
 
-  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#why-is-samebase-com-free`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#deleting-samebase`, {
     waitUntil: "domcontentloaded",
   });
   const finalHeading = page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
-    .locator('[id="why-is-samebase-com-free"]');
+    .locator('[id="deleting-samebase"]');
   await expect(finalHeading).toBeInViewport();
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
@@ -266,11 +235,8 @@ test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({
   });
 
   const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
-  const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
-  await expect(firstVideo).toBeVisible();
-  await hideLandingPreviewVideosForScreenshot(page);
   await expect
     .poll(() => {
       const url = new URL(page.url());
