@@ -5,9 +5,9 @@
 MCP tool `vault_actions_connectRepository` · scope `access_repo_connect` · write
 
 Brings a repository the caller's GitHub connection can read under Samebase's record (access is what
-is checked — not ownership): creates the vault, syncs the tree, and leaves the providers
-deliberately unconfigured — importing never touches Convex or Cloudflare. This is the adoption entry
-point for existing projects; attach providers afterwards with `connect_convex_deployment` and
+is checked, not ownership): creates the vault, syncs the tree, and leaves the providers deliberately
+unconfigured. Importing never touches Convex or Cloudflare. This is the adoption entry point for
+existing projects; attach providers afterwards with `connect_convex_deployment` and
 `connect_cloudflare_worker`, or leave the app GitHub-only (watching and editing a repository is a
 supported use on its own).
 

@@ -241,7 +241,7 @@ function renderLlmsTxt(contracts: ActionContractDoc[]): string {
 
   return `# Samebase
 
-> Samebase is a control plane for web apps on an opinionated stack — code in your GitHub
+> Samebase is a control plane for web apps on an opinionated stack: code in your GitHub
 > repository, Convex backend, Cloudflare Workers hosting. Humans use a dashboard; coding agents use
 > the same actions over MCP. The knowledge is free: you can build the identical stack with no
 > Samebase account.
@@ -267,8 +267,8 @@ HTML pages. Action and operate docs are raw markdown only.
 
 ## Actions
 
-Every operational action, one contract each — the same actions the dashboard buttons run. Degraded
-app states name their remedy in a \`nextAction\` field whose values are these action ids.
+Every operational action has one contract, and these are the same actions the dashboard buttons run.
+Degraded app states name their remedy in a \`nextAction\` field whose values are these action ids.
 
 ${actionLines}
 

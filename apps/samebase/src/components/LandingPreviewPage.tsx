@@ -760,7 +760,7 @@ function LandingPreviewOverview() {
             <ul className="mt-3.5 grid max-w-[58ch] gap-1">
               {LANDING_CORRECT_DEFINITION.map((definition) => (
                 <li
-                  className="-indent-5 pl-5 text-[15px] leading-relaxed text-primary before:pr-2 before:text-muted-foreground before:content-['—']"
+                  className="-indent-5 pl-5 text-[15px] leading-relaxed text-primary before:pr-2 before:text-muted-foreground before:content-['-']"
                   key={definition}
                 >
                   {definition}

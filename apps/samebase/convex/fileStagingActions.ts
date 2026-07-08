@@ -3801,7 +3801,7 @@ export async function createCommitWithMultipleFiles({
     }
   }
 
-  // Unreachable — the loop always returns or throws — but satisfies TypeScript
+  // Unreachable: the loop always returns or throws, but satisfies TypeScript.
   throw new Error("Exhausted commit retry attempts");
 }
 
@@ -3974,7 +3974,7 @@ export const commitAllStaged = internalAction({
         }
       }
 
-      // 4. NOW clear staging — client will refetch with correct tree + blobs
+      // 4. NOW clear staging. Client will refetch with correct tree + blobs.
       await ctx.runMutation(api.fileStaging.clearAllStaging, {
         vaultId: args.vaultId,
         branch: commitBranch,

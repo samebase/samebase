@@ -7512,7 +7512,7 @@
                     "type": "string"
                   },
                   "parameters": {
-                    "description": "Query parameters defining what data to retrieve — filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters.",
+                    "description": "Query parameters defining what data to retrieve - filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters.",
                     "properties": {
                       "calculations": {
                         "description": "Aggregation calculations to compute (e.g. count, avg, p99). Each calculation produces aggregate values and optional time-series data.",
@@ -7523,7 +7523,7 @@
                               "type": "string"
                             },
                             "key": {
-                              "description": "Field name to calculate over. Must exist in the data — verify with the keys endpoint. Omit for operators that don't require a key (e.g. count).",
+                              "description": "Field name to calculate over. Must exist in the data - verify with the keys endpoint. Omit for operators that don't require a key (e.g. count).",
                               "type": "string"
                             },
                             "keyType": {
@@ -9033,7 +9033,7 @@
                     "type": "string"
                   },
                   "parameters": {
-                    "description": "Query parameters defining what data to retrieve — filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters.",
+                    "description": "Query parameters defining what data to retrieve - filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters.",
                     "properties": {
                       "calculations": {
                         "description": "Aggregation calculations to compute (e.g. count, avg, p99). Each calculation produces aggregate values and optional time-series data.",
@@ -9044,7 +9044,7 @@
                               "type": "string"
                             },
                             "key": {
-                              "description": "Field name to calculate over. Must exist in the data — verify with the keys endpoint. Omit for operators that don't require a key (e.g. count).",
+                              "description": "Field name to calculate over. Must exist in the data - verify with the keys endpoint. Omit for operators that don't require a key (e.g. count).",
                               "type": "string"
                             },
                             "keyType": {
@@ -9932,7 +9932,7 @@
                           "type": "array"
                         },
                         "events": {
-                          "description": "Total ABR-adjusted event count for the period — sum of all breakdown bins.",
+                          "description": "Total ABR-adjusted event count for the period - sum of all breakdown bins.",
                           "type": "number"
                         }
                       },
@@ -19827,7 +19827,7 @@
                 "type": "boolean"
               }
             ],
-            "description": "Comparison value. Must match actual values in your data — verify with the values endpoint. Ensure the value type (string/number/boolean) matches the field type. String comparisons are case-sensitive. Regex uses RE2 syntax (no lookaheads/lookbehinds)."
+            "description": "Comparison value. Must match actual values in your data - verify with the values endpoint. Ensure the value type (string/number/boolean) matches the field type. String comparisons are case-sensitive. Regex uses RE2 syntax (no lookaheads/lookbehinds)."
           }
         },
         "required": ["key", "operation", "type"],

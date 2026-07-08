@@ -885,7 +885,7 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
   }
 
   // Delete collaborative updates in batches to avoid hitting read limits.
-  // Schedule the first batch — it will chain further batches if needed.
+  // Schedule the first batch. It will chain further batches if needed.
   await ctx.scheduler.runAfter(
     0,
     internal.fileStaging.deleteCollaborativeUpdatesBatch,
@@ -970,7 +970,7 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
       await ctx.db.delete(update._id);
     }
 
-    // If we got a full batch, there are likely more — schedule another round.
+    // If we got a full batch, there are likely more; schedule another round.
     if (updates.length === DELETION_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.fileStaging.deleteCollaborativeUpdatesBatch, {
         vaultId: args.vaultId,
@@ -1329,7 +1329,7 @@ export const saveToStaging = internalMutation({
   },
 });
 
-// Internal version of markFileForDeletion — callable from agent actions
+// Internal version of markFileForDeletion, callable from agent actions
 // without auth context.
 export const internalMarkFileForDeletion = internalMutation({
   args: internalDeletionArgsValidator,

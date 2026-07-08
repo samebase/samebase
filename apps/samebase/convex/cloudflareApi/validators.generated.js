@@ -34394,7 +34394,7 @@ const schema415 = {
     value: {
       anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
       description:
-        "Comparison value. Must match actual values in your data — verify with the values endpoint. Ensure the value type (string/number/boolean) matches the field type. String comparisons are case-sensitive. Regex uses RE2 syntax (no lookaheads/lookbehinds).",
+        "Comparison value. Must match actual values in your data - verify with the values endpoint. Ensure the value type (string/number/boolean) matches the field type. String comparisons are case-sensitive. Regex uses RE2 syntax (no lookaheads/lookbehinds).",
     },
   },
   required: ["key", "operation", "type"],
@@ -51908,7 +51908,7 @@ const schema444 = {
           type: "array",
         },
         events: {
-          description: "Total ABR-adjusted event count for the period — sum of all breakdown bins.",
+          description: "Total ABR-adjusted event count for the period - sum of all breakdown bins.",
           type: "number",
         },
       },

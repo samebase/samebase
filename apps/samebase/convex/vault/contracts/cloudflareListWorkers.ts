@@ -95,9 +95,9 @@ export const cloudflareListWorkersContract = {
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `Discovery read for the manual Cloudflare attach flow: lists Workers on the chosen account
-and classifies each against the app's repository — \`recommended\` (already tied to this repo and
+and classifies each against the app's repository: \`recommended\` (already tied to this repo and
 root), \`available\`, \`blocked\` (tied to a different repository; attaching would be wrong), or
 \`unknown\`. Pick a recommended or available \`workerName\` for \`connect_cloudflare_worker\`;
-never attach a blocked one. Scoped to the caller's own vault; reads from Cloudflare — the only
+never attach a blocked one. Scoped to the caller's own vault; reads from Cloudflare. The only
 writes are Samebase's own connection bookkeeping (OAuth token refresh) when needed.`,
 } as const;

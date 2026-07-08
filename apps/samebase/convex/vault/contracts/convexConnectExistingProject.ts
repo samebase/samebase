@@ -33,7 +33,7 @@ export const convexConnectExistingProjectContract = {
   doc: `The manual Convex attach: binds an existing Convex project (from
 \`list_convex_projects\`) to the app's record and starts the connection run. This is also the
 remedy \`get_user_vaults\` names as \`nextAction: "connect_convex_deployment"\` after a failed
-manual Convex attach — rerunning it with a valid target is the repair.
+manual Convex attach. Rerunning it with a valid target is the repair.
 
 Writes Samebase's deployment record and reads the project from Convex; it does not modify the
 project itself. Progress and failure are readable through \`get_user_vaults\`

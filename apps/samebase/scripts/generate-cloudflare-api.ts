@@ -87,6 +87,7 @@ if (!response.ok) {
 
 const documentText = await response.text();
 const documentJson = parseJsonSchemaDocument(documentText);
+normalizeGeneratedExternalText(documentJson);
 const subsetDocumentJson = buildCloudflareApiSubsetDocument(documentJson);
 const typeDocumentJson = normalizeCloudflareApiTypeDocument(subsetDocumentJson);
 const validationDocumentJson = normalizeCloudflareApiValidationDocument(subsetDocumentJson);
@@ -108,6 +109,33 @@ function parseJsonSchemaDocument(documentText: string): OpenAPI3WithPaths {
     return payload;
   }
   throw new Error(`${sourceUrl} did not return an OpenAPI document.`);
+}
+
+function normalizeGeneratedExternalText(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const item = value[index];
+      if (typeof item === "string") {
+        value[index] = item.replaceAll("\u2014", "-");
+        continue;
+      }
+      normalizeGeneratedExternalText(item);
+    }
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  for (const key of Object.keys(value)) {
+    const item = value[key];
+    if (typeof item === "string") {
+      value[key] = item.replaceAll("\u2014", "-");
+      continue;
+    }
+    normalizeGeneratedExternalText(item);
+  }
 }
 
 // eslint-disable-next-line samebase/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape

@@ -289,7 +289,7 @@ export const pushContentUpdate = internalMutation({
       .first();
 
     if (!staging) {
-      // No staging record means no editor is open — nothing to sync
+      // No staging record means no editor is open, nothing to sync.
       return null;
     }
 

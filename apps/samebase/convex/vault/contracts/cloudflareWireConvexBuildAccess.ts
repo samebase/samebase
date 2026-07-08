@@ -32,7 +32,7 @@ export const cloudflareWireConvexBuildAccessContract = {
 keys on the app's Convex deployment and writes them into the Workers Builds triggers as
 \`CONVEX_DEPLOY_KEY\` and \`PREVIEW_CONVEX_DEPLOY_KEY\`. This is the remedy behind
 \`nextAction: "wire_convex_build_access"\` on the Worker's \`convexDeployKeys\` axis and the
-dashboard's "Set Convex deploy keys" button — the same operation.
+dashboard's "Set Convex deploy keys" button. It is the same operation.
 
 Requires the Worker's Builds connection to exist first (\`wire_builds\` otherwise). This is a key
 rotation: previously recorded deploy keys are deleted once replacements are installed (and its own
