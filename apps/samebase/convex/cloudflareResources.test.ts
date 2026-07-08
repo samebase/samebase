@@ -7,6 +7,7 @@ vi.mock("./cloudflareMcp", () => ({
 }));
 
 import {
+  blockVerification,
   buildCloudflareWorkerCreateBody,
   buildCloudflareWorkersEnvVars,
   CloudflareApiError,
@@ -18,6 +19,7 @@ import {
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
+  verifyCloudflareWorkerInfrastructure,
   wireCloudflareWorkerConvexBuildAccess,
   wireCloudflareWorkerBuilds,
 } from "./cloudflareResources";
@@ -108,6 +110,47 @@ function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
   };
 }
 
+function buildTestVerifyCloudflareWorkerInfrastructureArgs(): Parameters<
+  typeof verifyCloudflareWorkerInfrastructure
+>[0] {
+  return {
+    vaultId: "vault-id",
+    workerName: "samebase-app",
+    workerTag: "worker-tag",
+    cloudflareToken: "oauth-token",
+    cloudflareAuthMethod: "oauth",
+    accountId: "account-id",
+    defaultBranch: "main",
+    expectedRepoId: "123",
+    buildConfig: {
+      rootDir: ".",
+      buildCommand: "pnpm build",
+      deployCommand: "pnpm deploy",
+      previewDeployCommand: "pnpm deploy:preview",
+      pathIncludes: ["**/*"],
+      pathExcludes: [],
+    },
+    build: {
+      state: "connected",
+      rootDirectory: ".",
+      buildCommand: "pnpm build",
+      deployCommand: "pnpm deploy",
+      previewDeployCommand: "pnpm deploy:preview",
+      pathIncludes: ["**/*"],
+      pathExcludes: [],
+      production: {
+        triggerUuid: "production-trigger",
+        buildTokenUuid: "build-token",
+      },
+      preview: {
+        triggerUuid: "preview-trigger",
+        buildTokenUuid: "build-token",
+      },
+    },
+    verifyConvexBuildAccess: true,
+  };
+}
+
 function cloudflareSuccessResponse(result: unknown): Response {
   return new Response(JSON.stringify({ success: true, errors: [], messages: [], result }), {
     status: 200,
@@ -169,6 +212,7 @@ function stubEnsureCloudflareResourcesFetch(args: {
   triggers: readonly unknown[];
   requests: RecordedCloudflareRequest[];
   dropReadEnvKeys?: Record<string, readonly string[]>;
+  readEnvVars?: Record<string, RecordedCloudflareEnvironmentVariables>;
 }): void {
   let createdTriggerCount = 0;
   const environmentVariables = new Map<string, RecordedCloudflareEnvironmentVariables>();
@@ -196,7 +240,10 @@ function stubEnsureCloudflareResourcesFetch(args: {
           return cloudflareSuccessResponse(environmentVariables.get(endpoint) ?? {});
         }
         if (method === "GET") {
-          const stored = { ...(environmentVariables.get(endpoint) ?? {}) };
+          const stored = {
+            ...(args.readEnvVars?.[triggerUuid] ?? {}),
+            ...(environmentVariables.get(endpoint) ?? {}),
+          };
           for (const key of args.dropReadEnvKeys?.[triggerUuid] ?? []) {
             delete stored[key];
           }
@@ -260,6 +307,40 @@ afterEach(() => {
 });
 
 describe("cloudflare resources", () => {
+  it("declares verification coverage for every durable infrastructure block", () => {
+    expect(Object.keys(blockVerification).sort()).toEqual([
+      "attach_convex",
+      "attach_worker",
+      "source_setup",
+      "wire_builds",
+      "wire_convex_build_access",
+    ]);
+    expect(blockVerification.wire_builds).toEqual({
+      verify: expect.any(Function),
+    });
+    expect(blockVerification.wire_convex_build_access).toEqual({
+      verify: expect.any(Function),
+    });
+    expect(blockVerification.attach_worker).toEqual({
+      notVerifiable: {
+        category: "state_shape_not_ready",
+        detail: "existence verifier lands in Phase 2 with the missing-upstream variant",
+      },
+    });
+    expect(blockVerification.attach_convex).toEqual({
+      notVerifiable: {
+        category: "state_shape_not_ready",
+        detail: "existence verifier lands in Phase 2 with the missing-upstream variant",
+      },
+    });
+    expect(blockVerification.source_setup).toEqual({
+      notVerifiable: {
+        category: "no_remedy",
+        detail: "a deleted or renamed source repo has no re-create/re-link verb in the catalog",
+      },
+    });
+  });
+
   it("omits trace propagation policy when creating Workers with traces disabled", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
@@ -286,6 +367,240 @@ describe("cloudflare resources", () => {
         value: "preview-key",
         is_secret: true,
       },
+    });
+  });
+
+  it("verifies recorded Cloudflare infrastructure when triggers and deploy-key variables exist", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      readEnvVars: {
+        "production-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+        },
+        "preview-trigger": {
+          PREVIEW_CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+        },
+      },
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          branch_includes: ["main"],
+          branch_excludes: [],
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+        },
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      builds: "confirmed",
+      convexBuildAccess: "confirmed",
+    });
+    expect(
+      requests.filter((request) => request.path.includes("environment_variables")),
+    ).toHaveLength(2);
+  });
+
+  it("adopts matching Workers Builds triggers when the Worker was attached before Builds were recorded", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          build_token_uuid: "production-build-token",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          build_command: "pnpm build",
+          deploy_command: "pnpm deploy",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          build_token_uuid: "preview-build-token",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+          build_command: "pnpm build",
+          deploy_command: "pnpm deploy:preview",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        build: { state: "not_connected" },
+        verifyConvexBuildAccess: false,
+      }),
+    ).resolves.toEqual({
+      builds: "adopted",
+      connectedBuilds: {
+        state: "connected",
+        rootDirectory: ".",
+        buildCommand: "pnpm build",
+        deployCommand: "pnpm deploy",
+        previewDeployCommand: "pnpm deploy:preview",
+        pathIncludes: ["**/*"],
+        pathExcludes: [],
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-build-token",
+        },
+      },
+      convexBuildAccess: "not_checked",
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("does not adopt Workers Builds triggers when the existing trigger config differs", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          build_token_uuid: "production-build-token",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          build_command: "npm run build",
+          deploy_command: "pnpm deploy",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          build_token_uuid: "preview-build-token",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+          build_command: "pnpm build",
+          deploy_command: "pnpm deploy:preview",
+          root_directory: ".",
+          path_includes: ["**/*"],
+          path_excludes: [],
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        build: { state: "not_connected" },
+        verifyConvexBuildAccess: false,
+      }),
+    ).resolves.toEqual({
+      builds: "not_checked",
+      convexBuildAccess: "not_checked",
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("contradicts connected Builds when a recorded trigger is missing", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "preview-trigger",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+        },
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      builds: "contradicted",
+      convexBuildAccess: "not_checked",
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("contradicts Convex build access when a deploy-key variable is missing", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      readEnvVars: {
+        "production-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+        },
+      },
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          branch_includes: ["main"],
+          branch_excludes: [],
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+        },
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      builds: "confirmed",
+      convexBuildAccess: "contradicted",
     });
   });
 

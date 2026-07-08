@@ -742,7 +742,8 @@ export const markWorkflowProvisioningFailed = internalMutation({
     if (
       run.trigger === "connect_cloudflare_worker" ||
       run.trigger === "wire_builds" ||
-      run.trigger === "wire_convex_build_access"
+      run.trigger === "wire_convex_build_access" ||
+      run.trigger === "verify_infrastructure"
     ) {
       const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
       if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
@@ -762,7 +763,9 @@ export const markWorkflowProvisioningFailed = internalMutation({
           ? "cloudflare:convex_build_access_wiring:failed"
           : run.trigger === "wire_builds"
             ? "cloudflare:builds_wiring:failed"
-            : "cloudflare:worker_connection:failed",
+            : run.trigger === "verify_infrastructure"
+              ? "cloudflare:infrastructure_verification:failed"
+              : "cloudflare:worker_connection:failed",
         {
           vaultId,
           repo: run.repositoryFullName,

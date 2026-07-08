@@ -5,7 +5,7 @@ import { makeConvexTest } from "../test.setup";
 
 /**
 Every runtime bridge must enforce its contract's scope before touching any
-product helper. Granting no scopes at all must block all eleven tools with the
+product helper. Granting no scopes at all must block all twelve tools with the
 tool's own MCP name in the message, the per-bridge half of the authorization
 story (the dispatch layer's current-access gate is covered in
 mcp/http.convex.test.ts).
@@ -144,6 +144,20 @@ describe("toolRuntime scope enforcement", () => {
     expect(wireConvexBuildAccess).toMatchObject({
       status: "blocked",
       text: "Insufficient scope for vault_cloudflare_wireConvexBuildAccess.",
+    });
+
+    const verifyInfrastructure = await t.action(
+      internal.toolRuntime.runtime.cloudflareVerifyInfrastructureTool,
+      {
+        userId,
+        grantedScopes,
+        vaultId,
+        appRoot: ".",
+      },
+    );
+    expect(verifyInfrastructure).toMatchObject({
+      status: "blocked",
+      text: "Insufficient scope for vault_cloudflare_verifyInfrastructure.",
     });
 
     const retry = await t.action(internal.toolRuntime.runtime.retryInfrastructureProvisioningTool, {

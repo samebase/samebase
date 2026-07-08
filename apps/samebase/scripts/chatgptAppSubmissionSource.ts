@@ -92,6 +92,13 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
     destructive_justification:
       "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. Does not delete user data, deployments, or Workers.",
   },
+  vault_cloudflare_verifyInfrastructure: {
+    read_only_justification:
+      "Reads the caller's recorded Cloudflare Worker build triggers and trigger variables, then records Samebase state corrections when recorded infrastructure is stale.",
+    open_world_justification:
+      "Reads from the caller's Cloudflare account and writes only Samebase registry state; it does not create or modify provider resources.",
+    destructive_justification: noDestructiveActions,
+  },
   vault_actions_retryInfrastructureProvisioning: {
     read_only_justification:
       "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",
@@ -160,6 +167,16 @@ export const testCases = [
     tools_triggered: "vault_dashboard_getUserVaults, vault_cloudflare_wireBuilds",
     expected_output:
       "Reads the app state, finds the worker whose githubRepositoryConnection carries nextAction wire_builds, and starts the Builds wiring run for that app root.",
+    expected_output_url: null,
+  },
+  {
+    description: "Verify recorded Cloudflare infrastructure when a user suspects drift.",
+    user_prompt:
+      "One of my Samebase apps has stale Cloudflare infrastructure. Check it and mark anything that needs repair.",
+    file_attachment_urls: null,
+    tools_triggered: "vault_dashboard_getUserVaults, vault_cloudflare_verifyInfrastructure",
+    expected_output:
+      "Reads the app state, identifies the attached Cloudflare Worker to verify, runs infrastructure verification for that app root, and reports any repair action surfaced by the refreshed app state.",
     expected_output_url: null,
   },
 ] as const;

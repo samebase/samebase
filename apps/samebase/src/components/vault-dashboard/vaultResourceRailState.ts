@@ -1,5 +1,6 @@
 import type { api } from "../../../convex/_generated/api";
 import {
+  type VaultResourceRailActionList,
   type VaultResourceRailAction,
   type VaultResourceRailRowState,
   type VaultResourceRailState,
@@ -43,6 +44,7 @@ function resolveSourceSetupResourceProvider(
     case "attach_worker":
     case "wire_builds":
     case "wire_convex_build_access":
+    case "verify_infrastructure":
     case "record_domains":
       return "cloudflare";
     case "finish":
@@ -79,6 +81,7 @@ function isCloudflareWorkerWiringStep(step: VaultDashboardProviderSetupStep | nu
   switch (step) {
     case "wire_builds":
     case "wire_convex_build_access":
+    case "verify_infrastructure":
       return true;
     case "run_created":
     case "initialize_vault":
@@ -176,8 +179,10 @@ export function buildVaultDashboardResourceRailState({
   isConnectingCloudflareGithubRepo,
   isRetryingInfrastructure,
   isSettingCloudflareConvexDeployKeys,
+  isVerifyingCloudflareInfrastructure,
   retryInfrastructureOnClick,
   setCloudflareConvexDeployKeysOnClick,
+  verifyCloudflareInfrastructureOnClick,
   vault,
 }: {
   buildAddCloudflareWorkerHref?: (appRoot: string) => string;
@@ -191,13 +196,16 @@ export function buildVaultDashboardResourceRailState({
   isConnectingCloudflareGithubRepo?: (appRoot: string) => boolean;
   isRetryingInfrastructure?: boolean;
   isSettingCloudflareConvexDeployKeys?: (appRoot: string) => boolean;
+  isVerifyingCloudflareInfrastructure?: (appRoot: string) => boolean;
   retryInfrastructureOnClick?: () => void;
   setCloudflareConvexDeployKeysOnClick?: (appRoot: string) => void;
+  verifyCloudflareInfrastructureOnClick?: (appRoot: string) => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
     vault.state === "ready" && !isVaultResourceSetupBlockingManualActions(vault);
   const canRepairCloudflareWorkers = canRepairCloudflareWorker(vault);
+  const canVerifyCloudflareWorkers = canRepairCloudflareWorkers;
   const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
   const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
@@ -297,6 +305,18 @@ export function buildVaultDashboardResourceRailState({
       disabled: isSetting || !setCloudflareConvexDeployKeysOnClick,
       onClick: setCloudflareConvexDeployKeysOnClick
         ? () => setCloudflareConvexDeployKeysOnClick(appRoot)
+        : undefined,
+    };
+  }
+
+  function buildVerifyCloudflareInfrastructureAction(appRoot: string): VaultResourceRailAction {
+    const isVerifying = isVerifyingCloudflareInfrastructure?.(appRoot) ?? false;
+    return {
+      kind: "verify",
+      label: isVerifying ? "Verifying..." : "Verify infrastructure",
+      disabled: isVerifying || !verifyCloudflareInfrastructureOnClick,
+      onClick: verifyCloudflareInfrastructureOnClick
+        ? () => verifyCloudflareInfrastructureOnClick(appRoot)
         : undefined,
     };
   }
@@ -412,6 +432,7 @@ export function buildVaultDashboardResourceRailState({
     );
     for (const worker of sortedCloudflareWorkers) {
       let cloudflareAction: VaultResourceRailAction | undefined;
+      let verifyAction: VaultResourceRailAction | undefined;
       let cloudflareDescription: string | undefined;
       const missingBuildsTriggerFailure = hasCurrentMissingCloudflareBuildsTriggerFailure(
         vault,
@@ -429,8 +450,23 @@ export function buildVaultDashboardResourceRailState({
         cloudflareDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
         cloudflareAction = buildSetCloudflareConvexDeployKeysAction(worker.appRoot);
       }
+      if (
+        canVerifyCloudflareWorkers &&
+        (verifyCloudflareInfrastructureOnClick ||
+          isVerifyingCloudflareInfrastructure?.(worker.appRoot))
+      ) {
+        verifyAction = buildVerifyCloudflareInfrastructureAction(worker.appRoot);
+      }
+      let cloudflareActions: VaultResourceRailActionList | undefined;
+      if (cloudflareAction && verifyAction) {
+        cloudflareActions = [cloudflareAction, verifyAction];
+      } else if (cloudflareAction) {
+        cloudflareActions = [cloudflareAction];
+      } else if (verifyAction) {
+        cloudflareActions = [verifyAction];
+      }
       cloudflareRowsByAppRoot.set(worker.appRoot, {
-        actions: cloudflareAction ? [cloudflareAction] : undefined,
+        actions: cloudflareActions,
         description: cloudflareDescription,
         provider: "cloudflare",
         status: "ready",

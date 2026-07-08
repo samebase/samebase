@@ -39,6 +39,8 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
       return "wire Builds";
     case "wire_convex_build_access":
       return "wire Convex build access";
+    case "verify_infrastructure":
+      return "verify infrastructure";
     case "record_domains":
       return "record domains";
     case "finish":

@@ -73,6 +73,9 @@ const contractSourceByMcpName: Record<string, string> = {
   vault_cloudflare_wireConvexBuildAccess: samebaseAppFilePath(
     "convex/vault/contracts/cloudflareWireConvexBuildAccess.ts",
   ),
+  vault_cloudflare_verifyInfrastructure: samebaseAppFilePath(
+    "convex/vault/contracts/cloudflareVerifyInfrastructure.ts",
+  ),
   vault_actions_retryInfrastructureProvisioning: samebaseAppFilePath(
     "convex/vault/contracts/retryInfrastructureProvisioning.ts",
   ),
