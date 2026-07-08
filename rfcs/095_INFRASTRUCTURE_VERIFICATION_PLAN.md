@@ -27,7 +27,7 @@
 Registry state is trust-on-write. Every rfcs/090 block records durable state when it succeeds
 (`deployment.builds`, `deployment.convexBuildAccess` on `vaultCloudflareWorkers`), and every surface
 derives from that record alone — `getUserVaults` resolves `convexDeployKeys` from
-`deployment.convexBuildAccess.state` (`apps/samebase/convex/vault/dashboard.ts:329`) and nothing
+`deployment.convexBuildAccess.state` (`apps/samebase/convex/vault/dashboard.ts:347`) and nothing
 ever writes a fresh observation back. Live state and the wiring contract both move underneath the
 record: users edit or delete triggers, variables, and Workers in the Cloudflare dashboard, and
 Samebase's own conventions change — v1651 renamed the production variable to `CONVEX_DEPLOY_KEY`
@@ -49,9 +49,10 @@ construction.
 
 ## The Rule: The Verifier Is Part Of The Block
 
-Each rfcs/090 block writes one durable registry axis (`wire_builds` → `deployment.builds`,
-`wire_convex_build_access` → `deployment.convexBuildAccess`, `attach_worker` → the Worker row,
-`attach_convex` → the deployment row). Verification pairs with that write, not with a central list:
+Each rfcs/090 block writes one durable registry axis (`source_setup` → the vault row and
+`vaultBranchTrees`, `wire_builds` → `deployment.builds`, `wire_convex_build_access` →
+`deployment.convexBuildAccess`, `attach_worker` → the Worker row, `attach_convex` → the deployment
+row). Verification pairs with that write, not with a central list:
 
 1. Every provisioning block that owns a durable registry axis declares its verification story in one
    registry entry: either a **verifier** for that axis, or a **not-verifiable declaration** carrying
@@ -122,8 +123,11 @@ Each rfcs/090 block writes one durable registry axis (`wire_builds` → `deploym
    fetched, stored, logged, or compared (existing rfcs/090 doctrine).
 4. Fail closed on unverifiable. A provider error, a missing or expired connection, or a Worker-scope
    404 writes nothing; only a successful authoritative read that contradicts the record flips state.
-   Writes are per-row atomic: every live read a row needs must succeed before that row's single
-   conditional patch, so a mid-run provider failure never leaves a half-verified row.
+   The authority is not always the provider: for the wired-without-deployment reset the registry
+   itself is the authoritative read — whether a Convex deployment row exists for the app root is a
+   Samebase fact, so that contradiction flips with no provider call. Writes are per-row atomic:
+   every live read a row needs must succeed before that row's single conditional patch, so a mid-run
+   provider failure never leaves a half-verified row.
 5. On-demand only. No cron, no background reconciliation, no polling. Freshness is expressed by
    `lastObservedAt` (already on both `vaultCloudflareWorkers` and `vaultConvexDeployments`; also
    refreshed today by Convex schema snapshot reads,
@@ -153,7 +157,7 @@ Rules:
 
 - A trigger that exists but is bound to a different repo or root does not flip in Phase 1: today's
   `wire_builds` throws on a conflicting same-kind trigger
-  (`assertBuildTriggerMatchesRepositoryAndRoot`, `apps/samebase/convex/cloudflareResources.ts:1229`)
+  (`assertBuildTriggerMatchesRepositoryAndRoot`, `apps/samebase/convex/cloudflareResources.ts:1182`)
   instead of repairing it, so flipping would point the noun at a dead-end remedy. Rebind detection
   ships in Phase 2 together with that `wire_builds` repair path.
 - Flipping `builds` to `not_connected` also resets `convexBuildAccess` to `not_wired`: the keys were
