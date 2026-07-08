@@ -21,6 +21,7 @@ import { convexConnectExistingProjectContract } from "../vault/contracts/convexC
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
 import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
 import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import {
   MCP_CONSENT_APP_PATH,
@@ -160,6 +161,17 @@ async function callCloudflareWireConvexBuildAccessMcpTool(
   );
 }
 
+async function callCloudflareVerifyInfrastructureMcpTool(
+  ctx: ActionCtx,
+  invocation: McpToolInvocation,
+) {
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.cloudflareVerifyInfrastructureTool,
+    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
+    buildMcpToolInvocationArgs(invocation),
+  );
+}
+
 async function callRetryInfrastructureProvisioningMcpTool(
   ctx: ActionCtx,
   invocation: McpToolInvocation,
@@ -281,6 +293,17 @@ const mcpToolCatalog = [
       cloudflareWireConvexBuildAccessContract.mcp.inputDescriptions,
     ),
     call: callCloudflareWireConvexBuildAccessMcpTool,
+  },
+  {
+    access: cloudflareVerifyInfrastructureContract.access,
+    name: cloudflareVerifyInfrastructureContract.mcp.name,
+    description: cloudflareVerifyInfrastructureContract.mcp.description,
+    annotations: cloudflareVerifyInfrastructureContract.mcp.annotations,
+    inputSchema: convexArgsToToolInputSchema(
+      cloudflareVerifyInfrastructureContract.args,
+      cloudflareVerifyInfrastructureContract.mcp.inputDescriptions,
+    ),
+    call: callCloudflareVerifyInfrastructureMcpTool,
   },
   {
     access: retryInfrastructureProvisioningContract.access,
@@ -505,6 +528,9 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
   if (toolName === cloudflareWireConvexBuildAccessContract.mcp.name) {
     return "vault_cloudflare_wireConvexBuildAccess";
+  }
+  if (toolName === cloudflareVerifyInfrastructureContract.mcp.name) {
+    return "vault_cloudflare_verifyInfrastructure";
   }
   if (toolName === retryInfrastructureProvisioningContract.mcp.name) {
     return "vault_actions_retryInfrastructureProvisioning";

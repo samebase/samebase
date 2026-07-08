@@ -92,6 +92,13 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
     destructive_justification:
       "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. Does not delete user data, deployments, or Workers.",
   },
+  vault_cloudflare_verifyInfrastructure: {
+    read_only_justification:
+      "Reads the caller's recorded Cloudflare Worker build triggers and trigger variables, then records Samebase state corrections when recorded infrastructure is stale.",
+    open_world_justification:
+      "Reads from the caller's Cloudflare account and writes only Samebase registry state; it does not create or modify provider resources.",
+    destructive_justification: noDestructiveActions,
+  },
   vault_actions_retryInfrastructureProvisioning: {
     read_only_justification:
       "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",

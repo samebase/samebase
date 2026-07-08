@@ -20,13 +20,17 @@ import {
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
+  CloudflareApiError,
   type CloudflareBuildConfig,
   createCloudflareWorker,
   deleteCloudflareResources,
+  isCloudflareWorkerNotFoundError,
   listCloudflareWorkersWithRepositoryDiscovery,
   readCloudflareWorkerRepositoryDiscovery,
   readOptionalWorkersDevUrl,
   type CloudflareWorkerRepositoryDiscovery,
+  verifyCloudflareWorkerInfrastructure,
+  type CloudflareWorkerInfrastructureVerificationResult,
   wireCloudflareWorkerBuilds,
   wireCloudflareWorkerConvexBuildAccess,
 } from "../cloudflareResources";
@@ -59,6 +63,7 @@ import {
 import { cloudflareConnectExistingWorkerContract } from "./contracts/cloudflareConnectExistingWorker";
 import { cloudflareWireBuildsContract } from "./contracts/cloudflareWireBuilds";
 import { cloudflareWireConvexBuildAccessContract } from "./contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareVerifyInfrastructureContract } from "./contracts/cloudflareVerifyInfrastructure";
 
 const { id, null: nullValue, string } = v;
 
@@ -485,6 +490,29 @@ async function startCloudflareConvexBuildAccessWiringOrFail(
   }
 }
 
+async function startCloudflareInfrastructureVerificationOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appRoot: string;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.appProvisioningWorkflow.startCloudflareInfrastructureVerification,
+      args,
+    );
+  } catch (error) {
+    await markCloudflareWorkerConnectionStartupFailed(ctx, {
+      runId: args.runId,
+      error,
+    });
+    throw error;
+  }
+}
+
 async function isCloudflareWorkerConnectionRunActive(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
@@ -541,6 +569,44 @@ async function readActiveCloudflareConvexBuildAccessWiring(
       appRoot: args.appRoot,
     },
   );
+}
+
+async function readActiveCloudflareInfrastructureVerification(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appRoot: string;
+  },
+) {
+  return await ctx.runQuery(
+    internal.vault.cloudflareMutations.readActiveCloudflareInfrastructureVerification,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      appRoot: args.appRoot,
+    },
+  );
+}
+
+function resolveInfrastructureVerificationUnverifiableMessage(error: unknown): string | null {
+  if (isCloudflareWorkerNotFoundError(error)) {
+    return "Cloudflare Worker could not be verified because Cloudflare did not return the recorded Worker.";
+  }
+  if (error instanceof CloudflareApiError) {
+    return "Cloudflare infrastructure could not be verified because Cloudflare did not return a verifiable response.";
+  }
+  if (error instanceof Error) {
+    if (error.message === "Cloudflare connection is required.") {
+      return "Cloudflare infrastructure could not be verified because the Cloudflare connection is missing.";
+    }
+    if (error.message === "Cloudflare account is not available for this connection.") {
+      return "Cloudflare infrastructure could not be verified because the recorded Cloudflare account is unavailable.";
+    }
+  }
+  return null;
 }
 
 export async function listCloudflareAccountsForUser(
@@ -807,6 +873,48 @@ export const wireConvexBuildAccess = action({
   mcp: cloudflareWireConvexBuildAccessContract.mcp,
   handler: async (ctx, args): Promise<null> => {
     return await wireCloudflareConvexBuildAccessForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
+  },
+});
+
+export async function verifyCloudflareInfrastructureForUser(
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
+  args: { userId: Id<"users">; vaultId: Id<"vaults">; appRoot: string },
+): Promise<null> {
+  const userId = args.userId;
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  await ctx.runQuery(
+    internal.vault.cloudflareMutations.requireCloudflareInfrastructureVerificationVault,
+    {
+      vaultId: args.vaultId,
+      userId,
+      appRoot,
+    },
+  );
+  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    userId,
+    vaultId: args.vaultId,
+    trigger: "verify_infrastructure",
+  });
+  await startCloudflareInfrastructureVerificationOrFail(ctx, {
+    vaultId: args.vaultId,
+    runId,
+    userId,
+    appRoot,
+  });
+
+  return null;
+}
+
+export const verifyInfrastructure = action({
+  access: cloudflareVerifyInfrastructureContract.access,
+  args: cloudflareVerifyInfrastructureContract.args,
+  returns: cloudflareVerifyInfrastructureContract.returns,
+  mcp: cloudflareVerifyInfrastructureContract.mcp,
+  handler: async (ctx, args): Promise<null> => {
+    return await verifyCloudflareInfrastructureForUser(ctx, {
       ...args,
       userId: ctx.viewer.userId,
     });
@@ -1193,6 +1301,103 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         });
       }
       throw error;
+    }
+
+    return null;
+  },
+});
+
+export const ensureCloudflareInfrastructureVerification = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    const active = await readActiveCloudflareInfrastructureVerification(ctx, args);
+    if (!active.active) {
+      return null;
+    }
+
+    if (active.worker.deployment.builds.state !== "connected") {
+      const { applied } = await ctx.runMutation(
+        internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification,
+        {
+          vaultId: args.vaultId,
+          runId: args.runId,
+          userId: args.userId,
+          appRoot: args.appRoot,
+          providerResult: {
+            builds: "not_checked",
+            convexBuildAccess: "not_checked",
+          },
+        },
+      );
+      if (!applied) {
+        throw new Error("Infrastructure verification was superseded.");
+      }
+      return null;
+    }
+
+    let providerResult: CloudflareWorkerInfrastructureVerificationResult;
+    try {
+      const cloudflareConnection = await resolveCloudflareConnection(ctx, args.userId);
+      const account = await resolveAccount(ctx, {
+        token: cloudflareConnection.token,
+        transport: cloudflareConnection.transport,
+        accountId: active.worker.accountId,
+      });
+      providerResult = await verifyCloudflareWorkerInfrastructure({
+        vaultId: args.vaultId,
+        workerName: active.worker.workerName,
+        workerTag: active.worker.workerTag,
+        cloudflareToken: cloudflareConnection.token,
+        cloudflareAuthMethod: cloudflareConnection.auth.method,
+        accountId: account.accountId,
+        build: active.worker.deployment.builds,
+        verifyConvexBuildAccess:
+          active.hasConvexDeployment &&
+          active.worker.deployment.convexBuildAccess.state === "wired",
+        recordApiCall: createProviderApiCallRecorder(ctx, {
+          runId: args.runId,
+          step: "verify_infrastructure",
+        }),
+      });
+    } catch (error) {
+      const message = resolveInfrastructureVerificationUnverifiableMessage(error);
+      if (!message) {
+        throw error;
+      }
+      const { applied } = await ctx.runMutation(
+        internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerificationUnverifiable,
+        {
+          vaultId: args.vaultId,
+          runId: args.runId,
+          userId: args.userId,
+          appRoot: args.appRoot,
+          message,
+        },
+      );
+      if (!applied) {
+        throw new Error("Infrastructure verification was superseded.");
+      }
+      return null;
+    }
+
+    const { applied } = await ctx.runMutation(
+      internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+        providerResult,
+      },
+    );
+    if (!applied) {
+      throw new Error("Infrastructure verification was superseded.");
     }
 
     return null;

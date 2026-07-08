@@ -128,6 +128,18 @@
         "destructive_justification": "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. Does not delete user data, deployments, or Workers."
       }
     },
+    "vault_cloudflare_verifyInfrastructure": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reads the caller's recorded Cloudflare Worker build triggers and trigger variables, then records Samebase state corrections when recorded infrastructure is stale.",
+        "open_world_justification": "Reads from the caller's Cloudflare account and writes only Samebase registry state; it does not create or modify provider resources.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
     "vault_actions_retryInfrastructureProvisioning": {
       "annotations": {
         "readOnlyHint": false,

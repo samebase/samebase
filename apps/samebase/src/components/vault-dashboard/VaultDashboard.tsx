@@ -324,7 +324,7 @@ type VaultDashboardDeletionStep = Extract<
 >["currentStep"];
 type CloudflareWorkerRepairActionInFlight = {
   appRoot: string;
-  kind: "connect_github_repo" | "set_convex_deploy_keys";
+  kind: "connect_github_repo" | "set_convex_deploy_keys" | "verify_infrastructure";
   vaultId: Id<"vaults">;
 };
 
@@ -2961,6 +2961,7 @@ type VaultDashboardViewProps = {
   ) => void;
   onResourceLinksOpenChange: (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => void;
   onSetCloudflareConvexDeployKeys: (vaultId: Id<"vaults">, appRoot: string) => void;
+  onVerifyCloudflareInfrastructure: (vaultId: Id<"vaults">, appRoot: string) => void;
 };
 
 function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
@@ -3175,6 +3176,7 @@ export function VaultDashboardView({
   onSaveVaultBranchFilters,
   onResourceLinksOpenChange,
   onSetCloudflareConvexDeployKeys,
+  onVerifyCloudflareInfrastructure,
 }: VaultDashboardViewProps) {
   const navigate = useNavigate();
   const dashboardRoutePathname = useLocation({
@@ -3294,6 +3296,10 @@ export function VaultDashboardView({
             cloudflareWorkerRepairActionInFlight?.kind === "set_convex_deploy_keys" &&
             cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
             cloudflareWorkerRepairActionInFlight.appRoot === appRoot,
+          isVerifyingCloudflareInfrastructure: (appRoot) =>
+            cloudflareWorkerRepairActionInFlight?.kind === "verify_infrastructure" &&
+            cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
+            cloudflareWorkerRepairActionInFlight.appRoot === appRoot,
           retryInfrastructureOnClick: isInfrastructureRetryInFlight
             ? undefined
             : () => {
@@ -3303,6 +3309,11 @@ export function VaultDashboardView({
             ? undefined
             : (appRoot) => {
                 onSetCloudflareConvexDeployKeys(vault._id, appRoot);
+              },
+          verifyCloudflareInfrastructureOnClick: isCloudflareWorkerRepairActionInFlight
+            ? undefined
+            : (appRoot) => {
+                onVerifyCloudflareInfrastructure(vault._id, appRoot);
               },
           vault,
         });
@@ -3598,6 +3609,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
   const wireCloudflareBuilds = useAction(api.vault.cloudflare.wireBuilds);
   const wireCloudflareConvexBuildAccess = useAction(api.vault.cloudflare.wireConvexBuildAccess);
+  const verifyCloudflareInfrastructure = useAction(api.vault.cloudflare.verifyInfrastructure);
   const [cloudflareWorkerRepairActionInFlight, setCloudflareWorkerRepairActionInFlight] =
     useState<CloudflareWorkerRepairActionInFlight | null>(null);
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
@@ -4543,6 +4555,29 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
+  const handleVerifyCloudflareInfrastructure = async (vaultId: Id<"vaults">, appRoot: string) => {
+    if (cloudflareWorkerRepairActionInFlight) {
+      return;
+    }
+
+    setCloudflareWorkerRepairActionInFlight({
+      appRoot,
+      kind: "verify_infrastructure",
+      vaultId,
+    });
+    try {
+      await verifyCloudflareInfrastructure({ appRoot, vaultId });
+    } catch (error) {
+      toast({
+        title: "Could not verify Cloudflare infrastructure",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCloudflareWorkerRepairActionInFlight(null);
+    }
+  };
+
   const handleCommitBeforeRemove = async () => {
     if (!vaultToDelete || isCommitting || isDeleting) return;
 
@@ -4707,6 +4742,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         onResourceLinksOpenChange={handleVaultResourceLinksOpenChange}
         onSetCloudflareConvexDeployKeys={(vaultId, appRoot) => {
           void handleSetCloudflareConvexDeployKeys(vaultId, appRoot);
+        }}
+        onVerifyCloudflareInfrastructure={(vaultId, appRoot) => {
+          void handleVerifyCloudflareInfrastructure(vaultId, appRoot);
         }}
       />
     );

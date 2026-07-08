@@ -1542,6 +1542,23 @@ type WireCloudflareWorkerConvexBuildAccessArgs = {
   recordApiCall?: ProviderApiCallRecorder;
 };
 
+export type CloudflareWorkerInfrastructureVerificationResult = {
+  builds: "confirmed" | "contradicted";
+  convexBuildAccess: "confirmed" | "contradicted" | "not_checked";
+};
+
+type VerifyCloudflareWorkerInfrastructureArgs = {
+  vaultId: string;
+  workerName: string;
+  workerTag: string;
+  cloudflareToken: string;
+  cloudflareAuthMethod: CloudflareAuthMethod;
+  accountId: string;
+  build: Pick<CloudflareWorkersBuilds, "production" | "preview">;
+  verifyConvexBuildAccess: boolean;
+  recordApiCall?: ProviderApiCallRecorder;
+};
+
 function assertExpectedBuildTriggerStillExists(args: {
   triggers: readonly CloudflareBuildTrigger[];
   kind: CloudflareBuildTriggerKind;
@@ -1581,6 +1598,22 @@ function assertExpectedBuildTriggerStillExists(args: {
     repositoryFullName: args.repositoryFullName,
     workerTag: args.workerTag,
   });
+}
+
+function hasRecordedBuildTrigger(args: {
+  triggers: readonly CloudflareBuildTrigger[];
+  triggerUuid: string;
+}): boolean {
+  return args.triggers.some(
+    (trigger) => !trigger.deleted_on && trigger.trigger_uuid === args.triggerUuid,
+  );
+}
+
+function hasCloudflareBuildEnvironmentVariable(args: {
+  envVars: CloudflareBuildEnvVarsResponse;
+  key: string;
+}): boolean {
+  return Object.prototype.hasOwnProperty.call(args.envVars, args.key);
 }
 
 async function configureCloudflareWorkerBuilds(
@@ -1721,6 +1754,113 @@ export async function wireCloudflareWorkerBuilds(
       workerName: args.workerName,
       workerTag: args.workerTag,
       repo: `${args.owner}/${args.repo}`,
+      step,
+      message: toErrorMessage(error),
+    });
+    throw error;
+  }
+}
+
+export async function verifyCloudflareWorkerInfrastructure(
+  args: VerifyCloudflareWorkerInfrastructureArgs,
+): Promise<CloudflareWorkerInfrastructureVerificationResult> {
+  console.log("infra:cloudflare:verify:start", {
+    vaultId: args.vaultId,
+    accountId: args.accountId,
+    workerName: args.workerName,
+    workerTag: args.workerTag,
+  });
+
+  const transport = resolveCloudflareApiTransport(args.cloudflareAuthMethod);
+  let step = "read_build_triggers";
+  try {
+    const triggers = await listBuildTriggers({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      workerTag: args.workerTag,
+      transport,
+      recordApiCall: args.recordApiCall,
+    });
+    const productionTriggerExists = hasRecordedBuildTrigger({
+      triggers,
+      triggerUuid: args.build.production.triggerUuid,
+    });
+    const previewTriggerExists = hasRecordedBuildTrigger({
+      triggers,
+      triggerUuid: args.build.preview.triggerUuid,
+    });
+    if (!productionTriggerExists || !previewTriggerExists) {
+      console.log("infra:cloudflare:verify:builds_contradicted", {
+        vaultId: args.vaultId,
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+        productionTriggerExists,
+        previewTriggerExists,
+      });
+      return {
+        builds: "contradicted",
+        convexBuildAccess: "not_checked",
+      };
+    }
+    if (!args.verifyConvexBuildAccess) {
+      console.log("infra:cloudflare:verify:builds_confirmed", {
+        vaultId: args.vaultId,
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+      });
+      return {
+        builds: "confirmed",
+        convexBuildAccess: "not_checked",
+      };
+    }
+
+    step = "read_build_environment_variables";
+    const [productionEnvVars, previewEnvVars] = await Promise.all([
+      listTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.production.triggerUuid,
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+      listTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.preview.triggerUuid,
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+    ]);
+    const productionDeployKeyPresent = hasCloudflareBuildEnvironmentVariable({
+      envVars: productionEnvVars,
+      key: CONVEX_DEPLOY_KEY,
+    });
+    const previewDeployKeyPresent = hasCloudflareBuildEnvironmentVariable({
+      envVars: previewEnvVars,
+      key: PREVIEW_CONVEX_DEPLOY_KEY,
+    });
+    const convexBuildAccess =
+      productionDeployKeyPresent && previewDeployKeyPresent ? "confirmed" : "contradicted";
+
+    console.log("infra:cloudflare:verify:success", {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+      convexBuildAccess,
+    });
+    return {
+      builds: "confirmed",
+      convexBuildAccess,
+    };
+  } catch (error) {
+    console.error("infra:cloudflare:verify:failed", {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
       step,
       message: toErrorMessage(error),
     });

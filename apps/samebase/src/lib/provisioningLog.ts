@@ -14,6 +14,7 @@ export type ProvisioningLogStep =
   | "attach_worker"
   | "wire_builds"
   | "wire_convex_build_access"
+  | "verify_infrastructure"
   | "record_domains"
   | "finish";
 
@@ -53,6 +54,7 @@ const provisioningStepLabels = {
   attach_worker: "attach Worker",
   wire_builds: "wire Builds",
   wire_convex_build_access: "wire Convex build access",
+  verify_infrastructure: "verify infrastructure",
   record_domains: "record domains",
   finish: "finish",
 } satisfies Record<ProvisioningLogStep, string>;
