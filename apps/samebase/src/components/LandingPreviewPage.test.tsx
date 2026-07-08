@@ -79,11 +79,17 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("samebase hides");
     expect(markup).toContain("samebase.com uses the exact same stack it recommends.");
     expect(markup).toContain("the first customer was me, Nicu.");
-    expect(markup).toContain("personal and idle ideas should cost $0/month.");
+    expect(markup).toContain(
+      "creating apps should stay free; scale should be metered only when it is measured.",
+    );
+    expect(markup).toContain("Creating an app is free permanently");
+    expect(markup).toContain("Read pricing");
+    expect(markup).toContain('href="/pricing"');
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
     expect(markup).toContain("adds margin, not capability");
     expect(markup).toContain("I built it, then I deleted it.");
     expect(markup).toContain("your app is a security risk.");
+    expect(markup).toContain("create, import, attach, and repair apps");
     expect(markup).toContain("no Samebase account needed");
     expect(markup).toContain("drag it");
     expect(markup).toContain("open the logo lab");
@@ -93,6 +99,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("https://www.youtube.com/watch?v=h6ffyfabfa8");
     expect(markup).toContain("the leaving test");
     expect(markup).toContain("Samebase adds no floor of its own.");
+    expect(markup).toContain("FileView gets metered only when it has real scale to measure.");
     expect(markup).toContain("GitHub");
     expect(markup).toContain("Convex");
     expect(markup).toContain("Cloudflare");

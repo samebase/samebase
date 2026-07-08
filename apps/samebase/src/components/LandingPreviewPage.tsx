@@ -46,7 +46,7 @@ const LANDING_CORRECT_DEFINITION = [
   "there was no upselling, no funnels, no VCs.",
   "if we figured out the best way to build apps, why would we use anything else?",
   "is your current app builder giving you the same stack they use?",
-  "personal and idle ideas should cost $0/month.",
+  "creating apps should stay free; scale should be metered only when it is measured.",
 ] as const;
 
 const DOCS_SIDEBAR_LINKS = [
@@ -467,8 +467,14 @@ function LandingPreviewOverview() {
               <LandingCtaRow />
             </div>
             <p className="mt-3.5 text-sm text-muted-foreground">
-              Samebase is free today; an idle app costs $0/month.
+              Creating an app is free permanently; FileView metering comes later.
               <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
+              <Link
+                className="ml-2 border-b border-border pb-px no-underline hover:border-foreground hover:text-foreground"
+                to={DOCS_PRICING_ROUTE}
+              >
+                Read pricing
+              </Link>
             </p>
           </div>
           <div className="mt-16 md:mt-0">
@@ -659,7 +665,10 @@ function LandingPreviewOverview() {
                 Type safety used to be taste. With agents it's leverage: the template is typed end
                 to end, so the compiler catches an agent's mistakes before your users do.
               </p>
-              <p>Samebase also speaks MCP: your agent can create and list your apps itself.</p>
+              <p>
+                Samebase also speaks MCP: your agent can create, import, attach, and repair apps
+                through the same contracts the dashboard uses.
+              </p>
             </div>
           </LandingZone>
         </div>
@@ -706,6 +715,10 @@ function LandingPreviewOverview() {
                   marker="‡"
                 />{" "}
                 and when you grow, you pay Convex directly.
+              </p>
+              <p>
+                Samebase follows that rule too: app creation stays free, and FileView gets metered
+                only when it has real scale to measure.
               </p>
             </div>
 

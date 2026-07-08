@@ -123,11 +123,22 @@ test("landing preview route renders the React overview in workspace chrome", asy
   );
   await expect(article).toContainText("samebase.com uses the exact same stack it recommends");
   await expect(article).toContainText("the first customer was me, Nicu");
-  await expect(article).toContainText("personal and idle ideas should cost $0/month");
+  await expect(article).toContainText(
+    "creating apps should stay free; scale should be metered only when it is measured",
+  );
+  await expect(article).toContainText("Creating an app is free permanently");
+  await expect(article.getByRole("link", { name: "Read pricing" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${DOCS_PRICING_ROUTE}(\\?|$)`),
+  );
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article).toContainText("Cloudflare");
   await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
+  await expect(article).toContainText("create, import, attach, and repair apps");
+  await expect(article).toContainText(
+    "FileView gets metered only when it has real scale to measure",
+  );
   // One interactive logo beside the hero, four zone rail marks, one closing band.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(6);
   await expect(article).toContainText("drag it");
