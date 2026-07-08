@@ -1,4 +1,4 @@
-# 094 Infrastructure Verification Plan
+# 095 Infrastructure Verification Plan
 
 ## Document Control
 
@@ -12,7 +12,9 @@
   wiring.
 - Related rfcs: `rfcs/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md` (the block set this extends),
   `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md` (the status noun and `nextAction` that render
-  verification results; names the "state lies amplified" risk this plan mitigates)
+  verification results; names the "state lies amplified" risk this plan mitigates),
+  `rfcs/094_AGENT_ACTION_DOCS_REGISTRY_PLAN.md` (the guide layer; the long-form
+  `verify_infrastructure` guide lands there once the registry ships)
 - Related specs: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`,
   `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`,
   `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
@@ -111,11 +113,16 @@ Rules:
 ## Phases
 
 Phase 1 — **Block, contract, dashboard action**: the `verify_infrastructure` block covering the
-checks above, with its action contract module shipping alongside the dashboard button (the rfcs/093
-invariant: no new operational UI button without a contract; only MCP exposure defers); a "Verify
-infrastructure" entry in the app resource rail, shown when the app has an attached Worker row,
-disabled while any run is active; no result UI beyond the refreshed noun. Truth-table tests extend
-the existing `nextAction` enumeration.
+checks above, shipping with its contract module registered in the action catalog
+(`apps/samebase/convex/toolRuntime/actionCatalog.ts`). The rfcs/093 Phase 2b+2c catalog landed in
+v1656 (PR #1177), so one registration renders every surface — the MCP tool, the generated
+`/docs/actions/verify_infrastructure.md` page, llms.txt, and usage attribution — and the catalog
+`id` doubles as the `nextAction` vocabulary. Because catalog entry means MCP exposure, the PR
+carries the explicit MCP-write-surface section the catalog PR established; this tool writes only
+Samebase registry rows, and its provider access is read-only. A "Verify infrastructure" entry in the
+app resource rail, shown when the app has an attached Worker row, disabled while any run is active;
+no result UI beyond the refreshed noun — for an agent the verb closes the operate loop: read the
+noun, act, verify, read the noun. Truth-table tests extend the existing `nextAction` enumeration.
 
 Phase 2 — **Existence checks**: Worker and Convex deployment existence, each with a new explicit
 missing-upstream variant on its row and a `nextAction` mapping to `connect_cloudflare_worker` /
@@ -123,9 +130,6 @@ missing-upstream variant on its row and a `nextAction` mapping to `connect_cloud
 ships as its own reviewed slice. Phase 2 also takes trigger rebinding (a live trigger pointing at a
 different repo or root): detecting it requires first teaching `wire_builds` to repair a conflicting
 same-kind trigger instead of throwing, so detection and remedy land together.
-
-Phase 3 — **MCP exposure**: the Phase 1 contract joins the rfcs/093 Phase 2c catalog slice. For an
-agent the verb closes the operate loop — read the noun, act, verify, read the noun.
 
 ## Rollout Notes
 
