@@ -194,6 +194,11 @@ and a `nextAction` mapping to `connect_cloudflare_worker` / `connect_convex_depl
 slice. Phase 2 also takes trigger rebinding, paired with teaching `wire_builds` to repair a
 conflicting same-kind trigger instead of throwing.
 
+Trigger rebinding is forward-only. Cloudflare cannot patch a trigger's repository binding or
+transactionally replace a trigger, so `wire_builds` deletes only one freshly re-read, proven
+conflict and then creates the target trigger. It never reconstructs a stale trigger snapshot. If
+creation fails, the run remains failed and a retry reconciles or recreates the target trigger.
+
 ## Rollout Notes
 
 - Cohort check before treating this as the rename remedy: count production `vaultCloudflareWorkers`

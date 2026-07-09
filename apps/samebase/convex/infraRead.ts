@@ -81,7 +81,7 @@ function requireConvexDeploymentForInfraRead(
   const deployment = deployments[0];
   if (!isVaultProviderUpstreamPresent(deployment)) {
     throw new Error(
-      "Convex deployment is missing upstream. Verify infrastructure before reading it.",
+      "Convex deployment is missing upstream. Reconnect or reprovision it before reading production.",
     );
   }
   return deployment;
@@ -102,7 +102,7 @@ function requireCloudflareWorkerForInfraRead(
   const worker = workers[0];
   if (!isVaultProviderUpstreamPresent(worker)) {
     throw new Error(
-      "Cloudflare Worker is missing upstream. Verify infrastructure before reading it.",
+      "Cloudflare Worker is missing upstream. Reconnect it before reading production.",
     );
   }
   return worker;

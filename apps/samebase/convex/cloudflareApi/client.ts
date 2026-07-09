@@ -442,6 +442,25 @@ function readOptionalRecordProperty(
   throw new Error(`Cloudflare API request params.${name} must be an object.`);
 }
 
+function readCloudflareMcpApiErrorDetail(message: string): CloudflareApiErrorDetail | null {
+  const marker = "Cloudflare API error: ";
+  const markerIndex = message.indexOf(marker);
+  if (markerIndex === -1) {
+    return null;
+  }
+  const detail = message.slice(markerIndex + marker.length);
+  const codeSeparatorIndex = detail.indexOf(": ");
+  if (codeSeparatorIndex === -1) {
+    return null;
+  }
+  const code = detail.slice(0, codeSeparatorIndex).trim();
+  if (!/^\d+$/.test(code)) {
+    return null;
+  }
+  const apiMessage = detail.slice(codeSeparatorIndex + 2).trim();
+  return apiMessage ? { code, message: apiMessage } : { code };
+}
+
 async function executeCloudflareApiMcpRequest(args: {
   token: string;
   method: CloudflareApiRequestMethod;
@@ -473,6 +492,14 @@ async function executeCloudflareApiMcpRequest(args: {
       })
     ) {
       throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
+    }
+    const detail = readCloudflareMcpApiErrorDetail(message);
+    if (detail) {
+      throw new CloudflareApiError({
+        method: args.method,
+        path: args.endpoint,
+        details: [detail],
+      });
     }
     throw error;
   });

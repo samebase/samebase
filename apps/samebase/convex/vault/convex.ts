@@ -252,18 +252,16 @@ async function createConvexProjectDeployment(args: {
     },
   );
   if (reusableProject) {
-    let project: PlatformProjectDetails | null = null;
-    try {
-      project = await readConvexProjectDetails({
-        token: args.connection.token,
-        teamId: args.connection.teamId,
-        projectId: reusableProject.projectId,
-      });
-    } catch (error) {
+    const project = await readConvexProjectDetails({
+      token: args.connection.token,
+      teamId: args.connection.teamId,
+      projectId: reusableProject.projectId,
+    }).catch((error: unknown) => {
       if (!isConvexManagementNotFoundError(error)) {
         throw error;
       }
-    }
+      return null;
+    });
     if (project) {
       const deployment = await readOrCreateDefaultConvexProductionDeployment({
         token: args.connection.token,

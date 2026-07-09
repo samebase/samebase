@@ -1606,63 +1606,66 @@ function resolveInfrastructureVerificationPatch(args: {
     };
   }
 
-  if (currentDeployment.builds.state === "connected") {
-    switch (args.providerResult.builds) {
-      case "adopted":
-        break;
-      case "confirmed":
-        break;
-      case "contradicted":
-        return {
-          deployment: buildVaultCloudflareDeploymentNotConfigured(),
-          message: `Cloudflare Workers Builds triggers are missing for ${args.appRoot}; marked Builds not connected.`,
-          shouldPatchWorker: true,
-        };
-      case "not_checked":
-        break;
-      default:
-        args.providerResult satisfies never;
-    }
-  }
-
-  if (currentDeployment.builds.state === "not_connected") {
-    switch (args.providerResult.builds) {
-      case "adopted": {
-        return {
-          deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
-            builds: args.providerResult.connectedBuilds,
-            convexBuildAccess: currentDeployment.convexBuildAccess,
-          }),
-          message: `Cloudflare Workers Builds already match ${args.appRoot}; recorded Builds connected.`,
-          shouldPatchWorker: true,
-        };
-      }
-      case "confirmed":
-      case "contradicted":
-      case "not_checked":
-        break;
-      default:
-        args.providerResult satisfies never;
-    }
-  }
-
-  const hasRegistryConvexContradiction =
-    currentDeployment.convexBuildAccess.state === "wired" && !args.hasConfirmedConvexDeployment;
-  const hasProviderConvexContradiction =
+  if (
     currentDeployment.builds.state === "connected" &&
-    args.providerResult.convexBuildAccess === "contradicted";
-  if (hasRegistryConvexContradiction || hasProviderConvexContradiction) {
+    args.providerResult.builds === "contradicted"
+  ) {
     return {
-      deployment:
-        currentDeployment.builds.state === "connected"
-          ? buildVaultCloudflareDeploymentWithConnectedBuilds({
-              builds: currentDeployment.builds,
-              convexBuildAccess: { state: "not_wired" },
-            })
-          : buildVaultCloudflareDeploymentNotConfigured(),
-      message: hasRegistryConvexContradiction
-        ? `Cloudflare Convex build access has no attached Convex deployment for ${args.appRoot}; marked deploy keys missing.`
-        : `Cloudflare Workers Builds deploy-key variables are missing for ${args.appRoot}; marked deploy keys missing.`,
+      deployment: buildVaultCloudflareDeploymentNotConfigured(),
+      message: `Cloudflare Workers Builds triggers are missing for ${args.appRoot}; marked Builds not connected.`,
+      shouldPatchWorker: true,
+    };
+  }
+
+  if (
+    currentDeployment.builds.state === "not_connected" &&
+    args.providerResult.builds === "adopted"
+  ) {
+    const convexBuildAccessConfirmed =
+      args.providerResult.convexBuildAccess === "confirmed" && args.hasConfirmedConvexDeployment;
+    return {
+      deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
+        builds: args.providerResult.connectedBuilds,
+        convexBuildAccess: convexBuildAccessConfirmed ? { state: "wired" } : { state: "not_wired" },
+      }),
+      message:
+        args.providerResult.convexBuildAccess !== "not_checked" && !convexBuildAccessConfirmed
+          ? `Cloudflare Workers Builds already match ${args.appRoot}; recorded Builds connected and marked deploy keys missing.`
+          : `Cloudflare Workers Builds already match ${args.appRoot}; recorded Builds connected.`,
+      shouldPatchWorker: true,
+    };
+  }
+
+  if (currentDeployment.convexBuildAccess.state === "wired") {
+    if (currentDeployment.builds.state === "not_connected") {
+      return {
+        deployment: buildVaultCloudflareDeploymentNotConfigured(),
+        message: `Cloudflare Workers Builds are not connected for ${args.appRoot}; marked deploy keys missing.`,
+        shouldPatchWorker: true,
+      };
+    }
+    if (!args.hasConfirmedConvexDeployment) {
+      return {
+        deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
+          builds: currentDeployment.builds,
+          convexBuildAccess: { state: "not_wired" },
+        }),
+        message: `Cloudflare Convex build access has no attached Convex deployment for ${args.appRoot}; marked deploy keys missing.`,
+        shouldPatchWorker: true,
+      };
+    }
+  }
+
+  if (
+    currentDeployment.builds.state === "connected" &&
+    args.providerResult.convexBuildAccess === "contradicted"
+  ) {
+    return {
+      deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
+        builds: currentDeployment.builds,
+        convexBuildAccess: { state: "not_wired" },
+      }),
+      message: `Cloudflare Workers Builds deploy-key variables are missing for ${args.appRoot}; marked deploy keys missing.`,
       shouldPatchWorker: true,
     };
   }
@@ -1880,24 +1883,6 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
         upstream: workerUpstream,
         lastObservedAt: Date.now(),
       });
-    }
-    if (workerUpstream.state === "missing_upstream") {
-      const domains = await ctx.db
-        .query("vaultDomains")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        .collect();
-      for (const domain of domains) {
-        if (
-          domain.active &&
-          (domain.source === "cloudflare_workers_default" ||
-            domain.source === "cloudflare_workers_preview")
-        ) {
-          await ctx.db.patch(domain._id, {
-            active: false,
-            lastSyncedAt: Date.now(),
-          });
-        }
-      }
     }
     const messages: string[] = [];
     if (convexDeployment && args.providerResult.convexDeployment !== "not_checked") {

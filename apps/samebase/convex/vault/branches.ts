@@ -15,7 +15,7 @@ import {
   deleteGitHubCommitChecksUnreferencedByBranches,
   getGitHubCommitCheckSnapshotsByCommitSha,
 } from "../commitChecks";
-import { isVaultProviderUpstreamPresent, vGithubTreeData, vTreeRefreshFailureKind } from "./model";
+import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
@@ -398,7 +398,7 @@ export const getVaultRemoteBranches = query({
       return [];
     }
 
-    const [branches, domains, cloudflareWorkers] = await Promise.all([
+    const [branches, domains] = await Promise.all([
       ctx.db
         .query("vaultRemoteBranches")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -407,20 +407,12 @@ export const getVaultRemoteBranches = query({
         .query("vaultDomains")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
-      ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        .collect(),
     ]);
     const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
       githubRepositoryId: vault.ghRepoId,
       commitShas: branches.map((branch) => branch.headCommitSha),
     });
-    const previewUrlsByBranch = cloudflareWorkers.some(
-      (worker) => !isVaultProviderUpstreamPresent(worker),
-    )
-      ? new Map<string, string>()
-      : buildActiveBranchPreviewUrlsByBranch(domains);
+    const previewUrlsByBranch = buildActiveBranchPreviewUrlsByBranch(domains);
 
     return branches.sort(compareRemoteBranchSortOrder).map((branch) =>
       buildVaultRemoteBranchListItem({
@@ -498,7 +490,7 @@ export const listVaultRemoteBranchesPage = query({
       )
       .paginate(args.paginationOpts);
 
-    const [domainsByBranch, checkSnapshotsByCommitSha, cloudflareWorkers] = await Promise.all([
+    const [domainsByBranch, checkSnapshotsByCommitSha] = await Promise.all([
       Promise.all(
         paginated.page.map(async (branch) => ({
           branchName: branch.name,
@@ -514,20 +506,11 @@ export const listVaultRemoteBranchesPage = query({
         githubRepositoryId: vault.ghRepoId,
         commitShas: paginated.page.map((branch) => branch.headCommitSha),
       }),
-      ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        .collect(),
     ]);
-    const previewLinksAvailable = !cloudflareWorkers.some(
-      (worker) => !isVaultProviderUpstreamPresent(worker),
-    );
     const previewUrlByBranch = new Map(
       domainsByBranch.map((entry) => [
         entry.branchName,
-        previewLinksAvailable
-          ? buildActiveBranchPreviewUrlsByBranch(entry.domains).get(entry.branchName)
-          : undefined,
+        buildActiveBranchPreviewUrlsByBranch(entry.domains).get(entry.branchName),
       ]),
     );
 
