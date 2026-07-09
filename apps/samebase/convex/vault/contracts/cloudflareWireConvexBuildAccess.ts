@@ -16,7 +16,7 @@ export const cloudflareWireConvexBuildAccessContract = {
   mcp: {
     name: "vault_cloudflare_wireConvexBuildAccess",
     description:
-      "Mint Convex deploy keys for the app and place them into its Workers Builds triggers (CONVEX_DEPLOY_KEY for production, PREVIEW_CONVEX_DEPLOY_KEY for previews).",
+      "Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -29,7 +29,7 @@ export const cloudflareWireConvexBuildAccessContract = {
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `The repair for builds that cannot deploy the backend: mints production and preview deploy
-keys on the app's Convex deployment and writes them into the Workers Builds triggers as
+keys on the app's Convex deployment and writes both keys into each Workers Builds trigger as
 \`CONVEX_DEPLOY_KEY\` and \`PREVIEW_CONVEX_DEPLOY_KEY\`. This is the remedy behind
 \`nextAction: "wire_convex_build_access"\` on the Worker's \`convexDeployKeys\` axis and the
 dashboard's "Set Convex deploy keys" button. It is the same operation.

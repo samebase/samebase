@@ -80,6 +80,8 @@ the same dashboard table. `scripts/build-cloudflare.ts` reads `WORKERS_CI_BRANCH
 `CONVEX_DEPLOY_KEY` for `main` or `PREVIEW_CONVEX_DEPLOY_KEY` for other branches, and passes only
 the selected value to the deploy subprocess. Preview builds fail closed when
 `PREVIEW_CONVEX_DEPLOY_KEY` is missing, even if the production `CONVEX_DEPLOY_KEY` exists.
+Samebase-managed setup mirrors the dashboard table by writing both build secrets onto every Workers
+Builds trigger.
 
 `CONVEX_DEPLOY_KEY` must contain a Convex production deploy key with exactly these permissions:
 

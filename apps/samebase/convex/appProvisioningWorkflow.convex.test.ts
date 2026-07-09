@@ -166,5 +166,67 @@ describe("app provisioning workflow composition", () => {
         workersDevUrl: "https://composed-app.ada.workers.dev",
       },
     });
+
+    await t.run(async (ctx) => {
+      const convexDeployment = await ctx.db
+        .query("vaultConvexDeployments")
+        .withIndex("by_vault_and_appRoot", (q) => q.eq("vaultId", ids.vaultId).eq("appRoot", "."))
+        .first();
+      if (!convexDeployment) {
+        throw new Error("Expected Convex deployment.");
+      }
+      await ctx.db.patch(convexDeployment._id, {
+        upstream: { state: "missing_upstream" },
+      });
+    });
+
+    await expect(
+      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+    ).resolves.toEqual({
+      appRoot: ".",
+      convex: {
+        projectName: "composed-app",
+        attached: false,
+      },
+      cloudflare: {
+        accountId: "cloudflare-account",
+        workerName: "composed-app",
+        attached: true,
+        buildsConnected: true,
+        convexBuildAccessWired: false,
+        workersDevUrl: "https://composed-app.ada.workers.dev",
+      },
+    });
+
+    await t.run(async (ctx) => {
+      const worker = await ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault_and_appRoot", (q) => q.eq("vaultId", ids.vaultId).eq("appRoot", "."))
+        .first();
+      if (!worker) {
+        throw new Error("Expected Cloudflare Worker.");
+      }
+      await ctx.db.patch(worker._id, {
+        upstream: { state: "missing_upstream" },
+      });
+    });
+
+    await expect(
+      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+    ).resolves.toEqual({
+      appRoot: ".",
+      convex: {
+        projectName: "composed-app",
+        attached: false,
+      },
+      cloudflare: {
+        accountId: "cloudflare-account",
+        workerName: "composed-app",
+        attached: false,
+        buildsConnected: false,
+        convexBuildAccessWired: false,
+        workersDevUrl: null,
+      },
+    });
   });
 });

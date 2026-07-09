@@ -40,10 +40,15 @@ import {
   createConvexPreviewDeployKey,
   deleteConvexDeployKey,
   deleteConvexPreviewDeployKey,
+  ConvexProvisioningConnectionRequiredError,
   ensureConvexPreviewResources,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
-import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
+import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
+import {
+  ConvexManagementApiError,
+  isConvexManagementNotFoundError,
+} from "../convexManagementApi/errors";
 import { vaultSuffix } from "../slugUtils";
 import {
   type ConvexDeployKeyState,
@@ -605,6 +610,80 @@ async function readActiveCloudflareInfrastructureVerification(
   );
 }
 
+type ConvexDeploymentInfrastructureVerificationResult =
+  | "confirmed"
+  | "missing_upstream"
+  | "not_checked";
+
+async function verifyConvexDeploymentExistence(args: {
+  convexToken: string;
+  teamId: string;
+  projectId: string;
+  deploymentName: string;
+  recordApiCall?: ProviderApiCallRecorder;
+}): Promise<
+  Extract<ConvexDeploymentInfrastructureVerificationResult, "confirmed" | "missing_upstream">
+> {
+  try {
+    const project = await requestConvexManagementApi(
+      args.convexToken,
+      "GET",
+      "/projects/{project_id}",
+      {
+        params: { path: { project_id: args.projectId } },
+        recordApiCall: args.recordApiCall,
+      },
+    );
+    if (project.teamId !== args.teamId) {
+      return "missing_upstream";
+    }
+
+    const deployment = await requestConvexManagementApi(
+      args.convexToken,
+      "GET",
+      "/deployments/{deployment_name}",
+      {
+        params: { path: { deployment_name: args.deploymentName } },
+        recordApiCall: args.recordApiCall,
+      },
+    );
+    if (!isConvexCloudDeployment(deployment)) {
+      return "missing_upstream";
+    }
+    if (deployment.projectId !== args.projectId) {
+      return "missing_upstream";
+    }
+    if (deployment.name !== args.deploymentName) {
+      return "missing_upstream";
+    }
+    return deployment.deploymentType === "prod" ? "confirmed" : "missing_upstream";
+  } catch (error) {
+    if (isConvexManagementNotFoundError(error)) {
+      return "missing_upstream";
+    }
+    throw error;
+  }
+}
+
+async function verifyActiveConvexDeploymentInfrastructure(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    projectId: string;
+    deploymentName: string;
+    recordApiCall?: ProviderApiCallRecorder;
+  },
+): Promise<ConvexDeploymentInfrastructureVerificationResult> {
+  const convexConnection = await resolveConvexProvisioningConnection(ctx, args.userId);
+  return await verifyConvexDeploymentExistence({
+    convexToken: convexConnection.convexToken,
+    teamId: convexConnection.convexTeamId,
+    projectId: args.projectId,
+    deploymentName: args.deploymentName,
+    recordApiCall: args.recordApiCall,
+  });
+}
+
 function resolveInfrastructureVerificationUnverifiableMessage(error: unknown): string | null {
   if (isCloudflareWorkerNotFoundError(error)) {
     return "Cloudflare Worker could not be verified because Cloudflare did not return the recorded Worker.";
@@ -617,6 +696,12 @@ function resolveInfrastructureVerificationUnverifiableMessage(error: unknown): s
   }
   if (error instanceof CloudflareAccountUnavailableError) {
     return "Cloudflare infrastructure could not be verified because the recorded Cloudflare account is unavailable.";
+  }
+  if (error instanceof ConvexProvisioningConnectionRequiredError) {
+    return "Convex deployment could not be verified because the Convex connection is missing.";
+  }
+  if (error instanceof ConvexManagementApiError) {
+    return "Convex deployment could not be verified because Convex did not return a verifiable response.";
   }
   return null;
 }
@@ -1330,7 +1415,9 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
       return null;
     }
 
-    let providerResult: CloudflareWorkerInfrastructureVerificationResult;
+    let providerResult: CloudflareWorkerInfrastructureVerificationResult & {
+      convexDeployment: ConvexDeploymentInfrastructureVerificationResult;
+    };
     try {
       const cloudflareConnection = await resolveCloudflareConnection(ctx, args.userId);
       const account = await resolveAccount(ctx, {
@@ -1338,25 +1425,42 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
         transport: cloudflareConnection.transport,
         accountId: active.worker.accountId,
       });
-      providerResult = await verifyCloudflareWorkerInfrastructure({
-        vaultId: args.vaultId,
-        workerName: active.worker.workerName,
-        workerTag: active.worker.workerTag,
-        cloudflareToken: cloudflareConnection.token,
-        cloudflareAuthMethod: cloudflareConnection.auth.method,
-        accountId: account.accountId,
-        defaultBranch: active.defaultBranch,
-        expectedRepoId: active.ghRepoId,
-        build: active.worker.deployment.builds,
-        buildConfig: toCloudflareBuildConfig(active.buildConfig),
-        verifyConvexBuildAccess:
-          active.hasConvexDeployment &&
-          active.worker.deployment.convexBuildAccess.state === "wired",
-        recordApiCall: createProviderApiCallRecorder(ctx, {
-          runId: args.runId,
-          step: "verify_infrastructure",
-        }),
+      const recordApiCall = createProviderApiCallRecorder(ctx, {
+        runId: args.runId,
+        step: "verify_infrastructure",
       });
+      const convexDeploymentVerification: Promise<ConvexDeploymentInfrastructureVerificationResult> =
+        active.convexDeployment
+          ? verifyActiveConvexDeploymentInfrastructure(ctx, {
+              userId: args.userId,
+              projectId: active.convexDeployment.projectId,
+              deploymentName: active.convexDeployment.deploymentName,
+              recordApiCall,
+            })
+          : Promise.resolve("not_checked");
+      const [cloudflareResult, convexDeployment] = await Promise.all([
+        verifyCloudflareWorkerInfrastructure({
+          vaultId: args.vaultId,
+          workerName: active.worker.workerName,
+          workerTag: active.worker.workerTag,
+          cloudflareToken: cloudflareConnection.token,
+          cloudflareAuthMethod: cloudflareConnection.auth.method,
+          accountId: account.accountId,
+          defaultBranch: active.defaultBranch,
+          expectedRepoId: active.ghRepoId,
+          build: active.worker.deployment.builds,
+          buildConfig: toCloudflareBuildConfig(active.buildConfig),
+          verifyConvexBuildAccess:
+            active.convexDeployment !== null &&
+            active.worker.deployment.convexBuildAccess.state === "wired",
+          recordApiCall,
+        }),
+        convexDeploymentVerification,
+      ]);
+      providerResult = {
+        ...cloudflareResult,
+        convexDeployment,
+      };
     } catch (error) {
       const message = resolveInfrastructureVerificationUnverifiableMessage(error);
       if (!message) {

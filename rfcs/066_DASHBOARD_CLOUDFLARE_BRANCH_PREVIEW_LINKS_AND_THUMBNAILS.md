@@ -76,8 +76,8 @@ Current limitation:
 Cloudflare Workers Builds wiring configures preview deployments:
 
 1. `wire_builds` creates production and preview Workers Builds triggers.
-2. `wire_convex_build_access` injects preview-specific environment variables using the preview
-   Convex deployment.
+2. `wire_convex_build_access` writes both production and preview Convex deploy-key variables onto
+   each trigger, using the preview Convex deployment for `PREVIEW_CONVEX_DEPLOY_KEY`.
 3. The composed app provisioning flow writes only the main branch URL into `vaultDomains`.
 
 There is currently no sync that reads Cloudflare deployments and maps the latest preview alias for

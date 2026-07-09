@@ -1152,6 +1152,58 @@ Convex validator JSON of the tool's `structuredContent`:
                       },
                       "optional": false
                     },
+                    "upstream": {
+                      "fieldType": {
+                        "type": "union",
+                        "value": [
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "present"
+                                },
+                                "optional": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "missing_upstream"
+                                },
+                                "optional": false
+                              },
+                              "nextAction": {
+                                "fieldType": {
+                                  "type": "union",
+                                  "value": [
+                                    {
+                                      "type": "literal",
+                                      "value": "connect_convex_deployment"
+                                    },
+                                    {
+                                      "type": "literal",
+                                      "value": "connect_cloudflare_worker"
+                                    },
+                                    {
+                                      "type": "literal",
+                                      "value": "retry_infrastructure_provisioning"
+                                    }
+                                  ]
+                                },
+                                "optional": false
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "optional": false
+                    },
                     "lastObservedAt": {
                       "fieldType": {
                         "type": "number"
@@ -1214,6 +1266,58 @@ Convex validator JSON of the tool's `structuredContent`:
                     "deploymentName": {
                       "fieldType": {
                         "type": "string"
+                      },
+                      "optional": false
+                    },
+                    "upstream": {
+                      "fieldType": {
+                        "type": "union",
+                        "value": [
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "present"
+                                },
+                                "optional": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "value": {
+                              "state": {
+                                "fieldType": {
+                                  "type": "literal",
+                                  "value": "missing_upstream"
+                                },
+                                "optional": false
+                              },
+                              "nextAction": {
+                                "fieldType": {
+                                  "type": "union",
+                                  "value": [
+                                    {
+                                      "type": "literal",
+                                      "value": "connect_convex_deployment"
+                                    },
+                                    {
+                                      "type": "literal",
+                                      "value": "connect_cloudflare_worker"
+                                    },
+                                    {
+                                      "type": "literal",
+                                      "value": "retry_infrastructure_provisioning"
+                                    }
+                                  ]
+                                },
+                                "optional": false
+                              }
+                            }
+                          }
+                        ]
                       },
                       "optional": false
                     },

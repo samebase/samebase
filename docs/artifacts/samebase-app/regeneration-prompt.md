@@ -93,6 +93,9 @@ For a Workers/TanStack Start version:
   path does not expose a Pages-style production/preview selector for build
   variables. Explain that the build script reads `WORKERS_CI_BRANCH`, picks the
   right secret, and keeps preview builds from falling back to the production key.
+- For Samebase-managed setup, write both deploy-key secrets onto every Workers
+  Builds trigger so the Cloudflare dashboard's visible build-variable table shows
+  the full required pair.
 - Document the current Convex permission split: production `CONVEX_DEPLOY_KEY`
   is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
   `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,

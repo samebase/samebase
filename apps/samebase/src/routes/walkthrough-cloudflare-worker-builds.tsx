@@ -401,7 +401,7 @@ const cloudflareCalls = [
     method: "POST",
     endpoint: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
     detail:
-      "wire_builds starts immediately for Convex-less roots. Convex-backed roots defer the first build until wire_convex_build_access has patched CONVEX_DEPLOY_KEY on the production trigger and PREVIEW_CONVEX_DEPLOY_KEY on the preview trigger.",
+      "wire_builds starts immediately for Convex-less roots. Convex-backed roots defer the first build until wire_convex_build_access has patched both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY on the production and preview triggers.",
     refs: [
       {
         file: "apps/samebase/convex/cloudflareResources.ts",

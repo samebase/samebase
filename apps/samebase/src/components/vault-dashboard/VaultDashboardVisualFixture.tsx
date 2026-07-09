@@ -545,6 +545,7 @@ const LIST_SPACING_VAULT = {
       appRoot: "apps/domain-router",
       convexDeployKeys: { state: "not_applicable" },
       githubRepositoryConnection: { state: "connected" },
+      upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "domain-router",
       workersDevUrl: "https://domain-router.nicu.workers.dev",
@@ -555,6 +556,7 @@ const LIST_SPACING_VAULT = {
       appRoot: "apps/samebase",
       convexDeployKeys: { state: "set" },
       githubRepositoryConnection: { state: "connected" },
+      upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "samebase-worker",
       workersDevUrl: "https://samebase-worker.nicu.workers.dev",
@@ -571,6 +573,7 @@ const LIST_SPACING_VAULT = {
       deploymentName: "calm-swan-123",
       cloudUrl: "https://calm-swan-123.convex.cloud",
       siteUrl: "https://calm-swan-123.convex.site",
+      upstream: { state: "present" },
       projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/settings",
       deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
     },
@@ -606,6 +609,7 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
       appRoot: ".",
       convexDeployKeys: { state: "not_applicable" },
       githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
+      upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 2_000,
       workerName: "tmp-my-super-app-234",
       workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
@@ -622,6 +626,7 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
       deploymentName: "valiant-panda-123",
       cloudUrl: "https://valiant-panda-123.convex.cloud",
       siteUrl: "https://valiant-panda-123.convex.site",
+      upstream: { state: "present" },
       projectSettingsDashboardUrl:
         "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/settings",
       deploymentDashboardUrl:
@@ -1697,7 +1702,7 @@ function VaultDashboardProvisioningLogFixture() {
                         level: "info",
                         step: "attach_worker",
                         message:
-                          'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"CONVEX_DEPLOY_KEY":"[secret]"},"params":{"path":{"account_id":"[redacted]","trigger_uuid":"[redacted]"}}}',
+                          'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"CONVEX_DEPLOY_KEY":"[secret]","PREVIEW_CONVEX_DEPLOY_KEY":"[secret]"},"params":{"path":{"account_id":"[redacted]","trigger_uuid":"[redacted]"}}}',
                       },
                     ]}
                   />

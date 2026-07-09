@@ -375,6 +375,20 @@ export function buildVaultDashboardResourceRailState({
         left.projectId.localeCompare(right.projectId),
     );
     for (const deployment of sortedConvexDeployments) {
+      if (deployment.upstream.state === "missing_upstream") {
+        convexRowsByAppRoot.set(deployment.appRoot, {
+          provider: "convex",
+          status: "failed",
+          value: deployment.projectSlug,
+          scope: normalizeResourceScope(deployment.teamSlug),
+          actions: [
+            deployment.upstream.nextAction === "retry_infrastructure_provisioning"
+              ? buildRetryInfrastructureAction()
+              : buildAddConvexAction(deployment.appRoot),
+          ],
+        });
+        continue;
+      }
       convexRowsByAppRoot.set(deployment.appRoot, {
         provider: "convex",
         status: "ready",
@@ -431,6 +445,23 @@ export function buildVaultDashboardResourceRailState({
         left.workerName.localeCompare(right.workerName),
     );
     for (const worker of sortedCloudflareWorkers) {
+      if (worker.upstream.state === "missing_upstream") {
+        cloudflareRowsByAppRoot.set(worker.appRoot, {
+          provider: "cloudflare",
+          status: "failed",
+          value: worker.workerName,
+          scope: resolveCloudflareWorkersSubdomain({
+            workersDevUrl: worker.workersDevUrl,
+            workerName: worker.workerName,
+          }),
+          actions: [
+            worker.upstream.nextAction === "retry_infrastructure_provisioning"
+              ? buildRetryInfrastructureAction()
+              : buildAddCloudflareWorkerAction(worker.appRoot),
+          ],
+        });
+        continue;
+      }
       let cloudflareAction: VaultResourceRailAction | undefined;
       let verifyAction: VaultResourceRailAction | undefined;
       let cloudflareDescription: string | undefined;

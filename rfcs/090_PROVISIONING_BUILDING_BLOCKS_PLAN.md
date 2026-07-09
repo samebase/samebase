@@ -75,11 +75,11 @@ Rules:
   has no Convex inputs. Trigger env vars at this stage carry no Convex values.
 - `wire_convex_build_access` requires `attach_convex` and `wire_builds` to have completed. It
   ensures the preview deployment (persisting its identity, unlike today), mints the two deploy keys,
-  records their ids on the Convex row, and PATCHes the Workers Builds env vars with
-  `CONVEX_DEPLOY_KEY` on the production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview
-  trigger. This matches the build script contract while using the Builds API's per-trigger variable
-  support. This block patches only those deploy-key variables; key material never touches the
-  workflow journal (existing doctrine).
+  records their ids on the Convex row, and PATCHes the Workers Builds env vars with both
+  `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` on every recorded trigger. This mirrors the
+  Cloudflare dashboard's visible build-variable table while the build script still selects the
+  branch-appropriate key from `WORKERS_CI_BRANCH`. This block patches only those deploy-key
+  variables; key material never touches the workflow journal (existing doctrine).
 - The temporary dashboard repair path exposes the same blocks after manual or partial setup:
   `Connect GitHub repo` runs `wire_builds` when an attached Worker is not connected to the vault's
   GitHub repository, and `Set Convex deploy keys` runs `wire_convex_build_access` when the same app
