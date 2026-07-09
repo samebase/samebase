@@ -67,13 +67,12 @@ const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
-  if (error instanceof CloudflareApiError) {
+  if (error instanceof CloudflareApiError && !error.path.includes("/builds/triggers/")) {
     return error.details.some((detail) => {
       const message = detail.message?.toLowerCase();
       return (
         detail.code === "10007" ||
         message === "worker not found" ||
-        message === "trigger not found" ||
         message === "script not found" ||
         message === "not found" ||
         message === "workers.api.error.not_found"
@@ -91,6 +90,23 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   }
 
   return false;
+}
+
+export function isCloudflareBuildTriggerNotFoundError(error: unknown): boolean {
+  if (!(error instanceof CloudflareApiError) || !error.path.includes("/builds/triggers/")) {
+    return false;
+  }
+
+  return error.details.some((detail) => {
+    const message = detail.message?.toLowerCase();
+    return (
+      detail.code === "10007" ||
+      detail.code === "12000" ||
+      message === "trigger not found" ||
+      message === "not found" ||
+      message === "workers.api.error.not_found"
+    );
+  });
 }
 
 export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown): boolean {
@@ -1201,22 +1217,6 @@ function assertBuildTriggerMatchesRepositoryAndRoot(args: {
   }
 }
 
-function selectPatchableBuildTrigger(args: {
-  triggers: readonly CloudflareBuildTrigger[];
-  kind: CloudflareBuildTriggerKind;
-  defaultBranch: string;
-}): CloudflareBuildTrigger | undefined {
-  return args.triggers.find(
-    (trigger) =>
-      !trigger.deleted_on &&
-      matchesTriggerKind({
-        trigger,
-        kind: args.kind,
-        defaultBranch: args.defaultBranch,
-      }),
-  );
-}
-
 async function listBuildTriggers(
   args: {
     token: string;
@@ -1265,19 +1265,120 @@ async function deleteBuildTrigger(
   });
 }
 
-function isBuildTriggerPatchableForTarget(args: {
+type CloudflareBuildTriggerRepositoryMatch = "conflict" | "target" | "unknown";
+
+function classifyBuildTriggerRepository(args: {
   trigger: CloudflareBuildTrigger;
   expectedRepoId: string;
+  expectedRepoConnectionUuid: string;
+}): CloudflareBuildTriggerRepositoryMatch {
+  const repoConnection = args.trigger.repo_connection;
+  if (!repoConnection) {
+    return "unknown";
+  }
+  if (repoConnection.deleted_on) {
+    return "conflict";
+  }
+  if (repoConnection.repo_id !== undefined) {
+    return repoConnection.repo_id === args.expectedRepoId ? "target" : "conflict";
+  }
+  return repoConnection.repo_connection_uuid === args.expectedRepoConnectionUuid
+    ? "target"
+    : "unknown";
+}
+
+function selectBuildTriggerForRepository(args: {
+  triggers: readonly CloudflareBuildTrigger[];
+  kind: CloudflareBuildTriggerKind;
+  defaultBranch: string;
+  expectedRepoId: string;
+  expectedRepoConnectionUuid: string;
+  workerTag: string;
+}): CloudflareBuildTrigger | undefined {
+  const triggerName = args.kind === "production" ? "Production Deploy" : "Preview Deploy";
+  const candidates = args.triggers.filter(
+    (trigger) =>
+      !trigger.deleted_on &&
+      matchesTriggerKind({
+        trigger,
+        kind: args.kind,
+        defaultBranch: args.defaultBranch,
+      }),
+  );
+  const targetCandidates = candidates.filter(
+    (trigger) =>
+      classifyBuildTriggerRepository({
+        trigger,
+        expectedRepoId: args.expectedRepoId,
+        expectedRepoConnectionUuid: args.expectedRepoConnectionUuid,
+      }) === "target",
+  );
+  if (targetCandidates.length === 1) {
+    return targetCandidates[0];
+  }
+  if (targetCandidates.length > 1 || candidates.length > 1) {
+    throw new Error(
+      `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: Cloudflare returned multiple matching trigger candidates. Disconnect duplicate triggers in Cloudflare and retry.`,
+    );
+  }
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  const candidate = candidates[0];
+  if (
+    classifyBuildTriggerRepository({
+      trigger: candidate,
+      expectedRepoId: args.expectedRepoId,
+      expectedRepoConnectionUuid: args.expectedRepoConnectionUuid,
+    }) === "unknown"
+  ) {
+    throw new Error(
+      `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: Cloudflare did not return enough repository identity for the existing trigger. Retry after Cloudflare reports its repository connection, or disconnect the trigger in Cloudflare.`,
+    );
+  }
+  return candidate;
+}
+
+function readExpectedBuildTriggerUuid(args: {
+  triggers: readonly CloudflareBuildTrigger[];
+  kind: CloudflareBuildTriggerKind;
+  defaultBranch: string;
+  expectedRepoId: string;
+  expectedRepoConnectionUuid: string;
   expectedRootDirectory: string;
-}): boolean {
+  buildTokenUuid: string;
+  buildCommand: string;
+  deployCommand: string;
+  pathIncludes: readonly string[];
+  pathExcludes: readonly string[];
+}): string | null {
   const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
     args.expectedRootDirectory,
     "Expected app root",
   );
-  return (
-    readTriggerRepositoryId(args.trigger) === args.expectedRepoId &&
-    normalizeCloudflareBuildRoot(args.trigger.root_directory) === expectedRootDirectory
+  const matches = args.triggers.filter(
+    (trigger) =>
+      !trigger.deleted_on &&
+      matchesAdoptableTriggerKind({
+        trigger,
+        kind: args.kind,
+        defaultBranch: args.defaultBranch,
+      }) &&
+      classifyBuildTriggerRepository({
+        trigger,
+        expectedRepoId: args.expectedRepoId,
+        expectedRepoConnectionUuid: args.expectedRepoConnectionUuid,
+      }) === "target" &&
+      normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory &&
+      trigger.build_token_uuid === args.buildTokenUuid &&
+      trigger.build_command === args.buildCommand &&
+      trigger.deploy_command === args.deployCommand &&
+      hasSameCloudflareStringList(trigger.path_includes ?? [], args.pathIncludes) &&
+      hasSameCloudflareStringList(trigger.path_excludes ?? [], args.pathExcludes) &&
+      trigger.trigger_uuid !== undefined,
   );
+  return matches.length === 1 ? (matches[0]?.trigger_uuid ?? null) : null;
 }
 
 async function upsertBuildTrigger(
@@ -1290,15 +1391,11 @@ async function upsertBuildTrigger(
     buildTokenUuid: string;
     buildConfig: CloudflareBuildConfig;
     defaultBranch: string;
-    existingTriggers: readonly CloudflareBuildTrigger[];
+    existingTrigger?: CloudflareBuildTrigger;
     kind: CloudflareBuildTriggerKind;
   } & CloudflareApiCallOptions,
 ): Promise<string> {
-  const existingTrigger = selectPatchableBuildTrigger({
-    triggers: args.existingTriggers,
-    kind: args.kind,
-    defaultBranch: args.defaultBranch,
-  });
+  const existingTrigger = args.existingTrigger;
   const triggerName = args.kind === "production" ? "Production Deploy" : "Preview Deploy";
   const triggerConfig = {
     build_token_uuid: args.buildTokenUuid,
@@ -1322,22 +1419,13 @@ async function upsertBuildTrigger(
         `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: Cloudflare did not return a trigger id.`,
       );
     }
-    if (
-      !isBuildTriggerPatchableForTarget({
-        trigger: existingTrigger,
-        expectedRepoId: args.expectedRepoId,
-        expectedRootDirectory: args.buildConfig.rootDir,
-      })
-    ) {
-      await deleteBuildTrigger({
-        token: args.token,
-        accountId: args.accountId,
-        triggerUuid: existingTriggerUuid,
-        transport: args.transport,
-        recordApiCall: args.recordApiCall,
-      });
-    } else {
-      const raw = await requestCloudflareApi({
+    const repositoryMatch = classifyBuildTriggerRepository({
+      trigger: existingTrigger,
+      expectedRepoId: args.expectedRepoId,
+      expectedRepoConnectionUuid: args.repoConnectionUuid,
+    });
+    if (repositoryMatch === "target") {
+      await requestCloudflareApi({
         token: args.token,
         method: "PATCH",
         path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
@@ -1351,31 +1439,107 @@ async function upsertBuildTrigger(
         recordApiCall: args.recordApiCall,
         body: triggerConfig,
       });
-      return requireCloudflareString(
-        raw?.trigger_uuid,
-        `${triggerName} trigger did not return an id.`,
+      return existingTriggerUuid;
+    }
+    if (repositoryMatch === "unknown") {
+      throw new Error(
+        `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: Cloudflare did not return enough repository identity for the existing trigger. Retry after Cloudflare reports its repository connection, or disconnect the trigger in Cloudflare.`,
       );
+    }
+
+    const currentTriggers = await listBuildTriggers({
+      token: args.token,
+      accountId: args.accountId,
+      workerTag: args.workerTag,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    });
+    const currentTrigger = currentTriggers.find(
+      (trigger) => !trigger.deleted_on && trigger.trigger_uuid === existingTriggerUuid,
+    );
+    if (currentTrigger) {
+      const currentRepositoryMatch = classifyBuildTriggerRepository({
+        trigger: currentTrigger,
+        expectedRepoId: args.expectedRepoId,
+        expectedRepoConnectionUuid: args.repoConnectionUuid,
+      });
+      if (
+        currentRepositoryMatch !== "conflict" ||
+        !matchesTriggerKind({
+          trigger: currentTrigger,
+          kind: args.kind,
+          defaultBranch: args.defaultBranch,
+        })
+      ) {
+        throw new Error(
+          `Cannot replace ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: its repository binding changed during wiring. Retry the operation.`,
+        );
+      }
+      await deleteBuildTrigger({
+        token: args.token,
+        accountId: args.accountId,
+        triggerUuid: existingTriggerUuid,
+        transport: args.transport,
+        recordApiCall: args.recordApiCall,
+      });
     }
   }
 
-  const raw = await requestCloudflareApi({
-    token: args.token,
-    method: "POST",
-    path: "/accounts/{account_id}/builds/triggers",
-    transport: args.transport,
-    params: {
-      path: {
-        account_id: args.accountId,
+  try {
+    const raw = await requestCloudflareApi({
+      token: args.token,
+      method: "POST",
+      path: "/accounts/{account_id}/builds/triggers",
+      transport: args.transport,
+      params: {
+        path: {
+          account_id: args.accountId,
+        },
       },
-    },
-    recordApiCall: args.recordApiCall,
-    body: {
-      external_script_id: args.workerTag,
-      repo_connection_uuid: args.repoConnectionUuid,
-      ...triggerConfig,
-    },
-  });
-  return requireCloudflareString(raw?.trigger_uuid, `${triggerName} trigger did not return an id.`);
+      recordApiCall: args.recordApiCall,
+      body: {
+        external_script_id: args.workerTag,
+        repo_connection_uuid: args.repoConnectionUuid,
+        ...triggerConfig,
+      },
+    });
+    return requireCloudflareString(
+      raw?.trigger_uuid,
+      `${triggerName} trigger did not return an id.`,
+    );
+  } catch (error) {
+    try {
+      const currentTriggers = await listBuildTriggers({
+        token: args.token,
+        accountId: args.accountId,
+        workerTag: args.workerTag,
+        transport: args.transport,
+        recordApiCall: args.recordApiCall,
+      });
+      const triggerUuid = readExpectedBuildTriggerUuid({
+        triggers: currentTriggers,
+        kind: args.kind,
+        defaultBranch: args.defaultBranch,
+        expectedRepoId: args.expectedRepoId,
+        expectedRepoConnectionUuid: args.repoConnectionUuid,
+        expectedRootDirectory: args.buildConfig.rootDir,
+        buildTokenUuid: args.buildTokenUuid,
+        buildCommand: args.buildConfig.buildCommand,
+        deployCommand:
+          args.kind === "production"
+            ? args.buildConfig.deployCommand
+            : args.buildConfig.previewDeployCommand,
+        pathIncludes: args.buildConfig.pathIncludes,
+        pathExcludes: args.buildConfig.pathExcludes,
+      });
+      if (triggerUuid) {
+        return triggerUuid;
+      }
+    } catch {
+      // Preserve the original write error when read-only reconciliation also fails.
+    }
+    throw error;
+  }
 }
 
 async function setTriggerEnvironmentVariables(
@@ -1510,7 +1674,7 @@ type CloudflareInfrastructureVerificationConvexBuildAccessResult =
 type CloudflareConnectedBuildsVerificationResult =
   | {
       builds: "adopted";
-      connectedBuilds: CloudflareConnectedWorkersBuilds;
+      build: CloudflareConnectedWorkersBuilds;
     }
   | {
       builds: "confirmed";
@@ -1668,7 +1832,6 @@ function hasConfirmedRecordedBuildTrigger(args: {
   triggerUuid: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
-  buildConfig: CloudflareBuildConfig;
 }): boolean {
   const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
     args.expectedRootDirectory,
@@ -1687,12 +1850,7 @@ function hasConfirmedRecordedBuildTrigger(args: {
       defaultBranch: args.defaultBranch,
     }) &&
     readTriggerRepositoryId(trigger) === args.expectedRepoId &&
-    normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory &&
-    matchesAdoptableTriggerConfig({
-      trigger,
-      kind: args.kind,
-      buildConfig: args.buildConfig,
-    })
+    normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory
   );
 }
 
@@ -1703,17 +1861,6 @@ function hasCloudflareBuildEnvironmentVariable(args: {
   // Build variable values are write-only in Cloudflare, so the verifier uses
   // variable names as the authoritative repair signal.
   return Object.prototype.hasOwnProperty.call(args.envVars, args.key);
-}
-
-function matchesOrderedCloudflareStringList(args: {
-  actual: readonly string[] | undefined;
-  expected: readonly string[];
-}): boolean {
-  const actual = args.actual ?? [];
-  return (
-    actual.length === args.expected.length &&
-    actual.every((value, index) => value === args.expected[index])
-  );
 }
 
 function matchesAdoptableTriggerKind(args: {
@@ -1743,37 +1890,13 @@ function matchesAdoptableTriggerKind(args: {
   }
 }
 
-function matchesAdoptableTriggerConfig(args: {
-  trigger: CloudflareBuildTrigger;
-  kind: CloudflareBuildTriggerKind;
-  buildConfig: CloudflareBuildConfig;
-}): boolean {
-  const expectedDeployCommand =
-    args.kind === "production"
-      ? args.buildConfig.deployCommand
-      : args.buildConfig.previewDeployCommand;
-  return (
-    args.trigger.build_command === args.buildConfig.buildCommand &&
-    args.trigger.deploy_command === expectedDeployCommand &&
-    matchesOrderedCloudflareStringList({
-      actual: args.trigger.path_includes,
-      expected: args.buildConfig.pathIncludes,
-    }) &&
-    matchesOrderedCloudflareStringList({
-      actual: args.trigger.path_excludes,
-      expected: args.buildConfig.pathExcludes,
-    })
-  );
-}
-
 function readMatchingBuildTrigger(args: {
   triggers: readonly CloudflareBuildTrigger[];
   kind: CloudflareBuildTriggerKind;
   defaultBranch: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
-  buildConfig: CloudflareBuildConfig;
-}): { triggerUuid: string; buildTokenUuid: string } | null {
+}): { triggerUuid: string; buildTokenUuid: string; trigger: CloudflareBuildTrigger } | null {
   const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
     args.expectedRootDirectory,
     "Expected app root",
@@ -1797,23 +1920,18 @@ function readMatchingBuildTrigger(args: {
     if (normalizeCloudflareBuildRoot(trigger.root_directory) !== expectedRootDirectory) {
       continue;
     }
-    if (
-      !matchesAdoptableTriggerConfig({
-        trigger,
-        kind: args.kind,
-        buildConfig: args.buildConfig,
-      })
-    ) {
-      continue;
-    }
     const triggerUuid = trigger.trigger_uuid;
     const buildTokenUuid = trigger.build_token_uuid;
     if (triggerUuid && buildTokenUuid) {
-      return { triggerUuid, buildTokenUuid };
+      return { triggerUuid, buildTokenUuid, trigger };
     }
   }
 
   return null;
+}
+
+function hasSameCloudflareStringList(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function readMatchingCloudflareWorkerBuilds(args: {
@@ -1828,7 +1946,6 @@ function readMatchingCloudflareWorkerBuilds(args: {
     defaultBranch: args.defaultBranch,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   const preview = readMatchingBuildTrigger({
     triggers: args.triggers,
@@ -1836,22 +1953,49 @@ function readMatchingCloudflareWorkerBuilds(args: {
     defaultBranch: args.defaultBranch,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   if (!production || !preview) {
+    return null;
+  }
+
+  const buildCommand = production.trigger.build_command;
+  const deployCommand = production.trigger.deploy_command;
+  const previewDeployCommand = preview.trigger.deploy_command;
+  const pathIncludes = production.trigger.path_includes;
+  const pathExcludes = production.trigger.path_excludes;
+  const previewPathIncludes = preview.trigger.path_includes;
+  const previewPathExcludes = preview.trigger.path_excludes;
+  if (
+    buildCommand === undefined ||
+    buildCommand !== preview.trigger.build_command ||
+    deployCommand === undefined ||
+    previewDeployCommand === undefined ||
+    pathIncludes === undefined ||
+    previewPathIncludes === undefined ||
+    pathExcludes === undefined ||
+    previewPathExcludes === undefined ||
+    !hasSameCloudflareStringList(pathIncludes, previewPathIncludes) ||
+    !hasSameCloudflareStringList(pathExcludes, previewPathExcludes)
+  ) {
     return null;
   }
 
   return {
     state: "connected",
     rootDirectory: args.buildConfig.rootDir,
-    buildCommand: args.buildConfig.buildCommand,
-    deployCommand: args.buildConfig.deployCommand,
-    previewDeployCommand: args.buildConfig.previewDeployCommand,
-    pathIncludes: args.buildConfig.pathIncludes,
-    pathExcludes: args.buildConfig.pathExcludes,
-    production,
-    preview,
+    buildCommand,
+    deployCommand,
+    previewDeployCommand,
+    pathIncludes,
+    pathExcludes,
+    production: {
+      triggerUuid: production.triggerUuid,
+      buildTokenUuid: production.buildTokenUuid,
+    },
+    preview: {
+      triggerUuid: preview.triggerUuid,
+      buildTokenUuid: preview.buildTokenUuid,
+    },
   };
 }
 
@@ -1872,7 +2016,7 @@ function verifyConnectedBuilds(args: {
     return connectedBuilds
       ? {
           builds: "adopted",
-          connectedBuilds,
+          build: connectedBuilds,
         }
       : {
           builds: "not_checked",
@@ -1886,7 +2030,6 @@ function verifyConnectedBuilds(args: {
     triggerUuid: args.build.production.triggerUuid,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   const previewTriggerConfirmed = hasConfirmedRecordedBuildTrigger({
     triggers: args.triggers,
@@ -1895,7 +2038,6 @@ function verifyConnectedBuilds(args: {
     triggerUuid: args.build.preview.triggerUuid,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   return productionTriggerConfirmed && previewTriggerConfirmed
     ? {
@@ -1981,6 +2123,23 @@ async function configureCloudflareWorkerBuilds(
     recordApiCall: args.recordApiCall,
   });
 
+  const existingProductionTrigger = selectBuildTriggerForRepository({
+    triggers: existingTriggers,
+    kind: "production",
+    defaultBranch: args.defaultBranch,
+    expectedRepoId: args.ghRepoId,
+    expectedRepoConnectionUuid: repoConnectionUuid,
+    workerTag: args.workerTag,
+  });
+  const existingPreviewTrigger = selectBuildTriggerForRepository({
+    triggers: existingTriggers,
+    kind: "preview",
+    defaultBranch: args.defaultBranch,
+    expectedRepoId: args.ghRepoId,
+    expectedRepoConnectionUuid: repoConnectionUuid,
+    workerTag: args.workerTag,
+  });
+
   const buildTokenUuid = await resolveBuildTokenUuid({
     token: args.cloudflareToken,
     accountId: args.accountId,
@@ -1999,7 +2158,7 @@ async function configureCloudflareWorkerBuilds(
     buildTokenUuid,
     buildConfig: args.buildConfig,
     defaultBranch: args.defaultBranch,
-    existingTriggers,
+    existingTrigger: existingProductionTrigger,
     kind: "production",
     transport: args.transport,
     recordApiCall: args.recordApiCall,
@@ -2013,7 +2172,7 @@ async function configureCloudflareWorkerBuilds(
     buildTokenUuid,
     buildConfig: args.buildConfig,
     defaultBranch: args.defaultBranch,
-    existingTriggers,
+    existingTrigger: existingPreviewTrigger,
     kind: "preview",
     transport: args.transport,
     recordApiCall: args.recordApiCall,
@@ -2132,18 +2291,7 @@ export async function verifyCloudflareWorkerInfrastructure(
     });
     switch (buildsResult.builds) {
       case "adopted":
-        console.log("infra:cloudflare:verify:builds_adopted", {
-          vaultId: args.vaultId,
-          accountId: args.accountId,
-          workerName: args.workerName,
-          workerTag: args.workerTag,
-        });
-        return {
-          worker: "confirmed",
-          builds: "adopted",
-          connectedBuilds: buildsResult.connectedBuilds,
-          convexBuildAccess: "not_checked",
-        };
+        break;
       case "not_checked":
         console.log("infra:cloudflare:verify:builds_not_connected", {
           vaultId: args.vaultId,
@@ -2174,12 +2322,20 @@ export async function verifyCloudflareWorkerInfrastructure(
         buildsResult satisfies never;
     }
     if (!args.verifyConvexBuildAccess) {
-      console.log("infra:cloudflare:verify:builds_confirmed", {
+      console.log(`infra:cloudflare:verify:builds_${buildsResult.builds}`, {
         vaultId: args.vaultId,
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
       });
+      if (buildsResult.builds === "adopted") {
+        return {
+          worker: "confirmed",
+          builds: "adopted",
+          connectedBuilds: buildsResult.build,
+          convexBuildAccess: "not_checked",
+        };
+      }
       return {
         worker: "confirmed",
         builds: "confirmed",
@@ -2216,12 +2372,36 @@ export async function verifyCloudflareWorkerInfrastructure(
       workerTag: args.workerTag,
       convexBuildAccess,
     });
+    if (buildsResult.builds === "adopted") {
+      return {
+        worker: "confirmed",
+        builds: "adopted",
+        connectedBuilds: buildsResult.build,
+        convexBuildAccess,
+      };
+    }
     return {
       worker: "confirmed",
       builds: "confirmed",
       convexBuildAccess,
     };
   } catch (error) {
+    if (
+      step === "read_build_environment_variables" &&
+      isCloudflareBuildTriggerNotFoundError(error)
+    ) {
+      console.log("infra:cloudflare:verify:build_trigger_missing_upstream", {
+        vaultId: args.vaultId,
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+      });
+      return {
+        worker: "confirmed",
+        builds: "contradicted",
+        convexBuildAccess: "not_checked",
+      };
+    }
     if (isCloudflareWorkerNotFoundError(error)) {
       console.log("infra:cloudflare:verify:worker_missing_upstream", {
         vaultId: args.vaultId,
@@ -2540,7 +2720,7 @@ async function deleteCloudflareBuildTrigger(args: {
       },
     });
   } catch (error) {
-    if (!isCloudflareWorkerNotFoundError(error)) {
+    if (!isCloudflareBuildTriggerNotFoundError(error)) {
       throw error;
     }
   }

@@ -256,12 +256,19 @@ async function createConvexProjectDeployment(args: {
       token: args.connection.token,
       teamId: args.connection.teamId,
       projectId: reusableProject.projectId,
+    }).catch((error: unknown) => {
+      if (!isConvexManagementNotFoundError(error)) {
+        throw error;
+      }
+      return null;
     });
-    const deployment = await readOrCreateDefaultConvexProductionDeployment({
-      token: args.connection.token,
-      projectId: project.id,
-    });
-    return toConvexInfrastructureRecord({ project, deployment });
+    if (project) {
+      const deployment = await readOrCreateDefaultConvexProductionDeployment({
+        token: args.connection.token,
+        projectId: project.id,
+      });
+      return toConvexInfrastructureRecord({ project, deployment });
+    }
   }
 
   const projects = await listConvexProjects({

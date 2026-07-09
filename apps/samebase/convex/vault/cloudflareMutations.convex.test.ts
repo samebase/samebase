@@ -618,6 +618,116 @@ describe("vault Cloudflare attachment mutations", () => {
     ]);
   });
 
+  it.each([
+    {
+      behavior: "preserves",
+      productionTriggerUuid: "old-production-trigger",
+      previewTriggerUuid: "old-preview-trigger",
+      expectedConvexBuildAccess: "wired" as const,
+    },
+    {
+      behavior: "invalidates",
+      productionTriggerUuid: "new-production-trigger",
+      previewTriggerUuid: "new-preview-trigger",
+      expectedConvexBuildAccess: "not_wired" as const,
+    },
+  ])("$behavior Convex build access based on Builds trigger identity", async (testCase) => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    const runId = await t.run(async (ctx) => {
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        workerTag: "manual-cloudflare-worker-tag",
+        origin: "selected_existing",
+        deployment: {
+          builds: {
+            state: "connected",
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+            production: {
+              triggerUuid: "old-production-trigger",
+              buildTokenUuid: "build-token",
+            },
+            preview: {
+              triggerUuid: "old-preview-trigger",
+              buildTokenUuid: "build-token",
+            },
+          },
+          convexBuildAccess: { state: "wired" },
+        },
+        connectedAt: 30,
+        lastObservedAt: 30,
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-cloudflare",
+        trigger: "wire_builds",
+        state: "running",
+        currentStep: "wire_builds",
+        createdAt: 40,
+        updatedAt: 40,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: ids.vaultId,
+        runId,
+        state: "active",
+        updatedAt: 40,
+      });
+      return runId;
+    });
+    const builds = {
+      state: "connected" as const,
+      rootDirectory: "/",
+      buildCommand: "pnpm run build",
+      deployCommand: "pnpm run deploy",
+      previewDeployCommand: "pnpm run deploy:preview",
+      pathIncludes: ["*"],
+      pathExcludes: [],
+      production: {
+        triggerUuid: testCase.productionTriggerUuid,
+        buildTokenUuid: "build-token",
+      },
+      preview: {
+        triggerUuid: testCase.previewTriggerUuid,
+        buildTokenUuid: "build-token",
+      },
+    };
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
+        ...ids,
+        runId,
+        appRoot,
+        builds,
+      }),
+    ).resolves.toEqual({ applied: true });
+
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_vault_and_appRoot", (q) =>
+              q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
+            )
+            .first(),
+      ),
+    ).resolves.toMatchObject({
+      deployment: {
+        builds,
+        convexBuildAccess: { state: testCase.expectedConvexBuildAccess },
+      },
+    });
+  });
+
   it("claims, records, and finishes Workers Builds wiring for an attached Worker", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
     await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
@@ -1290,6 +1400,30 @@ describe("vault Cloudflare attachment mutations", () => {
         connectedAt: 40,
         lastObservedAt: 40,
       });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: "apps/admin",
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-admin",
+        workerTag: "manual-cloudflare-admin-tag",
+        origin: "selected_existing",
+        deployment: {
+          builds: { state: "not_connected" },
+          convexBuildAccess: { state: "not_wired" },
+        },
+        connectedAt: 40,
+        lastObservedAt: 40,
+      });
+      await ctx.db.insert("vaultDomains", {
+        vaultId: ids.vaultId,
+        branch: "feature/admin",
+        kind: "branch_preview",
+        url: "https://feature-admin.example.com",
+        source: "cloudflare_workers_preview",
+        active: true,
+        lastSyncedAt: 40,
+      });
     });
     const runId = await t.run(async (ctx) => {
       return await ctx.db.insert("appProvisioningRuns", {
@@ -1339,7 +1473,11 @@ describe("vault Cloudflare attachment mutations", () => {
         .query("appProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
-      return { convexDeployment, events, worker };
+      const domains = await ctx.db
+        .query("vaultDomains")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .collect();
+      return { convexDeployment, domains, events, worker };
     });
 
     expect(result.convexDeployment).toMatchObject({
@@ -1352,6 +1490,7 @@ describe("vault Cloudflare attachment mutations", () => {
         convexBuildAccess: { state: "not_wired" },
       },
     });
+    expect(result.domains).toMatchObject([{ active: true }]);
     expect(result.events.at(-1)?.message).toContain("Worker is missing upstream");
     expect(result.events.at(-1)?.message).toContain("Convex deployment is missing upstream");
   });
@@ -1427,7 +1566,21 @@ describe("vault Cloudflare attachment mutations", () => {
     expect(result.convexDeployment?.upstream).toBeUndefined();
   });
 
-  it("records adopted Builds when verification finds matching triggers on an attached Worker", async () => {
+  it.each([
+    {
+      description: "clears adopted build access without a confirmed Convex deployment",
+      convexDeployment: "not_checked" as const,
+      expectedConvexBuildAccess: "not_wired" as const,
+      expectedMessage:
+        "Cloudflare Workers Builds already match .; recorded Builds connected and marked deploy keys missing.",
+    },
+    {
+      description: "keeps adopted build access with a confirmed Convex deployment",
+      convexDeployment: "confirmed" as const,
+      expectedConvexBuildAccess: "wired" as const,
+      expectedMessage: "Cloudflare Workers Builds already match .; recorded Builds connected.",
+    },
+  ])("$description", async (testCase) => {
     const { ids, t } = await createCloudflareConnectionVault();
     const connectedBuilds = {
       state: "connected" as const,
@@ -1447,6 +1600,28 @@ describe("vault Cloudflare attachment mutations", () => {
       },
     };
     await t.run(async (ctx) => {
+      if (testCase.convexDeployment === "confirmed") {
+        await ctx.db.insert("vaultConvexDeployments", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          appRoot,
+          projectId: "convex-project",
+          teamSlug: "ada-team",
+          projectSlug: "manual-cloudflare",
+          deploymentName: "manual-cloudflare-prod",
+          deploymentType: "prod",
+          cloudUrl: "https://manual-cloudflare.convex.cloud",
+          siteUrl: "https://manual-cloudflare.convex.site",
+          previewDeployment: { state: "not_ensured" },
+          deployKeys: {
+            production: { state: "created", id: "prod:key-id" },
+            preview: { state: "created", id: "preview:key-id" },
+          },
+          origin: "selected_existing",
+          connectedAt: 35,
+          lastObservedAt: 35,
+        });
+      }
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: ids.vaultId,
         userId: ids.userId,
@@ -1457,7 +1632,7 @@ describe("vault Cloudflare attachment mutations", () => {
         origin: "selected_existing",
         deployment: {
           builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
+          convexBuildAccess: { state: "wired" },
         },
         connectedAt: 40,
         lastObservedAt: 40,
@@ -1489,8 +1664,8 @@ describe("vault Cloudflare attachment mutations", () => {
           worker: "confirmed",
           builds: "adopted",
           connectedBuilds,
-          convexDeployment: "not_checked",
-          convexBuildAccess: "not_checked",
+          convexDeployment: testCase.convexDeployment,
+          convexBuildAccess: "confirmed",
         },
       }),
     ).resolves.toEqual({ applied: true });
@@ -1512,13 +1687,63 @@ describe("vault Cloudflare attachment mutations", () => {
     expect(result.worker).toMatchObject({
       deployment: {
         builds: connectedBuilds,
-        convexBuildAccess: { state: "not_wired" },
+        convexBuildAccess: { state: testCase.expectedConvexBuildAccess },
       },
     });
     expect(result.worker?.lastObservedAt).toBeGreaterThan(40);
-    expect(result.events.map((event) => event.message)).toContain(
-      "Cloudflare Workers Builds already match .; recorded Builds connected.",
-    );
+    expect(result.events.map((event) => event.message)).toContain(testCase.expectedMessage);
+  });
+
+  it("normalizes wired build access when Builds are not connected", async () => {
+    const { ids, t } = await createClaimedInfrastructureVerification({
+      includeConvexConnection: true,
+    });
+    await t.run(async (ctx) => {
+      const worker = await ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault_and_appRoot", (q) =>
+          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
+        )
+        .unique();
+      if (!worker) {
+        throw new Error("Expected Cloudflare Worker.");
+      }
+      await ctx.db.patch(worker._id, {
+        deployment: {
+          builds: { state: "not_connected" },
+          convexBuildAccess: { state: "wired" },
+        },
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification, {
+        ...ids,
+        appRoot,
+        providerResult: {
+          worker: "confirmed",
+          builds: "not_checked",
+          convexDeployment: "confirmed",
+          convexBuildAccess: "not_checked",
+        },
+      }),
+    ).resolves.toEqual({ applied: true });
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault_and_appRoot", (q) =>
+            q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
+          )
+          .unique(),
+      ),
+    ).resolves.toMatchObject({
+      deployment: {
+        builds: { state: "not_connected" },
+        convexBuildAccess: { state: "not_wired" },
+      },
+    });
   });
 
   it("resets Builds and Convex build access when verification contradicts trigger records", async () => {

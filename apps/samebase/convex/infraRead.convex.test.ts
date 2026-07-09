@@ -46,6 +46,67 @@ async function createConnectedVault() {
 }
 
 describe("infra read app-root targeting", () => {
+  it("fails closed when the recorded Convex deployment is missing upstream", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: ".",
+        projectId: "deleted-project",
+        teamSlug: "ada-team",
+        projectSlug: "deleted-project",
+        deploymentName: "deleted-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://deleted.convex.cloud",
+        siteUrl: "https://deleted.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+        previewDeployment: { state: "not_ensured" },
+        origin: "selected_existing",
+        upstream: { state: "missing_upstream" },
+        connectedAt: 30,
+        lastObservedAt: 30,
+      });
+    });
+
+    await expect(
+      t.action(internal.infraRead.getConvexDeploymentStatus, {
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Convex deployment is missing upstream");
+  });
+
+  it("fails closed when the recorded Worker is missing upstream", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: ".",
+        accountId: "cloudflare-account",
+        workerName: "deleted-worker",
+        workerTag: "deleted-worker-tag",
+        origin: "selected_existing",
+        upstream: { state: "missing_upstream" },
+        deployment: {
+          builds: { state: "not_connected" },
+          convexBuildAccess: { state: "not_wired" },
+        },
+        connectedAt: 30,
+        lastObservedAt: 30,
+      });
+    });
+
+    await expect(
+      t.action(internal.infraRead.getCloudflareWorkerStatus, {
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Cloudflare Worker is missing upstream");
+  });
+
   it("fails closed when multiple Convex deployments are connected", async () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {

@@ -131,8 +131,9 @@ row). Verification pairs with that write, not with a central list:
    `PREVIEW_CONVEX_DEPLOY_KEY`, is contradicted and repaired by `wire_convex_build_access`. Because
    Cloudflare does not return secret values, verification cannot prove that a present secret
    contains the current key; the repair action rotates and rewrites fresh values.
-5. Fail closed on unverifiable. A provider error, a missing or expired connection, or a Worker-scope
-   404 writes nothing; only a successful authoritative read that contradicts the record flips state.
+5. Fail closed on unverifiable. A provider error, a missing or expired connection, or an unreadable
+   resource writes nothing. An authoritative Worker or Convex resource 404 marks that provider row
+   missing upstream; only a successful authoritative read that contradicts the record flips state.
    The authority is not always the provider: for the wired-without-deployment reset the registry
    itself is the authoritative read — whether a Convex deployment row exists for the app root is a
    Samebase fact, so that contradiction flips with no provider call. Writes are per-row atomic:
@@ -192,6 +193,11 @@ and a `nextAction` mapping to `connect_cloudflare_worker` / `connect_convex_depl
 `retry_infrastructure_provisioning`. This is a state-shape change and ships as its own reviewed
 slice. Phase 2 also takes trigger rebinding, paired with teaching `wire_builds` to repair a
 conflicting same-kind trigger instead of throwing.
+
+Trigger rebinding is forward-only. Cloudflare cannot patch a trigger's repository binding or
+transactionally replace a trigger, so `wire_builds` deletes only one freshly re-read, proven
+conflict and then creates the target trigger. It never reconstructs a stale trigger snapshot. If
+creation fails, the run remains failed and a retry reconciles or recreates the target trigger.
 
 ## Rollout Notes
 
