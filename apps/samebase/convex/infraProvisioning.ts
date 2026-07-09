@@ -378,21 +378,24 @@ export async function resolveConvexProvisioningConnection(
     kind: "convex",
   });
   if (convexConnection?.kind !== "convex") {
-    throw new Error(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
+    throw new ConvexProvisioningConnectionRequiredError();
   }
 
   const convexToken = convexConnection.auth.credential.trim();
   const convexTeamId = convexConnection.teamId.trim();
 
   if (!convexToken || !convexTeamId) {
-    throw new Error(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
+    throw new ConvexProvisioningConnectionRequiredError();
   }
 
   return { convexToken, convexAuthMethod: convexConnection.auth.method, convexTeamId };
+}
+
+export class ConvexProvisioningConnectionRequiredError extends Error {
+  constructor() {
+    super("Convex connection is required to provision infrastructure. Connect Convex and retry.");
+    this.name = "ConvexProvisioningConnectionRequiredError";
+  }
 }
 
 export async function resolveCloudflareProvisioningConnection(

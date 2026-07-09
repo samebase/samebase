@@ -1,9 +1,48 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const appRoot = ".";
+const verificationCloudflareAccountId = "0123456789abcdef0123456789abcdef";
+
+function cloudflareApiSuccessResponse(result: unknown): Response {
+  return new Response(JSON.stringify({ success: true, errors: [], messages: [], result }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function stubCloudflareInfrastructureVerificationFetch(args?: {
+  convexProjectStatus?: number;
+}): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const endpoint = new URL(url).pathname;
+      switch (endpoint) {
+        case "/client/v4/accounts":
+          return cloudflareApiSuccessResponse([
+            {
+              id: verificationCloudflareAccountId,
+              name: "Ada Cloudflare",
+              type: "standard",
+            },
+          ]);
+        case `/client/v4/accounts/${verificationCloudflareAccountId}/builds/workers/manual-cloudflare-worker-tag/triggers`:
+          return cloudflareApiSuccessResponse([]);
+        case "/v1/projects/123":
+          return new Response("provider failure", { status: args?.convexProjectStatus ?? 500 });
+      }
+      return new Response(`Unexpected endpoint ${endpoint}`, { status: 500 });
+    }),
+  );
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 async function createAttachableVaultWithOwnership(args: { ownershipState: "active" | "failed" }) {
   const t = makeConvexTest();
@@ -120,6 +159,96 @@ async function createCloudflareConnectionVault() {
   });
 
   return { ids, t };
+}
+
+async function createClaimedInfrastructureVerification(args: { includeConvexConnection: boolean }) {
+  const { ids, t } = await createCloudflareConnectionVault();
+  const runId = await t.run(async (ctx) => {
+    await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      userId: ids.userId,
+      auth: {
+        method: "oauth",
+        credential: "cloudflare-token",
+        refreshCredential: "cloudflare-refresh-token",
+        credentialExpiresAt: 4_102_444_800_000,
+      },
+      defaultAccount: {
+        state: "selected",
+        accountId: verificationCloudflareAccountId,
+        accountName: "Ada Cloudflare",
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    if (args.includeConvexConnection) {
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        userId: ids.userId,
+        auth: {
+          method: "api_key",
+          credential: "convex-token",
+        },
+        teamId: "convex-team",
+        teamSlug: "ada-team",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    }
+    await ctx.db.insert("vaultConvexDeployments", {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      appRoot,
+      projectId: "123",
+      teamSlug: "ada-team",
+      projectSlug: "manual-cloudflare",
+      deploymentName: "manual-cloudflare-prod",
+      deploymentType: "prod",
+      cloudUrl: "https://manual-cloudflare.convex.cloud",
+      siteUrl: "https://manual-cloudflare.convex.site",
+      previewDeployment: { state: "not_ensured" },
+      deployKeys: {
+        production: { state: "not_created" },
+        preview: { state: "not_created" },
+      },
+      origin: "selected_existing",
+      connectedAt: 35,
+      lastObservedAt: 35,
+    });
+    await ctx.db.insert("vaultCloudflareWorkers", {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      appRoot,
+      accountId: verificationCloudflareAccountId,
+      workerName: "manual-cloudflare-worker",
+      workerTag: "manual-cloudflare-worker-tag",
+      origin: "selected_existing",
+      deployment: {
+        builds: { state: "not_connected" },
+        convexBuildAccess: { state: "not_wired" },
+      },
+      connectedAt: 40,
+      lastObservedAt: 40,
+    });
+    return await ctx.db.insert("appProvisioningRuns", {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      repositoryFullName: "ada/manual-cloudflare",
+      trigger: "verify_infrastructure",
+      state: "queued",
+      currentStep: "run_created",
+      createdAt: 50,
+      updatedAt: 50,
+    });
+  });
+  const verifyIds = { ...ids, runId };
+
+  await t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
+    ...verifyIds,
+    appRoot,
+  });
+
+  return { ids: verifyIds, t };
 }
 
 describe("vault Cloudflare attachment mutations", () => {
@@ -263,6 +392,71 @@ describe("vault Cloudflare attachment mutations", () => {
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
       upstream: { state: "present" },
+    });
+  });
+
+  it("rejects reconnecting a missing-upstream Worker row to a target held by a present row", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultApps", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: "apps/admin",
+        createdAt: 26,
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        accountId: "old-account",
+        workerName: "old-worker",
+        workerTag: "old-worker-tag",
+        origin: "selected_existing",
+        upstream: { state: "missing_upstream" },
+        deployment: {
+          builds: { state: "not_connected" },
+          convexBuildAccess: { state: "not_wired" },
+        },
+        connectedAt: 20,
+        lastObservedAt: 20,
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: "apps/admin",
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        workerTag: "manual-cloudflare-worker-tag",
+        origin: "selected_existing",
+        upstream: { state: "present" },
+        deployment: {
+          builds: { state: "not_connected" },
+          convexBuildAccess: { state: "not_wired" },
+        },
+        connectedAt: 25,
+        lastObservedAt: 25,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
+        ...ids,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        origin: "selected_existing",
+      }),
+    ).resolves.toEqual({ claimed: false });
+
+    const events = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+    });
+    expect(events.at(-1)).toMatchObject({
+      level: "warn",
+      message: "Cloudflare Worker is already attached to this vault.",
     });
   });
 
@@ -1160,6 +1354,77 @@ describe("vault Cloudflare attachment mutations", () => {
     });
     expect(result.events.at(-1)?.message).toContain("Worker is missing upstream");
     expect(result.events.at(-1)?.message).toContain("Convex deployment is missing upstream");
+  });
+
+  it("records infrastructure verification as unverifiable when the Convex connection is missing", async () => {
+    const { ids, t } = await createClaimedInfrastructureVerification({
+      includeConvexConnection: false,
+    });
+    stubCloudflareInfrastructureVerificationFetch();
+
+    await expect(
+      t.action(internal.vault.cloudflare.ensureCloudflareInfrastructureVerification, {
+        ...ids,
+        appRoot,
+      }),
+    ).resolves.toBeNull();
+
+    const result = await t.run(async (ctx) => {
+      const events = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+      const convexDeployment = await ctx.db
+        .query("vaultConvexDeployments")
+        .withIndex("by_vault_and_appRoot", (q) =>
+          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
+        )
+        .first();
+      return { convexDeployment, events };
+    });
+
+    expect(result.events.at(-1)).toMatchObject({
+      level: "warn",
+      message: "Convex deployment could not be verified because the Convex connection is missing.",
+      step: "verify_infrastructure",
+    });
+    expect(result.convexDeployment?.upstream).toBeUndefined();
+  });
+
+  it("records infrastructure verification as unverifiable when Convex returns a provider error", async () => {
+    const { ids, t } = await createClaimedInfrastructureVerification({
+      includeConvexConnection: true,
+    });
+    stubCloudflareInfrastructureVerificationFetch({ convexProjectStatus: 500 });
+
+    await expect(
+      t.action(internal.vault.cloudflare.ensureCloudflareInfrastructureVerification, {
+        ...ids,
+        appRoot,
+      }),
+    ).resolves.toBeNull();
+
+    const result = await t.run(async (ctx) => {
+      const events = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+      const convexDeployment = await ctx.db
+        .query("vaultConvexDeployments")
+        .withIndex("by_vault_and_appRoot", (q) =>
+          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
+        )
+        .first();
+      return { convexDeployment, events };
+    });
+
+    expect(result.events.at(-1)).toMatchObject({
+      level: "warn",
+      message:
+        "Convex deployment could not be verified because Convex did not return a verifiable response.",
+      step: "verify_infrastructure",
+    });
+    expect(result.convexDeployment?.upstream).toBeUndefined();
   });
 
   it("records adopted Builds when verification finds matching triggers on an attached Worker", async () => {

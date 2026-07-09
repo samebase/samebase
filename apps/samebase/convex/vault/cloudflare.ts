@@ -40,11 +40,15 @@ import {
   createConvexPreviewDeployKey,
   deleteConvexDeployKey,
   deleteConvexPreviewDeployKey,
+  ConvexProvisioningConnectionRequiredError,
   ensureConvexPreviewResources,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
 import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
-import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
+import {
+  ConvexManagementApiError,
+  isConvexManagementNotFoundError,
+} from "../convexManagementApi/errors";
 import { vaultSuffix } from "../slugUtils";
 import {
   type ConvexDeployKeyState,
@@ -692,6 +696,12 @@ function resolveInfrastructureVerificationUnverifiableMessage(error: unknown): s
   }
   if (error instanceof CloudflareAccountUnavailableError) {
     return "Cloudflare infrastructure could not be verified because the recorded Cloudflare account is unavailable.";
+  }
+  if (error instanceof ConvexProvisioningConnectionRequiredError) {
+    return "Convex deployment could not be verified because the Convex connection is missing.";
+  }
+  if (error instanceof ConvexManagementApiError) {
+    return "Convex deployment could not be verified because Convex did not return a verifiable response.";
   }
   return null;
 }

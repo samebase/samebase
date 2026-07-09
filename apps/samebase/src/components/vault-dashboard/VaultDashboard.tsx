@@ -139,6 +139,11 @@ import {
   isSelectableCloudflareWorker,
   readDefaultCloudflareWorkerSelection,
 } from "@/components/vault-dashboard/vaultDashboardCloudflareWorkerSelection";
+import {
+  buildVaultProductionApps,
+  type VaultBranchProductionApp,
+  type VaultBranchProductionLinkProvider,
+} from "@/components/vault-dashboard/vaultProductionApps";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const VAULT_BRANCH_INITIAL_PAGE_SIZE = 25;
@@ -1729,20 +1734,6 @@ interface VaultBranchLinkRowProps {
   stagedSummary?: StagedSummary;
 }
 
-type VaultBranchProductionLinkProvider = "cloudflare" | "convex";
-
-type VaultBranchProductionLink = {
-  href: string;
-  label: string;
-  provider: VaultBranchProductionLinkProvider;
-  title: string;
-};
-
-type VaultBranchProductionApp = {
-  appRoot: string;
-  links: readonly VaultBranchProductionLink[];
-};
-
 type VaultBranchConvexLink = {
   href: string;
   label: string;
@@ -1763,57 +1754,11 @@ const branchProductionLinkClassName =
   "group -mx-1.5 -my-1 grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 rounded-sm px-1.5 py-1 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 const branchProductionLinkLabelClassName = "min-w-0 break-all font-mono";
 
-type VaultBranchProductionLinkInput = {
-  appRoot: string;
-  href: string;
-  label: string;
-  provider: VaultBranchProductionLinkProvider;
-  sortKey: string;
-  title: string;
-};
-
-function buildVaultBranchProductionApps(
-  links: VaultBranchProductionLinkInput[],
-): VaultBranchProductionApp[] {
-  const linksByAppRoot = new Map<string, VaultBranchProductionLinkInput[]>();
-
-  for (const link of links) {
-    linksByAppRoot.set(link.appRoot, [...(linksByAppRoot.get(link.appRoot) ?? []), link]);
-  }
-
-  return [...linksByAppRoot.entries()]
-    .sort(([leftAppRoot], [rightAppRoot]) => leftAppRoot.localeCompare(rightAppRoot))
-    .map(([appRoot, appLinks]) => ({
-      appRoot,
-      links: [...appLinks]
-        .sort(
-          (left, right) =>
-            left.provider.localeCompare(right.provider) ||
-            left.sortKey.localeCompare(right.sortKey) ||
-            left.href.localeCompare(right.href),
-        )
-        .map((link) => ({
-          href: link.href,
-          label: link.label,
-          provider: link.provider,
-          title: link.title,
-        })),
-    }));
-}
-
 function buildVaultBranchProductionAppRootLabel(appRoot: string): string {
   if (appRoot === ".") {
     return "Repository root";
   }
   return appRoot;
-}
-
-function buildVaultBranchProductionUrlLabel(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url.replace(/^https?:\/\//, "");
-  }
 }
 
 function VaultBranchProductionApps({
@@ -2963,48 +2908,6 @@ type VaultDashboardViewProps = {
   onSetCloudflareConvexDeployKeys: (vaultId: Id<"vaults">, appRoot: string) => void;
   onVerifyCloudflareInfrastructure: (vaultId: Id<"vaults">, appRoot: string) => void;
 };
-
-function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
-  const cloudflareLinks: VaultBranchProductionLinkInput[] = vault.cloudflareWorkers.flatMap(
-    (worker) => {
-      if (!worker.workersDevUrl) {
-        return [];
-      }
-      return [
-        {
-          appRoot: worker.appRoot,
-          href: worker.workersDevUrl,
-          label: buildVaultBranchProductionUrlLabel(worker.workersDevUrl),
-          provider: "cloudflare",
-          sortKey: worker.workerName,
-          title:
-            worker.appRoot === "."
-              ? "Open production app"
-              : `Open production app for ${worker.appRoot}`,
-        },
-      ];
-    },
-  );
-  const convexLinks: VaultBranchProductionLinkInput[] = vault.convexDeployments.flatMap(
-    (deployment) => {
-      if (!deployment.deploymentDashboardUrl) {
-        return [];
-      }
-      return [
-        {
-          appRoot: deployment.appRoot,
-          href: deployment.deploymentDashboardUrl,
-          label: `Production: ${deployment.deploymentName}`,
-          provider: "convex",
-          sortKey: deployment.deploymentName,
-          title: `Open production Convex deployment ${deployment.deploymentName}`,
-        },
-      ];
-    },
-  );
-
-  return buildVaultBranchProductionApps([...cloudflareLinks, ...convexLinks]);
-}
 
 function applyVaultDashboardProviderAddSearch({
   appRoot,

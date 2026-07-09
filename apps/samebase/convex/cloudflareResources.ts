@@ -1944,6 +1944,8 @@ function verifyAttachedConvexDeployment(args: {
   return args.deploymentExists ? "confirmed" : "missing_upstream";
 }
 
+// Catalog every durable verification axis, including axes whose repair path calls
+// the verifier directly instead of dispatching through this object.
 export const blockVerification = {
   wire_builds: { verify: verifyConnectedBuilds },
   wire_convex_build_access: { verify: verifyConvexBuildAccess },

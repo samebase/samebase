@@ -26,6 +26,7 @@ import {
   resolveVaultProviderSetupStatus,
   resolveVaultProviderSetupStepProvider,
 } from "./vaultProviderSetup";
+import { buildVaultProductionApps } from "./vaultProductionApps";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -666,6 +667,32 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(markup).not.toContain(
       "Select a vault from the left sidebar or add one from the right sidebar.",
     );
+  });
+
+  it("omits production links for provider resources marked missing upstream", () => {
+    const vault = makeResourceRailBuilderVault({
+      appRoots: [{ appRoot: "." }],
+      cloudflareWorkers: [
+        makeResourceRailCloudflareWorker({
+          upstream: {
+            state: "missing_upstream",
+            nextAction: "connect_cloudflare_worker",
+          },
+          workersDevUrl: "https://stale-worker.ada.workers.dev",
+        }),
+      ],
+      convexDeployments: [
+        makeResourceRailConvexDeployment({
+          upstream: {
+            state: "missing_upstream",
+            nextAction: "connect_convex_deployment",
+          },
+          deploymentDashboardUrl: "https://dashboard.convex.dev/t/ada/demo/demo-production",
+        }),
+      ],
+    });
+
+    expect(buildVaultProductionApps(vault)).toEqual([]);
   });
 
   it("renders the root dashboard vault picker in the main pane", () => {
