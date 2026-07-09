@@ -3,29 +3,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildSamebaseSyncPublicScript } from "../../samebaseSyncPublicScript";
+import { buildRuntimeSamebaseSyncScript } from "../../vite.config";
 
 describe("samebase sync public script", () => {
-  it("keeps the committed samebase.ts asset byte-for-byte in sync with the package source", () => {
+  it("builds the hosted samebase.ts asset from the package source", async () => {
     const currentFilePath = fileURLToPath(import.meta.url);
     const currentDirectoryPath = path.dirname(currentFilePath);
-    const publicScript = readFileSync(
-      path.resolve(currentDirectoryPath, "../../public/samebase.ts"),
-      "utf8",
-    )
-      .replace(/\r\n/g, "\n")
-      .trimEnd();
     const packageScript = readFileSync(
       path.resolve(currentDirectoryPath, "../../../../packages/sync/samebase.ts"),
       "utf8",
     )
       .replace(/\r\n/g, "\n")
       .trimEnd();
-    const mirroredPublicScript = buildSamebaseSyncPublicScript({
-      packageScript,
-    }).trimEnd();
 
-    expect(publicScript).toBe(packageScript);
-    expect(publicScript).toBe(mirroredPublicScript);
+    expect(await buildRuntimeSamebaseSyncScript()).toBe(`${packageScript}\n`);
   });
 });

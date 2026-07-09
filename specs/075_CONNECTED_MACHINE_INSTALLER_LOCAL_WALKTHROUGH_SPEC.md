@@ -117,7 +117,7 @@ What to verify:
 To confirm the exact-copy contract locally:
 
 ```bash
-git diff --no-index -- packages/sync/samebase.ts apps/samebase/public/samebase.ts
+cmp packages/sync/samebase.ts <(curl -fsSL 'http://127.0.0.1:5174/samebase.ts')
 ```
 
 Expected result:
@@ -242,7 +242,7 @@ Useful files:
 3. machine HTTP entrypoints: `apps/samebase/convex/connectedMachineHttp.ts`
 4. machine row and credential models: `apps/samebase/convex/connectedMachineModel.ts`
 5. canonical installer and runner: `packages/sync/samebase.ts`
-6. hosted mirrored copy: `apps/samebase/public/samebase.ts`
+6. hosted asset serving and build wiring: `apps/samebase/vite.config.ts`
 
 ## 11. What To Conclude From This Slice
 

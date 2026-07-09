@@ -13,7 +13,6 @@ import {
   createLogoIdentitySvgAssets,
   createStaticLogoSvgMarkup,
 } from "./src/components/logo/logoStaticSvgAsset";
-import { buildSamebaseSyncPublicScript } from "./samebaseSyncPublicScript";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
@@ -118,7 +117,6 @@ const appBuildConfig: AppBuildConfig = {
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
 const staticInstallIconSvgAssetPath = path.resolve(currentDir, "public/install-icon.svg");
 const samebaseSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/samebase.ts");
-const staticSamebaseSyncScriptPath = path.resolve(currentDir, "public/samebase.ts");
 const samebaseConnectConfigPathname = "/samebase-connect.json";
 const runtimeSamebaseConnectConfigPath = path.resolve(
   currentDir,
@@ -261,37 +259,8 @@ function syncStaticInstallIconSvgAsset() {
   writeFileSync(staticInstallIconSvgAssetPath, `${nextInstallIconSvgMarkup}\n`, "utf8");
 }
 
-/**
- * Mirror the package entrypoint into `public/samebase.ts` without any mutation so
- * the hosted file stays byte-for-byte identical to the source a user can audit
- * in the package.
- */
-async function syncStaticSamebaseSyncScriptAsset() {
-  const nextSamebaseSyncScript = buildSamebaseSyncPublicScript({
-    packageScript: readSamebaseSyncPackageScript(),
-  });
-  const nextSamebaseSyncScriptWithNewline = nextSamebaseSyncScript.endsWith("\n")
-    ? nextSamebaseSyncScript
-    : `${nextSamebaseSyncScript}\n`;
-  const currentSamebaseSyncScript = (() => {
-    try {
-      return readFileSync(staticSamebaseSyncScriptPath, "utf8");
-    } catch {
-      return null;
-    }
-  })();
-
-  if (currentSamebaseSyncScript === nextSamebaseSyncScriptWithNewline) {
-    return;
-  }
-
-  writeFileSync(staticSamebaseSyncScriptPath, nextSamebaseSyncScriptWithNewline, "utf8");
-}
-
-async function buildRuntimeSamebaseSyncScript() {
-  const script = buildSamebaseSyncPublicScript({
-    packageScript: readSamebaseSyncPackageScript(),
-  });
+export async function buildRuntimeSamebaseSyncScript() {
+  const script = readSamebaseSyncPackageScript();
   return script.endsWith("\n") ? script : `${script}\n`;
 }
 
@@ -391,28 +360,11 @@ function syncStaticInstallIconSvgAssetPlugin() {
   };
 }
 
-function syncStaticSamebaseSyncScriptAssetPlugin() {
-  let hasSyncedStaticSamebaseSyncScriptAsset = false;
-
-  const syncOnce = async () => {
-    if (hasSyncedStaticSamebaseSyncScriptAsset) {
-      return;
-    }
-
-    hasSyncedStaticSamebaseSyncScriptAsset = true;
-    await syncStaticSamebaseSyncScriptAsset();
-  };
-
+function samebaseSyncScriptAssetPlugin() {
   return {
-    name: "sync-static-samebase-sync-script-asset",
-    async buildStart() {
-      await syncOnce();
-    },
+    name: "samebase-sync-script-asset",
     async configureServer(server: ViteDevServer) {
-      await syncOnce();
-
-      // Serve a deploy-stamped installer in dev without dirtying the tracked
-      // `public/samebase.ts` file away from its production default.
+      // Serve the canonical package source directly in dev.
       server.middlewares.use(
         (
           request: IncomingMessage,
@@ -635,7 +587,7 @@ export default defineConfig({
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
-    syncStaticSamebaseSyncScriptAssetPlugin(),
+    samebaseSyncScriptAssetPlugin(),
     syncRuntimeSamebaseConnectConfigAssetPlugin(),
     serveContentDocsMarkdownPlugin(),
     codexAppServerResearchBridgePlugin({

@@ -1,5 +1,5 @@
 // No dependencies by design: this file should stay easy to inspect, easy to
-// reason about, and easy to mirror into hosted `/samebase.ts`.
+// reason about, and easy to serve directly as hosted `/samebase.ts`.
 //
 // Audit guide:
 // 1. Validate that this file was served from `/samebase.ts` on `https:` (or
@@ -12,10 +12,10 @@
 // It does not install background services, modify project files, or download
 // and execute any other code after this file starts running.
 // The file you run is the installer source. Preview or local deploys can ship
-// their own hosted copy without teaching users a separate targeting flag.
+// their own hosted response without teaching users a separate targeting flag.
 // If we add a visible installer version comment later, it should be updated
-// manually only when this installer file changes, and the hosted copy should
-// mirror it exactly instead of stamping deploy-specific metadata.
+// manually only when this installer file changes, and every hosted output should
+// match it exactly instead of stamping deploy-specific metadata.
 
 import { execFile, spawn, spawnSync } from "node:child_process";
 import {

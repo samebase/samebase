@@ -39,7 +39,6 @@ export default defineConfig({
       "**/dist",
       "**/.codespace-agent/**",
       "**/convex/_generated",
-      "apps/samebase/public/samebase.ts",
       "**/src/components/ui",
     ],
     jsPlugins: [
