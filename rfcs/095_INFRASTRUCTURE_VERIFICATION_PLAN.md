@@ -125,7 +125,12 @@ row). Verification pairs with that write, not with a central list:
    `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` onto every recorded Workers Builds trigger.
    This mirrors Cloudflare's single visible build-variable table: the build script reads
    `WORKERS_CI_BRANCH` and passes only the branch-appropriate value to Convex, so verification
-   treats a trigger missing either name as contradicted.
+   treats a trigger missing either name as contradicted. The only confirmed layout is both names on
+   the production trigger and both names on the preview trigger. A production-only layout, or a
+   split layout where production has `CONVEX_DEPLOY_KEY` and preview has
+   `PREVIEW_CONVEX_DEPLOY_KEY`, is contradicted and repaired by `wire_convex_build_access`. Because
+   Cloudflare does not return secret values, verification cannot prove that a present secret
+   contains the current key; the repair action rotates and rewrites fresh values.
 5. Fail closed on unverifiable. A provider error, a missing or expired connection, or a Worker-scope
    404 writes nothing; only a successful authoritative read that contradicts the record flips state.
    The authority is not always the provider: for the wired-without-deployment reset the registry

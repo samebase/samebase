@@ -696,6 +696,74 @@ describe("cloudflare resources", () => {
     });
   });
 
+  it("contradicts Convex build access when deploy-key variables exist only on the production trigger", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      readEnvVars: {
+        "production-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+          PREVIEW_CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+        },
+      },
+      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      worker: "confirmed",
+      builds: "confirmed",
+      convexBuildAccess: "contradicted",
+    });
+  });
+
+  it("contradicts Convex build access when deploy-key variables are split by trigger", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      readEnvVars: {
+        "production-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+        },
+        "preview-trigger": {
+          PREVIEW_CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+        },
+      },
+      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      worker: "confirmed",
+      builds: "confirmed",
+      convexBuildAccess: "contradicted",
+    });
+  });
+
   it("wires Workers Builds without patching Convex environment variables", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({

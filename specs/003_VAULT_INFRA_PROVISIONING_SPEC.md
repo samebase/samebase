@@ -260,7 +260,9 @@ In `VaultDashboard`:
 - An attached Cloudflare Worker for an app root that also has Convex, connected Builds, and missing
   Convex build access shows `Cloudflare does not have this Convex deployment's deploy keys.` with a
   `Set Convex deploy keys` action. The action patches both `CONVEX_DEPLOY_KEY` and
-  `PREVIEW_CONVEX_DEPLOY_KEY` into the production and preview Workers Builds triggers.
+  `PREVIEW_CONVEX_DEPLOY_KEY` into the production and preview Workers Builds triggers. Verification
+  treats Convex build access as missing unless both deploy-key names exist on both recorded
+  triggers; split-by-trigger layouts are repaired by the same action.
 
 Dashboard external links:
 

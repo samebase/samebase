@@ -9,6 +9,12 @@ account: recorded Workers Builds production and preview trigger ids must still e
 and a Worker marked as having Convex build access must still expose both `CONVEX_DEPLOY_KEY` and
 `PREVIEW_CONVEX_DEPLOY_KEY` on each trigger.
 
+Convex build-access verification is all-or-nothing and name-only: production and preview trigger
+variable tables must each contain both deploy-key names. A split layout, such as `CONVEX_DEPLOY_KEY`
+only on production and `PREVIEW_CONVEX_DEPLOY_KEY` only on preview, is treated as missing.
+Cloudflare does not return secret values, so verification cannot prove that a present secret
+contains the current key; the repair action rotates and rewrites fresh values.
+
 Provider access is read-only. Samebase only writes registry corrections: missing recorded triggers
 make the Worker repairable through `wire_builds`; missing deploy-key variables, or a wired Worker
 with no attached Convex deployment row, make it repairable through `wire_convex_build_access`.
