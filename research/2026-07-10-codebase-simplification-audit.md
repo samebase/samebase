@@ -403,6 +403,11 @@ for superseded commits, and stop duplicating the suite on every `main` push once
 stable. This changes when the same validation runs, not whether it runs. Keep genuinely slow GPU
 stress in a nightly lane. Run supply-chain validation in parallel with useful checks.
 
+The current GitHub ruleset does not require a pull request or any status check. Workflow placement
+alone is therefore a process convention, not a hard gate. After the pull-request lane proves stable,
+require the existing `ci (24.x)` aggregate and pull requests in the ruleset as a separate governance
+change.
+
 Root checks currently omit shipped workspaces and run some package tests twice. Give each retained
 workspace one `check` script and enumerate workspaces from the workspace graph rather than a manual
 allowlist.
