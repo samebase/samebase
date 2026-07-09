@@ -283,6 +283,26 @@ export function ProviderConnectionsPageVisualFixture() {
       isCheckingConvexAccess={false}
       isCheckingGithubAccess={false}
       isReauthorizingGithub={false}
+      mcpGrantError={null}
+      mcpGrants={[
+        {
+          clientId: "mcpc_codex_local_fixture",
+          clientName: "Codex",
+          createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 10 * 24 * 60 * 60_000,
+          grantId: "mcpg_codex_local_fixture",
+          lastUsedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 2 * 60_000,
+          resource: "https://api.samebase.com/mcp",
+          scopes: ["access_dashboard", "access_browser_login_handoff"],
+        },
+        {
+          clientId: "mcpc_cli_local_fixture",
+          createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 24 * 60 * 60_000,
+          grantId: "mcpg_cli_local_fixture",
+          resource: "https://api.samebase.com/mcp",
+          scopes: ["access_dashboard"],
+        },
+      ]}
+      mcpGrantPaginationStatus="Exhausted"
       now={providerConnectionsVisualFixtureState.now}
       onCheckCloudflareAccess={noop}
       onCheckConvexAccess={noop}
@@ -292,9 +312,12 @@ export function ProviderConnectionsPageVisualFixture() {
       onCloudflareAccountSubmit={noop}
       onConnect={noop}
       onDisconnect={noop}
+      onLoadMoreMcpGrants={noop}
       onOpenApiKeyDialog={noop}
       onOpenCloudflareAccountDialog={noop}
       onReauthorizeGithub={noop}
+      onRevokeMcpGrant={noop}
+      revokingMcpGrantId={null}
     />
   );
 }

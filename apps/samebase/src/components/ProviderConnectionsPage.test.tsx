@@ -13,6 +13,11 @@ const { act } = React;
 
 const queryState = vi.hoisted(() => ({
   handlersByFunctionName: new Map<string, (args?: unknown) => Promise<unknown>>(),
+  mcpGrants: {
+    loadMore: vi.fn(),
+    results: new Array<unknown>(),
+    status: "Exhausted",
+  },
   resultsByQueryName: new Map<string, unknown>(),
 }));
 
@@ -33,6 +38,7 @@ vi.mock("convex/react", async (importOriginal) => {
         queryState.handlersByFunctionName.get(getFunctionName(mutation)) ?? createAsyncHandler()
       );
     },
+    usePaginatedQuery: () => queryState.mcpGrants,
     useQuery: (query: Parameters<typeof actual.useQuery>[0]) => {
       const queryName = getFunctionName(query);
       return queryState.resultsByQueryName.get(queryName);
@@ -95,6 +101,11 @@ function findButtonByText(container: HTMLElement, text: string) {
 describe("ProviderConnectionsPage", () => {
   beforeEach(() => {
     queryState.handlersByFunctionName = new Map();
+    queryState.mcpGrants = {
+      loadMore: vi.fn(),
+      results: [],
+      status: "Exhausted",
+    };
     queryState.resultsByQueryName = new Map();
   });
 
@@ -223,6 +234,93 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain(
       "Cloudflare denied Workers Builds limits. Reconnect Cloudflare and approve Workers Builds access.",
     );
+    expect(markup).toContain("MCP clients");
+    expect(markup).toContain("Codex");
+    expect(markup).toContain("mcpc_cli_local_fixture");
+    expect(markup).toContain("access_browser_login_handoff");
+    expect(markup).toContain("https://api.samebase.com/mcp");
+    expect(markup).toContain("Revoke");
+  });
+
+  it("revokes an MCP client grant with a disabled pending action", async () => {
+    let finishRevoke: (() => void) | undefined;
+    const revokeMcpGrant = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRevoke = resolve;
+        }),
+    );
+    queryState.handlersByFunctionName.set(
+      getFunctionName(api.mcp.grants.revokeCurrentUserGrant),
+      revokeMcpGrant,
+    );
+    queryState.mcpGrants = {
+      loadMore: vi.fn(),
+      results: [
+        {
+          clientId: "mcpc_codex",
+          clientName: "Codex",
+          createdAt: 1,
+          grantId: "mcpg_codex",
+          lastUsedAt: 2,
+          resource: "https://api.samebase.com/mcp",
+          scopes: ["access_dashboard"],
+        },
+      ],
+      status: "Exhausted",
+    };
+    const container = renderMountedProviderConnectionsPage(
+      new Map([
+        [getFunctionName(api.users.getGithubProviderSummary), { connected: false }],
+        [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.viewer), { _id: "user_123" }],
+      ]),
+    );
+
+    const revokeButton = findButtonByText(container, "Revoke");
+    expect(revokeButton).toBeDefined();
+    await act(async () => revokeButton?.click());
+
+    expect(revokeMcpGrant).toHaveBeenCalledWith({ grantId: "mcpg_codex" });
+    expect(revokeButton?.disabled).toBe(true);
+    expect(revokeButton?.textContent).toContain("Revoking...");
+
+    await act(async () => finishRevoke?.());
+    expect(revokeButton?.disabled).toBe(false);
+  });
+
+  it("shows an MCP grant revocation failure without removing the connection", async () => {
+    queryState.handlersByFunctionName.set(
+      getFunctionName(api.mcp.grants.revokeCurrentUserGrant),
+      vi.fn(() => Promise.reject(new Error("Revoke failed"))),
+    );
+    queryState.mcpGrants = {
+      loadMore: vi.fn(),
+      results: [
+        {
+          clientId: "mcpc_codex",
+          clientName: "Codex",
+          createdAt: 1,
+          grantId: "mcpg_codex",
+          resource: "https://api.samebase.com/mcp",
+          scopes: ["access_dashboard"],
+        },
+      ],
+      status: "Exhausted",
+    };
+    const container = renderMountedProviderConnectionsPage(
+      new Map([
+        [getFunctionName(api.users.getGithubProviderSummary), { connected: false }],
+        [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.viewer), { _id: "user_123" }],
+      ]),
+    );
+
+    await act(async () => findButtonByText(container, "Revoke")?.click());
+    expect(container.textContent).toContain("Revoke failed");
+    expect(container.querySelector('[data-grant-id="mcpg_codex"]')).not.toBeNull();
   });
 
   it("renders GitHub API key connections without OAuth scope wording", () => {
