@@ -1058,6 +1058,19 @@ export default defineSchema({
     .index("by_user_id", ["userId"])
     .index("by_action", ["action"]),
 
+  agentBrowserHandoffs: defineTable({
+    tokenHash: string(),
+    userId: id("users"),
+    grantId: string(),
+    clientId: string(),
+    returnToPath: string(),
+    createdAt: number(),
+    expiresAt: number(),
+    consumedAt: optional(number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_grant_id", ["grantId"]),
+
   collaborativeUpdates: defineTable({
     vaultId: id("vaults"),
     branch: optional(string()),

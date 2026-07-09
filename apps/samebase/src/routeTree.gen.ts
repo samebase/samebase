@@ -39,6 +39,7 @@ import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
+import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
@@ -202,6 +203,11 @@ const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
   path: "/docs/do-it-yourself",
   getParentRoute: () => rootRouteImport,
 } as any);
+const agentsConnectRoute = agentsConnectRouteImport.update({
+  id: "/agents/connect",
+  path: "/agents/connect",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const vaultDashboardRootRoute = vaultDashboardRootRouteImport.update({
   id: "/vault/",
   path: "/vault/",
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
+  "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
+  "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -365,6 +373,7 @@ export interface FileRoutesById {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
+  "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -410,6 +419,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
+    | "/agents/connect"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -453,6 +463,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault"
+    | "/agents/connect"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -496,6 +507,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
+    | "/agents/connect"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -540,6 +552,7 @@ export interface RootRouteChildren {
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
+  agentsConnectRoute: typeof agentsConnectRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
@@ -778,6 +791,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof docsDoItYourselfRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/agents/connect": {
+      id: "/agents/connect";
+      path: "/agents/connect";
+      fullPath: "/agents/connect";
+      preLoaderRoute: typeof agentsConnectRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/vault/": {
       id: "/vault/";
       path: "/vault";
@@ -876,6 +896,7 @@ const rootRouteChildren: RootRouteChildren = {
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
+  agentsConnectRoute: agentsConnectRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,
   docsTheStackRoute: docsTheStackRoute,

@@ -113,6 +113,14 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
       "Resumes resource creation in GitHub, Convex, and Cloudflare on the caller's own accounts.",
     destructive_justification: noDestructiveActions,
   },
+  create_browser_handoff: {
+    read_only_justification:
+      "Creates a short-lived Samebase browser sign-in URL for the user behind the current MCP grant and records Samebase audit state.",
+    open_world_justification:
+      "Writes only Samebase-owned handoff state; it does not create, publish, or modify GitHub, Convex, Cloudflare, or other external resources.",
+    destructive_justification:
+      "Consumes the one-time handoff token on redemption or account mismatch; does not delete user data, repositories, deployments, Workers, or provider resources.",
+  },
 };
 
 export const testCases = [
@@ -184,6 +192,15 @@ export const testCases = [
     tools_triggered: "vault_dashboard_getUserVaults, vault_cloudflare_verifyInfrastructure",
     expected_output:
       "Reads the app state, identifies the attached Cloudflare Worker to verify, runs infrastructure verification for that app root, and reports any repair action surfaced by the refreshed app state.",
+    expected_output_url: null,
+  },
+  {
+    description: "Create a browser handoff link for the current Samebase account.",
+    user_prompt: "Open Samebase in the browser so I can see this account's dashboard.",
+    file_attachment_urls: null,
+    tools_triggered: "create_browser_handoff",
+    expected_output:
+      "Returns a short-lived Samebase browser URL that signs in the current MCP grant's user and opens the dashboard.",
     expected_output_url: null,
   },
 ] as const;

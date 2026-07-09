@@ -103,6 +103,10 @@ export function signInWithPasswordAction(
     });
 }
 
+export function signInWithAgentBrowserHandoffAction(args: { signIn: SignInAction; token: string }) {
+  return args.signIn("agent-browser-handoff", { token: args.token });
+}
+
 /**
  * Sign-out should always continue even if PostHog cleanup fails, otherwise a
  * telemetry issue can block the user from leaving the current session.
@@ -138,6 +142,8 @@ export function useAppSignInActions() {
 
   return {
     signInWithGoogle: (redirectTo: string) => signInWithGoogleAction({ signIn, redirectTo }),
+    signInWithAgentBrowserHandoff: (token: string) =>
+      signInWithAgentBrowserHandoffAction({ signIn, token }),
     signInWithPassword: (args: PasswordSignInArgs) => signInWithPasswordAction({ signIn, ...args }),
   };
 }

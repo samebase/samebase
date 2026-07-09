@@ -1,6 +1,7 @@
 import Google from "@auth/core/providers/google";
+import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { Password } from "@convex-dev/auth/providers/Password";
-import { convexAuth } from "@convex-dev/auth/server";
+import { convexAuth, getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent/main";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import { env, type DatabaseWriter } from "./_generated/server";
@@ -12,6 +13,7 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
+import { sha256Hex } from "./mcp/tokens";
 import {
   buildSeedCloudflareDefaultAccount,
   getConnectionByUserAndKind,
@@ -161,6 +163,34 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     },
   },
   providers: [
+    ConvexCredentials({
+      id: "agent-browser-handoff",
+      authorize: async (params, ctx) => {
+        const rawToken = params.token;
+        if (!isNonEmptyString(rawToken)) {
+          return null;
+        }
+
+        const [currentUserId, currentSessionId] = await Promise.all([
+          getAuthUserId(ctx),
+          getAuthSessionId(ctx),
+        ]);
+        const result = await ctx.runMutation(internal.agentBrowserHandoff.redeemForAuth, {
+          tokenHash: await sha256Hex(rawToken),
+          now: Date.now(),
+          ...(currentUserId !== null ? { currentUserId } : {}),
+          ...(currentSessionId !== null ? { currentSessionId } : {}),
+        });
+        if (!result.ok) {
+          return null;
+        }
+
+        return {
+          userId: result.userId,
+          ...(result.sessionId !== undefined ? { sessionId: result.sessionId } : {}),
+        };
+      },
+    }),
     ...(passwordAuthEnabled
       ? [
           Password({

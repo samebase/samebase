@@ -11,6 +11,8 @@
 import type * as accessModelValidators from "../accessModelValidators.js";
 import type * as agent_graph from "../agent/graph.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
+import type * as agentBrowserHandoff from "../agentBrowserHandoff.js";
+import type * as agentBrowserHandoff_contracts_createBrowserHandoff from "../agentBrowserHandoff/contracts/createBrowserHandoff.js";
 import type * as agentGraphActions from "../agentGraphActions.js";
 import type * as agentGraphLayout from "../agentGraphLayout.js";
 import type * as appProvisioningEvents from "../appProvisioningEvents.js";
@@ -73,6 +75,7 @@ import type * as mcp_contracts_getAuthenticationStatus from "../mcp/contracts/ge
 import type * as mcp_http from "../mcp/http.js";
 import type * as mcp_oauth from "../mcp/oauth.js";
 import type * as mcp_protocol from "../mcp/protocol.js";
+import type * as mcp_scopes from "../mcp/scopes.js";
 import type * as mcp_tokens from "../mcp/tokens.js";
 import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as oauthState from "../oauthState.js";
@@ -129,6 +132,7 @@ import type * as vault_model from "../vault/model.js";
 import type * as vault_records from "../vault/records.js";
 import type * as vault_resourceLinksStateModel from "../vault/resourceLinksStateModel.js";
 import type * as vault_state from "../vault/state.js";
+import type * as viewerRole from "../viewerRole.js";
 import type * as workspaceSidebarState from "../workspaceSidebarState.js";
 import type * as workspaceSidebarStateModel from "../workspaceSidebarStateModel.js";
 
@@ -142,6 +146,8 @@ declare const fullApi: ApiFromModules<{
   accessModelValidators: typeof accessModelValidators;
   "agent/graph": typeof agent_graph;
   "agent/systemPrompt": typeof agent_systemPrompt;
+  agentBrowserHandoff: typeof agentBrowserHandoff;
+  "agentBrowserHandoff/contracts/createBrowserHandoff": typeof agentBrowserHandoff_contracts_createBrowserHandoff;
   agentGraphActions: typeof agentGraphActions;
   agentGraphLayout: typeof agentGraphLayout;
   appProvisioningEvents: typeof appProvisioningEvents;
@@ -204,6 +210,7 @@ declare const fullApi: ApiFromModules<{
   "mcp/http": typeof mcp_http;
   "mcp/oauth": typeof mcp_oauth;
   "mcp/protocol": typeof mcp_protocol;
+  "mcp/scopes": typeof mcp_scopes;
   "mcp/tokens": typeof mcp_tokens;
   mcpTokenHealth: typeof mcpTokenHealth;
   oauthState: typeof oauthState;
@@ -260,6 +267,7 @@ declare const fullApi: ApiFromModules<{
   "vault/records": typeof vault_records;
   "vault/resourceLinksStateModel": typeof vault_resourceLinksStateModel;
   "vault/state": typeof vault_state;
+  viewerRole: typeof viewerRole;
   workspaceSidebarState: typeof workspaceSidebarState;
   workspaceSidebarStateModel: typeof workspaceSidebarStateModel;
 }>;

@@ -27,6 +27,7 @@ import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireB
 import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
 import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import {
   MCP_CONSENT_APP_PATH,
   type McpAuthorizationSuccessSearchParams,
@@ -55,6 +56,7 @@ import {
   validateJsonRpcRequestPayload,
   validateTokenRequestFromSearchParams,
 } from "./protocol";
+import { parseScopeTokens } from "./scopes";
 
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
@@ -71,6 +73,8 @@ async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
 type McpResolvedViewer = Awaited<ReturnType<typeof readMcpViewer>>;
 
 export type McpToolInvocation = {
+  clientId: string;
+  grantId: string;
   input: JsonRecord;
   userId: Id<"users">;
   grantedScopes: string[];
@@ -81,6 +85,8 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
   const input = { ...invocation.input };
   delete input.userId;
   delete input.grantedScopes;
+  delete input.grantId;
+  delete input.clientId;
   return {
     ...input,
     userId: invocation.userId,
@@ -235,6 +241,14 @@ async function callRetryInfrastructureProvisioningMcpTool(
   );
 }
 
+async function callCreateBrowserHandoffMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  return await ctx.runAction(internal.toolRuntime.runtime.createBrowserHandoffTool, {
+    ...buildMcpToolInvocationArgs(invocation),
+    grantId: invocation.grantId,
+    clientId: invocation.clientId,
+  });
+}
+
 const mcpToolCatalog = [
   {
     access: getAuthenticationStatusContract.access,
@@ -378,6 +392,17 @@ const mcpToolCatalog = [
       retryInfrastructureProvisioningContract.mcp.inputDescriptions,
     ),
     call: callRetryInfrastructureProvisioningMcpTool,
+  },
+  {
+    access: createBrowserHandoffContract.access,
+    name: createBrowserHandoffContract.mcp.name,
+    description: createBrowserHandoffContract.mcp.description,
+    annotations: createBrowserHandoffContract.mcp.annotations,
+    inputSchema: convexArgsToToolInputSchema(
+      createBrowserHandoffContract.args,
+      createBrowserHandoffContract.mcp.inputDescriptions,
+    ),
+    call: callCreateBrowserHandoffMcpTool,
   },
 ] as const;
 
@@ -554,13 +579,6 @@ function jsonRpcErrorResponse(args: {
   );
 }
 
-function parseScopeTokens(grantedScope: string): string[] {
-  return grantedScope
-    .split(" ")
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
-}
-
 export function readMcpMethodForUsage(method: string): SamebaseUsageMcpMethod {
   if (
     method === "initialize" ||
@@ -619,6 +637,9 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
   if (toolName === retryInfrastructureProvisioningContract.mcp.name) {
     return "vault_actions_retryInfrastructureProvisioning";
+  }
+  if (toolName === createBrowserHandoffContract.mcp.name) {
+    return "create_browser_handoff";
   }
   return "unknown";
 }
@@ -1190,6 +1211,8 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
 
     try {
       const result = await tool.call(ctx, {
+        clientId: tokenValidation.clientId,
+        grantId: tokenValidation.grantId,
         input,
         userId: tokenValidation.userId,
         grantedScopes,

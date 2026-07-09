@@ -382,7 +382,6 @@ let refreshFailed = false;
 let terminateRequested = false;
 const hasChildExited = () => childExited;
 const shouldRetrySiteUrlSync =
-  process.env.CONVEX_AGENT_MODE !== "anonymous" &&
   !refreshAnonAuth &&
   !args.some((arg) => arg === "--until-success" || arg.startsWith("--until-success=")) &&
   usesLocalConvexDeployment();

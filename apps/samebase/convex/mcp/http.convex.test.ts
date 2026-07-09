@@ -41,9 +41,13 @@ describe("MCP HTTP tool invocation args", () => {
         cloudflareWorkerName: "test-app",
         userId: ids.argumentUserId,
         grantedScopes: ["access_app_create"],
+        grantId: "raw_grant",
+        clientId: "raw_client",
       },
       userId: ids.tokenUserId,
       grantedScopes: [],
+      grantId: "trusted_grant",
+      clientId: "trusted_client",
       viewer,
     });
 
@@ -55,6 +59,8 @@ describe("MCP HTTP tool invocation args", () => {
       userId: ids.tokenUserId,
       grantedScopes: [],
     });
+    expect(isRecord(toolArgs) && "grantId" in toolArgs).toBe(false);
+    expect(isRecord(toolArgs) && "clientId" in toolArgs).toBe(false);
   });
 });
 
@@ -281,7 +287,9 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain("Bearer ");
     expect(header).toContain('resource_metadata="');
     expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
-    expect(header).toContain('scope="access_dashboard access_app_create access_repo_connect"');
+    expect(header).toContain(
+      'scope="access_dashboard access_app_create access_repo_connect access_browser_login_handoff"',
+    );
     expect(header).toContain('error="invalid_token"');
     expect(header).toContain(`error_description="${errorDescription}"`);
   }
