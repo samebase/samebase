@@ -3,7 +3,7 @@
   "compatibility_date": "2026-05-14",
   "preview_urls": true,
   "observability": {
-    "enabled": false,
+    "enabled": true,
     "head_sampling_rate": 1,
     "logs": {
       "enabled": true,
