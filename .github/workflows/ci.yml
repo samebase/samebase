@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   supply_chain:
     name: supply-chain
@@ -43,7 +47,6 @@ jobs:
     name: checks
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
-    needs: supply_chain
 
     strategy:
       matrix:
@@ -87,10 +90,9 @@ jobs:
     name: playwright (${{ matrix.shard }})
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
-    needs: supply_chain
-    # Keep heavy browser coverage off PRs for now so branch validation stays
-    # within the org Actions budget. Main pushes still exercise the full matrix.
-    if: ${{ github.event_name == 'push' }}
+    # Discover browser regressions before merge, then avoid repeating the same
+    # matrix on the resulting branch push.
+    if: ${{ github.event_name == 'pull_request' }}
 
     strategy:
       fail-fast: false
@@ -157,10 +159,9 @@ jobs:
   sync-windows:
     runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 15
-    needs: supply_chain
-    # Keep Windows smoke coverage off PRs for now so branch validation stays
-    # within the org Actions budget. Main pushes still exercise the full matrix.
-    if: ${{ github.event_name == 'push' }}
+    # Discover Windows regressions before merge, then avoid repeating the same
+    # smoke coverage on the resulting branch push.
+    if: ${{ github.event_name == 'pull_request' }}
 
     strategy:
       matrix:
@@ -220,7 +221,7 @@ jobs:
             exit 1
           fi
 
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.sync-windows.result }}" != "success" ]; then
               echo "playwright: ${{ needs.playwright.result }}"
               echo "sync-windows: ${{ needs.sync-windows.result }}"
@@ -229,5 +230,5 @@ jobs:
           else
             echo "playwright: ${{ needs.playwright.result }}"
             echo "sync-windows: ${{ needs.sync-windows.result }}"
-            echo "Heavy jobs are intentionally skipped on pull requests."
+            echo "Pre-merge jobs are intentionally skipped on branch pushes."
           fi
