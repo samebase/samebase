@@ -142,6 +142,10 @@ Convex validator JSON of the tool's `structuredContent`:
                       },
                       {
                         "type": "literal",
+                        "value": "access_browser_login_handoff"
+                      },
+                      {
+                        "type": "literal",
                         "value": "access_schema_graph"
                       },
                       {
@@ -253,6 +257,10 @@ Convex validator JSON of the tool's `structuredContent`:
                       {
                         "type": "literal",
                         "value": "access_mcp"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_browser_login_handoff"
                       },
                       {
                         "type": "literal",
