@@ -72,6 +72,7 @@ import type * as infraReadPolicy from "../infraReadPolicy.js";
 import type * as infraReadQueries from "../infraReadQueries.js";
 import type * as jsonUtils from "../jsonUtils.js";
 import type * as mcp_contracts_getAuthenticationStatus from "../mcp/contracts/getAuthenticationStatus.js";
+import type * as mcp_grants from "../mcp/grants.js";
 import type * as mcp_http from "../mcp/http.js";
 import type * as mcp_oauth from "../mcp/oauth.js";
 import type * as mcp_protocol from "../mcp/protocol.js";
@@ -207,6 +208,7 @@ declare const fullApi: ApiFromModules<{
   infraReadQueries: typeof infraReadQueries;
   jsonUtils: typeof jsonUtils;
   "mcp/contracts/getAuthenticationStatus": typeof mcp_contracts_getAuthenticationStatus;
+  "mcp/grants": typeof mcp_grants;
   "mcp/http": typeof mcp_http;
   "mcp/oauth": typeof mcp_oauth;
   "mcp/protocol": typeof mcp_protocol;

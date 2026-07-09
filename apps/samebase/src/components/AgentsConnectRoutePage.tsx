@@ -4,6 +4,7 @@ import { consumeStoredAgentBrowserHandoff } from "@/lib/agentBrowserHandoffPrehy
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../../shared/agentBrowserHandoff";
 
@@ -11,6 +12,7 @@ type HandoffState = "connecting" | "missing" | "failed";
 
 export function AgentsConnectRoutePage() {
   const { signIn } = useAuthActions();
+  const { isLoading: isAuthLoading } = useConvexAuth();
   const [handoffState, setHandoffState] = useState<HandoffState>("connecting");
   const startedRef = useRef(false);
   const pageMetadata = useMemo(
@@ -25,7 +27,7 @@ export function AgentsConnectRoutePage() {
   usePageMetadata(pageMetadata);
 
   useEffect(() => {
-    if (startedRef.current) {
+    if (isAuthLoading || startedRef.current) {
       return;
     }
 
@@ -36,21 +38,14 @@ export function AgentsConnectRoutePage() {
       return;
     }
 
-    let active = true;
     void signInWithAgentBrowserHandoffAction({ signIn, token: handoff.token })
       .then(() => {
         window.location.replace(handoff.returnToPath);
       })
       .catch(() => {
-        if (active) {
-          setHandoffState("failed");
-        }
+        setHandoffState("failed");
       });
-
-    return () => {
-      active = false;
-    };
-  }, [signIn]);
+  }, [isAuthLoading, signIn]);
 
   const message =
     handoffState === "connecting"

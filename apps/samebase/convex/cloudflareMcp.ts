@@ -1,6 +1,7 @@
 "use node";
 
 import { asRecord, readString, toErrorMessage } from "./jsonUtils";
+import { parseSiteOrigin } from "../shared/siteOrigin";
 
 export const CLOUDFLARE_MCP_SERVER_URL = "https://mcp.cloudflare.com/mcp";
 const MCP_PROTOCOL_VERSION = "2025-03-26";
@@ -22,11 +23,7 @@ function resolveOriginHeader(): string {
   if (!siteUrl) {
     return "https://samebase.com";
   }
-  try {
-    return new URL(siteUrl).origin;
-  } catch {
-    return "https://samebase.com";
-  }
+  return parseSiteOrigin(siteUrl).origin;
 }
 
 async function fetchWithTimeout(

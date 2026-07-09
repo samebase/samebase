@@ -7,20 +7,22 @@ import {
   parseAgentBrowserHandoffFragment,
 } from "./agentBrowserHandoff";
 
+const token = `agbh_${"a".repeat(43)}`;
+
 describe("agent browser handoff URLs", () => {
   it("puts the one-time token in the fragment only", () => {
     const url = new URL(
       buildAgentBrowserHandoffUrl({
         returnToPath: "/vault/samebase/samebase?prod-ui#files",
         siteUrl: "https://samebase.com/",
-        token: "agbh_secret",
+        token,
       }),
     );
 
     expect(url.origin).toBe("https://samebase.com");
     expect(url.pathname).toBe("/agents/connect");
     expect(url.search).toBe("");
-    expect(url.hash).toContain("handoff=agbh_secret");
+    expect(url.hash).toContain(`handoff=${token}`);
     expect(url.hash).toContain("returnTo=%2Fvault%2Fsamebase%2Fsamebase%3Fprod-ui%23files");
   });
 
@@ -34,13 +36,30 @@ describe("agent browser handoff URLs", () => {
     expect(normalizeAgentBrowserHandoffReturnToPath("/agents/connect/")).toBe("/vault/");
   });
 
+  it("keeps normalized return paths idempotent and same-origin", () => {
+    const baseOrigin = "https://samebase.test";
+    const inputs = [
+      "/vault/../providers?prod-ui#github",
+      "/vault/..//evil.test",
+      "/%2e%2e//evil.test",
+    ];
+
+    for (const input of inputs) {
+      const normalized = normalizeAgentBrowserHandoffReturnToPath(input);
+      expect(normalizeAgentBrowserHandoffReturnToPath(normalized)).toBe(normalized);
+      expect(new URL(normalized, baseOrigin).origin).toBe(baseOrigin);
+    }
+    expect(normalizeAgentBrowserHandoffReturnToPath("/vault/..//evil.test")).toBe("/vault/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("/%2e%2e//evil.test")).toBe("/vault/");
+  });
+
   it("accepts deployment HTTPS and loopback HTTP site URLs only", () => {
     expect(
       new URL(
         buildAgentBrowserHandoffUrl({
           returnToPath: "/vault/",
           siteUrl: "http://localhost:5176",
-          token: "agbh_secret",
+          token,
         }),
       ).origin,
     ).toBe("http://localhost:5176");
@@ -48,35 +67,35 @@ describe("agent browser handoff URLs", () => {
       buildAgentBrowserHandoffUrl({
         returnToPath: "/vault/",
         siteUrl: "http://example.test",
-        token: "agbh_secret",
+        token,
       }),
     ).toThrow("SITE_URL must use https");
     expect(() =>
       buildAgentBrowserHandoffUrl({
         returnToPath: "/vault/",
         siteUrl: "javascript:alert(1)",
-        token: "agbh_secret",
+        token,
       }),
     ).toThrow("SITE_URL must use https");
     expect(() =>
       buildAgentBrowserHandoffUrl({
         returnToPath: "/vault/",
         siteUrl: "https://user:password@example.test",
-        token: "agbh_secret",
+        token,
       }),
     ).toThrow("SITE_URL must not include credentials");
     expect(() =>
       buildAgentBrowserHandoffUrl({
         returnToPath: "/vault/",
         siteUrl: "https://example.test/app",
-        token: "agbh_secret",
+        token,
       }),
     ).toThrow("SITE_URL must be an origin");
     expect(() =>
       buildAgentBrowserHandoffUrl({
         returnToPath: "/vault/",
         siteUrl: "https://example.test/?preview=1",
-        token: "agbh_secret",
+        token,
       }),
     ).toThrow("SITE_URL must be an origin");
   });
@@ -88,13 +107,12 @@ describe("agent browser handoff URLs", () => {
   });
 
   it("parses the fragment and detects the handoff key", () => {
-    expect(
-      parseAgentBrowserHandoffFragment("#handoff=agbh_secret&returnTo=%2Fvault%2Frepo"),
-    ).toEqual({
-      token: "agbh_secret",
+    expect(parseAgentBrowserHandoffFragment(`#handoff=${token}&returnTo=%2Fvault%2Frepo`)).toEqual({
+      token,
       returnToPath: "/vault/repo",
     });
-    expect(hasAgentBrowserHandoffFragment("#handoff=agbh_secret")).toBe(true);
+    expect(parseAgentBrowserHandoffFragment("#handoff=agbh_short").token).toBeNull();
+    expect(hasAgentBrowserHandoffFragment(`#handoff=${token}`)).toBe(true);
     expect(hasAgentBrowserHandoffFragment("#section")).toBe(false);
   });
 });

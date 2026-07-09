@@ -48,6 +48,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 import {
   openAuthPopup,
+  signInWithAgentBrowserHandoffAction,
   signInWithPasswordAction,
   signOutWithAnalytics,
   useAutoSignIn,
@@ -272,6 +273,32 @@ describe("useAutoSignIn", () => {
       password: "pass1234",
     });
     expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "password");
+  });
+
+  it("accepts only a completed browser handoff sign-in", async () => {
+    signInMock.mockResolvedValue({ signingIn: true });
+
+    await expect(
+      signInWithAgentBrowserHandoffAction({
+        signIn: signInMock,
+        token: `agbh_${"a".repeat(43)}`,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(signInMock).toHaveBeenCalledWith("agent-browser-handoff", {
+      token: `agbh_${"a".repeat(43)}`,
+    });
+  });
+
+  it("rejects a browser handoff when Convex Auth creates no session", async () => {
+    signInMock.mockResolvedValue({ signingIn: false });
+
+    await expect(
+      signInWithAgentBrowserHandoffAction({
+        signIn: signInMock,
+        token: `agbh_${"a".repeat(43)}`,
+      }),
+    ).rejects.toThrow("Browser handoff is invalid or no longer available.");
   });
 
   it("always signs out even if PostHog reset throws", async () => {

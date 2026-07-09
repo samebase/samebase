@@ -15,10 +15,7 @@ import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/clou
 import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
-import {
-  buildAgentBrowserHandoffUrl,
-  normalizeAgentBrowserHandoffReturnToPath,
-} from "../../shared/agentBrowserHandoff";
+import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import {
   createAppForUser,
   connectRepositoryForUser,
@@ -585,11 +582,13 @@ export const createBrowserHandoffTool = internalAction({
     const expiresAt = now + AGENT_BROWSER_HANDOFF_TTL_MS;
     const token = createAgentBrowserHandoffTokenValue();
     const tokenHash = await sha256Hex(token);
-    const returnToPath = normalizeAgentBrowserHandoffReturnToPath(args.returnToPath);
-
     let url: string;
     try {
-      url = buildAgentBrowserHandoffUrl({ returnToPath, siteUrl, token });
+      url = buildAgentBrowserHandoffUrl({
+        returnToPath: args.returnToPath,
+        siteUrl,
+        token,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid SITE_URL.";
       return {
@@ -603,7 +602,6 @@ export const createBrowserHandoffTool = internalAction({
       userId: args.userId,
       grantId: args.grantId,
       clientId: args.clientId,
-      returnToPath,
       createdAt: now,
       expiresAt,
     });

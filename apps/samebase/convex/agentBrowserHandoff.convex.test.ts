@@ -54,7 +54,6 @@ async function createHandoff(userId: Id<"users">) {
     userId,
     grantId,
     clientId,
-    returnToPath: "/vault/",
     createdAt: now,
     expiresAt: now + 60_000,
   };
@@ -107,6 +106,12 @@ describe("agent browser handoff lifecycle", () => {
     });
 
     expect(snapshot.handoff?.consumedAt).toBe(now + 1);
+    expect(snapshot.handoff).not.toHaveProperty("returnToPath");
+    const creationAudit = snapshot.audits.find(
+      (audit) => audit.action === "agent_browser_handoff_created",
+    );
+    expect(creationAudit).toBeDefined();
+    expect(creationAudit).not.toHaveProperty("detailsJson");
     expect(snapshot.audits.map((audit) => audit.action)).toContain(
       "agent_browser_handoff_consumed",
     );
@@ -121,6 +126,38 @@ describe("agent browser handoff lifecycle", () => {
       ok: false,
       reason: "scope_missing",
     });
+  });
+
+  it("limits handoff creation per grant within the five-minute window", async () => {
+    const { ids, t } = await seedGrant();
+
+    for (let index = 0; index < 10; index += 1) {
+      await expect(
+        t.mutation(internal.agentBrowserHandoff.createForMcp, {
+          ...(await createHandoff(ids.userId)),
+          tokenHash: `handoff_hash_${index}`,
+        }),
+      ).resolves.toEqual({ ok: true });
+    }
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, {
+        ...(await createHandoff(ids.userId)),
+        tokenHash: "handoff_hash_rate_limited",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "rate_limited",
+    });
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, {
+        ...(await createHandoff(ids.userId)),
+        tokenHash: "handoff_hash_next_window",
+        createdAt: now + 5 * 60_000,
+        expiresAt: now + 6 * 60_000,
+      }),
+    ).resolves.toEqual({ ok: true });
   });
 
   it("rejects an unknown handoff token", async () => {

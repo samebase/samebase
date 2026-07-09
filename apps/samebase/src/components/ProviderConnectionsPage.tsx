@@ -13,8 +13,14 @@ import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { isRecord, notEmpty } from "@samebase/dependent";
-import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
-import { Loader2 } from "lucide-react";
+import {
+  useAction,
+  useMutation,
+  usePaginatedQuery,
+  useQuery as useConvexQuery,
+  type PaginationStatus,
+} from "convex/react";
+import { KeyRound, Loader2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -29,6 +35,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudflareTokenRefresh";
 
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
+const MCP_GRANTS_PAGE_SIZE = 20;
 
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -71,6 +78,7 @@ type AppConvexConnectionAccess =
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 type AppCloudflareConnectionAccess =
   (typeof api.cloudflareProviderAccess.checkCloudflareConnectionAccess)["_returnType"];
+type AppMcpGrant = (typeof api.mcp.grants.listCurrentUserGrants)["_returnType"]["page"][number];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 type CloudflareAccountDialogState = {
   error: string | null;
@@ -102,6 +110,9 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   isCheckingConvexAccess: boolean;
   isCheckingGithubAccess: boolean;
   isReauthorizingGithub: boolean;
+  mcpGrantError: string | null;
+  mcpGrants: readonly AppMcpGrant[];
+  mcpGrantPaginationStatus: PaginationStatus;
   onCheckCloudflareAccess: () => void;
   onCheckConvexAccess: () => void;
   onCheckGithubAccess: () => void;
@@ -110,9 +121,12 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   onCloudflareAccountSubmit: () => void;
   onConnect: (provider: ProviderKey) => void;
   onDisconnect: (provider: ProviderKey) => void;
+  onLoadMoreMcpGrants: () => void;
   onOpenApiKeyDialog: (provider: ApiKeyProvider) => void;
   onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
+  onRevokeMcpGrant: (grantId: string) => void;
   onReauthorizeGithub: () => void;
+  revokingMcpGrantId: string | null;
 };
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
@@ -626,55 +640,162 @@ function ProviderConnectionRows({
             {providerRow.details ? <div className="mt-2">{providerRow.details}</div> : null}
           </div>
           {providerRow.actions.length > 0 ? (
-            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-              {providerRow.actions.map((action) => {
-                const label = action.isPending
-                  ? (action.pendingLabel ?? action.label)
-                  : action.label;
-                const contents = action.isPending ? (
-                  <>
-                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                    {label}
-                  </>
-                ) : (
-                  label
-                );
-
-                return action.href && !action.disabled ? (
-                  <Button
-                    key={action.key}
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    className="h-auto max-w-full whitespace-normal py-2 text-left"
-                  >
-                    <a
-                      href={action.href}
-                      target={action.target}
-                      rel={action.target === "_blank" ? "noreferrer" : undefined}
-                      onClick={action.onClick}
-                    >
-                      {contents}
-                    </a>
-                  </Button>
-                ) : (
-                  <Button
-                    key={action.key}
-                    variant="outline"
-                    size="sm"
-                    onClick={action.onClick}
-                    className="h-auto max-w-full whitespace-normal py-2 text-left"
-                    disabled={action.disabled}
-                  >
-                    {contents}
-                  </Button>
-                );
-              })}
-            </div>
+            <ConnectionActions actions={providerRow.actions} />
           ) : null}
         </div>
       ))}
     </div>
+  );
+}
+
+function ConnectionActions({ actions }: { actions: readonly ProviderConnectionActionViewModel[] }) {
+  return (
+    <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+      {actions.map((action) => {
+        const label = action.isPending ? (action.pendingLabel ?? action.label) : action.label;
+        const contents = action.isPending ? (
+          <>
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            {label}
+          </>
+        ) : (
+          label
+        );
+
+        return action.href && !action.disabled ? (
+          <Button
+            key={action.key}
+            variant="outline"
+            size="sm"
+            asChild
+            className="h-auto max-w-full whitespace-normal py-2 text-left"
+          >
+            <a
+              href={action.href}
+              target={action.target}
+              rel={action.target === "_blank" ? "noreferrer" : undefined}
+              onClick={action.onClick}
+            >
+              {contents}
+            </a>
+          </Button>
+        ) : (
+          <Button
+            key={action.key}
+            variant="outline"
+            size="sm"
+            onClick={action.onClick}
+            className="h-auto max-w-full whitespace-normal py-2 text-left"
+            disabled={action.disabled}
+          >
+            {contents}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+function McpClientGrants({
+  error,
+  grants,
+  now,
+  onLoadMore,
+  onRevoke,
+  paginationStatus,
+  revokingGrantId,
+}: {
+  error: string | null;
+  grants: readonly AppMcpGrant[];
+  now: number;
+  onLoadMore: () => void;
+  onRevoke: (grantId: string) => void;
+  paginationStatus: PaginationStatus;
+  revokingGrantId: string | null;
+}) {
+  return (
+    <section aria-labelledby="mcp-clients-heading" className="mt-8 border-t pt-6">
+      <h2 id="mcp-clients-heading" className="mb-5 text-base font-semibold">
+        MCP clients
+      </h2>
+      <div data-testid="mcp-client-grants" className="space-y-5">
+        {grants.map((grant) => {
+          const clientName = grant.clientName?.trim();
+          const clientLabel = clientName || grant.clientId;
+          const activity =
+            grant.lastUsedAt !== undefined
+              ? `Last used ${formatRelativeTimeAgo(grant.lastUsedAt, now)}`
+              : `Authorized ${formatRelativeTimeAgo(grant.createdAt, now)}`;
+          return (
+            <div
+              key={grant.grantId}
+              data-grant-id={grant.grantId}
+              data-testid="mcp-client-grant-row"
+              className="flex flex-wrap items-start gap-3 border-b border-border/50 pb-5 last:border-b-0"
+            >
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                <KeyRound className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1 basis-80">
+                <div className="text-sm font-medium">{clientLabel}</div>
+                <div className="min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                  {clientName ? `${grant.clientId}, ${activity}` : activity}
+                </div>
+                <div className="mt-2 min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                  <div>{grant.scopes.join(", ")}</div>
+                  <div>{grant.resource}</div>
+                </div>
+              </div>
+              <ConnectionActions
+                actions={[
+                  {
+                    disabled: revokingGrantId !== null,
+                    isPending: revokingGrantId === grant.grantId,
+                    key: "revoke",
+                    label: "Revoke",
+                    onClick: () => onRevoke(grant.grantId),
+                    pendingLabel: "Revoking...",
+                  },
+                ]}
+              />
+            </div>
+          );
+        })}
+        {paginationStatus === "LoadingFirstPage" ? (
+          <div
+            className="flex min-h-10 items-center justify-center"
+            aria-label="Loading MCP clients"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        ) : grants.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No authorized MCP clients.</div>
+        ) : null}
+      </div>
+      {error ? (
+        <div role="alert" className="mt-3 text-xs text-destructive">
+          {error}
+        </div>
+      ) : null}
+      {paginationStatus === "CanLoadMore" || paginationStatus === "LoadingMore" ? (
+        <Button
+          className="mt-3"
+          disabled={paginationStatus === "LoadingMore"}
+          onClick={onLoadMore}
+          size="sm"
+          variant="outline"
+        >
+          {paginationStatus === "LoadingMore" ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Loading...
+            </>
+          ) : (
+            "Load more"
+          )}
+        </Button>
+      ) : null}
+    </section>
   );
 }
 
@@ -697,6 +818,9 @@ export function ProviderConnectionsPageView({
   isCheckingConvexAccess,
   isCheckingGithubAccess,
   isReauthorizingGithub,
+  mcpGrantError,
+  mcpGrants,
+  mcpGrantPaginationStatus,
   now,
   onCheckCloudflareAccess,
   onCheckConvexAccess,
@@ -706,9 +830,12 @@ export function ProviderConnectionsPageView({
   onCloudflareAccountSubmit,
   onConnect,
   onDisconnect,
+  onLoadMoreMcpGrants,
   onOpenApiKeyDialog,
   onOpenCloudflareAccountDialog,
+  onRevokeMcpGrant,
   onReauthorizeGithub,
+  revokingMcpGrantId,
 }: ProviderConnectionsPageViewProps) {
   const githubActionsDisabled =
     disconnectingProvider !== null || isCheckingGithubAccess || isReauthorizingGithub;
@@ -968,6 +1095,15 @@ export function ProviderConnectionsPageView({
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl">
           <ProviderConnectionRows providerRows={providerRows} />
+          <McpClientGrants
+            error={mcpGrantError}
+            grants={mcpGrants}
+            now={now}
+            onLoadMore={onLoadMoreMcpGrants}
+            onRevoke={onRevokeMcpGrant}
+            paginationStatus={mcpGrantPaginationStatus}
+            revokingGrantId={revokingMcpGrantId}
+          />
         </div>
       </div>
       <VaultDashboardCloudflareAccountDialog
@@ -1187,10 +1323,16 @@ export function ProviderConnectionsPage() {
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
+  const revokeMcpGrant = useMutation(api.mcp.grants.revokeCurrentUserGrant);
   const githubProviderSummary = useConvexQuery(api.users.getGithubProviderSummary);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const user = useConvexQuery(api.users.viewer);
+  const mcpGrants = usePaginatedQuery(
+    api.mcp.grants.listCurrentUserGrants,
+    {},
+    { initialNumItems: MCP_GRANTS_PAGE_SIZE },
+  );
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
@@ -1209,6 +1351,8 @@ export function ProviderConnectionsPage() {
   const [githubHealth, setGithubHealth] = useState<AppGithubConnectionHealth | null>(null);
   const [githubHealthError, setGithubHealthError] = useState<string | null>(null);
   const [githubDisconnectedNotice, setGithubDisconnectedNotice] = useState<string | null>(null);
+  const [mcpGrantError, setMcpGrantError] = useState<string | null>(null);
+  const [revokingMcpGrantId, setRevokingMcpGrantId] = useState<string | null>(null);
   const [isCheckingGithubAccess, setIsCheckingGithubAccess] = useState(false);
   const [isCheckingConvexAccess, setIsCheckingConvexAccess] = useState(false);
   const [isCheckingCloudflareAccess, setIsCheckingCloudflareAccess] = useState(false);
@@ -1520,6 +1664,21 @@ export function ProviderConnectionsPage() {
     setCloudflareAccountDialog((current) => ({ ...current, isOpen }));
   };
 
+  const handleRevokeMcpGrant = async (grantId: string) => {
+    if (revokingMcpGrantId !== null) {
+      return;
+    }
+    setMcpGrantError(null);
+    setRevokingMcpGrantId(grantId);
+    try {
+      await revokeMcpGrant({ grantId });
+    } catch (error) {
+      setMcpGrantError(error instanceof Error ? error.message : "Could not revoke the MCP client.");
+    } finally {
+      setRevokingMcpGrantId(null);
+    }
+  };
+
   const handleSubmitCloudflareAccount = async () => {
     if (cloudflareAccountDialog.isSubmitting || !cloudflareAccountDialog.selectedAccountId) {
       return;
@@ -1562,6 +1721,9 @@ export function ProviderConnectionsPage() {
       isCheckingConvexAccess={isCheckingConvexAccess}
       isCheckingGithubAccess={isCheckingGithubAccess}
       isReauthorizingGithub={isReauthorizingGithub}
+      mcpGrantError={mcpGrantError}
+      mcpGrants={mcpGrants.results}
+      mcpGrantPaginationStatus={mcpGrants.status}
       now={now}
       onCheckCloudflareAccess={() => {
         void runCloudflareAccessCheck();
@@ -1589,6 +1751,7 @@ export function ProviderConnectionsPage() {
       onDisconnect={(provider) => {
         void handleDisconnect(provider);
       }}
+      onLoadMoreMcpGrants={() => mcpGrants.loadMore(MCP_GRANTS_PAGE_SIZE)}
       onOpenApiKeyDialog={openApiKeyDialog}
       onOpenCloudflareAccountDialog={(accountId) => {
         setCloudflareAccountDialog((current) => ({ ...current, isOpen: true }));
@@ -1597,6 +1760,10 @@ export function ProviderConnectionsPage() {
       onReauthorizeGithub={() => {
         void handleReauthorizeGithub();
       }}
+      onRevokeMcpGrant={(grantId) => {
+        void handleRevokeMcpGrant(grantId);
+      }}
+      revokingMcpGrantId={revokingMcpGrantId}
     />
   );
 }

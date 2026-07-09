@@ -1,20 +1,23 @@
+import { parseSiteOrigin } from "./siteOrigin";
+
 export const AGENT_BROWSER_HANDOFF_ROUTE = "/agents/connect";
 export const AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY = "handoff";
 export const AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY = "returnTo";
 export const AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH = "/vault/";
+export const AGENT_BROWSER_HANDOFF_TOKEN_PATTERN_SOURCE = "^agbh_[A-Za-z0-9_-]{43}(?![\\s\\S])";
+const AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN = "https://samebase.local";
 
 export function isAgentBrowserHandoffRoute(pathname: string): boolean {
   return pathname === AGENT_BROWSER_HANDOFF_ROUTE || pathname === `${AGENT_BROWSER_HANDOFF_ROUTE}/`;
 }
 
-export type AgentBrowserHandoffFragment = {
-  returnToPath: string;
-  token: string | null;
-};
-
 export function hasAgentBrowserHandoffFragment(hash: string): boolean {
   const rawHash = hash.startsWith("#") ? hash.slice(1) : hash;
   return new URLSearchParams(rawHash).has(AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY);
+}
+
+export function isAgentBrowserHandoffTokenValue(value: string): boolean {
+  return new RegExp(AGENT_BROWSER_HANDOFF_TOKEN_PATTERN_SOURCE).test(value);
 }
 
 export function normalizeAgentBrowserHandoffReturnToPath(value: string | undefined): string {
@@ -27,39 +30,34 @@ export function normalizeAgentBrowserHandoffReturnToPath(value: string | undefin
   }
 
   try {
-    const parsed = new URL(trimmed, "https://samebase.local");
-    if (parsed.origin !== "https://samebase.local") {
+    const parsed = new URL(trimmed, AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN);
+    if (parsed.origin !== AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN) {
       return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
     }
     if (isAgentBrowserHandoffRoute(parsed.pathname)) {
       return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
     }
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    if (
+      new URL(normalized, AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN).origin !==
+      AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN
+    ) {
+      return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
+    }
+    return normalized;
   } catch {
     return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
   }
 }
 
 export function buildAgentBrowserHandoffUrl(args: {
-  returnToPath: string;
+  returnToPath: string | undefined;
   siteUrl: string;
   token: string;
 }): string {
-  const url = new URL(args.siteUrl);
-  const isLoopbackHttp =
-    url.protocol === "http:" &&
-    (url.hostname === "localhost" ||
-      url.hostname === "127.0.0.1" ||
-      url.hostname === "[::1]" ||
-      url.hostname === "::1");
-  if (url.username.length > 0 || url.password.length > 0) {
-    throw new Error("SITE_URL must not include credentials.");
-  }
-  if (url.protocol !== "https:" && !isLoopbackHttp) {
-    throw new Error("SITE_URL must use https, except for loopback local development URLs.");
-  }
-  if (url.pathname !== "/" || url.search.length > 0 || url.hash.length > 0) {
-    throw new Error("SITE_URL must be an origin without a path, query, or fragment.");
+  const url = parseSiteOrigin(args.siteUrl);
+  if (!isAgentBrowserHandoffTokenValue(args.token)) {
+    throw new Error("Browser handoff token is invalid.");
   }
   url.pathname = AGENT_BROWSER_HANDOFF_ROUTE;
   url.search = "";
@@ -73,12 +71,12 @@ export function buildAgentBrowserHandoffUrl(args: {
   return url.toString();
 }
 
-export function parseAgentBrowserHandoffFragment(hash: string): AgentBrowserHandoffFragment {
+export function parseAgentBrowserHandoffFragment(hash: string) {
   const rawHash = hash.startsWith("#") ? hash.slice(1) : hash;
   const fragment = new URLSearchParams(rawHash);
   const token = fragment.get(AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY);
   return {
-    token: token && token.trim().length > 0 ? token : null,
+    token: token && isAgentBrowserHandoffTokenValue(token) ? token : null,
     returnToPath: normalizeAgentBrowserHandoffReturnToPath(
       fragment.get(AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY) ?? undefined,
     ),

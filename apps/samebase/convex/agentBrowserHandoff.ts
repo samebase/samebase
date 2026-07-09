@@ -21,7 +21,6 @@ const createForMcpArgsValidator = object({
   userId: id("users"),
   grantId: string(),
   clientId: string(),
-  returnToPath: string(),
   createdAt: number(),
   expiresAt: number(),
 });
@@ -164,7 +163,6 @@ export const createForMcp = internalMutation({
       clientId: args.clientId,
       grantId: args.grantId,
       userId: args.userId,
-      detailsJson: JSON.stringify({ returnToPath: args.returnToPath }),
     });
     return { ok: true };
   },

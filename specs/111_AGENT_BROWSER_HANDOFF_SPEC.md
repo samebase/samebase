@@ -18,7 +18,8 @@ The tool is listed and callable only when all of these conditions hold:
 Successful URL creation also requires `SITE_URL` to be configured to the Samebase app origin for the
 deployment. It must be an origin URL with no path, query, or fragment. HTTPS is required for
 deployment URLs; HTTP is accepted only for loopback local development. Missing or unsafe `SITE_URL`
-returns a tool error instead of hiding the tool.
+returns a tool error instead of hiding the tool. The same parser protects MCP consent redirects and
+provider OAuth return URLs, so those paths cannot accept a weaker spelling of the app origin.
 
 The MCP consent UI must render `access_browser_login_handoff` as
 `Open Samebase in a browser as your account`.
@@ -40,19 +41,48 @@ single use:
    rejects the login.
 5. Missing, expired, or already consumed tokens do not create a browser session.
 
+The browser route waits for Convex Auth to finish loading the existing session before it consumes
+the one-time handoff. A rejected handoff must reject the Convex Auth action instead of returning an
+empty credential result, because an empty result can clear a valid browser session. A different-user
+failure leaves that browser account signed in and displays the account-mismatch recovery message.
+
 Creation, consumption, and terminal rejection events write `mcpAccessAudit` events without raw
-tokens, provider credentials, emails, or file paths. Unknown tokens and repeated observations of
+tokens, provider credentials, emails, file paths, or the browser return path. The return path stays
+in the URL fragment and per-tab browser state only. Unknown tokens and repeated observations of
 already-consumed tokens do not write audit rows, so random-token spraying and replay do not create
 an unbounded database write stream. Each handoff schedules deletion at expiry; consumed rows
 therefore remain available for the short audit window and are then removed.
+
+Handoff creation is limited to ten rows per MCP grant in a rolling five-minute window. The limit
+counts consumed rows until their expiry cleanup, so consuming a link cannot reopen the creation
+budget early.
 
 The browser route must remove the handoff fragment before React hydration can report pageviews or
 render the app. It stores the token only in per-tab browser state long enough for the route
 component to call Convex Auth, then clears that state. PostHog pageview capture must also strip
 `/agents/connect#handoff=...` if a fragment survives to app code.
 
-Cloudflare response headers for both `/agents/connect` spellings and `/oauth/mcp/consent` must
-disable browser and intermediary caching, block referrers, prevent indexing, and disallow framing.
+Cloudflare response headers for both `/agents/connect` spellings and both `/oauth/mcp/consent`
+spellings must send `Cache-Control: no-store`, block referrers, prevent indexing, and disallow
+framing. `no-store` tells browsers and downstream intermediaries not to retain the response;
+Cloudflare Pages may still serve the deployment's static shell from its managed asset cache.
+
+## MCP Grant Revocation
+
+The authenticated `/providers` page lists the viewer's active MCP grants in bounded pages. Each row
+names the OAuth client, resource, scopes, creation time, and last use when available. Only the grant
+owner may revoke it.
+
+The grant status is the authoritative revocation boundary. The first `active` to `revoked`
+transition writes one `grant_revoked` audit event. Repeated revocation is a write-free no-op. Access
+token validation, refresh exchange, authorization-code exchange, browser handoff creation, and
+browser handoff redemption all recheck the active grant, so revocation blocks every derived
+credential immediately without scanning or rewriting an unbounded token history.
+
+Presenting a rotated refresh token is treated as credential-family compromise. If its grant is still
+active, Samebase revokes the grant and writes one `refresh_token_replay_detected` event. Repeated
+replay does not append audit events, and containment does not walk the attacker-controlled
+refresh-token replacement chain.
 
 ## Non-Goals
 
@@ -76,3 +106,11 @@ disable browser and intermediary caching, block referrers, prevent indexing, and
 - `apps/samebase/src/lib/appRouter.test.tsx` covers route registration for `/agents/connect`.
 - `apps/samebase/convex/mcp/http.convex.test.ts` covers MCP tool listing and trusted invocation
   argument boundaries.
+- `apps/samebase/convex/mcp/grants.convex.test.ts` covers paginated ownership, idempotent
+  revocation, audit behavior, and immediate invalidation of access, refresh, and browser-handoff
+  credentials.
+- `apps/samebase/convex/mcp/oauth.convex.test.ts` covers refresh-token replay containment and
+  write-free repeated or unknown replay.
+- `apps/samebase/src/components/ProviderConnectionsPage.test.tsx` covers MCP grant presentation,
+  pending revocation, and failure handling.
+- `apps/samebase/shared/siteOrigin.test.ts` covers the shared `SITE_URL` boundary.

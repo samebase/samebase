@@ -20,4 +20,13 @@ describe("buildProviderOAuthDefaultReturnUrl", () => {
       }),
     ).toBe("https://samebase.convex.site/providers");
   });
+
+  it("rejects an unsafe configured app URL instead of redirecting to it", () => {
+    expect(() =>
+      buildProviderOAuthDefaultReturnUrl({
+        configuredAppUrl: "http://attacker.example/app",
+        requestUrl: "https://api.samebase.com/oauth/cloudflare/callback?code=abc",
+      }),
+    ).toThrow("SITE_URL must use https");
+  });
 });
