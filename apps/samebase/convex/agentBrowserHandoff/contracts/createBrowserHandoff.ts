@@ -1,4 +1,4 @@
-import { v, type Infer } from "convex/values";
+import { v } from "convex/values";
 
 import { ACCESS_BROWSER_LOGIN_HANDOFF } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
@@ -45,7 +45,3 @@ The returned URL carries only a one-time bearer fragment and an optional Samebas
 path. Treat it as sensitive and open it promptly; the backend stores only a token hash and consumes
 the handoff on successful redemption or account mismatch.`,
 } as const;
-
-const createBrowserHandoffArgsValidator = object(createBrowserHandoffContract.args);
-
-export type CreateBrowserHandoffArgs = Infer<typeof createBrowserHandoffArgsValidator>;

@@ -3,19 +3,11 @@ import {
   AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY,
   AGENT_BROWSER_HANDOFF_ROUTE,
   AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY,
-  isAgentBrowserHandoffRoute,
   normalizeAgentBrowserHandoffReturnToPath,
-  parseAgentBrowserHandoffFragment,
 } from "../../shared/agentBrowserHandoff";
 
 export const AGENT_BROWSER_HANDOFF_STORAGE_KEY = "samebase_agent_browser_handoff";
 export const AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY = "samebaseAgentBrowserHandoff";
-
-export type StoredAgentBrowserHandoff = {
-  createdAt: number;
-  returnToPath: string;
-  token: string;
-};
 
 type AgentBrowserHandoffPrehydrationArgs = {
   defaultReturnToPath: string;
@@ -45,14 +37,19 @@ function InlineScript_stripAgentBrowserHandoffFragment(args: AgentBrowserHandoff
     }
 
     try {
-      const parsed = new URL(trimmed, "https://samebase.local");
-      if (parsed.origin !== "https://samebase.local") {
+      const baseOrigin = "https://samebase.local";
+      const parsed = new URL(trimmed, baseOrigin);
+      if (parsed.origin !== baseOrigin) {
         return args.defaultReturnToPath;
       }
-      if (parsed.pathname === args.route) {
+      if (parsed.pathname === args.route || parsed.pathname === `${args.route}/`) {
         return args.defaultReturnToPath;
       }
-      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      if (new URL(normalized, baseOrigin).origin !== baseOrigin) {
+        return args.defaultReturnToPath;
+      }
+      return normalized;
     } catch {
       return args.defaultReturnToPath;
     }
@@ -70,7 +67,6 @@ function InlineScript_stripAgentBrowserHandoffFragment(args: AgentBrowserHandoff
     if (token === null || token.trim().length === 0) return;
 
     const handoff = {
-      createdAt: Date.now(),
       returnToPath: normalizeReturnToPath(fragment.get(args.returnToFragmentKey)),
       token,
     };
@@ -94,31 +90,28 @@ function InlineScript_stripAgentBrowserHandoffFragment(args: AgentBrowserHandoff
   } catch {}
 }
 
-function parseStoredAgentBrowserHandoff(value: unknown): StoredAgentBrowserHandoff | null {
+function parseStoredAgentBrowserHandoff(value: unknown) {
   if (value === null || typeof value !== "object") {
     return null;
   }
-  if (!("token" in value) || !("returnToPath" in value) || !("createdAt" in value)) {
+  if (!("token" in value) || !("returnToPath" in value)) {
     return null;
   }
   if (
     typeof value.token !== "string" ||
     value.token.trim().length === 0 ||
-    typeof value.returnToPath !== "string" ||
-    typeof value.createdAt !== "number" ||
-    !Number.isFinite(value.createdAt)
+    typeof value.returnToPath !== "string"
   ) {
     return null;
   }
 
   return {
-    createdAt: value.createdAt,
     returnToPath: normalizeAgentBrowserHandoffReturnToPath(value.returnToPath),
     token: value.token,
   };
 }
 
-function readSessionStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | null {
+function readSessionStoredAgentBrowserHandoff() {
   try {
     const serialized = window.sessionStorage.getItem(AGENT_BROWSER_HANDOFF_STORAGE_KEY);
     if (serialized === null) {
@@ -131,7 +124,7 @@ function readSessionStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | nul
   }
 }
 
-function readHistoryStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | null {
+function readHistoryStoredAgentBrowserHandoff() {
   const state = window.history.state;
   if (
     state === null ||
@@ -163,7 +156,7 @@ function clearHistoryStoredAgentBrowserHandoff() {
   );
 }
 
-function readStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | null {
+function readStoredAgentBrowserHandoff() {
   const storedHandoff = readSessionStoredAgentBrowserHandoff();
   if (storedHandoff !== null) {
     return storedHandoff;
@@ -180,7 +173,7 @@ export function clearStoredAgentBrowserHandoff() {
   clearHistoryStoredAgentBrowserHandoff();
 }
 
-export function consumeStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | null {
+export function consumeStoredAgentBrowserHandoff() {
   const storedHandoff = readStoredAgentBrowserHandoff();
   clearStoredAgentBrowserHandoff();
   return storedHandoff;
@@ -188,36 +181,7 @@ export function consumeStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | 
 
 export function stripAgentBrowserHandoffFragmentBeforeHydration() {
   // Fallback for clients where the inline head script did not run before hydration.
-  if (!isAgentBrowserHandoffRoute(window.location.pathname)) {
-    return;
-  }
-
-  const fragment = parseAgentBrowserHandoffFragment(window.location.hash);
-  if (fragment.token === null) {
-    return;
-  }
-
-  const currentState = window.history.state;
-  const nextState =
-    currentState !== null && typeof currentState === "object" ? { ...currentState } : {};
-  nextState[AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY] = {
-    createdAt: Date.now(),
-    returnToPath: fragment.returnToPath,
-    token: fragment.token,
-  } satisfies StoredAgentBrowserHandoff;
-
-  try {
-    window.sessionStorage.setItem(
-      AGENT_BROWSER_HANDOFF_STORAGE_KEY,
-      JSON.stringify(nextState[AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]),
-    );
-  } catch {}
-
-  window.history.replaceState(
-    nextState,
-    "",
-    `${window.location.pathname}${window.location.search}`,
-  );
+  InlineScript_stripAgentBrowserHandoffFragment(agentBrowserHandoffPrehydrationArgs);
 }
 
 export const agentBrowserHandoffPrehydrationScript = `(${InlineScript_stripAgentBrowserHandoffFragment.toString()})(${JSON.stringify(agentBrowserHandoffPrehydrationArgs)});`;

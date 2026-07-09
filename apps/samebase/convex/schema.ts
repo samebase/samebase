@@ -1064,7 +1064,6 @@ export default defineSchema({
     userId: id("users"),
     grantId: string(),
     clientId: string(),
-    returnToPath: string(),
     createdAt: number(),
     expiresAt: number(),
     consumedAt: optional(number()),

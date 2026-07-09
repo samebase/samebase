@@ -34,6 +34,23 @@ describe("agent browser handoff URLs", () => {
     expect(normalizeAgentBrowserHandoffReturnToPath("/agents/connect/")).toBe("/vault/");
   });
 
+  it("keeps normalized return paths idempotent and same-origin", () => {
+    const baseOrigin = "https://samebase.test";
+    const inputs = [
+      "/vault/../providers?prod-ui#github",
+      "/vault/..//evil.test",
+      "/%2e%2e//evil.test",
+    ];
+
+    for (const input of inputs) {
+      const normalized = normalizeAgentBrowserHandoffReturnToPath(input);
+      expect(normalizeAgentBrowserHandoffReturnToPath(normalized)).toBe(normalized);
+      expect(new URL(normalized, baseOrigin).origin).toBe(baseOrigin);
+    }
+    expect(normalizeAgentBrowserHandoffReturnToPath("/vault/..//evil.test")).toBe("/vault/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("/%2e%2e//evil.test")).toBe("/vault/");
+  });
+
   it("accepts deployment HTTPS and loopback HTTP site URLs only", () => {
     expect(
       new URL(

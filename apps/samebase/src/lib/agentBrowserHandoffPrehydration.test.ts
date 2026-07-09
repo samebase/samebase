@@ -14,7 +14,6 @@ import {
 function runAgentBrowserHandoffPrehydrationScript() {
   new Script(agentBrowserHandoffPrehydrationScript).runInContext(
     createContext({
-      Date,
       URL,
       URLSearchParams,
       window,
@@ -41,11 +40,11 @@ describe("agent browser handoff prehydration", () => {
     expect(window.location.href).toBe("http://localhost:3000/agents/connect");
     expect(
       JSON.parse(window.sessionStorage.getItem(AGENT_BROWSER_HANDOFF_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({
+    ).toEqual({
       returnToPath: "/vault/repo?prod-ui",
       token: "agbh_secret",
     });
-    expect(window.history.state).toMatchObject({
+    expect(window.history.state).toEqual({
       tanstack: "state",
       [AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]: {
         returnToPath: "/vault/repo?prod-ui",
@@ -74,7 +73,7 @@ describe("agent browser handoff prehydration", () => {
     });
 
     expect(window.location.href).toBe("http://localhost:3000/agents/connect");
-    expect(window.history.state).toMatchObject({
+    expect(window.history.state).toEqual({
       [AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]: {
         returnToPath: "/vault/",
         token: "agbh_secret",
@@ -92,11 +91,26 @@ describe("agent browser handoff prehydration", () => {
     stripAgentBrowserHandoffFragmentBeforeHydration();
 
     expect(window.location.href).toBe("http://localhost:3000/agents/connect");
-    expect(consumeStoredAgentBrowserHandoff()).toMatchObject({
+    expect(consumeStoredAgentBrowserHandoff()).toEqual({
       returnToPath: "/vault/repo",
       token: "agbh_secret",
     });
     expect(consumeStoredAgentBrowserHandoff()).toBeNull();
+  });
+
+  it("defaults a dot-segment return path that normalizes to another origin", () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/agents/connect#handoff=agbh_secret&returnTo=%2Fvault%2F..%2F%2Fevil.test",
+    );
+
+    runAgentBrowserHandoffPrehydrationScript();
+
+    expect(consumeStoredAgentBrowserHandoff()).toEqual({
+      returnToPath: "/vault/",
+      token: "agbh_secret",
+    });
   });
 
   it("strips the fragment from the trailing-slash route spelling", () => {
@@ -105,7 +119,7 @@ describe("agent browser handoff prehydration", () => {
     runAgentBrowserHandoffPrehydrationScript();
 
     expect(window.location.href).toBe("http://localhost:3000/agents/connect/");
-    expect(consumeStoredAgentBrowserHandoff()).toMatchObject({
+    expect(consumeStoredAgentBrowserHandoff()).toEqual({
       returnToPath: "/vault/",
       token: "agbh_secret",
     });

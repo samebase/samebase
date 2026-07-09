@@ -2,15 +2,11 @@ export const AGENT_BROWSER_HANDOFF_ROUTE = "/agents/connect";
 export const AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY = "handoff";
 export const AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY = "returnTo";
 export const AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH = "/vault/";
+const AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN = "https://samebase.local";
 
 export function isAgentBrowserHandoffRoute(pathname: string): boolean {
   return pathname === AGENT_BROWSER_HANDOFF_ROUTE || pathname === `${AGENT_BROWSER_HANDOFF_ROUTE}/`;
 }
-
-export type AgentBrowserHandoffFragment = {
-  returnToPath: string;
-  token: string | null;
-};
 
 export function hasAgentBrowserHandoffFragment(hash: string): boolean {
   const rawHash = hash.startsWith("#") ? hash.slice(1) : hash;
@@ -27,14 +23,21 @@ export function normalizeAgentBrowserHandoffReturnToPath(value: string | undefin
   }
 
   try {
-    const parsed = new URL(trimmed, "https://samebase.local");
-    if (parsed.origin !== "https://samebase.local") {
+    const parsed = new URL(trimmed, AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN);
+    if (parsed.origin !== AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN) {
       return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
     }
     if (isAgentBrowserHandoffRoute(parsed.pathname)) {
       return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
     }
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    if (
+      new URL(normalized, AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN).origin !==
+      AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN
+    ) {
+      return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
+    }
+    return normalized;
   } catch {
     return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
   }
@@ -73,7 +76,7 @@ export function buildAgentBrowserHandoffUrl(args: {
   return url.toString();
 }
 
-export function parseAgentBrowserHandoffFragment(hash: string): AgentBrowserHandoffFragment {
+export function parseAgentBrowserHandoffFragment(hash: string) {
   const rawHash = hash.startsWith("#") ? hash.slice(1) : hash;
   const fragment = new URLSearchParams(rawHash);
   const token = fragment.get(AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY);

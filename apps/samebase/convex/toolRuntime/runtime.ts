@@ -603,7 +603,6 @@ export const createBrowserHandoffTool = internalAction({
       userId: args.userId,
       grantId: args.grantId,
       clientId: args.clientId,
-      returnToPath,
       createdAt: now,
       expiresAt,
     });
