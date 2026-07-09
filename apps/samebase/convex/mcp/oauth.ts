@@ -10,6 +10,7 @@ import {
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "../schema";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
+import { revokeActiveMcpGrant } from "./grants";
 import {
   createAuthorizationCodeValue,
   MCP_AUTHORIZATION_CODE_TTL_MS,
@@ -914,49 +915,21 @@ export const exchangeRefreshToken = internalMutation({
     }
 
     if (refreshToken.status === "rotated") {
-      let replacementTokenHash = refreshToken.replacedByTokenHash;
-      const visitedTokenHashes = new Set<string>();
-
-      while (replacementTokenHash && !visitedTokenHashes.has(replacementTokenHash)) {
-        const currentReplacementTokenHash = replacementTokenHash;
-        visitedTokenHashes.add(currentReplacementTokenHash);
-        const replacementToken = await ctx.db
-          .query("mcpRefreshTokens")
-          .withIndex("by_token_hash", (q) => q.eq("tokenHash", currentReplacementTokenHash))
-          .first();
-        if (
-          !replacementToken ||
-          replacementToken.grantId !== refreshToken.grantId ||
-          replacementToken.clientId !== refreshToken.clientId ||
-          replacementToken.userId !== refreshToken.userId
-        ) {
-          break;
-        }
-
-        if (replacementToken.status === "active") {
-          await ctx.db.patch(replacementToken._id, {
-            status: "revoked",
-            rotatedAt: args.now,
-          });
-
-          // Audit only the containment transition so repeated replays cannot append events.
-          await ctx.db.insert("mcpAccessAudit", {
-            grantId: refreshToken.grantId,
-            clientId: refreshToken.clientId,
-            userId: refreshToken.userId,
-            action: "refresh_token_replay_detected",
-            createdAt: args.now,
-            detailsJson: JSON.stringify({
-              outcome: "active_refresh_token_revoked",
-            }),
-          });
-          break;
-        }
-
-        if (replacementToken.status !== "rotated") {
-          break;
-        }
-        replacementTokenHash = replacementToken.replacedByTokenHash;
+      const grant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (q) => q.eq("grantId", refreshToken.grantId))
+        .first();
+      if (
+        grant &&
+        grant.clientId === refreshToken.clientId &&
+        grant.userId === refreshToken.userId
+      ) {
+        await revokeActiveMcpGrant(ctx, {
+          action: "refresh_token_replay_detected",
+          detailsJson: JSON.stringify({ outcome: "grant_revoked" }),
+          grant,
+          now: args.now,
+        });
       }
     }
 

@@ -18,6 +18,13 @@ const inactiveRefreshTokenError = {
   errorDescription: "Refresh token is no longer active.",
 };
 
+const inactiveGrantError = {
+  ok: false,
+  status: 400,
+  error: "invalid_grant",
+  errorDescription: "Grant is no longer active.",
+};
+
 function successfulExchange(userId: Id<"users">) {
   return {
     ok: true,
@@ -129,6 +136,7 @@ async function seedRefreshTokenFamily() {
           grant === null
             ? null
             : {
+                status: grant.status,
                 updatedAt: grant.updatedAt,
                 lastUsedAt: grant.lastUsedAt,
               },
@@ -150,7 +158,7 @@ async function seedRefreshTokenFamily() {
 }
 
 describe("MCP OAuth refresh token replay", () => {
-  it("revokes the active descendant when the attacker rotates first", async () => {
+  it("revokes the grant without walking an attacker-controlled replacement chain", async () => {
     const { exchange, readDatabaseState, readState, userId } = await seedRefreshTokenFamily();
 
     await expect(
@@ -195,8 +203,8 @@ describe("MCP OAuth refresh token replay", () => {
         },
         {
           tokenHash: "refresh_hash_attacker_2",
-          status: "revoked",
-          rotatedAt: now + 3,
+          status: "active",
+          rotatedAt: undefined,
           replacedByTokenHash: undefined,
         },
       ],
@@ -227,11 +235,12 @@ describe("MCP OAuth refresh token replay", () => {
           userId,
           action: "refresh_token_replay_detected",
           createdAt: now + 3,
-          detailsJson: '{"outcome":"active_refresh_token_revoked"}',
+          detailsJson: '{"outcome":"grant_revoked"}',
         },
       ],
       grant: {
-        updatedAt: now + 2,
+        status: "revoked",
+        updatedAt: now + 3,
         lastUsedAt: now + 2,
       },
     });
@@ -254,11 +263,11 @@ describe("MCP OAuth refresh token replay", () => {
         accessTokenHash: "access_hash_attacker_3_unused",
         now: now + 5,
       }),
-    ).resolves.toEqual(inactiveRefreshTokenError);
+    ).resolves.toEqual(inactiveGrantError);
     await expect(readDatabaseState()).resolves.toEqual(containedState);
   });
 
-  it("revokes the legitimate replacement when the legitimate client rotates first", async () => {
+  it("revokes the grant when a rotated token is replayed", async () => {
     const { exchange, readDatabaseState, readState, userId } = await seedRefreshTokenFamily();
 
     await expect(
@@ -289,8 +298,8 @@ describe("MCP OAuth refresh token replay", () => {
         },
         {
           tokenHash: "refresh_hash_legitimate",
-          status: "revoked",
-          rotatedAt: now + 2,
+          status: "active",
+          rotatedAt: undefined,
           replacedByTokenHash: undefined,
         },
       ],
@@ -310,11 +319,12 @@ describe("MCP OAuth refresh token replay", () => {
           userId,
           action: "refresh_token_replay_detected",
           createdAt: now + 2,
-          detailsJson: '{"outcome":"active_refresh_token_revoked"}',
+          detailsJson: '{"outcome":"grant_revoked"}',
         },
       ],
       grant: {
-        updatedAt: now + 1,
+        status: "revoked",
+        updatedAt: now + 2,
         lastUsedAt: now + 1,
       },
     });
@@ -327,7 +337,7 @@ describe("MCP OAuth refresh token replay", () => {
         accessTokenHash: "access_hash_legitimate_retry_unused",
         now: now + 3,
       }),
-    ).resolves.toEqual(inactiveRefreshTokenError);
+    ).resolves.toEqual(inactiveGrantError);
     await expect(readDatabaseState()).resolves.toEqual(containedState);
   });
 
