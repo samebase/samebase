@@ -113,6 +113,10 @@ vi.mock("@/components/McpConsentRoutePage", () => ({
   McpConsentRoutePage: () => <div data-testid="mcp-consent-page">MCP consent page</div>,
 }));
 
+vi.mock("@/components/AgentsConnectRoutePage", () => ({
+  AgentsConnectRoutePage: () => <div data-testid="agents-connect-page">Agents connect page</div>,
+}));
+
 vi.mock("@/components/ConnectRepository", () => ({
   ConnectRepository: () => <div data-testid="connect-repository-page">Connect repository page</div>,
 }));
@@ -619,6 +623,15 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="mcp-consent-page"]')?.textContent).toBe(
       "MCP consent page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders agent browser handoff through an explicit TanStack route", async () => {
+    await renderRoute("/agents/connect");
+
+    expect(rootElement?.querySelector('[data-testid="agents-connect-page"]')?.textContent).toBe(
+      "Agents connect page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

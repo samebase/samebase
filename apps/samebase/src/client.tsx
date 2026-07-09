@@ -5,9 +5,11 @@ import { hydrateRoot } from "react-dom/client";
 // `index.css?url` import can resolve to a chunk-local asset name and leave
 // prerendered HTML pointing at a stylesheet that was not deployed.
 import "./index.css";
+import { stripAgentBrowserHandoffFragmentBeforeHydration } from "@/lib/agentBrowserHandoffPrehydration";
 import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
 
 function hydrateApp() {
+  stripAgentBrowserHandoffFragmentBeforeHydration();
   initializeAppBootRecovery();
 
   startTransition(() => {

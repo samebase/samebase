@@ -3,6 +3,7 @@ import {
   buildSamebasePostHogInitConfig,
   captureSamebasePostHogPageview,
   readSamebasePostHogSettings,
+  sanitizeSamebasePostHogPageviewUrl,
 } from "./posthogClient";
 
 const { postHogCaptureMock, postHogIdentifyMock, postHogInitMock, postHogResetMock } = vi.hoisted(
@@ -107,5 +108,17 @@ describe("posthog client setup", () => {
     expect(postHogCaptureMock).toHaveBeenCalledWith("$pageview", {
       $current_url: "https://samebase.com/docs#samebase",
     });
+  });
+
+  it("strips agent handoff fragments from pageview URLs", () => {
+    expect(
+      sanitizeSamebasePostHogPageviewUrl(
+        "/agents/connect#handoff=agbh_secret&returnTo=%2Fvault%2F",
+        "https://samebase.com",
+      ),
+    ).toBe("https://samebase.com/agents/connect");
+    expect(
+      sanitizeSamebasePostHogPageviewUrl("/docs#handoff=not-secret", "https://samebase.com"),
+    ).toBe("https://samebase.com/docs#handoff=not-secret");
   });
 });

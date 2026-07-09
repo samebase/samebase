@@ -14,6 +14,12 @@ type RouteMetadata = Pick<
  */
 const routeAccessMetadataByPath = {
   "/": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
+  "/agents/connect": {
+    access: "access_public",
+    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none" },
+    pathSuggestion: "hidden",
+    prerender: false,
+  },
   "/connect-repo": {
     access: "access_repo_connect",
     appWorkspaceRouteChrome: { leftPane: "none" },

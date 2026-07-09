@@ -41,6 +41,8 @@ describe("MCP HTTP tool invocation args", () => {
         cloudflareWorkerName: "test-app",
         userId: ids.argumentUserId,
         grantedScopes: ["access_app_create"],
+        grantId: "raw_grant",
+        clientId: "raw_client",
       },
       userId: ids.tokenUserId,
       grantedScopes: [],
@@ -55,6 +57,8 @@ describe("MCP HTTP tool invocation args", () => {
       userId: ids.tokenUserId,
       grantedScopes: [],
     });
+    expect(isRecord(toolArgs) && "grantId" in toolArgs).toBe(false);
+    expect(isRecord(toolArgs) && "clientId" in toolArgs).toBe(false);
   });
 });
 

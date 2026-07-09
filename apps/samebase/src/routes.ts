@@ -15,6 +15,7 @@ import {
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { NEW_APP_ROUTE } from "./lib/newAppRoute";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/samebaseSync";
+import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { PROVIDERS_ROUTE } from "./lib/providersRoute";
 
@@ -45,6 +46,7 @@ export const routes = rootRoute("root.tsx", [
   route("/visual-fixture", "visual-fixture.tsx"),
   route(CODEX_APP_SERVER_RESEARCH_ROUTE, "codex-research.tsx"),
   route(CODEX_APP_SERVER_THREAD_BROWSER_ROUTE, "codex-thread-browser-research.tsx"),
+  route(AGENT_BROWSER_HANDOFF_ROUTE, "agents-connect.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/landing", "landing.tsx"),
   route(DOCS_DO_IT_YOURSELF_ROUTE, "docs-do-it-yourself.tsx"),

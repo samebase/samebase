@@ -14,12 +14,22 @@ import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireB
 import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
 import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
+import {
+  buildAgentBrowserHandoffUrl,
+  normalizeAgentBrowserHandoffReturnToPath,
+} from "../../shared/agentBrowserHandoff";
 import {
   createAppForUser,
   connectRepositoryForUser,
   retryInfrastructureProvisioningForUser,
 } from "../vault/actions";
 import { listConvexProjectsForUser, connectExistingConvexProjectForUser } from "../vault/convex";
+import {
+  AGENT_BROWSER_HANDOFF_TTL_MS,
+  createAgentBrowserHandoffTokenValue,
+  sha256Hex,
+} from "../mcp/tokens";
 import {
   listCloudflareAccountsForUser,
   listCloudflareWorkersForUser,
@@ -47,6 +57,13 @@ const getUserVaultsToolResultValidator = object({
   structuredContent: optional(getUserVaultsContract.structuredContent),
 });
 type GetUserVaultsToolResult = Infer<typeof getUserVaultsToolResultValidator>;
+
+const createBrowserHandoffToolResultValidator = object({
+  status: toolStatus,
+  text: string(),
+  structuredContent: optional(createBrowserHandoffContract.structuredContent),
+});
+type CreateBrowserHandoffToolResult = Infer<typeof createBrowserHandoffToolResultValidator>;
 
 export const createRepositoryTool = internalAction({
   args: object({
@@ -536,5 +553,76 @@ export const retryInfrastructureProvisioningTool = internalAction({
         text: message,
       };
     }
+  },
+});
+
+export const createBrowserHandoffTool = internalAction({
+  args: object({
+    userId: id("users"),
+    grantId: string(),
+    clientId: string(),
+    grantedScopes: array(string()),
+    ...createBrowserHandoffContract.args,
+  }),
+  returns: createBrowserHandoffToolResultValidator,
+  handler: async (ctx, args): Promise<CreateBrowserHandoffToolResult> => {
+    if (!args.grantedScopes.includes(createBrowserHandoffContract.access)) {
+      return {
+        status: "blocked",
+        text: `Insufficient scope for ${createBrowserHandoffContract.mcp.name}.`,
+      };
+    }
+
+    const siteUrl = process.env.SITE_URL;
+    if (!siteUrl) {
+      return {
+        status: "error",
+        text: "SITE_URL must be configured to create browser handoff URLs.",
+      };
+    }
+
+    const now = Date.now();
+    const expiresAt = now + AGENT_BROWSER_HANDOFF_TTL_MS;
+    const token = createAgentBrowserHandoffTokenValue();
+    const tokenHash = await sha256Hex(token);
+    const returnToPath = normalizeAgentBrowserHandoffReturnToPath(args.returnToPath);
+
+    let url: string;
+    try {
+      url = buildAgentBrowserHandoffUrl({ returnToPath, siteUrl, token });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid SITE_URL.";
+      return {
+        status: "error",
+        text: message,
+      };
+    }
+
+    const result = await ctx.runMutation(internal.agentBrowserHandoff.createForMcp, {
+      tokenHash,
+      userId: args.userId,
+      grantId: args.grantId,
+      clientId: args.clientId,
+      returnToPath,
+      createdAt: now,
+      expiresAt,
+    });
+
+    if (!result.ok) {
+      return {
+        status: "error",
+        text: `Could not create browser handoff: ${result.reason}.`,
+      };
+    }
+
+    const structuredContent = {
+      url,
+      expiresAt,
+    };
+    return {
+      status: "ok",
+      text: JSON.stringify(structuredContent, null, 2),
+      structuredContent,
+    };
   },
 });

@@ -42,6 +42,7 @@ Degraded app states name their remedy in a `nextAction` field whose values are t
 - [Wire convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.
 - [Verify infrastructure](https://samebase.com/docs/actions/verify_infrastructure.md): Verify the app's recorded Cloudflare infrastructure: Workers Builds trigger IDs and Convex deploy-key variables, then mark stale Samebase records as repairable.
 - [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
+- [Create browser handoff](https://samebase.com/docs/actions/create_browser_handoff.md): Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.
 
 ## Operate
 

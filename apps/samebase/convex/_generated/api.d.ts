@@ -11,6 +11,8 @@
 import type * as accessModelValidators from "../accessModelValidators.js";
 import type * as agent_graph from "../agent/graph.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
+import type * as agentBrowserHandoff from "../agentBrowserHandoff.js";
+import type * as agentBrowserHandoff_contracts_createBrowserHandoff from "../agentBrowserHandoff/contracts/createBrowserHandoff.js";
 import type * as agentGraphActions from "../agentGraphActions.js";
 import type * as agentGraphLayout from "../agentGraphLayout.js";
 import type * as appProvisioningEvents from "../appProvisioningEvents.js";
@@ -142,6 +144,8 @@ declare const fullApi: ApiFromModules<{
   accessModelValidators: typeof accessModelValidators;
   "agent/graph": typeof agent_graph;
   "agent/systemPrompt": typeof agent_systemPrompt;
+  agentBrowserHandoff: typeof agentBrowserHandoff;
+  "agentBrowserHandoff/contracts/createBrowserHandoff": typeof agentBrowserHandoff_contracts_createBrowserHandoff;
   agentGraphActions: typeof agentGraphActions;
   agentGraphLayout: typeof agentGraphLayout;
   appProvisioningEvents: typeof appProvisioningEvents;

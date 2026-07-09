@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Implemented. Current behavior is defined in `specs/111_AGENT_BROWSER_HANDOFF_SPEC.md`.
 - Owner: Nicu Chiciuc
 - Created: 2026-07-08
 - Origin: operator research request about letting an authenticated MCP client open `samebase.com` in
@@ -12,6 +12,8 @@
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md`
   - `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md`
+- Related specs:
+  - `specs/111_AGENT_BROWSER_HANDOFF_SPEC.md`
 - Related docs:
   - `docs/repo-documentation-standard.md`
   - `docs/agent-workflows.md`
@@ -66,8 +68,8 @@ handoff from that grant into Convex Auth.
    current role or approval changes.
 7. Make the visible browser route resilient in desktop browsers, in-app browsers, and mobile
    browsers.
-8. Leave enough audit trail to answer who created a handoff, which client created it, which browser
-   consumed it, and why a failed handoff failed.
+8. Leave enough audit trail to answer who created a handoff, which client created it, when it was
+   consumed, and why a failed handoff failed.
 
 ## Non-Goals
 
@@ -126,22 +128,26 @@ States:
    - link to agent action docs.
 2. Handoff present:
    - consume `#handoff=<token>` from the URL fragment.
-   - immediately remove the fragment from browser history with `history.replaceState`.
+   - strip the fragment before app hydration and before analytics can observe the URL.
    - redeem the token through Convex Auth sign-in.
-   - navigate to the stored `returnToPath`, defaulting to the authenticated dashboard or vault list.
+   - navigate to a Samebase-relative `returnToPath`, defaulting to the authenticated dashboard or
+     vault list.
 3. Expired, consumed, missing, or invalid handoff:
    - show "This request is no longer available. Ask the agent to start again."
 4. Browser is signed in as the same user:
-   - do not create an unnecessary second session when the app can safely confirm the user matches.
-   - navigate to the stored return path.
+   - consume the handoff.
+   - reuse the current session when Convex Auth can do so.
+   - navigate to the return path.
 5. Browser is signed in as a different user:
-   - reject without consuming the handoff.
-   - ask the user to sign out or open a separate browser profile, then ask the agent to create a new
-     handoff.
+   - consume or revoke the handoff without creating a session for the target user.
+   - show "This request is no longer available. Ask the agent to start again."
 
 The route uses a fragment instead of a query parameter because fragments are not sent in the HTTP
-request line or normal referrers. The browser still treats the URL as sensitive, so the route must
-strip it before loading analytics, third-party scripts, or nonessential subresources.
+request line or normal referrers. The browser still treats the URL as sensitive, so the app must
+strip it before React route code, analytics, third-party scripts, or nonessential subresources can
+observe the full URL. A route-component `history.replaceState` is too late because root-level
+instrumentation can run first; the control belongs in pre-hydration code and in analytics route
+exclusion.
 
 ### MCP Tool
 
@@ -175,8 +181,10 @@ Output:
 Rules:
 
 - `returnToPath` must be a Samebase-relative path. No absolute URLs.
-- the server stores the validated return path. The browser must not trust a return path appended to
-  the URL.
+- the server validates the return path before minting the handoff URL.
+- the URL may include the validated return path as a non-secret fragment value so the browser knows
+  where to navigate after `signIn`. Auth redemption never trusts that fragment value; browser
+  navigation validates it again and falls back to the dashboard default.
 - the tool result contains only the one-time URL and expiry. It never returns browser tokens or MCP
   tokens.
 - the tool description must tell the agent the URL is sensitive and expires quickly.
@@ -209,7 +217,6 @@ Add a table for handoff rows:
 
 ```ts
 agentBrowserHandoffs: defineTable({
-  handoffId: v.string(),
   tokenHash: v.string(),
   userId: v.id("users"),
   grantId: v.string(),
@@ -218,13 +225,9 @@ agentBrowserHandoffs: defineTable({
   createdAt: v.number(),
   expiresAt: v.number(),
   consumedAt: v.optional(v.number()),
-  revokedAt: v.optional(v.number()),
 })
-  .index("by_handoff_id", ["handoffId"])
   .index("by_token_hash", ["tokenHash"])
-  .index("by_user_id", ["userId"])
-  .index("by_grant_id", ["grantId"])
-  .index("by_expires_at", ["expiresAt"]);
+  .index("by_grant_id", ["grantId"]);
 ```
 
 Use a 32-byte random opaque token with a distinct prefix, for example `agbh_`. Store only its
@@ -238,10 +241,11 @@ Record audit events for at least:
 - handoff rejected because already consumed.
 - handoff rejected because the current browser user is different.
 - handoff rejected because the grant, client, user, or access key is no longer valid.
-- handoff revoked by cleanup or grant revocation.
 
-Audit rows should include `userId`, `clientId`, `grantId`, event time, and a reason code. Do not
-store raw tokens, full URLs, full user-agent strings, or provider credentials in audit fields.
+Reuse `mcpAccessAudit` for these events with new `action` strings and reason details in
+`detailsJson`. Do not add a parallel audit table. Audit rows should include `userId`, `clientId`,
+`grantId`, event time, and a reason code. Do not store raw tokens, full URLs, full user-agent
+strings, or provider credentials in audit fields.
 
 ## Convex Auth Integration
 
@@ -269,19 +273,20 @@ The provider should validate in this order:
 
 1. Parse and hash the presented handoff token.
 2. Find a live handoff row by `tokenHash`.
-3. Reject expired, consumed, or revoked rows.
+3. Reject expired or consumed rows.
 4. Load and validate the user.
 5. Load and validate the MCP grant.
 6. Load and validate the MCP client.
 7. Recompute current access keys for the user and require `access_browser_login_handoff`.
 8. Check the current browser auth identity if present:
-   - same user: allow idempotent navigation or consume depending on the final implementation shape.
-   - different user: reject without consuming.
+   - same user: return the existing session id so Convex Auth can reuse the session.
+   - different user: consume or revoke the handoff, audit `browser_user_mismatch`, and fail.
 9. Atomically mark `consumedAt`.
 10. Return the existing `userId` to Convex Auth.
 
 The consume path should be written so two simultaneous redemption attempts cannot both create
-sessions. The first write to `consumedAt` wins.
+sessions. The first write to `consumedAt` wins. Every successful redemption consumes the handoff,
+including same-user redemption that reuses the existing browser session.
 
 ## Security Requirements
 
@@ -294,13 +299,18 @@ consent.
 Existing grants must not inherit this scope. The default scope remains fixed. A user who wants the
 feature reconnects or reconsents with the new scope.
 
+MCP authorize may auto-issue an authorization code for an existing grant only when the requested
+scope is a subset of the already-granted scope. A request that adds `access_browser_login_handoff`
+must return to consent unless that exact scope was previously approved for the same client,
+resource, and user.
+
 ### Token Containment
 
 The handoff token is a short-lived bearer credential. Required controls:
 
 - token value has at least 256 bits of entropy before prefixing.
 - token is stored only as a hash.
-- token TTL is 60 to 120 seconds.
+- token TTL is short, initially 5 minutes to support manual copy from terminal-only agents.
 - token is one-time use.
 - token is carried in a URL fragment, not a query parameter.
 - route strips the fragment immediately.
@@ -310,7 +320,8 @@ The handoff token is a short-lived bearer credential. Required controls:
 
 ### Browser Headers
 
-Set strict headers for `/agents/connect` and MCP consent or callback surfaces:
+Set strict headers for `/agents/connect` and MCP consent or callback surfaces before enabling live
+handoff redemption:
 
 ```text
 Cache-Control: no-store
@@ -329,7 +340,8 @@ server-side consume.
 
 The consent page should also get `frame-ancestors 'none'`. MCP authorize can currently auto-issue a
 code for an existing grant; that is acceptable only if the original OAuth request still carries
-PKCE, exact redirect URI matching, resource binding, and state.
+PKCE, exact redirect URI matching, resource binding, state, and a requested scope that does not
+exceed the existing grant.
 
 ### Role Shrink And Revocation
 
@@ -349,7 +361,7 @@ Add rate limits for:
 - MCP authorize.
 - MCP token exchange.
 - browser handoff creation per grant and per client.
-- browser handoff redemption by remote address or coarse fingerprint.
+- browser handoff redemption by token hash and by coarse client-provided retry key.
 
 The machine registration bootstrap limiter in `apps/samebase/convex/connectedMachines.ts` is the
 local precedent.
@@ -373,13 +385,14 @@ Samebase should not special-case these hosts. The URL is the contract.
 ### Agent Cannot Open A Browser
 
 Cloud agents and terminal-only clients may only show the URL. The result remains useful: the user
-opens it manually before expiry.
+opens it manually before expiry or asks the agent to mint a fresh one. The 5-minute initial TTL is
+for this manual delivery case.
 
 ### Existing Browser User Differs
 
-Do not silently switch accounts. Reject without consuming and show a concise account mismatch
-message. This prevents an agent tied to one Samebase account from unexpectedly replacing an active
-browser session for another account.
+Do not silently switch accounts. Consume or revoke the handoff and show the same unavailable-link
+message used for expired links. This prevents an account mismatch from leaving a live bearer URL
+available in terminal scrollback, chat history, or a private window.
 
 ### Link Scanner Or Preview Bot
 
@@ -396,16 +409,19 @@ Only one tab can consume. Other tabs show the expired or already used state.
 If the browser cannot persist Convex Auth storage, the route should fail with a clear message. Do
 not depend on popup openers, cross-window `postMessage`, or localStorage token copying.
 
-### Preview And Production Origin Mixups
+### Preview And Production Deployment Mixups
 
-The stored handoff should include the intended site origin or deployment environment. A production
-handoff must not redeem on a preview or local deployment, and a preview handoff must not redeem on
-production.
+Handoffs are deployment-scoped by construction because each deployment has its own Convex database.
+A production token is not found on a preview or local deployment. The minting tool must build the
+URL from that deployment's canonical frontend `SITE_URL` so users do not receive a production token
+inside a preview or local frontend URL.
 
 ### Return Path Abuse
 
-The server stores a normalized Samebase-relative return path. No absolute URLs, protocol-relative
-URLs, `javascript:` URLs, or unrecognized routes. If validation fails, use the dashboard default.
+The server validates a normalized Samebase-relative return path before placing it in the URL
+fragment. No absolute URLs, protocol-relative URLs, `javascript:` URLs, or unrecognized routes. The
+browser validates again before navigation. If validation fails at either layer, use the dashboard
+default.
 
 ## Rollout Plan
 
@@ -437,24 +453,27 @@ Validation:
 
 ### Phase 3: Convex Auth Redemption
 
-Add the `agent-browser-handoff` `ConvexCredentials` provider and route redemption behavior.
+Add strict `/agents/connect` headers, redemption rate limiting, the `agent-browser-handoff`
+`ConvexCredentials` provider, pre-hydration fragment stripping, analytics exclusion, and route
+redemption behavior.
 
 Validation:
 
 - logged-out browser redeems a live link and reaches the dashboard.
-- same-user browser navigates without account disruption.
-- different-user browser rejects without consuming.
+- same-user browser consumes the handoff and navigates without account disruption.
+- different-user browser consumes or revokes the handoff without switching accounts.
 - two simultaneous redemptions result in one success.
-- expired, consumed, revoked, wrong-origin, and wrong-scope links fail.
+- expired, consumed, wrong-deployment, and wrong-scope links fail.
+- headers are present on `/agents/connect` and MCP consent.
+- the handoff fragment is stripped before PostHog or route pageview capture.
 
 ### Phase 4: Hardening And Grant Management
 
-Add strict headers, rate limits, grant revocation UI, token-family replay handling, and complete
-audit views.
+Add grant revocation UI, token-family replay handling, cleanup for expired handoff rows, and
+complete audit views.
 
 Validation:
 
-- headers are present on `/agents/connect` and MCP consent.
 - grant revocation prevents handoff creation and redemption.
 - refresh-token replay revokes the relevant grant or token family.
 - audit rows exist for create, consume, reject, and revoke.
@@ -466,8 +485,8 @@ Implementation PRs should include:
 - Convex tests for token creation, hashing, expiry, consume race behavior, role shrink, and grant
   revocation.
 - Auth provider tests for successful sign-in and all rejection variants.
-- Route tests for fragment stripping, return path validation, same-user behavior, and different-user
-  rejection.
+- Route tests for pre-hydration fragment stripping, PostHog exclusion, return path validation,
+  same-user behavior, and different-user consumption.
 - MCP tool tests for scope filtering and execution rechecks.
 - Manual browser validation through a real local route after `pnpm dev`.
 - A security-focused checklist in the PR body for headers, logs, analytics, and audit fields.
@@ -482,7 +501,7 @@ Implementation PRs should include:
    plus one-time URLs. Add per-handoff confirmation only if scanner risk proves material.
 3. Should the first route after redemption be the dashboard root, the last used vault, or an MCP
    tool-provided Samebase-relative path? The proposed implementation accepts a validated
-   `returnToPath` with a dashboard default.
+   `returnToPath` fragment value minted by the server, with a dashboard default.
 4. Should `create_browser_handoff` be excluded from ChatGPT app review metadata until the UX has a
    public revocation surface? The safer first launch is Codex and local MCP clients only, then widen
    once grant management is visible.

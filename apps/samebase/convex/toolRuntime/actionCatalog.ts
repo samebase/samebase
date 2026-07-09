@@ -11,6 +11,7 @@ import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireB
 import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
 import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
 /**
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with
@@ -36,6 +37,7 @@ export const actionContracts = [
   cloudflareWireConvexBuildAccessContract,
   cloudflareVerifyInfrastructureContract,
   retryInfrastructureProvisioningContract,
+  createBrowserHandoffContract,
 ] as const;
 
 export type ActionContract = (typeof actionContracts)[number];

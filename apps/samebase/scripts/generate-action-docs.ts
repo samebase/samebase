@@ -82,6 +82,9 @@ const contractSourceByMcpName: Record<string, string> = {
   vault_actions_retryInfrastructureProvisioning: samebaseAppFilePath(
     "convex/vault/contracts/retryInfrastructureProvisioning.ts",
   ),
+  create_browser_handoff: samebaseAppFilePath(
+    "convex/agentBrowserHandoff/contracts/createBrowserHandoff.ts",
+  ),
 };
 
 type LoadedCatalog = {
