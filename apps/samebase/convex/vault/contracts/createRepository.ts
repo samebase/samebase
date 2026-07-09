@@ -53,9 +53,9 @@ any vault or run is created, so pick different names and call again; failures af
 provisioning starts surface through \`get_user_vaults\` instead.
 
 What it writes: one repository (private by default), one Convex project, one Worker, and two
-Workers Builds triggers with \`CONVEX_DEPLOY_KEY\` / \`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All
-resources live in the caller's own provider accounts. Deleting the Samebase account does not
-remove or stop any of them.
+Workers Builds triggers that each carry \`CONVEX_DEPLOY_KEY\` and
+\`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All resources live in the caller's own provider accounts.
+Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through \`get_user_vaults\`: while running, \`providerSetup\`
 carries the current step; on failure it carries the failed step, a message, and the \`nextAction\`

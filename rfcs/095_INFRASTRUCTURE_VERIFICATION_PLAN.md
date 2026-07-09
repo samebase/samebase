@@ -148,10 +148,10 @@ row). Verification pairs with that write, not with a central list:
 
 ## Seed Verifiers (Phase 1)
 
-| Verifier                                        | Live read                                                         | Contradicted when                                                                                                                                                                                        | Remedy the noun then names                                                 |
-| ----------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `verifyConnectedBuilds` (`deployment.builds`)   | Recorded production and preview triggers fetched by `triggerUuid` | A recorded trigger is gone (404) while the Worker itself is present                                                                                                                                      | `wire_builds`                                                              |
-| `verifyConvexBuildAccess` (`convexBuildAccess`) | Variable names on both recorded triggers                          | `CONVEX_DEPLOY_KEY` absent on the production trigger or `PREVIEW_CONVEX_DEPLOY_KEY` on the preview; or recorded `wired` with no Convex deployment row for the app root (registry-internal, no live read) | `wire_convex_build_access` (after `attach_convex` when the row is missing) |
+| Verifier                                        | Live read                                                         | Contradicted when                                                                                                                                                                           | Remedy the noun then names                                                 |
+| ----------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `verifyConnectedBuilds` (`deployment.builds`)   | Recorded production and preview triggers fetched by `triggerUuid` | A recorded trigger is gone (404) while the Worker itself is present                                                                                                                         | `wire_builds`                                                              |
+| `verifyConvexBuildAccess` (`convexBuildAccess`) | Variable names on both recorded triggers                          | Either recorded trigger is missing `CONVEX_DEPLOY_KEY` or `PREVIEW_CONVEX_DEPLOY_KEY`; or recorded `wired` with no Convex deployment row for the app root (registry-internal, no live read) | `wire_convex_build_access` (after `attach_convex` when the row is missing) |
 
 Rules:
 
@@ -233,6 +233,6 @@ conflicting same-kind trigger instead of throwing.
   contradicted / unverifiable, and unverifiable never writes.
 - Extended `nextAction` truth-table coverage in
   `apps/samebase/convex/vault/dashboard.convex.test.ts` for post-verification degraded states.
-- Manual recipe: wire an app; delete the `CONVEX_DEPLOY_KEY` variable on the production trigger in
-  Cloudflare; run "Verify infrastructure"; "Set Convex deploy keys" reappears; run it; verify again
-  and observe the axis back at `set` with a fresh `lastObservedAt`.
+- Manual recipe: wire an app; delete the `PREVIEW_CONVEX_DEPLOY_KEY` variable from the production
+  trigger in Cloudflare; run "Verify infrastructure"; "Set Convex deploy keys" reappears; run it;
+  verify again and observe the axis back at `set` with a fresh `lastObservedAt`.

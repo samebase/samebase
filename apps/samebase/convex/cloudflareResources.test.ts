@@ -395,24 +395,17 @@ describe("cloudflare resources", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
-  it("uses trigger-specific Convex deploy keys for Workers builds", () => {
+  it("uses both Convex deploy keys for Workers builds", () => {
     expect(
       buildCloudflareWorkersEnvVars({
-        triggerKind: "production",
         productionConvexDeployKey: "prod-key",
+        previewConvexDeployKey: "preview-key",
       }),
     ).toEqual({
       CONVEX_DEPLOY_KEY: {
         value: "prod-key",
         is_secret: true,
       },
-    });
-    expect(
-      buildCloudflareWorkersEnvVars({
-        triggerKind: "preview",
-        previewConvexDeployKey: "preview-key",
-      }),
-    ).toEqual({
       PREVIEW_CONVEX_DEPLOY_KEY: {
         value: "preview-key",
         is_secret: true,
@@ -431,8 +424,18 @@ describe("cloudflare resources", () => {
             is_secret: true,
             value: null,
           },
+          PREVIEW_CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
         },
         "preview-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
           PREVIEW_CONVEX_DEPLOY_KEY: {
             created_on: "2026-07-05T00:00:00Z",
             is_secret: true,
@@ -653,13 +656,25 @@ describe("cloudflare resources", () => {
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
-  it("contradicts Convex build access when a deploy-key variable is missing", async () => {
+  it("contradicts Convex build access when a trigger misses a deploy-key variable", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
       readEnvVars: {
         "production-trigger": {
           CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+        },
+        "preview-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-05T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+          PREVIEW_CONVEX_DEPLOY_KEY: {
             created_on: "2026-07-05T00:00:00Z",
             is_secret: true,
             value: null,
@@ -833,24 +848,20 @@ describe("cloudflare resources", () => {
     expect(buildIndex).toBeGreaterThan(previewPatchIndex);
     expect(buildIndex).toBeGreaterThan(productionVerifyIndex);
     expect(buildIndex).toBeGreaterThan(previewVerifyIndex);
-    const productionConvexEnvVars = buildCloudflareWorkersEnvVars({
-      triggerKind: "production",
+    const convexEnvVars = buildCloudflareWorkersEnvVars({
       productionConvexDeployKey: "prod-key",
-    });
-    const previewConvexEnvVars = buildCloudflareWorkersEnvVars({
-      triggerKind: "preview",
       previewConvexDeployKey: "preview-key",
     });
-    expect(requests[productionPatchIndex]?.body).toEqual(productionConvexEnvVars);
-    expect(requests[previewPatchIndex]?.body).toEqual(previewConvexEnvVars);
+    expect(requests[productionPatchIndex]?.body).toEqual(convexEnvVars);
+    expect(requests[previewPatchIndex]?.body).toEqual(convexEnvVars);
   });
 
-  it("fails closed when Cloudflare does not read back the preview deploy key", async () => {
+  it("fails closed when the production trigger does not read back the preview deploy key", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
       dropReadEnvKeys: {
-        "preview-trigger": ["PREVIEW_CONVEX_DEPLOY_KEY"],
+        "production-trigger": ["PREVIEW_CONVEX_DEPLOY_KEY"],
       },
       triggers: [
         {
@@ -910,7 +921,7 @@ describe("cloudflare resources", () => {
         },
       }),
     ).rejects.toThrow(
-      "Cloudflare preview Workers Builds trigger preview-trigger is missing build environment variable PREVIEW_CONVEX_DEPLOY_KEY after wiring.",
+      "Cloudflare production Workers Builds trigger production-trigger is missing build environment variable PREVIEW_CONVEX_DEPLOY_KEY after wiring.",
     );
 
     expect(
