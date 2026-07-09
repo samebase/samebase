@@ -141,11 +141,11 @@ keys:
 
 Those keys are then injected into Cloudflare's production and preview build settings.
 
-For the Workers target, Samebase injects those keys with the same names the public template and
-Samebase production build use: `CONVEX_DEPLOY_KEY` for the production trigger and
-`PREVIEW_CONVEX_DEPLOY_KEY` for the preview trigger. Workers Builds API triggers can isolate
-environment variables per trigger, so Samebase-managed provisioning should not put the production
-deploy key on the preview trigger.
+For the Workers target, Samebase uses the same names the public template and Samebase production
+build use: `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`. Superseding the original
+per-trigger-isolation idea in this research note, Samebase-managed provisioning writes both names
+onto every Workers Builds trigger so the Cloudflare dashboard's visible build-variable table shows
+the full pair. The build script still chooses the branch-appropriate key from `WORKERS_CI_BRANCH`.
 
 ### 5. Pages Project Is Created Or Patched
 

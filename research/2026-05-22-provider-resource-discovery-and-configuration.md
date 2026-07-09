@@ -202,15 +202,12 @@ with pagination and a scan budget.
 Cloudflare can provide visible evidence for a Convex deployment, but this is not a direct ownership
 link.
 
-Noter-created Workers Builds triggers currently receive:
+Current Samebase-managed Workers Builds triggers receive both deploy-key secrets,
+`CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`, on every trigger. They do not receive
+`VITE_CONVEX_URL`; `convex deploy --cmd` supplies the selected deployment URL to the child build.
 
-1. `CONVEX_DEPLOY_KEY` as a secret
-2. `PREVIEW_CONVEX_DEPLOY_KEY` as a secret
-3. `VITE_CONVEX_URL` as a non-secret build variable
-
-The non-secret `VITE_CONVEX_URL` value is the useful bridge. If an existing Worker build trigger or
-repo config exposes a `*.convex.cloud` URL, Noter can compare it with Convex deployment inventory
-from the connected Convex team.
+If an existing Worker build trigger or repo config exposes a `*.convex.cloud` URL from older manual
+setup, Noter can compare it with Convex deployment inventory from the connected Convex team.
 
 This should be a suggestion, not an automatic attach:
 

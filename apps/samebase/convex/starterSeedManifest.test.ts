@@ -91,6 +91,12 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
       '"--preview-create"',
     );
+    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
+      "store both secrets on every\ntrigger",
+    );
+    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).not.toContain(
+      "store `CONVEX_DEPLOY_KEY` on\nthe production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview trigger",
+    );
   });
 
   it("includes durable guest-name reservation in the starter auth flow", () => {

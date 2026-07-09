@@ -6,8 +6,8 @@ MCP tool `vault_cloudflare_verifyInfrastructure` · scope `access_app_create` ·
 
 Checks Samebase's recorded Cloudflare Worker infrastructure against the caller's own Cloudflare
 account: recorded Workers Builds production and preview trigger ids must still exist on the Worker,
-and a Worker marked as having Convex build access must still expose `CONVEX_DEPLOY_KEY` and
-`PREVIEW_CONVEX_DEPLOY_KEY` on those triggers.
+and a Worker marked as having Convex build access must still expose both `CONVEX_DEPLOY_KEY` and
+`PREVIEW_CONVEX_DEPLOY_KEY` on each trigger.
 
 Provider access is read-only. Samebase only writes registry corrections: missing recorded triggers
 make the Worker repairable through `wire_builds`; missing deploy-key variables, or a wired Worker

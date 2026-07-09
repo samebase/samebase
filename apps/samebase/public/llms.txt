@@ -39,7 +39,7 @@ Degraded app states name their remedy in a `nextAction` field whose values are t
 - [Connect convex deployment](https://samebase.com/docs/actions/connect_convex_deployment.md): Attach an existing Convex project to a Samebase app (manual attach): records the deployment and starts the connection run.
 - [Connect cloudflare worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Attach an existing Cloudflare Worker to a Samebase app (manual attach): validates the Worker against the repository and starts the connection run.
 - [Wire builds](https://samebase.com/docs/actions/wire_builds.md): Connect the app's Cloudflare Worker to its GitHub repository through Workers Builds: production and preview triggers, so pushes deploy and pull requests get previews.
-- [Wire convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place them into its Workers Builds triggers (CONVEX_DEPLOY_KEY for production, PREVIEW_CONVEX_DEPLOY_KEY for previews).
+- [Wire convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.
 - [Verify infrastructure](https://samebase.com/docs/actions/verify_infrastructure.md): Verify the app's recorded Cloudflare infrastructure: Workers Builds trigger IDs and Convex deploy-key variables, then mark stale Samebase records as repairable.
 - [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
 

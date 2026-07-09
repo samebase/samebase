@@ -58,8 +58,9 @@ Use Cloudflare Workers, not a new Cloudflare Pages project: Cloudflare points ne
 Workers, and one Worker deploys both the code and the static assets.
 
 Connect the GitHub repository to Workers Builds. Configure the build command your app uses, then add
-the Convex deploy key as `CONVEX_DEPLOY_KEY` in the production build environment. If you created a
-preview deploy key, add it as `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds.
+both build variables in Cloudflare's visible build-variable table: `CONVEX_DEPLOY_KEY` for the
+production deploy key and `PREVIEW_CONVEX_DEPLOY_KEY` for the preview deploy key. The build script
+uses `WORKERS_CI_BRANCH` to choose the branch-appropriate key.
 
 After the first successful build, Cloudflare serves the app from your Worker. Pushes to the default
 branch deploy production; pull requests deploy previews when previews are configured.

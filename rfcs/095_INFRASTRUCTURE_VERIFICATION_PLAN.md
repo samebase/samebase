@@ -121,24 +121,29 @@ row). Verification pairs with that write, not with a central list:
    configuration: never judged, never deleted, never reported.
 3. Names, never values. Verifiers read variable names and resource identity; secret values are never
    fetched, stored, logged, or compared (existing rfcs/090 doctrine).
-4. Fail closed on unverifiable. A provider error, a missing or expired connection, or a Worker-scope
+4. Both deploy-key names on every trigger. Samebase-managed Convex build access writes both
+   `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` onto every recorded Workers Builds trigger.
+   This mirrors Cloudflare's single visible build-variable table: the build script reads
+   `WORKERS_CI_BRANCH` and passes only the branch-appropriate value to Convex, so verification
+   treats a trigger missing either name as contradicted.
+5. Fail closed on unverifiable. A provider error, a missing or expired connection, or a Worker-scope
    404 writes nothing; only a successful authoritative read that contradicts the record flips state.
    The authority is not always the provider: for the wired-without-deployment reset the registry
    itself is the authoritative read — whether a Convex deployment row exists for the app root is a
    Samebase fact, so that contradiction flips with no provider call. Writes are per-row atomic:
    every live read a row needs must succeed before that row's single conditional patch, so a mid-run
    provider failure never leaves a half-verified row.
-5. On-demand only. No cron, no background reconciliation, no polling. Freshness is expressed by
+6. On-demand only. No cron, no background reconciliation, no polling. Freshness is expressed by
    `lastObservedAt` (already on both `vaultCloudflareWorkers` and `vaultConvexDeployments`; also
    refreshed today by Convex schema snapshot reads,
    `apps/samebase/convex/vault/convexSchemaGraph.ts:1291`). Phase 1 stamps it only on Worker rows a
    verifier confirmed or corrected — it means Cloudflare-trigger freshness, nothing broader.
-6. Existing run machinery. One `appProvisioningRuns` run per execution with trigger
+7. Existing run machinery. One `appProvisioningRuns` run per execution with trigger
    `verify_infrastructure` — one new literal in `vAppProvisioningRunTrigger`
    (`apps/samebase/convex/schema.ts:108`), the only validator edit in Phase 1 — fenced by the same
    `vaultInfrastructureOwnership` claim pattern the blocks use. Verification refuses to start while
    another run for the vault is active.
-7. One contract, every surface. The `verify_infrastructure` contract module registers in the action
+8. One contract, every surface. The `verify_infrastructure` contract module registers in the action
    catalog (`apps/samebase/convex/toolRuntime/actionCatalog.ts`, shipped v1656), which renders the
    MCP tool, the generated `/docs/actions/verify_infrastructure.md` page, llms.txt, and usage
    attribution in one move; the catalog `id` doubles as the `nextAction` vocabulary. Because catalog
@@ -213,7 +218,7 @@ conflicting same-kind trigger instead of throwing.
 - **Fake verifiers**: the exhaustive registry invites writing a shallow verifier just to satisfy the
   type. `notVerifiable` with a reason is the honest and reviewable alternative; reviewers treat a
   verifier without an authoritative live read as a defect.
-- **Racing an active run**: excluded by ownership fencing (Locked Decision 6).
+- **Racing an active run**: excluded by ownership fencing (Locked Decision 7).
 - **Builds API drift**: the env-var listing endpoint is the same one `wire_convex_build_access`
   already uses for read-back verification; both go through one shared helper.
 

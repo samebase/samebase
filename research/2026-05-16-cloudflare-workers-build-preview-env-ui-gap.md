@@ -5,7 +5,9 @@
 - Date: 2026-05-16
 - Owner: Noter production hosting and generated app hosting
 - Outcome: Use the conventional `CONVEX_DEPLOY_KEY` for production builds and
-  `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds.
+  `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds; Samebase-managed Workers Builds setup writes both
+  names onto every trigger so the Cloudflare dashboard's visible build-variable table shows the full
+  pair.
 
 ## Finding
 
@@ -35,10 +37,10 @@ CLI as `CONVEX_DEPLOY_KEY` in the child process. This is not hard secret isolati
 dashboard secrets are stored in the generic variables table, but it keeps preview builds from
 falling back to the production key without requiring API-only configuration.
 
-Workers Builds API-managed triggers can still keep per-trigger env isolation, but they should use
-the same names so manual template setup, Samebase-provisioned apps, and Samebase production converge
-on one contract. The production trigger sets `CONVEX_DEPLOY_KEY`; the preview trigger sets
-`PREVIEW_CONVEX_DEPLOY_KEY`.
+Workers Builds API-managed triggers can store variables per trigger, but Samebase-managed setup
+should still write both names onto every trigger. That makes the production trigger's visible
+dashboard table show the preview key too, while the build script continues to select the correct
+secret from `WORKERS_CI_BRANCH`.
 
 ## Monitoring
 
