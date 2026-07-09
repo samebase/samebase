@@ -13,7 +13,7 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
-import { sha256Hex } from "./mcp/tokens";
+import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
 import {
   buildSeedCloudflareDefaultAccount,
   getConnectionByUserAndKind,
@@ -167,8 +167,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       id: "agent-browser-handoff",
       authorize: async (params, ctx) => {
         const rawToken = params.token;
-        if (!isNonEmptyString(rawToken)) {
-          return null;
+        if (!isNonEmptyString(rawToken) || !isAgentBrowserHandoffTokenValue(rawToken)) {
+          throw new Error("Browser handoff is invalid or no longer available.");
         }
 
         const [currentUserId, currentSessionId] = await Promise.all([
@@ -182,7 +182,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           ...(currentSessionId !== null ? { currentSessionId } : {}),
         });
         if (!result.ok) {
-          return null;
+          throw new Error("Browser handoff is invalid or no longer available.");
         }
 
         return {

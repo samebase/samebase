@@ -103,8 +103,14 @@ export function signInWithPasswordAction(
     });
 }
 
-export function signInWithAgentBrowserHandoffAction(args: { signIn: SignInAction; token: string }) {
-  return args.signIn("agent-browser-handoff", { token: args.token });
+export async function signInWithAgentBrowserHandoffAction(args: {
+  signIn: SignInAction;
+  token: string;
+}): Promise<void> {
+  const result = await args.signIn("agent-browser-handoff", { token: args.token });
+  if (!result.signingIn) {
+    throw new Error("Browser handoff is invalid or no longer available.");
+  }
 }
 
 /**
@@ -142,8 +148,6 @@ export function useAppSignInActions() {
 
   return {
     signInWithGoogle: (redirectTo: string) => signInWithGoogleAction({ signIn, redirectTo }),
-    signInWithAgentBrowserHandoff: (token: string) =>
-      signInWithAgentBrowserHandoffAction({ signIn, token }),
     signInWithPassword: (args: PasswordSignInArgs) => signInWithPasswordAction({ signIn, ...args }),
   };
 }

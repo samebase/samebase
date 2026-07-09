@@ -1,0 +1,91 @@
+// @vitest-environment jsdom
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+const { authState, consumeHandoffMock, signInMock } = vi.hoisted(() => ({
+  authState: {
+    isAuthenticated: false,
+    isLoading: true,
+  },
+  consumeHandoffMock: vi.fn(),
+  signInMock: vi.fn(),
+}));
+
+vi.mock("@convex-dev/auth/react", () => ({
+  useAuthActions: () => ({ signIn: signInMock }),
+}));
+
+vi.mock("convex/react", () => ({
+  useConvexAuth: () => authState,
+}));
+
+vi.mock("@/lib/agentBrowserHandoffPrehydration", () => ({
+  consumeStoredAgentBrowserHandoff: consumeHandoffMock,
+}));
+
+vi.mock("@/lib/usePageMetadata", () => ({
+  usePageMetadata: vi.fn(),
+}));
+
+import { AgentsConnectRoutePage } from "./AgentsConnectRoutePage";
+
+describe("AgentsConnectRoutePage", () => {
+  let root: Root;
+  let rootElement: HTMLDivElement;
+
+  beforeEach(() => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+    consumeHandoffMock.mockReset();
+    signInMock.mockReset();
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    rootElement.remove();
+  });
+
+  it("waits for the existing browser session before consuming the handoff", async () => {
+    consumeHandoffMock.mockReturnValue({
+      returnToPath: "/vault/",
+      token: `agbh_${"a".repeat(43)}`,
+    });
+    signInMock.mockImplementation(() => new Promise(() => {}));
+
+    await act(async () => root.render(<AgentsConnectRoutePage />));
+
+    expect(consumeHandoffMock).not.toHaveBeenCalled();
+    expect(signInMock).not.toHaveBeenCalled();
+
+    authState.isLoading = false;
+    await act(async () => root.render(<AgentsConnectRoutePage />));
+
+    expect(consumeHandoffMock).toHaveBeenCalledTimes(1);
+    expect(signInMock).toHaveBeenCalledWith("agent-browser-handoff", {
+      token: `agbh_${"a".repeat(43)}`,
+    });
+  });
+
+  it("shows the failure state when sign-in rejects", async () => {
+    authState.isLoading = false;
+    consumeHandoffMock.mockReturnValue({
+      returnToPath: "/vault/",
+      token: `agbh_${"a".repeat(43)}`,
+    });
+    signInMock.mockRejectedValue(new Error("invalid handoff"));
+
+    await act(async () => {
+      root.render(<AgentsConnectRoutePage />);
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(rootElement.textContent).toContain("Connection link failed.");
+    });
+  });
+});
