@@ -195,7 +195,6 @@ docs/README.md
 docs/repo-documentation-standard.md
 docs/samebase-domains-workers-builds.md
 docs/samebase-pr-preview-cleanup.md
-docs/tracked-file-paths.md
 Ideas/augment-code-research.md
 Ideas/E2b.md
 Ideas/main-agent-hub/README.md

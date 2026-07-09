@@ -5,7 +5,6 @@ import { closeSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
@@ -26,7 +25,7 @@ async function main(): Promise<void> {
       "samebase",
       "exec",
       "node",
-      samebaseAppFilePath("scripts/convex-dev.ts"),
+      "scripts/convex-dev.ts",
       ...(keepBackendRunning ? [] : ["--until-success"]),
       "--typecheck=disable",
       "--tail-logs=disable",

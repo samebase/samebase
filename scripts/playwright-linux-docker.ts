@@ -6,7 +6,6 @@ import process from "node:process";
 
 import { parsePositiveInteger } from "../apps/samebase/dev/appBuildMetadata.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
-import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.58.2-noble";
 const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
@@ -15,8 +14,8 @@ const DEFAULT_CONVEX_CACHE_VOLUME = "samebase-playwright-linux-convex-cache";
 const DEFAULT_VITE_PORT = "43121";
 const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "4";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
-const ciBootstrapConvexScriptPath = `./${trackedFilePath("scripts/ci-bootstrap-convex.ts")}`;
-const samebasePlaywrightConfigPath = samebaseAppFilePath("playwright.config.ts");
+const ciBootstrapConvexScriptPath = "./scripts/ci-bootstrap-convex.ts";
+const samebasePlaywrightConfigPath = "playwright.config.ts";
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 

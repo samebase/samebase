@@ -139,7 +139,6 @@ describe("run-worktree-dev", () => {
       ["stop existing local backend listeners", "always"],
       ["validate anonymous seed env prerequisites", "once-bootstrap"],
       ["bootstrap the current worktree", "always"],
-      ["generate tracked file path types", "always"],
       ["bootstrap the anonymous local backend once", "always"],
       ["sync allowlisted seed env values into the local backend", "once-bootstrap"],
       ["seed the local password-auth development account", "once-bootstrap"],

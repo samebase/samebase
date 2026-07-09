@@ -6,7 +6,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { TextDecoder } from "node:util";
-import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -320,10 +319,7 @@ function compareUtf8PathBytes(left: string, right: string): number {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
-const outputPath = path.resolve(
-  repoRoot,
-  trackedFilePath("apps/samebase/convex/starterSeedManifest.generated.ts"),
-);
+const outputPath = path.resolve(repoRoot, "apps/samebase/convex/starterSeedManifest.generated.ts");
 
 const { sourceBranch } = parseArgs(process.argv.slice(2));
 const token = readToken();

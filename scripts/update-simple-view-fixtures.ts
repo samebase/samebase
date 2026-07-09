@@ -2,7 +2,6 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
 import { isMainModule, runMain } from "./lib/scriptRuntime.ts";
-import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -10,7 +9,7 @@ async function main(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
       PNPM_COMMAND,
-      ["exec", "vp", "test", "run", trackedFilePath("apps/samebase/src/lib/simpleView.test.ts")],
+      ["exec", "vp", "test", "run", "apps/samebase/src/lib/simpleView.test.ts"],
       {
         env: {
           ...process.env,

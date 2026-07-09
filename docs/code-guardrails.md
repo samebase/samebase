@@ -201,8 +201,6 @@ declaring one.
   the reason an error class exists.
 - Generated files must only contain output derived from the named source of truth. Do not put
   hand-authored schemas, local endpoint contracts, or convenience types into generated output.
-- For hard-coded references to tracked repo files in scripts, prefer `trackedFilePath(...)` or a
-  scoped wrapper such as `samebaseAppFilePath(...)` before using an untyped string path.
 - In Convex modules, define result validators before handlers, derive types via `Infer<typeof ...>`,
   and prefer destructuring validator builders once instead of repeated `v.<fn>()` call sites.
 - Reserve the leading `v` prefix for reusable Convex value validators from `convex/values`, such as

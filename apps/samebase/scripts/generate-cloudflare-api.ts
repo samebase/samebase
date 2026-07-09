@@ -6,37 +6,26 @@ import { standaloneCode } from "ajv/dist/standalone/index.js";
 import openapiTS, { astToString, COMMENT_HEADER, type OpenAPI3 } from "openapi-typescript";
 import { includes, isRecord } from "@samebase/dependent/main";
 
-import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
-
 const sourceUrl = "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
 const sourceFetchTimeoutMs = 30_000;
 const cloudflareApiOpenApiSchemaId = "samebase://cloudflare-api/openApi.generated.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiDocumentOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/cloudflareApi/openApi.generated.json")}`,
-    import.meta.url,
-  ),
+  new URL("../convex/cloudflareApi/openApi.generated.json", import.meta.url),
 );
 const validatorsOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/cloudflareApi/validators.generated.js")}`,
-    import.meta.url,
-  ),
+  new URL("../convex/cloudflareApi/validators.generated.js", import.meta.url),
 );
 const validatorTypesOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/cloudflareApi/validators.generated.d.ts")}`,
-    import.meta.url,
-  ),
+  new URL("../convex/cloudflareApi/validators.generated.d.ts", import.meta.url),
 );
-const typesOutputPath = samebaseAppFilePath("convex/cloudflareApi/types.generated.d.ts");
+const typesOutputPath = "convex/cloudflareApi/types.generated.d.ts";
 const typesOutputFilePath = fileURLToPath(new URL(`../${typesOutputPath}`, import.meta.url));
 const generatedFormatPaths = [
-  samebaseAppFilePath("convex/cloudflareApi/openApi.generated.json"),
+  "convex/cloudflareApi/openApi.generated.json",
   typesOutputPath,
-  samebaseAppFilePath("convex/cloudflareApi/validators.generated.js"),
-  samebaseAppFilePath("convex/cloudflareApi/validators.generated.d.ts"),
+  "convex/cloudflareApi/validators.generated.js",
+  "convex/cloudflareApi/validators.generated.d.ts",
 ];
 const cloudflareApiFamilyPathPrefixes = [
   "/accounts/{account_id}/workers",

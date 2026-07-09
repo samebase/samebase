@@ -5,7 +5,6 @@ import { array, boolean, isObject, object, optional, string, type InferGood } fr
 import { createServer } from "vite";
 
 import { formatWithVpFmt } from "../../../scripts/format-with-vp-fmt.ts";
-import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 import {
   appInfo,
   negativeTestCases,
@@ -49,42 +48,23 @@ const toolJsonSchema = object({
 });
 
 const contractSourceByMcpName: Record<string, string> = {
-  samebase_auth_getAuthenticationStatus: samebaseAppFilePath(
-    "convex/mcp/contracts/getAuthenticationStatus.ts",
-  ),
-  vault_dashboard_getUserVaults: samebaseAppFilePath("convex/vault/contracts/getUserVaults.ts"),
-  vault_actions_createRepository: samebaseAppFilePath("convex/vault/contracts/createRepository.ts"),
-  vault_actions_connectRepository: samebaseAppFilePath(
-    "convex/vault/contracts/connectRepository.ts",
-  ),
-  vault_convex_listProjects: samebaseAppFilePath("convex/vault/contracts/convexListProjects.ts"),
-  vault_cloudflare_listAccounts: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareListAccounts.ts",
-  ),
-  vault_cloudflare_listWorkers: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareListWorkers.ts",
-  ),
-  vault_convex_connectExistingProject: samebaseAppFilePath(
-    "convex/vault/contracts/convexConnectExistingProject.ts",
-  ),
-  vault_cloudflare_connectExistingWorker: samebaseAppFilePath(
+  samebase_auth_getAuthenticationStatus: "convex/mcp/contracts/getAuthenticationStatus.ts",
+  vault_dashboard_getUserVaults: "convex/vault/contracts/getUserVaults.ts",
+  vault_actions_createRepository: "convex/vault/contracts/createRepository.ts",
+  vault_actions_connectRepository: "convex/vault/contracts/connectRepository.ts",
+  vault_convex_listProjects: "convex/vault/contracts/convexListProjects.ts",
+  vault_cloudflare_listAccounts: "convex/vault/contracts/cloudflareListAccounts.ts",
+  vault_cloudflare_listWorkers: "convex/vault/contracts/cloudflareListWorkers.ts",
+  vault_convex_connectExistingProject: "convex/vault/contracts/convexConnectExistingProject.ts",
+  vault_cloudflare_connectExistingWorker:
     "convex/vault/contracts/cloudflareConnectExistingWorker.ts",
-  ),
-  vault_cloudflare_wireBuilds: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareWireBuilds.ts",
-  ),
-  vault_cloudflare_wireConvexBuildAccess: samebaseAppFilePath(
+  vault_cloudflare_wireBuilds: "convex/vault/contracts/cloudflareWireBuilds.ts",
+  vault_cloudflare_wireConvexBuildAccess:
     "convex/vault/contracts/cloudflareWireConvexBuildAccess.ts",
-  ),
-  vault_cloudflare_verifyInfrastructure: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareVerifyInfrastructure.ts",
-  ),
-  vault_actions_retryInfrastructureProvisioning: samebaseAppFilePath(
+  vault_cloudflare_verifyInfrastructure: "convex/vault/contracts/cloudflareVerifyInfrastructure.ts",
+  vault_actions_retryInfrastructureProvisioning:
     "convex/vault/contracts/retryInfrastructureProvisioning.ts",
-  ),
-  create_browser_handoff: samebaseAppFilePath(
-    "convex/agentBrowserHandoff/contracts/createBrowserHandoff.ts",
-  ),
+  create_browser_handoff: "convex/agentBrowserHandoff/contracts/createBrowserHandoff.ts",
 };
 
 type LoadedCatalog = {
@@ -112,12 +92,8 @@ async function loadCatalog(): Promise<LoadedCatalog> {
   });
 
   try {
-    const catalogModule = await server.ssrLoadModule(
-      `/${samebaseAppFilePath("convex/toolRuntime/actionCatalog.ts")}`,
-    );
-    const schemasModule = await server.ssrLoadModule(
-      `/${samebaseAppFilePath("convex/toolRuntime/convexSchemas.ts")}`,
-    );
+    const catalogModule = await server.ssrLoadModule("/convex/toolRuntime/actionCatalog.ts");
+    const schemasModule = await server.ssrLoadModule("/convex/toolRuntime/convexSchemas.ts");
     const [contractsAreValid, contracts] = array(actionContractSchema)(
       catalogModule.actionContracts,
     );

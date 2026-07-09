@@ -13,36 +13,25 @@ import openapiTS, {
 } from "openapi-typescript";
 import { isRecord } from "@samebase/dependent/main";
 
-import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
-
 const sourceUrl = "https://api.convex.dev/v1/openapi.json";
 const convexManagementOpenApiSchemaId = "https://api.convex.dev/v1/openapi.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiDocumentOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/convexManagementApi/openApi.generated.json")}`,
-    import.meta.url,
-  ),
+  new URL("../convex/convexManagementApi/openApi.generated.json", import.meta.url),
 );
 const validatorsOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/convexManagementApi/validators.generated.js")}`,
-    import.meta.url,
-  ),
+  new URL("../convex/convexManagementApi/validators.generated.js", import.meta.url),
 );
 const validatorTypesOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/convexManagementApi/validators.generated.d.ts")}`,
-    import.meta.url,
-  ),
+  new URL("../convex/convexManagementApi/validators.generated.d.ts", import.meta.url),
 );
-const typesOutputPath = samebaseAppFilePath("convex/convexManagementApi/types.generated.d.ts");
+const typesOutputPath = "convex/convexManagementApi/types.generated.d.ts";
 const typesOutputFilePath = fileURLToPath(new URL(`../${typesOutputPath}`, import.meta.url));
 const generatedFormatPaths = [
-  samebaseAppFilePath("convex/convexManagementApi/openApi.generated.json"),
+  "convex/convexManagementApi/openApi.generated.json",
   typesOutputPath,
-  samebaseAppFilePath("convex/convexManagementApi/validators.generated.js"),
-  samebaseAppFilePath("convex/convexManagementApi/validators.generated.d.ts"),
+  "convex/convexManagementApi/validators.generated.js",
+  "convex/convexManagementApi/validators.generated.d.ts",
 ];
 
 /**

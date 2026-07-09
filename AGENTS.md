@@ -331,8 +331,6 @@ Simplicity and deletion:
 - Separate business logic from generic mechanics; small typed utilities in focused shared modules
   whose path carries the context (`pick` in an object module).
 - Generated files contain only output derived from their named source of truth.
-- Wrap hard-coded tracked-file references in scripts with `trackedFilePath(...)` or
-  `samebaseAppFilePath(...)`.
 
 Effects and reads:
 

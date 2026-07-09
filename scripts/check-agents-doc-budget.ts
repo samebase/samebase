@@ -2,8 +2,6 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { trackedFilePath } from "./lib/trackedFilePath.ts";
-
 /**
 Guard the always-loaded agent instruction budget.
 
@@ -26,7 +24,7 @@ const FAIL_BYTES = 31000;
 const WARN_BYTES = 30000;
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const rootAgentsFile = trackedFilePath("AGENTS.md");
+const rootAgentsFile = "AGENTS.md";
 
 function listNestedAgentsFiles(): string[] {
   const appsDir = path.join(repoRoot, "apps");

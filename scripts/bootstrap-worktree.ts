@@ -11,7 +11,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 type BootstrapOptions = {
   anonMode: boolean;
@@ -364,11 +363,7 @@ function configureCacheRoot(): string {
 
 function computeInstallHash(workspace: string): string {
   const hashInputs: string[] = [];
-  const rootFiles = [
-    trackedFilePath("package.json"),
-    trackedFilePath("pnpm-lock.yaml"),
-    trackedFilePath("pnpm-workspace.yaml"),
-  ];
+  const rootFiles = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"];
 
   for (const file of rootFiles) {
     if (existsSync(path.join(workspace, file))) {

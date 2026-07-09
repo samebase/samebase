@@ -5,17 +5,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { array, isObject, literal, object, optional, string, type InferGood } from "@samebase/sure";
 import { createServer } from "vite";
 
-import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
-
 export const GENERATED_REDIRECTS_START_TAG = "# @samebase/cloudflare-prerender-redirects:start";
 export const GENERATED_REDIRECTS_END_TAG = "# @samebase/cloudflare-prerender-redirects:end";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(currentDir, "..");
-const defaultRedirectsFilePath = path.resolve(
-  currentDir,
-  `../${samebaseAppFilePath("public/_redirects")}`,
-);
+const defaultRedirectsFilePath = path.resolve(currentDir, "../public/_redirects");
 
 const publicPrerenderPageSchema = object({
   path: string,
@@ -54,9 +49,7 @@ export async function loadPublicPrerenderPages() {
   });
 
   try {
-    const module = await server.ssrLoadModule(
-      `/${samebaseAppFilePath("dev/publicPrerenderPages.ts")}`,
-    );
+    const module = await server.ssrLoadModule("/dev/publicPrerenderPages.ts");
     if (!isPublicPrerenderPagesModule(module)) {
       throw new Error("Expected dev/publicPrerenderPages.ts to export readPublicPrerenderPages.");
     }
