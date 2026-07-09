@@ -221,7 +221,6 @@ agentBrowserHandoffs: defineTable({
   userId: v.id("users"),
   grantId: v.string(),
   clientId: v.string(),
-  returnToPath: v.string(),
   createdAt: v.number(),
   expiresAt: v.number(),
   consumedAt: v.optional(v.number()),
@@ -231,7 +230,14 @@ agentBrowserHandoffs: defineTable({
 ```
 
 Use a 32-byte random opaque token with a distinct prefix, for example `agbh_`. Store only its
-SHA-256 hash. The full token leaves the backend exactly once, inside the returned URL fragment.
+SHA-256 hash. The full token leaves the backend exactly once, inside the returned URL fragment. The
+return path also stays in the fragment and per-tab browser state; it is not stored in Convex or
+audit events.
+
+For the first privacy-hardening deploy, the live schema keeps the old `returnToPath` field optional
+so rows written by the previous release cannot block schema validation. No current writer populates
+it, and those legacy rows are removed by their existing five-minute expiry jobs. A later deploy can
+remove the compatibility field after the rollout window.
 
 Record audit events for state transitions and terminal decisions:
 
@@ -358,25 +364,24 @@ internals.
 
 ### Rate Limiting
 
-Add rate limits for:
+Convex limits browser handoff creation to ten rows per grant in a rolling five-minute window. Rows
+remain until their five-minute expiry even after consumption, so consuming links cannot reopen the
+budget. Redemption rejects malformed token shapes before hashing; unknown and repeated tokens do an
+indexed read without writing audit or state rows.
 
-- MCP dynamic registration.
-- MCP authorize.
-- MCP token exchange.
-- browser handoff creation per grant and per client.
-- browser handoff redemption at the edge or auth ingress. A token-hash lookup alone cannot limit
-  random-token sprays because the request does not carry a trustworthy client identity. The Convex
-  redemption mutation must still audit only terminal state transitions.
-
-The machine registration bootstrap limiter in `apps/samebase/convex/connectedMachines.ts` is the
-local precedent.
+Per-IP limits for MCP dynamic registration, authorize, and token exchange belong at the Cloudflare
+front door. Convex HTTP actions and the Convex Auth action do not expose a trustworthy source IP to
+application code. Do not add a database-global limiter there: one attacker could consume the shared
+budget and deny OAuth or browser login to every user. A future dedicated auth-ingress proxy may add
+per-IP redemption limits if production traffic shows the indexed, write-free path needs another
+layer.
 
 ### Refresh Token Replay
 
-Current MCP refresh token replay handling rejects invalid grant use but does not treat replay as a
-token-family compromise. That is not introduced by this proposal, but browser handoff makes MCP
-grants more sensitive. Before shipping the handoff scope broadly, refresh-token replay should revoke
-the grant or token family and write an audit event.
+Treat refresh-token replay as a token-family compromise. Presenting a rotated token revokes its
+active grant and writes one audit event. The grant is the bounded containment boundary: every access
+token, refresh token, authorization code, and browser handoff rechecks it, so containment does not
+walk or rewrite an unbounded refresh-token history.
 
 ## Edge Cases
 
@@ -425,9 +430,9 @@ inside a preview or local frontend URL.
 ### Return Path Abuse
 
 The server validates a normalized Samebase-relative return path before placing it in the URL
-fragment. No absolute URLs, protocol-relative URLs, `javascript:` URLs, or unrecognized routes. The
-browser validates again before navigation. If validation fails at either layer, use the dashboard
-default.
+fragment. No absolute URLs, protocol-relative URLs, `javascript:` URLs, or the handoff route itself.
+The browser validates again before navigation. If validation fails at either layer, use the
+dashboard default.
 
 ## Rollout Plan
 
@@ -475,7 +480,8 @@ Validation:
 
 ### Phase 4: Hardening And Grant Management
 
-Add grant revocation UI, token-family replay handling, and complete audit views.
+Add grant revocation UI and token-family replay handling. Audit events remain available in Convex; a
+user-facing audit browser is a separate product surface, not a condition for revocation safety.
 
 Validation:
 

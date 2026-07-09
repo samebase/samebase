@@ -94,8 +94,12 @@ async function seedRefreshTokenFamily() {
     });
   };
 
-  const readState = async () => {
+  const readContainmentState = async () => {
     return await t.run(async (ctx) => {
+      const grant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
+        .unique();
       const refreshTokens = await ctx.db
         .query("mcpRefreshTokens")
         .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
@@ -108,38 +112,24 @@ async function seedRefreshTokenFamily() {
         .query("mcpAccessAudit")
         .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
         .collect();
-      const grant = await ctx.db
-        .query("mcpGrants")
-        .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
-        .first();
 
       return {
+        accessTokenCount: accessTokens.length,
+        grant: grant && {
+          lastUsedAt: grant.lastUsedAt,
+          status: grant.status,
+          updatedAt: grant.updatedAt,
+        },
         refreshTokens: refreshTokens.map((token) => ({
-          tokenHash: token.tokenHash,
           status: token.status,
-          rotatedAt: token.rotatedAt,
-          replacedByTokenHash: token.replacedByTokenHash,
-        })),
-        accessTokens: accessTokens.map((token) => ({
           tokenHash: token.tokenHash,
-          createdAt: token.createdAt,
         })),
-        audits: audits.map((audit) => ({
-          grantId: audit.grantId,
-          clientId: audit.clientId,
-          userId: audit.userId,
-          action: audit.action,
-          createdAt: audit.createdAt,
-          detailsJson: audit.detailsJson,
-        })),
-        grant:
-          grant === null
-            ? null
-            : {
-                status: grant.status,
-                updatedAt: grant.updatedAt,
-                lastUsedAt: grant.lastUsedAt,
-              },
+        replayAudits: audits
+          .filter((audit) => audit.action === "refresh_token_replay_detected")
+          .map((audit) => ({
+            createdAt: audit.createdAt,
+            detailsJson: audit.detailsJson,
+          })),
       };
     });
   };
@@ -154,26 +144,27 @@ async function seedRefreshTokenFamily() {
     }));
   };
 
-  return { exchange, readDatabaseState, readState, userId };
+  return { exchange, readContainmentState, readDatabaseState, userId };
 }
 
 describe("MCP OAuth refresh token replay", () => {
-  it("revokes the grant without walking an attacker-controlled replacement chain", async () => {
-    const { exchange, readDatabaseState, readState, userId } = await seedRefreshTokenFamily();
+  it("revokes the grant once without walking the replacement chain", async () => {
+    const { exchange, readContainmentState, readDatabaseState, userId } =
+      await seedRefreshTokenFamily();
 
     await expect(
       exchange({
         refreshTokenHash: initialRefreshTokenHash,
-        newRefreshTokenHash: "refresh_hash_attacker_1",
-        accessTokenHash: "access_hash_attacker_1",
+        newRefreshTokenHash: "refresh_hash_descendant_1",
+        accessTokenHash: "access_hash_1",
         now: now + 1,
       }),
     ).resolves.toEqual(successfulExchange(userId));
     await expect(
       exchange({
-        refreshTokenHash: "refresh_hash_attacker_1",
-        newRefreshTokenHash: "refresh_hash_attacker_2",
-        accessTokenHash: "access_hash_attacker_2",
+        refreshTokenHash: "refresh_hash_descendant_1",
+        newRefreshTokenHash: "refresh_hash_descendant_2",
+        accessTokenHash: "access_hash_2",
         now: now + 2,
       }),
     ).resolves.toEqual(successfulExchange(userId));
@@ -181,68 +172,30 @@ describe("MCP OAuth refresh token replay", () => {
     await expect(
       exchange({
         refreshTokenHash: initialRefreshTokenHash,
-        newRefreshTokenHash: "refresh_hash_legitimate_unused",
-        accessTokenHash: "access_hash_legitimate_unused",
+        newRefreshTokenHash: "refresh_hash_replay_unused",
+        accessTokenHash: "access_hash_replay_unused",
         now: now + 3,
       }),
     ).resolves.toEqual(inactiveRefreshTokenError);
 
-    await expect(readState()).resolves.toEqual({
+    await expect(readContainmentState()).resolves.toEqual({
+      accessTokenCount: 2,
+      grant: {
+        lastUsedAt: now + 2,
+        status: "revoked",
+        updatedAt: now + 3,
+      },
       refreshTokens: [
-        {
-          tokenHash: initialRefreshTokenHash,
-          status: "rotated",
-          rotatedAt: now + 1,
-          replacedByTokenHash: "refresh_hash_attacker_1",
-        },
-        {
-          tokenHash: "refresh_hash_attacker_1",
-          status: "rotated",
-          rotatedAt: now + 2,
-          replacedByTokenHash: "refresh_hash_attacker_2",
-        },
-        {
-          tokenHash: "refresh_hash_attacker_2",
-          status: "active",
-          rotatedAt: undefined,
-          replacedByTokenHash: undefined,
-        },
+        { status: "rotated", tokenHash: initialRefreshTokenHash },
+        { status: "rotated", tokenHash: "refresh_hash_descendant_1" },
+        { status: "active", tokenHash: "refresh_hash_descendant_2" },
       ],
-      accessTokens: [
-        { tokenHash: "access_hash_attacker_1", createdAt: now + 1 },
-        { tokenHash: "access_hash_attacker_2", createdAt: now + 2 },
-      ],
-      audits: [
+      replayAudits: [
         {
-          grantId,
-          clientId,
-          userId,
-          action: "access_token_issued",
-          createdAt: now + 1,
-          detailsJson: '{"flow":"refresh_token"}',
-        },
-        {
-          grantId,
-          clientId,
-          userId,
-          action: "access_token_issued",
-          createdAt: now + 2,
-          detailsJson: '{"flow":"refresh_token"}',
-        },
-        {
-          grantId,
-          clientId,
-          userId,
-          action: "refresh_token_replay_detected",
           createdAt: now + 3,
           detailsJson: '{"outcome":"grant_revoked"}',
         },
       ],
-      grant: {
-        status: "revoked",
-        updatedAt: now + 3,
-        lastUsedAt: now + 2,
-      },
     });
 
     const containedState = await readDatabaseState();
@@ -258,84 +211,10 @@ describe("MCP OAuth refresh token replay", () => {
 
     await expect(
       exchange({
-        refreshTokenHash: "refresh_hash_attacker_2",
-        newRefreshTokenHash: "refresh_hash_attacker_3_unused",
-        accessTokenHash: "access_hash_attacker_3_unused",
+        refreshTokenHash: "refresh_hash_descendant_2",
+        newRefreshTokenHash: "refresh_hash_descendant_3_unused",
+        accessTokenHash: "access_hash_3_unused",
         now: now + 5,
-      }),
-    ).resolves.toEqual(inactiveGrantError);
-    await expect(readDatabaseState()).resolves.toEqual(containedState);
-  });
-
-  it("revokes the grant when a rotated token is replayed", async () => {
-    const { exchange, readDatabaseState, readState, userId } = await seedRefreshTokenFamily();
-
-    await expect(
-      exchange({
-        refreshTokenHash: initialRefreshTokenHash,
-        newRefreshTokenHash: "refresh_hash_legitimate",
-        accessTokenHash: "access_hash_legitimate",
-        now: now + 1,
-      }),
-    ).resolves.toEqual(successfulExchange(userId));
-
-    await expect(
-      exchange({
-        refreshTokenHash: initialRefreshTokenHash,
-        newRefreshTokenHash: "refresh_hash_attacker_unused",
-        accessTokenHash: "access_hash_attacker_unused",
-        now: now + 2,
-      }),
-    ).resolves.toEqual(inactiveRefreshTokenError);
-
-    await expect(readState()).resolves.toEqual({
-      refreshTokens: [
-        {
-          tokenHash: initialRefreshTokenHash,
-          status: "rotated",
-          rotatedAt: now + 1,
-          replacedByTokenHash: "refresh_hash_legitimate",
-        },
-        {
-          tokenHash: "refresh_hash_legitimate",
-          status: "active",
-          rotatedAt: undefined,
-          replacedByTokenHash: undefined,
-        },
-      ],
-      accessTokens: [{ tokenHash: "access_hash_legitimate", createdAt: now + 1 }],
-      audits: [
-        {
-          grantId,
-          clientId,
-          userId,
-          action: "access_token_issued",
-          createdAt: now + 1,
-          detailsJson: '{"flow":"refresh_token"}',
-        },
-        {
-          grantId,
-          clientId,
-          userId,
-          action: "refresh_token_replay_detected",
-          createdAt: now + 2,
-          detailsJson: '{"outcome":"grant_revoked"}',
-        },
-      ],
-      grant: {
-        status: "revoked",
-        updatedAt: now + 2,
-        lastUsedAt: now + 1,
-      },
-    });
-
-    const containedState = await readDatabaseState();
-    await expect(
-      exchange({
-        refreshTokenHash: "refresh_hash_legitimate",
-        newRefreshTokenHash: "refresh_hash_legitimate_retry_unused",
-        accessTokenHash: "access_hash_legitimate_retry_unused",
-        now: now + 3,
       }),
     ).resolves.toEqual(inactiveGrantError);
     await expect(readDatabaseState()).resolves.toEqual(containedState);

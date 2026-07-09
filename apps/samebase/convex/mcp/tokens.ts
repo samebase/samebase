@@ -1,4 +1,5 @@
 import { createCodeChallenge, randomToken } from "../oauthUtils";
+export { isAgentBrowserHandoffTokenValue } from "../../shared/agentBrowserHandoff";
 
 export const MCP_AUTHORIZATION_CODE_TTL_MS = 10 * 60 * 1000;
 export const MCP_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -31,10 +32,6 @@ export function createMachineControlTokenValue(): string {
 
 export function createAgentBrowserHandoffTokenValue(): string {
   return createOpaqueToken("agbh");
-}
-
-export function isAgentBrowserHandoffTokenValue(value: string): boolean {
-  return /^agbh_[A-Za-z0-9_-]{43}$/.test(value);
 }
 
 export async function sha256Hex(input: string): Promise<string> {

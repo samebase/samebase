@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -87,5 +87,29 @@ describe("AgentsConnectRoutePage", () => {
     await vi.waitFor(() => {
       expect(rootElement.textContent).toContain("Connection link failed.");
     });
+  });
+
+  it("keeps the failure state under Strict Mode's effect replay", async () => {
+    authState.isLoading = false;
+    consumeHandoffMock.mockReturnValue({
+      returnToPath: "/vault/",
+      token: `agbh_${"a".repeat(43)}`,
+    });
+    signInMock.mockRejectedValue(new Error("invalid handoff"));
+
+    await act(async () => {
+      root.render(
+        <StrictMode>
+          <AgentsConnectRoutePage />
+        </StrictMode>,
+      );
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(rootElement.textContent).toContain("Connection link failed.");
+    });
+    expect(consumeHandoffMock).toHaveBeenCalledTimes(1);
+    expect(signInMock).toHaveBeenCalledTimes(1);
   });
 });

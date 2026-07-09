@@ -3,6 +3,8 @@ import {
   AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY,
   AGENT_BROWSER_HANDOFF_ROUTE,
   AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY,
+  AGENT_BROWSER_HANDOFF_TOKEN_PATTERN_SOURCE,
+  isAgentBrowserHandoffTokenValue,
   normalizeAgentBrowserHandoffReturnToPath,
 } from "../../shared/agentBrowserHandoff";
 
@@ -16,6 +18,7 @@ type AgentBrowserHandoffPrehydrationArgs = {
   route: string;
   storageKey: string;
   tokenFragmentKey: string;
+  tokenPatternSource: string;
 };
 
 const agentBrowserHandoffPrehydrationArgs = {
@@ -25,6 +28,7 @@ const agentBrowserHandoffPrehydrationArgs = {
   route: AGENT_BROWSER_HANDOFF_ROUTE,
   storageKey: AGENT_BROWSER_HANDOFF_STORAGE_KEY,
   tokenFragmentKey: AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY,
+  tokenPatternSource: AGENT_BROWSER_HANDOFF_TOKEN_PATTERN_SOURCE,
 } satisfies AgentBrowserHandoffPrehydrationArgs;
 
 function InlineScript_stripAgentBrowserHandoffFragment(args: AgentBrowserHandoffPrehydrationArgs) {
@@ -64,17 +68,26 @@ function InlineScript_stripAgentBrowserHandoffFragment(args: AgentBrowserHandoff
       : window.location.hash;
     const fragment = new URLSearchParams(rawHash);
     const token = fragment.get(args.tokenFragmentKey);
-    if (token === null || token.trim().length === 0) return;
-
-    const handoff = {
-      returnToPath: normalizeReturnToPath(fragment.get(args.returnToFragmentKey)),
-      token,
-    };
     const currentState = window.history.state;
     const nextState =
       currentState !== null && typeof currentState === "object"
         ? Object.assign({}, currentState)
         : {};
+
+    if (token === null) return;
+    if (!new RegExp(args.tokenPatternSource).test(token)) {
+      window.history.replaceState(
+        nextState,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+      return;
+    }
+
+    const handoff = {
+      returnToPath: normalizeReturnToPath(fragment.get(args.returnToFragmentKey)),
+      token,
+    };
 
     nextState[args.historyStateKey] = handoff;
 
@@ -99,7 +112,7 @@ function parseStoredAgentBrowserHandoff(value: unknown) {
   }
   if (
     typeof value.token !== "string" ||
-    value.token.trim().length === 0 ||
+    !isAgentBrowserHandoffTokenValue(value.token) ||
     typeof value.returnToPath !== "string"
   ) {
     return null;

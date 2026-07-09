@@ -38,20 +38,13 @@ export function AgentsConnectRoutePage() {
       return;
     }
 
-    let active = true;
     void signInWithAgentBrowserHandoffAction({ signIn, token: handoff.token })
       .then(() => {
         window.location.replace(handoff.returnToPath);
       })
       .catch(() => {
-        if (active) {
-          setHandoffState("failed");
-        }
+        setHandoffState("failed");
       });
-
-    return () => {
-      active = false;
-    };
   }, [isAuthLoading, signIn]);
 
   const message =

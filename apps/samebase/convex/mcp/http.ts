@@ -34,6 +34,7 @@ import {
 } from "../../shared/mcpOAuth";
 import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
+import { parseSiteOrigin } from "../../shared/siteOrigin";
 import { mcpScopeAllowsAccess } from "../toolRuntime/mcpScopes";
 import {
   createAccessTokenValue,
@@ -490,19 +491,13 @@ function resolveAppUrl(request: Request): URL | null {
     return null;
   }
 
-  // Reject relative/malformed values so consent redirects always target the app origin.
   // MCP consent intentionally requires SITE_URL and does not fall back to CONVEX_SITE_URL.
   try {
-    const appUrl = new URL(configuredSiteUrl);
-    if (appUrl.protocol !== "https:" && appUrl.protocol !== "http:") {
-      throw new Error(`Unsupported protocol: ${appUrl.protocol}`);
-    }
-    return appUrl;
+    return parseSiteOrigin(configuredSiteUrl);
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown SITE_URL validation error";
-    console.error("SITE_URL must be an absolute http(s) URL for MCP OAuth consent.", {
-      configuredSiteUrl,
+    console.error("SITE_URL must be a secure app origin for MCP OAuth consent.", {
       requestOrigin,
       errorMessage,
     });
@@ -521,7 +516,7 @@ function buildMcpConsentRedirectUrl(args: {
   if (consentUrl === null) {
     return {
       ok: false,
-      errorDescription: "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
+      errorDescription: "SITE_URL must be a secure app origin for MCP OAuth consent.",
     };
   }
   consentUrl.pathname = MCP_CONSENT_APP_PATH;

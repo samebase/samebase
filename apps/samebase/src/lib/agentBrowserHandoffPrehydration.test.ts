@@ -11,6 +11,8 @@ import {
   stripAgentBrowserHandoffFragmentBeforeHydration,
 } from "@/lib/agentBrowserHandoffPrehydration";
 
+const token = `agbh_${"a".repeat(43)}`;
+
 function runAgentBrowserHandoffPrehydrationScript() {
   new Script(agentBrowserHandoffPrehydrationScript).runInContext(
     createContext({
@@ -32,7 +34,7 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       { tanstack: "state" },
       "",
-      "/agents/connect#handoff=agbh_secret&returnTo=%2Fvault%2Frepo%3Fprod-ui",
+      `/agents/connect#handoff=${token}&returnTo=%2Fvault%2Frepo%3Fprod-ui`,
     );
 
     runAgentBrowserHandoffPrehydrationScript();
@@ -42,19 +44,19 @@ describe("agent browser handoff prehydration", () => {
       JSON.parse(window.sessionStorage.getItem(AGENT_BROWSER_HANDOFF_STORAGE_KEY) ?? "{}"),
     ).toEqual({
       returnToPath: "/vault/repo?prod-ui",
-      token: "agbh_secret",
+      token,
     });
     expect(window.history.state).toEqual({
       tanstack: "state",
       [AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]: {
         returnToPath: "/vault/repo?prod-ui",
-        token: "agbh_secret",
+        token,
       },
     });
   });
 
   it("falls back to history state when session storage is unavailable", () => {
-    window.history.replaceState(null, "", "/agents/connect#handoff=agbh_secret");
+    window.history.replaceState(null, "", `/agents/connect#handoff=${token}`);
     const originalSessionStorage = window.sessionStorage;
     Object.defineProperty(window, "sessionStorage", {
       configurable: true,
@@ -76,7 +78,7 @@ describe("agent browser handoff prehydration", () => {
     expect(window.history.state).toEqual({
       [AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]: {
         returnToPath: "/vault/",
-        token: "agbh_secret",
+        token,
       },
     });
   });
@@ -85,7 +87,7 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       null,
       "",
-      "/agents/connect#handoff=agbh_secret&returnTo=%2Fvault%2Frepo",
+      `/agents/connect#handoff=${token}&returnTo=%2Fvault%2Frepo`,
     );
 
     stripAgentBrowserHandoffFragmentBeforeHydration();
@@ -93,7 +95,7 @@ describe("agent browser handoff prehydration", () => {
     expect(window.location.href).toBe("http://localhost:3000/agents/connect");
     expect(consumeStoredAgentBrowserHandoff()).toEqual({
       returnToPath: "/vault/repo",
-      token: "agbh_secret",
+      token,
     });
     expect(consumeStoredAgentBrowserHandoff()).toBeNull();
   });
@@ -102,26 +104,41 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       null,
       "",
-      "/agents/connect#handoff=agbh_secret&returnTo=%2Fvault%2F..%2F%2Fevil.test",
+      `/agents/connect#handoff=${token}&returnTo=%2Fvault%2F..%2F%2Fevil.test`,
     );
 
     runAgentBrowserHandoffPrehydrationScript();
 
     expect(consumeStoredAgentBrowserHandoff()).toEqual({
       returnToPath: "/vault/",
-      token: "agbh_secret",
+      token,
     });
   });
 
   it("strips the fragment from the trailing-slash route spelling", () => {
-    window.history.replaceState(null, "", "/agents/connect/#handoff=agbh_secret");
+    window.history.replaceState(null, "", `/agents/connect/#handoff=${token}`);
 
     runAgentBrowserHandoffPrehydrationScript();
 
     expect(window.location.href).toBe("http://localhost:3000/agents/connect/");
     expect(consumeStoredAgentBrowserHandoff()).toEqual({
       returnToPath: "/vault/",
-      token: "agbh_secret",
+      token,
     });
+  });
+
+  it("strips a malformed token without storing it", () => {
+    window.history.replaceState(
+      { tanstack: "state" },
+      "",
+      "/agents/connect#handoff=agbh_short&returnTo=%2Fvault%2Frepo",
+    );
+
+    runAgentBrowserHandoffPrehydrationScript();
+
+    expect(window.location.href).toBe("http://localhost:3000/agents/connect");
+    expect(window.sessionStorage.getItem(AGENT_BROWSER_HANDOFF_STORAGE_KEY)).toBeNull();
+    expect(window.history.state).toEqual({ tanstack: "state" });
+    expect(consumeStoredAgentBrowserHandoff()).toBeNull();
   });
 });

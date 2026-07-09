@@ -29,6 +29,7 @@ describe("opaque token creators", () => {
   it("rejects malformed browser handoff token values", () => {
     expect(isAgentBrowserHandoffTokenValue("agbh_short")).toBe(false);
     expect(isAgentBrowserHandoffTokenValue(`agbh_${"a".repeat(42)}!`)).toBe(false);
+    expect(isAgentBrowserHandoffTokenValue(`agbh_${"a".repeat(43)}\n`)).toBe(false);
     expect(isAgentBrowserHandoffTokenValue(`mcpat_${"a".repeat(43)}`)).toBe(false);
   });
 });

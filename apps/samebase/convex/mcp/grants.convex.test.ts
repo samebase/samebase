@@ -205,7 +205,6 @@ describe("MCP grant management", () => {
         createdAt: now,
         expiresAt: now + 60_000,
         grantId: "mcpg_older",
-        returnToPath: "/vault/",
         tokenHash: "handoff_hash",
         userId: ids.ownerId,
       });

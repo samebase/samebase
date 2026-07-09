@@ -1064,6 +1064,8 @@ export default defineSchema({
     userId: id("users"),
     grantId: string(),
     clientId: string(),
+    // Deprecated rollout field. New handoffs never write it; legacy rows expire after five minutes.
+    returnToPath: optional(string()),
     createdAt: number(),
     expiresAt: number(),
     consumedAt: optional(number()),

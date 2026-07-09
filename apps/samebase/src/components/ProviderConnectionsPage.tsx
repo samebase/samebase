@@ -720,10 +720,12 @@ function McpClientGrants({
       </h2>
       <div data-testid="mcp-client-grants" className="space-y-5">
         {grants.map((grant) => {
-          const clientLabel = grant.clientName?.trim() || grant.clientId;
-          const activity = grant.lastUsedAt
-            ? `Last used ${formatRelativeTimeAgo(grant.lastUsedAt, now)}`
-            : `Authorized ${formatRelativeTimeAgo(grant.createdAt, now)}`;
+          const clientName = grant.clientName?.trim();
+          const clientLabel = clientName || grant.clientId;
+          const activity =
+            grant.lastUsedAt !== undefined
+              ? `Last used ${formatRelativeTimeAgo(grant.lastUsedAt, now)}`
+              : `Authorized ${formatRelativeTimeAgo(grant.createdAt, now)}`;
           return (
             <div
               key={grant.grantId}
@@ -737,7 +739,7 @@ function McpClientGrants({
               <div className="min-w-0 flex-1 basis-80">
                 <div className="text-sm font-medium">{clientLabel}</div>
                 <div className="min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-                  {grant.clientId}, {activity}
+                  {clientName ? `${grant.clientId}, ${activity}` : activity}
                 </div>
                 <div className="mt-2 min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
                   <div>{grant.scopes.join(", ")}</div>
