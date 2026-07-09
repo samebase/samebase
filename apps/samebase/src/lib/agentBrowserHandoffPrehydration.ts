@@ -161,7 +161,7 @@ function clearHistoryStoredAgentBrowserHandoff() {
   );
 }
 
-export function readStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | null {
+function readStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | null {
   const storedHandoff = readSessionStoredAgentBrowserHandoff();
   if (storedHandoff !== null) {
     return storedHandoff;
@@ -185,6 +185,7 @@ export function consumeStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | 
 }
 
 export function stripAgentBrowserHandoffFragmentBeforeHydration() {
+  // Fallback for clients where the inline head script did not run before hydration.
   if (window.location.pathname !== AGENT_BROWSER_HANDOFF_ROUTE) {
     return;
   }

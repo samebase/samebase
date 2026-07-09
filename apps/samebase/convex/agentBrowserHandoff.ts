@@ -6,9 +6,9 @@ import {
   ACCESS_BROWSER_LOGIN_HANDOFF,
   canAccess,
   readAccessKeysForRole,
-  type ViewerRole,
 } from "../shared/accessModel";
-import { isAdminUser } from "./userAccess";
+import { parseScopeTokens } from "./mcp/scopes";
+import { readViewerRoleForUser } from "./viewerRole";
 
 const { id, literal, number, object, optional, string, union } = v;
 
@@ -58,13 +58,6 @@ const redeemForAuthResultValidator = union(
 );
 type RedeemForAuthResult = Infer<typeof redeemForAuthResultValidator>;
 
-function parseScopeTokens(scope: string): string[] {
-  return scope
-    .split(" ")
-    .map((token) => token.trim())
-    .filter((token) => token.length > 0);
-}
-
 function isClientInactive(args: {
   client: {
     registrationStatus: Infer<typeof vMcpOauthClientRegistrationStatus>;
@@ -84,23 +77,16 @@ function error(reason: string): { ok: false; reason: string } {
   return { ok: false, reason };
 }
 
-function readUserRole(args: { email?: string | null; isApproved?: boolean }): ViewerRole {
-  if (isAdminUser(args.email)) {
-    return "role_staff";
-  }
-  if (args.isApproved) {
-    return "role_member";
-  }
-  return "role_pending_access";
-}
-
 async function canUserCreateBrowserHandoff(ctx: Pick<MutationCtx, "db">, userId: Id<"users">) {
   const user = await ctx.db.get(userId);
   if (!user) {
     return false;
   }
 
-  return canAccess(ACCESS_BROWSER_LOGIN_HANDOFF, readAccessKeysForRole(readUserRole(user)));
+  return canAccess(
+    ACCESS_BROWSER_LOGIN_HANDOFF,
+    readAccessKeysForRole(readViewerRoleForUser(user)),
+  );
 }
 
 async function writeAudit(

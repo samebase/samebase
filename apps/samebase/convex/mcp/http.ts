@@ -56,6 +56,7 @@ import {
   validateJsonRpcRequestPayload,
   validateTokenRequestFromSearchParams,
 } from "./protocol";
+import { parseScopeTokens } from "./scopes";
 
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
@@ -576,13 +577,6 @@ function jsonRpcErrorResponse(args: {
     },
     args.status ?? 400,
   );
-}
-
-function parseScopeTokens(grantedScope: string): string[] {
-  return grantedScope
-    .split(" ")
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
 }
 
 export function readMcpMethodForUsage(method: string): SamebaseUsageMcpMethod {

@@ -9,12 +9,17 @@ Related: `rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md`
 Samebase exposes an MCP tool named `create_browser_handoff` for clients that need to open the
 Samebase web UI as the same user behind the current MCP grant.
 
-The tool is available only when all of these conditions hold:
+The tool is listed and callable only when all of these conditions hold:
 
 1. The OAuth grant includes `access_browser_login_handoff`.
 2. The grant and MCP OAuth client are still active.
 3. The grant user still has current Samebase role access to `access_browser_login_handoff`.
-4. `SITE_URL` is configured to the Samebase app origin for the deployment.
+
+Successful URL creation also requires `SITE_URL` to be configured to the Samebase app origin for the
+deployment. Missing `SITE_URL` returns a tool error instead of hiding the tool.
+
+The MCP consent UI must render `access_browser_login_handoff` as
+`Open Samebase in a browser as your account`.
 
 The tool returns a Samebase app URL on `/agents/connect`. The one-time handoff token is carried in
 the URL fragment under `handoff`, not in the query string. The optional `returnTo` fragment value is
@@ -55,7 +60,7 @@ intermediary caching, block referrers, prevent indexing, and disallow framing.
 ## Validation
 
 - `apps/samebase/convex/agentBrowserHandoff.convex.test.ts` covers creation, single-use redemption,
-  account mismatch consumption, and same-session reuse.
+  account mismatch consumption, same-session reuse, and missing or expired tokens.
 - `apps/samebase/shared/agentBrowserHandoff.test.ts` covers URL construction, return path
   normalization, and fragment parsing.
 - `apps/samebase/src/lib/agentBrowserHandoffPrehydration.test.ts` covers fragment removal and

@@ -17,6 +17,9 @@ const routeSearchState = vi.hoisted(() => ({
     mcp_consent_request: "mcpar_test",
   },
 }));
+const authorizationRequestState = vi.hoisted((): { value: unknown } => ({
+  value: undefined,
+}));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
@@ -41,7 +44,7 @@ vi.mock("convex/react", async (importOriginal) => {
     useAction: () => vi.fn(),
     useConvexAuth: () => authState,
     useMutation: () => vi.fn(),
-    useQuery: () => undefined,
+    useQuery: () => authorizationRequestState.value,
   };
 });
 
@@ -77,6 +80,7 @@ describe("McpConsentRoutePage workspace shell", () => {
     routeSearchState.search = {
       mcp_consent_request: "mcpar_test",
     };
+    authorizationRequestState.value = undefined;
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn((query: string) => ({
@@ -127,5 +131,35 @@ describe("McpConsentRoutePage workspace shell", () => {
     expect(rootElement.textContent).toContain("Sign in to continue");
     expect(rootElement.textContent).toContain("Use the account sidebar to sign in");
     expect(rootElement.textContent).not.toContain("https://x.com/samebasecom");
+  });
+
+  it("renders a readable label for the browser handoff scope", async () => {
+    authState.isAuthenticated = true;
+    authorizationRequestState.value = {
+      requestId: "mcpar_test",
+      clientId: "mcpc_test",
+      clientName: "Local Codex handoff smoke",
+      resource: "http://127.0.0.1:12469/mcp",
+      scope: "access_browser_login_handoff",
+      scopes: ["access_browser_login_handoff"],
+      status: "pending",
+      dynamicallyRegistered: true,
+      createdAt: 1,
+      expiresAt: 2,
+    };
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/oauth/mcp/consent?mcp_consent_request=mcpar_test"]}>
+          <McpConsentRoutePage />
+        </TestRouterProvider>,
+      );
+    });
+
+    expect(rootElement.textContent).toContain("Open Samebase in a browser as your account");
+    expect(rootElement.textContent).not.toContain("access_browser_login_handoff");
   });
 });

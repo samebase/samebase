@@ -123,6 +123,40 @@ describe("agent browser handoff lifecycle", () => {
     });
   });
 
+  it("rejects an unknown handoff token", async () => {
+    const t = makeConvexTest();
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
+        tokenHash: await sha256Hex("agbh_missing"),
+        now: now + 1,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+  });
+
+  it("rejects an expired handoff token", async () => {
+    const { ids, t } = await seedGrant();
+    const createArgs = await createHandoff(ids.userId);
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),
+    ).resolves.toEqual({
+      ok: true,
+    });
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
+        tokenHash: createArgs.tokenHash,
+        now: createArgs.expiresAt,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "expired",
+    });
+  });
+
   it("consumes the handoff when the browser is signed in as a different user", async () => {
     const { ids, t } = await seedGrant();
     const otherUserId = await t.run(async (ctx) => {

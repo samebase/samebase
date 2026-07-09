@@ -22,7 +22,7 @@ import {
 import { vAccessKey, vViewerRole } from "./accessModelValidators";
 import schema from "./schema";
 import { logAppFunctionUsageContext } from "./usageAttribution";
-import { isAdminUser } from "./userAccess";
+import { readViewerRoleForUser } from "./viewerRole";
 import {
   canAccess,
   readAccessKeysForRole,
@@ -124,24 +124,8 @@ function resolveViewerForUserRecord(args: {
     return resolveSignedOutViewer(args.userId);
   }
 
-  if (isAdminUser(args.user.email)) {
-    return resolveUserViewer({
-      role: "role_staff",
-      userId: args.userId,
-      user: args.user,
-    });
-  }
-
-  if (args.user.isApproved) {
-    return resolveUserViewer({
-      role: "role_member",
-      userId: args.userId,
-      user: args.user,
-    });
-  }
-
   return resolveUserViewer({
-    role: "role_pending_access",
+    role: readViewerRoleForUser(args.user),
     userId: args.userId,
     user: args.user,
   });
