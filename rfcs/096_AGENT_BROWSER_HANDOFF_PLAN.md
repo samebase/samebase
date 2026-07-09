@@ -233,14 +233,17 @@ agentBrowserHandoffs: defineTable({
 Use a 32-byte random opaque token with a distinct prefix, for example `agbh_`. Store only its
 SHA-256 hash. The full token leaves the backend exactly once, inside the returned URL fragment.
 
-Record audit events for at least:
+Record audit events for state transitions and terminal decisions:
 
 - handoff created.
 - handoff consumed.
 - handoff rejected because expired.
-- handoff rejected because already consumed.
 - handoff rejected because the current browser user is different.
 - handoff rejected because the grant, client, user, or access key is no longer valid.
+
+Unknown tokens and repeated presentations of already-terminal tokens must return a generic failure
+without inserting an audit row. Otherwise an attacker can turn random-token or replay traffic into
+an unbounded database write stream.
 
 Reuse `mcpAccessAudit` for these events with new `action` strings and reason details in
 `detailsJson`. Do not add a parallel audit table. Audit rows should include `userId`, `clientId`,
@@ -361,7 +364,9 @@ Add rate limits for:
 - MCP authorize.
 - MCP token exchange.
 - browser handoff creation per grant and per client.
-- browser handoff redemption by token hash and by coarse client-provided retry key.
+- browser handoff redemption at the edge or auth ingress. A token-hash lookup alone cannot limit
+  random-token sprays because the request does not carry a trustworthy client identity. The Convex
+  redemption mutation must still audit only terminal state transitions.
 
 The machine registration bootstrap limiter in `apps/samebase/convex/connectedMachines.ts` is the
 local precedent.
@@ -390,9 +395,10 @@ for this manual delivery case.
 
 ### Existing Browser User Differs
 
-Do not silently switch accounts. Consume or revoke the handoff and show the same unavailable-link
-message used for expired links. This prevents an account mismatch from leaving a live bearer URL
-available in terminal scrollback, chat history, or a private window.
+Do not silently switch accounts. Consume or revoke the handoff and tell the user that the browser is
+signed in to a different account, then instruct them to sign out and ask for a fresh link. This
+prevents an account mismatch from leaving a live bearer URL available in terminal scrollback, chat
+history, or a private window.
 
 ### Link Scanner Or Preview Bot
 
@@ -453,9 +459,9 @@ Validation:
 
 ### Phase 3: Convex Auth Redemption
 
-Add strict `/agents/connect` headers, redemption rate limiting, the `agent-browser-handoff`
-`ConvexCredentials` provider, pre-hydration fragment stripping, analytics exclusion, and route
-redemption behavior.
+Add strict `/agents/connect` headers for both slash spellings, safe `SITE_URL` validation, the
+`agent-browser-handoff` `ConvexCredentials` provider, pre-hydration fragment stripping, analytics
+exclusion, expiry cleanup, and route redemption behavior.
 
 Validation:
 
@@ -469,8 +475,7 @@ Validation:
 
 ### Phase 4: Hardening And Grant Management
 
-Add grant revocation UI, token-family replay handling, cleanup for expired handoff rows, and
-complete audit views.
+Add grant revocation UI, token-family replay handling, and complete audit views.
 
 Validation:
 

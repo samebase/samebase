@@ -118,6 +118,12 @@ describe("posthog client setup", () => {
       ),
     ).toBe("https://samebase.com/agents/connect");
     expect(
+      sanitizeSamebasePostHogPageviewUrl(
+        "/agents/connect/#handoff=agbh_secret",
+        "https://samebase.com",
+      ),
+    ).toBe("https://samebase.com/agents/connect/");
+    expect(
       sanitizeSamebasePostHogPageviewUrl("/docs#handoff=not-secret", "https://samebase.com"),
     ).toBe("https://samebase.com/docs#handoff=not-secret");
   });

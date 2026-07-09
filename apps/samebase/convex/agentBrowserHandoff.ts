@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { vMcpOauthClientRegistrationStatus } from "./schema";
 import {
   ACCESS_BROWSER_LOGIN_HANDOFF,
@@ -152,7 +153,12 @@ export const createForMcp = internalMutation({
       return error("rate_limited");
     }
 
-    await ctx.db.insert("agentBrowserHandoffs", args);
+    const handoffId = await ctx.db.insert("agentBrowserHandoffs", args);
+    await ctx.scheduler.runAfter(
+      Math.max(0, args.expiresAt - args.createdAt),
+      internal.agentBrowserHandoff.deleteExpired,
+      { handoffId },
+    );
     await writeAudit(ctx, {
       action: "agent_browser_handoff_created",
       clientId: args.clientId,
@@ -161,6 +167,32 @@ export const createForMcp = internalMutation({
       detailsJson: JSON.stringify({ returnToPath: args.returnToPath }),
     });
     return { ok: true };
+  },
+});
+
+export const deleteExpired = internalMutation({
+  args: {
+    handoffId: id("agentBrowserHandoffs"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const handoff = await ctx.db.get(args.handoffId);
+    if (!handoff) {
+      return null;
+    }
+
+    const now = Date.now();
+    if (handoff.expiresAt > now) {
+      await ctx.scheduler.runAfter(
+        handoff.expiresAt - now,
+        internal.agentBrowserHandoff.deleteExpired,
+        args,
+      );
+      return null;
+    }
+
+    await ctx.db.delete(args.handoffId);
+    return null;
   },
 });
 
@@ -173,25 +205,15 @@ export const redeemForAuth = internalMutation({
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .first();
     if (!handoff) {
-      await writeAudit(ctx, {
-        action: "agent_browser_handoff_rejected",
-        detailsJson: JSON.stringify({ reason: "not_found" }),
-      });
       return error("not_found");
     }
 
     if (typeof handoff.consumedAt === "number") {
-      await writeAudit(ctx, {
-        action: "agent_browser_handoff_rejected",
-        clientId: handoff.clientId,
-        grantId: handoff.grantId,
-        userId: handoff.userId,
-        detailsJson: JSON.stringify({ reason: "consumed" }),
-      });
       return error("consumed");
     }
 
     if (handoff.expiresAt <= args.now) {
+      await ctx.db.patch(handoff._id, { consumedAt: args.now });
       await writeAudit(ctx, {
         action: "agent_browser_handoff_rejected",
         clientId: handoff.clientId,

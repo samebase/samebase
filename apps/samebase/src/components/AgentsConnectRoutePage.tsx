@@ -57,7 +57,7 @@ export function AgentsConnectRoutePage() {
       ? "Connecting Samebase..."
       : handoffState === "missing"
         ? "Connection link unavailable."
-        : "Connection link failed.";
+        : "Connection link failed. If this browser is signed in to a different Samebase account, sign out and ask for a fresh link.";
 
   return (
     <main

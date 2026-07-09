@@ -3,6 +3,10 @@ export const AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY = "handoff";
 export const AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY = "returnTo";
 export const AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH = "/vault/";
 
+export function isAgentBrowserHandoffRoute(pathname: string): boolean {
+  return pathname === AGENT_BROWSER_HANDOFF_ROUTE || pathname === `${AGENT_BROWSER_HANDOFF_ROUTE}/`;
+}
+
 export type AgentBrowserHandoffFragment = {
   returnToPath: string;
   token: string | null;
@@ -27,7 +31,7 @@ export function normalizeAgentBrowserHandoffReturnToPath(value: string | undefin
     if (parsed.origin !== "https://samebase.local") {
       return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
     }
-    if (parsed.pathname === AGENT_BROWSER_HANDOFF_ROUTE) {
+    if (isAgentBrowserHandoffRoute(parsed.pathname)) {
       return AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH;
     }
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
@@ -42,6 +46,21 @@ export function buildAgentBrowserHandoffUrl(args: {
   token: string;
 }): string {
   const url = new URL(args.siteUrl);
+  const isLoopbackHttp =
+    url.protocol === "http:" &&
+    (url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]" ||
+      url.hostname === "::1");
+  if (url.username.length > 0 || url.password.length > 0) {
+    throw new Error("SITE_URL must not include credentials.");
+  }
+  if (url.protocol !== "https:" && !isLoopbackHttp) {
+    throw new Error("SITE_URL must use https, except for loopback local development URLs.");
+  }
+  if (url.pathname !== "/" || url.search.length > 0 || url.hash.length > 0) {
+    throw new Error("SITE_URL must be an origin without a path, query, or fragment.");
+  }
   url.pathname = AGENT_BROWSER_HANDOFF_ROUTE;
   url.search = "";
   const fragment = new URLSearchParams();

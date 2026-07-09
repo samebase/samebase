@@ -14,7 +14,10 @@ import {
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./samebaseSync";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
-import { AGENT_BROWSER_HANDOFF_ROUTE } from "../../shared/agentBrowserHandoff";
+import {
+  AGENT_BROWSER_HANDOFF_ROUTE,
+  isAgentBrowserHandoffRoute,
+} from "../../shared/agentBrowserHandoff";
 
 export type PageMetadata = {
   title: string;
@@ -305,7 +308,7 @@ export function resolvePageMetadata(args: {
     return INDEXED_DB_PAGE_METADATA;
   }
 
-  if (args.pathname === AGENT_BROWSER_HANDOFF_ROUTE) {
+  if (isAgentBrowserHandoffRoute(args.pathname)) {
     return AGENT_BROWSER_HANDOFF_PAGE_METADATA;
   }
 

@@ -1,6 +1,6 @@
 import {
-  AGENT_BROWSER_HANDOFF_ROUTE,
   hasAgentBrowserHandoffFragment,
+  isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
 
 type SamebasePostHogClient = (typeof import("posthog-js"))["default"];
@@ -121,7 +121,7 @@ export async function captureSamebasePostHogPageview(href: string) {
 
 export function sanitizeSamebasePostHogPageviewUrl(href: string, origin: string): string {
   const url = new URL(href, origin);
-  if (url.pathname === AGENT_BROWSER_HANDOFF_ROUTE && hasAgentBrowserHandoffFragment(url.hash)) {
+  if (isAgentBrowserHandoffRoute(url.pathname) && hasAgentBrowserHandoffFragment(url.hash)) {
     url.hash = "";
   }
 

@@ -196,6 +196,21 @@ describe("page metadata", () => {
     expect(resolveAppPageTitle("/machines/connect")).toBe("Connect This Machine | Samebase");
   });
 
+  it("keeps the trailing-slash handoff route non-indexed and canonical", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/agents/connect/",
+        isAuthenticated: false,
+      }),
+    ).toEqual({
+      canonicalPath: "/agents/connect",
+      description: "One-time browser connection route for Samebase MCP clients.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Connect Samebase | Samebase",
+    });
+  });
+
   it("returns a dedicated title for the machines route", () => {
     expect(resolveAppPageTitle("/machines")).toBe("Machines | Samebase");
   });

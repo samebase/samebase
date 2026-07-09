@@ -98,4 +98,16 @@ describe("agent browser handoff prehydration", () => {
     });
     expect(consumeStoredAgentBrowserHandoff()).toBeNull();
   });
+
+  it("strips the fragment from the trailing-slash route spelling", () => {
+    window.history.replaceState(null, "", "/agents/connect/#handoff=agbh_secret");
+
+    runAgentBrowserHandoffPrehydrationScript();
+
+    expect(window.location.href).toBe("http://localhost:3000/agents/connect/");
+    expect(consumeStoredAgentBrowserHandoff()).toMatchObject({
+      returnToPath: "/vault/",
+      token: "agbh_secret",
+    });
+  });
 });

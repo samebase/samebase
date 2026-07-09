@@ -68,6 +68,7 @@ describe("users Convex contract", () => {
         "access_files_read",
         "access_files_write",
         "access_mcp",
+        "access_browser_login_handoff",
       ],
     });
     await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({

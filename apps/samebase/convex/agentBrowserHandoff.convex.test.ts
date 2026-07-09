@@ -135,6 +135,10 @@ describe("agent browser handoff lifecycle", () => {
       ok: false,
       reason: "not_found",
     });
+
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("mcpAccessAudit").collect()),
+    ).resolves.toHaveLength(0);
   });
 
   it("rejects an expired handoff token", async () => {
@@ -155,6 +159,61 @@ describe("agent browser handoff lifecycle", () => {
       ok: false,
       reason: "expired",
     });
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
+        tokenHash: createArgs.tokenHash,
+        now: createArgs.expiresAt + 1,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "consumed",
+    });
+
+    const audits = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("mcpAccessAudit")
+          .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
+          .collect(),
+    );
+    expect(
+      audits.filter((audit) => audit.action === "agent_browser_handoff_rejected"),
+    ).toHaveLength(1);
+  });
+
+  it("deletes an expired handoff when its cleanup job runs", async () => {
+    const { ids, t } = await seedGrant();
+    const createArgs = await createHandoff(ids.userId);
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),
+    ).resolves.toEqual({
+      ok: true,
+    });
+    const handoffId = await t.run(async (ctx) => {
+      const handoff = await ctx.db
+        .query("agentBrowserHandoffs")
+        .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
+        .unique();
+      return handoff?._id ?? null;
+    });
+    expect(handoffId).not.toBeNull();
+    if (handoffId === null) {
+      throw new Error("Expected the handoff row to exist.");
+    }
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.deleteExpired, { handoffId }),
+    ).resolves.toBeNull();
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("agentBrowserHandoffs")
+            .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
+            .unique(),
+      ),
+    ).resolves.toBeNull();
   });
 
   it("consumes the handoff when the browser is signed in as a different user", async () => {

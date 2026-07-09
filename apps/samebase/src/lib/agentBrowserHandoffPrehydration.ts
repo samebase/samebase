@@ -3,6 +3,7 @@ import {
   AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY,
   AGENT_BROWSER_HANDOFF_ROUTE,
   AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY,
+  isAgentBrowserHandoffRoute,
   normalizeAgentBrowserHandoffReturnToPath,
   parseAgentBrowserHandoffFragment,
 } from "../../shared/agentBrowserHandoff";
@@ -58,7 +59,8 @@ function InlineScript_stripAgentBrowserHandoffFragment(args: AgentBrowserHandoff
   }
 
   try {
-    if (window.location.pathname !== args.route) return;
+    if (window.location.pathname !== args.route && window.location.pathname !== `${args.route}/`)
+      return;
 
     const rawHash = window.location.hash.startsWith("#")
       ? window.location.hash.slice(1)
@@ -186,7 +188,7 @@ export function consumeStoredAgentBrowserHandoff(): StoredAgentBrowserHandoff | 
 
 export function stripAgentBrowserHandoffFragmentBeforeHydration() {
   // Fallback for clients where the inline head script did not run before hydration.
-  if (window.location.pathname !== AGENT_BROWSER_HANDOFF_ROUTE) {
+  if (!isAgentBrowserHandoffRoute(window.location.pathname)) {
     return;
   }
 
