@@ -18,6 +18,10 @@ Use these settings for the production trigger:
   - `.nvmrc`
 - Exclude paths: none
 
+`pnpm run build` must remain non-deploying. Workers Builds runs the build command before the
+production or non-production deploy command, so the package build script uses Wrangler's dry-run
+mode to validate and bundle without changing the live Worker.
+
 If `apps/domain-router` starts importing workspace packages, add each transitive workspace package
 directory to Include paths, such as `packages/dependent/*`. Keep root install inputs in the list so
 runtime, package-manager, and lockfile changes still redeploy the Worker.

@@ -5,7 +5,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "wrangler deploy",
+    "build": "wrangler deploy --dry-run",
     "check": "pnpm run typecheck && pnpm run deploy:dry-run && pnpm run deploy:preview:dry-run",
     "deploy": "wrangler deploy",
     "deploy:preview": "wrangler versions upload",
