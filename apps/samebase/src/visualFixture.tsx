@@ -71,10 +71,6 @@ import {
   type WorkspaceLayoutV2VisualMode,
 } from "@/components/WorkspaceLayoutV2VisualFixture";
 import {
-  WorkspaceLayoutV3VisualFixture,
-  type WorkspaceLayoutV3VisualMode,
-} from "@/components/WorkspaceLayoutV3VisualFixture";
-import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
 } from "@/components/codex/CodexThreadHistoryVisualFixture";
@@ -119,7 +115,6 @@ type VisualFixtureMode =
   | VaultResourceRailVisualMode
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
-  | WorkspaceLayoutV3VisualMode
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
@@ -238,9 +233,6 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
   "workspace-layout-v2-status-bar",
 ] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
-const WORKSPACE_LAYOUT_V3_VISUAL_MODES = [
-  "workspace-layout-v3",
-] as const satisfies readonly WorkspaceLayoutV3VisualMode[];
 const ROUTE_URL_EDITOR_VISUAL_MODES = [
   "route-url-editor",
 ] as const satisfies readonly RouteUrlEditorVisualMode[];
@@ -254,7 +246,6 @@ const MISC_VISUAL_MODES = [
   "machines-workspace",
   "public-account-checking-login",
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
-  ...WORKSPACE_LAYOUT_V3_VISUAL_MODES,
   "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
@@ -474,10 +465,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "workspace-layout-v2-status-bar") {
     return <WorkspaceLayoutV2VisualFixture />;
-  }
-
-  if (mode === "workspace-layout-v3") {
-    return <WorkspaceLayoutV3VisualFixture />;
   }
 
   if (mode === "route-url-editor") {

@@ -45,8 +45,7 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 │   ├── samebase/
 │   │   ├── src/
 │   │   └── convex/
-│   ├── domain-router/
-│   └── workspace-layout-v2-solid/
+│   └── domain-router/
 ├── scripts/
 ├── specs/
 ├── package.json

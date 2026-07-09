@@ -171,9 +171,6 @@ apps/samebase/public/samebase-x-profile-banner.svg
 apps/samebase/public/sitemap.xml
 apps/samebase/public/visual-fixtures/file-view-code-parity-pixel-diff.png
 apps/samebase/wrangler.jsonc
-apps/workspace-layout-v2-solid/public/favicon.svg
-apps/workspace-layout-v2-solid/README.md
-apps/workspace-layout-v2-solid/SOLID_LAB_NOTES.md
 archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md
 archive/014_WORKTREE_CLOUD_PROVISIONING_AND_CLI_AUTH_SPEC.md
 archive/021_AGENT_BUILDER_TEMPLATE_SPEC.md
