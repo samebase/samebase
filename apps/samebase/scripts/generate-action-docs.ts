@@ -283,7 +283,7 @@ ${actionLines}
 
 ## Operate
 
-- [MCP server](https://samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
+- [MCP server](https://api.samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
   browser); the tools are the actions listed above.
 - [Production logs](https://samebase.com/docs/operate/production-logs.md): read backend and Worker
   logs provider-direct, with coordinates from get_user_vaults

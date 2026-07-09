@@ -51,8 +51,10 @@ render the app. It stores the token only in per-tab browser state long enough fo
 component to call Convex Auth, then clears that state. PostHog pageview capture must also strip
 `/agents/connect#handoff=...` if a fragment survives to app code.
 
-Cloudflare response headers for both `/agents/connect` spellings and `/oauth/mcp/consent` must
-disable browser and intermediary caching, block referrers, prevent indexing, and disallow framing.
+Cloudflare response headers for both `/agents/connect` spellings and both `/oauth/mcp/consent`
+spellings must send `Cache-Control: no-store`, block referrers, prevent indexing, and disallow
+framing. `no-store` tells browsers and downstream intermediaries not to retain the response;
+Cloudflare Pages may still serve the deployment's static shell from its managed asset cache.
 
 ## Non-Goals
 

@@ -124,7 +124,7 @@ States:
 
 1. No handoff or request:
    - show a compact "Connect an agent" page.
-   - show the MCP server URL, `https://samebase.com/mcp`.
+   - show the MCP server URL, [https://api.samebase.com/mcp](https://api.samebase.com/mcp).
    - link to agent action docs.
 2. Handoff present:
    - consume `#handoff=<token>` from the URL fragment.
@@ -436,14 +436,14 @@ default.
 Add `/agents/connect` as a public route with the MCP server URL and compact setup copy. It does not
 yet redeem browser handoffs.
 
-Update `llms.txt` or agent docs so agents find `/agents/connect` as the human setup page and `/mcp`
-as the protocol endpoint.
+Update `llms.txt` or agent docs so agents find `/agents/connect` as the human setup page and
+[https://api.samebase.com/mcp](https://api.samebase.com/mcp) as the protocol endpoint.
 
 Validation:
 
 - route renders logged out and logged in.
-- route exposes `https://samebase.com/mcp`.
-- `/mcp` remains the JSON-RPC endpoint.
+- route exposes [https://api.samebase.com/mcp](https://api.samebase.com/mcp).
+- [https://api.samebase.com/mcp](https://api.samebase.com/mcp) remains the JSON-RPC endpoint.
 
 ### Phase 2: Handoff Storage And Tool
 
@@ -459,9 +459,9 @@ Validation:
 
 ### Phase 3: Convex Auth Redemption
 
-Add strict `/agents/connect` headers for both slash spellings, safe `SITE_URL` validation, the
-`agent-browser-handoff` `ConvexCredentials` provider, pre-hydration fragment stripping, analytics
-exclusion, expiry cleanup, and route redemption behavior.
+Add strict headers for both `/agents/connect` spellings and both `/oauth/mcp/consent` spellings,
+safe `SITE_URL` validation, the `agent-browser-handoff` `ConvexCredentials` provider, pre-hydration
+fragment stripping, analytics exclusion, expiry cleanup, and route redemption behavior.
 
 Validation:
 
