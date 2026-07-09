@@ -67,13 +67,12 @@ const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
-  if (error instanceof CloudflareApiError) {
+  if (error instanceof CloudflareApiError && !error.path.includes("/builds/triggers/")) {
     return error.details.some((detail) => {
       const message = detail.message?.toLowerCase();
       return (
-        detail.code === "10007" ||
+        (!error.path.includes("/builds/triggers/") && detail.code === "10007") ||
         message === "worker not found" ||
-        message === "trigger not found" ||
         message === "script not found" ||
         message === "not found" ||
         message === "workers.api.error.not_found"
@@ -91,6 +90,22 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   }
 
   return false;
+}
+
+export function isCloudflareBuildTriggerNotFoundError(error: unknown): boolean {
+  if (!(error instanceof CloudflareApiError) || !error.path.includes("/builds/triggers/")) {
+    return false;
+  }
+
+  return error.details.some((detail) => {
+    const message = detail.message?.toLowerCase();
+    return (
+      detail.code === "10007" ||
+      message === "trigger not found" ||
+      message === "not found" ||
+      message === "workers.api.error.not_found"
+    );
+  });
 }
 
 export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown): boolean {
@@ -1280,6 +1295,52 @@ function isBuildTriggerPatchableForTarget(args: {
   );
 }
 
+type RestorableCloudflareBuildTriggerConfig = {
+  build_token_uuid: string;
+  trigger_name: string;
+  build_command: string;
+  deploy_command: string;
+  root_directory: string;
+  branch_includes: string[];
+  branch_excludes: string[];
+  path_includes: string[];
+  path_excludes: string[];
+  repo_connection_uuid: string;
+};
+
+function readRestorableCloudflareBuildTriggerConfig(
+  trigger: CloudflareBuildTrigger,
+): RestorableCloudflareBuildTriggerConfig | null {
+  const repoConnectionUuid = trigger.repo_connection?.repo_connection_uuid;
+  if (
+    trigger.build_token_uuid === undefined ||
+    trigger.trigger_name === undefined ||
+    trigger.build_command === undefined ||
+    trigger.deploy_command === undefined ||
+    trigger.root_directory === undefined ||
+    trigger.branch_includes === undefined ||
+    trigger.branch_excludes === undefined ||
+    trigger.path_includes === undefined ||
+    trigger.path_excludes === undefined ||
+    repoConnectionUuid === undefined
+  ) {
+    return null;
+  }
+
+  return {
+    build_token_uuid: trigger.build_token_uuid,
+    trigger_name: trigger.trigger_name,
+    build_command: trigger.build_command,
+    deploy_command: trigger.deploy_command,
+    root_directory: trigger.root_directory,
+    branch_includes: trigger.branch_includes,
+    branch_excludes: trigger.branch_excludes,
+    path_includes: trigger.path_includes,
+    path_excludes: trigger.path_excludes,
+    repo_connection_uuid: repoConnectionUuid,
+  };
+}
+
 async function upsertBuildTrigger(
   args: {
     token: string;
@@ -1315,6 +1376,9 @@ async function upsertBuildTrigger(
     path_excludes: args.buildConfig.pathExcludes,
   };
 
+  const previousTriggerConfig = existingTrigger
+    ? readRestorableCloudflareBuildTriggerConfig(existingTrigger)
+    : null;
   const existingTriggerUuid = existingTrigger?.trigger_uuid;
   if (existingTrigger) {
     if (!existingTriggerUuid) {
@@ -1337,28 +1401,168 @@ async function upsertBuildTrigger(
         recordApiCall: args.recordApiCall,
       });
     } else {
-      const raw = await requestCloudflareApi({
-        token: args.token,
-        method: "PATCH",
-        path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
-        transport: args.transport,
-        params: {
-          path: {
-            account_id: args.accountId,
-            trigger_uuid: existingTriggerUuid,
+      try {
+        const raw = await requestCloudflareApi({
+          token: args.token,
+          method: "PATCH",
+          path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
+          transport: args.transport,
+          params: {
+            path: {
+              account_id: args.accountId,
+              trigger_uuid: existingTriggerUuid,
+            },
           },
-        },
-        recordApiCall: args.recordApiCall,
-        body: triggerConfig,
-      });
-      return requireCloudflareString(
-        raw?.trigger_uuid,
-        `${triggerName} trigger did not return an id.`,
-      );
+          recordApiCall: args.recordApiCall,
+          body: triggerConfig,
+        });
+        return requireCloudflareString(
+          raw?.trigger_uuid,
+          `${triggerName} trigger did not return an id.`,
+        );
+      } catch (error) {
+        if (previousTriggerConfig) {
+          try {
+            await restoreBuildTriggerAfterPairFailure({
+              token: args.token,
+              accountId: args.accountId,
+              workerTag: args.workerTag,
+              replacementTriggerUuid: existingTriggerUuid,
+              existingTrigger,
+              transport: args.transport,
+              recordApiCall: args.recordApiCall,
+            });
+          } catch (rollbackError) {
+            console.error("infra:cloudflare:builds:trigger:rollback_failed", {
+              accountId: args.accountId,
+              workerTag: args.workerTag,
+              triggerUuid: existingTriggerUuid,
+              message: toErrorMessage(rollbackError),
+            });
+          }
+        }
+        throw error;
+      }
     }
   }
 
-  const raw = await requestCloudflareApi({
+  try {
+    const raw = await requestCloudflareApi({
+      token: args.token,
+      method: "POST",
+      path: "/accounts/{account_id}/builds/triggers",
+      transport: args.transport,
+      params: {
+        path: {
+          account_id: args.accountId,
+        },
+      },
+      recordApiCall: args.recordApiCall,
+      body: {
+        external_script_id: args.workerTag,
+        repo_connection_uuid: args.repoConnectionUuid,
+        ...triggerConfig,
+      },
+    });
+    return requireCloudflareString(
+      raw?.trigger_uuid,
+      `${triggerName} trigger did not return an id.`,
+    );
+  } catch (error) {
+    if (previousTriggerConfig) {
+      try {
+        await requestCloudflareApi({
+          token: args.token,
+          method: "POST",
+          path: "/accounts/{account_id}/builds/triggers",
+          transport: args.transport,
+          params: {
+            path: {
+              account_id: args.accountId,
+            },
+          },
+          recordApiCall: args.recordApiCall,
+          body: {
+            external_script_id: args.workerTag,
+            ...previousTriggerConfig,
+          },
+        });
+      } catch (rollbackError) {
+        console.error("infra:cloudflare:builds:trigger:rollback_failed", {
+          accountId: args.accountId,
+          workerTag: args.workerTag,
+          triggerUuid: existingTriggerUuid,
+          message: toErrorMessage(rollbackError),
+        });
+      }
+    }
+    throw error;
+  }
+}
+
+async function restoreBuildTriggerAfterPairFailure(
+  args: {
+    token: string;
+    accountId: string;
+    workerTag: string;
+    replacementTriggerUuid: string;
+    existingTrigger?: CloudflareBuildTrigger;
+  } & CloudflareApiCallOptions,
+): Promise<void> {
+  const existingTriggerUuid = args.existingTrigger?.trigger_uuid;
+  const previousTriggerConfig = args.existingTrigger
+    ? readRestorableCloudflareBuildTriggerConfig(args.existingTrigger)
+    : null;
+  if (!existingTriggerUuid || !previousTriggerConfig) {
+    if (existingTriggerUuid === args.replacementTriggerUuid) {
+      return;
+    }
+    await deleteBuildTrigger({
+      token: args.token,
+      accountId: args.accountId,
+      triggerUuid: args.replacementTriggerUuid,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    });
+    return;
+  }
+
+  if (existingTriggerUuid === args.replacementTriggerUuid) {
+    await requestCloudflareApi({
+      token: args.token,
+      method: "PATCH",
+      path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
+      transport: args.transport,
+      params: {
+        path: {
+          account_id: args.accountId,
+          trigger_uuid: existingTriggerUuid,
+        },
+      },
+      recordApiCall: args.recordApiCall,
+      body: {
+        build_token_uuid: previousTriggerConfig.build_token_uuid,
+        trigger_name: previousTriggerConfig.trigger_name,
+        build_command: previousTriggerConfig.build_command,
+        deploy_command: previousTriggerConfig.deploy_command,
+        root_directory: previousTriggerConfig.root_directory,
+        branch_includes: previousTriggerConfig.branch_includes,
+        branch_excludes: previousTriggerConfig.branch_excludes,
+        path_includes: previousTriggerConfig.path_includes,
+        path_excludes: previousTriggerConfig.path_excludes,
+      },
+    });
+    return;
+  }
+
+  await deleteBuildTrigger({
+    token: args.token,
+    accountId: args.accountId,
+    triggerUuid: args.replacementTriggerUuid,
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
+  await requestCloudflareApi({
     token: args.token,
     method: "POST",
     path: "/accounts/{account_id}/builds/triggers",
@@ -1371,11 +1575,9 @@ async function upsertBuildTrigger(
     recordApiCall: args.recordApiCall,
     body: {
       external_script_id: args.workerTag,
-      repo_connection_uuid: args.repoConnectionUuid,
-      ...triggerConfig,
+      ...previousTriggerConfig,
     },
   });
-  return requireCloudflareString(raw?.trigger_uuid, `${triggerName} trigger did not return an id.`);
 }
 
 async function setTriggerEnvironmentVariables(
@@ -1668,7 +1870,6 @@ function hasConfirmedRecordedBuildTrigger(args: {
   triggerUuid: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
-  buildConfig: CloudflareBuildConfig;
 }): boolean {
   const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
     args.expectedRootDirectory,
@@ -1687,12 +1888,7 @@ function hasConfirmedRecordedBuildTrigger(args: {
       defaultBranch: args.defaultBranch,
     }) &&
     readTriggerRepositoryId(trigger) === args.expectedRepoId &&
-    normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory &&
-    matchesAdoptableTriggerConfig({
-      trigger,
-      kind: args.kind,
-      buildConfig: args.buildConfig,
-    })
+    normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory
   );
 }
 
@@ -1703,17 +1899,6 @@ function hasCloudflareBuildEnvironmentVariable(args: {
   // Build variable values are write-only in Cloudflare, so the verifier uses
   // variable names as the authoritative repair signal.
   return Object.prototype.hasOwnProperty.call(args.envVars, args.key);
-}
-
-function matchesOrderedCloudflareStringList(args: {
-  actual: readonly string[] | undefined;
-  expected: readonly string[];
-}): boolean {
-  const actual = args.actual ?? [];
-  return (
-    actual.length === args.expected.length &&
-    actual.every((value, index) => value === args.expected[index])
-  );
 }
 
 function matchesAdoptableTriggerKind(args: {
@@ -1743,37 +1928,13 @@ function matchesAdoptableTriggerKind(args: {
   }
 }
 
-function matchesAdoptableTriggerConfig(args: {
-  trigger: CloudflareBuildTrigger;
-  kind: CloudflareBuildTriggerKind;
-  buildConfig: CloudflareBuildConfig;
-}): boolean {
-  const expectedDeployCommand =
-    args.kind === "production"
-      ? args.buildConfig.deployCommand
-      : args.buildConfig.previewDeployCommand;
-  return (
-    args.trigger.build_command === args.buildConfig.buildCommand &&
-    args.trigger.deploy_command === expectedDeployCommand &&
-    matchesOrderedCloudflareStringList({
-      actual: args.trigger.path_includes,
-      expected: args.buildConfig.pathIncludes,
-    }) &&
-    matchesOrderedCloudflareStringList({
-      actual: args.trigger.path_excludes,
-      expected: args.buildConfig.pathExcludes,
-    })
-  );
-}
-
 function readMatchingBuildTrigger(args: {
   triggers: readonly CloudflareBuildTrigger[];
   kind: CloudflareBuildTriggerKind;
   defaultBranch: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
-  buildConfig: CloudflareBuildConfig;
-}): { triggerUuid: string; buildTokenUuid: string } | null {
+}): { triggerUuid: string; buildTokenUuid: string; trigger: CloudflareBuildTrigger } | null {
   const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
     args.expectedRootDirectory,
     "Expected app root",
@@ -1797,19 +1958,10 @@ function readMatchingBuildTrigger(args: {
     if (normalizeCloudflareBuildRoot(trigger.root_directory) !== expectedRootDirectory) {
       continue;
     }
-    if (
-      !matchesAdoptableTriggerConfig({
-        trigger,
-        kind: args.kind,
-        buildConfig: args.buildConfig,
-      })
-    ) {
-      continue;
-    }
     const triggerUuid = trigger.trigger_uuid;
     const buildTokenUuid = trigger.build_token_uuid;
     if (triggerUuid && buildTokenUuid) {
-      return { triggerUuid, buildTokenUuid };
+      return { triggerUuid, buildTokenUuid, trigger };
     }
   }
 
@@ -1828,7 +1980,6 @@ function readMatchingCloudflareWorkerBuilds(args: {
     defaultBranch: args.defaultBranch,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   const preview = readMatchingBuildTrigger({
     triggers: args.triggers,
@@ -1836,7 +1987,6 @@ function readMatchingCloudflareWorkerBuilds(args: {
     defaultBranch: args.defaultBranch,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   if (!production || !preview) {
     return null;
@@ -1845,13 +1995,19 @@ function readMatchingCloudflareWorkerBuilds(args: {
   return {
     state: "connected",
     rootDirectory: args.buildConfig.rootDir,
-    buildCommand: args.buildConfig.buildCommand,
-    deployCommand: args.buildConfig.deployCommand,
-    previewDeployCommand: args.buildConfig.previewDeployCommand,
-    pathIncludes: args.buildConfig.pathIncludes,
-    pathExcludes: args.buildConfig.pathExcludes,
-    production,
-    preview,
+    buildCommand: production.trigger.build_command ?? args.buildConfig.buildCommand,
+    deployCommand: production.trigger.deploy_command ?? args.buildConfig.deployCommand,
+    previewDeployCommand: preview.trigger.deploy_command ?? args.buildConfig.previewDeployCommand,
+    pathIncludes: production.trigger.path_includes ?? args.buildConfig.pathIncludes,
+    pathExcludes: production.trigger.path_excludes ?? args.buildConfig.pathExcludes,
+    production: {
+      triggerUuid: production.triggerUuid,
+      buildTokenUuid: production.buildTokenUuid,
+    },
+    preview: {
+      triggerUuid: preview.triggerUuid,
+      buildTokenUuid: preview.buildTokenUuid,
+    },
   };
 }
 
@@ -1886,7 +2042,6 @@ function verifyConnectedBuilds(args: {
     triggerUuid: args.build.production.triggerUuid,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   const previewTriggerConfirmed = hasConfirmedRecordedBuildTrigger({
     triggers: args.triggers,
@@ -1895,7 +2050,6 @@ function verifyConnectedBuilds(args: {
     triggerUuid: args.build.preview.triggerUuid,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
-    buildConfig: args.buildConfig,
   });
   return productionTriggerConfirmed && previewTriggerConfirmed
     ? {
@@ -1990,6 +2144,11 @@ async function configureCloudflareWorkerBuilds(
     recordApiCall: args.recordApiCall,
   });
 
+  const existingProductionTrigger = selectPatchableBuildTrigger({
+    triggers: existingTriggers,
+    kind: "production",
+    defaultBranch: args.defaultBranch,
+  });
   const productionTriggerUuid = await upsertBuildTrigger({
     token: args.cloudflareToken,
     accountId: args.accountId,
@@ -2004,20 +2163,43 @@ async function configureCloudflareWorkerBuilds(
     transport: args.transport,
     recordApiCall: args.recordApiCall,
   });
-  const previewTriggerUuid = await upsertBuildTrigger({
-    token: args.cloudflareToken,
-    accountId: args.accountId,
-    workerTag: args.workerTag,
-    repoConnectionUuid,
-    expectedRepoId: args.ghRepoId,
-    buildTokenUuid,
-    buildConfig: args.buildConfig,
-    defaultBranch: args.defaultBranch,
-    existingTriggers,
-    kind: "preview",
-    transport: args.transport,
-    recordApiCall: args.recordApiCall,
-  });
+  let previewTriggerUuid: string;
+  try {
+    previewTriggerUuid = await upsertBuildTrigger({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      workerTag: args.workerTag,
+      repoConnectionUuid,
+      expectedRepoId: args.ghRepoId,
+      buildTokenUuid,
+      buildConfig: args.buildConfig,
+      defaultBranch: args.defaultBranch,
+      existingTriggers,
+      kind: "preview",
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    });
+  } catch (error) {
+    try {
+      await restoreBuildTriggerAfterPairFailure({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        workerTag: args.workerTag,
+        replacementTriggerUuid: productionTriggerUuid,
+        existingTrigger: existingProductionTrigger,
+        transport: args.transport,
+        recordApiCall: args.recordApiCall,
+      });
+    } catch (rollbackError) {
+      console.error("infra:cloudflare:builds:pair_rollback_failed", {
+        accountId: args.accountId,
+        workerTag: args.workerTag,
+        productionTriggerUuid,
+        message: toErrorMessage(rollbackError),
+      });
+    }
+    throw error;
+  }
 
   return {
     state: "connected",
@@ -2222,6 +2404,22 @@ export async function verifyCloudflareWorkerInfrastructure(
       convexBuildAccess,
     };
   } catch (error) {
+    if (
+      step === "read_build_environment_variables" &&
+      isCloudflareBuildTriggerNotFoundError(error)
+    ) {
+      console.log("infra:cloudflare:verify:build_trigger_missing_upstream", {
+        vaultId: args.vaultId,
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+      });
+      return {
+        worker: "confirmed",
+        builds: "contradicted",
+        convexBuildAccess: "not_checked",
+      };
+    }
     if (isCloudflareWorkerNotFoundError(error)) {
       console.log("infra:cloudflare:verify:worker_missing_upstream", {
         vaultId: args.vaultId,
@@ -2540,7 +2738,7 @@ async function deleteCloudflareBuildTrigger(args: {
       },
     });
   } catch (error) {
-    if (!isCloudflareWorkerNotFoundError(error)) {
+    if (!isCloudflareBuildTriggerNotFoundError(error)) {
       throw error;
     }
   }

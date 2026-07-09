@@ -16,10 +16,11 @@ Cloudflare does not return secret values, so verification cannot prove that a pr
 contains the current key; the repair action rotates and rewrites fresh values.
 
 Provider access is read-only. Samebase only writes registry corrections: missing recorded triggers
-make the Worker repairable through `wire_builds`; missing deploy-key variables, or a wired Worker
-with no attached Convex deployment row, make it repairable through `wire_convex_build_access`.
-Provider errors, missing connections, or an unreadable Worker are recorded as unverifiable and do
-not change the Worker row.
+make the Worker repairable through `wire_builds`; missing deploy-key variables make it repairable
+through `wire_convex_build_access`. A missing Convex deployment is repaired by reconnecting or
+retrying Convex deployment provisioning, not by writing build-access variables. Provider errors,
+missing connections, or an unreadable Worker are recorded as unverifiable and do not change the
+Worker row.
 
 ## Arguments
 

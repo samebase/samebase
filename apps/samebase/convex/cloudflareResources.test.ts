@@ -13,7 +13,9 @@ import {
   CloudflareApiError,
   classifyCloudflareWorkerRepositoryDiscovery,
   isCloudflareGitHubAppRepositoryAuthorizationError,
+  isCloudflareBuildTriggerNotFoundError,
   isCloudflareMcpInvalidAccessTokenError,
+  isCloudflareWorkerNotFoundError,
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerRepositoryDiscovery,
   readCloudflareWorkerTag,
@@ -214,6 +216,7 @@ function buildMatchingProductionTrigger(
   return {
     trigger_uuid: "production-trigger",
     build_token_uuid: "build-token",
+    trigger_name: "Production Deploy",
     branch_includes: ["main"],
     branch_excludes: [],
     build_command: "pnpm build",
@@ -236,6 +239,7 @@ function buildMatchingPreviewTrigger(
   return {
     trigger_uuid: "preview-trigger",
     build_token_uuid: "build-token",
+    trigger_name: "Preview Deploy",
     branch_includes: ["*"],
     branch_excludes: ["main"],
     build_command: "pnpm build",
@@ -256,10 +260,15 @@ function stubEnsureCloudflareResourcesFetch(args: {
   triggers: readonly unknown[];
   requests: RecordedCloudflareRequest[];
   dropReadEnvKeys?: Record<string, readonly string[]>;
+  failCreateTrigger?: boolean;
+  failCreateTriggerNumber?: number;
   missingWorker?: boolean;
+  missingTrigger?: string;
   readEnvVars?: Record<string, RecordedCloudflareEnvironmentVariables>;
 }): void {
   let createdTriggerCount = 0;
+  let triggerCreateCount = 0;
+  let failedTriggerCreate = false;
   const environmentVariables = new Map<string, RecordedCloudflareEnvironmentVariables>();
   vi.stubGlobal(
     "fetch",
@@ -285,6 +294,17 @@ function stubEnsureCloudflareResourcesFetch(args: {
           return cloudflareSuccessResponse(environmentVariables.get(endpoint) ?? {});
         }
         if (method === "GET") {
+          if (triggerUuid === args.missingTrigger) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                errors: [{ code: 10007, message: "trigger not found" }],
+                messages: [],
+                result: null,
+              }),
+              { status: 404, headers: { "Content-Type": "application/json" } },
+            );
+          }
           const stored = {
             ...(args.readEnvVars?.[triggerUuid] ?? {}),
             ...(environmentVariables.get(endpoint) ?? {}),
@@ -294,6 +314,13 @@ function stubEnsureCloudflareResourcesFetch(args: {
           }
           return cloudflareSuccessResponse(stored);
         }
+      }
+
+      if (
+        method === "DELETE" &&
+        /^\/client\/v4\/accounts\/account-id\/builds\/triggers\/[^/]+$/.test(endpoint)
+      ) {
+        return cloudflareSuccessResponse(null);
       }
 
       switch (endpoint) {
@@ -331,6 +358,22 @@ function stubEnsureCloudflareResourcesFetch(args: {
             },
           ]);
         case "/client/v4/accounts/account-id/builds/triggers":
+          triggerCreateCount += 1;
+          if (
+            (args.failCreateTrigger && !failedTriggerCreate) ||
+            args.failCreateTriggerNumber === triggerCreateCount
+          ) {
+            failedTriggerCreate = true;
+            return new Response(
+              JSON.stringify({
+                success: false,
+                errors: [{ code: 9999, message: "Workers Builds trigger creation failed" }],
+                messages: [],
+                result: null,
+              }),
+              { status: 500, headers: { "Content-Type": "application/json" } },
+            );
+          }
           createdTriggerCount += 1;
           return cloudflareSuccessResponse({
             trigger_uuid: `created-trigger-${createdTriggerCount}`,
@@ -363,6 +406,24 @@ afterEach(() => {
 });
 
 describe("cloudflare resources", () => {
+  it("classifies trigger not-found errors separately from Worker not-found errors", () => {
+    const triggerError = new CloudflareApiError({
+      method: "GET",
+      path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
+      details: [{ code: "10007", message: "trigger not found" }],
+    });
+    const workerError = new CloudflareApiError({
+      method: "GET",
+      path: "/accounts/{account_id}/builds/workers/{external_script_id}/triggers",
+      details: [{ code: "10007", message: "Worker not found" }],
+    });
+
+    expect(isCloudflareBuildTriggerNotFoundError(triggerError)).toBe(true);
+    expect(isCloudflareWorkerNotFoundError(triggerError)).toBe(false);
+    expect(isCloudflareWorkerNotFoundError(workerError)).toBe(true);
+    expect(isCloudflareBuildTriggerNotFoundError(workerError)).toBe(false);
+  });
+
   it("declares verification coverage for every durable infrastructure block", () => {
     expect(Object.keys(blockVerification).sort()).toEqual([
       "attach_convex",
@@ -532,7 +593,7 @@ describe("cloudflare resources", () => {
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
-  it("does not adopt Workers Builds triggers when the existing trigger config differs", async () => {
+  it("adopts Workers Builds triggers when the existing trigger config is customized", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -580,7 +641,24 @@ describe("cloudflare resources", () => {
       }),
     ).resolves.toEqual({
       worker: "confirmed",
-      builds: "not_checked",
+      builds: "adopted",
+      connectedBuilds: {
+        state: "connected",
+        rootDirectory: ".",
+        buildCommand: "npm run build",
+        deployCommand: "pnpm deploy",
+        previewDeployCommand: "pnpm deploy:preview",
+        pathIncludes: ["**/*"],
+        pathExcludes: [],
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-build-token",
+        },
+      },
       convexBuildAccess: "not_checked",
     });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
@@ -605,6 +683,58 @@ describe("cloudflare resources", () => {
       convexBuildAccess: "not_checked",
     });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("contradicts Builds when an attached trigger disappears during environment verification", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      missingTrigger: "production-trigger",
+      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: true,
+      }),
+    ).resolves.toEqual({
+      worker: "confirmed",
+      builds: "contradicted",
+      convexBuildAccess: "not_checked",
+    });
+  });
+
+  it("confirms connected Builds with customized commands and path filters", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        buildMatchingProductionTrigger({
+          build_command: "npm run build:app",
+          deploy_command: "npm run deploy:prod",
+          path_includes: ["apps/web/**"],
+          path_excludes: ["apps/web/docs/**"],
+        }),
+        buildMatchingPreviewTrigger({
+          build_command: "npm run build:app",
+          deploy_command: "npm run deploy:preview",
+          path_includes: ["apps/web/**"],
+          path_excludes: ["apps/web/docs/**"],
+        }),
+      ],
+    });
+
+    await expect(
+      verifyCloudflareWorkerInfrastructure({
+        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+        verifyConvexBuildAccess: false,
+      }),
+    ).resolves.toEqual({
+      worker: "confirmed",
+      builds: "confirmed",
+      convexBuildAccess: "not_checked",
+    });
   });
 
   it("contradicts connected Builds when a recorded trigger is missing", async () => {
@@ -815,6 +945,101 @@ describe("cloudflare resources", () => {
     ).toHaveLength(2);
     expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("restores a mismatched trigger when replacement creation fails", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      failCreateTrigger: true,
+      triggers: [
+        buildMatchingProductionTrigger({
+          repo_connection: {
+            repo_connection_uuid: "other-repo-connection",
+            repo_id: "999",
+            repo_name: "ada/other-app",
+          },
+        }),
+        buildMatchingPreviewTrigger(),
+      ],
+    });
+
+    await expect(
+      wireCloudflareWorkerBuilds({
+        ...buildTestWireCloudflareWorkerBuildsArgs(),
+        triggerInitialBuild: false,
+      }),
+    ).rejects.toThrow("Workers Builds trigger creation failed");
+
+    const deleteIndex = requests.findIndex(
+      (request) =>
+        request.method === "DELETE" &&
+        request.path === "/client/v4/accounts/account-id/builds/triggers/production-trigger",
+    );
+    const createRequests = requests.filter(
+      (request) =>
+        request.method === "POST" &&
+        request.path === "/client/v4/accounts/account-id/builds/triggers",
+    );
+    expect(deleteIndex).toBeGreaterThanOrEqual(0);
+    expect(createRequests).toHaveLength(2);
+    const firstCreateRequest = createRequests[0];
+    expect(requests.indexOf(firstCreateRequest)).toBeGreaterThan(deleteIndex);
+    expect(createRequests[1]?.body).toMatchObject({
+      external_script_id: "worker-tag",
+      repo_connection_uuid: "other-repo-connection",
+      build_token_uuid: "build-token",
+      trigger_name: "Production Deploy",
+      build_command: "pnpm build",
+      deploy_command: "pnpm deploy",
+      root_directory: ".",
+      branch_includes: ["main"],
+      branch_excludes: [],
+      path_includes: ["**/*"],
+      path_excludes: [],
+    });
+  });
+
+  it("rolls back the production trigger when the preview replacement fails", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    const otherRepository = {
+      repo_connection_uuid: "other-repo-connection",
+      repo_id: "999",
+      repo_name: "ada/other-app",
+    };
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      failCreateTriggerNumber: 2,
+      triggers: [
+        buildMatchingProductionTrigger({ repo_connection: otherRepository }),
+        buildMatchingPreviewTrigger({ repo_connection: otherRepository }),
+      ],
+    });
+
+    await expect(
+      wireCloudflareWorkerBuilds({
+        ...buildTestWireCloudflareWorkerBuildsArgs(),
+        triggerInitialBuild: false,
+      }),
+    ).rejects.toThrow("Workers Builds trigger creation failed");
+
+    const createRequests = requests.filter(
+      (request) =>
+        request.method === "POST" &&
+        request.path === "/client/v4/accounts/account-id/builds/triggers",
+    );
+    expect(createRequests).toHaveLength(4);
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "DELETE" &&
+          request.path === "/client/v4/accounts/account-id/builds/triggers/created-trigger-1",
+      ),
+    ).toBe(true);
+    expect(createRequests.at(-1)?.body).toMatchObject({
+      repo_connection_uuid: "other-repo-connection",
+      trigger_name: "Production Deploy",
+    });
   });
 
   it("patches Convex build environment variables before starting the deferred production build", async () => {

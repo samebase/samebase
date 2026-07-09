@@ -1101,10 +1101,18 @@ export const recordCloudflareBuildsForRun = internalMutation({
       throw new Error("Cloudflare Worker is required before recording Workers Builds.");
     }
 
+    const previousBuilds = worker.deployment.builds;
+    const preservesConvexBuildAccess =
+      previousBuilds.state === "connected" &&
+      previousBuilds.production.triggerUuid === args.builds.production.triggerUuid &&
+      previousBuilds.preview.triggerUuid === args.builds.preview.triggerUuid;
+
     await ctx.db.patch(worker._id, {
       deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
         builds: args.builds,
-        convexBuildAccess: worker.deployment.convexBuildAccess,
+        convexBuildAccess: preservesConvexBuildAccess
+          ? worker.deployment.convexBuildAccess
+          : { state: "not_wired" },
       }),
       lastObservedAt: Date.now(),
     });
@@ -1872,6 +1880,24 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
         upstream: workerUpstream,
         lastObservedAt: Date.now(),
       });
+    }
+    if (workerUpstream.state === "missing_upstream") {
+      const domains = await ctx.db
+        .query("vaultDomains")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .collect();
+      for (const domain of domains) {
+        if (
+          domain.active &&
+          (domain.source === "cloudflare_workers_default" ||
+            domain.source === "cloudflare_workers_preview")
+        ) {
+          await ctx.db.patch(domain._id, {
+            active: false,
+            lastSyncedAt: Date.now(),
+          });
+        }
+      }
     }
     const messages: string[] = [];
     if (convexDeployment && args.providerResult.convexDeployment !== "not_checked") {
