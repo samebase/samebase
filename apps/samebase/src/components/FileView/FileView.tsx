@@ -24,7 +24,6 @@ import {
 } from "@/components/FileViewDeveloperTools";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { CommandPalette } from "@/components/CommandPalette";
-import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
   FileViewSidebarContent,
   FileViewSidebarFooter,
@@ -63,7 +62,6 @@ import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { CHAT_ENABLED } from "../../../shared/featureFlags";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import {
   resolveFilePathForResolvedBranch,
@@ -588,8 +586,6 @@ function FileViewInner({
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
-  const dashboardSettings = useLiveQuery(api.dashboardSettings.getDashboardSettings, {});
-  const setEditorChatOpen = useMutation(api.dashboardSettings.setEditorChatOpen);
   const buildCurrentFileViewHref = useCallback(
     (fileViewSearch: FileViewRouteSearchPatch) =>
       buildFileViewSearchHref({
@@ -2363,11 +2359,6 @@ function FileViewInner({
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
-  const dashboardEditorChatOpen = dashboardSettings?.editorChatOpen;
-  const [editorChatOpen, setEditorChatOpenState] = useState<boolean | null>(null);
-  const [isEditorChatBusy, setIsEditorChatBusy] = useState(false);
-  const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] = useState(false);
-  const editorChatPendingRef = useRef<boolean | null>(null);
   const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
   const showEditorOverrideControl =
     viewMode === "editor" &&
@@ -2397,38 +2388,6 @@ function FileViewInner({
     ),
     [headerTitle],
   );
-  useEffect(() => {
-    if (dashboardEditorChatOpen === undefined) {
-      return;
-    }
-
-    const serverValue = dashboardEditorChatOpen;
-    if (editorChatPendingRef.current !== null) {
-      if (editorChatPendingRef.current === serverValue) {
-        editorChatPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setEditorChatOpenState(serverValue);
-  }, [dashboardEditorChatOpen]);
-
-  const resolvedEditorChatOpen = editorChatOpen ?? dashboardEditorChatOpen ?? false;
-  const handleEditorChatOpenChange = useCallback(
-    (isOpen: boolean) => {
-      setShouldAutoFocusChatInput(isOpen);
-      setEditorChatOpenState(isOpen);
-      editorChatPendingRef.current = isOpen;
-      void setEditorChatOpen({ isOpen, scope: "vault" }).catch((error: unknown) => {
-        console.error("Failed to persist FileView chat state:", error);
-        editorChatPendingRef.current = null;
-        setShouldAutoFocusChatInput(false);
-        setEditorChatOpenState(dashboardEditorChatOpen ?? false);
-      });
-    },
-    [dashboardEditorChatOpen, setEditorChatOpen],
-  );
-
   const fileViewMainContent = (
     <div className="max-w-none flex min-h-full flex-col gap-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2874,26 +2833,6 @@ function FileViewInner({
       headerAccessory={fileViewMainHeader}
       left={fileViewLeftPane}
       shortcutPaneSide="left"
-      panel={
-        CHAT_ENABLED
-          ? {
-              content: (
-                <EditorChatPanel
-                  vaultId={vault._id}
-                  repositoryFullName={repositoryFullName}
-                  branch={branch}
-                  filePath={selectedFile || undefined}
-                  autoFocusInput={shouldAutoFocusChatInput}
-                  onBusyStateChange={setIsEditorChatBusy}
-                  shellMode="embedded"
-                />
-              ),
-              closeDisabled: isEditorChatBusy,
-              onOpenChange: handleEditorChatOpenChange,
-              open: resolvedEditorChatOpen,
-            }
-          : undefined
-      }
     >
       {fileViewMainContent}
 

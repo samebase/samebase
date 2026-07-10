@@ -62,7 +62,6 @@ import {
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
-import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
   VaultDashboardEmptyState,
   VaultDashboardRepositoryCard,
@@ -401,14 +400,12 @@ type VaultDashboardLocalState = {
   didAttemptCommit: boolean;
   isCommitting: boolean;
   isDeleting: boolean;
-  isGlobalChatBusy: boolean;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   removeCodespaces: boolean;
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
   removeCloudflareProvision: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
-  shouldAutoFocusChatInput: boolean;
 };
 
 function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convexConnectDialog"] {
@@ -450,14 +447,12 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     didAttemptCommit: false,
     isCommitting: false,
     isDeleting: false,
-    isGlobalChatBusy: false,
     openDeveloperToolsByVaultId: {},
     removeCodespaces: false,
     removeConvexProvision: false,
     removeGithubRepo: false,
     removeCloudflareProvision: false,
     retryingDeletionRunId: null,
-    shouldAutoFocusChatInput: false,
   };
 }
 
@@ -722,12 +717,6 @@ function useVaultDashboardLocalStore() {
           [vaultId]: isOpen,
         },
       }));
-    },
-    setGlobalChatAutoFocus: (shouldAutoFocusChatInput: boolean) => {
-      setState((state) => ({ ...state, shouldAutoFocusChatInput }));
-    },
-    setGlobalChatBusy: (isGlobalChatBusy: boolean) => {
-      setState((state) => ({ ...state, isGlobalChatBusy }));
     },
     setIsCommitting: (isCommitting: boolean) => {
       setState((state) => ({ ...state, isCommitting }));
@@ -3518,27 +3507,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
     useState<Id<"vaults"> | null>(null);
   const createVaultAppRoot = useMutation(api.vault.dashboard.createVaultAppRoot);
-  const setEditorChatOpen = useMutation(
-    api.dashboardSettings.setEditorChatOpen,
-  ).withOptimisticUpdate((localStore, args) => {
-    const currentSettings = localStore.getQuery(api.dashboardSettings.getDashboardSettings, {});
-    if (!currentSettings) {
-      return;
-    }
-    localStore.setQuery(
-      api.dashboardSettings.getDashboardSettings,
-      {},
-      args.scope === "vault"
-        ? {
-            ...currentSettings,
-            editorChatOpen: args.isOpen,
-          }
-        : {
-            ...currentSettings,
-            globalChatOpen: args.isOpen,
-          },
-    );
-  });
   const userVaultBranchFilters = useConvexQuery(api.vault.dashboard.getUserVaultBranchFilters);
   const userVaultResourceLinksState = useConvexQuery(
     api.vault.dashboard.getUserVaultResourceLinksState,
@@ -3549,8 +3517,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const connectedCloudflareConnection =
     cloudflareConnection?.connected === true ? cloudflareConnection : null;
-  const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
-  const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const addAppRootModeActive = rootRouteSearch[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM] === true;
   const deleteModeActive = rootRouteSearch.delete === true;
   const addConvexModeActive = rootRouteSearch["add-convex"] === true;
@@ -3630,14 +3596,12 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     didAttemptCommit,
     isCommitting,
     isDeleting,
-    isGlobalChatBusy,
     openDeveloperToolsByVaultId,
     removeCodespaces,
     removeConvexProvision,
     removeGithubRepo,
     removeCloudflareProvision,
     retryingDeletionRunId,
-    shouldAutoFocusChatInput,
   } = useSelector(dashboardLocalStore);
   const {
     appRoot: addAppRootValue,
@@ -3704,8 +3668,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setDeleteError,
     setDeleteOption,
     setDeveloperToolsOpen,
-    setGlobalChatAutoFocus,
-    setGlobalChatBusy,
     setIsCommitting,
     setIsDeleting,
     setRetryingDeletionRunId,
@@ -4499,16 +4461,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
-  const resolvedGlobalChatOpen = dashboardGlobalChatOpen ?? false;
-
-  const handleGlobalChatOpenChange = (isOpen: boolean) => {
-    setGlobalChatAutoFocus(isOpen);
-    void setEditorChatOpen({ isOpen, scope: "global" }).catch((error: unknown) => {
-      console.error("Failed to persist global chat state:", error);
-      setGlobalChatAutoFocus(false);
-    });
-  };
-
   if (!dashboardData) {
     return null;
   }
@@ -4653,25 +4605,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     );
 
   return (
-    <AppWorkspaceRouteChrome
-      left={isVaultRootRoute ? null : leftPane}
-      panel={
-        CHAT_ENABLED
-          ? {
-              content: (
-                <EditorChatPanel
-                  autoFocusInput={shouldAutoFocusChatInput}
-                  onBusyStateChange={setGlobalChatBusy}
-                  shellMode="embedded"
-                />
-              ),
-              closeDisabled: isGlobalChatBusy,
-              onOpenChange: handleGlobalChatOpenChange,
-              open: resolvedGlobalChatOpen,
-            }
-          : undefined
-      }
-    >
+    <AppWorkspaceRouteChrome left={isVaultRootRoute ? null : leftPane}>
       {dashboardBody}
 
       <VaultDashboardAppRootDialog

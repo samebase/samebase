@@ -16,7 +16,7 @@ chat orchestration, and infrastructure provisioning.
 
 ```mermaid
 flowchart LR
-  UI["EditorChatPanel.tsx"] --> CT["chat.createThread"]
+  UI["AgentGraphView.tsx"] --> CT["chat.createThread"]
   CT --> AT["Agent threads"]
 
   UI --> SM["chat.sendMessage"]
