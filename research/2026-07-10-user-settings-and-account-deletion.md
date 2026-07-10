@@ -16,18 +16,25 @@ Add one `/settings` route with two sections: Profile and Account.
 
 1. Add an optional `users.displayName` field and label it **Display name** in the product. Do not
    add a username system. The requested value is a private presentation label, not a unique handle.
-2. Make persistent account chrome resolve
-   `displayName ?? email ?? auth name ?? GitHub username ?? "Account"`. Preserve email as the
-   default when no display name is set, including during JWT prehydration.
-3. When a display name is set, keep the sign-in email off persistent chrome and show it only on the
+2. Define one shared `resolveAccountPresentation({ displayName, email })` function. Its email input
+   is required and its result is a tagged `displayName` or `email` value. No provider profile field,
+   GitHub username, or generic label participates.
+3. Return that resolved value from `users.viewer` and put the same resolved value in the JWT. Remove
+   raw `name`, `email`, and `githubUsername` presentation inputs from that general query. A separate
+   settings query owns the required sign-in email. The hydrated UI and prehydration runtime validate
+   and render the resolved value; they never choose an identity source.
+4. Make a canonical email a required Samebase account invariant. Audit and remediate legacy users
+   before narrowing the schema. Never derive a missing email from a GitHub sign-in or provider
+   connection.
+5. When a display name is set, keep the sign-in email off persistent chrome and show it only on the
    intentional Settings page. Add a Settings action beside Sign out in every authenticated
    right-sidebar account section.
-4. Implement account deletion as a durable, retryable workflow with a user deletion gate and bounded
+6. Implement account deletion as a durable, retryable workflow with a user deletion gate and bounded
    cleanup. Do not implement it as one mutation.
-5. Preserve GitHub repositories, Convex projects, Cloudflare Workers, Codespaces, and other
+7. Preserve GitHub repositories, Convex projects, Cloudflare Workers, Codespaces, and other
    resources in the user's provider accounts by default. Delete Samebase's local data and
    credentials. The UI should say plainly that the user's apps keep running.
-6. Ship the display-name and sidebar-privacy slice first. Ship deletion after the data, billing,
+8. Ship the display-name and sidebar-privacy slice first. Ship deletion after the data, billing,
    analytics, auth, audit, and processor cleanup contracts below are implemented and tested.
 
 ## Why This Is A Display Name, Not A Username
@@ -54,9 +61,9 @@ Recommended contract:
 - Uniqueness: none
 - Security: never use the value for ownership, authorization, billing, or audit identity
 
-The optional field needs no backfill. Existing users naturally use the fallback. Its optionality is
-intentional because Convex Auth owns user creation and because clearing a customization is a
-supported state.
+The `displayName` field itself needs no backfill. Its optionality is intentional because clearing a
+customization is a supported state. The separate canonical-email invariant does require an audit and
+possibly a migration because the current `users.email` schema is optional.
 
 ## Privacy Contract For Account Chrome
 
@@ -73,25 +80,67 @@ is set. The prehydration runtime currently chooses email before name in
 injects that value into visible CSS content before React loads in
 [`appAuthPresentationPrehydration.ts`](../apps/samebase/src/lib/appAuthPresentationPrehydration.ts#L157).
 
-Use these two resolution rules:
+Remove the local selection expressions from these components. Account presentation should have one
+shared, exhaustive contract whose types are derived from its validators:
 
-```text
-Confirmed viewer: displayName ?? email ?? name ?? githubUsername ?? "Account"
-JWT/prehydration: displayName ?? email ?? name ?? "Account"
+```ts
+type AccountPresentation =
+  | { kind: "displayName"; label: DisplayName }
+  | { kind: "email"; label: AccountEmail };
+
+function resolveAccountPresentation(input: {
+  displayName?: DisplayName;
+  email: AccountEmail;
+}): AccountPresentation {
+  if (input.displayName !== undefined) {
+    return { kind: "displayName", label: input.displayName };
+  }
+  return { kind: "email", label: input.email };
+}
 ```
 
-When `displayName` exists, do not also render email as a persistent secondary line in the right
-sidebar. When `displayName` is absent, preserve the current email label. The Settings page may also
-show the read-only sign-in email because opening that page is an intentional account-management
-action.
+This is a closed two-state domain, not an open-ended fallback chain. `name`, `githubUsername`, and
+`"Account"` are not accepted inputs. A GitHub provider connection identifies which account owns a
+repository credential; it does not define Samebase account identity. The removed GitHub sign-in path
+and GitHub's multiple-email model are additional reasons to keep that boundary absolute.
 
-Add `displayName` to the auth token profile claim schema and copy it from the user document in the
-existing `customClaims` callback. Saving the database field is not enough for instant prehydration:
-the JWT already stored in the browser still contains the old claims. After `setDisplayName`
-succeeds, the client must call `fetchAccessToken({ forceRefreshToken: true })` from
-`useConvexAuth()` exported by `@convex-dev/auth/react`. The installed auth client exchanges the
-refresh token, mints a new JWT through `customClaims`, rotates the refresh token, and stores both
-tokens before the call resolves.
+The `users.viewer` return validator should require an `accountPresentation` value produced by this
+function. Remove `name`, `email`, and `githubUsername` from that general-purpose response unless a
+non-presentation consumer proves it needs one. Components receive the presentation value and render
+`label`; they cannot inspect raw profile fields. A dedicated user-settings query should return the
+required `signInEmail` and optional `displayName` only to the intentional account-management
+surface. Provider-specific queries remain the only source of GitHub username.
+
+The JWT should similarly carry a required `accountLabelKind` plus `accountLabel`, both produced by
+the same function in `customClaims`. Prehydration validates that pair and renders it without making
+a second selection decision. Loading and signed-out remain separate authentication states, not extra
+presentation variants. The currently unreferenced `UserMenu` also contains an `"Unknown"` email
+substitute; delete that dead component during implementation rather than adapting another identity
+surface.
+
+When `displayName` exists, do not also render email as a persistent secondary line in the right
+sidebar. When it is absent, the resolver deliberately returns the required canonical email variant.
+The Settings page may also show the read-only sign-in email because opening that page is an
+intentional account-management action.
+
+The current schema permits users without email. Tighten that invariant with a staged migration:
+
+1. Require a normalized Samebase sign-in email from every new interactive sign-in path. Password
+   already requires one; Google sign-in should reject a profile without one. Browser handoff must
+   reference an existing valid user.
+2. Audit existing users for missing, blank, or invalid email. Do not fill gaps from `users.name`, a
+   GitHub profile, or a provider connection. Resolve affected accounts through an explicit owner
+   recovery process.
+3. During the migration only, fail closed when presentation cannot be constructed: do not inject a
+   label during prehydration, and route the hydrated user to recovery. Do not display a substitute.
+4. After verification reports no invalid users, make `users.email` required and remove the temporary
+   recovery state.
+
+Saving the database field is not enough for instant prehydration: the JWT already stored in the
+browser still contains the old resolved presentation. After `setDisplayName` succeeds, the client
+must call `fetchAccessToken({ forceRefreshToken: true })` from `useConvexAuth()` exported by
+`@convex-dev/auth/react`. The installed auth client exchanges the refresh token, mints a new JWT
+through `customClaims`, rotates the refresh token, and stores both tokens before the call resolves.
 
 Keep Save pending until the forced refresh returns a token. Only then report success. If refresh
 fails, the Convex user record is still updated and the live `users.viewer` query can show the new
@@ -100,10 +149,9 @@ immediate reload can prehydrate from the stale JWT and briefly show the email or
 name. The live `users.viewer` query remains the source of truth after hydration.
 
 One related surface remains: the MCP authentication-status tool currently chooses email for its
-human-readable response in [`mcp/http.ts`](../apps/samebase/convex/mcp/http.ts#L98). The profile
-slice should prefer `displayName`, then retain its existing email, provider-name, and user-ID
-fallbacks in that sentence. Removing structured email is a separate, versioned MCP contract
-decision.
+human-readable response in [`mcp/http.ts`](../apps/samebase/convex/mcp/http.ts#L98). It should use
+the same `accountPresentation` value rather than selecting among email, provider name, and user ID.
+Removing structured email from the MCP response is a separate, versioned contract decision.
 
 ## Settings Page Shape
 
@@ -331,11 +379,16 @@ the browser and deleting the Convex user row does not erase data already sent to
 
 ### Slice 1: Settings And Private Display Name
 
+- Enforce canonical email on new sign-ins, audit existing users, complete owner recovery, then make
+  `users.email` required.
+- Add the shared, typed `resolveAccountPresentation` function and remove presentation decisions from
+  UI components.
 - Add `/settings` with Profile and Account sections.
 - Add `displayName` and its mutation.
-- Add `displayName` to JWT claims and force a token refresh before Save completes.
-- Make the right sidebar and prehydration prefer `displayName` while preserving email as the
-  default.
+- Return the resolved presentation from `users.viewer` and JWT custom claims.
+- Force a token refresh before Save completes.
+- Make the right sidebar, public account section, MCP status, and prehydration consume the resolved
+  presentation value.
 - Add Settings navigation and mobile pane handoff.
 - Keep Delete account disabled or absent until the backend contract exists. Do not ship a control
   that only deletes the `users` row.
@@ -363,9 +416,15 @@ Profile and privacy:
 
 - backend tests for normalization, clearing, max length, multiline rejection, ownership, pending
   access, and reactive viewer updates
-- sidebar tests for display-name precedence in confirmed, temporary, public, and prehydrated markup
-- fallback tests proving email remains visible when `displayName` is absent or cleared
-- token tests proving Save forces a refresh and the persisted JWT carries the new or cleared claim
+- exhaustive resolver tests proving the only outputs are the `displayName` and canonical `email`
+  variants
+- boundary tests proving provider name, GitHub username, and a generic label cannot enter account
+  presentation
+- migration tests proving missing email fails closed and the final schema rejects it
+- sidebar tests proving confirmed, temporary, public, and prehydrated markup render the supplied
+  presentation without choosing another source
+- token tests proving Save forces a refresh and the persisted JWT carries the resolved kind and
+  label
 - route test proving a pending-access user can open `/settings`
 - mobile interaction test proving Settings navigation returns to the main pane
 - update 288 px, 160 px, and 96 px right-sidebar screenshots
