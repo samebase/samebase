@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 
 const sourceOwner = "samebase";
 const sourceRepoName = "app";
-const defaultSourceBranch = "v5-tanstack-start-workers";
+const defaultSourceBranch = "main";
 const sourceRepo = `https://github.com/${sourceOwner}/${sourceRepoName}.git`;
 const githubApiBase = "https://api.github.com";
 const githubRequestTimeoutMs = 30_000;
