@@ -1,0 +1,384 @@
+# User Settings And Account Deletion Research
+
+## Document Control
+
+- Status: Research, not an accepted product contract
+- Date: 2026-07-10
+- Scope: user settings, private display identity, sidebar privacy, and self-serve account deletion
+- Related:
+  - [Vault deletion workflow spec](../specs/098_VAULT_DELETION_WORKFLOW_SPEC.md)
+  - [Privacy policy](../apps/samebase/src/content/privacy-policy.md)
+  - [Access model](../apps/samebase/shared/accessModel.ts)
+
+## Recommendation
+
+Add one `/settings` route with two sections: Profile and Account.
+
+1. Add an optional `users.displayName` field and label it **Display name** in the product. Do not
+   add a username system. The requested value is a private presentation label, not a unique handle.
+2. Make persistent account chrome resolve
+   `displayName ?? auth name ?? GitHub username ?? "Account"`. Never use email as a sidebar
+   fallback, including during JWT prehydration.
+3. Put the sign-in email only on the intentional Settings page. Add a Settings action beside Sign
+   out in every authenticated right-sidebar account section.
+4. Implement account deletion as a durable, retryable workflow with a user deletion gate and bounded
+   cleanup. Do not implement it as one mutation.
+5. Preserve GitHub repositories, Convex projects, Cloudflare Workers, Codespaces, and other
+   resources in the user's provider accounts by default. Delete Samebase's local data and
+   credentials. The UI should say plainly that the user's apps keep running.
+6. Ship the display-name and sidebar-privacy slice first. Ship deletion after the data, billing,
+   analytics, auth, audit, and processor cleanup contracts below are implemented and tested.
+
+## Why This Is A Display Name, Not A Username
+
+Samebase has no product behavior that needs a globally unique username. A real username would create
+new requirements for uniqueness, case folding, Unicode confusables, reserved names, reuse after
+deletion, URLs, and mentions. None of those should be introduced for a value whose job is to hide an
+email in account chrome.
+
+The existing `users.name` is also the wrong field. Google supplies it during sign-in in
+[`auth.ts`](../apps/samebase/convex/auth.ts#L220), and Convex Auth patches provider profile fields
+into the existing user on later sign-ins. A user edit to `name` can therefore be overwritten. A
+separate `displayName` keeps provider identity and user presentation distinct.
+
+Recommended contract:
+
+- Schema: `displayName: optional(string())` on `users`
+- Mutation: `setDisplayName({ displayName: string | null })`
+- Access: `access_user_preferences`
+- `null`: clear the customization
+- Normalization: trim outer whitespace
+- Validation: reject blank and multiline values; maximum 64 Unicode code points
+- Allowed content: Unicode, spaces, punctuation, and emoji
+- Uniqueness: none
+- Security: never use the value for ownership, authorization, billing, or audit identity
+
+The optional field needs no backfill. Existing users naturally use the fallback. Its optionality is
+intentional because Convex Auth owns user creation and because clearing a customization is a
+supported state.
+
+## Privacy Contract For Account Chrome
+
+The current authenticated right sidebar selects email first in
+[`AppRightSidebar.tsx`](../apps/samebase/src/components/AppRightSidebar.tsx#L57) and the shared
+static account row renders that value directly in
+[`VaultDashboardChrome.tsx`](../apps/samebase/src/components/vault-dashboard/VaultDashboardChrome.tsx#L254).
+The public signed-in account section also renders email inside its expanded row in
+[`PublicLandingAccountSection.tsx`](../apps/samebase/src/components/PublicLandingAccountSection.tsx#L169).
+
+Changing only the hydrated React component would still leak the email for a frame. The prehydration
+runtime currently chooses email before name in
+[`appAuthPresentationRuntime.ts`](../apps/samebase/src/lib/appAuthPresentationRuntime.ts#L202), then
+injects that value into visible CSS content before React loads in
+[`appAuthPresentationPrehydration.ts`](../apps/samebase/src/lib/appAuthPresentationPrehydration.ts#L157).
+
+Use these two resolution rules:
+
+```text
+Confirmed viewer: displayName ?? name ?? githubUsername ?? "Account"
+JWT/prehydration: displayName ?? name ?? "Account"
+```
+
+Do not render email as a persistent secondary line or `title` in the right sidebar. A password-only
+account with no display name should show `Account`, not its email. The Settings page may show the
+read-only sign-in email because opening that page is an intentional account-management action.
+
+The auth token profile claim can carry `displayName`, but the live `users.viewer` query remains the
+source of truth. An existing token may briefly show an older display name until refresh; it must not
+fall back to email. Removing email from future presentation JWT claims is useful additional
+hardening, but it is not required to make the sidebar safe.
+
+One related surface remains: the MCP authentication-status tool currently chooses email for its
+human-readable response in [`mcp/http.ts`](../apps/samebase/convex/mcp/http.ts#L98). The profile
+slice should prefer `displayName`, then provider name, then user ID in that sentence. Removing
+structured email is a separate, versioned MCP contract decision.
+
+## Settings Page Shape
+
+The smallest useful page is one readable column with normal page scroll, rectangular sections, and
+no cards, tabs, settings sidebar, summary header, or empty future categories.
+
+```text
+Settings
+
+Profile
+Display name
+[ Nicu                                      ]
+Shown in Samebase instead of your email.
+[ Save ]
+
+Account
+Sign-in email
+nicu@example.com
+
+Delete your Samebase account. Your apps keep running.
+[ Delete account ]
+```
+
+The display-name helper sentence is necessary because it explains the privacy result. The deletion
+sentence is necessary because it distinguishes Samebase data from external apps. Other explanatory
+copy should wait for a concrete usability gap.
+
+Recommended placement:
+
+- `src/lib/settingsRoute.ts`: `SETTINGS_ROUTE`
+- `src/routes/settings.tsx`: TanStack route
+- `src/components/UserSettingsPage.tsx`: page surface
+- `routeAccessMetadata.ts`: `/settings` with `access_user_preferences` and `leftPane: "none"`
+
+The access key already exists for both pending-access and member accounts in
+[`accessModel.ts`](../apps/samebase/shared/accessModel.ts#L34). This is the correct boundary: even a
+user who has not been approved for app access must be able to change their display name or delete
+their account.
+
+There is one current access conflict. `AuthenticatedAppRoutePage` always wraps content in
+`ApprovalGate` in
+[`AuthenticatedAppRoutePage.tsx`](../apps/samebase/src/components/AuthenticatedAppRoutePage.tsx#L55),
+and `ApprovalGate` blocks pending users in
+[`ApprovalGate.tsx`](../apps/samebase/src/components/ApprovalGate.tsx#L43). The settings route needs
+an authenticated-user shell that preserves sign-in handling but does not impose the approval gate.
+Making the route public would be the wrong fix.
+
+Put Settings beside Sign out in each signed-in account section, including the account-only sidebar
+shown to pending users. On mobile, selecting it must also return the workspace carousel to the main
+pane. Otherwise navigation can succeed while the right pane remains visible.
+
+Future categories are credible only when they have real controls:
+
+- Preferences: cross-device workspace preferences
+- Security: sessions, machines, and authorized MCP clients
+- Plan and billing: subscription state and portal actions
+
+Do not render these categories yet. Provider connections should remain a separate route because they
+manage infrastructure credentials, not the Samebase account profile.
+
+## Account Deletion Product Contract
+
+The action should mean:
+
+- stop the user's access to Samebase
+- cancel an active Samebase subscription before final deletion
+- remove Samebase profile and auth data
+- revoke Samebase sessions, machine credentials, MCP grants, and provider credentials
+- delete Samebase-hosted vault, file, collaboration, chat, and preference data
+- clear Samebase data cached in the current browser
+- preserve the user's resources in GitHub, Convex, Cloudflare, and other external accounts
+
+The action should not silently delete external repositories or infrastructure. Samebase already
+promises that apps keep running outside Samebase, and the existing vault deletion UI has explicit
+per-resource teardown choices. Account deletion should not turn those optional destructive choices
+into an implicit cascade.
+
+The confirmation dialog should use the existing Cancel and destructive-action pattern:
+
+```text
+Delete account?
+
+This deletes your Samebase account and data. Your GitHub repositories,
+Convex projects, Cloudflare Workers, and other external resources keep running.
+
+[ Cancel ] [ Delete account ]
+```
+
+Do not require the user to type their email. That would reintroduce the value the privacy work is
+trying to keep out of routine screenshots, and it does not prove identity. The signed-in session is
+the identity check. A later recent-auth requirement can be added if the auth system gains a shared
+reauthentication flow.
+
+Disable dialog dismissal and both actions while the request is being accepted. After acceptance,
+show durable progress on the Settings page. On failure, show the failing step and Retry. On success,
+clear local app data and return to the signed-out landing surface.
+
+## Why Deletion Needs A Workflow
+
+The accepted vault deletion design already established the relevant constraints: create a durable
+run, gate new work, make bounded progress, retain retry identifiers until external work finishes,
+and delete the owning row last. See
+[`098_VAULT_DELETION_WORKFLOW_SPEC.md`](../specs/098_VAULT_DELETION_WORKFLOW_SPEC.md#L17).
+
+Account deletion has the same failure shape at a larger scope. A user can own many vaults and large
+amounts of staged content. The schema also contains user-scoped credentials, grants, machines,
+threads, workflows, and audit rows. Convex mutations have transaction limits, so a synchronous scan
+and delete is not safe.
+
+Recommended state model:
+
+- Add a new `accountDeletionRuns` table with state, current step, timestamps, user-safe failure, and
+  the minimum retry material needed by the workflow.
+- Add an optional `users.accountDeletion` object containing `runId` and `requestedAt`. Absence means
+  active. This is intentionally optional because Convex Auth creates user rows and because adding an
+  optional field avoids a user backfill.
+- Derive a `role_account_deleting` viewer role that grants only `access_public` and
+  `access_user_preferences`. This keeps the current session able to show progress while every other
+  app action is denied.
+- Invalidate every other auth session when deletion is accepted. Keep the initiating session until
+  the final step so it can observe progress and retry a failure.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active
+    Active --> Deleting: Confirm deletion
+    Deleting --> Failed: A cleanup step fails
+    Failed --> Deleting: Retry
+    Deleting --> Deleted: All cleanup succeeds
+    Deleted --> [*]
+```
+
+Recommended ordering:
+
+1. Insert the deletion run and gate the user in one transaction.
+2. Invalidate other Samebase sessions and reject new non-settings work.
+3. Quiesce or cancel active provisioning, repository-refresh, vault-deletion, and chat work.
+4. Cancel active billing, then revoke access credentials and grants.
+5. Delete each vault's Samebase-local data in bounded batches, reusing the existing vault cleanup
+   registry. Do not request external provider-resource deletion.
+6. Delete account-level chat/component data, preferences, machines, grants, tokens, and remaining
+   user-scoped rows in bounded batches.
+7. Delete auth accounts and their verification data, invalidate the final session, delete the user
+   row last, mark the run complete, and scrub retry-only identifiers.
+
+Provider credential revocation should be attempted before the local secret is deleted. A failed
+upstream revoke must be recorded, but it should not hold the user's local erasure request forever.
+Deleting the local credential still removes Samebase's ability to use it. Billing cancellation is
+different: final deletion must not succeed while Samebase can continue charging the user.
+
+## Data Impact Map
+
+| Data class                                                                          | Current source                                                                       | Deletion action                                                    | Important constraint                                                                                                                                |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User profile and billing link                                                       | [`schema.ts`](../apps/samebase/convex/schema.ts#L329)                                | Delete last                                                        | Keep the row while ownership and progress still need it.                                                                                            |
+| Auth accounts, sessions, refresh tokens, verification codes, verifiers, rate limits | Convex Auth tables included at [`schema.ts`](../apps/samebase/convex/schema.ts#L323) | Invalidate and delete                                              | Convex Auth exposes session invalidation, but no complete account-deletion cascade. Delete verification rows before their account/session parents.  |
+| Provider credentials                                                                | [`schema.ts`](../apps/samebase/convex/schema.ts#L354)                                | Revoke where supported, then delete                                | Current GitHub, Convex, and Cloudflare disconnect mutations mostly delete local rows. Account deletion needs explicit upstream-revocation behavior. |
+| Machines and machine credentials                                                    | [`schema.ts`](../apps/samebase/convex/schema.ts#L359)                                | Revoke and delete                                                  | Registration requests, credentials, and control tokens must be included, not only visible machines.                                                 |
+| Workspace preferences                                                               | [`schema.ts`](../apps/samebase/convex/schema.ts#L382)                                | Delete                                                             | Includes dashboard, workspace-sidebar, branch-filter, resource-link, folder, and graph-layout state.                                                |
+| Vault and file data                                                                 | [`vault deletion cleanup`](../apps/samebase/convex/vault/deletion/cleanup.ts#L220)   | Delete in bounded batches                                          | Reuse the fail-closed registry, including Convex storage objects. External apps remain.                                                             |
+| Provisioning and deletion runs                                                      | [`schema.ts`](../apps/samebase/convex/schema.ts#L631)                                | Quiesce, then delete or anonymize                                  | Component workflow state and app-owned run/event rows need an explicit terminal policy.                                                             |
+| Agent threads and messages                                                          | [`chat/index.ts`](../apps/samebase/convex/chat/index.ts#L155)                        | Delete component and app rows                                      | Deleting only `agentThreadContext` leaves Agent component messages behind. Reuse `deleteAllForThreadIdAsync`.                                       |
+| Production-access requests and audit                                                | [`schema.ts`](../apps/samebase/convex/schema.ts#L852)                                | Delete requests; delete or anonymize audit                         | Vault deletion currently preserves audit. Account deletion needs an accepted retention reason or erasure.                                           |
+| MCP OAuth data                                                                      | [`schema.ts`](../apps/samebase/convex/schema.ts#L943)                                | Revoke grants and delete codes/tokens                              | Some tables lack a user-prefixed index and will need one for bounded cleanup.                                                                       |
+| Browser data                                                                        | [`appBootRecovery.ts`](../apps/samebase/src/lib/appBootRecovery.ts#L155)             | Clear after success                                                | Reuse the existing local-storage, session-storage, IndexedDB, cache, and service-worker reset.                                                      |
+| PostHog                                                                             | [`AppRootClient.tsx`](../apps/samebase/src/components/AppRootClient.tsx#L35)         | Delete or anonymize the identified person and replay/event linkage | Browser reset only stops future use. It does not erase data already sent with the Convex user ID.                                                   |
+| Polar                                                                               | [`billing.ts`](../apps/samebase/convex/billing.ts#L190)                              | Cancel subscription and remove local customer link                 | Financial records may require separate provider/legal retention. Do not claim those records are erased without a defined Polar process.             |
+
+The cleanup implementation should add user-prefixed indexes wherever a table cannot be reached
+through a bounded parent relationship. Known examples include MCP authorization codes, MCP auth
+requests, agent browser handoffs, and auth verifiers. The final implementation should maintain one
+fail-closed registry of every user-owned or user-referencing table so future schema additions must
+declare delete, detach, anonymize, or retain behavior.
+
+## External Resources And Credentials
+
+There are three different actions that the UI must not conflate:
+
+1. **Delete Samebase data:** required for account deletion.
+2. **Remove Samebase's provider access:** required for account deletion. Revoke or delete the stored
+   credential and revoke Samebase-issued grants.
+3. **Delete resources in the user's provider account:** not part of account deletion by default.
+
+The third action remains in the vault deletion flow, where Samebase knows which resources it created
+and the user can make an explicit per-resource choice. Existing repositories and unrelated
+account-level resources must never be inferred or deleted.
+
+## Retention, Processors, And Policy
+
+The current privacy policy accurately says that self-serve account deletion is not implemented in
+[`privacy-policy.md`](../apps/samebase/src/content/privacy-policy.md#L96). That text, the
+stored-data inventory, processor disclosures, and retention section must be updated before this
+feature ships.
+
+The legal product requirement depends on where Samebase operates and which laws apply, so this memo
+is not legal advice. The engineering contract should still be built to support the common baseline:
+
+- EU GDPR Article 17 provides a right to erasure without undue delay in covered cases, with defined
+  exceptions.
+  [Official text](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679)
+- California's CCPA describes a right to delete collected personal information and to direct service
+  providers to do the same, subject to exceptions.
+  [California Attorney General guidance](https://oag.ca.gov/privacy/ccpa)
+
+Before implementation, accept one row-level retention matrix for:
+
+- production-access audit
+- MCP access audit
+- vault and account deletion runs/events
+- billing and transaction records
+- provider and application logs
+- Convex backups
+- PostHog events and session replay
+- model-provider request retention
+
+Default to deleting or irreversibly anonymizing personal identifiers unless a documented security,
+financial, or legal requirement needs the row. Do not retain email, display name, provider secrets,
+workspace content, prompts, or file paths in a deletion receipt. A short-lived receipt may contain a
+random request ID, step outcomes, and timestamps only, with an automatic expiry.
+
+PostHog and Polar need explicit processor-side actions or documented retention exceptions. Clearing
+the browser and deleting the Convex user row does not erase data already sent to those systems.
+
+## Rollout
+
+### Slice 1: Settings And Private Display Name
+
+- Add `/settings` with Profile and Account sections.
+- Add `displayName` and its mutation.
+- Make the right sidebar and prehydration email-free.
+- Add Settings navigation and mobile pane handoff.
+- Keep Delete account disabled or absent until the backend contract exists. Do not ship a control
+  that only deletes the `users` row.
+
+### Slice 2: Account Deletion Foundation
+
+- Add the deletion gate, role, run/event model, and fail-closed user cleanup registry.
+- Add missing indexes and bounded batch functions.
+- Add auth-session invalidation and auth-table cleanup.
+- Reuse vault cleanup and Agent component thread deletion.
+- Add provider-revocation, billing-cancellation, PostHog, and browser-cleanup boundaries.
+- Test failure and retry at every durable step.
+
+### Slice 3: Deletion UI And Policy Cutover
+
+- Enable the confirmation dialog and durable progress/retry page.
+- Update privacy and retention text before enabling the action.
+- Validate a real account with vaults, staged storage, chat history, machines, MCP grants, provider
+  connections, and billing state.
+- Prove that external apps still run after the Samebase account disappears.
+
+## Validation Plan
+
+Profile and privacy:
+
+- backend tests for normalization, clearing, max length, multiline rejection, ownership, pending
+  access, and reactive viewer updates
+- sidebar tests for display-name precedence and zero email in confirmed, temporary, public, and
+  prehydrated markup
+- route test proving a pending-access user can open `/settings`
+- mobile interaction test proving Settings navigation returns to the main pane
+- update 288 px, 160 px, and 96 px right-sidebar screenshots
+- add real `/settings` desktop and iPhone screenshots
+
+Deletion:
+
+- enumerate every user-owned and user-referencing table in a fail-closed test
+- seed more than one cleanup batch for large tables and storage objects
+- prove that new product writes are rejected after the user deletion gate is set
+- prove that all other sessions, machine credentials, MCP tokens, and browser caches stop working
+- inject a failure at every external and local step, then prove retry is idempotent
+- verify no auth account, verification code, component thread/message, provider secret, or PostHog
+  identity remains after success
+- verify active billing is canceled or the workflow remains visibly failed
+- verify GitHub repositories, Convex projects, and Cloudflare Workers were not deleted
+- run focused tests while iterating, then the canonical `pnpm test:visual:linux` acceptance path
+
+## Approval Boundaries
+
+These decisions should be accepted before deletion implementation starts:
+
+1. External provider resources survive account deletion. Recommended: yes.
+2. Active Samebase subscriptions are canceled automatically before final deletion. Recommended: yes.
+3. Audit, billing, backup, analytics, and model-provider retention get explicit durations and
+   anonymization rules. Recommended: delete or anonymize by default, with exceptions documented
+   before launch.
+4. Provider grant revocation failure does not indefinitely block local erasure, but remains visible
+   in the deletion run. Recommended: yes.
+5. Structured email in the MCP authentication-status response is handled as a separate versioned
+   contract change. Recommended: yes; remove email from human-readable text in the profile slice.
