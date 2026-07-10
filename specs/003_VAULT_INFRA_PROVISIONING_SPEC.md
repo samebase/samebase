@@ -47,7 +47,7 @@ partially fails.
 - `apps/samebase/convex/vault/actions.ts`
 - `apps/samebase/convex/vault/dashboard.ts`
 - `apps/samebase/convex/vault/records.ts`
-- `apps/samebase/convex/infraProvisioning.ts`
+- `apps/samebase/convex/appProvisioning/infrastructure.ts`
 - `apps/samebase/convex/vault/convex.ts`
 - `apps/samebase/convex/vault/convexMutations.ts`
 - `apps/samebase/convex/vault/cloudflare.ts`
@@ -181,9 +181,9 @@ Repository default branch:
 
 ### Internal
 
-- `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId })`
-- `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId })`
-- `appProvisioningWorkflow.provisionApp(...)`
+- `appProvisioning.workflow.startVaultInfrastructureProvisioning({ vaultId, runId })`
+- `appProvisioning.workflow.provisionVaultInfrastructure({ vaultId, runId })`
+- `appProvisioning.workflow.provisionApp(...)`
 - `vault/convexMutations.claimConvexDeploymentConnection(...)`
 - `vault/convex.ensureConvexDeploymentConnection(...)`
 - `vault/convexMutations.finishConvexDeploymentConnection(...)`
@@ -196,14 +196,14 @@ Repository default branch:
 - `vault/cloudflareMutations.claimCloudflareConvexBuildAccessWiring(...)`
 - `vault/cloudflare.wireCloudflareWorkerConvexBuildAccess(...)`
 - `vault/cloudflareMutations.finishCloudflareConvexBuildAccessWiring(...)`
-- `infraProvisioning.upsertDomainRecord(...)`
+- `appProvisioning.infrastructure.upsertDomainRecord(...)`
 
 ## Provisioning Flow
 
 ```mermaid
 sequenceDiagram
   participant VA as "api.vault.actions.createRepository"
-  participant WF as "appProvisioningWorkflow"
+  participant WF as "appProvisioning.workflow"
   participant CVXB as "Convex block"
   participant CFB as "Cloudflare blocks"
   participant CVX as "Convex Mgmt API"

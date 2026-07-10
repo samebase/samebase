@@ -321,9 +321,9 @@ async function startConvexDeploymentConnectionOrFail(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.appProvisioningWorkflow.startConvexDeploymentConnection, args);
+    await ctx.runMutation(internal.appProvisioning.workflow.startConvexDeploymentConnection, args);
   } catch (error) {
-    await ctx.runMutation(internal.infraProvisioning.markWorkflowStartupFailed, {
+    await ctx.runMutation(internal.appProvisioning.infrastructure.markWorkflowStartupFailed, {
       runId: args.runId,
       message: toErrorMessage(error),
     });
@@ -416,7 +416,7 @@ export async function connectExistingConvexProjectForUser(
     userId,
     appRoot,
   });
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
     userId,
     vaultId: args.vaultId,
     trigger: "connect_convex_deployment",
@@ -469,7 +469,7 @@ export const createProject = action({
       userId,
       appRoot,
     });
-    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
       userId,
       vaultId: args.vaultId,
       trigger: "connect_convex_deployment",

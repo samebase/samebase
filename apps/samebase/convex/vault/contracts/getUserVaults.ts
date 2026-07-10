@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 
-import { vAppProvisioningRunStep } from "../../schema";
+import { vAppProvisioningRunStep } from "../../appProvisioning/model";
 import { vTreeRefreshFailureKind } from "../model";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";

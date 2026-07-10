@@ -1,22 +1,22 @@
 import { v, type Infer } from "convex/values";
 import { vResultValidator, type RunResult } from "@convex-dev/workpool";
 import { WorkflowManager, type WorkflowCtx } from "@convex-dev/workflow";
-import { components, internal } from "./_generated/api";
-import { internalMutation, internalQuery } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { toErrorMessage } from "./jsonUtils";
-import type { AppProvisioningStep } from "./schema";
+import { components, internal } from "../_generated/api";
+import { internalMutation, internalQuery } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { toErrorMessage } from "../jsonUtils";
+import type { AppProvisioningStep } from "./model";
 import {
   isVaultProviderUpstreamPresent,
   vVaultCloudflareOrigin,
   vVaultConvexConnectionTarget,
-} from "./vault/model";
+} from "../vault/model";
 import {
   claimVaultInfrastructureOwnership,
   getVaultInfrastructureOwnership,
   isActiveVaultInfrastructureOwner,
-} from "./vault/infrastructureOwnership";
-import { isLiveConnectedVault } from "./vault/state";
+} from "../vault/infrastructureOwnership";
+import { isLiveConnectedVault } from "../vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
 const { boolean, id, null: nullValue, object, string, union } = v;
@@ -183,7 +183,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       runId: args.runId,
     });
     if (claim.state === "blocked") {
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId: args.runId,
         step: "claim_infra",
         level: "warn",
@@ -194,7 +194,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
     }
 
     if (claim.supersededRunId) {
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId: claim.supersededRunId,
         step: "claim_infra",
         level: "warn",
@@ -203,7 +203,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       });
     }
 
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
@@ -255,7 +255,7 @@ async function readCurrentComposedInfrastructureState(
   },
 ): Promise<ComposedInfrastructureState> {
   return await step.runQuery(
-    internal.appProvisioningWorkflow.readComposedInfrastructureState,
+    internal.appProvisioning.workflow.readComposedInfrastructureState,
     {
       vaultId: args.vaultId,
       userId: args.userId,
@@ -274,7 +274,7 @@ async function markComposedInfrastructureRunFailed(
 ): Promise<void> {
   await step
     .runMutation(
-      internal.infraProvisioning.markWorkflowProvisioningFailed,
+      internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed,
       {
         runId: args.runId,
         workflowId: step.workflowId,
@@ -299,7 +299,7 @@ async function appendComposedInfrastructureParentEvent(
   },
 ): Promise<void> {
   await step.runMutation(
-    internal.appProvisioningRuns.appendRunEvent,
+    internal.appProvisioning.runs.appendRunEvent,
     {
       runId: args.runId,
       step: args.step,
@@ -502,7 +502,7 @@ async function recordComposedCloudflareDefaultDomain(
   const workersDevUrl = args.state.cloudflare.workersDevUrl;
   if (!workersDevUrl) {
     await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
+      internal.appProvisioning.runs.appendRunEvent,
       {
         runId: args.parentRunId,
         step: "record_domains",
@@ -516,7 +516,7 @@ async function recordComposedCloudflareDefaultDomain(
   }
 
   const { applied } = await step.runMutation(
-    internal.infraProvisioning.upsertDomainRecord,
+    internal.appProvisioning.infrastructure.upsertDomainRecord,
     {
       vaultId: args.vaultId,
       branch: args.defaultBranch,
@@ -531,7 +531,7 @@ async function recordComposedCloudflareDefaultDomain(
     throw new Error("Could not record Cloudflare Worker default domain.");
   }
   await step.runMutation(
-    internal.appProvisioningRuns.appendRunEvent,
+    internal.appProvisioning.runs.appendRunEvent,
     {
       runId: args.parentRunId,
       step: "record_domains",
@@ -558,7 +558,7 @@ async function runComposedInfrastructure(
     name: "read_infra_target",
   });
   const { claimed } = await step.runMutation(
-    internal.appProvisioningWorkflow.claimComposedInfrastructureProvisioning,
+    internal.appProvisioning.workflow.claimComposedInfrastructureProvisioning,
     {
       vaultId: args.vaultId,
       runId: args.parentRunId,
@@ -653,7 +653,7 @@ async function runComposedInfrastructure(
     state: finalState,
   });
   await step.runMutation(
-    internal.appProvisioningWorkflow.finishComposedInfrastructureProvisioning,
+    internal.appProvisioning.workflow.finishComposedInfrastructureProvisioning,
     {
       vaultId: args.vaultId,
       runId: args.parentRunId,
@@ -662,7 +662,7 @@ async function runComposedInfrastructure(
     { name: "finish_composed_infrastructure_ownership" },
   );
   await step.runMutation(
-    internal.appProvisioningRuns.appendRunEvent,
+    internal.appProvisioning.runs.appendRunEvent,
     {
       runId: args.parentRunId,
       step: "finish",
@@ -682,7 +682,7 @@ export const provisionVaultInfrastructure = workflow.define({
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
     const retryContext: ComposedInfrastructureRetryContext = await step.runQuery(
-      internal.appProvisioningWorkflow.readComposedInfrastructureRetryContext,
+      internal.appProvisioning.workflow.readComposedInfrastructureRetryContext,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -713,7 +713,7 @@ export const provisionApp = workflow.define({
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
     await step.runAction(
-      internal.appProvisioningWorkflowActions.validateCreateAppConnections,
+      internal.appProvisioning.sourceActions.validateCreateAppConnections,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -724,7 +724,7 @@ export const provisionApp = workflow.define({
       { name: "validate_connections", retry: false },
     );
     const repository = await step.runAction(
-      internal.appProvisioningWorkflowActions.createGitHubRepository,
+      internal.appProvisioning.sourceActions.createGitHubRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -737,7 +737,7 @@ export const provisionApp = workflow.define({
       { name: "create_github_repo", retry: false },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions.createVaultForRepository,
+      internal.appProvisioning.sourceActions.createVaultForRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -751,7 +751,7 @@ export const provisionApp = workflow.define({
       { name: "connect_github", retry: false },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions.seedStarterRepository,
+      internal.appProvisioning.sourceActions.seedStarterRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -763,7 +763,7 @@ export const provisionApp = workflow.define({
       { name: "seed_starter", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions.syncVaultTreeForRepository,
+      internal.appProvisioning.sourceActions.syncVaultTreeForRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -796,7 +796,7 @@ export const connectExistingRepository = workflow.define({
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
     await step.runAction(
-      internal.appProvisioningWorkflowActions.validateExistingRepositoryConnection,
+      internal.appProvisioning.sourceActions.validateExistingRepositoryConnection,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -807,7 +807,7 @@ export const connectExistingRepository = workflow.define({
       { name: "validate_connections", retry: false },
     );
     const repository = await step.runAction(
-      internal.appProvisioningWorkflowActions.fetchExistingGitHubRepository,
+      internal.appProvisioning.sourceActions.fetchExistingGitHubRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -818,7 +818,7 @@ export const connectExistingRepository = workflow.define({
       { name: "fetch_github_repo", retry: false },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions.connectExistingRepositoryVault,
+      internal.appProvisioning.sourceActions.connectExistingRepositoryVault,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -832,7 +832,7 @@ export const connectExistingRepository = workflow.define({
       { name: "connect_github", retry: false },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions.syncVaultTreeForRepository,
+      internal.appProvisioning.sourceActions.syncVaultTreeForRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -844,7 +844,7 @@ export const connectExistingRepository = workflow.define({
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions.finishExistingRepositoryConnection,
+      internal.appProvisioning.sourceActions.finishExistingRepositoryConnection,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -879,7 +879,7 @@ export const connectCloudflareWorker = workflow.define({
     }
 
     await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
+      internal.appProvisioning.runs.appendRunEvent,
       {
         runId: args.runId,
         step: "attach_worker",
@@ -899,7 +899,7 @@ export const connectCloudflareWorker = workflow.define({
     let buildRunId: typeof args.runId | null = null;
     if (args.origin === "provisioned") {
       buildRunId = await step.runMutation(
-        internal.appProvisioningRuns.createForVault,
+        internal.appProvisioning.runs.createForVault,
         {
           vaultId: args.vaultId,
           userId: args.userId,
@@ -922,7 +922,7 @@ export const connectCloudflareWorker = workflow.define({
     } catch (error) {
       if (buildRunId) {
         await step.runMutation(
-          internal.infraProvisioning.markWorkflowStartupFailed,
+          internal.appProvisioning.infrastructure.markWorkflowStartupFailed,
           {
             runId: buildRunId,
             message: "Cloudflare Worker connection did not finish.",
@@ -938,7 +938,7 @@ export const connectCloudflareWorker = workflow.define({
     }
     try {
       await step.runMutation(
-        internal.appProvisioningWorkflow.startCloudflareBuildsWiring,
+        internal.appProvisioning.workflow.startCloudflareBuildsWiring,
         {
           vaultId: args.vaultId,
           runId: buildRunId,
@@ -951,7 +951,7 @@ export const connectCloudflareWorker = workflow.define({
       if (buildRunId) {
         await step
           .runMutation(
-            internal.infraProvisioning.markWorkflowStartupFailed,
+            internal.appProvisioning.infrastructure.markWorkflowStartupFailed,
             {
               runId: buildRunId,
               message: toErrorMessage(error),
@@ -996,7 +996,7 @@ export const wireCloudflareBuilds = workflow.define({
     }
 
     await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
+      internal.appProvisioning.runs.appendRunEvent,
       {
         runId: args.runId,
         step: "wire_builds",
@@ -1026,7 +1026,7 @@ export const wireCloudflareBuilds = workflow.define({
 
     try {
       await step.runMutation(
-        internal.appProvisioningWorkflow.startCloudflareConvexBuildAccessWiring,
+        internal.appProvisioning.workflow.startCloudflareConvexBuildAccessWiring,
         {
           vaultId: args.vaultId,
           runId: convexBuildAccessRunId,
@@ -1038,7 +1038,7 @@ export const wireCloudflareBuilds = workflow.define({
     } catch (error) {
       await step
         .runMutation(
-          internal.infraProvisioning.markWorkflowStartupFailed,
+          internal.appProvisioning.infrastructure.markWorkflowStartupFailed,
           {
             runId: convexBuildAccessRunId,
             message: toErrorMessage(error),
@@ -1082,7 +1082,7 @@ export const wireCloudflareConvexBuildAccess = workflow.define({
     }
 
     await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
+      internal.appProvisioning.runs.appendRunEvent,
       {
         runId: args.runId,
         step: "wire_convex_build_access",
@@ -1130,7 +1130,7 @@ export const verifyCloudflareInfrastructure = workflow.define({
     }
 
     await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
+      internal.appProvisioning.runs.appendRunEvent,
       {
         runId: args.runId,
         step: "verify_infrastructure",
@@ -1187,7 +1187,7 @@ export const connectConvexDeployment = workflow.define({
     }
 
     await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
+      internal.appProvisioning.runs.appendRunEvent,
       {
         runId: args.runId,
         step: "attach_convex",
@@ -1230,11 +1230,11 @@ export const startCreateAppProvisioning = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.provisionApp,
+      internal.appProvisioning.workflow.provisionApp,
       args,
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1245,7 +1245,7 @@ export const startCreateAppProvisioning = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "validate_connections",
       level: "info",
@@ -1269,11 +1269,11 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.connectExistingRepository,
+      internal.appProvisioning.workflow.connectExistingRepository,
       args,
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1284,7 +1284,7 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "validate_connections",
       level: "info",
@@ -1305,14 +1305,14 @@ export const startVaultInfrastructureProvisioning = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.provisionVaultInfrastructure,
+      internal.appProvisioning.workflow.provisionVaultInfrastructure,
       {
         vaultId: args.vaultId,
         runId: args.runId,
       },
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1323,7 +1323,7 @@ export const startVaultInfrastructureProvisioning = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
@@ -1349,11 +1349,11 @@ export const startCloudflareWorkerConnection = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.connectCloudflareWorker,
+      internal.appProvisioning.workflow.connectCloudflareWorker,
       args,
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1364,7 +1364,7 @@ export const startCloudflareWorkerConnection = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
@@ -1387,11 +1387,11 @@ export const startCloudflareBuildsWiring = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.wireCloudflareBuilds,
+      internal.appProvisioning.workflow.wireCloudflareBuilds,
       args,
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1402,7 +1402,7 @@ export const startCloudflareBuildsWiring = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
@@ -1425,11 +1425,11 @@ export const startCloudflareConvexBuildAccessWiring = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.wireCloudflareConvexBuildAccess,
+      internal.appProvisioning.workflow.wireCloudflareConvexBuildAccess,
       args,
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1440,7 +1440,7 @@ export const startCloudflareConvexBuildAccessWiring = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
@@ -1463,11 +1463,11 @@ export const startCloudflareInfrastructureVerification = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.verifyCloudflareInfrastructure,
+      internal.appProvisioning.workflow.verifyCloudflareInfrastructure,
       args,
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1478,7 +1478,7 @@ export const startCloudflareInfrastructureVerification = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
@@ -1501,11 +1501,11 @@ export const startConvexDeploymentConnection = internalMutation({
   handler: async (ctx, args): Promise<string> => {
     const workflowId: string = await workflow.start(
       ctx,
-      internal.appProvisioningWorkflow.connectConvexDeployment,
+      internal.appProvisioning.workflow.connectConvexDeployment,
       args,
       {
         startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioning.workflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -1516,7 +1516,7 @@ export const startConvexDeploymentConnection = internalMutation({
       workflowId,
       updatedAt: Date.now(),
     });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
@@ -1560,7 +1560,7 @@ export const handleProvisioningWorkflowComplete = internalMutation({
       return null;
     }
 
-    await ctx.runMutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await ctx.runMutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: args.context.runId,
       workflowId: args.workflowId,
       message: toErrorMessage(error),

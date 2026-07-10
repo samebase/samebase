@@ -7,7 +7,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
-import type { AppProvisioningStep } from "../schema";
+import type { AppProvisioningStep } from "../appProvisioning/model";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
@@ -276,7 +276,7 @@ async function appendCloudflareWorkerConnectionEvent(
     state: "unchanged" | "queued" | "running" | "succeeded" | "failed" | "canceled";
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, args);
+  await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, args);
 }
 
 async function cancelSupersededCloudflareWorkerConnectionRun(
@@ -1126,7 +1126,7 @@ export const finishCloudflareBuildsWiring = internalMutation({
       worker.deployment.convexBuildAccess.state !== "wired";
     const convexBuildAccessRunId: Id<"appProvisioningRuns"> | null =
       needsConvexBuildAccess && isStandaloneCloudflareBuildsWiringRun(run)
-        ? await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+        ? await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
             vaultId: args.vaultId,
             userId: args.userId,
             trigger: "wire_convex_build_access",

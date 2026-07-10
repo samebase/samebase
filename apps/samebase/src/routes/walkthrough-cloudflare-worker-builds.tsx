@@ -34,23 +34,23 @@ const entryPaths = [
       'The connectCloudflareWorker workflow creates a wire_builds run only when args.origin === "provisioned". If that app root has Convex, wire_builds creates the follow-on wire_convex_build_access run.',
     refs: [
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 303,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 860,
         symbol: "connectCloudflareWorker",
       },
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 329,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 900,
         symbol: 'if (args.origin === "provisioned")',
       },
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 335,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 906,
         symbol: 'createForVault({ trigger: "wire_builds" })',
       },
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 370,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 1379,
         symbol: "startCloudflareBuildsWiring",
       },
     ],
@@ -99,13 +99,13 @@ const runSteps = [
     why: "startCloudflareBuildsWiring starts wireCloudflareBuilds asynchronously and writes the workflow id back to the appProvisioningRuns row.",
     refs: [
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 725,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 1379,
         symbol: "startCloudflareBuildsWiring",
       },
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 736,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 1390,
         symbol: "workflow.start(...wireCloudflareBuilds...)",
       },
     ],
@@ -115,8 +115,8 @@ const runSteps = [
     why: "claimCloudflareBuildsWiring checks that an attached Worker exists, exits if Builds are already connected, then claims vaultInfrastructureOwnership for this run.",
     refs: [
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 419,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 980,
         symbol: "wireCloudflareBuilds workflow",
       },
       {
@@ -225,8 +225,8 @@ const runSteps = [
         symbol: "needsConvexBuildAccess",
       },
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 447,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 1417,
         symbol: "startCloudflareConvexBuildAccessWiring",
       },
     ],
@@ -239,8 +239,8 @@ const convexAccessSteps = [
     why: "claimCloudflareConvexBuildAccessWiring requires three persisted facts: Convex deployment exists, Cloudflare Worker exists, and Workers Builds are connected.",
     refs: [
       {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 484,
+        file: "apps/samebase/convex/appProvisioning/workflow.ts",
+        line: 1066,
         symbol: "wireCloudflareConvexBuildAccess workflow",
       },
       {
@@ -562,13 +562,13 @@ const failureRefs = [
       "USER_FACING_PROVISIONING_ERROR_MARKERS includes the Cloudflare/GitHub messages that should be shown instead of a generic provisioning failure.",
     refs: [
       {
-        file: "apps/samebase/convex/infraProvisioning.ts",
-        line: 1883,
+        file: "apps/samebase/convex/appProvisioning/infrastructure.ts",
+        line: 563,
         symbol: "USER_FACING_PROVISIONING_ERROR_MARKERS",
       },
       {
-        file: "apps/samebase/convex/infraProvisioning.ts",
-        line: 1924,
+        file: "apps/samebase/convex/appProvisioning/infrastructure.ts",
+        line: 614,
         symbol: "marker extraction",
       },
     ],
@@ -579,18 +579,18 @@ const failureRefs = [
       "markWorkflowProvisioningFailed handles connect_cloudflare_worker, wire_builds, and wire_convex_build_access on the Cloudflare ownership path, then logs the matching failure event.",
     refs: [
       {
-        file: "apps/samebase/convex/infraProvisioning.ts",
-        line: 2129,
+        file: "apps/samebase/convex/appProvisioning/infrastructure.ts",
+        line: 731,
         symbol: "Cloudflare failure branch",
       },
       {
-        file: "apps/samebase/convex/infraProvisioning.ts",
-        line: 2145,
+        file: "apps/samebase/convex/appProvisioning/infrastructure.ts",
+        line: 751,
         symbol: "cloudflare:convex_build_access_wiring:failed",
       },
       {
-        file: "apps/samebase/convex/infraProvisioning.test.ts",
-        line: 961,
+        file: "apps/samebase/convex/appProvisioning/infrastructure.test.ts",
+        line: 160,
         symbol: "visible guard error test",
       },
     ],

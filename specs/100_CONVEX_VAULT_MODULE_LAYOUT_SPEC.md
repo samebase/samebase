@@ -191,7 +191,8 @@ Move the narrow vault cluster. Do not move every file that mentions a vault ID.
 Keep these domains outside `vault/`:
 
 - `fileStaging.ts` and `fileStagingActions.ts`: editor staging and Git commit mechanics
-- `infraProvisioning.ts` and `infraRead*.ts`: provider provisioning and production-read mechanics
+- `appProvisioning/infrastructure.ts` and `infraRead*.ts`: provider provisioning and production-read
+  mechanics
 - `appProvisioningWorkflow*.ts` and `appProvisioningRuns.ts`: app creation workflow orchestration
 - `chat/`, `agent/`, and `toolRuntime/`: agent and approval surfaces
 - `codespaces/`: GitHub Codespaces lifecycle

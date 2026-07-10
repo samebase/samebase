@@ -436,7 +436,7 @@ describe("vault Convex deployment connection mutations", () => {
     });
 
     await expect(
-      t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
         runId: ids.runId,
         workflowId: "workflow-1",
         message: "Convex deployment lookup failed.",

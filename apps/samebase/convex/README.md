@@ -5,10 +5,10 @@ chat orchestration, and infrastructure provisioning.
 
 ## Start Here
 
-1. `schema.ts` - full data model and indexes
+1. `schema.ts` - table registry; extracted domain models live beside their modules
 2. `vault/dashboard.ts` - vault dashboard queries and infrastructure summary
 3. `vault/actions.ts` - repository connect/create/delete + infra retry actions
-4. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
+4. `appProvisioning/` - provisioning model, event log, workflows, and provider infrastructure
 5. `chat/index.ts` + `chat/actions.ts` - AI Fab chat lifecycle + approvals
 6. `codespaces/index.ts` + `codespaces/vaultIntegration.ts` - Codespaces lifecycle integration
 
@@ -70,7 +70,7 @@ flowchart LR
 
 ### Infrastructure Provisioning
 
-- Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
+- Entrypoint: `internal.appProvisioning.workflow.startVaultInfrastructureProvisioning`
 - State tracking: `vaultInfrastructureTargets`, `vaultInfrastructureOwnership`,
   `vaultConvexDeployments`, and `vaultCloudflareWorkers`
 - Domain tracking: `vaultDomains` table

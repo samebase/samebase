@@ -94,7 +94,7 @@ checked inside the workflow.
 
 ### 2. Convex Workflow Orchestrates Creation
 
-`apps/samebase/convex/appProvisioningWorkflow.ts:provisionApp` runs these steps:
+`apps/samebase/convex/appProvisioning/workflow.ts:provisionApp` runs these steps:
 
 1. `validate_connections`
 2. `create_github_repo`
@@ -130,8 +130,8 @@ or whatever final Workers branch replaces it.
 
 ### 4. Convex Production And Preview Deployments Are Created First
 
-`apps/samebase/convex/infraProvisioning.ts:ensureCloudflareInfrastructure` requires the production
-Convex project/deployment to exist before Cloudflare provisioning.
+`apps/samebase/convex/appProvisioning/infrastructure.ts:ensureCloudflareInfrastructure` requires the
+production Convex project/deployment to exist before Cloudflare provisioning.
 
 During the Cloudflare step, Samebase also ensures a Convex preview deployment and creates two deploy
 keys:

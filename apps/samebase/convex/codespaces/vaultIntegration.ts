@@ -49,7 +49,7 @@ export const createVaultWithCodespace = action({
     );
 
     try {
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId,
         step: "validate_connections",
         level: "info",
@@ -62,7 +62,7 @@ export const createVaultWithCodespace = action({
         auth: githubAccessToken,
       });
 
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId,
         step: "fetch_github_repo",
         level: "info",
@@ -89,11 +89,11 @@ export const createVaultWithCodespace = action({
       });
       const commitSha = branchData.commit.sha;
       const repositoryFullName = `${repo.data.owner.login}/${repo.data.name}`;
-      await ctx.runMutation(internal.appProvisioningRuns.recordRepositoryFullName, {
+      await ctx.runMutation(internal.appProvisioning.runs.recordRepositoryFullName, {
         runId,
         repositoryFullName,
       });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId,
         step: "fetch_github_repo",
         level: "info",
@@ -111,7 +111,7 @@ export const createVaultWithCodespace = action({
         defaultBranch,
         visibility: repo.data.private ? "private" : "public",
       });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId,
         step: "connect_github",
         level: "info",
@@ -136,7 +136,7 @@ export const createVaultWithCodespace = action({
         },
         commitSHA: commitSha,
       });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId,
         step: "sync_tree",
         level: "info",
@@ -154,7 +154,7 @@ export const createVaultWithCodespace = action({
         branch,
         commitSha,
       });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
         runId,
         step: "finish",
         level: "info",
@@ -168,11 +168,14 @@ export const createVaultWithCodespace = action({
       };
     } catch (error) {
       try {
-        await ctx.runMutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
-          runId,
-          workflowId: "codespace-first",
-          message: toErrorMessage(error),
-        });
+        await ctx.runMutation(
+          internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed,
+          {
+            runId,
+            workflowId: "codespace-first",
+            message: toErrorMessage(error),
+          },
+        );
       } catch (markError) {
         console.error("codespaces:vault:create_mark_failed_error", {
           runId,

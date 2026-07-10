@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { internal } from "../_generated/api";
+import { makeConvexTest } from "../test.setup";
 
 describe("app provisioning workflow actions", () => {
   it("allows free approved members to validate app creation when providers are connected", async () => {
@@ -66,7 +66,7 @@ describe("app provisioning workflow actions", () => {
     );
 
     await expect(
-      t.action(internal.appProvisioningWorkflowActions.validateCreateAppConnections, {
+      t.action(internal.appProvisioning.sourceActions.validateCreateAppConnections, {
         vaultId,
         runId,
         userId,

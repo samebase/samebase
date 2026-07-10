@@ -1,26 +1,29 @@
 import { v } from "convex/values";
-import { internalMutation, type ActionCtx, type MutationCtx } from "./_generated/server";
+import { internalMutation, type ActionCtx, type MutationCtx } from "../_generated/server";
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "convex/server";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
 import {
   isConvexCloudDeployment,
   requestConvexManagementApi,
   type ConvexCloudDeployment,
-} from "./convexManagementApi/client";
-import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
-import type { components, PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
+} from "../convexManagementApi/client";
+import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
+import type {
+  components,
+  PlatformDeploymentResponse,
+} from "../convexManagementApi/types.generated";
 import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
-} from "./cloudflareResources";
-import type { AppProvisioningStep } from "./schema";
+} from "../cloudflareResources";
+import type { AppProvisioningStep } from "./model";
 import {
   getVaultInfrastructureOwnership,
   isActiveVaultInfrastructureOwner,
-} from "./vault/infrastructureOwnership";
-import { isLiveConnectedVault, isSamebaseManagedVault } from "./vault/state";
-import type { ProviderApiCallRecorder } from "./providerApiLog";
+} from "../vault/infrastructureOwnership";
+import { isLiveConnectedVault, isSamebaseManagedVault } from "../vault/state";
+import type { ProviderApiCallRecorder } from "../providerApiLog";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
   components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
@@ -316,7 +319,7 @@ async function appendProvisioningRunEvent(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: args.step,
       level: args.level,
@@ -545,7 +548,7 @@ async function recordWorkflowRunFailure(
     updatedAt: args.now,
     completedAt: args.now,
   });
-  await ctx.runMutation(internal.appProvisioningEvents.append, {
+  await ctx.runMutation(internal.appProvisioning.events.append, {
     userId: args.run.userId,
     vaultId: args.run.vaultId,
     repositoryFullName: args.run.repositoryFullName,

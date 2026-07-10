@@ -1,14 +1,14 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import {
   vAppProvisioningEventLevel,
   vAppProvisioningRunState,
   vAppProvisioningRunTrigger,
   vAppProvisioningStep,
-} from "./schema";
-import { assertConnectedVault } from "./vault/state";
+} from "./model";
+import { assertConnectedVault } from "../vault/state";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -119,7 +119,7 @@ export const appendRunEvent = internalMutation({
     }
 
     const now = Date.now();
-    await ctx.runMutation(internal.appProvisioningEvents.append, {
+    await ctx.runMutation(internal.appProvisioning.events.append, {
       userId: run.userId,
       vaultId: run.vaultId,
       repositoryFullName: run.repositoryFullName,

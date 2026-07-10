@@ -43,7 +43,7 @@ import {
   ConvexProvisioningConnectionRequiredError,
   ensureConvexPreviewResources,
   resolveConvexProvisioningConnection,
-} from "../infraProvisioning";
+} from "../appProvisioning/infrastructure";
 import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
 import {
   ConvexManagementApiError,
@@ -56,7 +56,7 @@ import {
   type VaultCloudflareBuildConfig,
   type VaultCloudflareOrigin,
 } from "./model";
-import type { AppProvisioningStep } from "../schema";
+import type { AppProvisioningStep } from "../appProvisioning/model";
 import {
   cloudflareListAccountsContract,
   vCloudflareAccountResult,
@@ -395,7 +395,7 @@ async function markCloudflareWorkerConnectionStartupFailed(
     error: unknown;
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.infraProvisioning.markWorkflowStartupFailed, {
+  await ctx.runMutation(internal.appProvisioning.infrastructure.markWorkflowStartupFailed, {
     runId: args.runId,
     message: toErrorMessage(args.error),
   });
@@ -410,7 +410,7 @@ async function appendProviderApiCallEvent(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, {
       runId: args.runId,
       step: args.step,
       level: "info",
@@ -456,7 +456,7 @@ async function startCloudflareWorkerConnectionOrFail(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.appProvisioningWorkflow.startCloudflareWorkerConnection, args);
+    await ctx.runMutation(internal.appProvisioning.workflow.startCloudflareWorkerConnection, args);
   } catch (error) {
     await markCloudflareWorkerConnectionStartupFailed(ctx, {
       runId: args.runId,
@@ -476,7 +476,7 @@ async function startCloudflareBuildsWiringOrFail(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.appProvisioningWorkflow.startCloudflareBuildsWiring, args);
+    await ctx.runMutation(internal.appProvisioning.workflow.startCloudflareBuildsWiring, args);
   } catch (error) {
     await markCloudflareWorkerConnectionStartupFailed(ctx, {
       runId: args.runId,
@@ -497,7 +497,7 @@ async function startCloudflareConvexBuildAccessWiringOrFail(
 ): Promise<void> {
   try {
     await ctx.runMutation(
-      internal.appProvisioningWorkflow.startCloudflareConvexBuildAccessWiring,
+      internal.appProvisioning.workflow.startCloudflareConvexBuildAccessWiring,
       args,
     );
   } catch (error) {
@@ -520,7 +520,7 @@ async function startCloudflareInfrastructureVerificationOrFail(
 ): Promise<void> {
   try {
     await ctx.runMutation(
-      internal.appProvisioningWorkflow.startCloudflareInfrastructureVerification,
+      internal.appProvisioning.workflow.startCloudflareInfrastructureVerification,
       args,
     );
   } catch (error) {
@@ -832,7 +832,7 @@ export async function connectExistingCloudflareWorkerForUser(
     expectedRepoId: discoveryContext.ghRepoId,
     expectedRootDirectory: discoveryContext.expectedRootDirectory,
   });
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
     userId,
     vaultId: args.vaultId,
     trigger: "connect_cloudflare_worker",
@@ -889,7 +889,7 @@ export const createWorker = action({
       userId,
       appRoot,
     });
-    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+    const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
       userId,
       vaultId: args.vaultId,
       trigger: "connect_cloudflare_worker",
@@ -914,7 +914,7 @@ export async function wireCloudflareBuildsForUser(
 ): Promise<null> {
   const userId = args.userId;
   const appRoot = normalizeVaultAppRoot(args.appRoot);
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
     userId,
     vaultId: args.vaultId,
     trigger: "wire_builds",
@@ -948,7 +948,7 @@ export async function wireCloudflareConvexBuildAccessForUser(
 ): Promise<null> {
   const userId = args.userId;
   const appRoot = normalizeVaultAppRoot(args.appRoot);
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
     userId,
     vaultId: args.vaultId,
     trigger: "wire_convex_build_access",
@@ -990,7 +990,7 @@ export async function verifyCloudflareInfrastructureForUser(
       appRoot,
     },
   );
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
     userId,
     vaultId: args.vaultId,
     trigger: "verify_infrastructure",

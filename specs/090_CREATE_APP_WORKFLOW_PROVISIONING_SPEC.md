@@ -32,9 +32,9 @@ migration history; use `096` for the current create-app state model.
 
 1. validates local repo name shape, selected GitHub owner, and GitHub connection presence
 2. inserts the initializing vault and app provisioning run before GitHub repository creation
-3. starts `internal.appProvisioningWorkflow.provisionApp`
+3. starts `internal.appProvisioning.workflow.provisionApp`
 
-`appProvisioningWorkflow.provisionApp` currently:
+`appProvisioning.workflow.provisionApp` currently:
 
 1. validates provider connections
 2. creates the GitHub repository for the selected user/org owner
@@ -50,9 +50,9 @@ migration history; use `096` for the current create-app state model.
 
 1. validates GitHub, Convex, and Cloudflare provider connections
 2. creates an `appProvisioningRuns` row with explicit pre-vault target state
-3. starts `internal.appProvisioningWorkflow.provisionApp`
+3. starts `internal.appProvisioning.workflow.provisionApp`
 
-`appProvisioningWorkflow.provisionApp` previously:
+`appProvisioning.workflow.provisionApp` previously:
 
 1. validates provider connections
 2. creates the GitHub repository
@@ -62,7 +62,7 @@ migration history; use `096` for the current create-app state model.
 6. links the run and early events to the vault
 7. runs the post-vault infrastructure steps
 
-`appProvisioningWorkflow.provisionVaultInfrastructure` previously:
+`appProvisioning.workflow.provisionVaultInfrastructure` previously:
 
 1. claims a vault-level provisioning lock
 2. creates or reuses Convex project/deployment resources
@@ -295,7 +295,7 @@ Phase 2: Workflow component install and post-vault infra workflow.
    require it for new provisioning event writes.
 4. Add `vaultInfrastructureOwnership` so retries and stale in-flight steps have a durable owner to
    check before provider writes.
-5. Create `appProvisioningWorkflow.ts`.
+5. Create `appProvisioning/workflow.ts`.
 6. Split the current infra action into a deterministic workflow handler plus narrow idempotent step
    functions. Provider side effects, env reads, and network calls must stay inside step actions, not
    in the workflow handler.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveWorkflowCompletionError } from "./appProvisioningWorkflow";
+import { resolveWorkflowCompletionError } from "./workflow";
 
 describe("resolveWorkflowCompletionError", () => {
   it("keeps successful workflow completion error-free", () => {

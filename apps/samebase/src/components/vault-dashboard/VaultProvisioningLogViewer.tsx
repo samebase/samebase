@@ -162,7 +162,7 @@ function ProvisioningLogApiEventViewer(props: {
 }
 
 export function VaultProvisioningLog(props: { repositoryFullName: string; vaultId: Id<"vaults"> }) {
-  const events = useQuery(api.appProvisioningEvents.listForVault, {
+  const events = useQuery(api.appProvisioning.events.listForVault, {
     vaultId: props.vaultId,
   });
   if (!events || events.length === 0) {

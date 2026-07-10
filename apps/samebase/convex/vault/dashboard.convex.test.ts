@@ -344,7 +344,7 @@ describe("vault dashboard Convex contract", () => {
       return { runId, userId, vaultId };
     });
 
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: ids.runId,
       workflowId: "workflow-1",
       message: "GitHub tree sync failed.",

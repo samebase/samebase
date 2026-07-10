@@ -7,7 +7,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
-import type { AppProvisioningStep } from "../schema";
+import type { AppProvisioningStep } from "../appProvisioning/model";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
   isVaultProviderUpstreamPresent,
@@ -143,7 +143,7 @@ async function appendConvexDeploymentConnectionEvent(
     state: "unchanged" | "queued" | "running" | "succeeded" | "failed" | "canceled";
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, args);
+  await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, args);
 }
 
 async function cancelSupersededConvexDeploymentConnectionRun(

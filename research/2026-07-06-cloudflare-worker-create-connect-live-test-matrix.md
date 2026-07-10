@@ -40,7 +40,7 @@ PLAYWRIGHT_LINUX_WORKERS=1 pnpm test:visual:linux -- apps/samebase/e2e/vault-das
 ```
 
 ```sh
-pnpm exec vp test apps/samebase/convex/cloudflareResources.test.ts apps/samebase/convex/vault/cloudflareMutations.convex.test.ts apps/samebase/convex/appProvisioningWorkflow.convex.test.ts apps/samebase/convex/vault/dashboard.convex.test.ts apps/samebase/src/components/vault-dashboard/VaultDashboard.test.tsx apps/samebase/src/components/vault-dashboard/VaultResourceRail.test.tsx apps/samebase/shared/appResourceNames.test.ts
+pnpm exec vp test apps/samebase/convex/cloudflareResources.test.ts apps/samebase/convex/vault/cloudflareMutations.convex.test.ts apps/samebase/convex/appProvisioning/workflow.convex.test.ts apps/samebase/convex/vault/dashboard.convex.test.ts apps/samebase/src/components/vault-dashboard/VaultDashboard.test.tsx apps/samebase/src/components/vault-dashboard/VaultResourceRail.test.tsx apps/samebase/shared/appResourceNames.test.ts
 ```
 
 ## Notes

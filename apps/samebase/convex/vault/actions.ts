@@ -17,7 +17,7 @@ import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   resolveCloudflareProvisioningConnection,
   resolveConvexProvisioningConnection,
-} from "../infraProvisioning";
+} from "../appProvisioning/infrastructure";
 import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNameAvailable,
@@ -232,7 +232,7 @@ async function markProvisioningStartupFailed(
 ): Promise<void> {
   const message = toErrorMessage(args.error);
   try {
-    await ctx.runMutation(internal.infraProvisioning.markWorkflowStartupFailed, {
+    await ctx.runMutation(internal.appProvisioning.infrastructure.markWorkflowStartupFailed, {
       runId: args.runId,
       message,
     });
@@ -254,7 +254,7 @@ async function startVaultInfrastructureProvisioningOrFail(
 ): Promise<void> {
   try {
     await ctx.runMutation(
-      internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning,
+      internal.appProvisioning.workflow.startVaultInfrastructureProvisioning,
       args,
     );
   } catch (error) {
@@ -330,7 +330,7 @@ async function startCreateAppProvisioningOrFail(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.appProvisioningWorkflow.startCreateAppProvisioning, args);
+    await ctx.runMutation(internal.appProvisioning.workflow.startCreateAppProvisioning, args);
   } catch (error) {
     await markProvisioningStartupFailed(ctx, {
       runId: args.runId,
@@ -354,7 +354,7 @@ async function startConnectExistingRepositoryProvisioningOrFail(
 ): Promise<void> {
   try {
     await ctx.runMutation(
-      internal.appProvisioningWorkflow.startConnectExistingRepositoryProvisioning,
+      internal.appProvisioning.workflow.startConnectExistingRepositoryProvisioning,
       args,
     );
   } catch (error) {
@@ -857,7 +857,7 @@ export async function retryInfrastructureProvisioningForUser(
   if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
     throw new Error("Infrastructure retry is available only for live Samebase-managed vaults");
   }
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  const runId = await ctx.runMutation(internal.appProvisioning.runs.createForVault, {
     userId,
     vaultId: args.vaultId,
     trigger: "retry",

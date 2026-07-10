@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
-import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./schema";
-import { makeConvexTest } from "./test.setup";
+import { internal } from "../_generated/api";
+import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./model";
+import { makeConvexTest } from "../test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -92,7 +92,7 @@ describe("upsertDomainRecord", () => {
       connectedVault: true,
     });
 
-    await t.mutation(internal.infraProvisioning.upsertDomainRecord, {
+    await t.mutation(internal.appProvisioning.infrastructure.upsertDomainRecord, {
       vaultId: ids.vaultId,
       branch: "main",
       kind: "main",
@@ -100,7 +100,7 @@ describe("upsertDomainRecord", () => {
       source: "cloudflare_workers_default",
       active: true,
     });
-    await t.mutation(internal.infraProvisioning.upsertDomainRecord, {
+    await t.mutation(internal.appProvisioning.infrastructure.upsertDomainRecord, {
       vaultId: ids.vaultId,
       branch: "main",
       kind: "main",
@@ -135,7 +135,7 @@ describe("upsertDomainRecord", () => {
       currentStep: "record_domains",
     });
 
-    const result = await t.mutation(internal.infraProvisioning.upsertDomainRecord, {
+    const result = await t.mutation(internal.appProvisioning.infrastructure.upsertDomainRecord, {
       vaultId: ids.vaultId,
       branch: "main",
       kind: "main",
@@ -169,7 +169,7 @@ describe("markWorkflowProvisioningFailed", () => {
     const expectedMessage =
       "Cannot connect Cloudflare Worker worker-tag to ada/manual-cloudflare: its existing production Workers Builds trigger is connected to GitHub repository ada/other-app (999). Disconnect Builds in Cloudflare or choose another Worker.";
 
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: ids.runId,
       workflowId: "workflow-wire-builds",
       message: `Error: Uncaught Error: ${expectedMessage}\n    at wireCloudflareWorkerBuilds`,
@@ -199,7 +199,7 @@ describe("markWorkflowProvisioningFailed", () => {
       activeOwnership: true,
     });
 
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: ids.runId,
       workflowId: "workflow-cloudflare-github-app",
       message:
@@ -234,7 +234,7 @@ describe("markWorkflowProvisioningFailed", () => {
     const expectedMessage =
       "Cloudflare Worker name existing-worker-name already exists. Choose another Worker name and try again.";
 
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: ids.runId,
       workflowId: "workflow-existing-worker-name",
       message: `Error: Uncaught Error: ${expectedMessage}\n    at handler (../../convex/vault/cloudflare.ts:911:8)`,
@@ -266,7 +266,7 @@ describe("markWorkflowProvisioningFailed", () => {
     const expectedMessage =
       "Convex connection is required to provision infrastructure. Connect Convex and retry.";
 
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: ids.runId,
       workflowId: "workflow-convex",
       message: `Error: ${expectedMessage}`,
@@ -302,7 +302,7 @@ describe("markWorkflowProvisioningFailed", () => {
     });
     const expectedMessage = "Cloudflare Worker connection did not attach a Worker.";
 
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: ids.runId,
       workflowId: "workflow-composed-worker",
       message: `Error: ${expectedMessage}`,
@@ -344,7 +344,7 @@ describe("markWorkflowProvisioningFailed", () => {
       workflowId: "workflow-github",
     });
 
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    await t.mutation(internal.appProvisioning.infrastructure.markWorkflowProvisioningFailed, {
       runId: ids.runId,
       workflowId: "workflow-github",
       message:

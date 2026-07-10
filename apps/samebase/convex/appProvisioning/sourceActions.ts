@@ -2,22 +2,22 @@
 
 import { Octokit } from "@octokit/rest";
 import { v } from "convex/values";
-import { internalAction, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
-import { toErrorMessage } from "./jsonUtils";
-import { toSafeRepoName } from "../shared/repoName";
+import { internalAction, type ActionCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import { toErrorMessage } from "../jsonUtils";
+import { toSafeRepoName } from "../../shared/repoName";
 import type {
   AppProvisioningEventLevel,
   AppProvisioningRunState,
   AppProvisioningStep,
-} from "./schema";
-import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
+} from "./model";
+import { createStarterSeedGitClient, seedRepositoryWithStarter } from "../starterSeed";
 import {
   formatProviderApiCallLogMessage,
   type ProviderApiCall,
   type ProviderApiCallRecorder,
-} from "./providerApiLog";
+} from "../providerApiLog";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -77,7 +77,7 @@ async function getProvisioningRun(
   ctx: Pick<ActionCtx, "runQuery">,
   runId: Id<"appProvisioningRuns">,
 ): Promise<Doc<"appProvisioningRuns">> {
-  const run = await ctx.runQuery(internal.appProvisioningRuns.getById, {
+  const run = await ctx.runQuery(internal.appProvisioning.runs.getById, {
     runId,
   });
   if (!run) {
@@ -113,7 +113,7 @@ async function appendRunEvent(
     state: "unchanged" | AppProvisioningRunState;
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, args);
+  await ctx.runMutation(internal.appProvisioning.runs.appendRunEvent, args);
 }
 
 async function appendProviderApiCallEvent(
@@ -351,7 +351,7 @@ export const createGitHubRepository = internalAction({
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
-    await ctx.runMutation(internal.appProvisioningRuns.recordRepositoryFullName, {
+    await ctx.runMutation(internal.appProvisioning.runs.recordRepositoryFullName, {
       runId: args.runId,
       repositoryFullName,
     });
@@ -480,7 +480,7 @@ export const fetchExistingGitHubRepository = internalAction({
     const repoFinalName = repo.data.name;
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
     const visibility: "private" | "public" = repo.data.private ? "private" : "public";
-    await ctx.runMutation(internal.appProvisioningRuns.recordRepositoryFullName, {
+    await ctx.runMutation(internal.appProvisioning.runs.recordRepositoryFullName, {
       runId: args.runId,
       repositoryFullName,
     });

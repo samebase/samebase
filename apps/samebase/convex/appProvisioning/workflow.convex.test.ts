@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { internal } from "../_generated/api";
+import { makeConvexTest } from "../test.setup";
 
 describe("app provisioning workflow composition", () => {
   it("reads the target app root and attached provider block state", async () => {
@@ -73,7 +73,7 @@ describe("app provisioning workflow composition", () => {
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioning.workflow.readComposedInfrastructureState, ids),
     ).resolves.toEqual({
       appRoot: ".",
       convex: {
@@ -150,7 +150,7 @@ describe("app provisioning workflow composition", () => {
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioning.workflow.readComposedInfrastructureState, ids),
     ).resolves.toEqual({
       appRoot: ".",
       convex: {
@@ -181,7 +181,7 @@ describe("app provisioning workflow composition", () => {
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioning.workflow.readComposedInfrastructureState, ids),
     ).resolves.toEqual({
       appRoot: ".",
       convex: {
@@ -212,7 +212,7 @@ describe("app provisioning workflow composition", () => {
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioning.workflow.readComposedInfrastructureState, ids),
     ).resolves.toEqual({
       appRoot: ".",
       convex: {

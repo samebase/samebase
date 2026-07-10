@@ -36,6 +36,7 @@ import {
   vAccountDeletionRun,
   vAccountDeletionStep,
 } from "./accountDeletion/model";
+import { appProvisioningEventsTable, appProvisioningRunsTable } from "./appProvisioning/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const {
@@ -73,53 +74,6 @@ export type PullRequestLabel = Infer<typeof vPullRequestLabel>;
 export type GithubTree = Infer<typeof vGithubTree>;
 export type GithubTreeData = Infer<typeof vGithubTreeData>;
 export type GitHubRepositoryVisibility = Infer<typeof vGitHubRepositoryVisibility>;
-export const vAppProvisioningEventLevel = union(literal("info"), literal("warn"), literal("error"));
-export type AppProvisioningEventLevel = Infer<typeof vAppProvisioningEventLevel>;
-
-export const vAppProvisioningStep = union(
-  literal("initialize_vault"),
-  literal("validate_connections"),
-  literal("create_github_repo"),
-  literal("fetch_github_repo"),
-  literal("seed_starter"),
-  literal("connect_github"),
-  literal("create_vault"),
-  literal("sync_tree"),
-  literal("claim_infra"),
-  literal("attach_convex"),
-  literal("attach_worker"),
-  literal("wire_builds"),
-  literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
-  literal("record_domains"),
-  literal("finish"),
-);
-export type AppProvisioningStep = Infer<typeof vAppProvisioningStep>;
-
-export const vAppProvisioningRunStep = union(literal("run_created"), vAppProvisioningStep);
-export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;
-
-export const vAppProvisioningRunTrigger = union(
-  literal("create"),
-  literal("connect_existing_repository"),
-  literal("connect_convex_deployment"),
-  literal("connect_cloudflare_worker"),
-  literal("wire_builds"),
-  literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
-  literal("retry"),
-);
-export type AppProvisioningRunTrigger = Infer<typeof vAppProvisioningRunTrigger>;
-
-export const vAppProvisioningRunState = union(
-  literal("queued"),
-  literal("running"),
-  literal("succeeded"),
-  literal("failed"),
-  literal("canceled"),
-);
-export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
-
 export const vVaultDomainKind = union(literal("main"), literal("branch_preview"));
 
 export const vVaultDomainSource = union(
@@ -658,52 +612,9 @@ export default defineSchema({
     .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_run", ["runId"]),
 
-  /**
-   * App-owned Workflow run identity for Samebase-managed provisioning.
-   */
-  appProvisioningRuns: defineTable({
-    userId: id("users"),
-    vaultId: id("vaults"),
-    repositoryFullName: string(),
-    // Assigned after the Workflow component start call returns; run identity
-    // exists first so early events can still be linked deterministically.
-    workflowId: optional(string()),
-    trigger: vAppProvisioningRunTrigger,
-    createdConvexProject: optional(
-      object({
-        projectName: string(),
-        projectId: string(),
-        projectSlug: string(),
-      }),
-    ),
-    state: vAppProvisioningRunState,
-    currentStep: vAppProvisioningRunStep,
-    lastError: optional(string()),
-    createdAt: number(),
-    updatedAt: number(),
-    completedAt: optional(number()),
-  })
-    .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
-    .index("by_vault_and_state", ["vaultId", "state"])
-    .index("by_user_and_updated_at", ["userId", "updatedAt"])
-    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
-    .index("by_workflow_id", ["workflowId"]),
+  appProvisioningRuns: appProvisioningRunsTable,
 
-  /**
-   * User-visible provisioning events for Samebase-managed app creation.
-   */
-  appProvisioningEvents: defineTable({
-    userId: id("users"),
-    vaultId: id("vaults"),
-    repositoryFullName: string(),
-    runId: id("appProvisioningRuns"),
-    step: vAppProvisioningStep,
-    level: vAppProvisioningEventLevel,
-    message: string(),
-    createdAt: number(),
-  })
-    .index("by_vault_and_created_at", ["vaultId", "createdAt"])
-    .index("by_run_and_created_at", ["runId", "createdAt"]),
+  appProvisioningEvents: appProvisioningEventsTable,
 
   /**
    * Durable operation runs for vault deletion. These rows intentionally outlive
