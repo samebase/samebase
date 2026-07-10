@@ -417,11 +417,28 @@ describe("AppWorkspaceShell", () => {
     for (const route of [
       "/",
       "/connect-repo",
+      "/logo/raster-seams",
+      "/logo/single-cube",
+      "/logo/svg",
+      "/logo/transition",
+      "/logo/transition/transforms",
+      "/machines/connect",
       "/new-app",
+      "/oauth/mcp/consent?mcp_consent_request=mcpar_test",
+      "/pitch",
+      "/pitch/print",
+      "/pitch/print/mobile",
+      "/providers",
+      "/research/codex-app-server",
+      "/research/codex-app-server/browser",
       "/terms",
       "/privacy",
       "/landing-preview",
+      "/test",
       "/vault/",
+      "/vault/ada/demo/codespace/main/chat",
+      "/vault/ada/demo/db/main/root",
+      "/vault/ada/demo/db/main/mono/convex",
     ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>
