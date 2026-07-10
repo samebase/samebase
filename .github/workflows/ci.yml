@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   supply_chain:
@@ -90,9 +90,10 @@ jobs:
     name: playwright (${{ matrix.shard }})
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
-    # Discover browser regressions before merge, then avoid repeating the same
-    # matrix on the resulting branch push.
-    if: ${{ github.event_name == 'pull_request' }}
+    needs: supply_chain
+    # Keep heavy browser coverage on branch pushes so every merged commit gets
+    # one full matrix instead of rerunning it for every PR revision.
+    if: ${{ github.event_name == 'push' }}
 
     strategy:
       fail-fast: false
@@ -159,6 +160,7 @@ jobs:
   sync-windows:
     runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 15
+    needs: supply_chain
     # Discover Windows regressions before merge, then avoid repeating the same
     # smoke coverage on the resulting branch push.
     if: ${{ github.event_name == 'pull_request' }}
@@ -222,13 +224,17 @@ jobs:
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.sync-windows.result }}" != "success" ]; then
-              echo "playwright: ${{ needs.playwright.result }}"
+            if [ "${{ needs.sync-windows.result }}" != "success" ]; then
               echo "sync-windows: ${{ needs.sync-windows.result }}"
               exit 1
             fi
-          else
             echo "playwright: ${{ needs.playwright.result }}"
+            echo "Browser coverage is intentionally deferred to the branch push."
+          else
+            if [ "${{ needs.playwright.result }}" != "success" ]; then
+              echo "playwright: ${{ needs.playwright.result }}"
+              exit 1
+            fi
             echo "sync-windows: ${{ needs.sync-windows.result }}"
-            echo "Pre-merge jobs are intentionally skipped on branch pushes."
+            echo "Windows smoke coverage is intentionally skipped on branch pushes."
           fi
