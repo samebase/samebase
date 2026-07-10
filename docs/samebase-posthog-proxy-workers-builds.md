@@ -27,6 +27,10 @@ Use these settings for the production trigger:
   - `.nvmrc`
 - Exclude paths: none
 
+`pnpm run build` must remain non-deploying. Workers Builds runs the build command before the
+production or non-production deploy command, so the package build script uses Wrangler's dry-run
+mode to validate and bundle without changing the live Worker.
+
 The Samebase app production build derives `VITE_PUBLIC_POSTHOG_HOST=https://e.samebase.com` from
 source control when `PROD_POSTHOG_PROJECT_TOKEN` is present. Do not configure
 `VITE_PUBLIC_POSTHOG_HOST` directly in the `samebase` Workers build variables.
