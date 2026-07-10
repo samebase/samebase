@@ -23,10 +23,14 @@ import {
   VAULT_PROVIDER_UPSTREAM_MISSING,
   VAULT_PROVIDER_UPSTREAM_PRESENT,
 } from "./model";
+import {
+  claimVaultInfrastructureOwnership,
+  getVaultInfrastructureOwnership,
+  isActiveVaultInfrastructureOwner,
+} from "./infrastructureOwnership";
 import { isLiveConnectedVault } from "./state";
 
 const { boolean, id, literal, null: nullValue, object, optional, string, union } = v;
-const CLOUDFLARE_CONNECTION_STALE_MS = 10 * 60 * 1000;
 
 const cloudflareBuildsWiringState = union(
   object({
@@ -138,7 +142,6 @@ const cloudflareInfrastructureVerificationState = union(
   }),
 );
 
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
 
@@ -164,25 +167,6 @@ function isStandaloneCloudflareInfrastructureVerificationRun(
   run: Doc<"appProvisioningRuns">,
 ): boolean {
   return run.trigger === "verify_infrastructure";
-}
-
-async function getVaultInfrastructureOwnership(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
-  return await ctx.db
-    .query("vaultInfrastructureOwnership")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .first();
-}
-
-function isActiveCloudflareProvisioningOwner(
-  ownership: VaultInfrastructureOwnership | null,
-  args: {
-    runId: Id<"appProvisioningRuns">;
-  },
-): boolean {
-  return ownership?.state === "active" && ownership.runId === args.runId;
 }
 
 async function readCloudflareWorkerForAppRoot(
@@ -633,14 +617,11 @@ export const claimCloudflareWorkerConnection = internalMutation({
       return { claimed: false };
     }
 
-    const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    const claim = await claimVaultInfrastructureOwnership(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    });
+    if (claim.state === "blocked") {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -651,23 +632,9 @@ export const claimCloudflareWorkerConnection = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
-      await ctx.db.patch(ownership._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
+    if (claim.supersededRunId) {
+      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+        runId: claim.supersededRunId,
       });
     }
 
@@ -712,7 +679,7 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
     return {
       active:
         (!worker || !isVaultProviderUpstreamPresent(worker)) &&
-        isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId }),
+        isActiveVaultInfrastructureOwner(ownership, args.runId),
     };
   },
 });
@@ -768,7 +735,7 @@ export const attachWorkerForRun = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneCloudflareWorkerConnectionRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
@@ -873,7 +840,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneCloudflareWorkerConnectionRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
@@ -959,14 +926,11 @@ export const claimCloudflareBuildsWiring = internalMutation({
       return { claimed: false };
     }
 
-    const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    const claim = await claimVaultInfrastructureOwnership(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    });
+    if (claim.state === "blocked") {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -977,23 +941,9 @@ export const claimCloudflareBuildsWiring = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
-      await ctx.db.patch(ownership._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
+    if (claim.supersededRunId) {
+      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+        runId: claim.supersededRunId,
       });
     }
 
@@ -1043,7 +993,7 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
       !worker ||
       !isVaultProviderUpstreamPresent(worker) ||
       worker.deployment.builds.state === "connected" ||
-      !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })
+      !isActiveVaultInfrastructureOwner(ownership, args.runId)
     ) {
       return { active: false as const };
     }
@@ -1083,7 +1033,7 @@ export const recordCloudflareBuildsForRun = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneCloudflareBuildsWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
@@ -1147,7 +1097,7 @@ export const finishCloudflareBuildsWiring = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneCloudflareBuildsWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
@@ -1266,14 +1216,11 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       return { claimed: false };
     }
 
-    const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    const claim = await claimVaultInfrastructureOwnership(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    });
+    if (claim.state === "blocked") {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -1284,23 +1231,9 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
-      await ctx.db.patch(ownership._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
+    if (claim.supersededRunId) {
+      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+        runId: claim.supersededRunId,
       });
     }
 
@@ -1353,7 +1286,7 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
       !isVaultProviderUpstreamPresent(worker) ||
       worker.deployment.builds.state !== "connected" ||
       worker.deployment.convexBuildAccess.state === "wired" ||
-      !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })
+      !isActiveVaultInfrastructureOwner(ownership, args.runId)
     ) {
       return { active: false as const };
     }
@@ -1397,7 +1330,7 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
@@ -1466,7 +1399,7 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
@@ -1541,7 +1474,7 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
@@ -1716,14 +1649,11 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
       throw new Error("Cloudflare Worker is required before verifying infrastructure.");
     }
 
-    const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    const claim = await claimVaultInfrastructureOwnership(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    });
+    if (claim.state === "blocked") {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -1734,23 +1664,9 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
-      await ctx.db.patch(ownership._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
+    if (claim.supersededRunId) {
+      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+        runId: claim.supersededRunId,
       });
     }
 
@@ -1796,7 +1712,7 @@ export const readActiveCloudflareInfrastructureVerification = internalQuery({
         appRoot,
       }),
     ]);
-    if (!worker || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!worker || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       return { active: false as const };
     }
 
@@ -1840,7 +1756,7 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
@@ -1930,7 +1846,7 @@ export const recordCloudflareInfrastructureVerificationUnverifiable = internalMu
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
@@ -1965,7 +1881,7 @@ export const finishCloudflareInfrastructureVerification = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });

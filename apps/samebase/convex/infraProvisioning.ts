@@ -15,6 +15,10 @@ import {
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
 import type { AppProvisioningStep } from "./schema";
+import {
+  getVaultInfrastructureOwnership,
+  isActiveVaultInfrastructureOwner,
+} from "./vault/infrastructureOwnership";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./vault/state";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
@@ -325,28 +329,6 @@ async function appendProvisioningRunEvent(
       step: args.step,
     });
   }
-}
-
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
-type ProvisioningOwnershipCtx = Pick<MutationCtx, "db">;
-
-async function getVaultInfrastructureOwnership(
-  ctx: ProvisioningOwnershipCtx,
-  vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
-  return await ctx.db
-    .query("vaultInfrastructureOwnership")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .first();
-}
-
-function isActiveProvisioningOwner(
-  ownership: VaultInfrastructureOwnership | null,
-  args: {
-    runId: Id<"appProvisioningRuns">;
-  },
-): boolean {
-  return ownership?.runId === args.runId && ownership.state === "active";
 }
 
 async function cancelSupersededProvisioningRun(
@@ -720,7 +702,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
 
     if (run.trigger === "connect_convex_deployment") {
       const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-      const ownsActiveClaim = isActiveProvisioningOwner(ownership, { runId: args.runId });
+      const ownsActiveClaim = isActiveVaultInfrastructureOwner(ownership, args.runId);
       if (ownership && ownsActiveClaim) {
         await ctx.db.patch(ownership._id, {
           state: "failed",
@@ -749,7 +731,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       run.trigger === "verify_infrastructure"
     ) {
       const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-      if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
+      if (ownership && isActiveVaultInfrastructureOwner(ownership, args.runId)) {
         await ctx.db.patch(ownership._id, {
           state: "failed",
           updatedAt: now,
@@ -803,9 +785,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-    const ownsActiveClaim = isActiveProvisioningOwner(ownership, {
-      runId: args.runId,
-    });
+    const ownsActiveClaim = isActiveVaultInfrastructureOwner(ownership, args.runId);
     const failedBeforeClaim = run.currentStep === "run_created";
     if (!ownsActiveClaim && !failedBeforeClaim) {
       await cancelSupersededProvisioningRun(ctx, {

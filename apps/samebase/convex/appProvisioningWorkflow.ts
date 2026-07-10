@@ -11,6 +11,11 @@ import {
   vVaultCloudflareOrigin,
   vVaultConvexConnectionTarget,
 } from "./vault/model";
+import {
+  claimVaultInfrastructureOwnership,
+  getVaultInfrastructureOwnership,
+  isActiveVaultInfrastructureOwner,
+} from "./vault/infrastructureOwnership";
 import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -46,7 +51,6 @@ const composedInfrastructureRetryContext = object({
   defaultBranch: string(),
 });
 type ComposedInfrastructureRetryContext = Infer<typeof composedInfrastructureRetryContext>;
-const COMPOSED_INFRASTRUCTURE_STALE_MS = 10 * 60 * 1000;
 
 export function resolveWorkflowCompletionError(result: RunResult): string | null {
   switch (result.kind) {
@@ -174,17 +178,11 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Infrastructure target not found for vault.");
     }
 
-    const now = Date.now();
-    const ownership = await ctx.db
-      .query("vaultInfrastructureOwnership")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < COMPOSED_INFRASTRUCTURE_STALE_MS
-    ) {
+    const claim = await claimVaultInfrastructureOwnership(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    });
+    if (claim.state === "blocked") {
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId: args.runId,
         step: "claim_infra",
@@ -195,27 +193,13 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-          runId: ownership.runId,
-          step: "claim_infra",
-          level: "warn",
-          message: "Infrastructure provisioning was superseded by a newer run.",
-          state: "canceled",
-        });
-      }
-      await ctx.db.patch(ownership._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
+    if (claim.supersededRunId) {
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId: claim.supersededRunId,
+        step: "claim_infra",
+        level: "warn",
+        message: "Infrastructure provisioning was superseded by a newer run.",
+        state: "canceled",
       });
     }
 
@@ -248,11 +232,8 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     ) {
       throw new Error("Composed infrastructure run does not match vault.");
     }
-    const ownership = await ctx.db
-      .query("vaultInfrastructureOwnership")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (!ownership || ownership.state !== "active" || ownership.runId !== args.runId) {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
 

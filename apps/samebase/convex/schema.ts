@@ -96,25 +96,7 @@ export const vAppProvisioningStep = union(
 );
 export type AppProvisioningStep = Infer<typeof vAppProvisioningStep>;
 
-export const vAppProvisioningRunStep = union(
-  literal("run_created"),
-  literal("initialize_vault"),
-  literal("validate_connections"),
-  literal("create_github_repo"),
-  literal("fetch_github_repo"),
-  literal("seed_starter"),
-  literal("connect_github"),
-  literal("create_vault"),
-  literal("sync_tree"),
-  literal("claim_infra"),
-  literal("attach_convex"),
-  literal("attach_worker"),
-  literal("wire_builds"),
-  literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
-  literal("record_domains"),
-  literal("finish"),
-);
+export const vAppProvisioningRunStep = union(literal("run_created"), vAppProvisioningStep);
 export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;
 
 export const vAppProvisioningRunTrigger = union(

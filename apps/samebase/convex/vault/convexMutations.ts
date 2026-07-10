@@ -14,10 +14,14 @@ import {
   vVaultConvexOrigin,
   VAULT_PROVIDER_UPSTREAM_PRESENT,
 } from "./model";
+import {
+  claimVaultInfrastructureOwnership,
+  getVaultInfrastructureOwnership,
+  isActiveVaultInfrastructureOwner,
+} from "./infrastructureOwnership";
 import { isLiveConnectedVault } from "./state";
 
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
-const CONVEX_CONNECTION_STALE_MS = 10 * 60 * 1000;
 const CONVEX_DEPLOY_KEYS_NOT_CREATED = {
   production: { state: "not_created" },
   preview: { state: "not_created" },
@@ -42,7 +46,6 @@ const convexInfrastructureRecordValidator = object({
   convexSiteUrl: string(),
 });
 
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type ConvexDeploymentConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type ConvexDeploymentConnectionReadCtx = Pick<QueryCtx, "db">;
 
@@ -52,16 +55,6 @@ function isComposedInfrastructureRun(run: Doc<"appProvisioningRuns">): boolean {
 
 function isStandaloneConvexDeploymentConnectionRun(run: Doc<"appProvisioningRuns">): boolean {
   return run.trigger === "connect_convex_deployment";
-}
-
-async function getVaultInfrastructureOwnership(
-  ctx: ConvexDeploymentConnectionReadCtx,
-  vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
-  return await ctx.db
-    .query("vaultInfrastructureOwnership")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .first();
 }
 
 async function readConvexDeploymentForAppRoot(
@@ -140,15 +133,6 @@ async function assertNoExistingConvexDeploymentTarget(
   }
 }
 
-function isActiveConvexDeploymentConnectionOwner(
-  ownership: VaultInfrastructureOwnership | null,
-  args: {
-    runId: Id<"appProvisioningRuns">;
-  },
-): boolean {
-  return ownership?.state === "active" && ownership.runId === args.runId;
-}
-
 async function appendConvexDeploymentConnectionEvent(
   ctx: ConvexDeploymentConnectionEventCtx,
   args: {
@@ -197,24 +181,6 @@ async function requireConvexDeploymentConnectionRun(
     throw new Error("Convex deployment connection run does not match vault.");
   }
   return run;
-}
-
-function hasFreshConvexDeploymentConnectionLock(args: {
-  ownership: VaultInfrastructureOwnership | null;
-  runId: Id<"appProvisioningRuns">;
-  now: number;
-}): boolean {
-  const ownership = args.ownership;
-  if (
-    ownership &&
-    ownership.state === "active" &&
-    ownership.runId !== args.runId &&
-    args.now - ownership.updatedAt < CONVEX_CONNECTION_STALE_MS
-  ) {
-    return true;
-  }
-
-  return false;
 }
 
 export const requireConvexDeploymentConnectionVault = internalQuery({
@@ -278,15 +244,11 @@ export const claimConvexDeploymentConnection = internalMutation({
       return { claimed: false };
     }
 
-    const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      hasFreshConvexDeploymentConnectionLock({
-        ownership,
-        runId: args.runId,
-        now,
-      })
-    ) {
+    const claim = await claimVaultInfrastructureOwnership(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    });
+    if (claim.state === "blocked") {
       await appendConvexDeploymentConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -297,23 +259,9 @@ export const claimConvexDeploymentConnection = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededConvexDeploymentConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
-      await ctx.db.patch(ownership._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
+    if (claim.supersededRunId) {
+      await cancelSupersededConvexDeploymentConnectionRun(ctx, {
+        runId: claim.supersededRunId,
       });
     }
 
@@ -358,7 +306,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
     return {
       active:
         (!deployment || !isVaultProviderUpstreamPresent(deployment)) &&
-        isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId }),
+        isActiveVaultInfrastructureOwner(ownership, args.runId),
     };
   },
 });
@@ -410,7 +358,7 @@ export const attachDeploymentForRun = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneConvexDeploymentConnectionRun(run)) {
         await cancelSupersededConvexDeploymentConnectionRun(ctx, {
           runId: args.runId,
@@ -561,7 +509,7 @@ export const finishConvexDeploymentConnection = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveVaultInfrastructureOwner(ownership, args.runId)) {
       if (isStandaloneConvexDeploymentConnectionRun(run)) {
         await cancelSupersededConvexDeploymentConnectionRun(ctx, {
           runId: args.runId,
