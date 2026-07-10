@@ -41,17 +41,18 @@ jobs:
             +refs/heads/ssr:refs/remotes/origin/ssr
 
           old_ssr_head="$(git rev-parse origin/ssr)"
-          ssr_unique_commits="$(git rev-list --reverse origin/main..origin/ssr)"
-          ssr_unique_count="$(printf "%s\n" "$ssr_unique_commits" | sed '/^$/d' | wc -l | tr -d ' ')"
+          # Main commits can be rewritten under new SHAs while keeping the same patch.
+          ssr_patch_unique_commits="$(git cherry origin/main origin/ssr | sed -n 's/^+ //p')"
+          ssr_patch_unique_count="$(printf "%s\n" "$ssr_patch_unique_commits" | sed '/^$/d' | wc -l | tr -d ' ')"
 
-          if [ "$ssr_unique_count" != "1" ]; then
-            echo "::error::origin/ssr must have exactly one commit that is not already on origin/main."
-            echo "The range origin/main..origin/ssr only counts commits unique to ssr, so this does not fail merely because main moved forward."
-            echo "Actual unique SSR commit count: $ssr_unique_count"
+          if [ "$ssr_patch_unique_count" != "1" ]; then
+            echo "::error::origin/ssr must have exactly one patch that is not already on origin/main."
+            echo "The comparison ignores rewritten commits whose patches already exist on main."
+            echo "Actual unique SSR patch count: $ssr_patch_unique_count"
             exit 1
           fi
 
-          ssr_config_commit="$(printf "%s\n" "$ssr_unique_commits" | sed -n '1p')"
+          ssr_config_commit="$(printf "%s\n" "$ssr_patch_unique_commits" | sed -n '1p')"
           git switch --detach origin/main
           git cherry-pick "$ssr_config_commit"
 
