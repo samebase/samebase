@@ -12,11 +12,10 @@ describe("samebase sync public script", () => {
     const packageScript = readFileSync(
       path.resolve(currentDirectoryPath, "../../../../packages/sync/samebase.ts"),
       "utf8",
-    );
-    const expectedRuntimeScript = packageScript.endsWith("\n")
-      ? packageScript
-      : `${packageScript}\n`;
+    )
+      .replace(/\r\n/g, "\n")
+      .trimEnd();
 
-    expect(await buildRuntimeSamebaseSyncScript()).toBe(expectedRuntimeScript);
+    expect(await buildRuntimeSamebaseSyncScript()).toBe(`${packageScript}\n`);
   });
 });
