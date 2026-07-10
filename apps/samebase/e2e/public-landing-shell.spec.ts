@@ -1224,12 +1224,15 @@ test("public landing keeps the right pane mounted without a left pane on desktop
 });
 
 test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/oauth/mcp/consent?mcp_consent_request=mcpar_test&mcp_login_required=1", {
     waitUntil: "networkidle",
   });
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
   await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
   await expectStatusBarInRightSidebar(page, statusBar);
   await expect(statusBar.getByRole("link", { name: "/vault" })).toHaveCount(0);
@@ -1240,6 +1243,14 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
       name: "Google",
     }),
   ).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+    "mcp-consent-sign-in-no-left-sidebar.png",
+    {
+      ...strictScreenshotOptions,
+      mask: [page.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
+      maskColor: "#ffffff",
+    },
+  );
 });
 
 test("build version stays stable on the public landing", async ({ page }) => {
