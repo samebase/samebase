@@ -2,9 +2,9 @@
 
 ## Document Control
 
-- Status: Revised proposal with MVP hardening updates
-- Owner: Noter frontend/backend
-- Last Updated: 2026-02-14
+- Status: Superseded by the dormant Codespaces backend contract
+- Owner: Samebase frontend/backend
+- Last Updated: 2026-07-10
 - Amended: 2026-04-29 to remove monorepo starter-template asset sync.
 - Previous revision date: 2026-02-14 (iframe-first draft)
 - Related specs:
@@ -24,6 +24,10 @@
   - `apps/noter/convex/schema.ts`
   - `.devcontainer/devcontainer.json`
   - `.codespace-agent/server.ts`
+
+This proposal is retained as implementation history. Samebase no longer exposes a Codespaces route,
+dashboard controls, or chat-only Codespaces UI. `specs/001_CODESPACE_CONNECTION_SPEC.md` defines the
+remaining dormant backend and migration contract.
 
 ## Summary
 

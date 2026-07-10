@@ -23,7 +23,7 @@ Implemented highlights in PR #174:
 3. Hardened `updateRepositoryTree` to keep legacy `vault.treeData/treeSHA/commitSHA`
    default-branch-only while writing branch-scoped cache for all branches
 4. Propagated branch through commit/chat/staging read paths
-5. Moved codespace chat route to `/vault/:owner/:repoName/codespace/:branch/chat`
+5. Made the then-active Codespaces chat route branch-aware; that route has since been retired
 6. Added shared vault route helpers + tests
 7. Left legacy cache fallback in place temporarily for compatibility while branch caches backfill
 
@@ -68,8 +68,7 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 
 ### Scope
 
-1. Move to explicit branch param routing for vault editor routes and non-colliding codespace chat
-   namespace
+1. Move to explicit branch param routing for vault editor routes
 2. Add shared URL builder/parser for vault paths
 3. Ensure branch names containing `/` are encoded/decoded safely
 4. Replace hardcoded `main` fallbacks in route context extraction
@@ -82,7 +81,7 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 ### Validation
 
 1. Branches like `feature/oauth/login` route correctly
-2. ChatFab and FileView derive identical branch context from URL
+2. FileView and other route consumers derive identical branch context from the URL
 3. Existing links and redirects still work
 
 ### Exit Criteria

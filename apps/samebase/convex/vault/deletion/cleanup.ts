@@ -92,17 +92,30 @@ function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLoca
 
 const retainedCodespacesCleanupError =
   "Vault deletion is blocked because retained Codespaces state still requires cleanup. Contact support before deleting this vault.";
+const retainedCodespaceStates = [
+  "creating",
+  "starting",
+  "running",
+  "stopping",
+  "stopped",
+  "deleting",
+  "failed",
+] as const;
 
 export async function assertVaultCodespacesSafeForLocalCleanup(
   ctx: Pick<MutationCtx, "db">,
   vault: Doc<"vaults">,
 ): Promise<void> {
-  const codespaces = await ctx.db
-    .query("codespaces")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-    .collect();
-  if (codespaces.some((codespace) => codespace.state !== "deleted")) {
-    throw new Error(retainedCodespacesCleanupError);
+  for (const state of retainedCodespaceStates) {
+    const codespace = await ctx.db
+      .query("codespaces")
+      .withIndex("by_user_and_vault_and_state", (q) =>
+        q.eq("userId", vault.userId).eq("vaultId", vault._id).eq("state", state),
+      )
+      .first();
+    if (codespace) {
+      throw new Error(retainedCodespacesCleanupError);
+    }
   }
 
   if (vault.activeCodespaceId === undefined) {

@@ -311,20 +311,11 @@ Accepted dashboard-route shape:
 
 The shell swap is accepted only if the route still feels like the same route.
 
-The same ownership rule now applies to the optional bottom panel region in
-`WorkspaceLayoutV2FullPage`.
-
-Accepted panel direction:
-
-- the panel is the fourth shared workspace region, not route-local floating chrome
-- desktop keeps that panel under the center editor column rather than stretching it under both
-  sidebars
-- mobile presents that same panel as a bottom sheet inside the workspace viewport
-- the shared shell owns the panel open button, close affordance, and resize interaction
-- callers provide panel content only; chat state, agent logic, and repository wiring stay outside
-  the layout shell
-- compact panel content may reuse `WorkspaceLayoutV2PaneFrame` when the panel genuinely fits the
-  compact fixed-header contract
+`WorkspaceLayoutV2FullPage` has no generic bottom-panel region. Its shared layout contract is the
+left, main, and right workspace regions shown above. The floating chat feature was the only product
+caller for a fourth region, so its panel state, resize behavior, and mobile bottom sheet were
+removed with that feature. A future product surface should extend the shell only after it proves a
+shared layout need.
 
 ### 5. `WorkspaceLayoutV2PaneFrame` is compact-only
 
