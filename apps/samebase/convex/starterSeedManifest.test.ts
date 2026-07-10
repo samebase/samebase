@@ -5,7 +5,7 @@ describe("starterSeedManifest", () => {
   it("contains a single template snapshot contract", () => {
     expect(starterTemplateManifest.version).toMatch(/^samebase-app-[0-9a-f]{12}$/);
     expect(starterTemplateManifest.sourceRepo).toBe("https://github.com/samebase/app.git");
-    expect(starterTemplateManifest.sourceBranch).toBe("v5-tanstack-start-workers");
+    expect(starterTemplateManifest.sourceBranch).toBe("main");
     expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(starterTemplateManifest.commitMessage).toBe("chore: seed starter template");
@@ -92,10 +92,10 @@ describe("starterSeedManifest", () => {
       '"--preview-create"',
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
-      "store both secrets on every\ntrigger",
+      "store `CONVEX_DEPLOY_KEY` on\nthe production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview trigger",
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).not.toContain(
-      "store `CONVEX_DEPLOY_KEY` on\nthe production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview trigger",
+      "store both secrets on every\ntrigger",
     );
   });
 
