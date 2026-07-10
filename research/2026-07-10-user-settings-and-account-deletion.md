@@ -54,7 +54,8 @@ Recommended contract:
 - Schema: `displayName: optional(string())` on `users`
 - Mutation: `setDisplayName({ displayName: string | null })`
 - Access: `access_user_preferences`
-- `null`: clear the customization
+- `null`: clear the customization by patching `displayName: undefined`; never store `null` or an
+  empty string
 - Normalization: trim outer whitespace
 - Validation: reject blank and multiline values; maximum 64 Unicode code points
 - Allowed content: Unicode, spaces, punctuation, and emoji
@@ -246,8 +247,9 @@ the identity check. A later recent-auth requirement can be added if the auth sys
 reauthentication flow.
 
 Disable dialog dismissal and both actions while the request is being accepted. After acceptance,
-show durable progress on the Settings page. On failure, show the failing step and Retry. On success,
-clear local app data and return to the signed-out landing surface.
+navigate to a dedicated `/account-deletion` route and show durable progress there. On failure, show
+the failing step and Retry. On success, clear local app data and return to the signed-out landing
+surface.
 
 ## Why Deletion Needs A Workflow
 
@@ -268,9 +270,13 @@ Recommended state model:
 - Add an optional `users.accountDeletion` object containing `runId` and `requestedAt`. Absence means
   active. This is intentionally optional because Convex Auth creates user rows and because adding an
   optional field avoids a user backfill.
+- Add a narrow `access_account_deletion` key used only by the deletion-status query, retry action,
+  and `/account-deletion` route.
 - Derive a `role_account_deleting` viewer role that grants only `access_public` and
-  `access_user_preferences`. This keeps the current session able to show progress while every other
-  app action is denied.
+  `access_account_deletion`. It must not retain `access_user_preferences`; therefore
+  `setDisplayName` and every other preference mutation are denied after the deletion gate is set.
+- Render `/account-deletion` in an authenticated shell without `ApprovalGate`. Do not make the
+  settings route accept either access key, because that would reopen its unrelated controls.
 - Invalidate every other auth session when deletion is accepted. Keep the initiating session until
   the final step so it can observe progress and retry a failure.
 
@@ -395,7 +401,8 @@ the browser and deleting the Convex user row does not erase data already sent to
 
 ### Slice 2: Account Deletion Foundation
 
-- Add the deletion gate, role, run/event model, and fail-closed user cleanup registry.
+- Add the deletion gate, `access_account_deletion`, restricted deleting role, run/event model, and
+  fail-closed user cleanup registry.
 - Add missing indexes and bounded batch functions.
 - Add auth-session invalidation and auth-table cleanup.
 - Reuse vault cleanup and Agent component thread deletion.
@@ -404,7 +411,7 @@ the browser and deleting the Convex user row does not erase data already sent to
 
 ### Slice 3: Deletion UI And Policy Cutover
 
-- Enable the confirmation dialog and durable progress/retry page.
+- Enable the confirmation dialog and dedicated `/account-deletion` progress/retry route.
 - Update privacy and retention text before enabling the action.
 - Validate a real account with vaults, staged storage, chat history, machines, MCP grants, provider
   connections, and billing state.
@@ -435,6 +442,8 @@ Deletion:
 - enumerate every user-owned and user-referencing table in a fail-closed test
 - seed more than one cleanup batch for large tables and storage objects
 - prove that new product writes are rejected after the user deletion gate is set
+- prove the deleting role has exactly `access_public` and `access_account_deletion`, direct
+  `setDisplayName` calls fail, and only status/retry functions remain available
 - prove that all other sessions, machine credentials, MCP tokens, and browser caches stop working
 - inject a failure at every external and local step, then prove retry is idempotent
 - verify no auth account, verification code, component thread/message, provider secret, or PostHog
@@ -442,6 +451,13 @@ Deletion:
 - verify active billing is canceled or the workflow remains visibly failed
 - verify GitHub repositories, Convex projects, and Cloudflare Workers were not deleted
 - run focused tests while iterating, then the canonical `pnpm test:visual:linux` acceptance path
+
+## Document Lifecycle
+
+This file remains research while the approval boundaries below are unresolved. If those decisions
+are accepted, create an RFC containing the accepted product contract and rollout before
+implementation starts, then mark this memo as superseded by that RFC. Implementation should not
+treat the research file itself as an accepted source of truth.
 
 ## Approval Boundaries
 
