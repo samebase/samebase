@@ -237,9 +237,9 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: Oxlint traverses a broader default file surface than the previous app lint command.
   Tried: ran Oxlint directly against `apps/samebase`. Result: the command started linting top-level
-  TypeScript helpers and `public/samebase.ts` that the old `eslint --ext ts,tsx` script never
-  covered, so the accepted migration keeps those files outside the app package lint scope for now
-  rather than treating this standardization pass as a surprise lint expansion.
+  TypeScript helpers and the then-tracked hosted installer mirror that the old `eslint --ext ts,tsx`
+  script never covered, so the accepted migration kept those files outside the app package lint
+  scope rather than treating this standardization pass as a surprise lint expansion.
 
 - Problem: the integrated migration needed a clear acceptance bar. Tried: ran focused config tests
   plus the repo lint entrypoints. Result: `pnpm exec vp test run apps/samebase/lintConfig.test.ts`,

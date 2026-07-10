@@ -178,10 +178,9 @@ If the same icon is used for both states, that is acceptable.
 Primary files expected to change:
 
 1. `packages/sync/samebase.ts`
-2. `apps/samebase/public/samebase.ts`
-3. `apps/samebase/src/codex/appServerResearch.ts`
-4. `apps/samebase/src/components/MachinesWorkspacePage.tsx`
-5. `apps/samebase/src/components/MachinesWorkspaceView.tsx`
-6. `apps/samebase/src/components/MachinesWorkspaceVisualFixture.tsx`
-7. `apps/samebase/e2e/machines-workspace-visual.spec.ts`
-8. `packages/sync/noter.test.ts`
+2. `apps/samebase/src/codex/appServerResearch.ts`
+3. `apps/samebase/src/components/MachinesWorkspacePage.tsx`
+4. `apps/samebase/src/components/MachinesWorkspaceView.tsx`
+5. `apps/samebase/src/components/MachinesWorkspaceVisualFixture.tsx`
+6. `apps/samebase/e2e/machines-workspace-visual.spec.ts`
+7. `packages/sync/noter.test.ts`
