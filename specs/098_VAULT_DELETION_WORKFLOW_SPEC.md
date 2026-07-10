@@ -333,7 +333,7 @@ type ProviderCleanupPlan = {
   codespaces:
     | {
         action: "skip";
-        reason: "not_requested";
+        reason: "not_requested" | "feature_disabled";
       }
     | {
         action: "delete_connected_codespaces";
@@ -614,12 +614,14 @@ deletion run only. It must not recreate the vault or any vault-scoped rows.
 
 ### Codespaces
 
-1. Delete only Codespaces recorded for the vault and user.
-2. Require a GitHub connection when Codespaces teardown is requested.
-3. Mark local Codespaces `deleting` before provider deletion.
-4. Treat GitHub not-found as success.
-5. Clear `activeCodespaceId` before marking local Codespaces `deleted` after provider success.
-6. Delete Codespaces table rows later in `cleanup_runtime_state`.
+1. Codespaces is disabled by `specs/001`; the shipped delete dialog does not offer provider cleanup.
+2. While disabled, block initial deletion and retries when any non-deleted Codespace row or an
+   inconsistent `activeCodespaceId` remains. Do not make a silent GitHub write.
+3. An already-running cleanup step must preserve non-deleted Codespace rows and fail the deletion.
+4. `cleanup_runtime_state` may delete only `deleted` tombstones and must clear a matching
+   `activeCodespaceId` before deleting the pointed-to row.
+5. If Codespaces is revived, delete only resources recorded for the vault and user, require a GitHub
+   connection, mark rows `deleting` before provider deletion, and treat GitHub not-found as success.
 
 ### Cloudflare
 

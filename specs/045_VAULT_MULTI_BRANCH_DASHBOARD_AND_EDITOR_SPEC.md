@@ -266,11 +266,10 @@ Use explicit vault and branch route segments:
 2. `/vault/:owner/:repoName` shows the selected-vault dashboard.
 3. `/vault/:owner/:repoName/fs/:branch`
 4. `/vault/:owner/:repoName/fs/:branch/*`
-5. `/vault/:owner/:repoName/codespace/:branch/chat`
-6. `/vault/:owner/:repoName/db/:branch/root`
-7. `/vault/:owner/:repoName/db/:branch/mono/*`
-8. `/vault/:owner/:repoName/schema/:branch/root`
-9. `/vault/:owner/:repoName/schema/:branch/mono/*`
+5. `/vault/:owner/:repoName/db/:branch/root`
+6. `/vault/:owner/:repoName/db/:branch/mono/*`
+7. `/vault/:owner/:repoName/schema/:branch/root`
+8. `/vault/:owner/:repoName/schema/:branch/mono/*`
 
 ### Encoding contract
 
@@ -360,7 +359,7 @@ Completed:
 
 1. Phase 1 shipped (branch catalog + dashboard list/navigation)
 2. Phase 2 shipped (shared route parser/builder + encoded branch handling + no hardcoded `main`
-   route defaults + codespace chat moved under `/codespace/:branch/chat`)
+   route defaults). The historical Codespaces chat route was later retired by `specs/001`.
 3. Phase 3 shipped (branch-scoped tree cache, branch-aware refresh comparisons, branch-aware
    chat/commit propagation, tests)
 4. Phase 4 runtime and schema cleanup shipped through the vault-first compatibility cleanup;

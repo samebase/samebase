@@ -8,10 +8,6 @@ import {
   type WorkspacePaneState,
 } from "./WorkspacePaneRuntime";
 import {
-  type WorkspaceLayoutV2BottomPanelProps,
-  WorkspaceLayoutV2MainViewportWithPanel,
-} from "./WorkspaceLayoutV2BottomPanel";
-import {
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   getDesktopSidebarMaxWidthPx,
   getDesktopSidebarWidthPx,
@@ -35,7 +31,6 @@ type WorkspaceLayoutV2Props = {
   left?: ReactElement;
   main: ReactElement;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: ReactElement;
 
   dataTestId?: string;
@@ -77,7 +72,6 @@ export function WorkspaceLayoutV2({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
-  panel,
   right,
   dataTestId,
 }: WorkspaceLayoutV2Props) {
@@ -266,19 +260,12 @@ export function WorkspaceLayoutV2({
   }
 
   const mainViewportContent = (
-    <WorkspaceLayoutV2MainViewportWithPanel
-      activeResizeSide={activeResizeSide}
-      isMobile={isMobile}
-      mainContent={main}
-      onPanelResizeEnd={() => {
-        setActiveResizeSide(null);
-      }}
-      onPanelResizeStart={() => {
-        setActiveResizeSide("top");
-      }}
-      panel={panel}
-      viewportHeightPx={viewportSize.heightPx}
-    />
+    <div
+      data-testid="workspace-layout-v2-main-viewport"
+      className="h-full min-h-0 overflow-hidden bg-background"
+    >
+      {main}
+    </div>
   );
 
   return (

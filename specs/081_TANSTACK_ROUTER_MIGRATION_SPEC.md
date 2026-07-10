@@ -62,8 +62,8 @@ problems, attempted fixes, and outcomes.
   `apps/samebase/src/main.tsx` only owns the reusable routed app mount logic.
 - `apps/samebase/src/lib/appRouter.ts` now owns the simple standalone public and dev-only routes
   (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex research paths) plus the non-root
-  authenticated app routes (MCP consent, pricing, add-repository, machines, machine connect,
-  codespace chat, and the vault/file surfaces), plus the explicit root routes for `/` and `/test`.
+  authenticated app routes (MCP consent, pricing, add-repository, machines, machine connect, and the
+  vault/file surfaces), plus the explicit root routes for `/` and `/test`.
 - `apps/samebase/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
   Google sign-in entrypoints now pass `/vault` as the provider return route when the user starts
   sign-in from `/`. Authenticated users can still browse the public landing route because
@@ -385,7 +385,8 @@ problems, attempted fixes, and outcomes.
 2. Start a TanStack code-based route tree around the current app/layout seams.
 3. Peel the simple standalone pathname branches out of `App.tsx` into explicit TanStack routes.
 4. Promote all remaining non-root authenticated routes into explicit TanStack routes, including MCP
-   consent, pricing/add, machines, codespace chat, and vault/file paths.
+   consent, pricing/add, machines, and vault/file paths. The historical Codespaces chat route was
+   later retired by `specs/001`.
 5. Move the public/dev explicit routes with meaningful query state onto route-owned TanStack search
    handling, including the logo preview surfaces and the Codex research routes.
 6. Move the authenticated explicit routes with meaningful query state onto route-owned TanStack

@@ -244,34 +244,6 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(omittedHeaderMarkup).toBe(nullHeaderMarkup);
   });
 
-  it("disables the shared bottom-panel close button when panel closure is blocked", () => {
-    const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2TestSidebarProvider>
-        <WorkspaceLayoutV2FullPage
-          addressChrome={TEST_ADDRESS_CHROME}
-          left={{
-            content: <div>left pane</div>,
-          }}
-          main={{
-            header: <div>/chat</div>,
-            content: <div>main pane</div>,
-          }}
-          panel={{
-            closeDisabled: true,
-            content: <div>chat panel</div>,
-            header: <div>Chat</div>,
-          }}
-          right={{
-            content: <div>right pane</div>,
-          }}
-        />
-      </WorkspaceLayoutV2TestSidebarProvider>,
-    );
-
-    expect(markup).toContain('aria-label="Close bottom panel"');
-    expect(markup).toContain("disabled");
-  });
-
   it("can skip the reserved header row when a pane intentionally has no header", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2PaneFrame content={<div>public pane</div>} />,

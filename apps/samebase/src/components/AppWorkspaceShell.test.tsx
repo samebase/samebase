@@ -436,7 +436,6 @@ describe("AppWorkspaceShell", () => {
       "/landing-preview",
       "/test",
       "/vault/",
-      "/vault/ada/demo/codespace/main/chat",
       "/vault/ada/demo/db/main/root",
       "/vault/ada/demo/db/main/mono/convex",
     ]) {

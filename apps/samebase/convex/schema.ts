@@ -385,6 +385,7 @@ export default defineSchema({
     providersPanelOpen: boolean(),
     // TODO: remove this
     pricingBillingCycle: PricingBillingCycle,
+    // Retain legacy floating-chat fields until existing rows are migrated.
     editorChatOpen: optional(boolean()),
     globalChatOpen: optional(boolean()),
   }).index("by_user", ["userId"]),

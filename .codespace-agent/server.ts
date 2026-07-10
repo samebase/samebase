@@ -98,7 +98,7 @@ console.log("=".repeat(60));
 console.log("Codespace Agent Starting");
 console.log("=".repeat(60));
 if (AGENT_TOKEN) {
-  console.log(`Agent Token: ${AGENT_TOKEN.substring(0, 8)}... (${AGENT_TOKEN_SOURCE})`);
+  console.log(`Agent Token: configured (${AGENT_TOKEN_SOURCE})`);
 } else {
   console.log("Agent Token: <unset> (bootstrap allowed during initial startup window)");
 }

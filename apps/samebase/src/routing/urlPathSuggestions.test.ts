@@ -34,7 +34,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
-    expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
     expect(suggestions).not.toContain("/docs/do-it-yourself");
@@ -168,12 +167,12 @@ describe("filterRouteUrlPathSuggestions", () => {
     expect(
       filterRouteUrlPathSuggestions({
         currentHref: "/",
-        draftHref: "/vault/octo/repo/codespace/main/ch",
+        draftHref: "/vault/octo/repo/db/main/ro",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
       }),
-    ).toEqual(["/vault/$", "/vault/$owner/$repo/codespace/$branch/chat"]);
+    ).toEqual(["/vault/$", "/vault/$owner/$repo/db/$branch/root"]);
   });
 
   it("keeps the catch-all vault route available for file path drafts", () => {
@@ -295,7 +294,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/vault/octo/repo/codespace/main/chat",
+        draftHref: "/vault/octo/repo/db/main/root",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,

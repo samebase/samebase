@@ -104,10 +104,6 @@ const routeAccessMetadataByPath = {
   "/vault/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo": { access: "access_dashboard" },
-  "/vault/$owner/$repo/codespace/$branch/chat": {
-    access: "access_machines",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
   "/vault/$owner/$repo/db/$branch/root": {
     access: "access_files_read",
     appWorkspaceRouteChrome: { leftPane: "none" },

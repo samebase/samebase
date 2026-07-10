@@ -1,11 +1,5 @@
 // Keep temporary product-level kill switches in one obvious place.
 /**
- * The old global/floating chat affordance is deprecated and should stay out of
- * default route chrome. Flip this only for an intentional chat-surface revival.
- */
-export const CHAT_ENABLED: boolean = false;
-
-/**
  * GitHub Codespaces remains a possible hosted runtime, but it is not part of
  * the default product surface while local and machine-backed workflows carry
  * the day-to-day path.

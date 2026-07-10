@@ -18,7 +18,6 @@ import {
   WorkspacePaneRuntimeProvider,
   type WorkspacePaneSide,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { type WorkspaceLayoutV2BottomPanelProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
@@ -40,7 +39,6 @@ type AppWorkspaceRouteChromeConfig = {
   left?: AppWorkspaceRouteChromePane;
   leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: AppWorkspaceRouteChromePane;
   rightToggleVisibility?: AppWorkspaceShellToggleVisibility;
   shortcutPaneSide?: WorkspacePaneSide;
@@ -292,7 +290,6 @@ function AppWorkspaceShellFrame({
         leftToggleVisibility={leftToggleVisibility}
         main={mainPane}
         mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
-        panel={chrome?.panel}
         right={rightPane}
         rightToggleVisibility={rightToggleVisibility}
       />
@@ -334,7 +331,6 @@ export function AppWorkspaceRouteChrome({
   left,
   leftToggleVisibility,
   mobileMinResizeBehavior,
-  panel,
   right,
   rightToggleVisibility,
   shortcutPaneSide,
@@ -368,7 +364,6 @@ export function AppWorkspaceRouteChrome({
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,
-      panel,
       pathname,
       right,
       rightToggleVisibility,
@@ -380,7 +375,6 @@ export function AppWorkspaceRouteChrome({
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,
-      panel,
       pathname,
       right,
       rightToggleVisibility,

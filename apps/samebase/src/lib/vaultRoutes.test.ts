@@ -5,7 +5,6 @@ import {
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
   buildVaultSchemaRoute,
-  buildVaultCodespaceChatRoute,
   parseVaultPathContext,
 } from "./vaultRoutes";
 
@@ -17,17 +16,6 @@ describe("buildVaultDashboardRoute", () => {
         repoName: "web",
       }),
     ).toBe("/vault/octo/web");
-  });
-});
-
-describe("buildVaultCodespaceChatRoute", () => {
-  it("encodes branch names with slashes", () => {
-    expect(
-      buildVaultCodespaceChatRoute({
-        repositoryFullName: "octo/repo",
-        branch: "feature/login-flow",
-      }),
-    ).toBe("/vault/octo/repo/codespace/feature%2Flogin-flow/chat");
   });
 });
 
@@ -141,8 +129,17 @@ describe("parseVaultPathContext", () => {
     });
   });
 
-  it("marks codespace routes invalid for the catch-all file route parser", () => {
-    expect(parseVaultPathContext("/vault/octo/repo/codespace/src/index.ts")).toEqual({
+  it("marks database routes invalid for the catch-all file route parser", () => {
+    expect(parseVaultPathContext("/vault/octo/repo/db/main/root")).toEqual({
+      owner: "octo",
+      repositoryFullName: "octo/repo",
+      repoName: "repo",
+      isInvalidVaultRoute: true,
+    });
+  });
+
+  it("keeps the retired Codespaces route invalid for the catch-all file route parser", () => {
+    expect(parseVaultPathContext("/vault/octo/repo/codespace/main/chat")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",

@@ -14,6 +14,7 @@ import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import { CODESPACES_ENABLED } from "../../../shared/featureFlags";
+import { assertVaultCodespacesSafeForLocalCleanup } from "./cleanup";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -438,6 +439,9 @@ export const createInitialRun = internalMutation({
     if (vault.state === "not_connected" || vault.state === "provisioning") {
       throw new Error("Vault is not ready to delete yet.");
     }
+    if (!CODESPACES_ENABLED) {
+      await assertVaultCodespacesSafeForLocalCleanup(ctx, vault);
+    }
 
     const convexDeployments = await listVaultConvexDeployments(ctx, args.vaultId);
     const plan = await buildDeletionPlan(ctx, {
@@ -509,6 +513,9 @@ export const createRetryRun = internalMutation({
     const deletion = readVaultDeletionState(vault);
     if (deletion.state !== "delete_failed" || deletion.runId !== args.failedRunId) {
       throw new Error("Vault is not waiting for deletion retry.");
+    }
+    if (!CODESPACES_ENABLED) {
+      await assertVaultCodespacesSafeForLocalCleanup(ctx, vault);
     }
 
     const retainedSnapshot = readRetainedSnapshot(failedRun);

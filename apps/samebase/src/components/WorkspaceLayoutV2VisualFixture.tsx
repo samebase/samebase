@@ -1,6 +1,5 @@
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import mobileSidebarSpecRaw from "../../../../specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md?raw";
 export type WorkspaceLayoutV2VisualMode = "workspace-layout-v2-status-bar";
@@ -46,11 +45,6 @@ export function WorkspaceLayoutV2VisualFixture() {
             syncError={null}
             vaultKey={FIXTURE_VAULT_KEY}
           />
-        ),
-      }}
-      panel={{
-        content: (
-          <ProsemarkReadOnly filePath="workspace-layout-v2-panel.md" value={mobileSidebarSpecRaw} />
         ),
       }}
     />

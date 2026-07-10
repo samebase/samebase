@@ -673,6 +673,158 @@ describe("vault deletion workflow", () => {
     ).rejects.toThrow("cannot remove the GitHub repository");
   });
 
+  it("blocks a new deletion run while a non-deleted Codespace is retained", async () => {
+    const { ids, t } = await createConnectedVault();
+    const codespaceId = await t.run(async (ctx) => {
+      return await ctx.db.insert("codespaces", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        ghCodespaceId: "github-codespace-1",
+        ghCodespaceName: "ada-delete-me",
+        state: "running",
+        createdAt: 10,
+        commitSha: "abc123",
+        branch: "main",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        options: {
+          removeCodespaces: false,
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("retained Codespaces state still requires cleanup");
+
+    const snapshot = await t.run(async (ctx) => ({
+      codespace: await ctx.db.get(codespaceId),
+      runs: await ctx.db
+        .query("vaultDeletionRuns")
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
+        .collect(),
+      vault: await ctx.db.get(ids.vaultId),
+    }));
+    expect(snapshot.codespace?.state).toBe("running");
+    expect(snapshot.runs).toHaveLength(0);
+    expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
+  });
+
+  it("preserves a non-deleted Codespace when runtime cleanup is already running", async () => {
+    const { ids, t } = await createConnectedVault();
+    const codespaceId = await t.run(async (ctx) => {
+      return await ctx.db.insert("codespaces", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        ghCodespaceId: "github-codespace-2",
+        ghCodespaceName: "ada-delete-me-running",
+        state: "stopped",
+        createdAt: 11,
+        commitSha: "def456",
+        branch: "main",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        step: "cleanup_runtime_state",
+      }),
+    ).rejects.toThrow("retained Codespaces state still requires cleanup");
+
+    expect(await t.run(async (ctx) => await ctx.db.get(codespaceId))).not.toBeNull();
+  });
+
+  it("deletes Codespace tombstones after clearing the active pointer", async () => {
+    const { ids, t } = await createConnectedVault();
+    const codespaceId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("codespaces", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        ghCodespaceId: "github-codespace-3",
+        ghCodespaceName: "ada-delete-me-deleted",
+        state: "deleted",
+        createdAt: 12,
+        deletedAt: 13,
+        commitSha: "ghi789",
+        branch: "main",
+      });
+      await ctx.db.patch(ids.vaultId, { activeCodespaceId: id });
+      return id;
+    });
+
+    const result = await t.mutation(
+      internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
+      {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        step: "cleanup_runtime_state",
+      },
+    );
+    expect(result).toEqual({
+      state: "needs_more",
+      table: "codespaces",
+      rowsChanged: 1,
+    });
+
+    const snapshot = await t.run(async (ctx) => ({
+      codespace: await ctx.db.get(codespaceId),
+      vault: await ctx.db.get(ids.vaultId),
+    }));
+    expect(snapshot.codespace).toBeNull();
+    expect(snapshot.vault?.activeCodespaceId).toBeUndefined();
+  });
+
+  it("blocks a retry when a non-deleted Codespace appears after the first run", async () => {
+    const { ids, t } = await createConnectedVault();
+    const initial = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
+      },
+    });
+    await t.mutation(internal.vault.deletion.runs.markWorkflowFailed, {
+      runId: initial.deletionRunId,
+      message: "Provider cleanup failed.",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("codespaces", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        ghCodespaceId: "github-codespace-4",
+        ghCodespaceName: "ada-delete-me-retry",
+        state: "failed",
+        createdAt: 14,
+        commitSha: "jkl012",
+        branch: "main",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createRetryRun, {
+        userId: ids.userId,
+        failedRunId: initial.deletionRunId,
+      }),
+    ).rejects.toThrow("retained Codespaces state still requires cleanup");
+
+    const runs = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultDeletionRuns")
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
+        .collect();
+    });
+    expect(runs).toHaveLength(1);
+  });
+
   it("skips Codespaces cleanup while the feature is disabled", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

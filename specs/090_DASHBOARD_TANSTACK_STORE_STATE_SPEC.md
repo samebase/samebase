@@ -40,10 +40,9 @@ Migrate these state buckets now:
 4. Per-vault developer tools open state.
 5. Infrastructure retry pending vault id.
 6. Sign-out pending state.
-7. Global chat busy and autofocus handoff state.
-8. Branch filter control search text and open state.
-9. Visual fixture counters.
-10. Last-updated status text-selection frozen timestamp.
+7. Branch filter control search text and open state.
+8. Visual fixture counters.
+9. Last-updated status text-selection frozen timestamp.
 
 Keep these refresh-owned pieces out of scope until the server-side workflow branch lands:
 

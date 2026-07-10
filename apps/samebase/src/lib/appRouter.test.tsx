@@ -145,10 +145,6 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   LandingPreviewPage: () => <div data-testid="landing-preview-page">Landing preview page</div>,
 }));
 
-vi.mock("@/components/CodespaceChatOnlyView", () => ({
-  CodespaceChatOnlyView: () => <div data-testid="codespace-chat-page">Codespace chat page</div>,
-}));
-
 vi.mock("@/components/FileView/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
@@ -846,18 +842,6 @@ describe("appRouter", () => {
       "Machine connect page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("redirects the disabled codespace chat route back to the vault view", async () => {
-    const router = await renderRoute("/vault/samebase/samebase/codespace/main/chat");
-
-    await act(async () => {
-      await settleRouterRender();
-    });
-
-    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/fs/main");
-    expect(rootElement?.querySelector('[data-testid="codespace-chat-page"]')).toBeNull();
-    expect(rootElement?.querySelector('[data-testid="file-view-page"]')).not.toBeNull();
   });
 
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {

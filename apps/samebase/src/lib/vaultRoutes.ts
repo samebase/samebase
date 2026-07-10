@@ -73,15 +73,6 @@ export function buildVaultSchemaRoute(args: {
   return `${basePath}/mono/${encodeVaultPathTail(args.appRoot)}`;
 }
 
-export interface VaultCodespaceChatRouteArgs {
-  repositoryFullName: string;
-  branch: string;
-}
-
-export function buildVaultCodespaceChatRoute(args: VaultCodespaceChatRouteArgs): string {
-  return `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
-}
-
 export interface ParsedVaultPathContext {
   owner?: string;
   repositoryFullName?: string;

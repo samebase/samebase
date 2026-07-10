@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
-import type { Id } from "../../_generated/dataModel";
+import type { Doc, Id } from "../../_generated/dataModel";
 import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
 
 const { id, literal, number, object, union } = v;
@@ -88,6 +88,64 @@ function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLoca
 
     return rows.length;
   };
+}
+
+const retainedCodespacesCleanupError =
+  "Vault deletion is blocked because retained Codespaces state still requires cleanup. Contact support before deleting this vault.";
+
+export async function assertVaultCodespacesSafeForLocalCleanup(
+  ctx: Pick<MutationCtx, "db">,
+  vault: Doc<"vaults">,
+): Promise<void> {
+  const codespaces = await ctx.db
+    .query("codespaces")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+    .collect();
+  if (codespaces.some((codespace) => codespace.state !== "deleted")) {
+    throw new Error(retainedCodespacesCleanupError);
+  }
+
+  if (vault.activeCodespaceId === undefined) {
+    return;
+  }
+
+  const activeCodespace = await ctx.db.get(vault.activeCodespaceId);
+  if (
+    !activeCodespace ||
+    activeCodespace.vaultId !== vault._id ||
+    activeCodespace.userId !== vault.userId ||
+    activeCodespace.state !== "deleted"
+  ) {
+    throw new Error(retainedCodespacesCleanupError);
+  }
+}
+
+async function deleteDeletedCodespacesBatch(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs,
+): Promise<number> {
+  const vault = await ctx.db.get(args.vaultId);
+  if (!vault) {
+    return 0;
+  }
+  if (vault.userId !== args.userId) {
+    throw new Error("Vault not found");
+  }
+
+  await assertVaultCodespacesSafeForLocalCleanup(ctx, vault);
+  const codespaces = await ctx.db
+    .query("codespaces")
+    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+
+  if (vault.activeCodespaceId !== undefined) {
+    await ctx.db.patch(vault._id, { activeCodespaceId: undefined });
+  }
+  for (const codespace of codespaces) {
+    await ctx.db.delete(codespace._id);
+  }
+
+  return codespaces.length;
 }
 
 async function deleteFileStagingBatch(
@@ -284,7 +342,7 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "codespaces",
-    cleanup: deleteByVaultBatch("codespaces"),
+    cleanup: deleteDeletedCodespacesBatch,
   },
   {
     table: "agentGraphNodeLayout",

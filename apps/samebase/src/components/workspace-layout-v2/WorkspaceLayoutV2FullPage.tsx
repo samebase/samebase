@@ -5,7 +5,6 @@ import {
   WorkspaceLayoutV2PaneFrame,
   type WorkspaceLayoutV2PaneFrameProps,
 } from "./WorkspaceLayoutV2PaneFrame";
-import { type WorkspaceLayoutV2BottomPanelProps } from "./WorkspaceLayoutV2BottomPanel";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2 } from "./WorkspaceLayoutV2";
 import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
@@ -81,7 +80,6 @@ export function WorkspaceLayoutV2FullPage({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
-  panel,
   right,
   leftToggleVisibility = "desktop",
   rightToggleVisibility = "desktop",
@@ -91,7 +89,6 @@ export function WorkspaceLayoutV2FullPage({
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
   leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
   rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
@@ -126,7 +123,6 @@ export function WorkspaceLayoutV2FullPage({
         />
       }
       mobileMinResizeBehavior={mobileMinResizeBehavior}
-      panel={panel}
       right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}
       dataTestId={dataTestId}
     />

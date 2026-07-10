@@ -921,7 +921,7 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
                 visible,
                 open: false,
                 onOpenChange: () => {},
-                content: <div className="text-xs text-muted-foreground">Codespace ready</div>,
+                content: <div className="text-xs text-muted-foreground">Provisioning ready</div>,
               }}
             />
           </div>
@@ -1402,7 +1402,6 @@ function VaultDashboardDeleteOpenFixture() {
         </VaultDashboardRepositoryList>
         <VaultDashboardDeleteDialog
           commitError={null}
-          connectedCodespacesCount={2}
           deleteError={null}
           didAttemptCommit={false}
           isCommitting={false}
@@ -1412,7 +1411,6 @@ function VaultDashboardDeleteOpenFixture() {
           onOpenChange={() => {}}
           onRemoveVault={() => {}}
           open={true}
-          removeCodespaces={false}
           removeConvexProvision={false}
           removeGithubRepo={false}
           removeCloudflareProvision={false}

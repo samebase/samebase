@@ -1,334 +1,61 @@
-# Codespace Connection Specification
+# Dormant Codespaces Backend Contract
+
+## Status
+
+GitHub Codespaces is not part of the Samebase product surface. `CODESPACES_ENABLED` is hard-coded to
+`false`, and there is no Codespaces route, embedded editor, status UI, or vault-deletion option.
+Connected machines provide the active remote workspace path.
+
+The Codespaces backend and data model remain temporarily for compatibility with any existing rows
+and GitHub resources. Their presence does not imply that the feature is available.
+
+## Disabled Behavior
+
+- GitHub OAuth does not request the `codespace` scope.
+- User-invoked creation, lifecycle, port-management, and agent-execution functions fail closed
+  through `assertCodespacesEnabled`.
+- User-facing Codespaces queries return `null`, `0`, or an empty result while the feature is
+  disabled.
+- The shipped vault-deletion UI always requests `removeCodespaces: false`. Vault deletion fails
+  closed if a non-deleted Codespace record still exists, so local cleanup cannot erase the GitHub
+  resource identity while leaving a potentially billable resource running.
+- Samebase exposes no browser route or UI control that can create, open, reconnect, or delete a
+  Codespace.
+
+## Retained Data Boundary
+
+The `codespaces` table records the owning vault and user, GitHub resource identifiers, lifecycle
+state, optional web and agent endpoints, optional agent health metadata, and the branch and commit
+used to create the resource. A vault may retain an `activeCodespaceId` reference.
+
+Agent tokens are credentials. When Codespaces is enabled, the authenticated connection action may
+return the token to its authorized caller so it can reach the agent. Token values and prefixes must
+not be logged or included in fixtures and documentation.
+
+## Implementation Map
+
+- `apps/samebase/shared/featureFlags.ts`: disabled flag and fail-closed assertion.
+- `apps/samebase/shared/githubOAuth.ts`: conditionally excludes the GitHub Codespaces scope.
+- `apps/samebase/convex/codespaces/model.ts`: retained table and lifecycle state model.
+- `apps/samebase/convex/codespaces/index.ts`: GitHub Codespaces lifecycle actions.
+- `apps/samebase/convex/codespaces/vaultIntegration.ts`: vault-to-Codespace orchestration.
+- `apps/samebase/convex/codespaces/ports.ts`: forwarded-port visibility management.
+- `apps/samebase/convex/codespaces/executor.ts`: HTTP agent client.
+- `apps/samebase/convex/codespaces/mutations.ts`: retained records and disabled user reads.
+- `.codespace-agent/server.ts`: legacy agent server used inside a Codespace.
+
+## Retirement Or Revival
+
+Backend removal requires an explicit audit of production `codespaces` rows,
+`vaults.activeCodespaceId` references, and matching GitHub resources. After cleanup, remove the
+schema fields and table through a Convex migration before deleting the backend modules and agent
+server.
+
+Reviving Codespaces is a new product decision. It requires an accepted spec for the user workflow,
+OAuth scope, cost and lifecycle ownership, observability, resource cleanup, and a newly designed UI.
+The deleted iframe and floating-chat surfaces are not a compatibility contract.
 
 ## Related Specs
 
-- `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md` - Master plan for infra
-  provisioning and safe AI prod access.
-- `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` - Auto-provisioning flow and contracts for Convex +
-  Cloudflare per vault.
-- `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` - Approval-first policy for AI production logs/data
-  access.
-
-# GitHub Codespace Connection Specification
-
-## Overview
-
-This document outlines how Samebase connects to and interacts with GitHub Codespaces, providing both
-visual and programmatic access to cloud development environments.
-
-## Connection Methods
-
-### 1. Web Interface (Primary Method)
-
-- **URL Pattern**: `https://{codespace-name}.github.dev`
-- **Access**: Direct browser access to VS Code in the browser
-- **Integration**: Embedded via iframe in Samebase's `CodespaceIframe` component
-- **Features**: Full VS Code experience with extensions, terminal, file editing
-
-### 2. HTTP Agent API (Programmatic Access)
-
-- **URL Pattern**: `https://{codespace-name}-3000.app.github.dev`
-- **Authentication**: Bearer token (generated UUID stored in database)
-- **Purpose**: Allows Samebase to programmatically interact with the Codespace
-
-## Codex Authentication in Codespaces
-
-### Problem
-
-- Some IDE auth flows redirect to `http://localhost:1455/auth/callback`.
-- In browser-based Codespaces, this `localhost` target resolves on the user's machine, not inside
-  the remote container where the extension is listening.
-
-### Supported Workflows
-
-1. Prefer device authentication from the Codespace terminal:
-   ```bash
-   codex login --device-auth
-   ```
-2. Use API key auth in the extension/CLI when OAuth is not viable.
-3. If loopback OAuth is required, forward callback port `1455` from local machine:
-   ```bash
-   gh codespace ports forward 1455:1455 -c <codespace-name>
-   ```
-
-### Devcontainer Contract
-
-- Port `1455` is included in `forwardPorts` and marked private.
-- This does not make loopback OAuth automatic in browser Codespaces, but keeps callback port wiring
-  explicit for CLI forwarding workflows.
-
-## Connection Workflow
-
-### Creation Process:
-
-1. **Codespace Creation**: Samebase calls GitHub API to create a Codespace
-2. **Agent Setup**: A Node.js HTTP server starts on port 3000 inside the Codespace
-3. **URL Generation**:
-   - Web URL: `{codespace-name}.github.dev`
-   - Agent URL: `{codespace-name}-3000.app.github.dev`
-4. **Token Storage**: Unique authentication token stored in Convex database
-
-```ts
-// Example connection flow
-const codespace = await createCodespace(repoOwner, repoName);
-const webUrl = `https://${codespace.name}.github.dev`;
-const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
-```
-
-### Agent API Endpoints:
-
-- `GET /health` - Health check (no auth required)
-- `POST /exec` - Execute shell commands
-- `POST /files/write` - Write files
-- `GET /files/read` - Read files
-- `GET /files/list` - List directory contents
-- `DELETE /files/delete` - Delete files/directories
-- `GET /files/stat` - Get file metadata
-
-## Security Features
-
-- **Token Authentication**: All API calls (except health) require Bearer token
-- **Scope Isolation**: Each Codespace has a unique API token
-- **Path Validation**: Prevents directory traversal attacks
-- **Path Sanitization**: Input validation on all file paths
-- **Workspace Isolation**: All operations restricted to `/workspaces` directory
-
-## Usage in Samebase
-
-- **Visual Access**: Iframe embedding of VS Code web interface
-- **Programmatic Control**: HTTP API for file operations and command execution
-- **State Management**: Real-time status tracking (creating → running → stopped)
-- **Error Handling**: Graceful fallbacks and external link options
-- **Operational Safeguards**: Request timeouts and connection health checks back stop agent-driven
-  flows
-
-## Implementation Details
-
-### Codespace States
-
-- `creating` - Codespace is being provisioned
-- `running` - Codespace is active and accessible
-- `stopped` - Codespace is shut down (can be restarted)
-- `error` - Codespace creation or operation failed
-
-### Connection Establishment
-
-The connection is established automatically when you create a Codespace through Samebase's
-interface, providing both visual and programmatic access to your GitHub repository in a cloud
-development environment.
-
-## TODOs / Ideas
-
-### Monaco in ProseMirror
-
-- **Idea**: Render Monaco editor inside ProseMirror for code blocks (`ts`, `js`, etc.)
-- **Scope**: Not limited to TypeScript - apply to all languages that would use Monaco if they were
-  in a file
-- **Benefits**:
-  - Syntax highlighting
-  - IntelliSense/autocomplete
-  - Error detection
-  - Consistent editing experience
-  - Rich code editing experience within Markdown documents
-- **Implementation Considerations**:
-  - Embed Monaco as a ProseMirror node view
-  - Language detection from code fence info
-  - Seamless integration with document flow
-  - Performance optimization for multiple code blocks
-
-### Agent/Code Toggle (like build.io)
-
-- **Idea**: Toggle between "agent" and "code" modes
-- **Code Mode**: Full VS Code experience (current iframe implementation)
-- **Agent Mode**: Simplified interface optimized for AI interactions
-- **Questions**:
-  - What would the agent mode UI look like?
-  - How would it differ from the full VS Code experience?
-  - Should it be a completely different interface or a simplified VS Code view?
-
-## Future Considerations
-
-- Performance optimization for Monaco embedding
-- User preference storage for mode selection
-- Integration with AI chat for seamless agent interactions
-
-## Implementation Files
-
-- `apps/samebase/src/components/CodespaceIframe.tsx` - Web interface embedding
-- `apps/samebase/convex/codespaces.ts` - Codespace management
-- `apps/samebase/convex/codespacesExecutor.ts` - HTTP agent communication
-- `.codespace-agent/server.ts` - Agent HTTP server
-
-## Agent API Specification
-
-### Authentication
-
-All API endpoints (except health check) require Bearer token authentication:
-
-```http
-Authorization: Bearer {uuid-token}
-```
-
-### Endpoints
-
-#### Health Check
-
-```http
-GET /health
-```
-
-- **Auth Required**: No
-- **Response**: `{ status: "ok" }`
-
-#### Execute Commands
-
-```http
-POST /exec
-Content-Type: application/json
-```
-
-```json
-{
-  "command": "string",
-  "cwd": "string (optional)"
-}
-```
-
-#### File Operations
-
-**Write File**
-
-```http
-POST /files/write
-```
-
-```json
-{
-  "path": "string",
-  "content": "string"
-}
-```
-
-**Read File**
-
-```http
-GET /files/read?path={file-path}
-```
-
-**List Directory**
-
-```http
-GET /files/list?path={directory-path}
-```
-
-**Delete File/Directory**
-
-```http
-DELETE /files/delete?path={file-path}
-```
-
-**Get File Metadata**
-
-```http
-GET /files/stat?path={file-path}
-```
-
-## Integration Points
-
-### 1. Samebase UI Components
-
-**CodespaceIframe Component**
-
-- Embeds VS Code web interface
-- Handles authentication state
-- Provides fallback external link
-- **CodespaceStatus Component**
-  - Real-time status display
-  - Connection health indicators
-  - Action buttons (start/stop/delete)
-
-### 2. Convex Backend
-
-**Database Schema**
-
-```ts
-codespaces: {
-  id: string;
-  name: string;
-  webUrl: string;
-  agentUrl: string;
-  token: string;
-  status: "creating" | "running" | "stopped";
-  createdAt: number;
-  updatedAt: number;
-}
-```
-
-**API Functions**
-
-- `createCodespace`: Creates new Codespace
-- `getCodespaceStatus`: Retrieves current status
-- `executeCommand`: Runs commands via agent API
-- `manageFiles`: File operations through agent
-
-## Error Scenarios
-
-### 1. Connection Failures
-
-- **Network Issues**: Retry logic with exponential backoff
-- **Authentication Errors**: Token refresh or re-authentication
-- **Timeout Errors**: Graceful degradation to manual access
-
-### 2. Codespace States
-
-- **Creating**: Show loading state, poll for completion
-- **Stopped**: Provide start button, disable interactions
-- **Deleted**: Clean up database records, show creation option
-
-### 3. Agent Unavailability
-
-- **Port Not Ready**: Retry connection with delays
-- **Service Down**: Fall back to web interface only
-- **Invalid Token**: Regenerate and update database
-
-## Performance Considerations
-
-### 1. Connection Optimization
-
-- **Connection Pooling**: Reuse HTTP connections
-- **Request Batching**: Combine multiple file operations
-- **Caching**: Cache file metadata and directory listings
-
-### 2. UI Responsiveness
-
-- **Async Operations**: Non-blocking API calls
-- **Loading States**: Clear feedback during operations
-- **Progressive Enhancement**: Core functionality without agent API
-
-## Future Enhancements
-
-### 1. Advanced Features
-
-- **Port Forwarding**: Support for custom application ports
-- **Extension Management**: Install/configure VS Code extensions
-- **Environment Variables**: Secure environment configuration
-
-### 2. Monitoring & Analytics
-
-- **Usage Metrics**: Track Codespace utilization
-- **Performance Monitoring**: API response times and errors
-- **Cost Optimization**: Automatic shutdown policies
-
-## Implementation Notes
-
-### 1. Development Setup
-
-- Agent server code located in `.codespace-agent/`
-- Automatic startup via `.devcontainer/devcontainer.json`
-- Environment-specific configuration
-
-### 2. Deployment Considerations
-
-- **Token Security**: Secure storage and transmission
-- **Rate Limiting**: GitHub API quota management
-- **Resource Cleanup**: Automatic Codespace lifecycle management
+- `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`: active Convex and Cloudflare provisioning.
+- `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`: approval-first production access.
