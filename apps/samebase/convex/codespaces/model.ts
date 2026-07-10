@@ -3,15 +3,19 @@ import { v } from "convex/values";
 
 const { boolean, id, literal, number, optional, string, union } = v;
 
+export const retainedCodespaceStates = [
+  "creating",
+  "starting",
+  "running",
+  "stopping",
+  "stopped",
+  "deleting",
+  "failed",
+] as const;
+
 export const vCodespaceState = union(
-  literal("creating"),
-  literal("starting"),
-  literal("running"),
-  literal("stopping"),
-  literal("stopped"),
-  literal("deleting"),
+  ...retainedCodespaceStates.map((state) => literal(state)),
   literal("deleted"),
-  literal("failed"),
 );
 
 /**
@@ -46,6 +50,7 @@ export const codespacesTable = defineTable({
   branch: string(),
 })
   .index("by_vault", ["vaultId"])
+  .index("by_vault_and_state", ["vaultId", "state"])
   .index("by_user", ["userId"])
   .index("by_user_and_vault_and_state", ["userId", "vaultId", "state"])
   .index("by_gh_id", ["ghCodespaceId"])

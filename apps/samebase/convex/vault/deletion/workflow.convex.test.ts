@@ -826,6 +826,52 @@ describe("vault deletion workflow", () => {
     expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
   });
 
+  it("preserves retained Codespaces whose user does not match the vault", async () => {
+    const { ids, t } = await createConnectedVault();
+    const codespaceId = await t.run(async (ctx) => {
+      const otherUserId = await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      return await ctx.db.insert("codespaces", {
+        vaultId: ids.vaultId,
+        userId: otherUserId,
+        ghCodespaceId: "github-codespace-wrong-user",
+        ghCodespaceName: "grace-delete-me",
+        state: "stopped",
+        createdAt: 16,
+        commitSha: "wronguser123",
+        branch: "main",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        options: {
+          removeCodespaces: false,
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("retained Codespaces state still requires cleanup");
+
+    const snapshot = await t.run(async (ctx) => ({
+      codespace: await ctx.db.get(codespaceId),
+      runs: await ctx.db
+        .query("vaultDeletionRuns")
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
+        .collect(),
+      vault: await ctx.db.get(ids.vaultId),
+    }));
+    expect(snapshot.codespace?.state).toBe("stopped");
+    expect(snapshot.runs).toHaveLength(0);
+    expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
+  });
+
   it("blocks a retry when a non-deleted Codespace appears after the first run", async () => {
     const { ids, t } = await createConnectedVault();
     const initial = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
