@@ -14,7 +14,7 @@ Today this slice already gives you:
 
 1. a machine-connect page in the app
 2. a hosted `/samebase.ts` installer artifact
-3. a mirrored package entrypoint at `packages/sync/samebase.ts`
+3. the canonical package entrypoint at `packages/sync/samebase.ts`
 4. browser-backed machine approval
 5. one durable machine credential in `~/.samebase/config.json`
 6. a `samebase-sync run` command that publishes online and offline heartbeats
