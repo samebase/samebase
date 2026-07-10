@@ -17,10 +17,11 @@ Add one `/settings` route with two sections: Profile and Account.
 1. Add an optional `users.displayName` field and label it **Display name** in the product. Do not
    add a username system. The requested value is a private presentation label, not a unique handle.
 2. Make persistent account chrome resolve
-   `displayName ?? auth name ?? GitHub username ?? "Account"`. Never use email as a sidebar
-   fallback, including during JWT prehydration.
-3. Put the sign-in email only on the intentional Settings page. Add a Settings action beside Sign
-   out in every authenticated right-sidebar account section.
+   `displayName ?? email ?? auth name ?? GitHub username ?? "Account"`. Preserve email as the
+   default when no display name is set, including during JWT prehydration.
+3. When a display name is set, keep the sign-in email off persistent chrome and show it only on the
+   intentional Settings page. Add a Settings action beside Sign out in every authenticated
+   right-sidebar account section.
 4. Implement account deletion as a durable, retryable workflow with a user deletion gate and bounded
    cleanup. Do not implement it as one mutation.
 5. Preserve GitHub repositories, Convex projects, Cloudflare Workers, Codespaces, and other
@@ -66,8 +67,8 @@ static account row renders that value directly in
 The public signed-in account section also renders email inside its expanded row in
 [`PublicLandingAccountSection.tsx`](../apps/samebase/src/components/PublicLandingAccountSection.tsx#L169).
 
-Changing only the hydrated React component would still leak the email for a frame. The prehydration
-runtime currently chooses email before name in
+Changing only the hydrated React component would still show email for a frame after a display name
+is set. The prehydration runtime currently chooses email before name in
 [`appAuthPresentationRuntime.ts`](../apps/samebase/src/lib/appAuthPresentationRuntime.ts#L202), then
 injects that value into visible CSS content before React loads in
 [`appAuthPresentationPrehydration.ts`](../apps/samebase/src/lib/appAuthPresentationPrehydration.ts#L157).
@@ -75,23 +76,34 @@ injects that value into visible CSS content before React loads in
 Use these two resolution rules:
 
 ```text
-Confirmed viewer: displayName ?? name ?? githubUsername ?? "Account"
-JWT/prehydration: displayName ?? name ?? "Account"
+Confirmed viewer: displayName ?? email ?? name ?? githubUsername ?? "Account"
+JWT/prehydration: displayName ?? email ?? name ?? "Account"
 ```
 
-Do not render email as a persistent secondary line or `title` in the right sidebar. A password-only
-account with no display name should show `Account`, not its email. The Settings page may show the
-read-only sign-in email because opening that page is an intentional account-management action.
+When `displayName` exists, do not also render email as a persistent secondary line in the right
+sidebar. When `displayName` is absent, preserve the current email label. The Settings page may also
+show the read-only sign-in email because opening that page is an intentional account-management
+action.
 
-The auth token profile claim can carry `displayName`, but the live `users.viewer` query remains the
-source of truth. An existing token may briefly show an older display name until refresh; it must not
-fall back to email. Removing email from future presentation JWT claims is useful additional
-hardening, but it is not required to make the sidebar safe.
+Add `displayName` to the auth token profile claim schema and copy it from the user document in the
+existing `customClaims` callback. Saving the database field is not enough for instant prehydration:
+the JWT already stored in the browser still contains the old claims. After `setDisplayName`
+succeeds, the client must call `fetchAccessToken({ forceRefreshToken: true })` from
+`useConvexAuth()` exported by `@convex-dev/auth/react`. The installed auth client exchanges the
+refresh token, mints a new JWT through `customClaims`, rotates the refresh token, and stores both
+tokens before the call resolves.
+
+Keep Save pending until the forced refresh returns a token. Only then report success. If refresh
+fails, the Convex user record is still updated and the live `users.viewer` query can show the new
+value, but the UI must report that this session was not refreshed and offer Retry. Otherwise an
+immediate reload can prehydrate from the stale JWT and briefly show the email or previous display
+name. The live `users.viewer` query remains the source of truth after hydration.
 
 One related surface remains: the MCP authentication-status tool currently chooses email for its
 human-readable response in [`mcp/http.ts`](../apps/samebase/convex/mcp/http.ts#L98). The profile
-slice should prefer `displayName`, then provider name, then user ID in that sentence. Removing
-structured email is a separate, versioned MCP contract decision.
+slice should prefer `displayName`, then retain its existing email, provider-name, and user-ID
+fallbacks in that sentence. Removing structured email is a separate, versioned MCP contract
+decision.
 
 ## Settings Page Shape
 
@@ -321,7 +333,9 @@ the browser and deleting the Convex user row does not erase data already sent to
 
 - Add `/settings` with Profile and Account sections.
 - Add `displayName` and its mutation.
-- Make the right sidebar and prehydration email-free.
+- Add `displayName` to JWT claims and force a token refresh before Save completes.
+- Make the right sidebar and prehydration prefer `displayName` while preserving email as the
+  default.
 - Add Settings navigation and mobile pane handoff.
 - Keep Delete account disabled or absent until the backend contract exists. Do not ship a control
   that only deletes the `users` row.
@@ -349,8 +363,9 @@ Profile and privacy:
 
 - backend tests for normalization, clearing, max length, multiline rejection, ownership, pending
   access, and reactive viewer updates
-- sidebar tests for display-name precedence and zero email in confirmed, temporary, public, and
-  prehydrated markup
+- sidebar tests for display-name precedence in confirmed, temporary, public, and prehydrated markup
+- fallback tests proving email remains visible when `displayName` is absent or cleared
+- token tests proving Save forces a refresh and the persisted JWT carries the new or cleared claim
 - route test proving a pending-access user can open `/settings`
 - mobile interaction test proving Settings navigation returns to the main pane
 - update 288 px, 160 px, and 96 px right-sidebar screenshots
