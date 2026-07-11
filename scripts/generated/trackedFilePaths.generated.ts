@@ -841,6 +841,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/WorkspaceLayoutV2VisualFixture.tsx",
   "apps/samebase/src/components/WorkspaceLayoutV3VisualFixture.tsx",
   "apps/samebase/src/components/WorkspaceSidebarShell.test.ts",
+  "apps/samebase/src/components/appSidebarNavigation.ts",
   "apps/samebase/src/components/codex/CodexAppServerResearchPage.tsx",
   "apps/samebase/src/components/codex/CodexAppServerResearchVisualFixture.tsx",
   "apps/samebase/src/components/codex/CodexAppServerThreadBrowserResearchPage.tsx",
