@@ -36,6 +36,9 @@ test("unknown routes render the animated not-found page", async ({ page }) => {
 });
 
 test("signed-out protected routes keep auth in the right sidebar", async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0.57;
+  });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/new-app", { waitUntil: "networkidle" });

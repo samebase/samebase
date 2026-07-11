@@ -9,6 +9,7 @@ import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/routeSearch/root";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { Authenticated, Unauthenticated } from "convex/react";
+import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 
 const NOT_FOUND_LOGO_ROUTE_SEARCHES = [
@@ -33,16 +34,15 @@ const NOT_FOUND_LOGO_ROUTE_SEARCHES = [
 function NotFoundContent(props: {
   primaryActionLabel: string;
   primaryActionTo: "/" | typeof DASHBOARD_ROUTE;
-  pathname: string;
 }) {
-  let pathnameHash = 0;
-  for (const character of props.pathname) {
-    pathnameHash = (pathnameHash * 31 + character.charCodeAt(0)) >>> 0;
-  }
-  // Path-based selection keeps the server and hydrated client on the same colorway.
-  const logoRouteSearch =
-    NOT_FOUND_LOGO_ROUTE_SEARCHES[pathnameHash % NOT_FOUND_LOGO_ROUTE_SEARCHES.length] ??
-    NOT_FOUND_LOGO_ROUTE_SEARCHES[0];
+  // Auth and access gates mount unavailable content only after hydration, so a
+  // random colorway can be selected once per client mount without an SSR mismatch.
+  const [logoRouteSearch] = useState(
+    () =>
+      NOT_FOUND_LOGO_ROUTE_SEARCHES[
+        Math.floor(Math.random() * NOT_FOUND_LOGO_ROUTE_SEARCHES.length)
+      ] ?? NOT_FOUND_LOGO_ROUTE_SEARCHES[0],
+  );
 
   return (
     <div className="container my-auto">
@@ -78,15 +78,11 @@ export function NotFoundRoutePage() {
     <>
       <Authenticated>
         <ApprovalGate>
-          <NotFoundContent
-            pathname={pathname}
-            primaryActionLabel="Go to vaults"
-            primaryActionTo={DASHBOARD_ROUTE}
-          />
+          <NotFoundContent primaryActionLabel="Go to vaults" primaryActionTo={DASHBOARD_ROUTE} />
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>
-        <NotFoundContent pathname={pathname} primaryActionLabel="Go home" primaryActionTo="/" />
+        <NotFoundContent primaryActionLabel="Go home" primaryActionTo="/" />
       </Unauthenticated>
     </>
   );

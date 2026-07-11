@@ -1,7 +1,7 @@
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { NotFoundRoutePage } from "./NotFoundRoutePage";
 
 const authState = vi.hoisted(() => ({
@@ -72,16 +72,22 @@ describe("NotFoundRoutePage", () => {
     locationState.pathname = "/missing";
   });
 
-  it("renders the animated shuffled logo with a stable path colorway", () => {
-    const firstMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
-    const secondMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    expect(secondMarkup).toBe(firstMarkup);
-    expect(firstMarkup).toContain('data-auto-rotate="true"');
-    expect(firstMarkup).toContain('data-auto-shuffle="true"');
-    expect(firstMarkup).toContain('data-route-search-source="static"');
-    expect(firstMarkup).toContain('data-view-state-key="not-found"');
-    expect(firstMarkup).toMatch(/data-primary="(?:blue|violet|rose|amber|emerald|cyan)-700"/);
+  it("selects an animated shuffled logo colorway on each mount", () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    const blueMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
+    random.mockReturnValue(0.999);
+    const cyanMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
+
+    expect(blueMarkup).toContain('data-primary="blue-700"');
+    expect(cyanMarkup).toContain('data-primary="cyan-700"');
+    expect(blueMarkup).toContain('data-auto-rotate="true"');
+    expect(blueMarkup).toContain('data-auto-shuffle="true"');
+    expect(blueMarkup).toContain('data-route-search-source="static"');
+    expect(blueMarkup).toContain('data-view-state-key="not-found"');
   });
 
   it("sends signed-out visitors home", () => {
