@@ -3,7 +3,10 @@ import { object, optional, string, unknown as unknownValue } from "@samebase/sur
 import { asRecord, type JsonRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { resolveAccountPresentation } from "../../shared/accountPresentation";
+import {
+  normalizeAccountEmail,
+  resolveAccountPresentation,
+} from "../../shared/accountPresentation";
 import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
@@ -98,28 +101,14 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
 
 function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpToolInvocation) {
   const viewerUser = invocation.viewer.user;
-  const authentication: McpAuthenticationStatus =
-    viewerUser === null
-      ? {
-          authenticated: false,
-          user: null,
-          role: invocation.viewer.role,
-          accessKeys: invocation.viewer.accessKeys,
-          grantedScopes: invocation.grantedScopes,
-        }
-      : {
-          authenticated: true,
-          user: {
-            userId: viewerUser._id,
-            name: viewerUser.name,
-            email: viewerUser.email,
-          },
-          role: invocation.viewer.role,
-          accessKeys: invocation.viewer.accessKeys,
-          grantedScopes: invocation.grantedScopes,
-        };
-
   if (viewerUser === null) {
+    const authentication: McpAuthenticationStatus = {
+      authenticated: false,
+      user: null,
+      role: invocation.viewer.role,
+      accessKeys: invocation.viewer.accessKeys,
+      grantedScopes: invocation.grantedScopes,
+    };
     return {
       status: "ok",
       text: "MCP token is valid, but its Samebase account is no longer active.",
@@ -127,7 +116,22 @@ function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpTool
     };
   }
 
-  const accountLabel = resolveAccountPresentation(viewerUser).label;
+  const normalizedEmail = normalizeAccountEmail(viewerUser.email ?? "");
+  const authentication: McpAuthenticationStatus = {
+    authenticated: true,
+    user: {
+      userId: viewerUser._id,
+      name: viewerUser.name,
+      email: normalizedEmail,
+    },
+    role: invocation.viewer.role,
+    accessKeys: invocation.viewer.accessKeys,
+    grantedScopes: invocation.grantedScopes,
+  };
+  const accountLabel = resolveAccountPresentation({
+    displayName: viewerUser.displayName,
+    email: normalizedEmail,
+  }).label;
   return {
     status: "ok",
     text: `Authenticated as ${accountLabel}.`,

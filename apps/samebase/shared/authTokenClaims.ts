@@ -35,22 +35,36 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
 
 const authTokenProfileClaimFieldsSchema = object({
   authProvider: optional(authTokenAuthProviderSchema),
-  accountLabelKind: union(literal("displayName"), literal("email")),
-  accountLabel: authTokenProfileClaimValueSchema,
+  accountLabelKind: optional(union(literal("displayName"), literal("email"))),
+  accountLabel: optional(authTokenProfileClaimValueSchema),
+  email: optional(authTokenProfileClaimValueSchema),
 });
 
 const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (claims) => {
   try {
+    const hasAccountLabelKind = claims.accountLabelKind !== undefined;
+    const hasAccountLabel = claims.accountLabel !== undefined;
+    if (hasAccountLabelKind !== hasAccountLabel) {
+      return bad("incomplete-account-presentation");
+    }
+
     const accountPresentation =
-      claims.accountLabelKind === "displayName"
-        ? {
-            kind: "displayName" as const,
-            label: normalizeDisplayName(claims.accountLabel),
-          }
-        : {
+      claims.accountLabelKind === undefined || claims.accountLabel === undefined
+        ? // Convex Auth access JWTs live for at most one hour. Remove this email-only legacy branch
+          // after the typed claim pair has been live in production for longer than that window.
+          {
             kind: "email" as const,
-            label: normalizeAccountEmail(claims.accountLabel),
-          };
+            label: normalizeAccountEmail(claims.email ?? ""),
+          }
+        : claims.accountLabelKind === "displayName"
+          ? {
+              kind: "displayName" as const,
+              label: normalizeDisplayName(claims.accountLabel),
+            }
+          : {
+              kind: "email" as const,
+              label: normalizeAccountEmail(claims.accountLabel),
+            };
     return good({
       ...(claims.authProvider === undefined ? {} : { authProvider: claims.authProvider }),
       accountPresentation,
@@ -62,7 +76,7 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
 
 const authTokenProfileSourceSchema = object({
   displayName: optional(string),
-  email: string,
+  email: optional(string),
 });
 
 export type AuthTokenAuthProvider = InferGood<typeof authTokenAuthProviderSchema>;
@@ -79,22 +93,13 @@ export function buildAuthTokenProfileCustomClaims(
 ): Record<string, string> {
   const [hasProfileSource, profileSource] = authTokenProfileSourceSchema(source);
   if (!hasProfileSource) {
-    return {};
+    throw new Error("Account presentation source is invalid.");
   }
 
-  try {
-    const accountPresentation = resolveAccountPresentation({
-      email: normalizeAccountEmail(profileSource.email),
-      ...(profileSource.displayName === undefined
-        ? {}
-        : { displayName: normalizeDisplayName(profileSource.displayName) }),
-    });
-    return {
-      accountLabelKind: accountPresentation.kind,
-      accountLabel: accountPresentation.label,
-      ...(authProvider === undefined || authProvider === null ? {} : { authProvider }),
-    };
-  } catch {
-    return {};
-  }
+  const accountPresentation = resolveAccountPresentation(profileSource);
+  return {
+    accountLabelKind: accountPresentation.kind,
+    accountLabel: accountPresentation.label,
+    ...(authProvider === undefined || authProvider === null ? {} : { authProvider }),
+  };
 }

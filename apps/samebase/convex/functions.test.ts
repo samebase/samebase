@@ -48,7 +48,7 @@ query({
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
       userId: ctx.viewer.userId,
-      userEmail: ctx.viewer.user.email,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
 });
@@ -69,7 +69,7 @@ mutation({
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
       userId: ctx.viewer.userId,
-      userEmail: ctx.viewer.user.email,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
 });
@@ -90,7 +90,7 @@ action({
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
       userId: ctx.viewer.userId,
-      userEmail: ctx.viewer.user.email,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
 });

@@ -27,6 +27,7 @@ import {
 } from "../shared/cloudflareTokenRefresh";
 import type { AuthTokenAuthProvider } from "../shared/authTokenClaims";
 import {
+  normalizeAccountEmail,
   normalizeDisplayName,
   resolveAccountPresentation,
   vAccountPresentation,
@@ -583,9 +584,11 @@ export const getUserSettings = query({
     signInEmail: string(),
   }),
   handler: async (ctx) => {
+    const user = ctx.viewer.user;
     return {
-      displayName: ctx.viewer.user.displayName,
-      signInEmail: ctx.viewer.user.email,
+      displayName:
+        user.displayName === undefined ? undefined : normalizeDisplayName(user.displayName),
+      signInEmail: normalizeAccountEmail(user.email ?? ""),
     };
   },
 });

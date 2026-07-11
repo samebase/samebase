@@ -44,16 +44,17 @@ export function resolveAccountPresentation({
   email,
 }: {
   displayName?: string;
-  email: string;
+  email?: string;
 }): AccountPresentation {
+  const normalizedEmail = normalizeAccountEmail(email ?? "");
   if (displayName !== undefined) {
     return {
       kind: "displayName",
-      label: displayName,
+      label: normalizeDisplayName(displayName),
     };
   }
   return {
     kind: "email",
-    label: email,
+    label: normalizedEmail,
   };
 }

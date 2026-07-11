@@ -333,7 +333,7 @@ export default defineSchema({
     name: optional(string()),
     displayName: optional(string()),
     image: optional(string()),
-    email: string(),
+    email: optional(string()),
     emailVerificationTime: optional(number()),
     phone: optional(string()),
     phoneVerificationTime: optional(number()),

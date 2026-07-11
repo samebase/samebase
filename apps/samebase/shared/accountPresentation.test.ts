@@ -10,8 +10,8 @@ describe("account presentation", () => {
   it("uses the explicit display name when one exists", () => {
     expect(
       resolveAccountPresentation({
-        displayName: "Nicu",
-        email: "nicu@samebase.com",
+        displayName: "  Nicu  ",
+        email: " NICU@SAMEBASE.COM ",
       }),
     ).toEqual({ kind: "displayName", label: "Nicu" });
   });
@@ -21,6 +21,15 @@ describe("account presentation", () => {
       kind: "email",
       label: "nicu@samebase.com",
     });
+  });
+
+  it.each([
+    {},
+    { email: "not-an-email" },
+    { displayName: "Nicu" },
+    { displayName: "first\nsecond", email: "nicu@samebase.com" },
+  ])("fails closed for invalid stored account fields %j", (input) => {
+    expect(() => resolveAccountPresentation(input)).toThrow();
   });
 
   it("normalizes valid account emails", () => {

@@ -74,6 +74,40 @@ describe("users Convex contract", () => {
     });
   });
 
+  it("fails closed when stored account fields cannot form a presentation", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Legacy user",
+        isApproved: true,
+      });
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
+      "A valid email address is required.",
+    );
+    await expect(asUser.query(api.users.getUserSettings)).rejects.toThrowError(
+      "A valid email address is required.",
+    );
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        displayName: "first\nsecond",
+        email: "legacy@example.com",
+      });
+    });
+    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
+      "Display name must be one line.",
+    );
+    await expect(asUser.query(api.users.getUserSettings)).rejects.toThrowError(
+      "Display name must be one line.",
+    );
+  });
+
   it("keeps pending-access users on public shell access and denies provider access", async () => {
     const t = makeConvexTest();
     const ownerId = await t.run(async (ctx) => {

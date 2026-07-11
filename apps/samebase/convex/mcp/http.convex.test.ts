@@ -364,7 +364,7 @@ describe("MCP tools/call access enforcement", () => {
       return await response.json();
     };
 
-    return { callTool, userId };
+    return { callTool, t, userId };
   }
 
   it("advertises OAuth metadata when the bearer token is missing", async () => {
@@ -479,5 +479,20 @@ describe("MCP tools/call access enforcement", () => {
         },
       },
     });
+  });
+
+  it("fails closed instead of returning malformed stored account fields", async () => {
+    const { callTool, t, userId } = await seedMcpBearer({ isApproved: true });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, { email: "not-an-email" });
+    });
+
+    const payload = await callTool("samebase_auth_getAuthenticationStatus");
+    expect(payload).toMatchObject({
+      result: {
+        isError: true,
+      },
+    });
+    expect(JSON.stringify(payload)).not.toContain("not-an-email");
   });
 });

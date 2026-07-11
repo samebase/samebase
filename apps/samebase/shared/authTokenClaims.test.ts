@@ -44,10 +44,25 @@ describe("auth token claims", () => {
     });
   });
 
+  it("reads only the canonical email from a legacy token during the rollout window", () => {
+    expect(
+      readAuthTokenProfileClaims({
+        email: " NICU@SAMEBASE.COM ",
+        name: "Provider name",
+      }),
+    ).toEqual({
+      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
+    });
+  });
+
   it.each([
     {},
+    { name: "Provider name" },
     { accountLabelKind: "email" },
     { accountLabel: "nicu@samebase.com" },
+    { accountLabelKind: "email", email: "nicu@samebase.com" },
+    { accountLabel: "nicu@samebase.com", email: "nicu@samebase.com" },
+    { accountLabelKind: "provider", email: "nicu@samebase.com" },
     { accountLabelKind: "provider", accountLabel: "nicu@samebase.com" },
     { accountLabelKind: "email", accountLabel: "not-an-email" },
     { accountLabelKind: "displayName", accountLabel: "first\nsecond" },
@@ -95,7 +110,7 @@ describe("auth token claims", () => {
     { name: "Provider name" },
     { email: "not-an-email" },
     { displayName: "first\nsecond", email: "nicu@samebase.com" },
-  ])("omits custom claims for invalid user sources %j", (source) => {
-    expect(buildAuthTokenProfileCustomClaims(source)).toEqual({});
+  ])("rejects token minting for invalid user sources %j", (source) => {
+    expect(() => buildAuthTokenProfileCustomClaims(source)).toThrow();
   });
 });
