@@ -96,7 +96,7 @@ describe("NotFoundRoutePage", () => {
     expect(firstMarkup).toContain('data-view-state-key="not-found"');
   });
 
-  it("sends signed-out visitors home", () => {
+  it("sends signed-out visitors to the landing page", () => {
     locationState.pathname = "/new-app";
 
     const markup = renderToStaticMarkup(<NotFoundRoutePage />);
@@ -105,8 +105,8 @@ describe("NotFoundRoutePage", () => {
     expect(markup).not.toContain("This page isn&#x27;t available.");
     expect(markup).not.toContain("/new-app");
     expect(markup).toContain('href="/"');
-    expect(markup).toContain("Go home");
-    expect(markup).not.toContain("Go to vaults");
+    expect(markup).toContain("/landing");
+    expect(markup).not.toContain("/vault");
   });
 
   it("sends signed-in visitors to vaults", () => {
@@ -115,7 +115,7 @@ describe("NotFoundRoutePage", () => {
     const markup = renderToStaticMarkup(<NotFoundRoutePage />);
 
     expect(markup).toContain('href="/vault"');
-    expect(markup).toContain("Go to vaults");
-    expect(markup).not.toContain("Go home");
+    expect(markup).toContain("/vault");
+    expect(markup).not.toContain("/landing");
   });
 });

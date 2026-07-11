@@ -1,6 +1,6 @@
 import { ApprovalGate } from "@/components/ApprovalGate";
+import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
-import { buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
 import { NOT_FOUND_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
@@ -33,8 +33,8 @@ const NOT_FOUND_LOGO_COLOR_FAMILIES = [
 ] as const;
 
 function NotFoundContent(props: {
-  primaryActionLabel: string;
-  primaryActionTo: "/" | typeof DASHBOARD_ROUTE;
+  routeLabel: "/landing" | typeof DASHBOARD_ROUTE;
+  routeTo: "/" | typeof DASHBOARD_ROUTE;
 }) {
   // Auth and access gates mount unavailable content only after hydration, so a
   // random colorway can be selected once per client mount without an SSR mismatch.
@@ -67,8 +67,8 @@ function NotFoundContent(props: {
           viewStateKey={NOT_FOUND_LOGO_VIEW_STATE_KEY}
         />
         <h2 className="text-xl font-semibold tracking-tight">Page not available</h2>
-        <Link className={buttonVariants({ variant: "outline" })} to={props.primaryActionTo}>
-          {props.primaryActionLabel}
+        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={props.routeTo}>
+          {props.routeLabel}
         </Link>
       </div>
     </div>
@@ -88,11 +88,11 @@ export function NotFoundRoutePage() {
     <>
       <Authenticated>
         <ApprovalGate>
-          <NotFoundContent primaryActionLabel="Go to vaults" primaryActionTo={DASHBOARD_ROUTE} />
+          <NotFoundContent routeLabel={DASHBOARD_ROUTE} routeTo={DASHBOARD_ROUTE} />
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>
-        <NotFoundContent primaryActionLabel="Go home" primaryActionTo="/" />
+        <NotFoundContent routeLabel="/landing" routeTo="/" />
       </Unauthenticated>
     </>
   );
