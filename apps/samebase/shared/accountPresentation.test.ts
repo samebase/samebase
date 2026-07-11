@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  ACCOUNT_EMAIL_MAX_LENGTH,
   DISPLAY_NAME_MAX_CODE_POINTS,
   normalizeAccountEmail,
   normalizeDisplayName,
   resolveAccountPresentation,
 } from "./accountPresentation";
+
+function createEmail(length: number) {
+  const suffix = "@b.co";
+  return "a".repeat(length - suffix.length) + suffix;
+}
 
 describe("account presentation", () => {
   it("uses the explicit display name when one exists", () => {
@@ -26,6 +32,7 @@ describe("account presentation", () => {
   it.each([
     {},
     { email: "not-an-email" },
+    { email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1) },
     { displayName: "Nicu" },
     { displayName: "first\nsecond", email: "nicu@samebase.com" },
   ])("fails closed for invalid stored account fields %j", (input) => {
@@ -34,6 +41,15 @@ describe("account presentation", () => {
 
   it("normalizes valid account emails", () => {
     expect(normalizeAccountEmail("  Nicu@Samebase.com ")).toBe("nicu@samebase.com");
+    expect(normalizeAccountEmail(createEmail(ACCOUNT_EMAIL_MAX_LENGTH))).toHaveLength(
+      ACCOUNT_EMAIL_MAX_LENGTH,
+    );
+  });
+
+  it("rejects an email beyond the canonical maximum", () => {
+    expect(() => normalizeAccountEmail(createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1))).toThrowError(
+      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
+    );
   });
 
   it.each(["", "nicu", "nicu@samebase", "nicu @samebase.com"])(

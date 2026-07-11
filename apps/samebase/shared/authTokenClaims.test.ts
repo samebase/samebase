@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { ACCOUNT_EMAIL_MAX_LENGTH } from "./accountPresentation";
 import {
   AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
   buildAuthTokenProfileCustomClaims,
@@ -7,6 +8,11 @@ import {
 } from "./authTokenClaims";
 
 const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "github", "password"];
+
+function createEmail(length: number) {
+  const suffix = "@b.co";
+  return "a".repeat(length - suffix.length) + suffix;
+}
 
 describe("auth token claims", () => {
   it("reads a strict display-name presentation pair", () => {
@@ -28,6 +34,21 @@ describe("auth token claims", () => {
       }),
     ).toEqual({
       accountPresentation: { kind: "email", label: "nicu@samebase.com" },
+    });
+  });
+
+  it.each([
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: 123 },
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: " " },
+    {
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
+      email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+    },
+  ])("ignores malformed legacy email when a valid typed pair is present %j", (input) => {
+    expect(readAuthTokenProfileClaims(input)?.accountPresentation).toEqual({
+      kind: input.accountLabelKind,
+      label: input.accountLabel,
     });
   });
 
@@ -55,6 +76,16 @@ describe("auth token claims", () => {
     });
   });
 
+  it("accepts the maximum canonical legacy email and rejects one character more", () => {
+    const maximumEmail = createEmail(ACCOUNT_EMAIL_MAX_LENGTH);
+    expect(readAuthTokenProfileClaims({ email: maximumEmail })).toEqual({
+      accountPresentation: { kind: "email", label: maximumEmail },
+    });
+    expect(readAuthTokenProfileClaims({ email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1) })).toBe(
+      null,
+    );
+  });
+
   it.each([
     {},
     { name: "Provider name" },
@@ -62,11 +93,21 @@ describe("auth token claims", () => {
     { accountLabel: "nicu@samebase.com" },
     { accountLabelKind: "email", email: "nicu@samebase.com" },
     { accountLabel: "nicu@samebase.com", email: "nicu@samebase.com" },
+    { accountLabelKind: "email", accountLabel: 123, email: "nicu@samebase.com" },
+    {
+      accountLabelKind: 123,
+      accountLabel: "nicu@samebase.com",
+      email: "nicu@samebase.com",
+    },
     { accountLabelKind: "provider", email: "nicu@samebase.com" },
     { accountLabelKind: "provider", accountLabel: "nicu@samebase.com" },
     { accountLabelKind: "email", accountLabel: "NICU@SAMEBASE.COM" },
     { accountLabelKind: "email", accountLabel: " nicu@samebase.com " },
     { accountLabelKind: "email", accountLabel: "not-an-email" },
+    {
+      accountLabelKind: "email",
+      accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
+    },
     { accountLabelKind: "displayName", accountLabel: "first\nsecond" },
     {
       accountLabelKind: "email",
@@ -106,11 +147,21 @@ describe("auth token claims", () => {
     });
   });
 
+  it("round trips the maximum canonical email through token minting and reading", () => {
+    const maximumEmail = createEmail(ACCOUNT_EMAIL_MAX_LENGTH);
+    const claims = buildAuthTokenProfileCustomClaims({ email: maximumEmail });
+    expect(claims.accountLabel).toHaveLength(ACCOUNT_EMAIL_MAX_LENGTH);
+    expect(readAuthTokenProfileClaims(claims)).toEqual({
+      accountPresentation: { kind: "email", label: maximumEmail },
+    });
+  });
+
   it.each([
     null,
     {},
     { name: "Provider name" },
     { email: "not-an-email" },
+    { email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1) },
     { displayName: "first\nsecond", email: "nicu@samebase.com" },
   ])("rejects token minting for invalid user sources %j", (source) => {
     expect(() => buildAuthTokenProfileCustomClaims(source)).toThrow();

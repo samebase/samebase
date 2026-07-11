@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
+import { ACCOUNT_EMAIL_MAX_LENGTH } from "../../shared/accountPresentation";
 import {
   AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
   readAuthTokenProfileClaims,
 } from "../../shared/authTokenClaims";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
+
+function createEmail(length: number) {
+  const suffix = "@b.co";
+  return "a".repeat(length - suffix.length) + suffix;
+}
 
 function createJwt(payload: object) {
   return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
@@ -88,6 +94,52 @@ describe("app auth presentation runtime", () => {
       ).toBe(null);
     },
   );
+
+  it.each([
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: 123 },
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: " " },
+    {
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
+      email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+    },
+  ])("ignores malformed legacy email with a valid typed pair %j", (payload) => {
+    const runtime = createRuntime();
+    const jwtPayload = { ...payload, exp: 4100000000 };
+
+    expect(runtime.readJwtPayload(createJwt(jwtPayload))).toEqual({
+      kind: "valid",
+      profile: readAuthTokenProfileClaims(jwtPayload),
+      tokenExpiresAt: 4100000000 * 1000,
+    });
+    expect(readAuthTokenProfileClaims(jwtPayload)).not.toBe(null);
+  });
+
+  it("keeps canonical email length aligned with the shared parser", () => {
+    const runtime = createRuntime();
+    const maximumEmailPayload = {
+      accountLabelKind: "email",
+      accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH),
+      exp: 4100000000,
+    };
+    const tooLongEmailPayload = {
+      accountLabelKind: "email",
+      accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
+      exp: 4100000000,
+    };
+
+    expect(runtime.readJwtPayload(createJwt(maximumEmailPayload))).toEqual({
+      kind: "valid",
+      profile: readAuthTokenProfileClaims(maximumEmailPayload),
+      tokenExpiresAt: 4100000000 * 1000,
+    });
+    expect(runtime.readJwtPayload(createJwt(tooLongEmailPayload))).toEqual({
+      kind: "valid",
+      profile: null,
+      tokenExpiresAt: 4100000000 * 1000,
+    });
+    expect(readAuthTokenProfileClaims(tooLongEmailPayload)).toBe(null);
+  });
 
   it("reads the local auth presentation hint from storage and search", () => {
     const runtime = createRuntime();
@@ -197,8 +249,31 @@ describe("app auth presentation runtime", () => {
         exp: 4100000000,
       },
       {
+        email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH),
+        exp: 4100000000,
+      },
+      {
+        email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
+        exp: 4100000000,
+      },
+      {
+        email: 123,
+        exp: 4100000000,
+      },
+      {
         accountLabelKind: "email",
         email: "nicu@samebase.com",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: 123,
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
         exp: 4100000000,
       },
     ];

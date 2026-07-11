@@ -6,6 +6,7 @@ import {
   object,
   optional,
   string,
+  unknown as unknownValue,
   union,
   type InferGood,
 } from "@samebase/sure";
@@ -38,7 +39,7 @@ const authTokenProfileClaimFieldsSchema = object({
   authProvider: optional(authTokenAuthProviderSchema),
   accountLabelKind: optional(union(literal("displayName"), literal("email"))),
   accountLabel: optional(authTokenProfileClaimValueSchema),
-  email: optional(authTokenProfileClaimValueSchema),
+  email: optional(unknownValue),
 });
 
 const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (claims) => {
@@ -53,9 +54,13 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
     if (claims.accountLabelKind === undefined || claims.accountLabel === undefined) {
       // Convex Auth access JWTs live for at most one hour. Remove this email-only legacy branch
       // after the typed claim pair has been live in production for longer than that window.
+      const [hasLegacyEmail, legacyEmail] = authTokenProfileClaimValueSchema(claims.email);
+      if (!hasLegacyEmail) {
+        return bad("invalid-legacy-email");
+      }
       accountPresentation = {
         kind: "email",
-        label: normalizeAccountEmail(claims.email ?? ""),
+        label: normalizeAccountEmail(legacyEmail),
       };
     } else if (claims.accountLabelKind === "displayName") {
       accountPresentation = {

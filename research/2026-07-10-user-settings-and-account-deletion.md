@@ -291,7 +291,7 @@ stateDiagram-v2
 Recommended ordering:
 
 1. Insert the deletion run and gate the user in one transaction.
-2. Invalidate other Samebase sessions and reject new non-settings work.
+2. Invalidate other Samebase sessions and reject all work outside deletion status and retry.
 3. Quiesce or cancel active provisioning, repository-refresh, vault-deletion, and chat work.
 4. Cancel active billing, then revoke access credentials and grants.
 5. Delete each vault's Samebase-local data in bounded batches, reusing the existing vault cleanup

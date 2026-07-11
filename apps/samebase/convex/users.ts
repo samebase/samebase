@@ -598,12 +598,18 @@ export const setDisplayName = mutation({
   args: {
     displayName: union(string(), v.null()),
   },
-  returns: v.null(),
+  returns: vAccountPresentation,
   handler: async (ctx, args) => {
-    await ctx.db.patch("users", ctx.viewer.userId, {
-      displayName: args.displayName === null ? undefined : normalizeDisplayName(args.displayName),
+    const displayName =
+      args.displayName === null ? undefined : normalizeDisplayName(args.displayName);
+    const accountPresentation = resolveAccountPresentation({
+      email: ctx.viewer.user.email,
+      ...(displayName === undefined ? {} : { displayName }),
     });
-    return null;
+    await ctx.db.patch("users", ctx.viewer.userId, {
+      displayName,
+    });
+    return accountPresentation;
   },
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
 
 describe("users Convex contract", () => {
   it("treats anonymous viewers as signed out", async () => {
@@ -106,6 +107,22 @@ describe("users Convex contract", () => {
     await expect(asUser.query(api.users.getUserSettings)).rejects.toThrowError(
       "Display name must be one line.",
     );
+
+    const suffix = "@b.co";
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        displayName: undefined,
+        email: "a".repeat(ACCOUNT_EMAIL_MAX_LENGTH + 1 - suffix.length) + suffix,
+      });
+    });
+    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
+      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
+    );
+    await expect(
+      asUser.mutation(api.users.setDisplayName, { displayName: "Nicu" }),
+    ).rejects.toThrowError(
+      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
+    );
   });
 
   it("keeps pending-access users on public shell access and denies provider access", async () => {
@@ -174,7 +191,7 @@ describe("users Convex contract", () => {
     ).rejects.toThrowError("Display name must be 64 characters or fewer.");
     await expect(
       asViewer.mutation(api.users.setDisplayName, { displayName: "  Public Viewer  " }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ kind: "displayName", label: "Public Viewer" });
     await expect(asViewer.query(api.users.viewer)).resolves.toEqual({
       _id: viewerId,
       accountPresentation: {
@@ -188,7 +205,7 @@ describe("users Convex contract", () => {
     });
     await expect(
       asViewer.mutation(api.users.setDisplayName, { displayName: null }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ kind: "email", label: "viewer@example.com" });
     await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
       signInEmail: "viewer@example.com",
     });

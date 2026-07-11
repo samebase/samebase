@@ -2,9 +2,11 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { useState, type FormEvent } from "react";
 import { api } from "../../convex/_generated/api";
+import { type AccountPresentation } from "../../shared/accountPresentation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
 
 type ProfileSaveState =
   | { kind: "idle" }
@@ -15,7 +17,7 @@ type ProfileSaveState =
 type SessionRefreshState =
   | { kind: "current" }
   | { kind: "refreshing" }
-  | { kind: "stale"; message: string };
+  | { kind: "stale"; expectedPresentation: AccountPresentation; message: string };
 
 function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -34,10 +36,18 @@ export function UserSettingsPage() {
     return null;
   }
 
-  const refreshSession = async () => {
+  const refreshSession = async (expectedPresentation: AccountPresentation) => {
     const token = await fetchAccessToken({ forceRefreshToken: true });
     if (token === null) {
       throw new Error("The session refresh did not return a token.");
+    }
+    const profile = readCurrentAuthTokenProfileClaims(token);
+    if (
+      profile === null ||
+      profile.accountPresentation.kind !== expectedPresentation.kind ||
+      profile.accountPresentation.label !== expectedPresentation.label
+    ) {
+      throw new Error("The refreshed session does not include the saved account label.");
     }
   };
 
@@ -55,8 +65,9 @@ export function UserSettingsPage() {
     }
 
     setSaveState({ kind: "saving" });
+    let committedPresentation: AccountPresentation;
     try {
-      await setDisplayName({
+      committedPresentation = await setDisplayName({
         displayName: displayNameEntry.trim() ? displayNameEntry : null,
       });
     } catch (error) {
@@ -69,13 +80,14 @@ export function UserSettingsPage() {
 
     try {
       setSessionRefreshState({ kind: "refreshing" });
-      await refreshSession();
+      await refreshSession(committedPresentation);
       setSessionRefreshState({ kind: "current" });
       setSaveState({ kind: "saved" });
     } catch (error) {
       setSaveState({ kind: "saved" });
       setSessionRefreshState({
         kind: "stale",
+        expectedPresentation: committedPresentation,
         message: readErrorMessage(
           error,
           "The display name was saved, but the session refresh failed.",
@@ -88,13 +100,15 @@ export function UserSettingsPage() {
     if (saveState.kind === "saving" || sessionRefreshState.kind !== "stale") {
       return;
     }
+    const expectedPresentation = sessionRefreshState.expectedPresentation;
     setSessionRefreshState({ kind: "refreshing" });
     try {
-      await refreshSession();
+      await refreshSession(expectedPresentation);
       setSessionRefreshState({ kind: "current" });
     } catch (error) {
       setSessionRefreshState({
         kind: "stale",
+        expectedPresentation,
         message: readErrorMessage(error, "The session refresh failed."),
       });
     }

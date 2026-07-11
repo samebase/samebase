@@ -53,6 +53,8 @@ export function Inlineable_createAppAuthPresentationRuntime(
 ) {
   // Mirrors AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH; appAuthPresentationRuntime.test.ts guards drift.
   const authTokenProfileClaimMaxLength = 256;
+  // Mirrors ACCOUNT_EMAIL_MAX_LENGTH; appAuthPresentationRuntime.test.ts guards drift.
+  const accountEmailMaxLength = 254;
   // Mirrors DISPLAY_NAME_MAX_CODE_POINTS; appAuthPresentationRuntime.test.ts guards drift.
   const displayNameMaxCodePoints = 64;
   const convexAuthJwtStorageKeyPrefix = "__convexAuthJWT";
@@ -172,7 +174,10 @@ export function Inlineable_createAppAuthPresentationRuntime(
         return null;
       }
       const normalizedEmail = legacyEmail.value.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)) {
+      if (
+        normalizedEmail.length > accountEmailMaxLength ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
+      ) {
         return null;
       }
       accountPresentation = {
@@ -201,6 +206,7 @@ export function Inlineable_createAppAuthPresentationRuntime(
           const normalizedEmail = accountLabel.value.trim().toLowerCase();
           if (
             normalizedEmail !== accountLabel.value ||
+            normalizedEmail.length > accountEmailMaxLength ||
             !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
           ) {
             return null;

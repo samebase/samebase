@@ -2,6 +2,7 @@ import { Infer, v } from "convex/values";
 
 const { literal, object, string, union } = v;
 
+export const ACCOUNT_EMAIL_MAX_LENGTH = 254;
 export const DISPLAY_NAME_MAX_CODE_POINTS = 64;
 
 export const vAccountPresentation = union(
@@ -19,6 +20,9 @@ export type AccountPresentation = Infer<typeof vAccountPresentation>;
 
 export function normalizeAccountEmail(email: string) {
   const normalized = email.trim().toLowerCase();
+  if (normalized.length > ACCOUNT_EMAIL_MAX_LENGTH) {
+    throw new Error(`Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`);
+  }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalized)) {
     throw new Error("A valid email address is required.");
   }

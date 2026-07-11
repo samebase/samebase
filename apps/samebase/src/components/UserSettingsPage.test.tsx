@@ -3,7 +3,31 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { type AccountPresentation } from "../../shared/accountPresentation";
 import { UserSettingsPage } from "./UserSettingsPage";
+
+const CURRENT_NAME_PRESENTATION = {
+  kind: "displayName",
+  label: "Current name",
+} satisfies AccountPresentation;
+const EMAIL_PRESENTATION = {
+  kind: "email",
+  label: "nicu@samebase.com",
+} satisfies AccountPresentation;
+
+function createJwt(accountPresentation: AccountPresentation) {
+  return [
+    "header",
+    Buffer.from(
+      JSON.stringify({
+        accountLabelKind: accountPresentation.kind,
+        accountLabel: accountPresentation.label,
+        exp: 4100000000,
+      }),
+    ).toString("base64url"),
+    "signature",
+  ].join(".");
+}
 
 const authState = vi.hoisted(() => ({
   fetchAccessToken: vi.fn(),
@@ -86,7 +110,11 @@ describe("UserSettingsPage", () => {
 
   it("keeps Save pending until the refreshed JWT is stored", async () => {
     const refresh = createDeferred<string | null>();
-    mutationState.setDisplayName.mockResolvedValue(null);
+    const committedPresentation = {
+      kind: "displayName",
+      label: "Nicu",
+    } satisfies AccountPresentation;
+    mutationState.setDisplayName.mockResolvedValue(committedPresentation);
     authState.fetchAccessToken.mockReturnValue(refresh.promise);
     const mounted = await mountSettingsPage();
     try {
@@ -102,7 +130,7 @@ describe("UserSettingsPage", () => {
       expect(mounted.rootElement.textContent).not.toContain("Saved");
 
       await act(async () => {
-        refresh.resolve("new-jwt");
+        refresh.resolve(createJwt(committedPresentation));
         await refresh.promise;
       });
       expect(mounted.rootElement.textContent).toContain("Saved");
@@ -112,8 +140,8 @@ describe("UserSettingsPage", () => {
   });
 
   it("clears the display name with an explicit null", async () => {
-    mutationState.setDisplayName.mockResolvedValue(null);
-    authState.fetchAccessToken.mockResolvedValue("new-jwt");
+    mutationState.setDisplayName.mockResolvedValue(EMAIL_PRESENTATION);
+    authState.fetchAccessToken.mockResolvedValue(createJwt(EMAIL_PRESENTATION));
     const mounted = await mountSettingsPage();
     try {
       const { form, input } = readForm(mounted.rootElement);
@@ -122,16 +150,17 @@ describe("UserSettingsPage", () => {
 
       expect(mutationState.setDisplayName).toHaveBeenCalledWith({ displayName: null });
       expect(authState.fetchAccessToken).toHaveBeenCalledWith({ forceRefreshToken: true });
+      expect(mounted.rootElement.textContent).toContain("Saved");
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
   });
 
   it("retries only the failed session refresh after the database save", async () => {
-    mutationState.setDisplayName.mockResolvedValue(null);
+    mutationState.setDisplayName.mockResolvedValue(CURRENT_NAME_PRESENTATION);
     authState.fetchAccessToken
       .mockRejectedValueOnce(new Error("Refresh unavailable"))
-      .mockResolvedValueOnce("new-jwt");
+      .mockResolvedValueOnce(createJwt(CURRENT_NAME_PRESENTATION));
     const mounted = await mountSettingsPage();
     try {
       const { form } = readForm(mounted.rootElement);
@@ -156,10 +185,10 @@ describe("UserSettingsPage", () => {
   });
 
   it("keeps the stale-session recovery visible when the draft changes", async () => {
-    mutationState.setDisplayName.mockResolvedValue(null);
+    mutationState.setDisplayName.mockResolvedValue(CURRENT_NAME_PRESENTATION);
     authState.fetchAccessToken
       .mockRejectedValueOnce(new Error("Refresh unavailable"))
-      .mockResolvedValueOnce("new-jwt");
+      .mockResolvedValueOnce(createJwt(CURRENT_NAME_PRESENTATION));
     const mounted = await mountSettingsPage();
     try {
       const { form, input } = readForm(mounted.rootElement);
@@ -201,14 +230,14 @@ describe("UserSettingsPage", () => {
   });
 
   it("does not retry a stale session while a subsequent save is pending", async () => {
-    const secondSave = createDeferred<null>();
+    const secondSave = createDeferred<AccountPresentation>();
     mutationState.setDisplayName
-      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(CURRENT_NAME_PRESENTATION)
       .mockReturnValueOnce(secondSave.promise);
     authState.fetchAccessToken
       .mockRejectedValueOnce(new Error("First refresh unavailable"))
       .mockRejectedValueOnce(new Error("Second refresh unavailable"))
-      .mockResolvedValueOnce("new-jwt");
+      .mockResolvedValueOnce(createJwt(CURRENT_NAME_PRESENTATION));
     const mounted = await mountSettingsPage();
     try {
       const { form } = readForm(mounted.rootElement);
@@ -228,7 +257,7 @@ describe("UserSettingsPage", () => {
       expect(authState.fetchAccessToken).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        secondSave.resolve(null);
+        secondSave.resolve(CURRENT_NAME_PRESENTATION);
         await secondSave.promise;
         await Promise.resolve();
       });
@@ -246,6 +275,95 @@ describe("UserSettingsPage", () => {
       await unmount(mounted.root, mounted.rootElement);
     }
   });
+
+  it("rejects the valid stale token returned after another tab wins the refresh mutex", async () => {
+    const competingTabRefresh = createDeferred<string | null>();
+    const committedPresentation = {
+      kind: "displayName",
+      label: "Nicu",
+    } satisfies AccountPresentation;
+    mutationState.setDisplayName.mockResolvedValue(committedPresentation);
+    authState.fetchAccessToken
+      .mockReturnValueOnce(competingTabRefresh.promise)
+      .mockResolvedValueOnce(createJwt(committedPresentation));
+    const mounted = await mountSettingsPage();
+    try {
+      const { form, input } = readForm(mounted.rootElement);
+      input.value = "Nicu";
+      await submit(form);
+
+      await act(async () => {
+        competingTabRefresh.resolve(createJwt(EMAIL_PRESENTATION));
+        await competingTabRefresh.promise;
+      });
+
+      expect(mounted.rootElement.textContent).toContain(
+        "The refreshed session does not include the saved account label.",
+      );
+      expect(mounted.rootElement.textContent).not.toContain("Saved");
+      const retry = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Retry",
+      );
+      await act(async () => {
+        retry?.click();
+        await Promise.resolve();
+      });
+
+      expect(mutationState.setDisplayName).toHaveBeenCalledTimes(1);
+      expect(authState.fetchAccessToken).toHaveBeenCalledTimes(2);
+      expect(mounted.rootElement.textContent).toContain("Saved");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("keeps a clear stale until the refreshed token contains the expected email", async () => {
+    mutationState.setDisplayName.mockResolvedValue(EMAIL_PRESENTATION);
+    authState.fetchAccessToken
+      .mockResolvedValueOnce(createJwt(CURRENT_NAME_PRESENTATION))
+      .mockResolvedValueOnce(createJwt(EMAIL_PRESENTATION));
+    const mounted = await mountSettingsPage();
+    try {
+      const { form, input } = readForm(mounted.rootElement);
+      input.value = "   ";
+      await submit(form);
+
+      expect(mounted.rootElement.textContent).toContain(
+        "The refreshed session does not include the saved account label.",
+      );
+      const retry = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Retry",
+      );
+      await act(async () => {
+        retry?.click();
+        await Promise.resolve();
+      });
+
+      expect(mutationState.setDisplayName).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Saved");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it.each([null, "opaque-token"])(
+    "keeps the committed presentation stale when refresh returns %j",
+    async (token) => {
+      mutationState.setDisplayName.mockResolvedValue(CURRENT_NAME_PRESENTATION);
+      authState.fetchAccessToken.mockResolvedValue(token);
+      const mounted = await mountSettingsPage();
+      try {
+        const { form } = readForm(mounted.rootElement);
+        await submit(form);
+
+        expect(mounted.rootElement.textContent).toContain("Retry");
+        expect(mounted.rootElement.textContent).not.toContain("Saved");
+        expect(mutationState.setDisplayName).toHaveBeenCalledTimes(1);
+      } finally {
+        await unmount(mounted.root, mounted.rootElement);
+      }
+    },
+  );
 
   it("does not refresh the token when saving fails", async () => {
     mutationState.setDisplayName.mockRejectedValue(new Error("Display name must be one line."));
