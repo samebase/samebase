@@ -4,6 +4,7 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth, getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent/main";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
+import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { env, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -23,10 +24,6 @@ import { readOptionalEnv } from "./oauthUtils";
 const isNonEmptyString = guard<unknown, string>((value) =>
   typeof value === "string" && value.trim().length > 0 ? value : null,
 );
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
 
 async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
@@ -202,7 +199,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
               if (!isNonEmptyString(rawEmail)) {
                 throw new Error("Missing `email` for password authentication");
               }
-              const email = normalizeEmail(rawEmail);
+              const email = normalizeAccountEmail(rawEmail);
               assertProductionReviewPasswordEmailAllowed({
                 email,
                 passwordAuthMode,
@@ -220,13 +217,18 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           Google({
             clientId: googleClientId,
             clientSecret: googleClientSecret,
-            profile: (profile) => ({
-              id: profile.sub,
-              name: profile.name,
-              email: isNonEmptyString(profile.email) ? normalizeEmail(profile.email) : undefined,
-              image: profile.picture,
-              emailVerified: profile.email_verified,
-            }),
+            profile: (profile) => {
+              if (!isNonEmptyString(profile.email)) {
+                throw new Error("Google did not provide an email address.");
+              }
+              return {
+                id: profile.sub,
+                name: profile.name,
+                email: normalizeAccountEmail(profile.email),
+                image: profile.picture,
+                emailVerified: profile.email_verified,
+              };
+            },
           }),
         ]
       : []),

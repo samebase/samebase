@@ -67,18 +67,18 @@ function AppRightSidebarSignedInAccountSection({
   profile: AppAuthPresentationProfile | null;
   user: AppRightSidebarViewer | null | undefined;
 }) {
-  const accountEmail = user?.email ?? user?.githubUsername ?? profile?.email ?? profile?.name;
+  const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
   const accountProvider = authProviders?.primaryProvider ?? profile?.authProvider;
   const accountProviderLabel = accountProvider ? formatAuthProviderLabel(accountProvider) : null;
 
-  if (accountEmail === undefined) {
+  if (accountPresentation === undefined) {
     return <AppRightSidebarAccountLoadingSection />;
   }
 
   return (
     <VaultDashboardStaticAccountSection
+      accountPresentation={accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
-      email={accountEmail}
       isSignOutPending={isSignOutPending}
       onSignOut={onSignOut}
       providerLabel={accountProviderLabel}

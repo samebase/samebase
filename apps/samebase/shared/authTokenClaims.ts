@@ -9,6 +9,11 @@ import {
   union,
   type InferGood,
 } from "@samebase/sure";
+import {
+  normalizeAccountEmail,
+  normalizeDisplayName,
+  resolveAccountPresentation,
+} from "./accountPresentation";
 
 export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
 
@@ -30,16 +35,34 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
 
 const authTokenProfileClaimFieldsSchema = object({
   authProvider: optional(authTokenAuthProviderSchema),
-  email: optional(authTokenProfileClaimValueSchema),
-  name: optional(authTokenProfileClaimValueSchema),
+  accountLabelKind: union(literal("displayName"), literal("email")),
+  accountLabel: authTokenProfileClaimValueSchema,
 });
 
 const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (claims) => {
-  if (claims.name === undefined && claims.email === undefined) {
-    return bad("missing-profile-claims");
+  try {
+    const accountPresentation =
+      claims.accountLabelKind === "displayName"
+        ? {
+            kind: "displayName" as const,
+            label: normalizeDisplayName(claims.accountLabel),
+          }
+        : {
+            kind: "email" as const,
+            label: normalizeAccountEmail(claims.accountLabel),
+          };
+    return good({
+      ...(claims.authProvider === undefined ? {} : { authProvider: claims.authProvider }),
+      accountPresentation,
+    });
+  } catch {
+    return bad("invalid-account-presentation");
   }
+});
 
-  return good(claims);
+const authTokenProfileSourceSchema = object({
+  displayName: optional(string),
+  email: string,
 });
 
 export type AuthTokenAuthProvider = InferGood<typeof authTokenAuthProviderSchema>;
@@ -54,20 +77,24 @@ export function buildAuthTokenProfileCustomClaims(
   source: unknown,
   authProvider?: AuthTokenAuthProvider | null,
 ): Record<string, string> {
-  const profileClaims = readAuthTokenProfileClaims(source);
-  if (profileClaims === null) {
+  const [hasProfileSource, profileSource] = authTokenProfileSourceSchema(source);
+  if (!hasProfileSource) {
     return {};
   }
 
-  const claims: Record<string, string> = {};
-  if (profileClaims.name !== undefined) {
-    claims.name = profileClaims.name;
+  try {
+    const accountPresentation = resolveAccountPresentation({
+      email: normalizeAccountEmail(profileSource.email),
+      ...(profileSource.displayName === undefined
+        ? {}
+        : { displayName: normalizeDisplayName(profileSource.displayName) }),
+    });
+    return {
+      accountLabelKind: accountPresentation.kind,
+      accountLabel: accountPresentation.label,
+      ...(authProvider === undefined || authProvider === null ? {} : { authProvider }),
+    };
+  } catch {
+    return {};
   }
-  if (profileClaims.email !== undefined) {
-    claims.email = profileClaims.email;
-  }
-  if (authProvider !== undefined && authProvider !== null) {
-    claims.authProvider = authProvider;
-  }
-  return claims;
 }

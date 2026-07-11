@@ -4,172 +4,98 @@ import {
   buildAuthTokenProfileCustomClaims,
   readAuthTokenProfileClaims,
   type AuthTokenAuthProvider,
-  type AuthTokenProfileClaims,
 } from "./authTokenClaims";
-
-const CLAIM_VALUES = {
-  blank: " ",
-  invalid: 123,
-  tooLong: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
-  trimmed: "  Nicu  ",
-  valid: "Nicu",
-} as const;
 
 const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "github", "password"];
 
-const PROFILE_CLAIM_CASES: {
-  expected: AuthTokenProfileClaims | null;
-  input: {
-    authProvider?: unknown;
-    email?: unknown;
-    name?: unknown;
-  };
-  name: string;
-}[] = [
-  {
-    name: "keeps valid email and name claims",
-    input: {
-      email: "nicu@samebase.com",
-      name: CLAIM_VALUES.valid,
-    },
-    expected: {
-      email: "nicu@samebase.com",
-      name: "Nicu",
-    },
-  },
-  {
-    name: "trims usable claims before putting them in JWTs",
-    input: {
-      email: "  nicu@samebase.com  ",
-      name: CLAIM_VALUES.trimmed,
-    },
-    expected: {
-      email: "nicu@samebase.com",
-      name: "Nicu",
-    },
-  },
-  {
-    name: "keeps a valid name when email is missing",
-    input: {
-      name: CLAIM_VALUES.valid,
-    },
-    expected: {
-      name: "Nicu",
-    },
-  },
-  {
-    name: "keeps a valid email when name is missing",
-    input: {
-      email: "nicu@samebase.com",
-    },
-    expected: {
-      email: "nicu@samebase.com",
-    },
-  },
-  {
-    name: "keeps a valid auth provider with profile claims",
-    input: {
-      authProvider: "password",
-      email: "nicu@samebase.com",
-    },
-    expected: {
-      authProvider: "password",
-      email: "nicu@samebase.com",
-    },
-  },
-  {
-    name: "rejects missing claims",
-    input: {},
-    expected: null,
-  },
-  {
-    name: "rejects blank claims",
-    input: {
-      email: CLAIM_VALUES.blank,
-      name: CLAIM_VALUES.valid,
-    },
-    expected: null,
-  },
-  {
-    name: "rejects invalid claims",
-    input: {
-      email: CLAIM_VALUES.invalid,
-      name: CLAIM_VALUES.valid,
-    },
-    expected: null,
-  },
-  {
-    name: "rejects too-long claims",
-    input: {
-      email: CLAIM_VALUES.tooLong,
-      name: CLAIM_VALUES.valid,
-    },
-    expected: null,
-  },
-  {
-    name: "rejects unknown auth providers",
-    input: {
-      authProvider: "netlify",
-      email: "nicu@samebase.com",
-    },
-    expected: null,
-  },
-];
-
 describe("auth token claims", () => {
-  it.each(PROFILE_CLAIM_CASES)("$name", ({ expected, input }) => {
-    expect(readAuthTokenProfileClaims(input)).toEqual(expected);
+  it("reads a strict display-name presentation pair", () => {
+    expect(
+      readAuthTokenProfileClaims({
+        accountLabelKind: "displayName",
+        accountLabel: " Nicu ",
+      }),
+    ).toEqual({
+      accountPresentation: { kind: "displayName", label: "Nicu" },
+    });
+  });
+
+  it("reads a strict normalized-email presentation pair", () => {
+    expect(
+      readAuthTokenProfileClaims({
+        accountLabelKind: "email",
+        accountLabel: " NICU@SAMEBASE.COM ",
+      }),
+    ).toEqual({
+      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
+    });
   });
 
   it.each(AUTH_TOKEN_AUTH_PROVIDERS)("keeps supported %s auth provider claims", (provider) => {
     expect(
       readAuthTokenProfileClaims({
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: provider,
-        email: "nicu@samebase.com",
       }),
     ).toEqual({
+      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
       authProvider: provider,
-      email: "nicu@samebase.com",
     });
   });
 
-  it("builds flat Convex Auth custom claims without avatar fields", () => {
+  it.each([
+    {},
+    { accountLabelKind: "email" },
+    { accountLabel: "nicu@samebase.com" },
+    { accountLabelKind: "provider", accountLabel: "nicu@samebase.com" },
+    { accountLabelKind: "email", accountLabel: "not-an-email" },
+    { accountLabelKind: "displayName", accountLabel: "first\nsecond" },
+    {
+      accountLabelKind: "email",
+      accountLabel: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+    },
+    { accountLabelKind: "email", accountLabel: "nicu@samebase.com", authProvider: "netlify" },
+  ])("rejects invalid or incomplete presentation claims %j", (input) => {
+    expect(readAuthTokenProfileClaims(input)).toBe(null);
+  });
+
+  it("builds flat display-name claims from a valid user", () => {
     expect(
       buildAuthTokenProfileCustomClaims(
         {
-          email: "  nicu@samebase.com  ",
-          name: "Nicu",
+          displayName: " Nicu ",
+          email: "nicu@samebase.com",
+          name: "Provider name",
         },
         "password",
       ),
     ).toEqual({
+      accountLabelKind: "displayName",
+      accountLabel: "Nicu",
       authProvider: "password",
-      email: "nicu@samebase.com",
-      name: "Nicu",
     });
   });
 
-  it("only writes an auth provider claim when the provider is passed explicitly", () => {
+  it("builds email claims when the user has no display name", () => {
     expect(
       buildAuthTokenProfileCustomClaims({
-        authProvider: "password",
-        email: "nicu@samebase.com",
+        email: " NICU@SAMEBASE.COM ",
+        name: "Provider name",
       }),
     ).toEqual({
-      email: "nicu@samebase.com",
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
     });
   });
 
-  it("omits custom claims when a profile field is outside the JWT display contract", () => {
-    expect(
-      buildAuthTokenProfileCustomClaims({
-        email: "nicu@samebase.com",
-        name: CLAIM_VALUES.tooLong,
-      }),
-    ).toEqual({});
-  });
-
-  it("rejects non-object profile claim sources", () => {
-    expect(readAuthTokenProfileClaims(null)).toBe(null);
+  it.each([
+    null,
+    {},
+    { name: "Provider name" },
+    { email: "not-an-email" },
+    { displayName: "first\nsecond", email: "nicu@samebase.com" },
+  ])("omits custom claims for invalid user sources %j", (source) => {
+    expect(buildAuthTokenProfileCustomClaims(source)).toEqual({});
   });
 });

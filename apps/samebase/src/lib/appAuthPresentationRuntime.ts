@@ -53,6 +53,8 @@ export function Inlineable_createAppAuthPresentationRuntime(
 ) {
   // Mirrors AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH; appAuthPresentationRuntime.test.ts guards drift.
   const authTokenProfileClaimMaxLength = 256;
+  // Mirrors DISPLAY_NAME_MAX_CODE_POINTS; appAuthPresentationRuntime.test.ts guards drift.
+  const displayNameMaxCodePoints = 64;
   const convexAuthJwtStorageKeyPrefix = "__convexAuthJWT";
   const convexAuthRefreshTokenStorageKeyPrefix = "__convexAuthRefreshToken";
 
@@ -90,7 +92,16 @@ export function Inlineable_createAppAuthPresentationRuntime(
     return value;
   }
 
-  function readProfileClaim(source: object, key: string) {
+  function readProfileClaim(
+    source: object,
+    key: string,
+  ):
+    | { kind: "absent" }
+    | { kind: "invalid" }
+    | {
+        kind: "present";
+        value: string;
+      } {
     const descriptor = Object.getOwnPropertyDescriptor(source, key);
     if (descriptor === undefined) {
       return { kind: "absent" };
@@ -144,26 +155,54 @@ export function Inlineable_createAppAuthPresentationRuntime(
   }
 
   function readProfileClaims(source: object): AuthTokenProfileClaims | null {
-    const profileClaims: AuthTokenProfileClaims = {};
     const authProvider = readAuthProviderClaim(source);
-    const name = readProfileClaim(source, "name");
-    const email = readProfileClaim(source, "email");
+    const accountLabelKind = readProfileClaim(source, "accountLabelKind");
+    const accountLabel = readProfileClaim(source, "accountLabel");
 
-    if (authProvider.kind === "invalid" || name.kind === "invalid" || email.kind === "invalid") {
+    if (
+      authProvider.kind === "invalid" ||
+      accountLabelKind.kind !== "present" ||
+      accountLabel.kind !== "present"
+    ) {
       return null;
     }
 
-    if (authProvider.kind === "present") {
-      profileClaims.authProvider = authProvider.value;
-    }
-    if (name.kind === "present") {
-      profileClaims.name = name.value;
-    }
-    if (email.kind === "present") {
-      profileClaims.email = email.value;
+    let accountPresentation: AuthTokenProfileClaims["accountPresentation"];
+    switch (accountLabelKind.value) {
+      case "displayName":
+        if (
+          /[\r\n\u2028\u2029]/u.test(accountLabel.value) ||
+          Array.from(accountLabel.value).length > displayNameMaxCodePoints
+        ) {
+          return null;
+        }
+        accountPresentation = {
+          kind: "displayName",
+          label: accountLabel.value,
+        };
+        break;
+      case "email": {
+        const normalizedEmail = accountLabel.value.toLowerCase();
+        if (
+          normalizedEmail !== accountLabel.value ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
+        ) {
+          return null;
+        }
+        accountPresentation = {
+          kind: "email",
+          label: normalizedEmail,
+        };
+        break;
+      }
+      default:
+        return null;
     }
 
-    return Object.keys(profileClaims).length > 0 ? profileClaims : null;
+    return {
+      ...(authProvider.kind === "present" ? { authProvider: authProvider.value } : {}),
+      accountPresentation,
+    };
   }
 
   function readJwtPayload(token: string): AppAuthPresentationRuntimeJwtPayload {
@@ -199,10 +238,6 @@ export function Inlineable_createAppAuthPresentationRuntime(
     return tokenExpiresAt === null || tokenExpiresAt > (host.now ?? Date.now)();
   }
 
-  function readProfileLabel(profile: AuthTokenProfileClaims) {
-    return profile.email ?? profile.name ?? null;
-  }
-
   function readJwtPresentation(token: string) {
     const payload = readJwtPayload(token);
     if (
@@ -213,13 +248,8 @@ export function Inlineable_createAppAuthPresentationRuntime(
       return null;
     }
 
-    const label = readProfileLabel(payload.profile);
-    if (label === null) {
-      return null;
-    }
-
     return {
-      label,
+      label: payload.profile.accountPresentation.label,
       profile: payload.profile,
     };
   }

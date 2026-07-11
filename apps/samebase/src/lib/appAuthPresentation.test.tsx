@@ -24,13 +24,25 @@ vi.mock("convex/react", () => ({
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
-const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QHNhbWViYXNlLmNvbSJ9.signature";
-const NON_ASCII_PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJKb3PDqSDkuK3mnZEiLCJlbWFpbCI6Im3DvGxsZXJAc2FtZWJhc2UuY29tIn0.signature";
+const PROFILE_JWT = createJwt({
+  accountLabelKind: "displayName",
+  accountLabel: "Nicu",
+  exp: 4100000000,
+});
+const NON_ASCII_PROFILE_JWT = createJwt({
+  accountLabelKind: "displayName",
+  accountLabel: "José 中村",
+  exp: 4100000000,
+});
 const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
 const NON_FINITE_EXP_JWT = "header.eyJleHAiOjFlOTk5fQ.signature";
 const NO_EXP_JWT = "header.e30.signature";
+
+function createJwt(payload: object) {
+  return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
+    ".",
+  );
+}
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -155,8 +167,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "nicu@samebase.com",
-        name: "Nicu",
+        accountPresentation: { kind: "displayName", label: "Nicu" },
       },
     });
     expect(renderPresentationProvider()).toBe("<span>unknown</span>");
@@ -215,8 +226,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "nicu@samebase.com",
-        name: "Nicu",
+        accountPresentation: { kind: "displayName", label: "Nicu" },
       },
     });
   });
@@ -230,8 +240,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "müller@samebase.com",
-        name: "José 中村",
+        accountPresentation: { kind: "displayName", label: "José 中村" },
       },
     });
   });

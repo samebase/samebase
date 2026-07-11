@@ -18,7 +18,7 @@ describe("users Convex contract", () => {
     await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
   });
 
-  it("loads viewer connection state from authenticated database rows", async () => {
+  it("resolves the viewer presentation without provider identity", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -46,14 +46,12 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asUser.query(api.users.viewer)).resolves.toMatchObject({
+    await expect(asUser.query(api.users.viewer)).resolves.toEqual({
       _id: userId,
-      name: "Ada",
-      email: "ada@example.com",
-      githubUsername: "ada",
-      hasGithubConnection: true,
-      hasConvexConnection: false,
-      hasCloudflareConnection: false,
+      accountPresentation: {
+        kind: "email",
+        label: "ada@example.com",
+      },
     });
     await expect(asUser.query(api.users.currentViewerAccess)).resolves.toEqual({
       role: "role_member",
@@ -111,13 +109,12 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${viewerId}`,
     });
 
-    await expect(asViewer.query(api.users.viewer)).resolves.toMatchObject({
+    await expect(asViewer.query(api.users.viewer)).resolves.toEqual({
       _id: viewerId,
-      name: "Viewer",
-      email: "viewer@example.com",
-      hasGithubConnection: false,
-      hasConvexConnection: false,
-      hasCloudflareConnection: false,
+      accountPresentation: {
+        kind: "email",
+        label: "viewer@example.com",
+      },
     });
     await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
       role: "role_pending_access",
@@ -129,6 +126,38 @@ describe("users Convex contract", () => {
     await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
       "Access denied",
     );
+    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
+      signInEmail: "viewer@example.com",
+    });
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "   " }),
+    ).rejects.toThrowError("Display name cannot be blank.");
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "first\nsecond" }),
+    ).rejects.toThrowError("Display name must be one line.");
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "a".repeat(65) }),
+    ).rejects.toThrowError("Display name must be 64 characters or fewer.");
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "  Public Viewer  " }),
+    ).resolves.toBeNull();
+    await expect(asViewer.query(api.users.viewer)).resolves.toEqual({
+      _id: viewerId,
+      accountPresentation: {
+        kind: "displayName",
+        label: "Public Viewer",
+      },
+    });
+    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
+      displayName: "Public Viewer",
+      signInEmail: "viewer@example.com",
+    });
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: null }),
+    ).resolves.toBeNull();
+    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
+      signInEmail: "viewer@example.com",
+    });
     await expect(asViewer.query(api.users.getGithubProviderSummary)).rejects.toThrowError(
       "Access denied",
     );

@@ -17,12 +17,9 @@ import {
   getConnectionByUserAndKind,
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
+import { normalizeAccountEmail } from "../shared/accountPresentation";
 
 const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
 
 function readSeedValue(envName: string): string | undefined {
   const value = readOptionalEnv(envName);
@@ -53,7 +50,7 @@ function readRequiredSeedPasswordAccountConfig(args: {
     );
   }
   return {
-    email: normalizeEmail(email),
+    email: normalizeAccountEmail(email),
     password,
   };
 }
@@ -83,7 +80,7 @@ function readSeedPasswordAccountConfig(): {
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return {
-        email: normalizeEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
+        email: normalizeAccountEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
         password: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
         shouldLinkViaEmail: false,
       };

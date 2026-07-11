@@ -153,9 +153,8 @@ function PublicLandingLoggedOutAccountSection() {
 export function PublicLandingAccountLoadingSection() {
   return (
     <VaultDashboardAccountSection
+      accountPresentation={{ kind: "email", label: "checking login" }}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName="checking login"
-      email="checking login"
       isSignOutPending={false}
       open={false}
       onOpenChange={() => {}}
@@ -179,18 +178,10 @@ function PublicLandingResolvedSignedInAccountSection({
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
     return formatAuthProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
-  const accountEmail = viewer.email ?? viewer.githubUsername ?? viewer.name;
-  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername;
-
-  if (accountDisplayName === undefined || accountEmail === undefined) {
-    return <PublicLandingAccountLoadingSection />;
-  }
-
   return (
     <VaultDashboardAccountSection
+      accountPresentation={viewer.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName={accountDisplayName}
-      email={accountEmail}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
       onSignOut={() => {
@@ -221,18 +212,10 @@ function PublicLandingPresentedSignedInAccountSection({
   const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const accountDisplayName = profile.name ?? profile.email;
-  const accountEmail = profile.email ?? profile.name;
-
-  if (accountDisplayName === undefined || accountEmail === undefined) {
-    return <PublicLandingAccountLoadingSection />;
-  }
-
   return (
     <VaultDashboardAccountSection
+      accountPresentation={profile.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName={accountDisplayName}
-      email={accountEmail}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
       onSignOut={() => {

@@ -25,8 +25,17 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   results: [],
 }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+const PROFILE_JWT = [
+  "header",
+  Buffer.from(
+    JSON.stringify({
+      accountLabelKind: "displayName",
+      accountLabel: "Nicu",
+      exp: 4100000000,
+    }),
+  ).toString("base64url"),
+  "signature",
+].join(".");
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -258,11 +267,10 @@ describe("PublicLandingAccountSection", () => {
     queryState.results = [
       {
         _id: "user_123",
-        name: "Nicu",
-        email: "nicu@example.com",
-        hasCloudflareConnection: false,
-        hasConvexConnection: false,
-        hasGithubConnection: false,
+        accountPresentation: {
+          kind: "displayName",
+          label: "Nicu",
+        },
       },
       {
         providers: ["google"],
@@ -280,14 +288,7 @@ describe("PublicLandingAccountSection", () => {
 
   it("keeps checking login after an empty signed-in viewer loads", async () => {
     authState.isAuthenticated = true;
-    queryState.results = [
-      {
-        _id: "user_123",
-        hasCloudflareConnection: false,
-        hasConvexConnection: false,
-        hasGithubConnection: false,
-      },
-    ];
+    queryState.results = [null];
 
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 

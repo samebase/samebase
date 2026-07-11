@@ -3,6 +3,7 @@ import { object, optional, string, unknown as unknownValue } from "@samebase/sur
 import { asRecord, type JsonRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { resolveAccountPresentation } from "../../shared/accountPresentation";
 import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
@@ -96,8 +97,9 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
 }
 
 function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpToolInvocation) {
+  const viewerUser = invocation.viewer.user;
   const authentication: McpAuthenticationStatus =
-    invocation.viewer.user === null
+    viewerUser === null
       ? {
           authenticated: false,
           user: null,
@@ -108,16 +110,16 @@ function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpTool
       : {
           authenticated: true,
           user: {
-            userId: invocation.viewer.user._id,
-            name: invocation.viewer.user.name,
-            email: invocation.viewer.user.email,
+            userId: viewerUser._id,
+            name: viewerUser.name,
+            email: viewerUser.email,
           },
           role: invocation.viewer.role,
           accessKeys: invocation.viewer.accessKeys,
           grantedScopes: invocation.grantedScopes,
         };
 
-  if (authentication.user === null) {
+  if (viewerUser === null) {
     return {
       status: "ok",
       text: "MCP token is valid, but its Samebase account is no longer active.",
@@ -125,8 +127,7 @@ function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpTool
     };
   }
 
-  const accountLabel =
-    authentication.user.email ?? authentication.user.name ?? authentication.user.userId;
+  const accountLabel = resolveAccountPresentation(viewerUser).label;
   return {
     status: "ok",
     text: `Authenticated as ${accountLabel}.`,

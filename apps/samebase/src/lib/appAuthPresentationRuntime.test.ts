@@ -39,18 +39,18 @@ describe("app auth presentation runtime", () => {
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
-          email: "nicu@samebase.com",
+          accountLabelKind: "displayName",
+          accountLabel: "Nicu",
           exp: 4100000000,
-          name: "Nicu",
         }),
       ),
-    ).toBe("nicu@samebase.com");
+    ).toBe("Nicu");
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
-          email: "nicu@samebase.com",
+          accountLabelKind: "email",
+          accountLabel: "nicu@samebase.com",
           exp: -1,
-          name: "Nicu",
         }),
       ),
     ).toBe(null);
@@ -66,8 +66,9 @@ describe("app auth presentation runtime", () => {
   it("reads the local auth presentation hint from storage and search", () => {
     const runtime = createRuntime();
     const jwt = createJwt({
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
       authProvider: "password",
-      email: "nicu@samebase.com",
       exp: 4100000000,
     });
     const entries = new Map([[runtime.convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), jwt]]);
@@ -84,8 +85,11 @@ describe("app auth presentation runtime", () => {
       kind: "present",
       label: "nicu@samebase.com",
       profile: {
+        accountPresentation: {
+          kind: "email",
+          label: "nicu@samebase.com",
+        },
         authProvider: "password",
-        email: "nicu@samebase.com",
       },
     });
   });
@@ -114,42 +118,42 @@ describe("app auth presentation runtime", () => {
     const runtime = createRuntime();
     const payloads = [
       {
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: "password",
-        email: "nicu@samebase.com",
         exp: 4100000000,
-        name: "Nicu",
       },
       {
-        email: "  nicu@samebase.com  ",
+        accountLabelKind: "displayName",
+        accountLabel: "  Nicu  ",
         exp: 4100000000,
-        name: "  Nicu  ",
       },
       {
-        email: " ",
+        accountLabelKind: "email",
+        accountLabel: " ",
         exp: 4100000000,
-        name: "Nicu",
       },
       {
-        email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+        accountLabelKind: "email",
+        accountLabel: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
         exp: 4100000000,
-        name: "Nicu",
       },
       {
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: 123,
-        email: "nicu@samebase.com",
         exp: 4100000000,
-        name: 123,
       },
       {
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: "netlify",
-        email: "nicu@samebase.com",
         exp: 4100000000,
-        name: "Nicu",
       },
       {
-        email: " ",
+        accountLabelKind: "displayName",
+        accountLabel: "first\nsecond",
         exp: 4100000000,
-        name: "",
       },
     ];
 
