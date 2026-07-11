@@ -24,10 +24,9 @@ Add one `/settings` route with two sections: Profile and Account.
    raw `name`, `email`, and `githubUsername` presentation inputs from that general query. A separate
    settings query owns the required sign-in email. The hydrated UI and prehydration runtime validate
    and render the resolved value; they never choose an identity source.
-4. Make a canonical email a required Samebase account invariant through two deployments. First
-   enforce every supported writer while storage remains optional and fail closed at reads. Verify
-   production after that deploy, then narrow the schema separately. Never derive a missing email
-   from a GitHub sign-in or provider connection.
+4. Make a canonical email a required Samebase account invariant in the schema and supported auth
+   writers. Google and password authentication require email; browser handoff reuses an existing
+   valid account. Never derive email from a GitHub provider connection.
 5. When a display name is set, keep the sign-in email off persistent chrome and show it only on the
    intentional Settings page. Add a Settings action beside Sign out in every authenticated
    right-sidebar account section.
@@ -65,8 +64,8 @@ Recommended contract:
 - Security: never use the value for ownership, authorization, billing, or audit identity
 
 The `displayName` field itself needs no backfill. Its optionality is intentional because clearing a
-customization is a supported state. The separate canonical-email invariant does require an audit and
-possibly a migration because the current `users.email` schema is optional.
+customization is a supported state. Canonical email is required because every currently supported
+Samebase account has one.
 
 ## Privacy Contract For Account Chrome
 
@@ -84,16 +83,16 @@ type AccountPresentation =
 
 function resolveAccountPresentation(input: {
   displayName?: string;
-  email?: string;
+  email: string;
 }): AccountPresentation;
 ```
 
 This is a closed two-state domain, not an open-ended fallback chain. `name`, `githubUsername`, and
-`"Account"` are not accepted inputs. The temporary optional email input reflects only the widened
-storage schema; the resolver throws unless it can normalize a valid email, and it also validates the
-display name before returning. A GitHub provider connection identifies which account owns a
-repository credential; it does not define Samebase account identity. The removed GitHub sign-in path
-and GitHub's multiple-email model are additional reasons to keep that boundary absolute.
+`"Account"` are not accepted inputs. The resolver requires and normalizes a valid email, and it also
+validates the display name before returning. A GitHub provider connection identifies which account
+owns a repository credential; it does not define Samebase account identity. The removed GitHub
+sign-in path and GitHub's multiple-email model are additional reasons to keep that boundary
+absolute.
 
 The `users.viewer` return validator should require an `accountPresentation` value produced by this
 function. Remove `name`, `email`, and `githubUsername` from that general-purpose response unless a
@@ -102,44 +101,34 @@ non-presentation consumer proves it needs one. Components receive the presentati
 required `signInEmail` and optional `displayName` only to the intentional account-management
 surface. Provider-specific queries remain the only source of GitHub username.
 
-The JWT should similarly carry a required `accountLabelKind` plus `accountLabel`, both produced by
-the same function in `customClaims`. Prehydration validates that pair and renders it without making
-a second selection decision. Loading and signed-out remain separate authentication states, not extra
-presentation variants. The unreferenced `UserMenu` contained an `"Unknown"` email substitute and was
-deleted rather than adapted into another identity surface.
-
-Already-issued JWTs need one bounded token-format bridge. When the new pair is wholly absent, the
-runtime may map only a valid legacy `email` claim to the typed email presentation. A partial or
-malformed new pair fails closed and never falls back. Legacy `name`, GitHub identity, and provider
-profile values remain rejected. Convex Auth access JWTs live for at most one hour, so remove this
-bridge after the typed pair has been live in production for longer than that maximum token window.
+The JWT similarly carries a required `accountLabelKind` plus `accountLabel`, both produced by the
+same function in `customClaims`. Prehydration validates that pair and renders it without making a
+second selection decision. Loading and signed-out remain separate authentication states, not extra
+presentation variants. Tokens without the complete typed pair are rejected. Legacy `email`, `name`,
+GitHub identity, provider name, partial pairs, and mixed legacy and typed claims never become a
+fallback. The unreferenced `UserMenu` contained an `"Unknown"` email substitute and was deleted
+rather than adapted into another identity surface.
 
 When `displayName` exists, do not also render email as a persistent secondary line in the right
 sidebar. When it is absent, the resolver deliberately returns the required canonical email variant.
 The Settings page may also show the read-only sign-in email because opening that page is an
 intentional account-management action.
 
-The storage schema still permits users without email for the first safe rollout deploy. The
-implementation tightens the runtime invariant with these checks:
+The implementation enforces the email invariant at storage, writer, and read boundaries:
 
 1. Require a normalized Samebase sign-in email from every new interactive sign-in path. Password
    already requires one; Google sign-in should reject a profile without one. Browser handoff must
    reference an existing valid user.
-2. Audit existing users for missing, blank, or invalid email. Do not fill gaps from `users.name`, a
-   GitHub profile, or a provider connection. Resolve affected accounts through an explicit owner
-   recovery process.
-3. At every viewer, Settings, MCP, and token-claim read boundary, validate the stored email and fail
+2. At every viewer, Settings, MCP, and token-claim read boundary, validate the stored email and fail
    closed when presentation cannot be constructed. Do not mint a profile-less JWT or display a
    substitute.
-4. After the enforcement deploy is active, run a bounded count-only production verification. Only a
-   later schema-narrowing deploy may make `users.email` required.
 
-The 2026-07-11 pre-enforcement production audit read six user rows through a private pipe and
-emitted counts only: zero missing, blank, invalid, or non-normalized emails, with the row limit not
-reached. That audit is useful baseline evidence, but it does not close the writer race before
-enforcement is deployed. Google and password sign-in now require a normalized valid email. Keep
-`users.email` optional in this deploy, verify again after production is running these writers, then
-narrow the schema in a later deploy.
+The 2026-07-11 production verification read all six user rows through a private pipe and emitted
+counts only: zero missing, blank, invalid, or non-normalized emails. The operator confirmed that
+these are the only real accounts, so `users.email` is required directly without a backfill or staged
+migration. If a future interactive auth provider genuinely cannot supply an email, that feature can
+widen the schema when the concrete account state and presentation contract are designed. Samebase
+does not model that hypothetical state now.
 
 Saving the database field is not enough for instant prehydration: the JWT already stored in the
 browser still contains the old resolved presentation. After `setDisplayName` succeeds, the client
@@ -383,9 +372,8 @@ the browser and deleting the Convex user row does not erase data already sent to
 
 ### Slice 1: Settings And Private Display Name (Implemented)
 
-- Keep `users.email` optional while enforcing canonical email on supported sign-ins and validating
-  every presentation read. Run the count-only audit again after this deploy is active; narrow the
-  schema only in a separate later deploy if verification stays clean.
+- Require `users.email` directly. All six existing rows were verified as canonical, and current
+  Google and password sign-in writers require email.
 - Add the shared, typed `resolveAccountPresentation` function and remove presentation decisions from
   UI components.
 - Add `/settings` with Profile and Account sections.
@@ -426,14 +414,14 @@ Profile and privacy:
   variants
 - boundary tests proving provider name, GitHub username, and a generic label cannot enter account
   presentation
-- migration tests proving missing email fails closed while the first-deploy schema remains optional
-- post-deploy count-only verification before the separate schema-narrowing deploy
+- schema and type tests proving every stored user requires email, plus runtime boundary tests for
+  malformed unknown email input
 - sidebar tests proving confirmed, temporary, public, and prehydrated markup render the supplied
   presentation without choosing another source
 - token tests proving Save forces a refresh, the persisted JWT carries the resolved kind and label,
   and a failed refresh stays recoverable while the draft changes
-- legacy-token tests proving only email is accepted when the new pair is wholly absent, through both
-  hydrated and prehydrated paths
+- token tests proving legacy profile fields, partial pairs, provider identity, and mixed legacy and
+  typed claims are rejected through both hydrated and prehydrated paths
 - real-route tests proving pending access through the SPA Settings link, signed-out direct-route
   privacy, display-name save/prehydration, and clear/email prehydration
 - mobile interaction test proving Settings navigation returns to the main pane

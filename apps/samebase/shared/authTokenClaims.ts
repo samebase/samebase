@@ -19,10 +19,7 @@ import {
 
 export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
 
-const authTokenAuthProviderSchema = union(
-  literal("google"),
-  union(literal("github"), literal("password")),
-);
+const authTokenAuthProviderSchema = union(literal("google"), literal("password"));
 
 const authTokenProfileClaimValueSchema = after(string, (value) => {
   const trimmedValue = value.trim();
@@ -37,32 +34,25 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
 
 const authTokenProfileClaimFieldsSchema = object({
   authProvider: optional(authTokenAuthProviderSchema),
-  accountLabelKind: optional(union(literal("displayName"), literal("email"))),
-  accountLabel: optional(authTokenProfileClaimValueSchema),
+  accountLabelKind: union(literal("displayName"), literal("email")),
+  accountLabel: authTokenProfileClaimValueSchema,
   email: optional(unknownValue),
+  githubUsername: optional(unknownValue),
+  name: optional(unknownValue),
 });
 
 const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (claims) => {
   try {
-    const hasAccountLabelKind = claims.accountLabelKind !== undefined;
-    const hasAccountLabel = claims.accountLabel !== undefined;
-    if (hasAccountLabelKind !== hasAccountLabel) {
-      return bad("incomplete-account-presentation");
+    if (
+      claims.email !== undefined ||
+      claims.githubUsername !== undefined ||
+      claims.name !== undefined
+    ) {
+      return bad("legacy-account-presentation");
     }
 
     let accountPresentation: AccountPresentation;
-    if (claims.accountLabelKind === undefined || claims.accountLabel === undefined) {
-      // Convex Auth access JWTs live for at most one hour. Remove this email-only legacy branch
-      // after the typed claim pair has been live in production for longer than that window.
-      const [hasLegacyEmail, legacyEmail] = authTokenProfileClaimValueSchema(claims.email);
-      if (!hasLegacyEmail) {
-        return bad("invalid-legacy-email");
-      }
-      accountPresentation = {
-        kind: "email",
-        label: normalizeAccountEmail(legacyEmail),
-      };
-    } else if (claims.accountLabelKind === "displayName") {
+    if (claims.accountLabelKind === "displayName") {
       accountPresentation = {
         kind: "displayName",
         label: normalizeDisplayName(claims.accountLabel),
@@ -88,7 +78,7 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
 
 const authTokenProfileSourceSchema = object({
   displayName: optional(string),
-  email: optional(string),
+  email: string,
 });
 
 export type AuthTokenAuthProvider = InferGood<typeof authTokenAuthProviderSchema>;

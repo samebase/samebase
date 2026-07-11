@@ -68,7 +68,6 @@ function InlineScript_prehydrateAppAuthPresentation(
 
   function formatAuthProviderLabel(provider: string) {
     if (provider === "google") return "Google";
-    if (provider === "github") return "GitHub";
     if (provider === "password") return "Password";
     return null;
   }

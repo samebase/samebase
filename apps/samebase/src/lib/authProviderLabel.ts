@@ -5,8 +5,6 @@ export function formatAuthProviderLabel(provider: AuthTokenAuthProvider | undefi
   switch (provider) {
     case "google":
       return "Google";
-    case "github":
-      return "GitHub";
     case "password":
       return "Password";
     default:
