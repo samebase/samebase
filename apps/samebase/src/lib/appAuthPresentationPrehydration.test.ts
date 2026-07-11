@@ -174,6 +174,31 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).not.toContain("Provider name");
   });
 
+  it.each(["NICU@SAMEBASE.COM", " nicu@samebase.com "])(
+    "rejects a noncanonical typed email claim %j before hydration",
+    (accountLabel) => {
+      window.localStorage.setItem(
+        convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+        createJwt({
+          accountLabelKind: "email",
+          accountLabel,
+          exp: 4100000000,
+        }),
+      );
+
+      runAppAuthPresentationPrehydrationScript();
+
+      expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+        "signed-out",
+      );
+      const styleText = document.getElementById(
+        "samebase-app-auth-presentation-prehydration",
+      )?.textContent;
+      expect(styleText).toContain('content: "not logged in";');
+      expect(styleText).not.toContain(accountLabel.trim());
+    },
+  );
+
   it("visually fills the signed-in account row with the JWT provider label", () => {
     writeLocalAuthSession(
       createJwt({

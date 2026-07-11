@@ -91,7 +91,7 @@ const routeAccessMetadataByPath = {
   },
   "/settings": {
     access: "access_user_preferences",
-    appWorkspaceRouteChrome: { leftPane: "none" },
+    appWorkspaceRouteChrome: { leftPane: "none", mobilePane: "main" },
   },
   "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/test": {

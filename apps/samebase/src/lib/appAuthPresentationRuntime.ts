@@ -116,13 +116,13 @@ export function Inlineable_createAppAuthPresentationRuntime(
     }
 
     const trimmedValue = value.trim();
-    if (trimmedValue.length === 0 || trimmedValue.length > authTokenProfileClaimMaxLength) {
+    if (trimmedValue.length === 0 || value.length > authTokenProfileClaimMaxLength) {
       return { kind: "invalid" };
     }
 
     return {
       kind: "present",
-      value: trimmedValue,
+      value,
     };
   }
 
@@ -171,7 +171,7 @@ export function Inlineable_createAppAuthPresentationRuntime(
       if (legacyEmail.kind !== "present") {
         return null;
       }
-      const normalizedEmail = legacyEmail.value.toLowerCase();
+      const normalizedEmail = legacyEmail.value.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)) {
         return null;
       }
@@ -183,20 +183,22 @@ export function Inlineable_createAppAuthPresentationRuntime(
       return null;
     } else {
       switch (accountLabelKind.value) {
-        case "displayName":
+        case "displayName": {
+          const normalizedDisplayName = accountLabel.value.trim();
           if (
-            /[\r\n\u2028\u2029]/u.test(accountLabel.value) ||
-            Array.from(accountLabel.value).length > displayNameMaxCodePoints
+            /[\r\n\u2028\u2029]/u.test(normalizedDisplayName) ||
+            Array.from(normalizedDisplayName).length > displayNameMaxCodePoints
           ) {
             return null;
           }
           accountPresentation = {
             kind: "displayName",
-            label: accountLabel.value,
+            label: normalizedDisplayName,
           };
           break;
+        }
         case "email": {
-          const normalizedEmail = accountLabel.value.toLowerCase();
+          const normalizedEmail = accountLabel.value.trim().toLowerCase();
           if (
             normalizedEmail !== accountLabel.value ||
             !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)

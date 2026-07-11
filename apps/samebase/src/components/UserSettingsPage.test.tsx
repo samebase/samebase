@@ -200,6 +200,53 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("does not retry a stale session while a subsequent save is pending", async () => {
+    const secondSave = createDeferred<null>();
+    mutationState.setDisplayName
+      .mockResolvedValueOnce(null)
+      .mockReturnValueOnce(secondSave.promise);
+    authState.fetchAccessToken
+      .mockRejectedValueOnce(new Error("First refresh unavailable"))
+      .mockRejectedValueOnce(new Error("Second refresh unavailable"))
+      .mockResolvedValueOnce("new-jwt");
+    const mounted = await mountSettingsPage();
+    try {
+      const { form } = readForm(mounted.rootElement);
+      await submit(form);
+      expect(mounted.rootElement.textContent).toContain("First refresh unavailable");
+
+      await submit(form);
+      const retry = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Retry",
+      );
+      expect(retry).toBeDefined();
+      expect(retry?.disabled).toBe(true);
+      await act(async () => {
+        retry?.click();
+        await Promise.resolve();
+      });
+      expect(authState.fetchAccessToken).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        secondSave.resolve(null);
+        await secondSave.promise;
+        await Promise.resolve();
+      });
+      expect(authState.fetchAccessToken).toHaveBeenCalledTimes(2);
+      expect(mounted.rootElement.textContent).toContain("Second refresh unavailable");
+      expect(retry?.disabled).toBe(false);
+
+      await act(async () => {
+        retry?.click();
+        await Promise.resolve();
+      });
+      expect(authState.fetchAccessToken).toHaveBeenCalledTimes(3);
+      expect(mounted.rootElement.textContent).toContain("Saved");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("does not refresh the token when saving fails", async () => {
     mutationState.setDisplayName.mockRejectedValue(new Error("Display name must be one line."));
     const mounted = await mountSettingsPage();

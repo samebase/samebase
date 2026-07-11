@@ -13,6 +13,7 @@ import {
   normalizeAccountEmail,
   normalizeDisplayName,
   resolveAccountPresentation,
+  type AccountPresentation,
 } from "./accountPresentation";
 
 export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
@@ -27,10 +28,10 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
   if (trimmedValue.length === 0) {
     return bad("blank-string");
   }
-  if (trimmedValue.length > AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH) {
+  if (value.length > AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH) {
     return bad("too-long-string");
   }
-  return good(trimmedValue);
+  return good(value);
 });
 
 const authTokenProfileClaimFieldsSchema = object({
@@ -48,23 +49,29 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
       return bad("incomplete-account-presentation");
     }
 
-    const accountPresentation =
-      claims.accountLabelKind === undefined || claims.accountLabel === undefined
-        ? // Convex Auth access JWTs live for at most one hour. Remove this email-only legacy branch
-          // after the typed claim pair has been live in production for longer than that window.
-          {
-            kind: "email" as const,
-            label: normalizeAccountEmail(claims.email ?? ""),
-          }
-        : claims.accountLabelKind === "displayName"
-          ? {
-              kind: "displayName" as const,
-              label: normalizeDisplayName(claims.accountLabel),
-            }
-          : {
-              kind: "email" as const,
-              label: normalizeAccountEmail(claims.accountLabel),
-            };
+    let accountPresentation: AccountPresentation;
+    if (claims.accountLabelKind === undefined || claims.accountLabel === undefined) {
+      // Convex Auth access JWTs live for at most one hour. Remove this email-only legacy branch
+      // after the typed claim pair has been live in production for longer than that window.
+      accountPresentation = {
+        kind: "email",
+        label: normalizeAccountEmail(claims.email ?? ""),
+      };
+    } else if (claims.accountLabelKind === "displayName") {
+      accountPresentation = {
+        kind: "displayName",
+        label: normalizeDisplayName(claims.accountLabel),
+      };
+    } else {
+      const normalizedEmail = normalizeAccountEmail(claims.accountLabel);
+      if (normalizedEmail !== claims.accountLabel) {
+        return bad("noncanonical-account-email");
+      }
+      accountPresentation = {
+        kind: "email",
+        label: normalizedEmail,
+      };
+    }
     return good({
       ...(claims.authProvider === undefined ? {} : { authProvider: claims.authProvider }),
       accountPresentation,

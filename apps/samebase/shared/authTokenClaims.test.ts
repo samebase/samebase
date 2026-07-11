@@ -20,11 +20,11 @@ describe("auth token claims", () => {
     });
   });
 
-  it("reads a strict normalized-email presentation pair", () => {
+  it("reads a strict canonical-email presentation pair", () => {
     expect(
       readAuthTokenProfileClaims({
         accountLabelKind: "email",
-        accountLabel: " NICU@SAMEBASE.COM ",
+        accountLabel: "nicu@samebase.com",
       }),
     ).toEqual({
       accountPresentation: { kind: "email", label: "nicu@samebase.com" },
@@ -64,6 +64,8 @@ describe("auth token claims", () => {
     { accountLabel: "nicu@samebase.com", email: "nicu@samebase.com" },
     { accountLabelKind: "provider", email: "nicu@samebase.com" },
     { accountLabelKind: "provider", accountLabel: "nicu@samebase.com" },
+    { accountLabelKind: "email", accountLabel: "NICU@SAMEBASE.COM" },
+    { accountLabelKind: "email", accountLabel: " nicu@samebase.com " },
     { accountLabelKind: "email", accountLabel: "not-an-email" },
     { accountLabelKind: "displayName", accountLabel: "first\nsecond" },
     {

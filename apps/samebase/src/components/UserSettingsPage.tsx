@@ -85,7 +85,7 @@ export function UserSettingsPage() {
   };
 
   const handleRetryRefresh = async () => {
-    if (sessionRefreshState.kind !== "stale") {
+    if (saveState.kind === "saving" || sessionRefreshState.kind !== "stale") {
       return;
     }
     setSessionRefreshState({ kind: "refreshing" });
@@ -155,7 +155,7 @@ export function UserSettingsPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={sessionRefreshState.kind === "refreshing"}
+                disabled={pending}
                 onClick={() => void handleRetryRefresh()}
               >
                 {sessionRefreshState.kind === "refreshing" ? "Refreshing..." : "Retry"}

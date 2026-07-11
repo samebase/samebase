@@ -80,6 +80,7 @@ export function WorkspaceLayoutV2FullPage({
   dataTestId,
   left,
   main,
+  mobilePaneConstraint,
   mobileMinResizeBehavior = "min_resize_to_merge",
   panel,
   right,
@@ -90,6 +91,7 @@ export function WorkspaceLayoutV2FullPage({
   dataTestId?: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
+  mobilePaneConstraint?: "main";
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
@@ -125,6 +127,7 @@ export function WorkspaceLayoutV2FullPage({
           }
         />
       }
+      mobilePaneConstraint={mobilePaneConstraint}
       mobileMinResizeBehavior={mobileMinResizeBehavior}
       panel={panel}
       right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}

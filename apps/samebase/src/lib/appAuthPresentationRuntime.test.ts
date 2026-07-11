@@ -72,6 +72,23 @@ describe("app auth presentation runtime", () => {
     ).toBe(null);
   });
 
+  it.each(["NICU@SAMEBASE.COM", " nicu@samebase.com "])(
+    "rejects a noncanonical typed email claim %j",
+    (accountLabel) => {
+      const runtime = createRuntime();
+
+      expect(
+        runtime.readJwtPresentationLabel(
+          createJwt({
+            accountLabelKind: "email",
+            accountLabel,
+            exp: 4100000000,
+          }),
+        ),
+      ).toBe(null);
+    },
+  );
+
   it("reads the local auth presentation hint from storage and search", () => {
     const runtime = createRuntime();
     const jwt = createJwt({
@@ -140,6 +157,16 @@ describe("app auth presentation runtime", () => {
       {
         accountLabelKind: "email",
         accountLabel: " ",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: "NICU@SAMEBASE.COM",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: " nicu@samebase.com ",
         exp: 4100000000,
       },
       {

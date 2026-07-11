@@ -2,10 +2,23 @@ import { devices, expect, test, type Page } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
-import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+} from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
+const MOBILE_RIGHT_SIDEBAR_STATE = {
+  leftDesktopOpen: true,
+  leftDesktopWidthPx: 240,
+  leftMobileWidthPx: 240,
+  mobilePane: "right",
+  mobileSurface: { kind: "unmerged" },
+  rightDesktopOpen: true,
+  rightDesktopWidthPx: 288,
+  rightMobileWidthPx: 288,
+} satisfies WorkspaceSidebarState;
 const screenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -17,6 +30,16 @@ async function openSettings(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/settings");
   await page.waitForLoadState("networkidle");
+}
+
+async function createPendingAccount(page: Page, email: string) {
+  const passwordAuthSection = page.getByTestId(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+  await passwordAuthSection.getByPlaceholder("you@example.com").waitFor({ state: "visible" });
+  await passwordAuthSection.getByRole("button", { name: "Need an account?" }).click();
+  await passwordAuthSection.getByPlaceholder("you@example.com").fill(email);
+  await passwordAuthSection.getByPlaceholder("Password").fill("settings-test-pass-1234");
+  await passwordAuthSection.getByRole("button", { exact: true, name: "Create account" }).click();
+  await expect(page.getByRole("button", { exact: true, name: "Sign out" })).toBeVisible();
 }
 
 async function blockHydrationScripts(page: Page) {
@@ -120,22 +143,12 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     reducedMotion: "reduce",
   });
   const page = await context.newPage();
-  const sidebarState = {
-    leftDesktopOpen: true,
-    leftDesktopWidthPx: 240,
-    leftMobileWidthPx: 240,
-    mobilePane: "right",
-    mobileSurface: { kind: "unmerged" },
-    rightDesktopOpen: true,
-    rightDesktopWidthPx: 288,
-    rightMobileWidthPx: 288,
-  } satisfies WorkspaceSidebarState;
   await page.addInitScript(
     ({ state, storageKey, version }) => {
       window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
     },
     {
-      state: sidebarState,
+      state: MOBILE_RIGHT_SIDEBAR_STATE,
       storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
       version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
     },
@@ -169,6 +182,76 @@ test("Settings link returns the mobile workspace to the main pane", async ({
   }
 });
 
+test("prehydrated mobile Settings navigation selects the main route pane", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile Settings tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+  const email = `settings-prehydration-${testInfo.workerIndex}-${Date.now()}@example.test`;
+  await page.addInitScript(
+    ({ state, storageKey, version }) => {
+      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
+    },
+    {
+      state: MOBILE_RIGHT_SIDEBAR_STATE,
+      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
+    },
+  );
+
+  try {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await createPendingAccount(page, email);
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "right",
+    );
+
+    await blockHydrationScripts(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-app-auth-presentation-prehydrated",
+      "signed-in",
+    );
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "right",
+    );
+
+    const prehydratedSettingsLink = page
+      .getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID)
+      .getByRole("link", { exact: true, name: "Settings" });
+    await expect(prehydratedSettingsLink).toBeVisible();
+    await prehydratedSettingsLink.click();
+    await expect(page).toHaveURL(/\/settings$/u);
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "main",
+    );
+
+    await page.unroute("**/*");
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "main",
+    );
+    await expect(page.getByTestId("user-settings-page")).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test("pending users save a private display name and refresh prehydration", async ({
   page,
 }, testInfo) => {
@@ -176,17 +259,10 @@ test("pending users save a private display name and refresh prehydration", async
   // A unique reserved-domain account avoids PII and keeps the fully parallel suite away from the
   // shared seeded account while this test performs real profile mutations.
   const email = `settings-route-${testInfo.workerIndex}-${Date.now()}@example.test`;
-  const password = "settings-test-pass-1234";
   const displayName = "Video Demo Account";
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("you@example.com").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Need an account?" }).click();
-  await page.getByPlaceholder("you@example.com").fill(email);
-  await page.getByPlaceholder("Password").fill(password);
-  await page.getByRole("button", { exact: true, name: "Create account" }).click();
-
-  await expect(page.getByRole("button", { exact: true, name: "Sign out" })).toBeVisible();
+  await createPendingAccount(page, email);
   await page.goto("/vault", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/vault\/?$/u);
   await expect(page.getByRole("heading", { name: "Account access pending" })).toBeVisible();
