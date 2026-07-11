@@ -236,21 +236,14 @@ describe("app auth presentation", () => {
     });
   });
 
-  it("uses only the email claim from a legacy local JWT during hydration", async () => {
+  it("rejects legacy profile claims from the local JWT during hydration", async () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
       LEGACY_PROFILE_JWT,
     );
 
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
-      kind: "present",
-      profile: {
-        accountPresentation: { kind: "email", label: "legacy@example.com" },
-      },
-    });
-    expect(await renderPresentationProviderAfterEffects()).toBe(
-      "<span>temporaryAuthenticated</span>",
-    );
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
+    expect(await renderPresentationProviderAfterEffects()).toBe("<span>signedOut</span>");
   });
 
   it("reads non-ASCII profile claims from the local JWT", () => {
