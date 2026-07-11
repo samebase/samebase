@@ -127,6 +127,7 @@ describe("McpConsentRoutePage workspace shell", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-right"]'),
     ).not.toBeNull();
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-pane-left"]')).toBeNull();
     expect(rootElement.querySelector('[data-testid="default-right-sidebar"]')).not.toBeNull();
     expect(rootElement.textContent).toContain("Sign in to continue");
     expect(rootElement.textContent).toContain("Use the account sidebar to sign in");

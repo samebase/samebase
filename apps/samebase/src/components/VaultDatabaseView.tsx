@@ -164,7 +164,7 @@ export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDat
   const titleParts = [`${owner}/${repoName}`, branch, formatAppRoot(appRoot)];
 
   return (
-    <AppWorkspaceRouteChrome leftToggleVisibility="all" rightToggleVisibility="all">
+    <AppWorkspaceRouteChrome rightToggleVisibility="all">
       <div data-testid="vault-database-page" className="flex h-full min-h-0 flex-col bg-background">
         {loadError ? (
           <VaultDatabaseStatus>{loadError}</VaultDatabaseStatus>
