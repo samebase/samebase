@@ -1,4 +1,5 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -136,10 +137,14 @@ function AppRightSidebarPrimaryLinks() {
     <>
       <nav
         aria-label="App"
-        className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3 text-sm"
+        className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
       >
-        <Link to={DASHBOARD_ROUTE}>Vaults</Link>
-        <Link to={PROVIDERS_ROUTE}>Providers</Link>
+        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
+          Vaults
+        </Link>
+        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={PROVIDERS_ROUTE}>
+          Providers
+        </Link>
       </nav>
       <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
         <Button className="w-full" asChild>

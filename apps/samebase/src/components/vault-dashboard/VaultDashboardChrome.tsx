@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { Button } from "@/components/ui/button";
@@ -167,7 +168,9 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             </div>
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-            <Link to={SETTINGS_ROUTE}>Settings</Link>
+            <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
+              Settings
+            </Link>
           </div>
         </div>
       </div>
@@ -224,7 +227,11 @@ export function VaultDashboardAccountSection({
           </div>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link to={SETTINGS_ROUTE} onClick={onSettings}>
+          <Link
+            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+            to={SETTINGS_ROUTE}
+            onClick={onSettings}
+          >
             Settings
           </Link>
         </div>
@@ -270,7 +277,11 @@ export function VaultDashboardStaticAccountSection({
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link to={SETTINGS_ROUTE} onClick={onSettings}>
+          <Link
+            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+            to={SETTINGS_ROUTE}
+            onClick={onSettings}
+          >
             Settings
           </Link>
         </div>

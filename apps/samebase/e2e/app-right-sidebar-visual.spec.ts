@@ -175,6 +175,12 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
     "href",
     "/settings",
   );
+  for (const linkName of ["Settings", "Vaults", "Providers"]) {
+    const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
+    await expect(navigationLink).toHaveCSS("font-size", "14px");
+    await expect(navigationLink).toHaveCSS("line-height", "20px");
+    await expect(navigationLink).toHaveCSS("text-decoration-line", "underline");
+  }
   await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
   await expect(rightSidebar.getByRole("link", { name: "Vaults", exact: true })).toHaveAttribute(
     "href",
