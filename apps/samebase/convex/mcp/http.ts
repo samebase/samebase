@@ -116,7 +116,7 @@ function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpTool
     };
   }
 
-  const normalizedEmail = normalizeAccountEmail(viewerUser.email ?? "");
+  const normalizedEmail = normalizeAccountEmail(viewerUser.email);
   const authentication: McpAuthenticationStatus = {
     authenticated: true,
     user: {

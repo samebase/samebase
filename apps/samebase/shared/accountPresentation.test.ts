@@ -30,10 +30,8 @@ describe("account presentation", () => {
   });
 
   it.each([
-    {},
     { email: "not-an-email" },
     { email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1) },
-    { displayName: "Nicu" },
     { displayName: "first\nsecond", email: "nicu@samebase.com" },
   ])("fails closed for invalid stored account fields %j", (input) => {
     expect(() => resolveAccountPresentation(input)).toThrow();

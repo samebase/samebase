@@ -145,7 +145,6 @@ export function Inlineable_createAppAuthPresentationRuntime(
 
     switch (claim.value) {
       case "google":
-      case "github":
       case "password":
         return {
           kind: "present",
@@ -160,31 +159,21 @@ export function Inlineable_createAppAuthPresentationRuntime(
     const authProvider = readAuthProviderClaim(source);
     const accountLabelKind = readProfileClaim(source, "accountLabelKind");
     const accountLabel = readProfileClaim(source, "accountLabel");
+    const legacyEmail = readProfileClaim(source, "email");
+    const legacyGithubUsername = readProfileClaim(source, "githubUsername");
+    const legacyName = readProfileClaim(source, "name");
 
-    if (authProvider.kind === "invalid") {
+    if (
+      authProvider.kind === "invalid" ||
+      legacyEmail.kind !== "absent" ||
+      legacyGithubUsername.kind !== "absent" ||
+      legacyName.kind !== "absent"
+    ) {
       return null;
     }
 
     let accountPresentation: AuthTokenProfileClaims["accountPresentation"];
-    if (accountLabelKind.kind === "absent" && accountLabel.kind === "absent") {
-      // Convex Auth access JWTs live for at most one hour. This branch only carries tokens issued
-      // before the typed pair shipped and can be removed after that format is live for one hour.
-      const legacyEmail = readProfileClaim(source, "email");
-      if (legacyEmail.kind !== "present") {
-        return null;
-      }
-      const normalizedEmail = legacyEmail.value.trim().toLowerCase();
-      if (
-        normalizedEmail.length > accountEmailMaxLength ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
-      ) {
-        return null;
-      }
-      accountPresentation = {
-        kind: "email",
-        label: normalizedEmail,
-      };
-    } else if (accountLabelKind.kind !== "present" || accountLabel.kind !== "present") {
+    if (accountLabelKind.kind !== "present" || accountLabel.kind !== "present") {
       return null;
     } else {
       switch (accountLabelKind.value) {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
 
@@ -75,11 +75,45 @@ describe("users Convex contract", () => {
     });
   });
 
+  it("ignores inactive GitHub sign-in accounts in auth provider presentation", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId: insertedUserId,
+        provider: "google",
+        providerAccountId: "ada@example.com",
+      });
+      await ctx.db.insert("authAccounts", {
+        userId: insertedUserId,
+        provider: "github",
+        providerAccountId: "octocat",
+      });
+      return insertedUserId;
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.users.getViewerAuthProviders)).resolves.toEqual({
+      providers: ["google"],
+      primaryProvider: "google",
+    });
+    await expect(t.query(internal.users.getPrimaryAuthProviderForToken, { userId })).resolves.toBe(
+      "google",
+    );
+  });
+
   it("fails closed when stored account fields cannot form a presentation", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
-        name: "Legacy user",
+        email: "not-an-email",
+        name: "Invalid user",
         isApproved: true,
       });
     });

@@ -153,8 +153,9 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "Nicu";');
   });
 
-  it("prehydrates only the email claim from a legacy JWT", () => {
-    writeLocalAuthSession(
+  it("rejects a legacy profile JWT before hydration", () => {
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
       createJwt({
         email: "legacy@example.com",
         name: "Provider name",
@@ -168,9 +169,10 @@ describe("appAuthPresentationPrehydration", () => {
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      "signed-in",
+      "signed-out",
     );
-    expect(styleText).toContain('content: "legacy@example.com";');
+    expect(styleText).toContain('content: "not logged in";');
+    expect(styleText).not.toContain("legacy@example.com");
     expect(styleText).not.toContain("Provider name");
   });
 
@@ -261,6 +263,30 @@ describe("appAuthPresentationPrehydration", () => {
     )?.textContent;
     expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
     expect(styleText).not.toContain('content: "Signed in with Password";');
+  });
+
+  it("rejects the inactive GitHub sign-in provider before hydration", () => {
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+      createJwt({
+        accountLabelKind: "displayName",
+        accountLabel: "Nicu",
+        authProvider: "github",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
+    );
+    expect(styleText).toContain('content: "not logged in";');
+    expect(styleText).not.toContain("Nicu");
+    expect(styleText).not.toContain("GitHub");
   });
 
   it("escapes hostile JWT profile labels inside CSS content", () => {

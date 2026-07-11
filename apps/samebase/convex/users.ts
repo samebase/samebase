@@ -38,7 +38,7 @@ const { array, boolean, id, literal, number, object, optional, string, union } =
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member" as const;
 
-const vAuthTokenAuthProvider = union(literal("google"), literal("github"), literal("password"));
+const vAuthTokenAuthProvider = union(literal("google"), literal("password"));
 const vAuthProviderSummary = object({
   providers: array(vAuthTokenAuthProvider),
   primaryProvider: optional(vAuthTokenAuthProvider),
@@ -53,7 +53,6 @@ type AuthProviderAccountSummary = {
 function readAuthTokenAuthProvider(provider: string): AuthTokenAuthProvider | null {
   switch (provider) {
     case "google":
-    case "github":
     case "password":
       return provider;
     default:
@@ -588,7 +587,7 @@ export const getUserSettings = query({
     return {
       displayName:
         user.displayName === undefined ? undefined : normalizeDisplayName(user.displayName),
-      signInEmail: normalizeAccountEmail(user.email ?? ""),
+      signInEmail: normalizeAccountEmail(user.email),
     };
   },
 });

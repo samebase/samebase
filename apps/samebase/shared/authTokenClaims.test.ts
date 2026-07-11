@@ -7,7 +7,7 @@ import {
   type AuthTokenAuthProvider,
 } from "./authTokenClaims";
 
-const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "github", "password"];
+const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "password"];
 
 function createEmail(length: number) {
   const suffix = "@b.co";
@@ -37,21 +37,6 @@ describe("auth token claims", () => {
     });
   });
 
-  it.each([
-    { accountLabelKind: "displayName", accountLabel: "Nicu", email: 123 },
-    { accountLabelKind: "displayName", accountLabel: "Nicu", email: " " },
-    {
-      accountLabelKind: "email",
-      accountLabel: "nicu@samebase.com",
-      email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
-    },
-  ])("ignores malformed legacy email when a valid typed pair is present %j", (input) => {
-    expect(readAuthTokenProfileClaims(input)?.accountPresentation).toEqual({
-      kind: input.accountLabelKind,
-      label: input.accountLabel,
-    });
-  });
-
   it.each(AUTH_TOKEN_AUTH_PROVIDERS)("keeps supported %s auth provider claims", (provider) => {
     expect(
       readAuthTokenProfileClaims({
@@ -65,30 +50,11 @@ describe("auth token claims", () => {
     });
   });
 
-  it("reads only the canonical email from a legacy token during the rollout window", () => {
-    expect(
-      readAuthTokenProfileClaims({
-        email: " NICU@SAMEBASE.COM ",
-        name: "Provider name",
-      }),
-    ).toEqual({
-      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
-    });
-  });
-
-  it("accepts the maximum canonical legacy email and rejects one character more", () => {
-    const maximumEmail = createEmail(ACCOUNT_EMAIL_MAX_LENGTH);
-    expect(readAuthTokenProfileClaims({ email: maximumEmail })).toEqual({
-      accountPresentation: { kind: "email", label: maximumEmail },
-    });
-    expect(readAuthTokenProfileClaims({ email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1) })).toBe(
-      null,
-    );
-  });
-
   it.each([
     {},
     { name: "Provider name" },
+    { email: "nicu@samebase.com" },
+    { githubUsername: "octocat" },
     { accountLabelKind: "email" },
     { accountLabel: "nicu@samebase.com" },
     { accountLabelKind: "email", email: "nicu@samebase.com" },
@@ -101,6 +67,21 @@ describe("auth token claims", () => {
     },
     { accountLabelKind: "provider", email: "nicu@samebase.com" },
     { accountLabelKind: "provider", accountLabel: "nicu@samebase.com" },
+    {
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
+      email: "nicu@samebase.com",
+    },
+    {
+      accountLabelKind: "displayName",
+      accountLabel: "Nicu",
+      name: "Provider name",
+    },
+    {
+      accountLabelKind: "displayName",
+      accountLabel: "Nicu",
+      githubUsername: "octocat",
+    },
     { accountLabelKind: "email", accountLabel: "NICU@SAMEBASE.COM" },
     { accountLabelKind: "email", accountLabel: " nicu@samebase.com " },
     { accountLabelKind: "email", accountLabel: "not-an-email" },
@@ -114,6 +95,7 @@ describe("auth token claims", () => {
       accountLabel: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
     },
     { accountLabelKind: "email", accountLabel: "nicu@samebase.com", authProvider: "netlify" },
+    { accountLabelKind: "email", accountLabel: "nicu@samebase.com", authProvider: "github" },
   ])("rejects invalid or incomplete presentation claims %j", (input) => {
     expect(readAuthTokenProfileClaims(input)).toBe(null);
   });

@@ -68,7 +68,7 @@ describe("app auth presentation runtime", () => {
           exp: 4100000000,
         }),
       ),
-    ).toBe("nicu@samebase.com");
+    ).toBe(null);
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
@@ -103,7 +103,9 @@ describe("app auth presentation runtime", () => {
       accountLabel: "nicu@samebase.com",
       email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
     },
-  ])("ignores malformed legacy email with a valid typed pair %j", (payload) => {
+    { accountLabelKind: "displayName", accountLabel: "Nicu", name: "Provider name" },
+    { accountLabelKind: "displayName", accountLabel: "Nicu", githubUsername: "octocat" },
+  ])("rejects legacy presentation claims mixed with a typed pair %j", (payload) => {
     const runtime = createRuntime();
     const jwtPayload = { ...payload, exp: 4100000000 };
 
@@ -112,7 +114,7 @@ describe("app auth presentation runtime", () => {
       profile: readAuthTokenProfileClaims(jwtPayload),
       tokenExpiresAt: 4100000000 * 1000,
     });
-    expect(readAuthTokenProfileClaims(jwtPayload)).not.toBe(null);
+    expect(readAuthTokenProfileClaims(jwtPayload)).toBe(null);
   });
 
   it("keeps canonical email length aligned with the shared parser", () => {
@@ -236,6 +238,12 @@ describe("app auth presentation runtime", () => {
         accountLabelKind: "email",
         accountLabel: "nicu@samebase.com",
         authProvider: "netlify",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
+        authProvider: "github",
         exp: 4100000000,
       },
       {
