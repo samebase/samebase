@@ -39,7 +39,7 @@ async function createPendingAccount(page: Page, email: string) {
   await passwordAuthSection.getByPlaceholder("you@example.com").fill(email);
   await passwordAuthSection.getByPlaceholder("Password").fill("settings-test-pass-1234");
   await passwordAuthSection.getByRole("button", { exact: true, name: "Create account" }).click();
-  await expect(page.getByRole("link", { exact: true, name: "Settings" })).toBeVisible();
+  await expect(page.getByRole("link", { exact: true, name: "/settings" })).toBeVisible();
 }
 
 async function blockHydrationScripts(page: Page) {
@@ -164,7 +164,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
       "right",
     );
 
-    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await page.getByRole("link", { name: "/settings", exact: true }).click();
     await expect(page).toHaveURL(/\/settings$/u);
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
@@ -233,7 +233,7 @@ test("prehydrated mobile Settings navigation selects the main route pane", async
 
     const prehydratedSettingsLink = page
       .getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID)
-      .getByRole("link", { exact: true, name: "Settings" });
+      .getByRole("link", { exact: true, name: "/settings" });
     await expect(prehydratedSettingsLink).toBeVisible();
     await prehydratedSettingsLink.click();
     await expect(page).toHaveURL(/\/settings$/u);
@@ -271,7 +271,7 @@ test("pending users save a private display name and refresh prehydration", async
   await page.evaluate(() => {
     document.documentElement.dataset.settingsNavigation = "spa";
   });
-  await page.getByRole("link", { exact: true, name: "Settings" }).click();
+  await page.getByRole("link", { exact: true, name: "/settings" }).click();
   await expect(page).toHaveURL(/\/settings$/u);
   await expect(page.getByTestId("user-settings-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Account access pending" })).toHaveCount(0);
