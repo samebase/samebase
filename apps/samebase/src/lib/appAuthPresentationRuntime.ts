@@ -159,44 +159,59 @@ export function Inlineable_createAppAuthPresentationRuntime(
     const accountLabelKind = readProfileClaim(source, "accountLabelKind");
     const accountLabel = readProfileClaim(source, "accountLabel");
 
-    if (
-      authProvider.kind === "invalid" ||
-      accountLabelKind.kind !== "present" ||
-      accountLabel.kind !== "present"
-    ) {
+    if (authProvider.kind === "invalid") {
       return null;
     }
 
     let accountPresentation: AuthTokenProfileClaims["accountPresentation"];
-    switch (accountLabelKind.value) {
-      case "displayName":
-        if (
-          /[\r\n\u2028\u2029]/u.test(accountLabel.value) ||
-          Array.from(accountLabel.value).length > displayNameMaxCodePoints
-        ) {
-          return null;
-        }
-        accountPresentation = {
-          kind: "displayName",
-          label: accountLabel.value,
-        };
-        break;
-      case "email": {
-        const normalizedEmail = accountLabel.value.toLowerCase();
-        if (
-          normalizedEmail !== accountLabel.value ||
-          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
-        ) {
-          return null;
-        }
-        accountPresentation = {
-          kind: "email",
-          label: normalizedEmail,
-        };
-        break;
-      }
-      default:
+    if (accountLabelKind.kind === "absent" && accountLabel.kind === "absent") {
+      // Convex Auth access JWTs live for at most one hour. This branch only carries tokens issued
+      // before the typed pair shipped and can be removed after that format is live for one hour.
+      const legacyEmail = readProfileClaim(source, "email");
+      if (legacyEmail.kind !== "present") {
         return null;
+      }
+      const normalizedEmail = legacyEmail.value.toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)) {
+        return null;
+      }
+      accountPresentation = {
+        kind: "email",
+        label: normalizedEmail,
+      };
+    } else if (accountLabelKind.kind !== "present" || accountLabel.kind !== "present") {
+      return null;
+    } else {
+      switch (accountLabelKind.value) {
+        case "displayName":
+          if (
+            /[\r\n\u2028\u2029]/u.test(accountLabel.value) ||
+            Array.from(accountLabel.value).length > displayNameMaxCodePoints
+          ) {
+            return null;
+          }
+          accountPresentation = {
+            kind: "displayName",
+            label: accountLabel.value,
+          };
+          break;
+        case "email": {
+          const normalizedEmail = accountLabel.value.toLowerCase();
+          if (
+            normalizedEmail !== accountLabel.value ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
+          ) {
+            return null;
+          }
+          accountPresentation = {
+            kind: "email",
+            label: normalizedEmail,
+          };
+          break;
+        }
+        default:
+          return null;
+      }
     }
 
     return {

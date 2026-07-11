@@ -10,9 +10,12 @@ type ProfileSaveState =
   | { kind: "idle" }
   | { kind: "saving" }
   | { kind: "saved" }
+  | { kind: "saveFailed"; message: string };
+
+type SessionRefreshState =
+  | { kind: "current" }
   | { kind: "refreshing" }
-  | { kind: "saveFailed"; message: string }
-  | { kind: "refreshFailed"; message: string };
+  | { kind: "stale"; message: string };
 
 function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -23,6 +26,9 @@ export function UserSettingsPage() {
   const setDisplayName = useMutation(api.users.setDisplayName);
   const { fetchAccessToken } = useConvexAuth();
   const [saveState, setSaveState] = useState<ProfileSaveState>({ kind: "idle" });
+  const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
+    kind: "current",
+  });
 
   if (settings === undefined) {
     return null;
@@ -37,7 +43,7 @@ export function UserSettingsPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (saveState.kind === "saving" || saveState.kind === "refreshing") {
+    if (saveState.kind === "saving" || sessionRefreshState.kind === "refreshing") {
       return;
     }
 
@@ -62,11 +68,14 @@ export function UserSettingsPage() {
     }
 
     try {
+      setSessionRefreshState({ kind: "refreshing" });
       await refreshSession();
+      setSessionRefreshState({ kind: "current" });
       setSaveState({ kind: "saved" });
     } catch (error) {
-      setSaveState({
-        kind: "refreshFailed",
+      setSaveState({ kind: "saved" });
+      setSessionRefreshState({
+        kind: "stale",
         message: readErrorMessage(
           error,
           "The display name was saved, but the session refresh failed.",
@@ -76,22 +85,22 @@ export function UserSettingsPage() {
   };
 
   const handleRetryRefresh = async () => {
-    if (saveState.kind !== "refreshFailed") {
+    if (sessionRefreshState.kind !== "stale") {
       return;
     }
-    setSaveState({ kind: "refreshing" });
+    setSessionRefreshState({ kind: "refreshing" });
     try {
       await refreshSession();
-      setSaveState({ kind: "saved" });
+      setSessionRefreshState({ kind: "current" });
     } catch (error) {
-      setSaveState({
-        kind: "refreshFailed",
+      setSessionRefreshState({
+        kind: "stale",
         message: readErrorMessage(error, "The session refresh failed."),
       });
     }
   };
 
-  const pending = saveState.kind === "saving" || saveState.kind === "refreshing";
+  const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
 
   return (
     <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
@@ -124,7 +133,7 @@ export function UserSettingsPage() {
             <Button type="submit" disabled={pending}>
               {saveState.kind === "saving" ? "Saving..." : "Save"}
             </Button>
-            {saveState.kind === "saved" ? (
+            {saveState.kind === "saved" && sessionRefreshState.kind === "current" ? (
               <p className="text-sm text-muted-foreground" role="status">
                 Saved
               </p>
@@ -135,21 +144,21 @@ export function UserSettingsPage() {
               {saveState.message}
             </p>
           ) : null}
-          {saveState.kind === "refreshFailed" || saveState.kind === "refreshing" ? (
+          {sessionRefreshState.kind === "stale" || sessionRefreshState.kind === "refreshing" ? (
             <div className="flex flex-wrap items-center gap-3" role="alert">
               <p className="text-sm text-destructive">
-                {saveState.kind === "refreshFailed"
-                  ? saveState.message
+                {sessionRefreshState.kind === "stale"
+                  ? sessionRefreshState.message
                   : "Refreshing this session..."}
               </p>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={saveState.kind === "refreshing"}
+                disabled={sessionRefreshState.kind === "refreshing"}
                 onClick={() => void handleRetryRefresh()}
               >
-                {saveState.kind === "refreshing" ? "Refreshing..." : "Retry"}
+                {sessionRefreshState.kind === "refreshing" ? "Refreshing..." : "Retry"}
               </Button>
             </div>
           ) : null}

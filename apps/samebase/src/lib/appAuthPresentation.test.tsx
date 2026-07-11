@@ -29,6 +29,11 @@ const PROFILE_JWT = createJwt({
   accountLabel: "Nicu",
   exp: 4100000000,
 });
+const LEGACY_PROFILE_JWT = createJwt({
+  email: "legacy@example.com",
+  name: "Provider name",
+  exp: 4100000000,
+});
 const NON_ASCII_PROFILE_JWT = createJwt({
   accountLabelKind: "displayName",
   accountLabel: "José 中村",
@@ -229,6 +234,23 @@ describe("app auth presentation", () => {
         accountPresentation: { kind: "displayName", label: "Nicu" },
       },
     });
+  });
+
+  it("uses only the email claim from a legacy local JWT during hydration", async () => {
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+      LEGACY_PROFILE_JWT,
+    );
+
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
+      kind: "present",
+      profile: {
+        accountPresentation: { kind: "email", label: "legacy@example.com" },
+      },
+    });
+    expect(await renderPresentationProviderAfterEffects()).toBe(
+      "<span>temporaryAuthenticated</span>",
+    );
   });
 
   it("reads non-ASCII profile claims from the local JWT", () => {

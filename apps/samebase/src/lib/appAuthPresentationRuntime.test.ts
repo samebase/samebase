@@ -57,6 +57,15 @@ describe("app auth presentation runtime", () => {
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
+          email: " NICU@SAMEBASE.COM ",
+          name: "Provider name",
+          exp: 4100000000,
+        }),
+      ),
+    ).toBe("nicu@samebase.com");
+    expect(
+      runtime.readJwtPresentationLabel(
+        createJwt({
           exp: 4100000000,
         }),
       ),
@@ -153,6 +162,16 @@ describe("app auth presentation runtime", () => {
       {
         accountLabelKind: "displayName",
         accountLabel: "first\nsecond",
+        exp: 4100000000,
+      },
+      {
+        email: " NICU@SAMEBASE.COM ",
+        name: "Provider name",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        email: "nicu@samebase.com",
         exp: 4100000000,
       },
     ];

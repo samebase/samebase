@@ -153,6 +153,27 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "Nicu";');
   });
 
+  it("prehydrates only the email claim from a legacy JWT", () => {
+    writeLocalAuthSession(
+      createJwt({
+        email: "legacy@example.com",
+        name: "Provider name",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-in",
+    );
+    expect(styleText).toContain('content: "legacy@example.com";');
+    expect(styleText).not.toContain("Provider name");
+  });
+
   it("visually fills the signed-in account row with the JWT provider label", () => {
     writeLocalAuthSession(
       createJwt({

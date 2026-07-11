@@ -155,6 +155,51 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("keeps the stale-session recovery visible when the draft changes", async () => {
+    mutationState.setDisplayName.mockResolvedValue(null);
+    authState.fetchAccessToken
+      .mockRejectedValueOnce(new Error("Refresh unavailable"))
+      .mockResolvedValueOnce("new-jwt");
+    const mounted = await mountSettingsPage();
+    try {
+      const { form, input } = readForm(mounted.rootElement);
+      await submit(form);
+
+      expect(mounted.rootElement.textContent).toContain("Refresh unavailable");
+      await act(async () => {
+        const descriptor = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        );
+        if (!descriptor || typeof descriptor.set !== "function") {
+          throw new Error("HTMLInputElement value setter is unavailable.");
+        }
+        descriptor.set.call(input, "Unsaved draft");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+
+      expect(mounted.rootElement.textContent).toContain("Refresh unavailable");
+      expect(mounted.rootElement.textContent).toContain("Retry");
+      expect(mounted.rootElement.textContent).not.toContain("Saved");
+      expect(mutationState.setDisplayName).toHaveBeenCalledTimes(1);
+      expect(authState.fetchAccessToken).toHaveBeenCalledTimes(1);
+
+      const retry = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Retry",
+      );
+      await act(async () => {
+        retry?.click();
+        await Promise.resolve();
+      });
+
+      expect(authState.fetchAccessToken).toHaveBeenCalledTimes(2);
+      expect(mounted.rootElement.textContent).not.toContain("Refresh unavailable");
+      expect(mounted.rootElement.textContent).not.toContain("Saved");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("does not refresh the token when saving fails", async () => {
     mutationState.setDisplayName.mockRejectedValue(new Error("Display name must be one line."));
     const mounted = await mountSettingsPage();

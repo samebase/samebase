@@ -153,17 +153,14 @@ function PublicLandingLoggedOutAccountSection() {
 
 export function PublicLandingAccountLoadingSection() {
   return (
-    <VaultDashboardAccountSection
-      accountPresentation={{ kind: "email", label: "checking login" }}
+    <VaultDashboardAccountSectionFrame
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      isSignOutPending={false}
+      label="checking login"
       open={false}
       onOpenChange={() => {}}
-      onSettings={() => {}}
-      onSignOut={() => {}}
-      providerLabel={null}
-      signOutDisabled
-    />
+    >
+      {null}
+    </VaultDashboardAccountSectionFrame>
   );
 }
 
