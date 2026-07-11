@@ -17,6 +17,7 @@ const authState = vi.hoisted(() => ({
   isAuthenticated: true,
   isLoading: false,
 }));
+const setMobilePane = vi.hoisted(() => vi.fn());
 const queryState = vi.hoisted<{
   blockedQueryNames: Set<string>;
   index: number;
@@ -135,6 +136,10 @@ vi.mock("@/components/ApiKeyConnectDialog", () => ({
   }),
 }));
 
+vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
+  useWorkspacePaneActions: () => ({ setMobilePane }),
+}));
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
 
@@ -143,13 +148,15 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     Link: ({
       children,
       className,
+      onClick,
       to,
     }: {
       children?: ReactNode;
       className?: string;
+      onClick?: () => void;
       to: string;
     }) => (
-      <a className={className} href={to}>
+      <a className={className} href={to} onClick={onClick}>
         {children}
       </a>
     ),
@@ -263,6 +270,7 @@ describe("AppRightSidebarContent", () => {
     queryState.resultsByQueryName = new Map();
     queryState.blockedQueryNames = new Set();
     queryState.seenQueryNames = [];
+    setMobilePane.mockClear();
   });
 
   it("does not treat a profileless JWT as temporary auth", async () => {
@@ -350,6 +358,23 @@ describe("AppRightSidebarContent", () => {
       expect(mounted.rootElement.textContent).toContain("Nicu");
       expect(mounted.rootElement.textContent).toContain("Sign out");
       expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("returns the mobile workspace to the main pane when Settings is selected", async () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const mounted = await mountRightSidebarAfterEffects([]);
+    try {
+      const settingsLink =
+        mounted.rootElement.querySelector<HTMLAnchorElement>('a[href="/settings"]');
+      expect(settingsLink).not.toBeNull();
+      settingsLink?.click();
+      expect(setMobilePane).toHaveBeenCalledWith("main");
     } finally {
       await mounted.unmount();
     }

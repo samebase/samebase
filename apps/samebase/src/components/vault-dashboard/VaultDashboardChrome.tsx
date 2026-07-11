@@ -2,13 +2,15 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, ChevronUpIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 import { findVaultDashboardVerticalScrollport } from "./vaultDashboardScrollport";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
+import { Link } from "@tanstack/react-router";
+import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
 
 const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 const SIDEBAR_ROW_ICON_CLASS =
@@ -50,6 +52,7 @@ export type VaultDashboardAccountSectionProps = {
   dataTestId?: string;
   isSignOutPending: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  onSettings: () => void;
   onSignOut: () => void;
   open: boolean;
   providerLabel: string | null;
@@ -60,6 +63,7 @@ export type VaultDashboardStaticAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
   isSignOutPending: boolean;
+  onSettings: () => void;
   onSignOut: () => void;
   providerLabel: string | null;
 };
@@ -168,6 +172,12 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             </div>
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to={SETTINGS_ROUTE}
+            >
+              Settings
+            </Link>
             <Button
               type="button"
               variant="outline"
@@ -192,6 +202,7 @@ export function VaultDashboardAccountSection({
   dataTestId,
   isSignOutPending,
   onOpenChange,
+  onSettings,
   onSignOut,
   open,
   providerLabel,
@@ -234,6 +245,13 @@ export function VaultDashboardAccountSection({
           </div>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Link
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            to={SETTINGS_ROUTE}
+            onClick={onSettings}
+          >
+            Settings
+          </Link>
           <Button
             type="button"
             variant="outline"
@@ -261,6 +279,7 @@ export function VaultDashboardStaticAccountSection({
   accountPresentation,
   dataTestId,
   isSignOutPending,
+  onSettings,
   onSignOut,
   providerLabel,
 }: VaultDashboardStaticAccountSectionProps) {
@@ -295,6 +314,13 @@ export function VaultDashboardStaticAccountSection({
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Link
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            to={SETTINGS_ROUTE}
+            onClick={onSettings}
+          >
+            Settings
+          </Link>
           <Button
             type="button"
             variant="outline"

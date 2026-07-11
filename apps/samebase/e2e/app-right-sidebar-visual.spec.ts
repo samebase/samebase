@@ -75,6 +75,10 @@ function getSignedInAccountSection(page: Page) {
   return getAccountSection(page);
 }
 
+function getPrivateAccountMask(accountSection: Locator) {
+  return accountSection.getByTestId("dashboard-sidebar-account-text");
+}
+
 async function openSignedInApp(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/");
@@ -138,7 +142,7 @@ async function readAccountTextEvidence(accountSection: Locator) {
     };
 
     return {
-      emailAfterContent: readAfterContent("[data-app-auth-prehydration-email]"),
+      accountLabelAfterContent: readAfterContent("[data-app-auth-prehydration-account-label]"),
       providerAfterContent: readAfterContent("[data-app-auth-prehydration-provider]"),
       signedOutAfterContent: readAfterContent("[data-app-auth-prehydration-signed-out-label]"),
       textContent: element.textContent ?? "",
@@ -167,6 +171,10 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
   await expect(accountSection.getByText("Signed in with Password", { exact: true })).toBeVisible();
   await expect(accountSection.getByTestId("dashboard-sidebar-account-icon")).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "Settings" })).toHaveAttribute(
+    "href",
+    "/settings",
+  );
   await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
   await expect(rightSidebar.getByRole("link", { name: "Vaults", exact: true })).toHaveAttribute(
     "href",
@@ -177,10 +185,11 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
     "/providers",
   );
   await expect(rightSidebar.getByTestId("dashboard-sidebar-providers-section")).toHaveCount(0);
-  await expect(accountSection).toHaveScreenshot(
-    "app-right-sidebar-signed-in-account-section.png",
-    appRightSidebarScreenshotOptions,
-  );
+  await expect(accountSection).toHaveScreenshot("app-right-sidebar-signed-in-account-section.png", {
+    ...appRightSidebarScreenshotOptions,
+    mask: [getPrivateAccountMask(accountSection)],
+    maskColor: "#d1d5db",
+  });
 });
 
 test("signed-in app right sidebar keeps the account row inside a narrow desktop rail", async ({
@@ -204,10 +213,11 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
     row: accountSection.getByTestId("dashboard-sidebar-account-row"),
     textTestId: "dashboard-sidebar-account-text",
   });
-  await expect(accountSection).toHaveScreenshot(
-    "app-right-sidebar-signed-in-account-narrow.png",
-    appRightSidebarScreenshotOptions,
-  );
+  await expect(accountSection).toHaveScreenshot("app-right-sidebar-signed-in-account-narrow.png", {
+    ...appRightSidebarScreenshotOptions,
+    mask: [getPrivateAccountMask(accountSection)],
+    maskColor: "#d1d5db",
+  });
 });
 
 test("signed-in app right sidebar keeps the account row inside the minimum mobile right pane", async ({
@@ -247,10 +257,11 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
       row: accountSection.getByTestId("dashboard-sidebar-account-row"),
       textTestId: "dashboard-sidebar-account-text",
     });
-    await expect(rightPane).toHaveScreenshot(
-      "app-right-sidebar-mobile-right-pane-min.png",
-      appRightSidebarScreenshotOptions,
-    );
+    await expect(rightPane).toHaveScreenshot("app-right-sidebar-mobile-right-pane-min.png", {
+      ...appRightSidebarScreenshotOptions,
+      mask: [getPrivateAccountMask(accountSection)],
+      maskColor: "#d1d5db",
+    });
   } finally {
     await context.close();
   }
@@ -270,6 +281,8 @@ test("signed-in app right sidebar prehydration includes the password provider la
   const hydratedScreenshot = await hydratedAccountSection.screenshot({
     animations: "disabled",
     caret: "hide",
+    mask: [getPrivateAccountMask(hydratedAccountSection)],
+    maskColor: "#d1d5db",
     scale: "css",
   });
 
@@ -369,7 +382,7 @@ async function expectPrehydratedAccountSectionToMatchHydrated({
     accountTextEvidenceIncludes(
       prehydratedTextEvidence,
       LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
-      prehydratedTextEvidence.emailAfterContent,
+      prehydratedTextEvidence.accountLabelAfterContent,
     ),
   ).toBe(true);
   expect(
@@ -383,6 +396,8 @@ async function expectPrehydratedAccountSectionToMatchHydrated({
   const prehydratedScreenshot = await prehydratedAccountSection.screenshot({
     animations: "disabled",
     caret: "hide",
+    mask: [getPrivateAccountMask(prehydratedAccountSection)],
+    maskColor: "#d1d5db",
     scale: "css",
   });
 

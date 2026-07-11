@@ -25,7 +25,13 @@ function AuthenticatedRouteSignInForm() {
   );
 }
 
-export function AuthenticatedAppRoutePage({ children }: { children: ReactNode }) {
+function AuthenticatedRoutePage({
+  approvalRequired,
+  children,
+}: {
+  approvalRequired: boolean;
+  children: ReactNode;
+}) {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
@@ -55,13 +61,25 @@ export function AuthenticatedAppRoutePage({ children }: { children: ReactNode })
   return (
     <>
       <Authenticated>
-        <ApprovalGate>
+        {approvalRequired ? (
+          <ApprovalGate>
+            <Suspense fallback={null}>{children}</Suspense>
+          </ApprovalGate>
+        ) : (
           <Suspense fallback={null}>{children}</Suspense>
-        </ApprovalGate>
+        )}
       </Authenticated>
       <Unauthenticated>
         <AuthenticatedRouteSignInForm />
       </Unauthenticated>
     </>
   );
+}
+
+export function AuthenticatedAppRoutePage({ children }: { children: ReactNode }) {
+  return <AuthenticatedRoutePage approvalRequired>{children}</AuthenticatedRoutePage>;
+}
+
+export function AuthenticatedUserRoutePage({ children }: { children: ReactNode }) {
+  return <AuthenticatedRoutePage approvalRequired={false}>{children}</AuthenticatedRoutePage>;
 }

@@ -24,6 +24,7 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   index: 0,
   results: [],
 }));
+const setMobilePane = vi.hoisted(() => vi.fn());
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const PROFILE_JWT = [
   "header",
@@ -91,6 +92,10 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
+vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
+  useWorkspacePaneActions: () => ({ setMobilePane }),
+}));
+
 vi.mock("@/routeSearch/root", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/routeSearch/root")>();
 
@@ -108,13 +113,15 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     Link: ({
       children,
       className,
+      onClick,
       to,
     }: {
       children?: ReactNode;
       className?: string;
+      onClick?: () => void;
       to: string;
     }) => (
-      <a className={className} href={to}>
+      <a className={className} href={to} onClick={onClick}>
         {children}
       </a>
     ),
@@ -188,6 +195,7 @@ describe("PublicLandingAccountSection", () => {
     });
     queryState.index = 0;
     queryState.results = [];
+    setMobilePane.mockClear();
   });
 
   it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {

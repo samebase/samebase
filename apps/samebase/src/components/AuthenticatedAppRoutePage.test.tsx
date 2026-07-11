@@ -9,7 +9,7 @@ import { act } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { AuthenticatedAppRoutePage } from "./AuthenticatedAppRoutePage";
+import { AuthenticatedAppRoutePage, AuthenticatedUserRoutePage } from "./AuthenticatedAppRoutePage";
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: false,
@@ -66,8 +66,17 @@ vi.mock("@/lib/usePageMetadata", () => ({
 }));
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+const PROFILE_JWT = [
+  "header",
+  Buffer.from(
+    JSON.stringify({
+      accountLabelKind: "displayName",
+      accountLabel: "Nicu",
+      exp: 4100000000,
+    }),
+  ).toString("base64url"),
+  "signature",
+].join(".");
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -224,5 +233,20 @@ describe("AuthenticatedAppRoutePage", () => {
     expect(markup).toContain("Route child");
     expect(markup).not.toContain("Sign in");
     expect(routeChildState.renders).toBe(1);
+  });
+
+  it("lets authenticated user routes bypass the approval gate", () => {
+    authState.isAuthenticated = true;
+
+    const markup = renderToStaticMarkup(
+      <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
+        <AuthenticatedUserRoutePage>
+          <ProtectedRouteChild />
+        </AuthenticatedUserRoutePage>
+      </AppAuthPresentationProvider>,
+    );
+
+    expect(markup).toContain("Route child");
+    expect(markup).not.toContain("approval-gate");
   });
 });

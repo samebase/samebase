@@ -20,6 +20,7 @@ import { useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
+import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 
 type PublicLandingAccountMode = "links" | "sign-in" | "create-account" | "mcp-consent";
 type PublicLandingSignedInViewer = NonNullable<
@@ -158,6 +159,7 @@ export function PublicLandingAccountLoadingSection() {
       isSignOutPending={false}
       open={false}
       onOpenChange={() => {}}
+      onSettings={() => {}}
       onSignOut={() => {}}
       providerLabel={null}
       signOutDisabled
@@ -174,6 +176,7 @@ function PublicLandingResolvedSignedInAccountSection({
   const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const { setMobilePane } = useWorkspacePaneActions();
   const providerLabel = useMemo(() => {
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
     return formatAuthProviderLabel(provider);
@@ -184,6 +187,7 @@ function PublicLandingResolvedSignedInAccountSection({
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
+      onSettings={() => setMobilePane("main")}
       onSignOut={() => {
         if (isSigningOut) {
           return;
@@ -212,12 +216,14 @@ function PublicLandingPresentedSignedInAccountSection({
   const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const { setMobilePane } = useWorkspacePaneActions();
   return (
     <VaultDashboardAccountSection
       accountPresentation={profile.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
+      onSettings={() => setMobilePane("main")}
       onSignOut={() => {
         if (isSigningOut) {
           return;

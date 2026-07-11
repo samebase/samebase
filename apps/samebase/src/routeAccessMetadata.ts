@@ -58,6 +58,10 @@ const routeAccessMetadataByPath = {
   "/providers": { access: "access_provider_connections" },
   "/research/codex-app-server": { access: "access_admin" },
   "/research/codex-app-server/browser": { access: "access_admin" },
+  "/settings": {
+    access: "access_user_preferences",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/test": { availableEnvironments: ["local"], access: "access_admin" },
   "/walkthrough/cloudflare-worker-builds": {
