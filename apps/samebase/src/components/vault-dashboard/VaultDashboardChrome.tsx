@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, ChevronUpIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
@@ -167,12 +167,7 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             </div>
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-            <Link
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-              to={SETTINGS_ROUTE}
-            >
-              Settings
-            </Link>
+            <Link to={SETTINGS_ROUTE}>Settings</Link>
           </div>
         </div>
       </div>
@@ -229,11 +224,7 @@ export function VaultDashboardAccountSection({
           </div>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-            to={SETTINGS_ROUTE}
-            onClick={onSettings}
-          >
+          <Link to={SETTINGS_ROUTE} onClick={onSettings}>
             Settings
           </Link>
         </div>
@@ -279,11 +270,7 @@ export function VaultDashboardStaticAccountSection({
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-            to={SETTINGS_ROUTE}
-            onClick={onSettings}
-          >
+          <Link to={SETTINGS_ROUTE} onClick={onSettings}>
             Settings
           </Link>
         </div>
