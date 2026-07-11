@@ -78,7 +78,7 @@ describe("NotFoundRoutePage", () => {
     vi.restoreAllMocks();
   });
 
-  it("selects an animated shuffled logo colorway on each mount", () => {
+  it("selects three distinct logo color families on each mount", () => {
     const random = vi.spyOn(Math, "random").mockReturnValue(0);
     const firstMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
     random.mockReturnValue(0.999);

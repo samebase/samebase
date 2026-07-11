@@ -37,7 +37,13 @@ test("unknown routes render the animated not-found page", async ({ page }) => {
 
 test("signed-out protected routes keep auth in the right sidebar", async ({ page }) => {
   await page.addInitScript(() => {
-    Math.random = () => 0.57;
+    const randomValues = [0, 0.625, 0.2] as const;
+    let randomIndex = 0;
+    Math.random = () => {
+      const value = randomValues[randomIndex % randomValues.length] ?? randomValues[0];
+      randomIndex += 1;
+      return value;
+    };
   });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });

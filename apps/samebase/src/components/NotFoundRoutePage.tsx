@@ -40,7 +40,7 @@ function NotFoundContent(props: {
   // random colorway can be selected once per client mount without an SSR mismatch.
   const [logoRouteSearch] = useState(() => {
     const remainingColorFamilies = [...NOT_FOUND_LOGO_COLOR_FAMILIES];
-    const takeRandomColorFamily = () =>
+    const takeUnusedRandomColorFamily = () =>
       remainingColorFamilies.splice(
         Math.floor(Math.random() * remainingColorFamilies.length),
         1,
@@ -48,9 +48,9 @@ function NotFoundContent(props: {
 
     return {
       "auto-shuffle": true,
-      primary: `${takeRandomColorFamily()}-800`,
-      secondary: `${takeRandomColorFamily()}-500`,
-      top: `${takeRandomColorFamily()}-200`,
+      primary: `${takeUnusedRandomColorFamily()}-800`,
+      secondary: `${takeUnusedRandomColorFamily()}-500`,
+      top: `${takeUnusedRandomColorFamily()}-200`,
     } as const satisfies LogoRouteSearch;
   });
 
