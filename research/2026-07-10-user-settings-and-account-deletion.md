@@ -2,8 +2,9 @@
 
 ## Document Control
 
-- Status: Research, not an accepted product contract
+- Status: Settings and display name implemented; account deletion remains research
 - Date: 2026-07-10
+- Updated: 2026-07-11
 - Scope: user settings, private display identity, sidebar privacy, and self-serve account deletion
 - Related:
   - [Vault deletion workflow spec](../specs/098_VAULT_DELETION_WORKFLOW_SPEC.md)
@@ -115,16 +116,16 @@ surface. Provider-specific queries remain the only source of GitHub username.
 The JWT should similarly carry a required `accountLabelKind` plus `accountLabel`, both produced by
 the same function in `customClaims`. Prehydration validates that pair and renders it without making
 a second selection decision. Loading and signed-out remain separate authentication states, not extra
-presentation variants. The currently unreferenced `UserMenu` also contains an `"Unknown"` email
-substitute; delete that dead component during implementation rather than adapting another identity
-surface.
+presentation variants. The unreferenced `UserMenu` contained an `"Unknown"` email substitute and was
+deleted rather than adapted into another identity surface.
 
 When `displayName` exists, do not also render email as a persistent secondary line in the right
 sidebar. When it is absent, the resolver deliberately returns the required canonical email variant.
 The Settings page may also show the read-only sign-in email because opening that page is an
 intentional account-management action.
 
-The current schema permits users without email. Tighten that invariant with a staged migration:
+The previous schema permitted users without email. The implementation tightened that invariant with
+these checks:
 
 1. Require a normalized Samebase sign-in email from every new interactive sign-in path. Password
    already requires one; Google sign-in should reject a profile without one. Browser handoff must
@@ -136,6 +137,11 @@ The current schema permits users without email. Tighten that invariant with a st
    label during prehydration, and route the hydrated user to recovery. Do not display a substitute.
 4. After verification reports no invalid users, make `users.email` required and remove the temporary
    recovery state.
+
+The 2026-07-11 production audit read six user rows through a private pipe and emitted counts only:
+zero missing, blank, invalid, or non-normalized emails, with the row limit not reached. No recovery
+was required. Google and password sign-in now require a normalized valid email, and `users.email` is
+required in the schema.
 
 Saving the database field is not enough for instant prehydration: the JWT already stored in the
 browser still contains the old resolved presentation. After `setDisplayName` succeeds, the client
@@ -149,10 +155,9 @@ value, but the UI must report that this session was not refreshed and offer Retr
 immediate reload can prehydrate from the stale JWT and briefly show the email or previous display
 name. The live `users.viewer` query remains the source of truth after hydration.
 
-One related surface remains: the MCP authentication-status tool currently chooses email for its
-human-readable response in [`mcp/http.ts`](../apps/samebase/convex/mcp/http.ts#L98). It should use
-the same `accountPresentation` value rather than selecting among email, provider name, and user ID.
-Removing structured email from the MCP response is a separate, versioned contract decision.
+The MCP authentication-status tool now uses the same `accountPresentation` value for its
+human-readable response. Its structured email field remains unchanged because removing it is a
+separate, versioned contract decision.
 
 ## Settings Page Shape
 
@@ -171,14 +176,11 @@ Shown in Samebase instead of your email.
 Account
 Sign-in email
 nicu@example.com
-
-Delete your Samebase account. Your apps keep running.
-[ Delete account ]
 ```
 
-The display-name helper sentence is necessary because it explains the privacy result. The deletion
-sentence is necessary because it distinguishes Samebase data from external apps. Other explanatory
-copy should wait for a concrete usability gap.
+The display-name helper sentence is necessary because it explains the privacy result. Other
+explanatory copy should wait for a concrete usability gap. Account deletion is absent until its
+backend and policy contract is accepted and implemented.
 
 Recommended placement:
 
@@ -189,16 +191,12 @@ Recommended placement:
 
 The access key already exists for both pending-access and member accounts in
 [`accessModel.ts`](../apps/samebase/shared/accessModel.ts#L34). This is the correct boundary: even a
-user who has not been approved for app access must be able to change their display name or delete
-their account.
+user who has not been approved for app access must be able to change their display name. Deletion
+will use its own restricted access boundary.
 
-There is one current access conflict. `AuthenticatedAppRoutePage` always wraps content in
-`ApprovalGate` in
-[`AuthenticatedAppRoutePage.tsx`](../apps/samebase/src/components/AuthenticatedAppRoutePage.tsx#L55),
-and `ApprovalGate` blocks pending users in
-[`ApprovalGate.tsx`](../apps/samebase/src/components/ApprovalGate.tsx#L43). The settings route needs
-an authenticated-user shell that preserves sign-in handling but does not impose the approval gate.
-Making the route public would be the wrong fix.
+The implementation resolves the previous approval conflict with `AuthenticatedUserRoutePage`, an
+authenticated shell that preserves sign-in handling without imposing `ApprovalGate`. Settings is not
+public, and approved app routes keep their existing gate.
 
 Put Settings beside Sign out in each signed-in account section, including the account-only sidebar
 shown to pending users. On mobile, selecting it must also return the workspace carousel to the main
@@ -383,7 +381,7 @@ the browser and deleting the Convex user row does not erase data already sent to
 
 ## Rollout
 
-### Slice 1: Settings And Private Display Name
+### Slice 1: Settings And Private Display Name (Implemented)
 
 - Enforce canonical email on new sign-ins, audit existing users, complete owner recovery, then make
   `users.email` required.
@@ -454,10 +452,11 @@ Deletion:
 
 ## Document Lifecycle
 
-This file remains research while the approval boundaries below are unresolved. If those decisions
-are accepted, create an RFC containing the accepted product contract and rollout before
-implementation starts, then mark this memo as superseded by that RFC. Implementation should not
-treat the research file itself as an accepted source of truth.
+The Settings and display-name slice was implemented after explicit operator approval. The account
+deletion sections remain research while the approval boundaries below are unresolved. If those
+decisions are accepted, create an RFC containing the deletion contract and rollout before deletion
+implementation starts. Deletion implementation should not treat this research file itself as an
+accepted source of truth.
 
 ## Approval Boundaries
 
