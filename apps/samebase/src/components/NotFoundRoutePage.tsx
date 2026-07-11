@@ -1,6 +1,7 @@
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { MENGER_SPONGE_VOXEL_STATE } from "@/components/logo/logoVoxelState";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
 import { NOT_FOUND_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
@@ -52,6 +53,7 @@ function NotFoundContent(props: {
       primary: `${takeUnusedRandomColorFamily()}-800`,
       secondary: `${takeUnusedRandomColorFamily()}-500`,
       top: `${takeUnusedRandomColorFamily()}-200`,
+      vox: MENGER_SPONGE_VOXEL_STATE,
     } as const satisfies LogoRouteSearch;
   });
 

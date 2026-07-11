@@ -31,6 +31,7 @@ const LEGACY_VOXEL_LAYER_SEPARATOR = ",";
 const LEGACY_VOXEL_ROW_SEPARATOR = "/";
 const VOXEL_LAYER_SEPARATOR = "-";
 const VOXEL_ROW_SEPARATOR = "_";
+export const MENGER_SPONGE_VOXEL_STATE = "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx";
 
 export type VoxelCoordinate = readonly [number, number, number];
 
