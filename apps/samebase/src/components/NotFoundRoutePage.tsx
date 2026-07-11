@@ -48,6 +48,7 @@ function NotFoundContent(props: {
 
     return {
       "auto-shuffle": true,
+      depth: 2,
       primary: `${takeUnusedRandomColorFamily()}-800`,
       secondary: `${takeUnusedRandomColorFamily()}-500`,
       top: `${takeUnusedRandomColorFamily()}-200`,

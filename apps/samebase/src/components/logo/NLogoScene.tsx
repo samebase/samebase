@@ -1702,6 +1702,36 @@ function createTileMoveGroup(tileState: RecursiveTileSceneState): THREE.Group {
   return group;
 }
 
+function syncDepthTwoRecursiveTileShape(sceneState: SceneState) {
+  const tileState = sceneState.recursiveTileState;
+  if (!tileState || sceneState.recursiveRenderDepth !== 2) {
+    return;
+  }
+
+  const nextSurfaceGeometry = buildRecursiveSurfaceGeometry(
+    buildDistanceScaledLogoSurfaceQuads(
+      tileState.currentFilledTiles,
+      tileState.repeatGridSize,
+      tileState.distanceScale,
+    ),
+  );
+  const previousGeometry = tileState.surfaceGeometry.geometry;
+
+  tileState.mesh.geometry = nextSurfaceGeometry.geometry;
+  tileState.mesh.computeBoundingSphere();
+  tileState.surfaceGeometry = nextSurfaceGeometry;
+
+  for (const move of sceneState.activeTileMoves) {
+    for (const child of move.group.children) {
+      if (child instanceof THREE.Mesh) {
+        child.geometry = nextSurfaceGeometry.geometry;
+      }
+    }
+  }
+
+  previousGeometry.dispose();
+}
+
 function resetShuffleAnimation(
   sceneState: SceneState,
   lastMovedCubeKeyRef: MutableRefObject<string | null>,
@@ -1885,6 +1915,8 @@ function syncTileShuffleAnimation(
       sceneState.logoGroup.remove(move.group);
       lastMovedCubeKeyRef.current = move.toKey;
     }
+
+    syncDepthTwoRecursiveTileShape(sceneState);
   }
 
   while (sceneState.activeTileMoves.length < parallelMoves) {
