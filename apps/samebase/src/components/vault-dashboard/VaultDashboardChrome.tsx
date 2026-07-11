@@ -50,21 +50,16 @@ export type VaultDashboardProviderRowViewModel = {
 export type VaultDashboardAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
-  isSignOutPending: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onSettings: () => void;
-  onSignOut: () => void;
   open: boolean;
   providerLabel: string | null;
-  signOutDisabled?: boolean;
 };
 
 export type VaultDashboardStaticAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
-  isSignOutPending: boolean;
   onSettings: () => void;
-  onSignOut: () => void;
   providerLabel: string | null;
 };
 
@@ -178,14 +173,6 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             >
               Settings
             </Link>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto max-w-full whitespace-normal py-2 text-left"
-            >
-              Sign out
-            </Button>
           </div>
         </div>
       </div>
@@ -200,13 +187,10 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
 export function VaultDashboardAccountSection({
   accountPresentation,
   dataTestId,
-  isSignOutPending,
   onOpenChange,
   onSettings,
-  onSignOut,
   open,
   providerLabel,
-  signOutDisabled,
 }: VaultDashboardAccountSectionProps) {
   return (
     <VaultDashboardAccountSectionFrame
@@ -252,23 +236,6 @@ export function VaultDashboardAccountSection({
           >
             Settings
           </Link>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onSignOut}
-            className="h-auto max-w-full whitespace-normal py-2 text-left"
-            disabled={signOutDisabled || isSignOutPending}
-          >
-            {isSignOutPending ? (
-              <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                Signing out...
-              </>
-            ) : (
-              "Sign out"
-            )}
-          </Button>
         </div>
       </div>
     </VaultDashboardAccountSectionFrame>
@@ -278,9 +245,7 @@ export function VaultDashboardAccountSection({
 export function VaultDashboardStaticAccountSection({
   accountPresentation,
   dataTestId,
-  isSignOutPending,
   onSettings,
-  onSignOut,
   providerLabel,
 }: VaultDashboardStaticAccountSectionProps) {
   return (
@@ -321,23 +286,6 @@ export function VaultDashboardStaticAccountSection({
           >
             Settings
           </Link>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onSignOut}
-            className="h-auto max-w-full whitespace-normal py-2 text-left"
-            disabled={isSignOutPending}
-          >
-            {isSignOutPending ? (
-              <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                Signing out...
-              </>
-            ) : (
-              "Sign out"
-            )}
-          </Button>
         </div>
       </div>
     </div>

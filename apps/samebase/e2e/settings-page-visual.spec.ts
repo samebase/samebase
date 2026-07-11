@@ -39,7 +39,7 @@ async function createPendingAccount(page: Page, email: string) {
   await passwordAuthSection.getByPlaceholder("you@example.com").fill(email);
   await passwordAuthSection.getByPlaceholder("Password").fill("settings-test-pass-1234");
   await passwordAuthSection.getByRole("button", { exact: true, name: "Create account" }).click();
-  await expect(page.getByRole("button", { exact: true, name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("link", { exact: true, name: "Settings" })).toBeVisible();
 }
 
 async function blockHydrationScripts(page: Page) {
@@ -119,6 +119,7 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   const settingsPage = page.getByTestId("user-settings-page");
   const signInEmail = settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, { exact: true });
   await expect(settingsPage).toBeVisible();
+  await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Profile" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Account" })).toBeVisible();
   await expect(settingsPage.getByLabel("Display name")).toHaveCSS("font-size", "16px");
@@ -172,6 +173,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
 
     const settingsPage = page.getByTestId("user-settings-page");
     await expect(settingsPage).toBeVisible();
+    await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
     await expect(settingsPage).toHaveScreenshot("settings-page-mobile.png", {
       ...screenshotOptions,
       mask: [settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, { exact: true })],

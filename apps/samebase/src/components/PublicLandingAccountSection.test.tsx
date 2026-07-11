@@ -224,6 +224,7 @@ describe("PublicLandingAccountSection", () => {
 
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("not logged in");
     expect(queryState.index).toBe(0);

@@ -1,9 +1,7 @@
-import { useAppAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { toast } from "@/components/ui/use-toast";
 import {
   VaultDashboardSidebarContent,
   VaultDashboardStaticAccountLoadingSection,
@@ -22,7 +20,6 @@ import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { useQuery as useConvexQuery } from "convex/react";
-import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 
@@ -57,14 +54,10 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
 
 function AppRightSidebarSignedInAccountSection({
   authProviders,
-  isSignOutPending,
-  onSignOut,
   profile,
   user,
 }: {
   authProviders: AppRightSidebarAuthProviders | undefined;
-  isSignOutPending: boolean;
-  onSignOut: () => void;
   profile: AppAuthPresentationProfile | null;
   user: AppRightSidebarViewer | null | undefined;
 }) {
@@ -81,9 +74,7 @@ function AppRightSidebarSignedInAccountSection({
     <VaultDashboardStaticAccountSection
       accountPresentation={accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
-      isSignOutPending={isSignOutPending}
       onSettings={() => setMobilePane("main")}
-      onSignOut={onSignOut}
       providerLabel={accountProviderLabel}
     />
   );
@@ -98,32 +89,9 @@ function GenericSignedInAccountSection({
   profile: AppAuthPresentationProfile | null;
   user?: AppRightSidebarViewer | null;
 }) {
-  const { signOut } = useAppAuthActions();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const handleSignOut = () => {
-    if (isSigningOut) {
-      return;
-    }
-
-    setIsSigningOut(true);
-    void signOut()
-      .catch((error: unknown) => {
-        toast({
-          description: error instanceof Error ? error.message : "Please try again.",
-          title: "Could not sign out",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setIsSigningOut(false);
-      });
-  };
-
   return (
     <AppRightSidebarSignedInAccountSection
       authProviders={authProviders}
-      isSignOutPending={isSigningOut}
-      onSignOut={handleSignOut}
       profile={profile}
       user={user}
     />
@@ -200,34 +168,11 @@ function AuthenticatedAppRightSidebarContent({
 }) {
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
-  const { signOut } = useAppAuthActions();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
-  const handleSignOut = () => {
-    if (isSigningOut) {
-      return;
-    }
-
-    setIsSigningOut(true);
-    void signOut()
-      .catch((error: unknown) => {
-        toast({
-          description: error instanceof Error ? error.message : "Please try again.",
-          title: "Could not sign out",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setIsSigningOut(false);
-      });
-  };
 
   return (
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection
         authProviders={user ? authProviders : undefined}
-        isSignOutPending={isSigningOut}
-        onSignOut={handleSignOut}
         profile={profile}
         user={user}
       />

@@ -28,8 +28,8 @@ Add one `/settings` route with two sections: Profile and Account.
    writers. Google and password authentication require email; browser handoff reuses an existing
    valid account. Never derive email from a GitHub provider connection.
 5. When a display name is set, keep the sign-in email off persistent chrome and show it only on the
-   intentional Settings page. Add a Settings action beside Sign out in every authenticated
-   right-sidebar account section.
+   intentional Settings page. Keep Settings as the only action in authenticated right-sidebar
+   account sections, and place Sign out prominently in the Settings page header.
 6. Implement account deletion as a durable, retryable workflow with a user deletion gate and bounded
    cleanup. Do not implement it as one mutation.
 7. Preserve GitHub repositories, Convex projects, Cloudflare Workers, Codespaces, and other
@@ -187,9 +187,10 @@ The implementation resolves the previous approval conflict with `AuthenticatedUs
 authenticated shell that preserves sign-in handling without imposing `ApprovalGate`. Settings is not
 public, and approved app routes keep their existing gate.
 
-Put Settings beside Sign out in each signed-in account section, including the account-only sidebar
-shown to pending users. On mobile, selecting it must also return the workspace carousel to the main
-pane. Otherwise navigation can succeed while the right pane remains visible.
+Put Settings in each signed-in account section, including the account-only sidebar shown to pending
+users. Put Sign out in the Settings page header. On mobile, selecting Settings must also return the
+workspace carousel to the main pane. Otherwise navigation can succeed while the right pane remains
+visible.
 
 Future categories are credible only when they have real controls:
 

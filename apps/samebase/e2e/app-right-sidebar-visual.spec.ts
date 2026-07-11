@@ -170,7 +170,7 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
   await expect(accountSection.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL)).toBeVisible();
   await expect(accountSection.getByText("Signed in with Password", { exact: true })).toBeVisible();
   await expect(accountSection.getByTestId("dashboard-sidebar-account-icon")).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
   await expect(accountSection.getByRole("link", { name: "Settings" })).toHaveAttribute(
     "href",
     "/settings",
@@ -206,7 +206,8 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
   const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
   await expect(rightPane).toHaveCSS("width", "160px");
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
   await expectNoHorizontalOverflow(rightPane);
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-account-icon",
@@ -375,7 +376,8 @@ async function expectPrehydratedAccountSectionToMatchHydrated({
 }) {
   const prehydratedAccountSection = getSignedInAccountSection(page);
   await expect(prehydratedAccountSection).toBeVisible();
-  await expect(prehydratedAccountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(prehydratedAccountSection.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(prehydratedAccountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
   await expect(prehydratedAccountSection.locator("[aria-expanded]:visible")).toHaveCount(0);
   const prehydratedTextEvidence = await readAccountTextEvidence(prehydratedAccountSection);
   expect(

@@ -341,9 +341,11 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("data-app-auth-prehydration-signed-in");
     expect(markup).toContain("dashboard-sidebar-account-icon");
     expect(markup).toContain("data-app-auth-prehydration-provider");
-    expect(markup).toContain("Sign out");
+    expect(markup).toContain("Settings");
+    expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).toContain("Sign out");
+    expect(hydratedMarkup).toContain("Settings");
+    expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
   });
@@ -356,7 +358,8 @@ describe("AppRightSidebarContent", () => {
     const mounted = await mountRightSidebarAfterEffects([]);
     try {
       expect(mounted.rootElement.textContent).toContain("Nicu");
-      expect(mounted.rootElement.textContent).toContain("Sign out");
+      expect(mounted.rootElement.textContent).toContain("Settings");
+      expect(mounted.rootElement.textContent).not.toContain("Sign out");
       expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
     } finally {
       await mounted.unmount();
