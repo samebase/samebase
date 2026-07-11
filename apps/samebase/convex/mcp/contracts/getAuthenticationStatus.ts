@@ -8,7 +8,7 @@ const { array, id, literal, null: nullValue, object, optional, string, union } =
 const vMcpAuthenticationStatusUser = object({
   userId: id("users"),
   name: optional(string()),
-  email: optional(string()),
+  email: string(),
 });
 
 const mcpAuthenticationStatusFields = {

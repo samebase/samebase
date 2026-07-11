@@ -60,7 +60,7 @@ Convex validator JSON of the tool's `structuredContent`:
                       "fieldType": {
                         "type": "string"
                       },
-                      "optional": true
+                      "optional": false
                     }
                   }
                 },
