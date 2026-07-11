@@ -56,11 +56,7 @@ function NotFoundContent(props: {
           routeSearchSource="static"
           viewStateKey={NOT_FOUND_LOGO_VIEW_STATE_KEY}
         />
-        <h2 className="text-xl font-semibold tracking-tight">Page not found</h2>
-        <p className="text-sm text-muted-foreground">This page isn&apos;t available.</p>
-        <code className="max-w-full overflow-x-auto text-xs text-muted-foreground">
-          {props.pathname}
-        </code>
+        <h2 className="text-xl font-semibold tracking-tight">Page not available</h2>
         <Link className={buttonVariants({ variant: "outline" })} to={props.primaryActionTo}>
           {props.primaryActionLabel}
         </Link>

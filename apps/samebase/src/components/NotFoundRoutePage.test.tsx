@@ -89,9 +89,9 @@ describe("NotFoundRoutePage", () => {
 
     const markup = renderToStaticMarkup(<NotFoundRoutePage />);
 
-    expect(markup).toContain("Page not found");
-    expect(markup).toContain("This page isn&#x27;t available.");
-    expect(markup).toContain("/new-app");
+    expect(markup).toContain("Page not available");
+    expect(markup).not.toContain("This page isn&#x27;t available.");
+    expect(markup).not.toContain("/new-app");
     expect(markup).toContain('href="/"');
     expect(markup).toContain("Go home");
     expect(markup).not.toContain("Go to vaults");
