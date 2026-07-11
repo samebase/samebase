@@ -93,6 +93,7 @@ vi.mock("@/components/PrivacyPolicyPage", () => ({
 
 vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
   AuthenticatedAppRoutePage: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AuthenticatedUserRoutePage: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@/components/logo/LogoPreviewPage", () => ({
@@ -127,6 +128,10 @@ vi.mock("@/components/NewAppPage", () => ({
 
 vi.mock("@/components/ProviderConnectionsPage", () => ({
   ProviderConnectionsPage: () => <div data-testid="providers-page">Providers page</div>,
+}));
+
+vi.mock("@/components/UserSettingsPage", () => ({
+  UserSettingsPage: () => <div data-testid="settings-page">Settings page</div>,
 }));
 
 vi.mock("@/components/MachinesWorkspacePage", () => ({
@@ -713,6 +718,15 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="providers-page"]')?.textContent).toBe(
       "Providers page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders Settings through an explicit TanStack route", async () => {
+    await renderRoute("/settings");
+
+    expect(rootElement?.querySelector('[data-testid="settings-page"]')?.textContent).toBe(
+      "Settings page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

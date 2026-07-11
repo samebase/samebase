@@ -53,6 +53,10 @@ export function Inlineable_createAppAuthPresentationRuntime(
 ) {
   // Mirrors AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH; appAuthPresentationRuntime.test.ts guards drift.
   const authTokenProfileClaimMaxLength = 256;
+  // Mirrors ACCOUNT_EMAIL_MAX_LENGTH; appAuthPresentationRuntime.test.ts guards drift.
+  const accountEmailMaxLength = 254;
+  // Mirrors DISPLAY_NAME_MAX_CODE_POINTS; appAuthPresentationRuntime.test.ts guards drift.
+  const displayNameMaxCodePoints = 64;
   const convexAuthJwtStorageKeyPrefix = "__convexAuthJWT";
   const convexAuthRefreshTokenStorageKeyPrefix = "__convexAuthRefreshToken";
 
@@ -90,7 +94,16 @@ export function Inlineable_createAppAuthPresentationRuntime(
     return value;
   }
 
-  function readProfileClaim(source: object, key: string) {
+  function readProfileClaim(
+    source: object,
+    key: string,
+  ):
+    | { kind: "absent" }
+    | { kind: "invalid" }
+    | {
+        kind: "present";
+        value: string;
+      } {
     const descriptor = Object.getOwnPropertyDescriptor(source, key);
     if (descriptor === undefined) {
       return { kind: "absent" };
@@ -105,13 +118,13 @@ export function Inlineable_createAppAuthPresentationRuntime(
     }
 
     const trimmedValue = value.trim();
-    if (trimmedValue.length === 0 || trimmedValue.length > authTokenProfileClaimMaxLength) {
+    if (trimmedValue.length === 0 || value.length > authTokenProfileClaimMaxLength) {
       return { kind: "invalid" };
     }
 
     return {
       kind: "present",
-      value: trimmedValue,
+      value,
     };
   }
 
@@ -144,26 +157,75 @@ export function Inlineable_createAppAuthPresentationRuntime(
   }
 
   function readProfileClaims(source: object): AuthTokenProfileClaims | null {
-    const profileClaims: AuthTokenProfileClaims = {};
     const authProvider = readAuthProviderClaim(source);
-    const name = readProfileClaim(source, "name");
-    const email = readProfileClaim(source, "email");
+    const accountLabelKind = readProfileClaim(source, "accountLabelKind");
+    const accountLabel = readProfileClaim(source, "accountLabel");
 
-    if (authProvider.kind === "invalid" || name.kind === "invalid" || email.kind === "invalid") {
+    if (authProvider.kind === "invalid") {
       return null;
     }
 
-    if (authProvider.kind === "present") {
-      profileClaims.authProvider = authProvider.value;
-    }
-    if (name.kind === "present") {
-      profileClaims.name = name.value;
-    }
-    if (email.kind === "present") {
-      profileClaims.email = email.value;
+    let accountPresentation: AuthTokenProfileClaims["accountPresentation"];
+    if (accountLabelKind.kind === "absent" && accountLabel.kind === "absent") {
+      // Convex Auth access JWTs live for at most one hour. This branch only carries tokens issued
+      // before the typed pair shipped and can be removed after that format is live for one hour.
+      const legacyEmail = readProfileClaim(source, "email");
+      if (legacyEmail.kind !== "present") {
+        return null;
+      }
+      const normalizedEmail = legacyEmail.value.trim().toLowerCase();
+      if (
+        normalizedEmail.length > accountEmailMaxLength ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
+      ) {
+        return null;
+      }
+      accountPresentation = {
+        kind: "email",
+        label: normalizedEmail,
+      };
+    } else if (accountLabelKind.kind !== "present" || accountLabel.kind !== "present") {
+      return null;
+    } else {
+      switch (accountLabelKind.value) {
+        case "displayName": {
+          const normalizedDisplayName = accountLabel.value.trim();
+          if (
+            /[\r\n\u2028\u2029]/u.test(normalizedDisplayName) ||
+            Array.from(normalizedDisplayName).length > displayNameMaxCodePoints
+          ) {
+            return null;
+          }
+          accountPresentation = {
+            kind: "displayName",
+            label: normalizedDisplayName,
+          };
+          break;
+        }
+        case "email": {
+          const normalizedEmail = accountLabel.value.trim().toLowerCase();
+          if (
+            normalizedEmail !== accountLabel.value ||
+            normalizedEmail.length > accountEmailMaxLength ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedEmail)
+          ) {
+            return null;
+          }
+          accountPresentation = {
+            kind: "email",
+            label: normalizedEmail,
+          };
+          break;
+        }
+        default:
+          return null;
+      }
     }
 
-    return Object.keys(profileClaims).length > 0 ? profileClaims : null;
+    return {
+      ...(authProvider.kind === "present" ? { authProvider: authProvider.value } : {}),
+      accountPresentation,
+    };
   }
 
   function readJwtPayload(token: string): AppAuthPresentationRuntimeJwtPayload {
@@ -199,10 +261,6 @@ export function Inlineable_createAppAuthPresentationRuntime(
     return tokenExpiresAt === null || tokenExpiresAt > (host.now ?? Date.now)();
   }
 
-  function readProfileLabel(profile: AuthTokenProfileClaims) {
-    return profile.email ?? profile.name ?? null;
-  }
-
   function readJwtPresentation(token: string) {
     const payload = readJwtPayload(token);
     if (
@@ -213,13 +271,8 @@ export function Inlineable_createAppAuthPresentationRuntime(
       return null;
     }
 
-    const label = readProfileLabel(payload.profile);
-    if (label === null) {
-      return null;
-    }
-
     return {
-      label,
+      label: payload.profile.accountPresentation.label,
       profile: payload.profile,
     };
   }

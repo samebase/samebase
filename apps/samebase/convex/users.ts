@@ -26,6 +26,12 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
 } from "../shared/cloudflareTokenRefresh";
 import type { AuthTokenAuthProvider } from "../shared/authTokenClaims";
+import {
+  normalizeAccountEmail,
+  normalizeDisplayName,
+  resolveAccountPresentation,
+  vAccountPresentation,
+} from "../shared/accountPresentation";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -552,13 +558,7 @@ export const viewer = query({
   returns: v.union(
     v.object({
       _id: v.id("users"),
-      name: v.optional(v.string()),
-      image: v.optional(v.string()),
-      email: v.optional(v.string()),
-      githubUsername: v.optional(v.string()),
-      hasGithubConnection: boolean(),
-      hasConvexConnection: boolean(),
-      hasCloudflareConnection: boolean(),
+      accountPresentation: vAccountPresentation,
     }),
     v.null(),
   ),
@@ -569,24 +569,47 @@ export const viewer = query({
       return null;
     }
 
-    const [github, convex, cloudflare] = await Promise.all([
-      getConnectionByUserAndKind(ctx.db, userId, "github"),
-      getConnectionByUserAndKind(ctx.db, userId, "convex"),
-      getConnectionByUserAndKind(ctx.db, userId, "cloudflare"),
-    ]);
-
-    const githubUsername = github?.kind === "github" ? github.username : undefined;
-
     return {
       _id: user._id,
-      name: user.name,
-      image: user.image,
-      email: user.email,
-      githubUsername,
-      hasGithubConnection: github !== null,
-      hasConvexConnection: convex !== null,
-      hasCloudflareConnection: cloudflare !== null,
+      accountPresentation: resolveAccountPresentation(user),
     };
+  },
+});
+
+export const getUserSettings = query({
+  access: "access_user_preferences",
+  args: {},
+  returns: object({
+    displayName: optional(string()),
+    signInEmail: string(),
+  }),
+  handler: async (ctx) => {
+    const user = ctx.viewer.user;
+    return {
+      displayName:
+        user.displayName === undefined ? undefined : normalizeDisplayName(user.displayName),
+      signInEmail: normalizeAccountEmail(user.email ?? ""),
+    };
+  },
+});
+
+export const setDisplayName = mutation({
+  access: "access_user_preferences",
+  args: {
+    displayName: union(string(), v.null()),
+  },
+  returns: vAccountPresentation,
+  handler: async (ctx, args) => {
+    const displayName =
+      args.displayName === null ? undefined : normalizeDisplayName(args.displayName);
+    const accountPresentation = resolveAccountPresentation({
+      email: ctx.viewer.user.email,
+      ...(displayName === undefined ? {} : { displayName }),
+    });
+    await ctx.db.patch("users", ctx.viewer.userId, {
+      displayName,
+    });
+    return accountPresentation;
   },
 });
 

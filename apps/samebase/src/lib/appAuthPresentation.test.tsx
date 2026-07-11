@@ -24,13 +24,30 @@ vi.mock("convex/react", () => ({
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
-const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QHNhbWViYXNlLmNvbSJ9.signature";
-const NON_ASCII_PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJKb3PDqSDkuK3mnZEiLCJlbWFpbCI6Im3DvGxsZXJAc2FtZWJhc2UuY29tIn0.signature";
+const PROFILE_JWT = createJwt({
+  accountLabelKind: "displayName",
+  accountLabel: "Nicu",
+  exp: 4100000000,
+});
+const LEGACY_PROFILE_JWT = createJwt({
+  email: "legacy@example.com",
+  name: "Provider name",
+  exp: 4100000000,
+});
+const NON_ASCII_PROFILE_JWT = createJwt({
+  accountLabelKind: "displayName",
+  accountLabel: "José 中村",
+  exp: 4100000000,
+});
 const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
 const NON_FINITE_EXP_JWT = "header.eyJleHAiOjFlOTk5fQ.signature";
 const NO_EXP_JWT = "header.e30.signature";
+
+function createJwt(payload: object) {
+  return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
+    ".",
+  );
+}
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -155,8 +172,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "nicu@samebase.com",
-        name: "Nicu",
+        accountPresentation: { kind: "displayName", label: "Nicu" },
       },
     });
     expect(renderPresentationProvider()).toBe("<span>unknown</span>");
@@ -215,10 +231,26 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "nicu@samebase.com",
-        name: "Nicu",
+        accountPresentation: { kind: "displayName", label: "Nicu" },
       },
     });
+  });
+
+  it("uses only the email claim from a legacy local JWT during hydration", async () => {
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+      LEGACY_PROFILE_JWT,
+    );
+
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
+      kind: "present",
+      profile: {
+        accountPresentation: { kind: "email", label: "legacy@example.com" },
+      },
+    });
+    expect(await renderPresentationProviderAfterEffects()).toBe(
+      "<span>temporaryAuthenticated</span>",
+    );
   });
 
   it("reads non-ASCII profile claims from the local JWT", () => {
@@ -230,8 +262,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "müller@samebase.com",
-        name: "José 中村",
+        accountPresentation: { kind: "displayName", label: "José 中村" },
       },
     });
   });

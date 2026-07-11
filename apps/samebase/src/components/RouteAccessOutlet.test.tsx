@@ -204,6 +204,22 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
+  it("renders Settings for a pending-access viewer", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_user_preferences" } },
+    ];
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_user_preferences"],
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(markup).not.toContain("not-found-route");
+    expect(viewerAccessState.queryCalls).toBe(1);
+  });
+
   it("uses the authenticated route shell for denied non-public routes", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },

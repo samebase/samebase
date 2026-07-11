@@ -20,6 +20,7 @@ import { useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
+import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 
 type PublicLandingAccountMode = "links" | "sign-in" | "create-account" | "mcp-consent";
 type PublicLandingSignedInViewer = NonNullable<
@@ -152,17 +153,14 @@ function PublicLandingLoggedOutAccountSection() {
 
 export function PublicLandingAccountLoadingSection() {
   return (
-    <VaultDashboardAccountSection
+    <VaultDashboardAccountSectionFrame
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName="checking login"
-      email="checking login"
-      isSignOutPending={false}
+      label="checking login"
       open={false}
       onOpenChange={() => {}}
-      onSignOut={() => {}}
-      providerLabel={null}
-      signOutDisabled
-    />
+    >
+      {null}
+    </VaultDashboardAccountSectionFrame>
   );
 }
 
@@ -175,24 +173,18 @@ function PublicLandingResolvedSignedInAccountSection({
   const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const { setMobilePane } = useWorkspacePaneActions();
   const providerLabel = useMemo(() => {
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
     return formatAuthProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
-  const accountEmail = viewer.email ?? viewer.githubUsername ?? viewer.name;
-  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername;
-
-  if (accountDisplayName === undefined || accountEmail === undefined) {
-    return <PublicLandingAccountLoadingSection />;
-  }
-
   return (
     <VaultDashboardAccountSection
+      accountPresentation={viewer.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName={accountDisplayName}
-      email={accountEmail}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
+      onSettings={() => setMobilePane("main")}
       onSignOut={() => {
         if (isSigningOut) {
           return;
@@ -221,20 +213,14 @@ function PublicLandingPresentedSignedInAccountSection({
   const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const accountDisplayName = profile.name ?? profile.email;
-  const accountEmail = profile.email ?? profile.name;
-
-  if (accountDisplayName === undefined || accountEmail === undefined) {
-    return <PublicLandingAccountLoadingSection />;
-  }
-
+  const { setMobilePane } = useWorkspacePaneActions();
   return (
     <VaultDashboardAccountSection
+      accountPresentation={profile.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName={accountDisplayName}
-      email={accountEmail}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
+      onSettings={() => setMobilePane("main")}
       onSignOut={() => {
         if (isSigningOut) {
           return;

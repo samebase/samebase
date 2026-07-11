@@ -17,12 +17,9 @@ import {
   getConnectionByUserAndKind,
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
+import { normalizeAccountEmail } from "../shared/accountPresentation";
 
 const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
 
 function readSeedValue(envName: string): string | undefined {
   const value = readOptionalEnv(envName);
@@ -53,7 +50,7 @@ function readRequiredSeedPasswordAccountConfig(args: {
     );
   }
   return {
-    email: normalizeEmail(email),
+    email: normalizeAccountEmail(email),
     password,
   };
 }
@@ -83,7 +80,7 @@ function readSeedPasswordAccountConfig(): {
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return {
-        email: normalizeEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
+        email: normalizeAccountEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
         password: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
         shouldLinkViaEmail: false,
       };
@@ -288,14 +285,15 @@ export const resolveSeedPasswordAccountUser = internalMutation({
   },
   returns: seedPasswordAccountUserResolution,
   handler: async (ctx, args): Promise<SeedPasswordAccountUserResolution> => {
+    const email = normalizeAccountEmail(args.email);
     const accounts = await ctx.db
       .query("authAccounts")
       .withIndex("providerAndAccountId", (q) =>
-        q.eq("provider", "password").eq("providerAccountId", args.email),
+        q.eq("provider", "password").eq("providerAccountId", email),
       )
       .take(2);
     if (accounts.length > 1) {
-      throw new Error(`Multiple password auth accounts exist for ${args.email}`);
+      throw new Error(`Multiple password auth accounts exist for ${email}`);
     }
     if (!args.shouldLinkViaEmail) {
       if (accounts.length === 0) {
@@ -307,7 +305,7 @@ export const resolveSeedPasswordAccountUser = internalMutation({
     const verifiedUserIds: Id<"users">[] = [];
     for await (const user of ctx.db
       .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))) {
+      .withIndex("email", (q) => q.eq("email", email))) {
       if (user.emailVerificationTime !== undefined) {
         verifiedUserIds.push(user._id);
         if (verifiedUserIds.length > 1) {
@@ -317,7 +315,7 @@ export const resolveSeedPasswordAccountUser = internalMutation({
     }
     if (verifiedUserIds.length !== 1) {
       throw new Error(
-        `Expected exactly one verified user for ${args.email}; found ${verifiedUserIds.length}`,
+        `Expected exactly one verified user for ${email}; found ${verifiedUserIds.length}`,
       );
     }
     const verifiedUserId = verifiedUserIds[0];
@@ -327,7 +325,7 @@ export const resolveSeedPasswordAccountUser = internalMutation({
     const account = accounts[0];
     if (account.userId !== verifiedUserId) {
       throw new Error(
-        `Review password account for ${args.email} is linked to ${account.userId}, not verified user ${verifiedUserId}`,
+        `Review password account for ${email} is linked to ${account.userId}, not verified user ${verifiedUserId}`,
       );
     }
     return { kind: "existing", userId: verifiedUserId };

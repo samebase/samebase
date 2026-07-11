@@ -6,9 +6,16 @@ import {
   object,
   optional,
   string,
+  unknown as unknownValue,
   union,
   type InferGood,
 } from "@samebase/sure";
+import {
+  normalizeAccountEmail,
+  normalizeDisplayName,
+  resolveAccountPresentation,
+  type AccountPresentation,
+} from "./accountPresentation";
 
 export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
 
@@ -22,24 +29,66 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
   if (trimmedValue.length === 0) {
     return bad("blank-string");
   }
-  if (trimmedValue.length > AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH) {
+  if (value.length > AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH) {
     return bad("too-long-string");
   }
-  return good(trimmedValue);
+  return good(value);
 });
 
 const authTokenProfileClaimFieldsSchema = object({
   authProvider: optional(authTokenAuthProviderSchema),
-  email: optional(authTokenProfileClaimValueSchema),
-  name: optional(authTokenProfileClaimValueSchema),
+  accountLabelKind: optional(union(literal("displayName"), literal("email"))),
+  accountLabel: optional(authTokenProfileClaimValueSchema),
+  email: optional(unknownValue),
 });
 
 const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (claims) => {
-  if (claims.name === undefined && claims.email === undefined) {
-    return bad("missing-profile-claims");
-  }
+  try {
+    const hasAccountLabelKind = claims.accountLabelKind !== undefined;
+    const hasAccountLabel = claims.accountLabel !== undefined;
+    if (hasAccountLabelKind !== hasAccountLabel) {
+      return bad("incomplete-account-presentation");
+    }
 
-  return good(claims);
+    let accountPresentation: AccountPresentation;
+    if (claims.accountLabelKind === undefined || claims.accountLabel === undefined) {
+      // Convex Auth access JWTs live for at most one hour. Remove this email-only legacy branch
+      // after the typed claim pair has been live in production for longer than that window.
+      const [hasLegacyEmail, legacyEmail] = authTokenProfileClaimValueSchema(claims.email);
+      if (!hasLegacyEmail) {
+        return bad("invalid-legacy-email");
+      }
+      accountPresentation = {
+        kind: "email",
+        label: normalizeAccountEmail(legacyEmail),
+      };
+    } else if (claims.accountLabelKind === "displayName") {
+      accountPresentation = {
+        kind: "displayName",
+        label: normalizeDisplayName(claims.accountLabel),
+      };
+    } else {
+      const normalizedEmail = normalizeAccountEmail(claims.accountLabel);
+      if (normalizedEmail !== claims.accountLabel) {
+        return bad("noncanonical-account-email");
+      }
+      accountPresentation = {
+        kind: "email",
+        label: normalizedEmail,
+      };
+    }
+    return good({
+      ...(claims.authProvider === undefined ? {} : { authProvider: claims.authProvider }),
+      accountPresentation,
+    });
+  } catch {
+    return bad("invalid-account-presentation");
+  }
+});
+
+const authTokenProfileSourceSchema = object({
+  displayName: optional(string),
+  email: optional(string),
 });
 
 export type AuthTokenAuthProvider = InferGood<typeof authTokenAuthProviderSchema>;
@@ -54,20 +103,15 @@ export function buildAuthTokenProfileCustomClaims(
   source: unknown,
   authProvider?: AuthTokenAuthProvider | null,
 ): Record<string, string> {
-  const profileClaims = readAuthTokenProfileClaims(source);
-  if (profileClaims === null) {
-    return {};
+  const [hasProfileSource, profileSource] = authTokenProfileSourceSchema(source);
+  if (!hasProfileSource) {
+    throw new Error("Account presentation source is invalid.");
   }
 
-  const claims: Record<string, string> = {};
-  if (profileClaims.name !== undefined) {
-    claims.name = profileClaims.name;
-  }
-  if (profileClaims.email !== undefined) {
-    claims.email = profileClaims.email;
-  }
-  if (authProvider !== undefined && authProvider !== null) {
-    claims.authProvider = authProvider;
-  }
-  return claims;
+  const accountPresentation = resolveAccountPresentation(profileSource);
+  return {
+    accountLabelKind: accountPresentation.kind,
+    accountLabel: accountPresentation.label,
+    ...(authProvider === undefined || authProvider === null ? {} : { authProvider }),
+  };
 }

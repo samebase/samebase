@@ -108,8 +108,8 @@ function InlineScript_prehydrateAppAuthPresentation(
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-out-label]";
     const signedInSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
-    const signedInEmailSelector =
-      staticAccountSectionSelector + " [data-app-auth-prehydration-email]";
+    const signedInAccountLabelSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-account-label]";
     const signedInProviderSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-provider]";
     const passwordAuthSectionSelector =
@@ -185,7 +185,7 @@ html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
   display: block !important;
 }
 
-html[${args.rootAttribute}="signed-in"] ${signedInEmailSelector}::after {
+html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
   content: ${cssStringLiteral(presentation.label)};
 }
 

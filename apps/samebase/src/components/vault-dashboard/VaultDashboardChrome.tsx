@@ -2,12 +2,15 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, ChevronUpIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 import { findVaultDashboardVerticalScrollport } from "./vaultDashboardScrollport";
+import type { AccountPresentation } from "../../../shared/accountPresentation";
+import { Link } from "@tanstack/react-router";
+import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
 
 const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 const SIDEBAR_ROW_ICON_CLASS =
@@ -45,11 +48,11 @@ export type VaultDashboardProviderRowViewModel = {
 };
 
 export type VaultDashboardAccountSectionProps = {
+  accountPresentation: AccountPresentation;
   dataTestId?: string;
-  displayName: ReactNode;
-  email: string;
   isSignOutPending: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  onSettings: () => void;
   onSignOut: () => void;
   open: boolean;
   providerLabel: string | null;
@@ -57,9 +60,10 @@ export type VaultDashboardAccountSectionProps = {
 };
 
 export type VaultDashboardStaticAccountSectionProps = {
+  accountPresentation: AccountPresentation;
   dataTestId?: string;
-  email: string;
   isSignOutPending: boolean;
+  onSettings: () => void;
   onSignOut: () => void;
   providerLabel: string | null;
 };
@@ -155,7 +159,7 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             </div>
             <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
               <div
-                data-app-auth-prehydration-email
+                data-app-auth-prehydration-account-label
                 className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
               />
               <div
@@ -168,6 +172,12 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             </div>
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to={SETTINGS_ROUTE}
+            >
+              Settings
+            </Link>
             <Button
               type="button"
               variant="outline"
@@ -188,11 +198,11 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
  * the right rail reads as one accordion stack.
  */
 export function VaultDashboardAccountSection({
+  accountPresentation,
   dataTestId,
-  displayName,
-  email,
   isSignOutPending,
   onOpenChange,
+  onSettings,
   onSignOut,
   open,
   providerLabel,
@@ -201,33 +211,47 @@ export function VaultDashboardAccountSection({
   return (
     <VaultDashboardAccountSectionFrame
       dataTestId={dataTestId}
-      label={displayName}
+      label={accountPresentation.label}
       open={open}
       onOpenChange={onOpenChange}
     >
       <div className="flex flex-wrap items-start gap-3">
-        <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
-          <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
-            <PersonIcon className="h-4 w-4" />
-          </div>
-          <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-            <div className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")} title={email}>
-              {email}
+        {accountPresentation.kind === "email" || providerLabel ? (
+          <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+            <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+              <PersonIcon className="h-4 w-4" />
             </div>
-            {providerLabel ? (
-              <div
-                className={clsx(
-                  SIDEBAR_METADATA_TEXT_CLASS,
-                  "text-xs leading-5 text-muted-foreground",
-                )}
-                title={`Signed in with ${providerLabel}`}
-              >
-                Signed in with {providerLabel}
-              </div>
-            ) : null}
+            <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+              {accountPresentation.kind === "email" ? (
+                <div
+                  className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+                  title={accountPresentation.label}
+                >
+                  {accountPresentation.label}
+                </div>
+              ) : null}
+              {providerLabel ? (
+                <div
+                  className={clsx(
+                    SIDEBAR_METADATA_TEXT_CLASS,
+                    "text-xs leading-5 text-muted-foreground",
+                  )}
+                  title={`Signed in with ${providerLabel}`}
+                >
+                  Signed in with {providerLabel}
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
+        ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Link
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            to={SETTINGS_ROUTE}
+            onClick={onSettings}
+          >
+            Settings
+          </Link>
           <Button
             type="button"
             variant="outline"
@@ -252,9 +276,10 @@ export function VaultDashboardAccountSection({
 }
 
 export function VaultDashboardStaticAccountSection({
+  accountPresentation,
   dataTestId,
-  email,
   isSignOutPending,
+  onSettings,
   onSignOut,
   providerLabel,
 }: VaultDashboardStaticAccountSectionProps) {
@@ -269,8 +294,11 @@ export function VaultDashboardStaticAccountSection({
             <PersonIcon className="h-4 w-4" />
           </div>
           <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-            <div className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")} title={email}>
-              {email}
+            <div
+              className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+              title={accountPresentation.label}
+            >
+              {accountPresentation.label}
             </div>
             {providerLabel ? (
               <div
@@ -286,6 +314,13 @@ export function VaultDashboardStaticAccountSection({
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Link
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            to={SETTINGS_ROUTE}
+            onClick={onSettings}
+          >
+            Settings
+          </Link>
           <Button
             type="button"
             variant="outline"

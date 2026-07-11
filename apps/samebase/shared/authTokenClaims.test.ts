@@ -1,175 +1,169 @@
 import { describe, expect, it } from "vite-plus/test";
+import { ACCOUNT_EMAIL_MAX_LENGTH } from "./accountPresentation";
 import {
   AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
   buildAuthTokenProfileCustomClaims,
   readAuthTokenProfileClaims,
   type AuthTokenAuthProvider,
-  type AuthTokenProfileClaims,
 } from "./authTokenClaims";
-
-const CLAIM_VALUES = {
-  blank: " ",
-  invalid: 123,
-  tooLong: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
-  trimmed: "  Nicu  ",
-  valid: "Nicu",
-} as const;
 
 const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "github", "password"];
 
-const PROFILE_CLAIM_CASES: {
-  expected: AuthTokenProfileClaims | null;
-  input: {
-    authProvider?: unknown;
-    email?: unknown;
-    name?: unknown;
-  };
-  name: string;
-}[] = [
-  {
-    name: "keeps valid email and name claims",
-    input: {
-      email: "nicu@samebase.com",
-      name: CLAIM_VALUES.valid,
-    },
-    expected: {
-      email: "nicu@samebase.com",
-      name: "Nicu",
-    },
-  },
-  {
-    name: "trims usable claims before putting them in JWTs",
-    input: {
-      email: "  nicu@samebase.com  ",
-      name: CLAIM_VALUES.trimmed,
-    },
-    expected: {
-      email: "nicu@samebase.com",
-      name: "Nicu",
-    },
-  },
-  {
-    name: "keeps a valid name when email is missing",
-    input: {
-      name: CLAIM_VALUES.valid,
-    },
-    expected: {
-      name: "Nicu",
-    },
-  },
-  {
-    name: "keeps a valid email when name is missing",
-    input: {
-      email: "nicu@samebase.com",
-    },
-    expected: {
-      email: "nicu@samebase.com",
-    },
-  },
-  {
-    name: "keeps a valid auth provider with profile claims",
-    input: {
-      authProvider: "password",
-      email: "nicu@samebase.com",
-    },
-    expected: {
-      authProvider: "password",
-      email: "nicu@samebase.com",
-    },
-  },
-  {
-    name: "rejects missing claims",
-    input: {},
-    expected: null,
-  },
-  {
-    name: "rejects blank claims",
-    input: {
-      email: CLAIM_VALUES.blank,
-      name: CLAIM_VALUES.valid,
-    },
-    expected: null,
-  },
-  {
-    name: "rejects invalid claims",
-    input: {
-      email: CLAIM_VALUES.invalid,
-      name: CLAIM_VALUES.valid,
-    },
-    expected: null,
-  },
-  {
-    name: "rejects too-long claims",
-    input: {
-      email: CLAIM_VALUES.tooLong,
-      name: CLAIM_VALUES.valid,
-    },
-    expected: null,
-  },
-  {
-    name: "rejects unknown auth providers",
-    input: {
-      authProvider: "netlify",
-      email: "nicu@samebase.com",
-    },
-    expected: null,
-  },
-];
+function createEmail(length: number) {
+  const suffix = "@b.co";
+  return "a".repeat(length - suffix.length) + suffix;
+}
 
 describe("auth token claims", () => {
-  it.each(PROFILE_CLAIM_CASES)("$name", ({ expected, input }) => {
-    expect(readAuthTokenProfileClaims(input)).toEqual(expected);
+  it("reads a strict display-name presentation pair", () => {
+    expect(
+      readAuthTokenProfileClaims({
+        accountLabelKind: "displayName",
+        accountLabel: " Nicu ",
+      }),
+    ).toEqual({
+      accountPresentation: { kind: "displayName", label: "Nicu" },
+    });
+  });
+
+  it("reads a strict canonical-email presentation pair", () => {
+    expect(
+      readAuthTokenProfileClaims({
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
+      }),
+    ).toEqual({
+      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
+    });
+  });
+
+  it.each([
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: 123 },
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: " " },
+    {
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
+      email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+    },
+  ])("ignores malformed legacy email when a valid typed pair is present %j", (input) => {
+    expect(readAuthTokenProfileClaims(input)?.accountPresentation).toEqual({
+      kind: input.accountLabelKind,
+      label: input.accountLabel,
+    });
   });
 
   it.each(AUTH_TOKEN_AUTH_PROVIDERS)("keeps supported %s auth provider claims", (provider) => {
     expect(
       readAuthTokenProfileClaims({
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: provider,
-        email: "nicu@samebase.com",
       }),
     ).toEqual({
+      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
       authProvider: provider,
-      email: "nicu@samebase.com",
     });
   });
 
-  it("builds flat Convex Auth custom claims without avatar fields", () => {
+  it("reads only the canonical email from a legacy token during the rollout window", () => {
+    expect(
+      readAuthTokenProfileClaims({
+        email: " NICU@SAMEBASE.COM ",
+        name: "Provider name",
+      }),
+    ).toEqual({
+      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
+    });
+  });
+
+  it("accepts the maximum canonical legacy email and rejects one character more", () => {
+    const maximumEmail = createEmail(ACCOUNT_EMAIL_MAX_LENGTH);
+    expect(readAuthTokenProfileClaims({ email: maximumEmail })).toEqual({
+      accountPresentation: { kind: "email", label: maximumEmail },
+    });
+    expect(readAuthTokenProfileClaims({ email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1) })).toBe(
+      null,
+    );
+  });
+
+  it.each([
+    {},
+    { name: "Provider name" },
+    { accountLabelKind: "email" },
+    { accountLabel: "nicu@samebase.com" },
+    { accountLabelKind: "email", email: "nicu@samebase.com" },
+    { accountLabel: "nicu@samebase.com", email: "nicu@samebase.com" },
+    { accountLabelKind: "email", accountLabel: 123, email: "nicu@samebase.com" },
+    {
+      accountLabelKind: 123,
+      accountLabel: "nicu@samebase.com",
+      email: "nicu@samebase.com",
+    },
+    { accountLabelKind: "provider", email: "nicu@samebase.com" },
+    { accountLabelKind: "provider", accountLabel: "nicu@samebase.com" },
+    { accountLabelKind: "email", accountLabel: "NICU@SAMEBASE.COM" },
+    { accountLabelKind: "email", accountLabel: " nicu@samebase.com " },
+    { accountLabelKind: "email", accountLabel: "not-an-email" },
+    {
+      accountLabelKind: "email",
+      accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
+    },
+    { accountLabelKind: "displayName", accountLabel: "first\nsecond" },
+    {
+      accountLabelKind: "email",
+      accountLabel: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+    },
+    { accountLabelKind: "email", accountLabel: "nicu@samebase.com", authProvider: "netlify" },
+  ])("rejects invalid or incomplete presentation claims %j", (input) => {
+    expect(readAuthTokenProfileClaims(input)).toBe(null);
+  });
+
+  it("builds flat display-name claims from a valid user", () => {
     expect(
       buildAuthTokenProfileCustomClaims(
         {
-          email: "  nicu@samebase.com  ",
-          name: "Nicu",
+          displayName: " Nicu ",
+          email: "nicu@samebase.com",
+          name: "Provider name",
         },
         "password",
       ),
     ).toEqual({
+      accountLabelKind: "displayName",
+      accountLabel: "Nicu",
       authProvider: "password",
-      email: "nicu@samebase.com",
-      name: "Nicu",
     });
   });
 
-  it("only writes an auth provider claim when the provider is passed explicitly", () => {
+  it("builds email claims when the user has no display name", () => {
     expect(
       buildAuthTokenProfileCustomClaims({
-        authProvider: "password",
-        email: "nicu@samebase.com",
+        email: " NICU@SAMEBASE.COM ",
+        name: "Provider name",
       }),
     ).toEqual({
-      email: "nicu@samebase.com",
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
     });
   });
 
-  it("omits custom claims when a profile field is outside the JWT display contract", () => {
-    expect(
-      buildAuthTokenProfileCustomClaims({
-        email: "nicu@samebase.com",
-        name: CLAIM_VALUES.tooLong,
-      }),
-    ).toEqual({});
+  it("round trips the maximum canonical email through token minting and reading", () => {
+    const maximumEmail = createEmail(ACCOUNT_EMAIL_MAX_LENGTH);
+    const claims = buildAuthTokenProfileCustomClaims({ email: maximumEmail });
+    expect(claims.accountLabel).toHaveLength(ACCOUNT_EMAIL_MAX_LENGTH);
+    expect(readAuthTokenProfileClaims(claims)).toEqual({
+      accountPresentation: { kind: "email", label: maximumEmail },
+    });
   });
 
-  it("rejects non-object profile claim sources", () => {
-    expect(readAuthTokenProfileClaims(null)).toBe(null);
+  it.each([
+    null,
+    {},
+    { name: "Provider name" },
+    { email: "not-an-email" },
+    { email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1) },
+    { displayName: "first\nsecond", email: "nicu@samebase.com" },
+  ])("rejects token minting for invalid user sources %j", (source) => {
+    expect(() => buildAuthTokenProfileCustomClaims(source)).toThrow();
   });
 });

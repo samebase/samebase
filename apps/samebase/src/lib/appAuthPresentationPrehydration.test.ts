@@ -129,12 +129,12 @@ describe("appAuthPresentationPrehydration", () => {
     window.localStorage.clear();
   });
 
-  it("visually replaces the checking login account label with the JWT profile email", () => {
+  it("visually replaces the checking login account label with the JWT account presentation", () => {
     writeLocalAuthSession(
       createJwt({
-        email: "nicu@samebase.com",
+        accountLabelKind: "displayName",
+        accountLabel: "Nicu",
         exp: 4100000000,
-        name: "Nicu",
       }),
     );
 
@@ -150,14 +150,61 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain(
       `[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] [data-vault-dashboard-account-section-label]::after`,
     );
-    expect(styleText).toContain('content: "nicu@samebase.com";');
+    expect(styleText).toContain('content: "Nicu";');
   });
+
+  it("prehydrates only the email claim from a legacy JWT", () => {
+    writeLocalAuthSession(
+      createJwt({
+        email: "legacy@example.com",
+        name: "Provider name",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-in",
+    );
+    expect(styleText).toContain('content: "legacy@example.com";');
+    expect(styleText).not.toContain("Provider name");
+  });
+
+  it.each(["NICU@SAMEBASE.COM", " nicu@samebase.com "])(
+    "rejects a noncanonical typed email claim %j before hydration",
+    (accountLabel) => {
+      window.localStorage.setItem(
+        convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+        createJwt({
+          accountLabelKind: "email",
+          accountLabel,
+          exp: 4100000000,
+        }),
+      );
+
+      runAppAuthPresentationPrehydrationScript();
+
+      expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+        "signed-out",
+      );
+      const styleText = document.getElementById(
+        "samebase-app-auth-presentation-prehydration",
+      )?.textContent;
+      expect(styleText).toContain('content: "not logged in";');
+      expect(styleText).not.toContain(accountLabel.trim());
+    },
+  );
 
   it("visually fills the signed-in account row with the JWT provider label", () => {
     writeLocalAuthSession(
       createJwt({
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: "password",
-        email: "nicu@samebase.com",
         exp: 4100000000,
       }),
     );
@@ -173,7 +220,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain(`[data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"]`);
     expect(styleText).toContain(`[data-testid="${PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}"]`);
     expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
-    expect(styleText).toContain("[data-app-auth-prehydration-email]::after");
+    expect(styleText).toContain("[data-app-auth-prehydration-account-label]::after");
     expect(styleText).toContain('content: "nicu@samebase.com";');
     expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
     expect(styleText).toContain('content: "Signed in with Password";');
@@ -183,7 +230,8 @@ describe("appAuthPresentationPrehydration", () => {
     window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
     writeLocalAuthSession(
       createJwt({
-        email: "nicu@samebase.com",
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         exp: 4100000000,
       }),
     );
@@ -200,7 +248,8 @@ describe("appAuthPresentationPrehydration", () => {
   it("does not invent a provider label without a JWT provider claim", () => {
     writeLocalAuthSession(
       createJwt({
-        email: "nicu@samebase.com",
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         exp: 4100000000,
       }),
     );
@@ -217,8 +266,9 @@ describe("appAuthPresentationPrehydration", () => {
   it("escapes hostile JWT profile labels inside CSS content", () => {
     writeLocalAuthSession(
       createJwt({
+        accountLabelKind: "displayName",
+        accountLabel: 'a"b\\c</style>',
         exp: 4100000000,
-        name: 'a"b\\c\n</style>',
       }),
     );
 
@@ -229,15 +279,16 @@ describe("appAuthPresentationPrehydration", () => {
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(styles).toHaveLength(1);
-    expect(styleText).toContain('content: "a\\"b\\\\c\\a </style>";');
+    expect(styleText).toContain('content: "a\\"b\\\\c</style>";');
   });
 
   it("visually replaces the checking login account label from a valid JWT without a refresh token", () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
       createJwt({
+        accountLabelKind: "displayName",
+        accountLabel: "Nicu",
         exp: 4100000000,
-        name: "Nicu",
       }),
     );
 
@@ -315,8 +366,9 @@ describe("appAuthPresentationPrehydration", () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
       createJwt({
+        accountLabelKind: "displayName",
+        accountLabel: "Nicu",
         exp: 1,
-        name: "Nicu",
       }),
     );
 
@@ -340,7 +392,9 @@ describe("appAuthPresentationPrehydration", () => {
   it("does not paint an account label from a JWT with non-finite exp", () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      createJwtFromPayloadJson('{"exp":1e999,"name":"Nicu"}'),
+      createJwtFromPayloadJson(
+        '{"accountLabelKind":"displayName","accountLabel":"Nicu","exp":1e999}',
+      ),
     );
 
     runAppAuthPresentationPrehydrationScript();
@@ -356,8 +410,9 @@ describe("appAuthPresentationPrehydration", () => {
   it("keeps checking login when a refresh token may recover an expired JWT", () => {
     writeLocalAuthSession(
       createJwt({
+        accountLabelKind: "displayName",
+        accountLabel: "Nicu",
         exp: 1,
-        name: "Nicu",
       }),
     );
 
@@ -385,7 +440,8 @@ describe("appAuthPresentationPrehydration", () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(proxyNamespace),
       createJwt({
-        email: "proxy@samebase.com",
+        accountLabelKind: "email",
+        accountLabel: "proxy@samebase.com",
         exp: 4100000000,
       }),
     );
@@ -409,8 +465,9 @@ describe("appAuthPresentationPrehydration", () => {
   it("removes the temporary style when hydration removes the root marker", async () => {
     writeLocalAuthSession(
       createJwt({
+        accountLabelKind: "displayName",
+        accountLabel: "Nicu",
         exp: 4100000000,
-        name: "Nicu",
       }),
     );
     runAppAuthPresentationPrehydrationScript();
@@ -424,8 +481,9 @@ describe("appAuthPresentationPrehydration", () => {
   it("clears the temporary prehydration marker and style", () => {
     writeLocalAuthSession(
       createJwt({
+        accountLabelKind: "displayName",
+        accountLabel: "Nicu",
         exp: 4100000000,
-        name: "Nicu",
       }),
     );
     runAppAuthPresentationPrehydrationScript();

@@ -1,9 +1,32 @@
 import { describe, expect, it } from "vite-plus/test";
+import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
 
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("devAuth password account seed", () => {
+  it("enforces the canonical email maximum for the seed account boundary", async () => {
+    const suffix = "@b.co";
+    const maximumEmail = "a".repeat(ACCOUNT_EMAIL_MAX_LENGTH - suffix.length) + suffix;
+    const tooLongEmail = "a".repeat(ACCOUNT_EMAIL_MAX_LENGTH + 1 - suffix.length) + suffix;
+    const t = makeConvexTest();
+
+    await expect(
+      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+        email: maximumEmail,
+        shouldLinkViaEmail: false,
+      }),
+    ).resolves.toEqual({ kind: "missing" });
+    await expect(
+      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+        email: tooLongEmail,
+        shouldLinkViaEmail: false,
+      }),
+    ).rejects.toThrowError(
+      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
+    );
+  });
+
   it("resolves an existing password account linked to the verified review user", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

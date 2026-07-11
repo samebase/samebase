@@ -34,6 +34,7 @@ type WorkspaceLayoutV2Props = {
   addressChrome: ReactNode;
   left?: ReactElement;
   main: ReactElement;
+  mobilePaneConstraint?: "main";
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: ReactElement;
@@ -76,6 +77,7 @@ export function WorkspaceLayoutV2({
   addressChrome,
   left,
   main,
+  mobilePaneConstraint,
   mobileMinResizeBehavior = "min_resize_to_merge",
   panel,
   right,
@@ -111,7 +113,7 @@ export function WorkspaceLayoutV2({
   const mobilePane = getAvailableMobilePane({
     hasLeftPane,
     hasRightPane,
-    mobilePane: rawMobilePane,
+    mobilePane: mobilePaneConstraint ?? rawMobilePane,
   });
 
   const desktopLeftWidthPx = hasLeftPane
@@ -295,6 +297,7 @@ export function WorkspaceLayoutV2({
       <div
         ref={viewportRef}
         data-mobile-pane={mobilePane}
+        data-workspace-layout-v2-route-mobile-pane={mobilePaneConstraint}
         data-workspace-layout-v2="responsive"
         data-workspace-layout-v2-mobile-merged-side={
           isMobile && activeMobileMergedSurfaceSide !== null

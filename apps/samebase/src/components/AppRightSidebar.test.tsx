@@ -17,6 +17,7 @@ const authState = vi.hoisted(() => ({
   isAuthenticated: true,
   isLoading: false,
 }));
+const setMobilePane = vi.hoisted(() => vi.fn());
 const queryState = vi.hoisted<{
   blockedQueryNames: Set<string>;
   index: number;
@@ -32,13 +33,16 @@ const queryState = vi.hoisted<{
 }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
-const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
-const PROFILE_PROVIDER_JWT = createJwt({
-  authProvider: "password",
-  email: "nicu@noter.md",
+const PROFILE_JWT = createJwt({
+  accountLabelKind: "displayName",
+  accountLabel: "Nicu",
   exp: 4100000000,
-  name: "Nicu",
+});
+const PROFILE_PROVIDER_JWT = createJwt({
+  accountLabelKind: "displayName",
+  accountLabel: "Nicu",
+  authProvider: "password",
+  exp: 4100000000,
 });
 const PROVIDER_STATUS_QUERY_NAMES = new Set([
   getFunctionName(api.users.getGithubConnectionStatus),
@@ -132,6 +136,10 @@ vi.mock("@/components/ApiKeyConnectDialog", () => ({
   }),
 }));
 
+vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
+  useWorkspacePaneActions: () => ({ setMobilePane }),
+}));
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
 
@@ -140,13 +148,15 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     Link: ({
       children,
       className,
+      onClick,
       to,
     }: {
       children?: ReactNode;
       className?: string;
+      onClick?: () => void;
       to: string;
     }) => (
-      <a className={className} href={to}>
+      <a className={className} href={to} onClick={onClick}>
         {children}
       </a>
     ),
@@ -260,6 +270,7 @@ describe("AppRightSidebarContent", () => {
     queryState.resultsByQueryName = new Map();
     queryState.blockedQueryNames = new Set();
     queryState.seenQueryNames = [];
+    setMobilePane.mockClear();
   });
 
   it("does not treat a profileless JWT as temporary auth", async () => {
@@ -331,7 +342,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("dashboard-sidebar-account-icon");
     expect(markup).toContain("data-app-auth-prehydration-provider");
     expect(markup).toContain("Sign out");
-    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
@@ -344,9 +355,26 @@ describe("AppRightSidebarContent", () => {
 
     const mounted = await mountRightSidebarAfterEffects([]);
     try {
-      expect(mounted.rootElement.textContent).toContain("nicu@noter.md");
+      expect(mounted.rootElement.textContent).toContain("Nicu");
       expect(mounted.rootElement.textContent).toContain("Sign out");
       expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("returns the mobile workspace to the main pane when Settings is selected", async () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const mounted = await mountRightSidebarAfterEffects([]);
+    try {
+      const settingsLink =
+        mounted.rootElement.querySelector<HTMLAnchorElement>('a[href="/settings"]');
+      expect(settingsLink).not.toBeNull();
+      settingsLink?.click();
+      expect(setMobilePane).toHaveBeenCalledWith("main");
     } finally {
       await mounted.unmount();
     }
@@ -360,7 +388,7 @@ describe("AppRightSidebarContent", () => {
 
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
-    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).toContain("Signed in with Password");
     expect(hydratedMarkup).not.toContain("checking login");
   });
@@ -370,7 +398,7 @@ describe("AppRightSidebarContent", () => {
 
     const markup = renderRightSidebar([]);
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-    const accountIndex = hydratedMarkup.indexOf("nicu@noter.md");
+    const accountIndex = hydratedMarkup.indexOf("Nicu");
 
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(markup).toContain("checking login");
@@ -407,11 +435,10 @@ describe("AppRightSidebarContent", () => {
           getFunctionName(api.users.viewer),
           {
             _id: "user_pending-access",
-            name: "Pending Access User",
-            email: "pending-access@example.com",
-            hasCloudflareConnection: false,
-            hasConvexConnection: false,
-            hasGithubConnection: false,
+            accountPresentation: {
+              kind: "email",
+              label: "pending-access@example.com",
+            },
           },
         ],
         [
@@ -451,11 +478,10 @@ describe("AppRightSidebarContent", () => {
           getFunctionName(api.users.viewer),
           {
             _id: "user_123",
-            name: "Nicu",
-            email: "nicu@samebase.md",
-            hasCloudflareConnection: false,
-            hasConvexConnection: false,
-            hasGithubConnection: false,
+            accountPresentation: {
+              kind: "email",
+              label: "nicu@samebase.md",
+            },
           },
         ],
         [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],

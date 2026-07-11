@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
+import { ACCOUNT_EMAIL_MAX_LENGTH } from "../../shared/accountPresentation";
 import {
   AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
   readAuthTokenProfileClaims,
 } from "../../shared/authTokenClaims";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
+
+function createEmail(length: number) {
+  const suffix = "@b.co";
+  return "a".repeat(length - suffix.length) + suffix;
+}
 
 function createJwt(payload: object) {
   return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
@@ -39,21 +45,30 @@ describe("app auth presentation runtime", () => {
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
-          email: "nicu@samebase.com",
+          accountLabelKind: "displayName",
+          accountLabel: "Nicu",
           exp: 4100000000,
-          name: "Nicu",
         }),
       ),
-    ).toBe("nicu@samebase.com");
+    ).toBe("Nicu");
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
-          email: "nicu@samebase.com",
+          accountLabelKind: "email",
+          accountLabel: "nicu@samebase.com",
           exp: -1,
-          name: "Nicu",
         }),
       ),
     ).toBe(null);
+    expect(
+      runtime.readJwtPresentationLabel(
+        createJwt({
+          email: " NICU@SAMEBASE.COM ",
+          name: "Provider name",
+          exp: 4100000000,
+        }),
+      ),
+    ).toBe("nicu@samebase.com");
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
@@ -63,11 +78,75 @@ describe("app auth presentation runtime", () => {
     ).toBe(null);
   });
 
+  it.each(["NICU@SAMEBASE.COM", " nicu@samebase.com "])(
+    "rejects a noncanonical typed email claim %j",
+    (accountLabel) => {
+      const runtime = createRuntime();
+
+      expect(
+        runtime.readJwtPresentationLabel(
+          createJwt({
+            accountLabelKind: "email",
+            accountLabel,
+            exp: 4100000000,
+          }),
+        ),
+      ).toBe(null);
+    },
+  );
+
+  it.each([
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: 123 },
+    { accountLabelKind: "displayName", accountLabel: "Nicu", email: " " },
+    {
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
+      email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+    },
+  ])("ignores malformed legacy email with a valid typed pair %j", (payload) => {
+    const runtime = createRuntime();
+    const jwtPayload = { ...payload, exp: 4100000000 };
+
+    expect(runtime.readJwtPayload(createJwt(jwtPayload))).toEqual({
+      kind: "valid",
+      profile: readAuthTokenProfileClaims(jwtPayload),
+      tokenExpiresAt: 4100000000 * 1000,
+    });
+    expect(readAuthTokenProfileClaims(jwtPayload)).not.toBe(null);
+  });
+
+  it("keeps canonical email length aligned with the shared parser", () => {
+    const runtime = createRuntime();
+    const maximumEmailPayload = {
+      accountLabelKind: "email",
+      accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH),
+      exp: 4100000000,
+    };
+    const tooLongEmailPayload = {
+      accountLabelKind: "email",
+      accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
+      exp: 4100000000,
+    };
+
+    expect(runtime.readJwtPayload(createJwt(maximumEmailPayload))).toEqual({
+      kind: "valid",
+      profile: readAuthTokenProfileClaims(maximumEmailPayload),
+      tokenExpiresAt: 4100000000 * 1000,
+    });
+    expect(runtime.readJwtPayload(createJwt(tooLongEmailPayload))).toEqual({
+      kind: "valid",
+      profile: null,
+      tokenExpiresAt: 4100000000 * 1000,
+    });
+    expect(readAuthTokenProfileClaims(tooLongEmailPayload)).toBe(null);
+  });
+
   it("reads the local auth presentation hint from storage and search", () => {
     const runtime = createRuntime();
     const jwt = createJwt({
+      accountLabelKind: "email",
+      accountLabel: "nicu@samebase.com",
       authProvider: "password",
-      email: "nicu@samebase.com",
       exp: 4100000000,
     });
     const entries = new Map([[runtime.convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), jwt]]);
@@ -84,8 +163,11 @@ describe("app auth presentation runtime", () => {
       kind: "present",
       label: "nicu@samebase.com",
       profile: {
+        accountPresentation: {
+          kind: "email",
+          label: "nicu@samebase.com",
+        },
         authProvider: "password",
-        email: "nicu@samebase.com",
       },
     });
   });
@@ -114,42 +196,85 @@ describe("app auth presentation runtime", () => {
     const runtime = createRuntime();
     const payloads = [
       {
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: "password",
-        email: "nicu@samebase.com",
         exp: 4100000000,
-        name: "Nicu",
       },
       {
-        email: "  nicu@samebase.com  ",
+        accountLabelKind: "displayName",
+        accountLabel: "  Nicu  ",
         exp: 4100000000,
-        name: "  Nicu  ",
       },
       {
-        email: " ",
+        accountLabelKind: "email",
+        accountLabel: " ",
         exp: 4100000000,
-        name: "Nicu",
       },
       {
-        email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+        accountLabelKind: "email",
+        accountLabel: "NICU@SAMEBASE.COM",
         exp: 4100000000,
-        name: "Nicu",
       },
       {
+        accountLabelKind: "email",
+        accountLabel: " nicu@samebase.com ",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: 123,
-        email: "nicu@samebase.com",
         exp: 4100000000,
-        name: 123,
       },
       {
+        accountLabelKind: "email",
+        accountLabel: "nicu@samebase.com",
         authProvider: "netlify",
-        email: "nicu@samebase.com",
         exp: 4100000000,
-        name: "Nicu",
       },
       {
-        email: " ",
+        accountLabelKind: "displayName",
+        accountLabel: "first\nsecond",
         exp: 4100000000,
-        name: "",
+      },
+      {
+        email: " NICU@SAMEBASE.COM ",
+        name: "Provider name",
+        exp: 4100000000,
+      },
+      {
+        email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH),
+        exp: 4100000000,
+      },
+      {
+        email: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
+        exp: 4100000000,
+      },
+      {
+        email: 123,
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: 123,
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      },
+      {
+        accountLabelKind: "email",
+        accountLabel: createEmail(ACCOUNT_EMAIL_MAX_LENGTH + 1),
+        exp: 4100000000,
       },
     ];
 

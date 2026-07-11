@@ -331,6 +331,7 @@ export default defineSchema({
    */
   users: defineTable({
     name: optional(string()),
+    displayName: optional(string()),
     image: optional(string()),
     email: optional(string()),
     emailVerificationTime: optional(number()),

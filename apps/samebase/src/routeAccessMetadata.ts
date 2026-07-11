@@ -89,6 +89,10 @@ const routeAccessMetadataByPath = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/settings": {
+    access: "access_user_preferences",
+    appWorkspaceRouteChrome: { leftPane: "none", mobilePane: "main" },
+  },
   "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/test": {
     availableEnvironments: ["local"],

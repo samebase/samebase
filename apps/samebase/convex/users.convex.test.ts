@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
 
 describe("users Convex contract", () => {
   it("treats anonymous viewers as signed out", async () => {
@@ -18,7 +19,7 @@ describe("users Convex contract", () => {
     await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
   });
 
-  it("loads viewer connection state from authenticated database rows", async () => {
+  it("resolves the viewer presentation without provider identity", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -46,14 +47,12 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asUser.query(api.users.viewer)).resolves.toMatchObject({
+    await expect(asUser.query(api.users.viewer)).resolves.toEqual({
       _id: userId,
-      name: "Ada",
-      email: "ada@example.com",
-      githubUsername: "ada",
-      hasGithubConnection: true,
-      hasConvexConnection: false,
-      hasCloudflareConnection: false,
+      accountPresentation: {
+        kind: "email",
+        label: "ada@example.com",
+      },
     });
     await expect(asUser.query(api.users.currentViewerAccess)).resolves.toEqual({
       role: "role_member",
@@ -74,6 +73,56 @@ describe("users Convex contract", () => {
     await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({
       role: "role_member",
     });
+  });
+
+  it("fails closed when stored account fields cannot form a presentation", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Legacy user",
+        isApproved: true,
+      });
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
+      "A valid email address is required.",
+    );
+    await expect(asUser.query(api.users.getUserSettings)).rejects.toThrowError(
+      "A valid email address is required.",
+    );
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        displayName: "first\nsecond",
+        email: "legacy@example.com",
+      });
+    });
+    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
+      "Display name must be one line.",
+    );
+    await expect(asUser.query(api.users.getUserSettings)).rejects.toThrowError(
+      "Display name must be one line.",
+    );
+
+    const suffix = "@b.co";
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        displayName: undefined,
+        email: "a".repeat(ACCOUNT_EMAIL_MAX_LENGTH + 1 - suffix.length) + suffix,
+      });
+    });
+    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
+      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
+    );
+    await expect(
+      asUser.mutation(api.users.setDisplayName, { displayName: "Nicu" }),
+    ).rejects.toThrowError(
+      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
+    );
   });
 
   it("keeps pending-access users on public shell access and denies provider access", async () => {
@@ -111,13 +160,12 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${viewerId}`,
     });
 
-    await expect(asViewer.query(api.users.viewer)).resolves.toMatchObject({
+    await expect(asViewer.query(api.users.viewer)).resolves.toEqual({
       _id: viewerId,
-      name: "Viewer",
-      email: "viewer@example.com",
-      hasGithubConnection: false,
-      hasConvexConnection: false,
-      hasCloudflareConnection: false,
+      accountPresentation: {
+        kind: "email",
+        label: "viewer@example.com",
+      },
     });
     await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
       role: "role_pending_access",
@@ -129,6 +177,38 @@ describe("users Convex contract", () => {
     await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
       "Access denied",
     );
+    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
+      signInEmail: "viewer@example.com",
+    });
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "   " }),
+    ).rejects.toThrowError("Display name cannot be blank.");
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "first\nsecond" }),
+    ).rejects.toThrowError("Display name must be one line.");
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "a".repeat(65) }),
+    ).rejects.toThrowError("Display name must be 64 characters or fewer.");
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: "  Public Viewer  " }),
+    ).resolves.toEqual({ kind: "displayName", label: "Public Viewer" });
+    await expect(asViewer.query(api.users.viewer)).resolves.toEqual({
+      _id: viewerId,
+      accountPresentation: {
+        kind: "displayName",
+        label: "Public Viewer",
+      },
+    });
+    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
+      displayName: "Public Viewer",
+      signInEmail: "viewer@example.com",
+    });
+    await expect(
+      asViewer.mutation(api.users.setDisplayName, { displayName: null }),
+    ).resolves.toEqual({ kind: "email", label: "viewer@example.com" });
+    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
+      signInEmail: "viewer@example.com",
+    });
     await expect(asViewer.query(api.users.getGithubProviderSummary)).rejects.toThrowError(
       "Access denied",
     );

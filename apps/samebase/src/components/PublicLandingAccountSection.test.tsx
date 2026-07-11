@@ -24,9 +24,19 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   index: 0,
   results: [],
 }));
+const setMobilePane = vi.hoisted(() => vi.fn());
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+const PROFILE_JWT = [
+  "header",
+  Buffer.from(
+    JSON.stringify({
+      accountLabelKind: "displayName",
+      accountLabel: "Nicu",
+      exp: 4100000000,
+    }),
+  ).toString("base64url"),
+  "signature",
+].join(".");
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -82,6 +92,10 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
+vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
+  useWorkspacePaneActions: () => ({ setMobilePane }),
+}));
+
 vi.mock("@/routeSearch/root", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/routeSearch/root")>();
 
@@ -99,13 +113,15 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     Link: ({
       children,
       className,
+      onClick,
       to,
     }: {
       children?: ReactNode;
       className?: string;
+      onClick?: () => void;
       to: string;
     }) => (
-      <a className={className} href={to}>
+      <a className={className} href={to} onClick={onClick}>
         {children}
       </a>
     ),
@@ -179,6 +195,7 @@ describe("PublicLandingAccountSection", () => {
     });
     queryState.index = 0;
     queryState.results = [];
+    setMobilePane.mockClear();
   });
 
   it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {
@@ -189,6 +206,9 @@ describe("PublicLandingAccountSection", () => {
 
     expect(markup).toContain("checking login");
     expect(markup).toContain("data-vault-dashboard-account-section-label");
+    expect(markup).not.toContain("dashboard-sidebar-account-row");
+    expect(markup).not.toContain("Settings");
+    expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("?sign-in");
@@ -258,11 +278,10 @@ describe("PublicLandingAccountSection", () => {
     queryState.results = [
       {
         _id: "user_123",
-        name: "Nicu",
-        email: "nicu@example.com",
-        hasCloudflareConnection: false,
-        hasConvexConnection: false,
-        hasGithubConnection: false,
+        accountPresentation: {
+          kind: "displayName",
+          label: "Nicu",
+        },
       },
       {
         providers: ["google"],
@@ -280,14 +299,7 @@ describe("PublicLandingAccountSection", () => {
 
   it("keeps checking login after an empty signed-in viewer loads", async () => {
     authState.isAuthenticated = true;
-    queryState.results = [
-      {
-        _id: "user_123",
-        hasCloudflareConnection: false,
-        hasConvexConnection: false,
-        hasGithubConnection: false,
-      },
-    ];
+    queryState.results = [null];
 
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
