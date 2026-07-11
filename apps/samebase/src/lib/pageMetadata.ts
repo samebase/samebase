@@ -89,8 +89,8 @@ export const APP_PAGE_METADATA: PageMetadata = {
 };
 
 export const NOT_FOUND_PAGE_METADATA: PageMetadata = {
-  title: "Page not found | Samebase",
-  description: "The requested Samebase page could not be found.",
+  title: "Page not available | Samebase",
+  description: "The requested Samebase page is not available.",
   canonicalPath: "/",
   robots: "noindex,nofollow",
   openGraphType: "website",

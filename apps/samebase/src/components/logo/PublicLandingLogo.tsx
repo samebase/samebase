@@ -155,8 +155,13 @@ export function PublicLandingLogo({
   );
   const staticFallbackDepth = Math.min(routeState.fractalDepth, LANDING_STATIC_SVG_FALLBACK_DEPTH);
   const staticLogoVoxelGrid = useMemo(
-    () => createLogoRouteVoxelGrid(routeState, staticFallbackDepth),
-    [routeState, staticFallbackDepth],
+    () =>
+      createLogoRouteVoxelGrid({
+        fractalDepth: staticFallbackDepth,
+        gridSize: routeState.gridSize,
+        voxelState: routeState.voxelState,
+      }),
+    [routeState.gridSize, routeState.voxelState, staticFallbackDepth],
   );
   const staticLogoSvgSrc = `${createStaticLogoSvgDataUrl({
     faceColors,

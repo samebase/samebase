@@ -27,7 +27,8 @@ test("visual fixture route renders not found on deployed hostnames", async ({ pa
 
   const content = page.getByTestId("not-found-route-content");
   await expect(content).toBeVisible();
-  await expect(content).toContainText("Page not found");
-  await expect(content).toContainText("/visual-fixture");
+  await expect(content).toContainText("Page not available");
+  await expect(content).not.toContainText("This page isn't available.");
+  await expect(content).not.toContainText("/visual-fixture");
   await expect(page.getByTestId("button-visual-fixture")).toHaveCount(0);
 });

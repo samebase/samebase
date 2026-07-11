@@ -33,9 +33,11 @@ import { type LogoRouteSearch } from "@/routeSearch/logo";
 
 type MockLandingLogoSceneProps = {
   elevationDegrees: number;
+  onInteractionStart?: () => void;
   onInteractionEnd?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   rotationDegrees: number;
+  voxelGrid: unknown;
 };
 
 const { latestLandingLogoSceneProps } = vi.hoisted<{
@@ -302,6 +304,49 @@ describe("PublicLandingLogo", () => {
     }
     expect(finalSceneProps.elevationDegrees).toBe(DEFAULT_ELEVATION_DEGREES);
     expect(finalSceneProps.rotationDegrees).toBe(DEFAULT_ROTATION_DEGREES);
+  });
+
+  it("keeps the shuffled voxel grid stable after a persisted view drag", async () => {
+    installImmediateIdleCallback();
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          autoRotate
+          routeSearch={{ "auto-shuffle": true }}
+          routeSearchSource="static"
+          viewStatePersistence="device"
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const initialSceneProps = latestLandingLogoSceneProps.current;
+    if (initialSceneProps === null) {
+      throw new Error("Expected mocked logo scene props before the view drag.");
+    }
+    const initialVoxelGrid = initialSceneProps.voxelGrid;
+
+    await act(async () => {
+      initialSceneProps.onInteractionStart?.();
+      initialSceneProps.onViewChange({
+        elevationDegrees: 16.7,
+        rotationDegrees: 5.8,
+      });
+    });
+
+    await act(async () => {
+      latestLandingLogoSceneProps.current?.onInteractionEnd?.();
+    });
+
+    expect(latestLandingLogoSceneProps.current?.voxelGrid).toBe(initialVoxelGrid);
   });
 
   it("uses the default view after reset clears dashboard device view state", async () => {

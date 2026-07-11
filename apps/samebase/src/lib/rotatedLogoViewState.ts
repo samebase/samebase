@@ -3,6 +3,7 @@ import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
 
 export const PUBLIC_LANDING_LOGO_VIEW_STATE_KEY = "public-landing";
 export const DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY = "dashboard-empty";
+export const NOT_FOUND_LOGO_VIEW_STATE_KEY = "not-found";
 /**
 Each landing zone rail mark keeps its own drag orientation, separate from the
 shared public-landing mark that follows the visitor through the app.
@@ -23,6 +24,7 @@ export const LANDING_CLOSING_BAND_VIEW_STATE_KEY = "landing-closing-band";
 export type RotatedLogoViewStateKey =
   | typeof PUBLIC_LANDING_LOGO_VIEW_STATE_KEY
   | typeof DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY
+  | typeof NOT_FOUND_LOGO_VIEW_STATE_KEY
   | typeof LANDING_CLOSING_BAND_VIEW_STATE_KEY
   | (typeof LANDING_ZONE_MARK_VIEW_STATE_KEYS)[number];
 
@@ -48,6 +50,7 @@ type WriteRotatedLogoViewStateArgs = {
 const STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY = {
   [PUBLIC_LANDING_LOGO_VIEW_STATE_KEY]: "samebase:logo-view:public-landing",
   [DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY]: "samebase:logo-view:dashboard-empty",
+  [NOT_FOUND_LOGO_VIEW_STATE_KEY]: "samebase:logo-view:not-found",
   "landing-zone-yours": "samebase:logo-view:landing-zone-yours",
   "landing-zone-safer": "samebase:logo-view:landing-zone-safer",
   "landing-zone-lanes": "samebase:logo-view:landing-zone-lanes",

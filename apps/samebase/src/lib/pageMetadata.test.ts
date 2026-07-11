@@ -269,10 +269,10 @@ describe("page metadata", () => {
   it("builds dedicated not-found metadata without indexing the missing path", () => {
     expect(resolveNotFoundPageMetadata("/missing")).toEqual({
       canonicalPath: "/missing",
-      description: "The requested Samebase page could not be found.",
+      description: "The requested Samebase page is not available.",
       openGraphType: "website",
       robots: "noindex,nofollow",
-      title: "Page not found | Samebase",
+      title: "Page not available | Samebase",
     });
   });
 
