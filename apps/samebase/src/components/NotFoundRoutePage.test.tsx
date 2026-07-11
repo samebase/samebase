@@ -44,6 +44,8 @@ vi.mock("@/components/logo/PublicLandingLogo", () => ({
       data-auto-rotate={props.autoRotate}
       data-auto-shuffle={props.routeSearch?.["auto-shuffle"]}
       data-primary={props.routeSearch?.primary}
+      data-secondary={props.routeSearch?.secondary}
+      data-top={props.routeSearch?.top}
       data-route-search-source={props.routeSearchSource}
       data-view-state-key={props.viewStateKey}
     />
@@ -78,16 +80,20 @@ describe("NotFoundRoutePage", () => {
 
   it("selects an animated shuffled logo colorway on each mount", () => {
     const random = vi.spyOn(Math, "random").mockReturnValue(0);
-    const blueMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
+    const firstMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
     random.mockReturnValue(0.999);
-    const cyanMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
+    const lastMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
 
-    expect(blueMarkup).toContain('data-primary="blue-700"');
-    expect(cyanMarkup).toContain('data-primary="cyan-700"');
-    expect(blueMarkup).toContain('data-auto-rotate="true"');
-    expect(blueMarkup).toContain('data-auto-shuffle="true"');
-    expect(blueMarkup).toContain('data-route-search-source="static"');
-    expect(blueMarkup).toContain('data-view-state-key="not-found"');
+    expect(firstMarkup).toContain('data-primary="red-800"');
+    expect(firstMarkup).toContain('data-secondary="orange-500"');
+    expect(firstMarkup).toContain('data-top="amber-200"');
+    expect(lastMarkup).toContain('data-primary="rose-800"');
+    expect(lastMarkup).toContain('data-secondary="pink-500"');
+    expect(lastMarkup).toContain('data-top="fuchsia-200"');
+    expect(firstMarkup).toContain('data-auto-rotate="true"');
+    expect(firstMarkup).toContain('data-auto-shuffle="true"');
+    expect(firstMarkup).toContain('data-route-search-source="static"');
+    expect(firstMarkup).toContain('data-view-state-key="not-found"');
   });
 
   it("sends signed-out visitors home", () => {

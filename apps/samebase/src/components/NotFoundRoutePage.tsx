@@ -12,24 +12,25 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 
-const NOT_FOUND_LOGO_ROUTE_SEARCHES = [
-  { "auto-shuffle": true, primary: "blue-700", secondary: "blue-500", top: "blue-300" },
-  {
-    "auto-shuffle": true,
-    primary: "violet-700",
-    secondary: "violet-500",
-    top: "violet-300",
-  },
-  { "auto-shuffle": true, primary: "rose-700", secondary: "rose-500", top: "rose-300" },
-  { "auto-shuffle": true, primary: "amber-700", secondary: "amber-500", top: "amber-300" },
-  {
-    "auto-shuffle": true,
-    primary: "emerald-700",
-    secondary: "emerald-500",
-    top: "emerald-300",
-  },
-  { "auto-shuffle": true, primary: "cyan-700", secondary: "cyan-500", top: "cyan-300" },
-] as const satisfies readonly [LogoRouteSearch, ...LogoRouteSearch[]];
+const NOT_FOUND_LOGO_COLOR_FAMILIES = [
+  "red",
+  "orange",
+  "amber",
+  "yellow",
+  "lime",
+  "green",
+  "emerald",
+  "teal",
+  "cyan",
+  "sky",
+  "blue",
+  "indigo",
+  "violet",
+  "purple",
+  "fuchsia",
+  "pink",
+  "rose",
+] as const;
 
 function NotFoundContent(props: {
   primaryActionLabel: string;
@@ -37,12 +38,21 @@ function NotFoundContent(props: {
 }) {
   // Auth and access gates mount unavailable content only after hydration, so a
   // random colorway can be selected once per client mount without an SSR mismatch.
-  const [logoRouteSearch] = useState(
-    () =>
-      NOT_FOUND_LOGO_ROUTE_SEARCHES[
-        Math.floor(Math.random() * NOT_FOUND_LOGO_ROUTE_SEARCHES.length)
-      ] ?? NOT_FOUND_LOGO_ROUTE_SEARCHES[0],
-  );
+  const [logoRouteSearch] = useState(() => {
+    const remainingColorFamilies = [...NOT_FOUND_LOGO_COLOR_FAMILIES];
+    const takeRandomColorFamily = () =>
+      remainingColorFamilies.splice(
+        Math.floor(Math.random() * remainingColorFamilies.length),
+        1,
+      )[0] ?? NOT_FOUND_LOGO_COLOR_FAMILIES[0];
+
+    return {
+      "auto-shuffle": true,
+      primary: `${takeRandomColorFamily()}-800`,
+      secondary: `${takeRandomColorFamily()}-500`,
+      top: `${takeRandomColorFamily()}-200`,
+    } as const satisfies LogoRouteSearch;
+  });
 
   return (
     <div className="container my-auto">
