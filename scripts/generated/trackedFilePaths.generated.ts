@@ -1057,6 +1057,8 @@ export const trackedFilePaths = [
   "apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts",
   "apps/samebase/src/lib/authProviderLabel.ts",
   "apps/samebase/src/lib/authStorageKeys.ts",
+  "apps/samebase/src/lib/authTokenProfileJwt.test.ts",
+  "apps/samebase/src/lib/authTokenProfileJwt.ts",
   "apps/samebase/src/lib/baseUiAsChild.test.tsx",
   "apps/samebase/src/lib/baseUiAsChild.tsx",
   "apps/samebase/src/lib/clampNumber.ts",
