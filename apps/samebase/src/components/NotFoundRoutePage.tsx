@@ -1,27 +1,63 @@
 import { ApprovalGate } from "@/components/ApprovalGate";
+import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
+import { NOT_FOUND_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/routeSearch/root";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Link, useLocation } from "@tanstack/react-router";
 
+const NOT_FOUND_LOGO_ROUTE_SEARCHES = [
+  { "auto-shuffle": true, primary: "blue-700", secondary: "blue-500", top: "blue-300" },
+  {
+    "auto-shuffle": true,
+    primary: "violet-700",
+    secondary: "violet-500",
+    top: "violet-300",
+  },
+  { "auto-shuffle": true, primary: "rose-700", secondary: "rose-500", top: "rose-300" },
+  { "auto-shuffle": true, primary: "amber-700", secondary: "amber-500", top: "amber-300" },
+  {
+    "auto-shuffle": true,
+    primary: "emerald-700",
+    secondary: "emerald-500",
+    top: "emerald-300",
+  },
+  { "auto-shuffle": true, primary: "cyan-700", secondary: "cyan-500", top: "cyan-300" },
+] as const satisfies readonly [LogoRouteSearch, ...LogoRouteSearch[]];
+
 function NotFoundContent(props: {
-  description: string;
   primaryActionLabel: string;
   primaryActionTo: "/" | typeof DASHBOARD_ROUTE;
   pathname: string;
 }) {
+  let pathnameHash = 0;
+  for (const character of props.pathname) {
+    pathnameHash = (pathnameHash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+  // Path-based selection keeps the server and hydrated client on the same colorway.
+  const logoRouteSearch =
+    NOT_FOUND_LOGO_ROUTE_SEARCHES[pathnameHash % NOT_FOUND_LOGO_ROUTE_SEARCHES.length] ??
+    NOT_FOUND_LOGO_ROUTE_SEARCHES[0];
+
   return (
     <div className="container my-auto">
       <div
         data-testid="not-found-route-content"
         className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center"
       >
+        <PublicLandingLogo
+          autoRotate
+          routeSearch={logoRouteSearch}
+          routeSearchSource="static"
+          viewStateKey={NOT_FOUND_LOGO_VIEW_STATE_KEY}
+        />
         <h2 className="text-xl font-semibold tracking-tight">Page not found</h2>
-        <p className="text-sm text-muted-foreground">{props.description}</p>
+        <p className="text-sm text-muted-foreground">This page isn&apos;t available.</p>
         <code className="max-w-full overflow-x-auto text-xs text-muted-foreground">
           {props.pathname}
         </code>
@@ -47,7 +83,6 @@ export function NotFoundRoutePage() {
       <Authenticated>
         <ApprovalGate>
           <NotFoundContent
-            description="The requested Samebase app route does not exist."
             pathname={pathname}
             primaryActionLabel="Go to vaults"
             primaryActionTo={DASHBOARD_ROUTE}
@@ -55,12 +90,7 @@ export function NotFoundRoutePage() {
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>
-        <NotFoundContent
-          description="The requested Samebase page does not exist."
-          pathname={pathname}
-          primaryActionLabel="Go home"
-          primaryActionTo="/"
-        />
+        <NotFoundContent pathname={pathname} primaryActionLabel="Go home" primaryActionTo="/" />
       </Unauthenticated>
     </>
   );

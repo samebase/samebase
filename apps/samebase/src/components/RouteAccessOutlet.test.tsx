@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, type ReactNode } from "react";
+import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -79,12 +79,6 @@ vi.mock("convex/react", () => ({
   },
 }));
 
-vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
-  AuthenticatedAppRoutePage: ({ children }: { children: ReactNode }) => (
-    <div data-testid="authenticated-route-page">{children}</div>
-  ),
-}));
-
 vi.mock("@/components/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
 }));
@@ -121,7 +115,6 @@ describe("RouteAccessOutlet", () => {
     const markup = renderToStaticMarkup(<RouteAccessOutlet />);
 
     expect(markup).toContain("Route outlet");
-    expect(markup).not.toContain("authenticated-route-page");
     expect(viewerAccessState.queryCalls).toBe(0);
   });
 
@@ -220,7 +213,7 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
-  it("uses the authenticated route shell for denied non-public routes", () => {
+  it("renders not found directly for denied non-public routes", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
       { staticData: { access: "access_dashboard" } },
@@ -231,7 +224,6 @@ describe("RouteAccessOutlet", () => {
 
     const markup = renderToStaticMarkup(<RouteAccessOutlet />);
 
-    expect(markup).toContain("authenticated-route-page");
     expect(markup).toContain("Not found route");
     expect(markup).not.toContain("Route outlet");
   });
