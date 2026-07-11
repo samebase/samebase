@@ -207,7 +207,7 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain("checking login");
     expect(markup).toContain("data-vault-dashboard-account-section-label");
     expect(markup).not.toContain("dashboard-sidebar-account-row");
-    expect(markup).not.toContain("Settings");
+    expect(markup).not.toContain("/settings");
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
@@ -224,6 +224,7 @@ describe("PublicLandingAccountSection", () => {
 
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("not logged in");
     expect(queryState.index).toBe(0);

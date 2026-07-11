@@ -284,7 +284,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("/providers");
     expect(hydratedMarkup).not.toContain("Account");
   });
 
@@ -296,8 +296,8 @@ describe("AppRightSidebarContent", () => {
 
     expect(markup).toContain("not logged in");
     expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Providers");
-    expect(markup).not.toContain(">Vaults<");
+    expect(markup).not.toContain("/providers");
+    expect(markup).not.toContain(">/vault<");
   });
 
   it("uses the public signed-out account row after hydration when loading without local auth material", async () => {
@@ -310,7 +310,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("/providers");
   });
 
   it("keeps checking login while a refresh token may restore the session", async () => {
@@ -326,7 +326,7 @@ describe("AppRightSidebarContent", () => {
 
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("/providers");
   });
 
   it("uses local JWT profile claims after hydration for the temporary signed-in account row", async () => {
@@ -341,11 +341,13 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("data-app-auth-prehydration-signed-in");
     expect(markup).toContain("dashboard-sidebar-account-icon");
     expect(markup).toContain("data-app-auth-prehydration-provider");
-    expect(markup).toContain("Sign out");
+    expect(markup).toContain("/settings");
+    expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).toContain("Sign out");
+    expect(hydratedMarkup).toContain("/settings");
+    expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("/providers");
   });
 
   it("renders the temporary signed-in account row without an accordion trigger", async () => {
@@ -356,7 +358,8 @@ describe("AppRightSidebarContent", () => {
     const mounted = await mountRightSidebarAfterEffects([]);
     try {
       expect(mounted.rootElement.textContent).toContain("Nicu");
-      expect(mounted.rootElement.textContent).toContain("Sign out");
+      expect(mounted.rootElement.textContent).toContain("/settings");
+      expect(mounted.rootElement.textContent).not.toContain("Sign out");
       expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
     } finally {
       await mounted.unmount();
@@ -404,7 +407,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
-    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("/providers");
   });
 
   it("keeps provider controls hidden while authenticated app access loads", async () => {
@@ -415,7 +418,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");
-    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("/providers");
     expectProviderStatusQueriesNotSeen();
   });
 
@@ -453,8 +456,8 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("pending-access@example.com");
     expect(hydratedMarkup).not.toContain("Pending Access User");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Providers");
-    expect(hydratedMarkup).not.toContain("New App");
+    expect(hydratedMarkup).not.toContain("/providers");
+    expect(hydratedMarkup).not.toContain("/new-app");
     expectProviderStatusQueriesNotSeen();
   });
 
@@ -491,10 +494,10 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("nicu@samebase.md");
     expect(hydratedMarkup).not.toContain("Nicu");
     expect(hydratedMarkup).toContain('href="/vault"');
-    expect(hydratedMarkup.indexOf(">Vaults<")).toBeLessThan(hydratedMarkup.indexOf(">Providers<"));
-    expect(hydratedMarkup).toContain("Providers");
-    expect(hydratedMarkup).toContain("New App");
-    expect(hydratedMarkup).toContain("Connect existing app");
+    expect(hydratedMarkup.indexOf(">/vault<")).toBeLessThan(hydratedMarkup.indexOf(">/providers<"));
+    expect(hydratedMarkup).toContain("/providers");
+    expect(hydratedMarkup).toContain("/new-app");
+    expect(hydratedMarkup).toContain("/connect-repo");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("not logged in");
     expectProviderStatusQueriesNotSeen();

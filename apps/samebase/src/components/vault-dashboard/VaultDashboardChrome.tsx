@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, ChevronUpIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
@@ -50,21 +51,16 @@ export type VaultDashboardProviderRowViewModel = {
 export type VaultDashboardAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
-  isSignOutPending: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onSettings: () => void;
-  onSignOut: () => void;
   open: boolean;
   providerLabel: string | null;
-  signOutDisabled?: boolean;
 };
 
 export type VaultDashboardStaticAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
-  isSignOutPending: boolean;
   onSettings: () => void;
-  onSignOut: () => void;
   providerLabel: string | null;
 };
 
@@ -172,20 +168,9 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             </div>
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-            <Link
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-              to={SETTINGS_ROUTE}
-            >
-              Settings
+            <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
+              /settings
             </Link>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto max-w-full whitespace-normal py-2 text-left"
-            >
-              Sign out
-            </Button>
           </div>
         </div>
       </div>
@@ -200,13 +185,10 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
 export function VaultDashboardAccountSection({
   accountPresentation,
   dataTestId,
-  isSignOutPending,
   onOpenChange,
   onSettings,
-  onSignOut,
   open,
   providerLabel,
-  signOutDisabled,
 }: VaultDashboardAccountSectionProps) {
   return (
     <VaultDashboardAccountSectionFrame
@@ -246,29 +228,12 @@ export function VaultDashboardAccountSection({
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
           <Link
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
             to={SETTINGS_ROUTE}
             onClick={onSettings}
           >
-            Settings
+            /settings
           </Link>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onSignOut}
-            className="h-auto max-w-full whitespace-normal py-2 text-left"
-            disabled={signOutDisabled || isSignOutPending}
-          >
-            {isSignOutPending ? (
-              <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                Signing out...
-              </>
-            ) : (
-              "Sign out"
-            )}
-          </Button>
         </div>
       </div>
     </VaultDashboardAccountSectionFrame>
@@ -278,9 +243,7 @@ export function VaultDashboardAccountSection({
 export function VaultDashboardStaticAccountSection({
   accountPresentation,
   dataTestId,
-  isSignOutPending,
   onSettings,
-  onSignOut,
   providerLabel,
 }: VaultDashboardStaticAccountSectionProps) {
   return (
@@ -315,29 +278,12 @@ export function VaultDashboardStaticAccountSection({
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
           <Link
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
             to={SETTINGS_ROUTE}
             onClick={onSettings}
           >
-            Settings
+            /settings
           </Link>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onSignOut}
-            className="h-auto max-w-full whitespace-normal py-2 text-left"
-            disabled={isSignOutPending}
-          >
-            {isSignOutPending ? (
-              <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                Signing out...
-              </>
-            ) : (
-              "Sign out"
-            )}
-          </Button>
         </div>
       </div>
     </div>

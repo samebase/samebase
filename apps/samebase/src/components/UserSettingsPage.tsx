@@ -1,11 +1,14 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { useState, type FormEvent } from "react";
+import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
+import { useAppAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
 
 type ProfileSaveState =
@@ -26,7 +29,9 @@ function readErrorMessage(error: unknown, fallback: string) {
 export function UserSettingsPage() {
   const settings = useQuery(api.users.getUserSettings);
   const setDisplayName = useMutation(api.users.setDisplayName);
+  const { signOut } = useAppAuthActions();
   const { fetchAccessToken } = useConvexAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [saveState, setSaveState] = useState<ProfileSaveState>({ kind: "idle" });
   const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
     kind: "current",
@@ -116,9 +121,39 @@ export function UserSettingsPage() {
 
   const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
 
+  const handleSignOut = () => {
+    if (isSigningOut) {
+      return;
+    }
+    setIsSigningOut(true);
+    void signOut()
+      .catch((error: unknown) => {
+        toast({
+          description: readErrorMessage(error, "Please try again."),
+          title: "Could not sign out",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setIsSigningOut(false);
+      });
+  };
+
   return (
     <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
-      <h1 className="text-xl font-semibold sm:text-2xl">Settings</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold sm:text-2xl">Settings</h1>
+        <Button type="button" variant="outline" disabled={isSigningOut} onClick={handleSignOut}>
+          {isSigningOut ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Signing out...
+            </>
+          ) : (
+            "Sign out"
+          )}
+        </Button>
+      </div>
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
         <h2 id="settings-profile-heading" className="text-base font-semibold">

@@ -1,4 +1,3 @@
-import { useAppAuthActions } from "@/authClient";
 import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
 import {
   VaultDashboardAccountSection,
@@ -170,9 +169,7 @@ function PublicLandingResolvedSignedInAccountSection({
   viewer: PublicLandingSignedInViewer;
 }) {
   const authProviders = useQuery(api.users.getViewerAuthProviders);
-  const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const { setMobilePane } = useWorkspacePaneActions();
   const providerLabel = useMemo(() => {
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
@@ -182,25 +179,10 @@ function PublicLandingResolvedSignedInAccountSection({
     <VaultDashboardAccountSection
       accountPresentation={viewer.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
       onSettings={() => setMobilePane("main")}
-      onSignOut={() => {
-        if (isSigningOut) {
-          return;
-        }
-        setIsSigningOut(true);
-        void signOut()
-          .catch((error: unknown) => {
-            console.error("Failed to sign out:", error);
-          })
-          .finally(() => {
-            setIsSigningOut(false);
-          });
-      }}
       open={accountOpen}
       providerLabel={providerLabel}
-      signOutDisabled={false}
     />
   );
 }
@@ -210,33 +192,16 @@ function PublicLandingPresentedSignedInAccountSection({
 }: {
   profile: AppAuthPresentationProfile;
 }) {
-  const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const { setMobilePane } = useWorkspacePaneActions();
   return (
     <VaultDashboardAccountSection
       accountPresentation={profile.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
       onSettings={() => setMobilePane("main")}
-      onSignOut={() => {
-        if (isSigningOut) {
-          return;
-        }
-        setIsSigningOut(true);
-        void signOut()
-          .catch((error: unknown) => {
-            console.error("Failed to sign out:", error);
-          })
-          .finally(() => {
-            setIsSigningOut(false);
-          });
-      }}
       open={accountOpen}
       providerLabel={null}
-      signOutDisabled={false}
     />
   );
 }

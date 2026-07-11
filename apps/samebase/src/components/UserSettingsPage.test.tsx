@@ -32,6 +32,9 @@ function createJwt(accountPresentation: AccountPresentation) {
 const authState = vi.hoisted(() => ({
   fetchAccessToken: vi.fn(),
 }));
+const appAuthState = vi.hoisted(() => ({
+  signOut: vi.fn(),
+}));
 const mutationState = vi.hoisted(() => ({
   setDisplayName: vi.fn(),
 }));
@@ -46,6 +49,10 @@ const queryState = vi.hoisted<{
 
 vi.mock("@convex-dev/auth/react", () => ({
   useConvexAuth: () => authState,
+}));
+
+vi.mock("@/authClient", () => ({
+  useAppAuthActions: () => appAuthState,
 }));
 
 vi.mock("convex/react", () => ({
@@ -101,11 +108,46 @@ function createDeferred<Value>() {
 describe("UserSettingsPage", () => {
   beforeEach(() => {
     authState.fetchAccessToken.mockReset();
+    appAuthState.signOut.mockReset();
     mutationState.setDisplayName.mockReset();
     queryState.settings = {
       displayName: "Current name",
       signInEmail: "nicu@samebase.com",
     };
+  });
+
+  it("keeps Sign out prominent in the page header and pending until completion", async () => {
+    const signOut = createDeferred<void>();
+    appAuthState.signOut.mockReturnValue(signOut.promise);
+    const mounted = await mountSettingsPage();
+    try {
+      const heading = mounted.rootElement.querySelector("h1");
+      const button = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (candidate) => candidate.textContent === "Sign out",
+      );
+
+      expect(heading?.textContent).toBe("Settings");
+      expect(button === undefined ? false : heading?.parentElement?.contains(button)).toBe(true);
+      expect(button?.disabled).toBe(false);
+
+      await act(async () => {
+        button?.click();
+        await Promise.resolve();
+      });
+
+      expect(appAuthState.signOut).toHaveBeenCalledTimes(1);
+      expect(button?.disabled).toBe(true);
+      expect(button?.textContent).toContain("Signing out...");
+
+      await act(async () => {
+        signOut.resolve();
+        await signOut.promise;
+      });
+      expect(button?.disabled).toBe(false);
+      expect(button?.textContent).toBe("Sign out");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
   });
 
   it("keeps Save pending until the refreshed JWT is stored", async () => {
