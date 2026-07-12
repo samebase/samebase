@@ -12,6 +12,7 @@ const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 82;
 const SOCIAL_CARD_TAGLINE_LINE_ONE_Y = 360;
 const SOCIAL_CARD_TAGLINE_LINE_TWO_Y = 417;
 const SOCIAL_CARD_TAGLINE_FONT_SIZE = 48;
+const X_PROFILE_LOGO_VIEWPORT_SIZE = 220;
 
 function escapeSvgText(text: string): string {
   return text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
@@ -27,7 +28,10 @@ function readSvgBody(svgMarkup: string): string {
   return svgMarkup.slice(openTagEnd + 1, closeTagStart);
 }
 
-function createLogoSvgBody(viewId: "side-diagonal" | "spatial", faceTreatment: LogoFaceTreatment) {
+function createLogoSvgBody(
+  viewId: "side-primary" | "side-diagonal" | "spatial",
+  faceTreatment: LogoFaceTreatment,
+) {
   return readSvgBody(createLogoIdentityViewSvgMarkup(viewId, { faceTreatment }));
 }
 
@@ -96,6 +100,7 @@ export function createSamebaseXProfileBannerSvgMarkup({
 }: {
   faceTreatment?: LogoFaceTreatment;
 } = {}) {
+  const sidePrimaryLogoBody = createLogoSvgBody("side-primary", faceTreatment);
   const sideDiagonalLogoBody = createLogoSvgBody("side-diagonal", faceTreatment);
   const spatialLogoBody = createLogoSvgBody("spatial", faceTreatment);
 
@@ -112,16 +117,15 @@ export function createSamebaseXProfileBannerSvgMarkup({
 
   <rect width="1500" height="500" fill="${BRAND_BACKGROUND_COLOR}" />
 
-  <g aria-hidden="true">
-    <rect x="562" y="158" width="136" height="136" fill="${BRAND_PRIMARY_COLOR}" />
-    <rect x="607" y="203" width="46" height="46" fill="${BRAND_BACKGROUND_COLOR}" />
-  </g>
+  <svg x="520" y="116" width="${X_PROFILE_LOGO_VIEWPORT_SIZE}" height="${X_PROFILE_LOGO_VIEWPORT_SIZE}" viewBox="0 0 360 360" aria-hidden="true">
+${sidePrimaryLogoBody}
+  </svg>
 
-  <svg x="800" y="145" width="170" height="170" viewBox="0 0 360 360" aria-hidden="true">
+  <svg x="775" y="120" width="${X_PROFILE_LOGO_VIEWPORT_SIZE}" height="${X_PROFILE_LOGO_VIEWPORT_SIZE}" viewBox="0 0 360 360" aria-hidden="true">
 ${sideDiagonalLogoBody}
   </svg>
 
-  <svg x="1070" y="130" width="220" height="220" viewBox="0 0 360 360" aria-hidden="true">
+  <svg x="1070" y="130" width="${X_PROFILE_LOGO_VIEWPORT_SIZE}" height="${X_PROFILE_LOGO_VIEWPORT_SIZE}" viewBox="0 0 360 360" aria-hidden="true">
 ${spatialLogoBody}
   </svg>
 </svg>`;

@@ -29,4 +29,12 @@ describe("socialLogoAssets", () => {
     expect(createSamebaseSocialCardSvgMarkup()).toContain("#00b8db");
     expect(createSamebaseXProfileBannerSvgMarkup()).toContain("#00b8db");
   });
+
+  it("renders all three profile banner marks at the same cube scale", () => {
+    const logoViewports = createSamebaseXProfileBannerSvgMarkup().match(
+      /width="220" height="220" viewBox="0 0 360 360"/gu,
+    );
+
+    expect(logoViewports).toHaveLength(3);
+  });
 });
