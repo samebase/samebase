@@ -17,6 +17,7 @@ import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSe
 
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
 const CLOUDFLARE_OAUTH_TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
+const CLOUDFLARE_OAUTH_REVOCATION_URL = "https://dash.cloudflare.com/oauth2/revoke";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 const { boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
@@ -118,6 +119,26 @@ function buildCloudflareOAuthClientAuthHeader(args: {
   clientSecret: string;
 }): string {
   return `Basic ${utf8ToBase64(`${args.clientId}:${args.clientSecret}`)}`;
+}
+
+export async function revokeCloudflareOAuthGrant(refreshToken: string): Promise<void> {
+  const clientId = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET");
+  const body = createUrlSearchParams({
+    token: refreshToken,
+    token_type_hint: "refresh_token",
+  });
+  const response = await fetchWithTimeout(CLOUDFLARE_OAUTH_REVOCATION_URL, {
+    method: "POST",
+    headers: {
+      Authorization: buildCloudflareOAuthClientAuthHeader({ clientId, clientSecret }),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to revoke Cloudflare OAuth grant (${response.status}).`);
+  }
 }
 
 export function buildCloudflareOAuthAuthorizeSearchParams(args: {

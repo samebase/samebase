@@ -75,6 +75,11 @@ type CloudflareMcpTokenRefreshSearchParams = {
   client_id: string;
   refresh_token: string;
 };
+type CloudflareMcpTokenRevocationSearchParams = {
+  client_id: string;
+  token: string;
+  token_type_hint: "refresh_token";
+};
 const nonEmptyString = z.string().min(1);
 const cloudflareMcpClientRegistrationResponseSchema = z.object({
   client_id: nonEmptyString,
@@ -330,6 +335,27 @@ async function refreshCloudflareMcpOAuthToken(args: {
   }
 
   return parseCloudflareMcpTokenResponse(data, "refresh Cloudflare OAuth token");
+}
+
+export async function revokeCloudflareMcpOAuthGrant(args: {
+  refreshToken: string;
+  clientId: string;
+}): Promise<void> {
+  const payload = createUrlSearchParams({
+    client_id: args.clientId,
+    token: args.refreshToken,
+    token_type_hint: "refresh_token",
+  } satisfies CloudflareMcpTokenRevocationSearchParams);
+  const response = await fetchWithTimeout(CLOUDFLARE_MCP_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: payload.toString(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to revoke Cloudflare MCP OAuth grant (${response.status}).`);
+  }
 }
 
 async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">): Promise<string> {
