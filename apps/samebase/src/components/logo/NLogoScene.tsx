@@ -276,6 +276,7 @@ type RecursiveTileSceneState = {
   distanceScale: number;
   fullGridSize: number;
   homeFilledTiles: Set<string>;
+  innerMoveMeshes: THREE.Mesh[];
   instanceCapacity: number;
   keyToIndex: Map<string, number>;
   materialState: RecursiveSurfaceMaterialState;
@@ -902,29 +903,26 @@ function getTileWorldCenter({
   ];
 }
 
+function getTileMoveCoordinate(move: ActiveTileMove, progress: number): VoxelCoordinate {
+  const travelProgress = easeInOutCubic(progress);
+  return [
+    move.from[0] + (move.to[0] - move.from[0]) * travelProgress,
+    move.from[1] + (move.to[1] - move.from[1]) * travelProgress,
+    move.from[2] + (move.to[2] - move.from[2]) * travelProgress,
+  ];
+}
+
 function getTileMovePosition(
   move: ActiveTileMove,
   progress: number,
   tileState: RecursiveTileSceneState,
 ): readonly [number, number, number] {
-  const [startX, startY, startZ] = getTileWorldCenter({
-    coordinate: move.from,
+  return getTileWorldCenter({
+    coordinate: getTileMoveCoordinate(move, progress),
     distanceScale: tileState.distanceScale,
     fullGridSize: tileState.fullGridSize,
     tileGridSize: tileState.tileGridSize,
   });
-  const [endX, endY, endZ] = getTileWorldCenter({
-    coordinate: move.to,
-    distanceScale: tileState.distanceScale,
-    fullGridSize: tileState.fullGridSize,
-    tileGridSize: tileState.tileGridSize,
-  });
-  const travelProgress = easeInOutCubic(progress);
-  return [
-    startX + (endX - startX) * travelProgress,
-    startY + (endY - startY) * travelProgress,
-    startZ + (endZ - startZ) * travelProgress,
-  ];
 }
 
 function createRecursiveInstanceMatrices({
@@ -1047,6 +1045,7 @@ function createRecursiveLogoMeshes({
       distanceScale: normalizedDistanceScale,
       fullGridSize,
       homeFilledTiles: new Set(instanceState.filledTiles),
+      innerMoveMeshes: [],
       instanceCapacity: instanceState.matrices.length,
       keyToIndex: new Map(instanceState.keyToIndex),
       materialState,
@@ -1661,6 +1660,7 @@ function syncTransparentFaceRenderOrder(sceneState: SceneState) {
     ...sceneState.activeTileMoves.flatMap((move) =>
       move.group.visible ? move.group.children.filter((child) => child instanceof THREE.Mesh) : [],
     ),
+    ...(sceneState.recursiveTileState?.innerMoveMeshes.filter((mesh) => mesh.visible) ?? []),
   ];
   const meshDepths = meshes.map((mesh) => {
     const cameraSpaceCenter = (
@@ -1689,6 +1689,14 @@ function clearActiveTileMoves(sceneState: SceneState) {
     sceneState.logoGroup.remove(move.group);
   }
   sceneState.activeTileMoves = [];
+
+  const tileState = sceneState.recursiveTileState;
+  if (tileState) {
+    for (const mesh of tileState.innerMoveMeshes) {
+      sceneState.logoGroup.remove(mesh);
+    }
+    tileState.innerMoveMeshes = [];
+  }
 }
 
 function createTileMoveGroup(tileState: RecursiveTileSceneState): THREE.Group {
@@ -1700,6 +1708,89 @@ function createTileMoveGroup(tileState: RecursiveTileSceneState): THREE.Group {
   }
 
   return group;
+}
+
+function syncDepthTwoRecursiveTileGeometry(sceneState: SceneState) {
+  const tileState = sceneState.recursiveTileState;
+  if (!tileState || sceneState.recursiveRenderDepth !== 2) {
+    return;
+  }
+
+  const nextSurfaceGeometry = buildRecursiveSurfaceGeometry(
+    buildDistanceScaledLogoSurfaceQuads(
+      tileState.currentFilledTiles,
+      tileState.repeatGridSize,
+      tileState.distanceScale,
+    ),
+  );
+  const previousGeometry = tileState.surfaceGeometry.geometry;
+
+  tileState.mesh.geometry = nextSurfaceGeometry.geometry;
+  tileState.mesh.computeBoundingSphere();
+  tileState.surfaceGeometry = nextSurfaceGeometry;
+
+  for (const move of sceneState.activeTileMoves) {
+    for (const child of move.group.children) {
+      if (child instanceof THREE.Mesh) {
+        child.geometry = nextSurfaceGeometry.geometry;
+      }
+    }
+  }
+
+  previousGeometry.dispose();
+}
+
+function syncDepthTwoRecursiveMoveMeshes(sceneState: SceneState, timestampMs: number) {
+  const tileState = sceneState.recursiveTileState;
+  if (!tileState || sceneState.recursiveRenderDepth !== 2) {
+    return;
+  }
+
+  const activeMoveCoordinates = sceneState.activeTileMoves.flatMap((move) => {
+    if (!move.hasDeparted) {
+      return [];
+    }
+
+    const progress = Math.min(Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0), 1);
+    return [getTileMoveCoordinate(move, progress)];
+  });
+  const outerCoordinates = [
+    ...[...tileState.currentFilledTiles].flatMap((key) => {
+      const coordinate = parseVoxelKey(key);
+      return coordinate ? [coordinate] : [];
+    }),
+    ...activeMoveCoordinates,
+  ];
+  const requiredMeshCount = outerCoordinates.length * activeMoveCoordinates.length;
+  while (tileState.innerMoveMeshes.length < requiredMeshCount) {
+    const mesh = new THREE.Mesh(sceneState.cubeGeometry, sceneState.cubeMaterials);
+    tileState.innerMoveMeshes.push(mesh);
+    sceneState.logoGroup.add(mesh);
+  }
+  let meshIndex = 0;
+
+  for (const outerCoordinate of outerCoordinates) {
+    for (const innerCoordinate of activeMoveCoordinates) {
+      const mesh = tileState.innerMoveMeshes[meshIndex];
+      const coordinate: VoxelCoordinate = [
+        outerCoordinate[0] * tileState.tileGridSize + innerCoordinate[0],
+        outerCoordinate[1] * tileState.tileGridSize + innerCoordinate[1],
+        outerCoordinate[2] * tileState.tileGridSize + innerCoordinate[2],
+      ];
+      const [x, y, z] = getVoxelWorldCenter(
+        coordinate,
+        tileState.fullGridSize,
+        tileState.distanceScale,
+      );
+      mesh.position.set(x, y, z);
+      mesh.visible = true;
+      meshIndex += 1;
+    }
+  }
+
+  for (; meshIndex < tileState.innerMoveMeshes.length; meshIndex += 1) {
+    tileState.innerMoveMeshes[meshIndex].visible = false;
+  }
 }
 
 function resetShuffleAnimation(
@@ -1852,6 +1943,7 @@ function syncTileShuffleAnimation(
   }
 
   const completedMoves: ActiveTileMove[] = [];
+  let didChangeOccupancy = false;
 
   for (const move of sceneState.activeTileMoves) {
     if (!move.hasDeparted && timestampMs >= move.startTimeMs) {
@@ -1859,6 +1951,7 @@ function syncTileShuffleAnimation(
       move.group.visible = true;
       tileState.currentFilledTiles.delete(move.fromKey);
       tileState.keyToIndex.delete(move.fromKey);
+      didChangeOccupancy = true;
     }
 
     if (!move.hasDeparted) {
@@ -1884,7 +1977,12 @@ function syncTileShuffleAnimation(
       tileState.currentFilledTiles.add(move.toKey);
       sceneState.logoGroup.remove(move.group);
       lastMovedCubeKeyRef.current = move.toKey;
+      didChangeOccupancy = true;
     }
+  }
+
+  if (didChangeOccupancy) {
+    syncDepthTwoRecursiveTileGeometry(sceneState);
   }
 
   while (sceneState.activeTileMoves.length < parallelMoves) {
@@ -1900,6 +1998,8 @@ function syncTileShuffleAnimation(
       break;
     }
   }
+
+  syncDepthTwoRecursiveMoveMeshes(sceneState, timestampMs);
 }
 
 function syncCubeShuffleAnimation(

@@ -3,6 +3,7 @@ import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import {
   createFilledVoxelSet,
+  MENGER_SPONGE_VOXEL_STATE,
   serializeVoxelState,
   type VoxelCoordinate,
 } from "@/components/logo/logoVoxelState";
@@ -155,7 +156,7 @@ const LANDING_ZONE_MARKS = [
     viewStateKey: LANDING_ZONE_MARK_VIEW_STATE_KEYS[2],
   },
   {
-    routeSearch: { depth: 2, vox: "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx" },
+    routeSearch: { depth: 2, vox: MENGER_SPONGE_VOXEL_STATE },
     viewStateKey: LANDING_ZONE_MARK_VIEW_STATE_KEYS[3],
   },
 ] as const satisfies readonly { routeSearch: LogoRouteSearch; viewStateKey: string }[];
