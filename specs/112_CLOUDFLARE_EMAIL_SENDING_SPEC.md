@@ -37,7 +37,8 @@ onboarded sending domain. The account ID is configuration, not a secret.
 
 ## Deployment Contract
 
-Samebase owns two account API tokens:
+Samebase owns two account-owned API tokens created under Cloudflare's
+`Manage Account > Account API Tokens`:
 
 1. `samebase-email-production`, stored only in the Convex production deployment.
 2. `samebase-email-nonproduction`, shared by the Convex development deployment and Convex preview
@@ -88,9 +89,12 @@ The reusable Samebase stack pattern is:
 4. Keep one SPF record per hostname. Google Workspace SPF remains on the root; Cloudflare's bounce
    SPF belongs on the Cloudflare-provided bounce hostname.
 5. Publish one root DMARC policy after all legitimate senders have aligned SPF or DKIM.
-6. Create separate production and non-production Email Sending API tokens.
+6. Create separate production and non-production account-owned Email Sending API tokens.
 7. Store credentials in each backend deployment, never in frontend or build-time public variables.
 8. Label non-production messages from the application's existing deployment classification.
+
+Before removing a domain from Cloudflare Email Sending, preserve or recreate the root DMARC record.
+Cloudflare removes the DNS records it managed for the sending domain, including that DMARC record.
 
 The visible sender can use the same domain as Google Workspace. Sending does not create a mailbox,
 and receiving remains the responsibility of Google Workspace.

@@ -105,15 +105,18 @@ describe("Cloudflare email sending", () => {
     });
   });
 
-  it("does not make external requests from unconfigured local deployments", async () => {
-    const t = makeConvexTest();
-    vi.stubEnv("CONVEX_DEPLOYMENT", "local:local-agent");
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
+  it.each(["local:fast-meadow-123", "local:local-agent"])(
+    "does not make external requests from unconfigured local deployment %s",
+    async (deployment) => {
+      const t = makeConvexTest();
+      vi.stubEnv("CONVEX_DEPLOYMENT", deployment);
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
 
-    await expect(t.action(internal.email.send, sendArgs)).resolves.toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
-  });
+      await expect(t.action(internal.email.send, sendArgs)).resolves.toBeNull();
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it("fails deployed sends when the email configuration is missing", async () => {
     const t = makeConvexTest();
@@ -178,7 +181,7 @@ describe("Cloudflare email sending", () => {
     );
 
     await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
-      "Cloudflare Email Sending permanently bounced: nicu@samebase.com",
+      "Cloudflare Email Sending permanently bounced for 1 recipient(s).",
     );
   });
 

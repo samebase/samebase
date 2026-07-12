@@ -122,7 +122,7 @@ export const send = internalAction({
     }
     if (result.data.result.permanent_bounces.length > 0) {
       throw new Error(
-        `Cloudflare Email Sending permanently bounced: ${result.data.result.permanent_bounces.join(", ")}`,
+        `Cloudflare Email Sending permanently bounced for ${result.data.result.permanent_bounces.length} recipient(s).`,
       );
     }
     return null;
