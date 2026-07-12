@@ -1614,6 +1614,7 @@ export const trackedFilePaths = [
   "rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md",
   "rfcs/095_INFRASTRUCTURE_VERIFICATION_PLAN.md",
   "rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md",
+  "rfcs/097_ACCOUNT_DELETION_RELEASE_PLAN.md",
   "rfcs/README.md",
   "rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png",
   "rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png",

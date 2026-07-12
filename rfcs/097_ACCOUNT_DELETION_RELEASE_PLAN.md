@@ -65,6 +65,9 @@ deletes them. They will not be pushed to GitHub.
 Account deletion never commits, exports, or publishes staged changes. The user can cancel, commit
 the work normally, and return to deletion without a second confirmation mechanism.
 
+When the account has an active Samebase subscription, the same dialog also states that deletion
+immediately revokes the subscription and does not automatically refund unused time.
+
 The confirmation action is disabled while the request is being accepted. Acceptance atomically
 creates one durable account deletion run and gates the user. Repeated submission returns the same
 active run instead of creating another deletion.
@@ -134,10 +137,17 @@ Account deletion removes Samebase's access and Samebase-owned data. It does not 
 GitHub repositories, Convex projects, Cloudflare Workers, domains, or other provider-owned
 infrastructure.
 
-Existing deployed applications keep running. Future builds that rely on a credential revoked by
-account deletion can stop working until the user supplies a replacement credential outside Samebase.
-This includes Convex production and preview deploy keys derived from the revoked Samebase OAuth
-connection.
+Existing deployed applications keep running. Account deletion attempts supported upstream OAuth
+revocation before deleting Samebase's local credential. Future builds that rely on a successfully
+revoked credential can stop working until the user supplies a replacement credential outside
+Samebase.
+
+Convex does not currently expose an application-facing OAuth revocation endpoint. Account deletion
+therefore deletes Samebase's stored Convex OAuth token but cannot revoke the authorized application
+upstream. Previously distributed Convex production and preview deploy key strings remain usable
+until the user revokes Samebase under Convex Authorized Applications. That manual revocation
+invalidates the OAuth token and its re-prefixed production and preview key forms; it does not stop
+already deployed applications.
 
 ## Data Handling
 
@@ -149,7 +159,7 @@ these classes into the concrete current schema tables and storage objects.
 | User profile, auth accounts, sessions, verification data                                   | Delete                                                                                                                       |
 | Provider connections, machine credentials, MCP grants and tokens                           | Revoke where supported, then delete local rows and secrets                                                                   |
 | Vaults, files, staged content, collaboration state, preferences, chat threads and messages | Delete Samebase rows, component data, and storage objects                                                                    |
-| Samebase subscription                                                                      | Cancel before success, then delete the local customer link                                                                   |
+| Samebase subscription                                                                      | Immediately revoke before success, then delete the local customer link                                                       |
 | Production-access requests and user-linked security audit rows                             | Delete                                                                                                                       |
 | Other provisioning, refresh, and deletion runs belonging to the user                       | Quiesce, then delete                                                                                                         |
 | Current account deletion run and events                                                    | Replace with a scrubbed operation receipt                                                                                    |
@@ -174,7 +184,6 @@ The paginated list and detail view show:
 - state, current step, and latest progress time
 - retry count and latest safe error
 - billing, provider revocation, and completion-email outcomes
-- manual PostHog cleanup state when the user ID exists there
 - retry control for retryable failed work
 
 Completed runs show the operation ID, timestamps, step outcomes, and result after the identity has
@@ -195,16 +204,10 @@ The workflow processes bounded, idempotent steps. A fail-closed cleanup registry
 user-owned or user-referencing table as delete, detach, anonymize, or retain. Adding an unclassified
 table fails validation so future schema additions cannot silently escape account deletion.
 
-PostHog deletion is not automated in version one. At current scale, the operator handles it as a
-manual processor task:
-
-1. Copy the Convex user ID from the active deletion run before identity scrubbing.
-2. Find that distinct ID in the PostHog person view and request deletion.
-3. Mark the PostHog step complete or not applicable in the staff view, then allow the deletion run
-   identity to be scrubbed.
-
-Browser PostHog reset remains device cleanup and is not proof of processor deletion. Automation is
-deferred until real deletion volume justifies it.
+PostHog deletion is not automated and is not a workflow completion gate in version one. At current
+scale, the operator handles an identified PostHog deletion manually when required. Browser PostHog
+reset remains device cleanup and is not proof of processor deletion. Automation is deferred until
+real deletion volume justifies it, and the account run never retains identity only for PostHog.
 
 ## Non-Goals
 
@@ -240,8 +243,7 @@ test succeeds in the production-like environment with a dedicated non-staff acco
 7. Let the run succeed. Verify the browser is signed out, local Samebase browser data is cleared,
    and the completion email arrives or its delivery failure is visible to staff.
 8. Verify the auth account, sessions, user row, credentials, Samebase storage objects, and all
-   classified user data are absent. Complete the manual PostHog procedure when the recorded user ID
-   exists there.
+   classified user data are absent.
 9. Verify the admin page retains a successful scrubbed receipt without the account's email, user ID,
    or other identity.
 10. Verify the account's external repositories, Convex projects and deployments, Cloudflare
