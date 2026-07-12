@@ -21,6 +21,7 @@ const modules = import.meta.glob([
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 async function seedRunningDeletion() {
@@ -133,7 +134,7 @@ describe("account deletion workflow ownership and outcomes", () => {
     ).rejects.toThrow("Billing cancellation is not complete.");
   });
 
-  it("keeps currentStep monotonic through cleanup and the final billing recheck", async () => {
+  it("shows provider and email actions when they start without regressing during rechecks", async () => {
     const { ids, t } = await seedRunningDeletion();
     const args = { runId: ids.runId, workflowId };
     await t.mutation(internal.accountDeletion.workflow.appendRunEvent, {
@@ -147,6 +148,17 @@ describe("account deletion workflow ownership and outcomes", () => {
       outcome: { state: "not_applicable" },
     });
     await expect(readRun(t, ids.runId)).resolves.toMatchObject({ currentStep: "cancel_billing" });
+
+    await t.mutation(internal.accountDeletion.workflow.appendRunEvent, {
+      ...args,
+      step: "revoke_access",
+      level: "info",
+      message: "Revoking Samebase provider access.",
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      currentStep: "revoke_access",
+      outcomes: { providerRevocation: { state: "not_started" } },
+    });
 
     await t.mutation(internal.accountDeletion.workflow.recordProviderOutcome, {
       ...args,
@@ -169,6 +181,24 @@ describe("account deletion workflow ownership and outcomes", () => {
     });
     await expect(readRun(t, ids.runId)).resolves.toMatchObject({
       currentStep: "delete_samebase_data",
+    });
+
+    await t.mutation(internal.accountDeletion.workflow.appendRunEvent, {
+      ...args,
+      step: "send_completion_email",
+      level: "info",
+      message: "Sending account deletion confirmation.",
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      currentStep: "send_completion_email",
+      outcomes: { completionEmail: { state: "not_started" } },
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
+      ...args,
+      outcome: { state: "not_applicable" },
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      currentStep: "send_completion_email",
     });
   });
 
@@ -370,6 +400,53 @@ describe("account deletion workflow ownership and outcomes", () => {
     ).resolves.toEqual({
       state: "delivery_failed",
       safeError: "Completion email delivery could not be confirmed.",
+    });
+  });
+
+  it("describes cleanup as complete while sign-in removal is still being finalized", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
+    const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result: {
+            delivered: ["deleting@example.com"],
+            message_id: "<message-id@samebase.com>",
+            permanent_bounces: [],
+            queued: [],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.accountDeletion.completionEmail.sendForAccountDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "sent" });
+
+    const [, init] = fetch.mock.calls[0];
+    if (typeof init?.body !== "string") {
+      throw new Error("Expected a JSON request body.");
+    }
+    expect(JSON.parse(init.body)).toEqual({
+      to: "deleting@example.com",
+      from: {
+        address: "notifications@samebase.com",
+        name: "Samebase",
+      },
+      subject: "Your Samebase account deletion is finishing",
+      text: `Your Samebase workspace data and stored provider credentials have been removed. Your remaining sign-in records are being finalized. Samebase staff will finish the deletion if the last step needs attention.
+
+External repositories, deployments, projects, and Workers were not deleted.
+
+If you connected Convex with OAuth, revoke Samebase in Convex Authorized Applications to invalidate previously issued production and preview deploy keys.`,
     });
   });
 

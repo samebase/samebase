@@ -324,6 +324,16 @@ export const deleteAccountWorkflow = workflow.define({
     }
 
     if (initialOutcomes.providerRevocation.state === "not_started") {
+      await step.runMutation(
+        internal.accountDeletion.workflow.appendRunEvent,
+        {
+          ...ownedArgs,
+          step: "revoke_access",
+          level: "info",
+          message: "Revoking Samebase provider access.",
+        },
+        { name: "start_provider_revocation" },
+      );
       let providerResult: RevokeProviderAccessResult = await step.runAction(
         internal.accountDeletion.providerActions.revokeForAccountDeletion,
         ownedArgs,
@@ -401,6 +411,16 @@ export const deleteAccountWorkflow = workflow.define({
     );
     if (finalBilling.state === "failed") throw new Error(SAFE_WORKFLOW_ERROR);
     if (initialOutcomes.completionEmail.state === "not_started") {
+      await step.runMutation(
+        internal.accountDeletion.workflow.appendRunEvent,
+        {
+          ...ownedArgs,
+          step: "send_completion_email",
+          level: "info",
+          message: "Sending account deletion confirmation.",
+        },
+        { name: "start_completion_email" },
+      );
       const email = await step.runAction(
         internal.accountDeletion.completionEmail.sendForAccountDeletion,
         ownedArgs,
