@@ -1,4 +1,5 @@
 import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { Check, Circle, Loader2, TriangleAlert } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 
@@ -28,6 +29,15 @@ export function AccountDeletionPage() {
     );
   }
 
+  return <AccountDeletionStatusView status={status} />;
+}
+
+type AccountDeletionStatus = Pick<
+  Exclude<FunctionReturnType<typeof api.accountDeletion.index.status>, null>,
+  "currentStep" | "latestProgressAt" | "state"
+>;
+
+export function AccountDeletionStatusView({ status }: { status: AccountDeletionStatus }) {
   const needsAttention = status.state === "needs_attention";
   const currentStepIndex = ACCOUNT_DELETION_STEPS.findIndex(
     ({ step }) => step === status.currentStep,

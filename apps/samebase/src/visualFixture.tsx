@@ -99,6 +99,10 @@ import {
   type ProviderConnectionsPageVisualMode,
 } from "@/components/ProviderConnectionsPageVisualFixture";
 import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
+import {
+  AccountDeletionStatusVisualFixture,
+  type AccountDeletionStatusVisualMode,
+} from "@/components/AccountDeletionStatusVisualFixture";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@samebase/dependent";
 
@@ -132,7 +136,8 @@ type VisualFixtureMode =
   | "button"
   | AppBootFailureStateVisualMode
   | "corner-notch"
-  | "corner-notch-detail";
+  | "corner-notch-detail"
+  | AccountDeletionStatusVisualMode;
 
 type VisualFixtureSelection =
   | {
@@ -248,6 +253,8 @@ const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-connected",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
 const MISC_VISUAL_MODES = [
+  "account-deletion-running",
+  "account-deletion-attention",
   "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
@@ -351,6 +358,10 @@ function readSelection(modeSearchValue: string | undefined): VisualFixtureSelect
 }
 
 function renderVisualFixture(mode: VisualFixtureMode) {
+  if (mode === "account-deletion-running" || mode === "account-deletion-attention") {
+    return <AccountDeletionStatusVisualFixture mode={mode} />;
+  }
+
   if (mode === "media-png" || mode === "media-svg" || mode === "media-vox") {
     return <RepositoryMediaVisualFixture mode={mode} />;
   }
