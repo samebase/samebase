@@ -133,6 +133,45 @@ describe("account deletion workflow ownership and outcomes", () => {
     ).rejects.toThrow("Billing cancellation is not complete.");
   });
 
+  it("keeps currentStep monotonic through cleanup and the final billing recheck", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.mutation(internal.accountDeletion.workflow.appendRunEvent, {
+      ...args,
+      step: "cancel_billing",
+      level: "info",
+      message: "Canceling Samebase billing.",
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
+      ...args,
+      outcome: { state: "not_applicable" },
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({ currentStep: "cancel_billing" });
+
+    await t.mutation(internal.accountDeletion.workflow.recordProviderOutcome, {
+      ...args,
+      outcome: {
+        state: "completed",
+        github: { state: "not_connected" },
+        cloudflare: { state: "not_connected" },
+        convex: { state: "not_connected" },
+      },
+    });
+    await t.mutation(internal.accountDeletion.workflow.appendRunEvent, {
+      ...args,
+      step: "delete_samebase_data",
+      level: "info",
+      message: "Deleting Samebase account data.",
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
+      ...args,
+      outcome: { state: "not_applicable" },
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      currentStep: "delete_samebase_data",
+    });
+  });
+
   it("rejects finalization when the final billing recheck replaces prior success", async () => {
     const { ids, t } = await seedRunningDeletion();
     const args = { runId: ids.runId, workflowId };
@@ -229,6 +268,45 @@ describe("account deletion workflow ownership and outcomes", () => {
     await expect(
       t.mutation(internal.accountDeletion.workflow.deleteProviderConnections, args),
     ).resolves.toBe(true);
+  });
+
+  it("rejects OAuth callbacks, credential refresh, and disconnect writes after the deletion lock", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await expect(
+      t.mutation(internal.providerConnections.upsertGithub, {
+        userId: ids.userId,
+        auth: { method: "oauth", credential: "late-oauth-token" },
+        username: "late-user",
+      }),
+    ).rejects.toThrow("Provider connections are unavailable during account deletion.");
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        userId: ids.userId,
+        auth: {
+          method: "mcp_oauth",
+          credential: "late-access-token",
+          refreshCredential: "late-refresh-token",
+          credentialExpiresAt: now + 60_000,
+          clientId: "late-client",
+        },
+        defaultAccount: { state: "not_selected" },
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+    await expect(
+      t.mutation(internal.providerConnections.claimCloudflareTokenRefresh, {
+        userId: ids.userId,
+      }),
+    ).rejects.toThrow("Provider connections are unavailable during account deletion.");
+    await expect(
+      t.mutation(internal.providerConnections.removeByUserAndKind, {
+        userId: ids.userId,
+        kind: "cloudflare",
+      }),
+    ).rejects.toThrow("Provider connections are unavailable during account deletion.");
   });
 
   it("allows provider and email failures to continue to finalization", async () => {

@@ -82,6 +82,12 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   collaborativeUpdates: "vault_local",
 } satisfies Record<TableNames, AccountDeletionTablePolicy>;
 
+type AccountLocalTableName = {
+  [TableName in TableNames]: (typeof ACCOUNT_DELETION_TABLE_REGISTRY)[TableName] extends "account_local"
+    ? TableName
+    : never;
+}[TableNames];
+
 const accountLocalCleanupTarget = union(
   literal("repositoryRefreshRequests"),
   literal("chatMessageMetadata"),
@@ -107,6 +113,52 @@ const accountLocalCleanupTarget = union(
   literal("vaultDeletionRuns"),
 );
 export type AccountLocalCleanupTarget = Infer<typeof accountLocalCleanupTarget>;
+
+type AccountLocalCleanupStage =
+  | "content"
+  | "machine_credentials"
+  | "machine_identity"
+  | "preferences"
+  | "oauth_credentials"
+  | "mcp_credentials"
+  | "security_audit"
+  | "workflow_history";
+
+/**
+ * Every account-local policy entry has an implemented cleanup target and its
+ * deterministic stage. Adding an account-local table fails typechecking until
+ * its implementation entry is added here.
+ */
+export const ACCOUNT_LOCAL_CLEANUP_IMPLEMENTATION = {
+  chatMessageMetadata: { target: "chatMessageMetadata", stage: "content" },
+  agentThreadContext: { target: "agentThreadContext", stage: "content" },
+  machineCredentials: { target: "machineCredentials", stage: "machine_credentials" },
+  machineControlTokens: { target: "machineControlTokens", stage: "machine_credentials" },
+  machineRegistrationRequests: {
+    target: "machineRegistrationRequests",
+    stage: "machine_identity",
+  },
+  connectedMachines: { target: "connectedMachines", stage: "machine_identity" },
+  dashboardSettings: { target: "dashboardSettings", stage: "preferences" },
+  workspaceSidebarState: { target: "workspaceSidebarState", stage: "preferences" },
+  oauthStates: { target: "oauthStates", stage: "oauth_credentials" },
+  mcpAuthRequests: { target: "mcpAuthRequests", stage: "mcp_credentials" },
+  mcpAuthorizationCodes: { target: "mcpAuthorizationCodes", stage: "mcp_credentials" },
+  mcpAccessTokens: { target: "mcpAccessTokens", stage: "mcp_credentials" },
+  mcpRefreshTokens: { target: "mcpRefreshTokens", stage: "mcp_credentials" },
+  agentBrowserHandoffs: { target: "agentBrowserHandoffs", stage: "mcp_credentials" },
+  mcpGrants: { target: "mcpGrants", stage: "mcp_credentials" },
+  mcpAccessAudit: { target: "mcpAccessAudit", stage: "security_audit" },
+  aiProdAccessAudit: { target: "aiProdAccessAudit", stage: "security_audit" },
+  aiProdAccessRequests: { target: "aiProdAccessRequests", stage: "security_audit" },
+  vaultDeletionEvents: { target: "vaultDeletionEvents", stage: "workflow_history" },
+  vaultDeletionRuns: { target: "vaultDeletionRuns", stage: "workflow_history" },
+} satisfies {
+  [TableName in AccountLocalTableName]: {
+    target: TableName & AccountLocalCleanupTarget;
+    stage: AccountLocalCleanupStage;
+  };
+};
 
 const accountLocalCleanupBatchResult = union(
   object({
@@ -333,30 +385,6 @@ export async function cleanupAccountLocalDataBatchForUser(
     return { state: "needs_more", target: "agentThreadContext", rowsChanged: 1 };
   }
 
-  const connectedMachines = await ctx.db
-    .query("connectedMachines")
-    .withIndex("by_user", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (connectedMachines.length > 0) {
-    return {
-      state: "needs_more",
-      target: "connectedMachines",
-      rowsChanged: await deleteRowsById(ctx, connectedMachines),
-    };
-  }
-
-  const registrationRequests = await ctx.db
-    .query("machineRegistrationRequests")
-    .withIndex("by_user", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (registrationRequests.length > 0) {
-    return {
-      state: "needs_more",
-      target: "machineRegistrationRequests",
-      rowsChanged: await deleteRowsById(ctx, registrationRequests),
-    };
-  }
-
   const machineCredentials = await ctx.db
     .query("machineCredentials")
     .withIndex("by_user_machine_id", (q) => q.eq("userId", args.userId))
@@ -378,6 +406,30 @@ export async function cleanupAccountLocalDataBatchForUser(
       state: "needs_more",
       target: "machineControlTokens",
       rowsChanged: await deleteRowsById(ctx, machineControlTokens),
+    };
+  }
+
+  const registrationRequests = await ctx.db
+    .query("machineRegistrationRequests")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+  if (registrationRequests.length > 0) {
+    return {
+      state: "needs_more",
+      target: "machineRegistrationRequests",
+      rowsChanged: await deleteRowsById(ctx, registrationRequests),
+    };
+  }
+
+  const connectedMachines = await ctx.db
+    .query("connectedMachines")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+  if (connectedMachines.length > 0) {
+    return {
+      state: "needs_more",
+      target: "connectedMachines",
+      rowsChanged: await deleteRowsById(ctx, connectedMachines),
     };
   }
 

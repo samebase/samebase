@@ -121,7 +121,6 @@ export const recordBillingOutcome = internalMutation({
     const run = await readOwnedActiveRun(ctx, args);
     await ctx.db.patch(run._id, {
       outcomes: { ...run.outcomes, billing: args.outcome },
-      currentStep: "cancel_billing",
       updatedAt: Date.now(),
     });
     return null;
@@ -250,7 +249,7 @@ export const deleteAccountWorkflow = workflow.define({
       internal.accountDeletion.workflow.appendRunEvent,
       {
         ...ownedArgs,
-        step: "revoke_access",
+        step: "request_accepted",
         level: "info",
         message: "Waiting for active Samebase work to stop.",
       },
@@ -281,6 +280,16 @@ export const deleteAccountWorkflow = workflow.define({
       initialOutcomes.billing.state === "not_started" ||
       initialOutcomes.billing.state === "failed"
     ) {
+      await step.runMutation(
+        internal.accountDeletion.workflow.appendRunEvent,
+        {
+          ...ownedArgs,
+          step: "cancel_billing",
+          level: "info",
+          message: "Canceling Samebase billing.",
+        },
+        { name: "start_billing_cancellation" },
+      );
       const billing = await step.runAction(
         internal.accountDeletion.billingActions.cancelForAccountDeletion,
         ownedArgs,
@@ -325,6 +334,16 @@ export const deleteAccountWorkflow = workflow.define({
       if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
     }
 
+    await step.runMutation(
+      internal.accountDeletion.workflow.appendRunEvent,
+      {
+        ...ownedArgs,
+        step: "delete_samebase_data",
+        level: "info",
+        message: "Deleting Samebase account data.",
+      },
+      { name: "start_samebase_data_cleanup" },
+    );
     await step.runMutation(internal.accountDeletion.cleanup.cleanupAgentComponentData, ownedArgs, {
       name: "delete_agent_component_data",
     });
@@ -378,6 +397,24 @@ export const deleteAccountWorkflow = workflow.define({
     });
     await step.sleep(3_000, { name: "observe_finalizing" });
 
+    for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
+      const done = await step.runMutation(
+        internal.accountDeletion.workflow.deleteProviderConnections,
+        ownedArgs,
+        { name: `reclean_provider_connections_${batch}` },
+      );
+      if (done) break;
+      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+    }
+    for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
+      const done = await step.runMutation(
+        internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
+        ownedArgs,
+        { name: `delete_late_sessions_${batch}` },
+      );
+      if (done) break;
+      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+    }
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteAuthAccountBatch,

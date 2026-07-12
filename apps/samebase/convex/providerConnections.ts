@@ -133,11 +133,22 @@ export async function getConnectionByUserAndKind(
     .first();
 }
 
+export async function assertProviderConnectionWriteAllowed(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<void> {
+  const user = await db.get(userId);
+  if (user === null || user.accountDeletion !== undefined) {
+    throw new Error("Provider connections are unavailable during account deletion.");
+  }
+}
+
 async function deleteConnectionByUserAndKind(
   db: DatabaseWriter,
   userId: Id<"users">,
   kind: ProviderKind,
 ): Promise<void> {
+  await assertProviderConnectionWriteAllowed(db, userId);
   const existing = await getConnectionByUserAndKind(db, userId, kind);
   if (!existing) {
     return;
@@ -149,6 +160,7 @@ async function upsertGithubConnection(
   db: DatabaseWriter,
   args: Infer<typeof vGithubConnectionUpsert>,
 ): Promise<void> {
+  await assertProviderConnectionWriteAllowed(db, args.userId);
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "github");
   if (existing) {
@@ -173,6 +185,7 @@ async function upsertConvexConnection(
   db: DatabaseWriter,
   args: Infer<typeof vConvexConnectionUpsert>,
 ): Promise<void> {
+  await assertProviderConnectionWriteAllowed(db, args.userId);
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "convex");
   if (existing) {
@@ -206,6 +219,7 @@ async function upsertCloudflareConnection(
   db: DatabaseWriter,
   args: Infer<typeof vCloudflareConnectionUpsert>,
 ): Promise<void> {
+  await assertProviderConnectionWriteAllowed(db, args.userId);
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "cloudflare");
   if (existing) {
@@ -292,6 +306,7 @@ export const setConvexTeamSlug = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
+    await assertProviderConnectionWriteAllowed(ctx.db, args.userId);
     const existing = await getConnectionByUserAndKind(ctx.db, args.userId, "convex");
     if (existing?.kind !== "convex" || existing.teamId !== args.teamId) {
       throw new Error("Convex connection changed before team slug update.");
@@ -325,6 +340,7 @@ export const claimCloudflareTokenRefresh = internalMutation({
     nextAllowedRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
+    await assertProviderConnectionWriteAllowed(ctx.db, args.userId);
     const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
 
     if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
@@ -376,6 +392,7 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     lastTokenRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
+    await assertProviderConnectionWriteAllowed(ctx.db, args.userId);
     const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
     if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
       return {};

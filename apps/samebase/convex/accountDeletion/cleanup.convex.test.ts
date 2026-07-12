@@ -156,6 +156,67 @@ describe("account-local deletion cleanup", () => {
     });
   });
 
+  it("revokes machine bearer access before deleting machine identity rows", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    await t.run(async (ctx) => {
+      await ctx.db.insert("machineCredentials", {
+        userId,
+        machineId: "machine-1",
+        credentialHash: "credential-hash",
+        createdAt: 1,
+      });
+      await ctx.db.insert("machineControlTokens", {
+        userId,
+        machineId: "machine-1",
+        tokenHash: "control-token-hash",
+        createdAt: 1,
+        expiresAt: 2,
+      });
+      await ctx.db.insert("machineRegistrationRequests", {
+        requestId: "registration-1",
+        credentialHash: "registration-hash",
+        userId,
+        machineId: "machine-1",
+        displayName: "Machine 1",
+        hostname: "host-1",
+        os: "linux",
+        connectorVersion: "test",
+        createdAt: 1,
+        expiresAt: 2,
+      });
+      await ctx.db.insert("connectedMachines", {
+        userId,
+        machineId: "machine-1",
+        displayName: "Machine 1",
+        hostname: "host-1",
+        os: "linux",
+        status: "offline",
+        lastSeenAt: 1,
+        connectorVersion: "test",
+        capabilities: ["presence"],
+        allowedRoots: [],
+      });
+    });
+
+    await expect(runCleanup(t, userId)).resolves.toMatchObject({
+      state: "needs_more",
+      target: "machineCredentials",
+    });
+    await expect(runCleanup(t, userId)).resolves.toMatchObject({
+      state: "needs_more",
+      target: "machineControlTokens",
+    });
+    await expect(runCleanup(t, userId)).resolves.toMatchObject({
+      state: "needs_more",
+      target: "machineRegistrationRequests",
+    });
+    await expect(runCleanup(t, userId)).resolves.toMatchObject({
+      state: "needs_more",
+      target: "connectedMachines",
+    });
+  });
+
   it("deletes staged storage before its vault and proceeds in bounded batches", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "owner@example.com");

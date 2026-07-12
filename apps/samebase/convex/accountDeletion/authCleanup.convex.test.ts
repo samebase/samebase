@@ -91,6 +91,34 @@ describe("account deletion auth cleanup", () => {
     ).resolves.not.toBeNull();
   });
 
+  it("removes a session created during the deleting visibility window after finalizing starts", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const lateSessionId = await t.run(async (ctx) => {
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId: ids.userId,
+        expirationTime: Date.now() + 60_000,
+      });
+      await ctx.db.patch(ids.userId, {
+        accountDeletion: { state: "finalizing", runId: ids.runId, requestedAt: Date.now() },
+      });
+      return sessionId;
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.deleteOtherSessionBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.deleteOtherSessionBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toBe(true);
+    await expect(t.run(async (ctx) => await ctx.db.get(lateSessionId))).resolves.toBeNull();
+  });
+
   it("deletes verification codes, account rate limits, and one auth account at a time", async () => {
     const { ids, t } = await seedRunningDeletion();
     const accountId = await t.run(async (ctx) => {
@@ -246,10 +274,56 @@ describe("account deletion auth cleanup", () => {
       }),
     ).rejects.toThrow("Only the initiating auth session may remain");
   });
+
+  it("fails closed when provider or machine access races final identity deletion", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const providerConnectionId = await t.run(async (ctx) => {
+      await ctx.db.patch(ids.userId, {
+        accountDeletion: { state: "finalizing", runId: ids.runId, requestedAt: Date.now() },
+      });
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+      return await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId: ids.userId,
+        auth: { method: "oauth", credential: "late-provider-token" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    });
+    const args = { runId: ids.runId, workflowId };
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).rejects.toThrow("Provider connections remain for the deleting account.");
+
+    await t.run(async (ctx) => {
+      await ctx.db.delete(providerConnectionId);
+      await ctx.db.insert("machineCredentials", {
+        userId: ids.userId,
+        machineId: "late-machine",
+        credentialHash: "late-machine-credential",
+        createdAt: 1,
+      });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).rejects.toThrow("Machine access rows remain for the deleting account.");
+  });
 });
 
 describe("account deletion sign-in gate", () => {
-  it("validates the unknown Convex Auth row and rejects a deletion marker", () => {
+  it("allows deletion-only re-login while deleting and rejects finalizing", () => {
     expect(() => assertAuthSessionUserCanSignIn(null)).toThrow("Account is unavailable.");
     expect(() => assertAuthSessionUserCanSignIn({ email: "active@example.com" })).not.toThrow();
     expect(() =>
@@ -257,6 +331,12 @@ describe("account deletion sign-in gate", () => {
         email: "deleting@example.com",
         accountDeletion: { state: "deleting" },
       }),
-    ).toThrow("Account deletion is already in progress.");
+    ).not.toThrow();
+    expect(() =>
+      assertAuthSessionUserCanSignIn({
+        email: "deleting@example.com",
+        accountDeletion: { state: "finalizing" },
+      }),
+    ).toThrow("Account deletion is already finalizing.");
   });
 });

@@ -212,6 +212,39 @@ export const finishIdentityDeletion = internalMutation({
       throw new Error("Account deletion events remain during finalization.");
     }
 
+    const remainingProviderConnection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+      .first();
+    if (remainingProviderConnection !== null) {
+      throw new Error("Provider connections remain for the deleting account.");
+    }
+
+    const remainingMachineCredential = await ctx.db
+      .query("machineCredentials")
+      .withIndex("by_user_machine_id", (query) => query.eq("userId", run.identity.userId))
+      .first();
+    const remainingMachineControlToken = await ctx.db
+      .query("machineControlTokens")
+      .withIndex("by_user_machine_id", (query) => query.eq("userId", run.identity.userId))
+      .first();
+    const remainingMachineRegistrationRequest = await ctx.db
+      .query("machineRegistrationRequests")
+      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+      .first();
+    const remainingConnectedMachine = await ctx.db
+      .query("connectedMachines")
+      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+      .first();
+    if (
+      remainingMachineCredential !== null ||
+      remainingMachineControlToken !== null ||
+      remainingMachineRegistrationRequest !== null ||
+      remainingConnectedMachine !== null
+    ) {
+      throw new Error("Machine access rows remain for the deleting account.");
+    }
+
     const completedAt = Date.now();
     await ctx.db.delete(run.initiatingSessionId);
     await ctx.db.delete(run.identity.userId);
