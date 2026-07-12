@@ -464,6 +464,15 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
+      });
+    }
+
     const client = await ctx.db
       .query("mcpOauthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", authRequest.clientId))
@@ -743,6 +752,15 @@ export const exchangeAuthorizationCode = internalMutation({
       });
     }
 
+    const user = await ctx.db.get(authorizationCode.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
+      });
+    }
+
     const authRequest = await ctx.db
       .query("mcpAuthRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", authorizationCode.requestId))
@@ -911,6 +929,15 @@ export const exchangeRefreshToken = internalMutation({
         status: 400,
         error: "invalid_grant",
         errorDescription: "Refresh token is invalid.",
+      });
+    }
+
+    const user = await ctx.db.get(refreshToken.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
       });
     }
 
@@ -1086,6 +1113,15 @@ export const validateAccessToken = internalMutation({
         status: 401,
         error: "invalid_token",
         errorDescription: "Access token expired.",
+      });
+    }
+
+    const user = await ctx.db.get(accessToken.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 401,
+        error: "invalid_token",
+        errorDescription: "Grant is no longer active.",
       });
     }
 

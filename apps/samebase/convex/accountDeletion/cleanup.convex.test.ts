@@ -56,6 +56,7 @@ describe("account-local deletion cleanup", () => {
     const runId = await t.run(async (ctx) => {
       return await ctx.db.insert("accountDeletionRuns", {
         identity: { state: "scrubbed" },
+        completionCapability: "cleanup-test",
         state: "succeeded",
         currentStep: "finish",
         requestedAt: 1,

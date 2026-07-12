@@ -80,54 +80,65 @@ export const generateResponse = internalAction({
       throw new Error("Thread not found");
     }
 
-    // Load vault context if available
-    let vault: ConnectedVault | null = null;
-    if (threadContext.vaultId) {
-      const v = await ctx.runQuery(internal.vault.records.getById, {
-        id: threadContext.vaultId,
-      });
-      if (isLiveConnectedVault(v)) {
-        vault = v;
-      }
-    }
-
-    // Gather context for the system prompt
-    let repoTree: string[] | undefined;
-
-    if (vault) {
-      const contextBranch = threadContext.branch || vault.defaultBranch;
-      const branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
-        vaultId: vault._id,
-        branch: contextBranch,
-      });
-      if (branchTree) {
-        repoTree = branchTree.treeData.tree.filter((t) => t.type === "blob").map((t) => t.path);
-      }
-    }
-
-    const systemPrompt = buildSystemPrompt({
-      owner: vault?.owner,
-      repo: vault?.name,
-      branch: threadContext.branch,
-      filePath: threadContext.filePath,
-      repoTree,
-    });
-
-    await ctx.runMutation(internal.chat.index.saveThreadSystemPrompt, {
-      threadId: args.threadId,
-      systemPrompt,
-    });
-
-    await runAgentGraph({
-      ctx,
-      systemPrompt,
-      threadId: args.threadId,
-      promptMessageId: args.promptMessageId,
-      model: MODEL,
+    const leaseId = await ctx.runMutation(internal.agent.actionLease.acquire, {
       userId: threadContext.userId,
     });
+    if (leaseId === null) {
+      return null;
+    }
 
-    return null;
+    try {
+      // Load vault context if available
+      let vault: ConnectedVault | null = null;
+      if (threadContext.vaultId) {
+        const v = await ctx.runQuery(internal.vault.records.getById, {
+          id: threadContext.vaultId,
+        });
+        if (isLiveConnectedVault(v)) {
+          vault = v;
+        }
+      }
+
+      // Gather context for the system prompt
+      let repoTree: string[] | undefined;
+
+      if (vault) {
+        const contextBranch = threadContext.branch || vault.defaultBranch;
+        const branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+          vaultId: vault._id,
+          branch: contextBranch,
+        });
+        if (branchTree) {
+          repoTree = branchTree.treeData.tree.filter((t) => t.type === "blob").map((t) => t.path);
+        }
+      }
+
+      const systemPrompt = buildSystemPrompt({
+        owner: vault?.owner,
+        repo: vault?.name,
+        branch: threadContext.branch,
+        filePath: threadContext.filePath,
+        repoTree,
+      });
+
+      await ctx.runMutation(internal.chat.index.saveThreadSystemPrompt, {
+        threadId: args.threadId,
+        systemPrompt,
+      });
+
+      await runAgentGraph({
+        ctx,
+        systemPrompt,
+        threadId: args.threadId,
+        promptMessageId: args.promptMessageId,
+        model: MODEL,
+        userId: threadContext.userId,
+      });
+
+      return null;
+    } finally {
+      await ctx.runMutation(internal.agent.actionLease.release, { leaseId });
+    }
   },
 });
 
@@ -148,245 +159,256 @@ export const executeApprovedProdRead = internalAction({
       return null;
     }
 
-    const argumentHash = hashText(request.paramsJson);
-    const auditActorUserId = request.approvedBy ?? request.requesterUserId;
-    const fallbackEndpoint = `${request.provider}:${request.resourceKind}`;
-
-    const now = Date.now();
-    if (request.expiresAt && now > request.expiresAt) {
-      const error = "Request approval expired before execution";
-      await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
-        requestId: request._id,
-        status: "expired",
-        error,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-      });
-      await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
-        requestId: request._id,
-        actorUserId: auditActorUserId,
-        action: "expired",
-        toolName: request.toolName,
-        endpoint: fallbackEndpoint,
-        argumentHash,
-        error,
-      });
-      await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
-        messageId: args.proposalMessageId,
-        status: "expired",
-        error,
-      });
-
-      const expiredMessage = `Production read expired before execution: ${error}.`;
-      const { messageId } = await saveMessage(ctx, components.agent, {
-        threadId: request.threadId,
-        message: { role: "assistant", content: expiredMessage },
-      });
-      const payload = buildProdReadResultPayload({
-        requestId: request._id,
-        provider: request.provider,
-        resourceKind: request.resourceKind,
-        endpoint: fallbackEndpoint,
-        error,
-      });
-      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
-        messageId,
-        threadId: request.threadId,
-        type: payload.type,
-        payloadJson: JSON.stringify(payload),
-      });
+    const leaseId = await ctx.runMutation(internal.agent.actionLease.acquire, {
+      userId: request.requesterUserId,
+    });
+    if (leaseId === null) {
       return null;
     }
 
-    const params = parseJsonObject(request.paramsJson);
-
     try {
-      let executionResult:
-        | {
-            summary: string;
-            endpoint: string;
-            raw: string;
-            rowCount?: number;
-            logLineCount?: number;
+      const argumentHash = hashText(request.paramsJson);
+      const auditActorUserId = request.approvedBy ?? request.requesterUserId;
+      const fallbackEndpoint = `${request.provider}:${request.resourceKind}`;
+
+      const now = Date.now();
+      if (request.expiresAt && now > request.expiresAt) {
+        const error = "Request approval expired before execution";
+        await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
+          requestId: request._id,
+          status: "expired",
+          error,
+          approvedBy: request.approvedBy,
+          approvedAt: request.approvedAt,
+        });
+        await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
+          requestId: request._id,
+          actorUserId: auditActorUserId,
+          action: "expired",
+          toolName: request.toolName,
+          endpoint: fallbackEndpoint,
+          argumentHash,
+          error,
+        });
+        await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+          messageId: args.proposalMessageId,
+          status: "expired",
+          error,
+        });
+
+        const expiredMessage = `Production read expired before execution: ${error}.`;
+        const { messageId } = await saveMessage(ctx, components.agent, {
+          threadId: request.threadId,
+          message: { role: "assistant", content: expiredMessage },
+        });
+        const payload = buildProdReadResultPayload({
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: fallbackEndpoint,
+          error,
+        });
+        await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
+          messageId,
+          threadId: request.threadId,
+          type: payload.type,
+          payloadJson: JSON.stringify(payload),
+        });
+        return null;
+      }
+
+      const params = parseJsonObject(request.paramsJson);
+
+      try {
+        let executionResult:
+          | {
+              summary: string;
+              endpoint: string;
+              raw: string;
+              rowCount?: number;
+              logLineCount?: number;
+            }
+          | undefined;
+
+        if (request.provider === "convex" && request.resourceKind === "deployment_status") {
+          if (!request.vaultId) {
+            throw new Error("Vault context is required for Convex deployment status");
           }
-        | undefined;
+          executionResult = await ctx.runAction(internal.infraRead.getConvexDeploymentStatus, {
+            vaultId: request.vaultId,
+          });
+        } else if (request.provider === "convex" && request.resourceKind === "logs") {
+          if (!request.vaultId) {
+            throw new Error("Vault context is required for Convex logs");
+          }
+          executionResult = await ctx.runAction(internal.infraRead.getConvexLogs, {
+            vaultId: request.vaultId,
+            maxLines: parseOptionalPositiveNumber(params["maxLines"]),
+          });
+        } else if (
+          request.provider === "cloudflare" &&
+          request.resourceKind === "deployment_status"
+        ) {
+          if (!request.vaultId) {
+            throw new Error("Vault context is required for Cloudflare Worker status");
+          }
+          executionResult = await ctx.runAction(internal.infraRead.getCloudflareWorkerStatus, {
+            vaultId: request.vaultId,
+          });
+        } else if (request.provider === "cloudflare" && request.resourceKind === "logs") {
+          if (!request.vaultId) {
+            throw new Error("Vault context is required for Cloudflare logs");
+          }
+          executionResult = await ctx.runAction(internal.infraRead.getCloudflareLogs, {
+            vaultId: request.vaultId,
+            maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
+          });
+        } else if (request.provider === "convex" && request.resourceKind === "data_query") {
+          executionResult = await ctx.runAction(internal.infraRead.getConvexDataQuery, {
+            table: parseAllowedDataTable(params["table"]),
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            vaultId: request.scope === "vault" ? (request.vaultId ?? undefined) : undefined,
+          });
+        } else if (request.provider === "convex" && request.resourceKind === "project_inventory") {
+          executionResult = await ctx.runAction(internal.infraRead.getConvexProjectInventory, {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
+          });
+        } else if (
+          request.provider === "cloudflare" &&
+          request.resourceKind === "account_inventory"
+        ) {
+          executionResult = await ctx.runAction(internal.infraRead.getCloudflareAccountInventory, {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
+          });
+        } else if (
+          request.provider === "cloudflare" &&
+          request.resourceKind === "workers_inventory"
+        ) {
+          const accountId = parseOptionalNonEmptyString(params["accountId"]);
+          if (!accountId) {
+            throw new Error("Cloudflare accountId is required to list Workers.");
+          }
+          executionResult = await ctx.runAction(internal.infraRead.getCloudflareWorkersInventory, {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
+            accountId,
+          });
+        }
 
-      if (request.provider === "convex" && request.resourceKind === "deployment_status") {
-        if (!request.vaultId) {
-          throw new Error("Vault context is required for Convex deployment status");
+        if (!executionResult) {
+          throw new Error(
+            `Unsupported production read combination: ${request.provider}/${request.resourceKind}`,
+          );
         }
-        executionResult = await ctx.runAction(internal.infraRead.getConvexDeploymentStatus, {
-          vaultId: request.vaultId,
+
+        const redacted = applyRedaction({
+          raw: executionResult.raw,
+          requestedLevel: request.redactionLevel,
+          mode: getProdAccessMode(),
         });
-      } else if (request.provider === "convex" && request.resourceKind === "logs") {
-        if (!request.vaultId) {
-          throw new Error("Vault context is required for Convex logs");
-        }
-        executionResult = await ctx.runAction(internal.infraRead.getConvexLogs, {
-          vaultId: request.vaultId,
-          maxLines: parseOptionalPositiveNumber(params["maxLines"]),
+
+        await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
+          requestId: request._id,
+          status: "executed",
+          error: undefined,
+          approvedBy: request.approvedBy,
+          approvedAt: request.approvedAt,
+          executedAt: Date.now(),
+          redactionLevel: redacted.effectiveLevel,
         });
-      } else if (
-        request.provider === "cloudflare" &&
-        request.resourceKind === "deployment_status"
-      ) {
-        if (!request.vaultId) {
-          throw new Error("Vault context is required for Cloudflare Worker status");
-        }
-        executionResult = await ctx.runAction(internal.infraRead.getCloudflareWorkerStatus, {
-          vaultId: request.vaultId,
+        await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
+          requestId: request._id,
+          actorUserId: auditActorUserId,
+          action: "executed",
+          toolName: request.toolName,
+          endpoint: executionResult.endpoint,
+          argumentHash,
+          rowCount: executionResult.rowCount,
+          logLineCount: executionResult.logLineCount,
+          error: undefined,
         });
-      } else if (request.provider === "cloudflare" && request.resourceKind === "logs") {
-        if (!request.vaultId) {
-          throw new Error("Vault context is required for Cloudflare logs");
-        }
-        executionResult = await ctx.runAction(internal.infraRead.getCloudflareLogs, {
-          vaultId: request.vaultId,
-          maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
+        await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+          messageId: args.proposalMessageId,
+          status: "executed",
         });
-      } else if (request.provider === "convex" && request.resourceKind === "data_query") {
-        executionResult = await ctx.runAction(internal.infraRead.getConvexDataQuery, {
-          table: parseAllowedDataTable(params["table"]),
-          limit: parseOptionalPositiveNumber(params["limit"]),
-          vaultId: request.scope === "vault" ? (request.vaultId ?? undefined) : undefined,
+
+        const output = [
+          `Production read complete: ${executionResult.summary}.`,
+          `Endpoint: \`${executionResult.endpoint}\``,
+          "",
+          redacted.output,
+        ].join("\n");
+
+        const { messageId } = await saveMessage(ctx, components.agent, {
+          threadId: request.threadId,
+          message: { role: "assistant", content: output },
         });
-      } else if (request.provider === "convex" && request.resourceKind === "project_inventory") {
-        executionResult = await ctx.runAction(internal.infraRead.getConvexProjectInventory, {
-          limit: parseOptionalPositiveNumber(params["limit"]),
-          userId: request.requesterUserId,
+        const payload = buildProdReadResultPayload({
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: executionResult.endpoint,
+          redactionLevel: redacted.effectiveLevel,
+          rowCount: executionResult.rowCount,
+          logLineCount: executionResult.logLineCount,
         });
-      } else if (
-        request.provider === "cloudflare" &&
-        request.resourceKind === "account_inventory"
-      ) {
-        executionResult = await ctx.runAction(internal.infraRead.getCloudflareAccountInventory, {
-          limit: parseOptionalPositiveNumber(params["limit"]),
-          userId: request.requesterUserId,
+        await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
+          messageId,
+          threadId: request.threadId,
+          type: payload.type,
+          payloadJson: JSON.stringify(payload),
         });
-      } else if (
-        request.provider === "cloudflare" &&
-        request.resourceKind === "workers_inventory"
-      ) {
-        const accountId = parseOptionalNonEmptyString(params["accountId"]);
-        if (!accountId) {
-          throw new Error("Cloudflare accountId is required to list Workers.");
-        }
-        executionResult = await ctx.runAction(internal.infraRead.getCloudflareWorkersInventory, {
-          limit: parseOptionalPositiveNumber(params["limit"]),
-          userId: request.requesterUserId,
-          accountId,
+
+        return null;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown production read error";
+
+        await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
+          requestId: request._id,
+          status: "failed",
+          error: message,
+          approvedBy: request.approvedBy,
+          approvedAt: request.approvedAt,
+          executedAt: Date.now(),
         });
+        await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
+          requestId: request._id,
+          actorUserId: auditActorUserId,
+          action: "failed",
+          toolName: request.toolName,
+          endpoint: fallbackEndpoint,
+          argumentHash,
+          error: message,
+        });
+        await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+          messageId: args.proposalMessageId,
+          status: "failed",
+          error: message,
+        });
+        const failedMessage = `Production read failed: ${message}.`;
+        const { messageId } = await saveMessage(ctx, components.agent, {
+          threadId: request.threadId,
+          message: { role: "assistant", content: failedMessage },
+        });
+        const payload = buildProdReadResultPayload({
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: fallbackEndpoint,
+          error: message,
+        });
+        await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
+          messageId,
+          threadId: request.threadId,
+          type: payload.type,
+          payloadJson: JSON.stringify(payload),
+        });
+        return null;
       }
-
-      if (!executionResult) {
-        throw new Error(
-          `Unsupported production read combination: ${request.provider}/${request.resourceKind}`,
-        );
-      }
-
-      const redacted = applyRedaction({
-        raw: executionResult.raw,
-        requestedLevel: request.redactionLevel,
-        mode: getProdAccessMode(),
-      });
-
-      await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
-        requestId: request._id,
-        status: "executed",
-        error: undefined,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-        executedAt: Date.now(),
-        redactionLevel: redacted.effectiveLevel,
-      });
-      await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
-        requestId: request._id,
-        actorUserId: auditActorUserId,
-        action: "executed",
-        toolName: request.toolName,
-        endpoint: executionResult.endpoint,
-        argumentHash,
-        rowCount: executionResult.rowCount,
-        logLineCount: executionResult.logLineCount,
-        error: undefined,
-      });
-      await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
-        messageId: args.proposalMessageId,
-        status: "executed",
-      });
-
-      const output = [
-        `Production read complete: ${executionResult.summary}.`,
-        `Endpoint: \`${executionResult.endpoint}\``,
-        "",
-        redacted.output,
-      ].join("\n");
-
-      const { messageId } = await saveMessage(ctx, components.agent, {
-        threadId: request.threadId,
-        message: { role: "assistant", content: output },
-      });
-      const payload = buildProdReadResultPayload({
-        requestId: request._id,
-        provider: request.provider,
-        resourceKind: request.resourceKind,
-        endpoint: executionResult.endpoint,
-        redactionLevel: redacted.effectiveLevel,
-        rowCount: executionResult.rowCount,
-        logLineCount: executionResult.logLineCount,
-      });
-      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
-        messageId,
-        threadId: request.threadId,
-        type: payload.type,
-        payloadJson: JSON.stringify(payload),
-      });
-
-      return null;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown production read error";
-
-      await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
-        requestId: request._id,
-        status: "failed",
-        error: message,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-        executedAt: Date.now(),
-      });
-      await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
-        requestId: request._id,
-        actorUserId: auditActorUserId,
-        action: "failed",
-        toolName: request.toolName,
-        endpoint: fallbackEndpoint,
-        argumentHash,
-        error: message,
-      });
-      await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
-        messageId: args.proposalMessageId,
-        status: "failed",
-        error: message,
-      });
-      const failedMessage = `Production read failed: ${message}.`;
-      const { messageId } = await saveMessage(ctx, components.agent, {
-        threadId: request.threadId,
-        message: { role: "assistant", content: failedMessage },
-      });
-      const payload = buildProdReadResultPayload({
-        requestId: request._id,
-        provider: request.provider,
-        resourceKind: request.resourceKind,
-        endpoint: fallbackEndpoint,
-        error: message,
-      });
-      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
-        messageId,
-        threadId: request.threadId,
-        type: payload.type,
-        payloadJson: JSON.stringify(payload),
-      });
-      return null;
+    } finally {
+      await ctx.runMutation(internal.agent.actionLease.release, { leaseId });
     }
   },
 });

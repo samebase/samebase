@@ -24,6 +24,7 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
     });
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: { state: "active", userId, email: "test@example.invalid" },
+      completionCapability: "billing-actions-test",
       state: "running",
       workflow: { state: "started", workflowId, attempt: 1 },
       currentStep: "request_accepted",
@@ -68,6 +69,7 @@ describe("account deletion billing actions", () => {
     await t.run(async (ctx) => {
       await ctx.db.replace(runId, {
         identity: { state: "scrubbed" },
+        completionCapability: "billing-actions-test",
         state: "succeeded",
         currentStep: "finish",
         requestedAt: 1,

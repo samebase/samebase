@@ -123,6 +123,7 @@ const activeIdentity = object({
 
 const activeRunFields = {
   identity: activeIdentity,
+  completionCapability: string(),
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
   updatedAt: number(),
@@ -154,6 +155,7 @@ export const vScrubbedAccountDeletionRun = object({
   identity: object({
     state: literal("scrubbed"),
   }),
+  completionCapability: string(),
   state: literal("succeeded"),
   currentStep: literal("finish"),
   requestedAt: number(),

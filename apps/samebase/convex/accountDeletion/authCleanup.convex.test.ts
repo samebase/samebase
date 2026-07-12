@@ -24,6 +24,7 @@ async function seedRunningDeletion() {
     });
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: { state: "active", userId, email: "deleting@example.com" },
+      completionCapability: "auth-cleanup-test",
       state: "running",
       workflow: { state: "started", workflowId, attempt: 1 },
       currentStep: "revoke_access",
@@ -181,9 +182,6 @@ describe("account deletion auth cleanup", () => {
         sessionId: ids.initiatingSessionId,
         expirationTime: Date.now() + 60_000,
       });
-      await ctx.db.patch(ids.userId, {
-        accountDeletion: { state: "finalizing", runId: ids.runId, requestedAt: Date.now() },
-      });
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
@@ -211,6 +209,9 @@ describe("account deletion auth cleanup", () => {
       t.run(async (ctx) => await ctx.db.get(ids.initiatingSessionId)),
     ).resolves.not.toBeNull();
     await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await expect(
       t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
     ).resolves.toBeNull();
 
@@ -237,6 +238,74 @@ describe("account deletion auth cleanup", () => {
     expect(stored.run).not.toHaveProperty("initiatingSessionId");
   });
 
+  it("finishes when the user signed out and the initiating session is already absent", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.initiatingSessionId);
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, args),
+    ).resolves.toBe(true);
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.runId))).resolves.toMatchObject({
+      identity: { state: "scrubbed" },
+      state: "succeeded",
+    });
+  });
+
+  it("rejects an identity rate limit created after finalizing became visible", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("authRateLimits", {
+        identifier: "deleting@example.com",
+        lastAttemptTime: Date.now(),
+        attemptsLeft: 1,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).rejects.toThrow("Auth rate limits remain for the deleting account.");
+  });
+
   it("rejects stale workflow ownership and finalization with remaining auth rows", async () => {
     const { ids, t } = await seedRunningDeletion();
     await expect(
@@ -247,9 +316,6 @@ describe("account deletion auth cleanup", () => {
     ).rejects.toThrow("workflow ownership changed");
 
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.userId, {
-        accountDeletion: { state: "finalizing", runId: ids.runId, requestedAt: Date.now() },
-      });
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
@@ -268,7 +334,7 @@ describe("account deletion auth cleanup", () => {
       });
     });
     await expect(
-      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, {
         runId: ids.runId,
         workflowId,
       }),
@@ -278,9 +344,6 @@ describe("account deletion auth cleanup", () => {
   it("fails closed when provider or machine access races final identity deletion", async () => {
     const { ids, t } = await seedRunningDeletion();
     const providerConnectionId = await t.run(async (ctx) => {
-      await ctx.db.patch(ids.userId, {
-        accountDeletion: { state: "finalizing", runId: ids.runId, requestedAt: Date.now() },
-      });
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
@@ -304,7 +367,7 @@ describe("account deletion auth cleanup", () => {
     const args = { runId: ids.runId, workflowId };
 
     await expect(
-      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
     ).rejects.toThrow("Provider connections remain for the deleting account.");
 
     await t.run(async (ctx) => {
@@ -317,8 +380,8 @@ describe("account deletion auth cleanup", () => {
       });
     });
     await expect(
-      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
-    ).rejects.toThrow("Machine access rows remain for the deleting account.");
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).rejects.toThrow("Samebase account data remains during finalization.");
   });
 });
 

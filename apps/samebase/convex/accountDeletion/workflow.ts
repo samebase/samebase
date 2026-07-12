@@ -5,6 +5,7 @@ import { v, type Infer } from "convex/values";
 import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { assertIdentityDeletionReady } from "./authCleanup";
 import {
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
@@ -33,7 +34,7 @@ const vClosedEmailOutcome = union(
 );
 
 const SAFE_WORKFLOW_ERROR = "Account deletion needs staff attention.";
-const MAX_QUIESCE_CHECKS = 40;
+const MAX_QUIESCE_CHECKS = 130;
 const MAX_BATCH_STEPS = 96;
 
 type AccountDeletionStep = Infer<typeof vAccountDeletionStep>;
@@ -202,15 +203,6 @@ export const markFinalizing = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    if (run.outcomes.billing.state === "not_started" || run.outcomes.billing.state === "failed") {
-      throw new Error("Billing cancellation is not complete.");
-    }
-    if (run.outcomes.providerRevocation.state === "not_started") {
-      throw new Error("Provider revocation is not complete.");
-    }
-    if (run.outcomes.completionEmail.state === "not_started") {
-      throw new Error("Completion email was not attempted.");
-    }
     const user = await ctx.db.get(run.identity.userId);
     if (
       user === null ||
@@ -219,6 +211,7 @@ export const markFinalizing = internalMutation({
     ) {
       throw new Error("Account deletion marker is inconsistent.");
     }
+    await assertIdentityDeletionReady(ctx, run);
     const now = Date.now();
     await ctx.db.patch(user._id, {
       accountDeletion: {
@@ -230,13 +223,6 @@ export const markFinalizing = internalMutation({
     await ctx.db.patch(run._id, {
       currentStep: latestAccountDeletionStep(run.currentStep, "delete_identity"),
       updatedAt: now,
-    });
-    await ctx.db.insert("accountDeletionEvents", {
-      runId: run._id,
-      step: "delete_identity",
-      level: "info",
-      message: "Finalizing account deletion.",
-      createdAt: now,
     });
     return null;
   },
@@ -283,7 +269,11 @@ export const deleteAccountWorkflow = workflow.define({
       );
       if (result.state === "done") break;
       if (check === MAX_QUIESCE_CHECKS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
-      await step.sleep(1_000, { name: `wait_for_active_work_${check}` });
+      const waitMs =
+        result.blocker === "active_agent_action"
+          ? Math.max(1, Math.min(result.retryAfterMs, 5_000))
+          : 1_000;
+      await step.sleep(waitMs, { name: `wait_for_active_work_${check}` });
     }
     for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
       const result = await step.runMutation(
@@ -385,7 +375,7 @@ export const deleteAccountWorkflow = workflow.define({
       );
       if (!hasData) break;
       if (check === MAX_QUIESCE_CHECKS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
-      await step.sleep(1_000, { name: `wait_for_agent_component_data_${check}` });
+      await step.sleep(5_000, { name: `wait_for_agent_component_data_${check}` });
     }
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const result = await step.runMutation(
@@ -432,11 +422,6 @@ export const deleteAccountWorkflow = workflow.define({
         { name: "record_completion_email_outcome" },
       );
     }
-    await step.runMutation(internal.accountDeletion.workflow.markFinalizing, ownedArgs, {
-      name: "mark_finalizing",
-    });
-    await step.sleep(3_000, { name: "observe_finalizing" });
-
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.workflow.deleteProviderConnections,
@@ -487,6 +472,10 @@ export const deleteAccountWorkflow = workflow.define({
       if (done) break;
       if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
     }
+    await step.runMutation(internal.accountDeletion.workflow.markFinalizing, ownedArgs, {
+      name: "mark_finalizing",
+    });
+    await step.sleep(3_000, { name: "observe_finalizing" });
     await step.runMutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, ownedArgs, {
       name: "finish_identity_deletion",
     });
@@ -510,9 +499,21 @@ export const handleWorkflowComplete = internalMutation({
       return null;
     }
 
+    const user = await ctx.db.get(run.identity.userId);
+    if (user?.accountDeletion?.runId === run._id && user.accountDeletion.state === "finalizing") {
+      await ctx.db.patch(user._id, {
+        accountDeletion: {
+          state: "deleting",
+          runId: run._id,
+          requestedAt: run.requestedAt,
+        },
+      });
+    }
+
     const now = Date.now();
     await ctx.db.replace(run._id, {
       identity: run.identity,
+      completionCapability: run.completionCapability,
       state: "needs_attention",
       workflow: run.workflow,
       currentStep: run.currentStep,

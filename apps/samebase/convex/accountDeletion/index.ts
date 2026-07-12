@@ -25,6 +25,7 @@ const vAccountDeletionMarkerPhase = union(literal("deleting"), literal("finalizi
 
 const vAccountDeletionStatus = object({
   runId: id("accountDeletionRuns"),
+  completionCapability: string(),
   state: vAccountDeletionRunState,
   markerPhase: vAccountDeletionMarkerPhase,
   currentStep: vAccountDeletionStep,
@@ -37,6 +38,11 @@ const vAccountDeletionEvent = object({
   level: vAccountDeletionEventLevel,
   message: string(),
   createdAt: number(),
+});
+
+const vAccountDeletionCompletion = object({
+  state: literal("succeeded"),
+  completedAt: number(),
 });
 
 const vAdminAccountDeletionListItem = object({
@@ -55,6 +61,7 @@ const vAdminAccountDeletionListItem = object({
 function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" | "finalizing") {
   return {
     runId: run._id,
+    completionCapability: run.completionCapability,
     state: run.state,
     markerPhase,
     currentStep: run.currentStep,
@@ -80,9 +87,9 @@ function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
 
 export const request = mutation({
   access: "access_account_deletion",
-  args: {},
+  args: { completionCapability: string() },
   returns: vAccountDeletionStatus,
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     if (isAdminUser(ctx.viewer.user.email)) {
       throw new Error("Staff accounts cannot request account deletion.");
     }
@@ -105,6 +112,19 @@ export const request = mutation({
       throw new Error("Authentication session is required to delete an account.");
     }
 
+    if (!/^[0-9a-f]{64}$/.test(args.completionCapability)) {
+      throw new Error("Account deletion completion capability is invalid.");
+    }
+    const existingCapability = await ctx.db
+      .query("accountDeletionRuns")
+      .withIndex("by_completion_capability", (query) =>
+        query.eq("completionCapability", args.completionCapability),
+      )
+      .first();
+    if (existingCapability !== null) {
+      throw new Error("Account deletion completion capability is already in use.");
+    }
+
     const now = Date.now();
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: {
@@ -112,6 +132,7 @@ export const request = mutation({
         userId: ctx.viewer.userId,
         email: ctx.viewer.user.email,
       },
+      completionCapability: args.completionCapability,
       state: "queued",
       workflow: { state: "not_started" },
       currentStep: "request_accepted",
@@ -146,6 +167,7 @@ export const request = mutation({
         userId: ctx.viewer.userId,
         email: ctx.viewer.user.email,
       },
+      completionCapability: args.completionCapability,
       state: "running",
       workflow: { state: "started", workflowId, attempt: 1 },
       currentStep: "request_accepted",
@@ -187,6 +209,7 @@ export const retry = mutation({
     const retryCount = run.retryCount + 1;
     await ctx.db.replace(run._id, {
       identity: run.identity,
+      completionCapability: run.completionCapability,
       state: "running",
       workflow: {
         state: "started",
@@ -241,6 +264,27 @@ export const status = query({
       throw new Error("Account deletion state is inconsistent.");
     }
     return projectStatus(run, marker.state);
+  },
+});
+
+export const completion = query({
+  access: "access_public",
+  args: { completionCapability: string() },
+  returns: union(v.null(), vAccountDeletionCompletion),
+  handler: async (ctx, args) => {
+    if (!/^[0-9a-f]{64}$/.test(args.completionCapability)) {
+      return null;
+    }
+    const run = await ctx.db
+      .query("accountDeletionRuns")
+      .withIndex("by_completion_capability", (query) =>
+        query.eq("completionCapability", args.completionCapability),
+      )
+      .first();
+    if (run === null || run.identity.state !== "scrubbed" || run.state !== "succeeded") {
+      return null;
+    }
+    return { state: run.state, completedAt: run.completedAt };
   },
 });
 

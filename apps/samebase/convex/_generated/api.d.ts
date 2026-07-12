@@ -18,6 +18,7 @@ import type * as accountDeletion_model from "../accountDeletion/model.js";
 import type * as accountDeletion_providerActions from "../accountDeletion/providerActions.js";
 import type * as accountDeletion_stepContext from "../accountDeletion/stepContext.js";
 import type * as accountDeletion_workflow from "../accountDeletion/workflow.js";
+import type * as agent_actionLease from "../agent/actionLease.js";
 import type * as agent_graph from "../agent/graph.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
 import type * as agentBrowserHandoff from "../agentBrowserHandoff.js";
@@ -165,6 +166,7 @@ declare const fullApi: ApiFromModules<{
   "accountDeletion/providerActions": typeof accountDeletion_providerActions;
   "accountDeletion/stepContext": typeof accountDeletion_stepContext;
   "accountDeletion/workflow": typeof accountDeletion_workflow;
+  "agent/actionLease": typeof agent_actionLease;
   "agent/graph": typeof agent_graph;
   "agent/systemPrompt": typeof agent_systemPrompt;
   agentBrowserHandoff: typeof agentBrowserHandoff;

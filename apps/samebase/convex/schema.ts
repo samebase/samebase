@@ -374,7 +374,9 @@ export default defineSchema({
    * Durable account deletion operations. Active identity is removed when a
    * successful run becomes a scrubbed receipt.
    */
-  accountDeletionRuns: defineTable(vAccountDeletionRun).index("by_updated_at", ["updatedAt"]),
+  accountDeletionRuns: defineTable(vAccountDeletionRun)
+    .index("by_completion_capability", ["completionCapability"])
+    .index("by_updated_at", ["updatedAt"]),
 
   /** User-safe progress without account identity or provider payloads. */
   accountDeletionEvents: defineTable({
@@ -384,6 +386,12 @@ export default defineSchema({
     message: string(),
     createdAt: number(),
   }).index("by_run_and_created_at", ["runId", "createdAt"]),
+
+  /** In-flight actions that can write to the Agent component. */
+  agentActionLeases: defineTable({
+    userId: id("users"),
+    expiresAt: number(),
+  }).index("by_user_and_expires_at", ["userId", "expiresAt"]),
 
   providerConnections: defineTable(vProviderConnection)
     .index("by_user", ["userId"])

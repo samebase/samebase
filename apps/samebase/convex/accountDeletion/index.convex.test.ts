@@ -4,6 +4,7 @@ import { api } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const now = 1_700_000_000_000;
+const completionCapability = "a".repeat(64);
 
 async function seedUser(args: {
   email: string;
@@ -39,8 +40,12 @@ describe("account deletion foundation", () => {
   it("atomically gates the user and reuses one running workflow", async () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
 
-    const first = await asUser.mutation(api.accountDeletion.index.request);
-    const second = await asUser.mutation(api.accountDeletion.index.request);
+    const first = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
+    const second = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
 
     expect(second).toEqual(first);
     expect(first).toMatchObject({
@@ -83,9 +88,9 @@ describe("account deletion foundation", () => {
   it("rejects staff self-deletion without removing staff access", async () => {
     const staff = await seedUser({ email: "nicu@samebase.com" });
 
-    await expect(staff.asUser.mutation(api.accountDeletion.index.request)).rejects.toThrow(
-      "Staff accounts cannot request account deletion.",
-    );
+    await expect(
+      staff.asUser.mutation(api.accountDeletion.index.request, { completionCapability }),
+    ).rejects.toThrow("Staff accounts cannot request account deletion.");
     await expect(
       staff.asUser.query(api.accountDeletion.index.listForAdmin, {
         paginationOpts: { cursor: null, numItems: 10 },
@@ -96,7 +101,9 @@ describe("account deletion foundation", () => {
   it("exposes status only for the current deleting user", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const other = await seedUser({ email: "grace@example.com", t: owner.t });
-    const status = await owner.asUser.mutation(api.accountDeletion.index.request);
+    const status = await owner.asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
 
     await expect(owner.asUser.query(api.accountDeletion.index.status)).resolves.toEqual(status);
     await expect(other.asUser.query(api.accountDeletion.index.status)).resolves.toBeNull();
@@ -104,7 +111,9 @@ describe("account deletion foundation", () => {
 
   it("projects finalizing before the user loses authenticated status", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
-    const status = await owner.asUser.mutation(api.accountDeletion.index.request);
+    const status = await owner.asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
 
     await owner.t.run(async (ctx) => {
       await ctx.db.patch(owner.ids.userId, {
@@ -122,10 +131,45 @@ describe("account deletion foundation", () => {
     });
   });
 
+  it("exposes only a scrubbed completion receipt by capability", async () => {
+    const owner = await seedUser({ email: "ada@example.com" });
+    const requested = await owner.asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
+
+    await expect(
+      owner.t.query(api.accountDeletion.index.completion, { completionCapability }),
+    ).resolves.toBeNull();
+    await expect(
+      owner.t.query(api.accountDeletion.index.completion, { completionCapability: "invalid" }),
+    ).resolves.toBeNull();
+
+    const completedAt = requested.latestProgressAt + 1;
+    await owner.t.run(async (ctx) => {
+      await ctx.db.replace(requested.runId, {
+        identity: { state: "scrubbed" },
+        completionCapability,
+        state: "succeeded",
+        currentStep: "finish",
+        requestedAt: requested.requestedAt,
+        updatedAt: completedAt,
+        retryCount: 0,
+        completedAt,
+        outcomes: notStartedOutcomes,
+      });
+    });
+
+    await expect(
+      owner.t.query(api.accountDeletion.index.completion, { completionCapability }),
+    ).resolves.toEqual({ state: "succeeded", completedAt });
+  });
+
   it("provides safe paginated staff list and detail results", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const staff = await seedUser({ email: "nicu@samebase.com", t: owner.t });
-    const run = await owner.asUser.mutation(api.accountDeletion.index.request);
+    const run = await owner.asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
 
     await expect(
       owner.asUser.query(api.accountDeletion.index.listForAdmin, {
@@ -162,7 +206,9 @@ describe("account deletion foundation", () => {
   it("represents started work, required attention errors, and scrubbed success legally", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const staff = await seedUser({ email: "nicu@samebase.com", t: owner.t });
-    const requested = await owner.asUser.mutation(api.accountDeletion.index.request);
+    const requested = await owner.asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
 
     await owner.t.run(async (ctx) => {
       const running = await ctx.db.get(requested.runId);
@@ -221,6 +267,7 @@ describe("account deletion foundation", () => {
     await owner.t.run(async (ctx) => {
       await ctx.db.replace(requested.runId, {
         identity: { state: "scrubbed" },
+        completionCapability,
         state: "succeeded",
         currentStep: "finish",
         requestedAt: requested.requestedAt,
@@ -251,6 +298,7 @@ describe("account deletion foundation", () => {
       t.run(async (ctx) => {
         await ctx.db.insert("accountDeletionRuns", {
           identity: { state: "active", userId: ids.userId, email: "ada@example.com" },
+          completionCapability,
           state: "queued",
           // @ts-expect-error A queued run cannot own a started workflow.
           workflow: { state: "started", workflowId: "workflow-1", attempt: 1 },
@@ -269,6 +317,7 @@ describe("account deletion foundation", () => {
         // @ts-expect-error A needs-attention run requires a safe error.
         await ctx.db.insert("accountDeletionRuns", {
           identity: { state: "active", userId: ids.userId, email: "ada@example.com" },
+          completionCapability,
           state: "needs_attention",
           workflow: { state: "started", workflowId: "workflow-1", attempt: 1 },
           currentStep: "cancel_billing",

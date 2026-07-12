@@ -285,6 +285,11 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       assertAuthSessionUserCanSignIn(user);
     },
     afterUserCreatedOrUpdated: async (ctx, args) => {
+      const user: unknown = await ctx.db.get("users", args.userId);
+      assertAuthSessionUserCanSignIn(user);
+      if (isAuthSessionUser(user) && isDeletingAccountMarker(user.accountDeletion)) {
+        return;
+      }
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
       const notification = buildNewUserNotification({
         existingUserId: args.existingUserId,

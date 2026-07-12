@@ -26,6 +26,7 @@ async function seedUser(
     });
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: { state: "active", userId, email: "test@example.invalid" },
+      completionCapability: "provider-actions-test",
       state: "running",
       workflow: { state: "started", workflowId, attempt: 1 },
       currentStep: "request_accepted",

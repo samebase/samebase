@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 
+import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { cleanupAccountLocalDataBatchForUser } from "./cleanup";
 import { readOwnedActiveRun } from "./stepContext";
 
 const AUTH_CHILD_BATCH_SIZE = 64;
@@ -10,6 +12,8 @@ const workflowArgs = {
   runId: v.id("accountDeletionRuns"),
   workflowId: v.string(),
 };
+
+type RunningAccountDeletionRun = Extract<Doc<"accountDeletionRuns">, { state: "running" }>;
 
 async function readOwnedRun(
   ctx: MutationCtx,
@@ -30,11 +34,11 @@ async function deleteRateLimit(ctx: MutationCtx, identifier: string): Promise<vo
 
 async function deleteSessionChildrenBatch(
   ctx: MutationCtx,
-  session: Doc<"authSessions">,
+  sessionId: Id<"authSessions">,
 ): Promise<boolean> {
   const verifiers = await ctx.db
     .query("authVerifiers")
-    .withIndex("sessionId", (query) => query.eq("sessionId", session._id))
+    .withIndex("sessionId", (query) => query.eq("sessionId", sessionId))
     .take(AUTH_CHILD_BATCH_SIZE);
   if (verifiers.length > 0) {
     for (const verifier of verifiers) {
@@ -45,7 +49,7 @@ async function deleteSessionChildrenBatch(
 
   const refreshTokens = await ctx.db
     .query("authRefreshTokens")
-    .withIndex("sessionId", (query) => query.eq("sessionId", session._id))
+    .withIndex("sessionId", (query) => query.eq("sessionId", sessionId))
     .take(AUTH_CHILD_BATCH_SIZE);
   if (refreshTokens.length > 0) {
     for (const refreshToken of refreshTokens) {
@@ -71,7 +75,7 @@ export const deleteOtherSessionBatch = internalMutation({
       return true;
     }
 
-    if (await deleteSessionChildrenBatch(ctx, session)) {
+    if (await deleteSessionChildrenBatch(ctx, session._id)) {
       await ctx.db.delete(session._id);
     }
     return false;
@@ -130,13 +134,10 @@ export const deleteInitiatingSessionBatch = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedRun(ctx, args);
     const session = await ctx.db.get(run.initiatingSessionId);
-    if (session === null) {
-      return true;
-    }
-    if (session.userId !== run.identity.userId) {
+    if (session !== null && session.userId !== run.identity.userId) {
       throw new Error("Initiating auth session belongs to another user.");
     }
-    return await deleteSessionChildrenBatch(ctx, session);
+    return await deleteSessionChildrenBatch(ctx, run.initiatingSessionId);
   },
 });
 
@@ -156,20 +157,103 @@ export const deleteEventBatch = internalMutation({
   },
 });
 
+export async function assertIdentityDeletionReady(
+  ctx: MutationCtx,
+  run: RunningAccountDeletionRun,
+): Promise<void> {
+  if (run.outcomes.billing.state === "not_started" || run.outcomes.billing.state === "failed") {
+    throw new Error("Billing cancellation is not complete.");
+  }
+  if (run.outcomes.providerRevocation.state === "not_started") {
+    throw new Error("Provider revocation is not complete.");
+  }
+  if (run.outcomes.completionEmail.state === "not_started") {
+    throw new Error("Completion email was not attempted.");
+  }
+
+  const accountLocalData = await cleanupAccountLocalDataBatchForUser(ctx, {
+    userId: run.identity.userId,
+  });
+  if (accountLocalData.state !== "done") {
+    throw new Error("Samebase account data remains during finalization.");
+  }
+  const agentThreads = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
+    userId: run.identity.userId,
+    paginationOpts: { cursor: null, numItems: 1 },
+  });
+  if (agentThreads.page.length > 0) {
+    throw new Error("Agent account data remains during finalization.");
+  }
+  const activeAgentAction = await ctx.db
+    .query("agentActionLeases")
+    .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
+    .first();
+  if (activeAgentAction !== null) {
+    throw new Error("Agent action remains active during finalization.");
+  }
+
+  const initiatingSession = await ctx.db.get(run.initiatingSessionId);
+  if (initiatingSession !== null && initiatingSession.userId !== run.identity.userId) {
+    throw new Error("Initiating auth session belongs to another user.");
+  }
+
+  const remainingSessions = await ctx.db
+    .query("authSessions")
+    .withIndex("userId", (query) => query.eq("userId", run.identity.userId))
+    .take(2);
+  if (
+    remainingSessions.length > 1 ||
+    (remainingSessions.length === 1 && remainingSessions[0]._id !== run.initiatingSessionId)
+  ) {
+    throw new Error("Only the initiating auth session may remain during finalization.");
+  }
+  const remainingVerifier = await ctx.db
+    .query("authVerifiers")
+    .withIndex("sessionId", (query) => query.eq("sessionId", run.initiatingSessionId))
+    .first();
+  const remainingRefreshToken = await ctx.db
+    .query("authRefreshTokens")
+    .withIndex("sessionId", (query) => query.eq("sessionId", run.initiatingSessionId))
+    .first();
+  if (remainingVerifier !== null || remainingRefreshToken !== null) {
+    throw new Error("Initiating auth session children remain during finalization.");
+  }
+  const remainingAccount = await ctx.db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (query) => query.eq("userId", run.identity.userId))
+    .first();
+  if (remainingAccount !== null) {
+    throw new Error("Auth accounts remain for the deleting account.");
+  }
+  const remainingIdentityRateLimit = await ctx.db
+    .query("authRateLimits")
+    .withIndex("identifier", (query) => query.eq("identifier", run.identity.email))
+    .first();
+  if (remainingIdentityRateLimit !== null) {
+    throw new Error("Auth rate limits remain for the deleting account.");
+  }
+  const remainingEvent = await ctx.db
+    .query("accountDeletionEvents")
+    .withIndex("by_run_and_created_at", (query) => query.eq("runId", run._id))
+    .first();
+  if (remainingEvent !== null) {
+    throw new Error("Account deletion events remain during finalization.");
+  }
+
+  const remainingProviderConnection = await ctx.db
+    .query("providerConnections")
+    .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+    .first();
+  if (remainingProviderConnection !== null) {
+    throw new Error("Provider connections remain for the deleting account.");
+  }
+}
+
 export const finishIdentityDeletion = internalMutation({
   args: workflowArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedRun(ctx, args);
-    if (run.outcomes.billing.state === "not_started" || run.outcomes.billing.state === "failed") {
-      throw new Error("Billing cancellation is not complete.");
-    }
-    if (run.outcomes.providerRevocation.state === "not_started") {
-      throw new Error("Provider revocation is not complete.");
-    }
-    if (run.outcomes.completionEmail.state === "not_started") {
-      throw new Error("Completion email was not attempted.");
-    }
     const user = await ctx.db.get(run.identity.userId);
     if (
       user === null ||
@@ -178,78 +262,17 @@ export const finishIdentityDeletion = internalMutation({
     ) {
       throw new Error("Account deletion is not ready to finalize.");
     }
-
-    const remainingSessions = await ctx.db
-      .query("authSessions")
-      .withIndex("userId", (query) => query.eq("userId", run.identity.userId))
-      .take(2);
-    if (remainingSessions.length !== 1 || remainingSessions[0]._id !== run.initiatingSessionId) {
-      throw new Error("Only the initiating auth session may remain during finalization.");
+    await assertIdentityDeletionReady(ctx, run);
+    const initiatingSession = await ctx.db.get(run.initiatingSessionId);
+    if (initiatingSession?.userId === run.identity.userId) {
+      await ctx.db.delete(initiatingSession._id);
     }
-    const remainingVerifier = await ctx.db
-      .query("authVerifiers")
-      .withIndex("sessionId", (query) => query.eq("sessionId", run.initiatingSessionId))
-      .first();
-    const remainingRefreshToken = await ctx.db
-      .query("authRefreshTokens")
-      .withIndex("sessionId", (query) => query.eq("sessionId", run.initiatingSessionId))
-      .first();
-    if (remainingVerifier !== null || remainingRefreshToken !== null) {
-      throw new Error("Initiating auth session children remain during finalization.");
-    }
-    const remainingAccount = await ctx.db
-      .query("authAccounts")
-      .withIndex("userIdAndProvider", (query) => query.eq("userId", run.identity.userId))
-      .first();
-    if (remainingAccount !== null) {
-      throw new Error("Auth accounts remain for the deleting account.");
-    }
-    const remainingEvent = await ctx.db
-      .query("accountDeletionEvents")
-      .withIndex("by_run_and_created_at", (query) => query.eq("runId", run._id))
-      .first();
-    if (remainingEvent !== null) {
-      throw new Error("Account deletion events remain during finalization.");
-    }
-
-    const remainingProviderConnection = await ctx.db
-      .query("providerConnections")
-      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
-      .first();
-    if (remainingProviderConnection !== null) {
-      throw new Error("Provider connections remain for the deleting account.");
-    }
-
-    const remainingMachineCredential = await ctx.db
-      .query("machineCredentials")
-      .withIndex("by_user_machine_id", (query) => query.eq("userId", run.identity.userId))
-      .first();
-    const remainingMachineControlToken = await ctx.db
-      .query("machineControlTokens")
-      .withIndex("by_user_machine_id", (query) => query.eq("userId", run.identity.userId))
-      .first();
-    const remainingMachineRegistrationRequest = await ctx.db
-      .query("machineRegistrationRequests")
-      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
-      .first();
-    const remainingConnectedMachine = await ctx.db
-      .query("connectedMachines")
-      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
-      .first();
-    if (
-      remainingMachineCredential !== null ||
-      remainingMachineControlToken !== null ||
-      remainingMachineRegistrationRequest !== null ||
-      remainingConnectedMachine !== null
-    ) {
-      throw new Error("Machine access rows remain for the deleting account.");
-    }
+    await ctx.db.delete(run.identity.userId);
 
     const completedAt = Date.now();
-    await ctx.db.delete(run.initiatingSessionId);
-    await ctx.db.delete(run.identity.userId);
     await ctx.db.replace(run._id, {
       identity: { state: "scrubbed" },
+      completionCapability: run.completionCapability,
       state: "succeeded",
       currentStep: "finish",
       requestedAt: run.requestedAt,

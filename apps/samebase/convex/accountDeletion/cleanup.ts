@@ -8,16 +8,17 @@ import { readOwnedActiveRun } from "./stepContext";
 
 const { id, literal, number, object, union } = v;
 
-export const accountDeletionTablePolicy = union(
+export const vAccountDeletionTablePolicy = union(
   literal("account_local"),
   literal("vault_local"),
   literal("provider_revocation"),
   literal("auth_finalization"),
   literal("receipt"),
   literal("global"),
+  literal("action_quiescence"),
   literal("user_finalization"),
 );
-export type AccountDeletionTablePolicy = Infer<typeof accountDeletionTablePolicy>;
+export type AccountDeletionTablePolicy = Infer<typeof vAccountDeletionTablePolicy>;
 
 /**
  * Every app table has one deletion owner. Adding a table to the schema fails
@@ -33,6 +34,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   users: "user_finalization",
   accountDeletionRuns: "receipt",
   accountDeletionEvents: "receipt",
+  agentActionLeases: "action_quiescence",
   providerConnections: "provider_revocation",
   connectedMachines: "account_local",
   machineRegistrationRequests: "account_local",
@@ -143,6 +145,11 @@ const accountDeletionQuiescenceResult = union(
   object({ state: literal("done") }),
   object({ state: literal("waiting"), blocker: literal("active_vault_deletion") }),
   object({ state: literal("waiting"), blocker: literal("active_app_provisioning") }),
+  object({
+    state: literal("waiting"),
+    blocker: literal("active_agent_action"),
+    retryAfterMs: number(),
+  }),
 );
 
 const ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE = 25;
@@ -635,6 +642,24 @@ export const inspectQuiescence = internalMutation({
     }
     if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
       return { state: "waiting", blocker: "active_app_provisioning" } as const;
+    }
+    const now = Date.now();
+    const leases = await ctx.db
+      .query("agentActionLeases")
+      .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
+      .take(25);
+    for (const lease of leases) {
+      if (lease.expiresAt > now) {
+        return {
+          state: "waiting",
+          blocker: "active_agent_action",
+          retryAfterMs: lease.expiresAt - now,
+        } as const;
+      }
+      await ctx.db.delete(lease._id);
+    }
+    if (leases.length === 25) {
+      return { state: "waiting", blocker: "active_agent_action", retryAfterMs: 0 } as const;
     }
     return { state: "done" } as const;
   },

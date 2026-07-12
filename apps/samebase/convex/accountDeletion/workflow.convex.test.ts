@@ -37,6 +37,7 @@ async function seedRunningDeletion() {
     });
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: { state: "active", userId, email: "deleting@example.com" },
+      completionCapability: "workflow-test",
       state: "running",
       workflow: { state: "started", workflowId, attempt: 1 },
       currentStep: "request_accepted",
@@ -81,7 +82,11 @@ describe("account deletion workflow ownership and outcomes", () => {
       tokenIdentifier: `test:${ids.sessionId}`,
     });
 
-    await expect(asUser.mutation(api.accountDeletion.index.request)).rejects.toThrow();
+    await expect(
+      asUser.mutation(api.accountDeletion.index.request, {
+        completionCapability: "a".repeat(64),
+      }),
+    ).rejects.toThrow();
     const stored = await t.run(async (ctx) => ({
       user: await ctx.db.get(ids.userId),
       runs: await ctx.db.query("accountDeletionRuns").collect(),
@@ -386,6 +391,147 @@ describe("account deletion workflow ownership and outcomes", () => {
     });
     await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.toMatchObject({
       accountDeletion: { state: "finalizing", runId: ids.runId },
+    });
+  });
+
+  it("keeps deletion status visible when the terminal assertion fails", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+      await ctx.db.insert("authAccounts", {
+        userId: ids.userId,
+        provider: "google",
+        providerAccountId: "late-google-account",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).rejects.toThrow("Auth accounts remain for the deleting account.");
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.toMatchObject({
+      accountDeletion: { state: "deleting", runId: ids.runId },
+    });
+
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "terminal assertion failed" },
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      state: "needs_attention",
+      latestSafeError: "Account deletion needs staff attention.",
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.toMatchObject({
+      accountDeletion: { state: "deleting", runId: ids.runId },
+    });
+  });
+
+  it("restores deletion visibility when a final atomic assertion fails", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("authAccounts", {
+        userId: ids.userId,
+        provider: "google",
+        providerAccountId: "post-marker-google-account",
+      });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).rejects.toThrow("Auth accounts remain for the deleting account.");
+
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "final identity assertion failed" },
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.toMatchObject({
+      accountDeletion: { state: "deleting", runId: ids.runId },
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(ids.initiatingSessionId)),
+    ).resolves.not.toBeNull();
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      identity: { state: "active", userId: ids.userId },
+      state: "needs_attention",
+      currentStep: "delete_identity",
+      latestSafeError: "Account deletion needs staff attention.",
+    });
+  });
+
+  it("rejects account-local data created after finalizing became visible", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    const settingsId = await t.run(async (ctx) => {
+      return await ctx.db.insert("dashboardSettings", {
+        userId: ids.userId,
+        providersPanelOpen: false,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).rejects.toThrow("Samebase account data remains during finalization.");
+    await expect(t.run(async (ctx) => await ctx.db.get(settingsId))).resolves.not.toBeNull();
+
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "late account-local data" },
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.toMatchObject({
+      accountDeletion: { state: "deleting", runId: ids.runId },
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      state: "needs_attention",
+      latestSafeError: "Account deletion needs staff attention.",
     });
   });
 
