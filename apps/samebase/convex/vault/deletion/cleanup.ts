@@ -98,41 +98,32 @@ async function deleteFileStagingBatch(
     .query("fileStaging")
     .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  const rowIdsInBatch = new Set(rows.map((row) => row._id));
   const storageIds = new Set<Id<"_storage">>();
   for (const row of rows) {
     if (row.storageId) {
       storageIds.add(row.storageId);
     }
+    await ctx.db.delete(row._id);
   }
 
   for (const storageId of storageIds) {
-    const cachedBlob = await ctx.db
-      .query("blobs")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", storageId),
-      )
+    const survivingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first();
-    if (cachedBlob) {
+    if (survivingStaging) {
       continue;
     }
 
-    const stagingReferences = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", storageId),
-      )
-      .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1);
-    if (
-      stagingReferences.length <= VAULT_LOCAL_CLEANUP_BATCH_SIZE &&
-      stagingReferences.every((row) => rowIdsInBatch.has(row._id))
-    ) {
-      await ctx.storage.delete(storageId);
+    const survivingBlob = await ctx.db
+      .query("blobs")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first();
+    if (survivingBlob) {
+      continue;
     }
-  }
 
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
+    await ctx.storage.delete(storageId);
   }
   return rows.length;
 }
@@ -145,11 +136,32 @@ async function deleteBlobsBatch(
     .query("blobs")
     .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+  const storageIds = new Set<Id<"_storage">>();
   for (const row of rows) {
     if (row.storageId) {
-      await ctx.storage.delete(row.storageId);
+      storageIds.add(row.storageId);
     }
     await ctx.db.delete(row._id);
+  }
+
+  for (const storageId of storageIds) {
+    const survivingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first();
+    if (survivingStaging) {
+      continue;
+    }
+
+    const survivingBlob = await ctx.db
+      .query("blobs")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first();
+    if (survivingBlob) {
+      continue;
+    }
+
+    await ctx.storage.delete(storageId);
   }
   return rows.length;
 }

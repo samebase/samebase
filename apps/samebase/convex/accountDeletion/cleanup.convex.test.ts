@@ -19,6 +19,37 @@ async function runCleanup(
   });
 }
 
+async function deleteVault(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Awaited<ReturnType<typeof seedUser>>,
+  vaultId: Awaited<ReturnType<typeof seedVault>>,
+) {
+  let result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
+    userId,
+    vaultId,
+  });
+  while (result.state === "needs_more") {
+    result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
+      userId,
+      vaultId,
+    });
+  }
+  expect(result).toEqual({ state: "deleted" });
+}
+
+async function seedVault(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Awaited<ReturnType<typeof seedUser>>,
+) {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("vaults", {
+      userId,
+      state: "not_connected",
+      deletion: { state: "not_deleting" },
+    });
+  });
+}
+
 describe("account-local deletion cleanup", () => {
   it("rejects workflow calls for scrubbed deletion receipts", async () => {
     const t = makeConvexTest();
@@ -178,6 +209,201 @@ describe("account-local deletion cleanup", () => {
     await t.run(async (ctx) => {
       expect(await ctx.db.get(vaultId)).toBeNull();
       expect(await ctx.db.query("connectedMachines").collect()).toEqual([]);
+    });
+  });
+
+  for (const [deletedReference, survivingReference] of [
+    ["staging", "staging"],
+    ["staging", "blob"],
+    ["blob", "staging"],
+    ["blob", "blob"],
+  ] as const) {
+    it(`retains shared storage across ${deletedReference} and ${survivingReference} references`, async () => {
+      const t = makeConvexTest();
+      const deletingUserId = await seedUser(t, "deleting@example.com");
+      const survivingUserId = await seedUser(t, "surviving@example.com");
+      const deletingVaultId = await seedVault(t, deletingUserId);
+      const survivingVaultId = await seedVault(t, survivingUserId);
+      const storageId = await t.run(async (ctx) => {
+        const storageId = await ctx.storage.store(new Blob(["shared storage"]));
+        if (deletedReference === "staging") {
+          await ctx.db.insert("fileStaging", {
+            ownerId: deletingUserId,
+            vaultId: deletingVaultId,
+            fileDeleted: false,
+            kind: "binary",
+            filePath: "deleting.bin",
+            initialFilePath: "deleting.bin",
+            content: "",
+            initialContent: "",
+            storageId,
+            parentCommitSha: null,
+            lastEditTime: 1,
+            lastEditUserId: deletingUserId,
+            branch: "main",
+            version: 1,
+          });
+          await ctx.db.insert("fileStaging", {
+            ownerId: deletingUserId,
+            vaultId: deletingVaultId,
+            fileDeleted: false,
+            kind: "binary",
+            filePath: "deleting-copy.bin",
+            initialFilePath: "deleting-copy.bin",
+            content: "",
+            initialContent: "",
+            storageId,
+            parentCommitSha: null,
+            lastEditTime: 1,
+            lastEditUserId: deletingUserId,
+            branch: "main",
+            version: 1,
+          });
+        } else {
+          await ctx.db.insert("blobs", {
+            vaultId: deletingVaultId,
+            sha: "deleting-sha",
+            size: 14,
+            storageId,
+          });
+          await ctx.db.insert("blobs", {
+            vaultId: deletingVaultId,
+            sha: "deleting-copy-sha",
+            size: 14,
+            storageId,
+          });
+        }
+
+        if (survivingReference === "staging") {
+          await ctx.db.insert("fileStaging", {
+            ownerId: survivingUserId,
+            vaultId: survivingVaultId,
+            fileDeleted: false,
+            kind: "binary",
+            filePath: "surviving.bin",
+            initialFilePath: "surviving.bin",
+            content: "",
+            initialContent: "",
+            storageId,
+            parentCommitSha: null,
+            lastEditTime: 1,
+            lastEditUserId: survivingUserId,
+            branch: "main",
+            version: 1,
+          });
+        } else {
+          await ctx.db.insert("blobs", {
+            vaultId: survivingVaultId,
+            sha: "surviving-sha",
+            size: 14,
+            storageId,
+          });
+        }
+        return storageId;
+      });
+
+      await deleteVault(t, deletingUserId, deletingVaultId);
+      await t.run(async (ctx) => {
+        expect(await ctx.db.system.get("_storage", storageId)).not.toBeNull();
+      });
+
+      await deleteVault(t, survivingUserId, survivingVaultId);
+      await t.run(async (ctx) => {
+        expect(await ctx.db.system.get("_storage", storageId)).toBeNull();
+      });
+    });
+  }
+
+  it("preserves repository commit check caches shared with another vault", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const survivingUserId = await seedUser(t, "surviving-owner@example.com");
+    const survivingVaultId = await t.run(async (ctx) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "owner/repository",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "shared-repository-id",
+        owner: "owner",
+        name: "repository",
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 2,
+      });
+
+      const survivingVaultId = await ctx.db.insert("vaults", {
+        userId: survivingUserId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      const survivingRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId: survivingUserId,
+        vaultId: survivingVaultId,
+        repositoryFullName: "owner/repository",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(survivingVaultId, {
+        userId: survivingUserId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: survivingRunId,
+        ghRepoId: "shared-repository-id",
+        owner: "owner",
+        name: "repository",
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 2,
+      });
+      return survivingVaultId;
+    });
+    await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
+      githubRepositoryId: "shared-repository-id",
+      commitSha: "commit-sha",
+      syncedAt: 3,
+      items: [
+        {
+          source: "check_run",
+          sourceKey: "check-1",
+          name: "tests",
+          state: "success",
+          status: "completed",
+        },
+      ],
+    });
+
+    let result = await runCleanup(t, userId);
+    for (let attempt = 0; attempt < 20 && result.state !== "done"; attempt += 1) {
+      result = await runCleanup(t, userId);
+    }
+    expect(result).toEqual({ state: "done" });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get(survivingVaultId)).not.toBeNull();
+      expect(await ctx.db.query("githubCommitCheckItems").collect()).toHaveLength(1);
+      expect(await ctx.db.query("githubCommitCheckSnapshots").collect()).toHaveLength(1);
     });
   });
 

@@ -50,8 +50,8 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   vaultConvexSchemaSnapshots: "vault_local",
   vaultConvexSchemaGraphLayouts: "vault_local",
   vaultRemoteBranches: "vault_local",
-  githubCommitCheckSnapshots: "vault_local",
-  githubCommitCheckItems: "vault_local",
+  githubCommitCheckSnapshots: "global",
+  githubCommitCheckItems: "global",
   vaultBranchTrees: "vault_local",
   repositoryRefreshRequests: "vault_local",
   vaultInfrastructureTargets: "vault_local",
@@ -83,8 +83,6 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
 } satisfies Record<TableNames, AccountDeletionTablePolicy>;
 
 const accountLocalCleanupTarget = union(
-  literal("githubCommitCheckItems"),
-  literal("githubCommitCheckSnapshots"),
   literal("repositoryRefreshRequests"),
   literal("chatMessageMetadata"),
   literal("agentThreadContext"),
@@ -238,35 +236,6 @@ async function cleanupVaultBatch(
     .first();
   if (!vault) {
     return null;
-  }
-
-  if (vault.state === "connected") {
-    const checkItems = await ctx.db
-      .query("githubCommitCheckItems")
-      .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
-        q.eq("githubRepositoryId", vault.ghRepoId),
-      )
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-    if (checkItems.length > 0) {
-      return {
-        state: "needs_more",
-        target: "githubCommitCheckItems",
-        rowsChanged: await deleteRowsById(ctx, checkItems),
-      };
-    }
-    const snapshots = await ctx.db
-      .query("githubCommitCheckSnapshots")
-      .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
-        q.eq("githubRepositoryId", vault.ghRepoId),
-      )
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-    if (snapshots.length > 0) {
-      return {
-        state: "needs_more",
-        target: "githubCommitCheckSnapshots",
-        rowsChanged: await deleteRowsById(ctx, snapshots),
-      };
-    }
   }
 
   const context = await ctx.db

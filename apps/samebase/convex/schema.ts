@@ -798,6 +798,7 @@ export default defineSchema({
     .index("by_vault_and_branch_and_initial_path", ["vaultId", "branch", "initialFilePath"])
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_storageId", ["vaultId", "storageId"])
+    .index("by_storageId", ["storageId"])
     .index("by_user", ["lastEditUserId"]),
 
   // Unique content (dedup by sha)
@@ -815,7 +816,8 @@ export default defineSchema({
   })
     .index("by_sha", ["sha"])
     .index("by_vault", ["vaultId"])
-    .index("by_vault_and_storageId", ["vaultId", "storageId"]),
+    .index("by_vault_and_storageId", ["vaultId", "storageId"])
+    .index("by_storageId", ["storageId"]),
 
   /**
    * Folder expansion state for file tree sidebar.
