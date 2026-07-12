@@ -76,6 +76,10 @@ Convex validator JSON of the tool's `structuredContent`:
                     },
                     {
                       "type": "literal",
+                      "value": "role_deleting"
+                    },
+                    {
+                      "type": "literal",
                       "value": "role_pending_access"
                     },
                     {
@@ -99,6 +103,10 @@ Convex validator JSON of the tool's `structuredContent`:
                       {
                         "type": "literal",
                         "value": "access_public"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_account_deletion"
                       },
                       {
                         "type": "literal",
@@ -194,6 +202,10 @@ Convex validator JSON of the tool's `structuredContent`:
                     },
                     {
                       "type": "literal",
+                      "value": "role_deleting"
+                    },
+                    {
+                      "type": "literal",
                       "value": "role_pending_access"
                     },
                     {
@@ -217,6 +229,10 @@ Convex validator JSON of the tool's `structuredContent`:
                       {
                         "type": "literal",
                         "value": "access_public"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "access_account_deletion"
                       },
                       {
                         "type": "literal",
