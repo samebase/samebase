@@ -159,7 +159,12 @@ describe("account deletion auth cleanup", () => {
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
-          providerRevocation: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
           completionEmail: { state: "sent" },
         },
       });
@@ -192,7 +197,12 @@ describe("account deletion auth cleanup", () => {
       currentStep: "finish",
       outcomes: {
         billing: { state: "not_applicable" },
-        providerRevocation: { state: "not_applicable" },
+        providerRevocation: {
+          state: "completed",
+          github: { state: "not_connected" },
+          cloudflare: { state: "not_connected" },
+          convex: { state: "not_connected" },
+        },
         completionEmail: { state: "sent" },
       },
     });
@@ -215,7 +225,12 @@ describe("account deletion auth cleanup", () => {
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
-          providerRevocation: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
           completionEmail: { state: "sent" },
         },
       });

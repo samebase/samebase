@@ -9,8 +9,9 @@ import {
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
   vAccountDeletionStep,
+  vCompletedAccountDeletionProviderRevocationOutcome,
 } from "./model";
-import { type ProviderRevocationResult, type RevokeProviderAccessResult } from "./providerActions";
+import { type RevokeProviderAccessResult } from "./providerActions";
 import { readOwnedActiveRun } from "./stepContext";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -26,21 +27,12 @@ const vClosedBillingOutcome = union(
   object({ state: literal("succeeded") }),
   object({ state: literal("failed"), safeError: string() }),
 );
-const vClosedProviderOutcome = union(
-  object({ state: literal("not_applicable") }),
-  object({ state: literal("succeeded") }),
-  object({ state: literal("unconfirmed"), safeError: string() }),
-);
 const vClosedEmailOutcome = union(
   object({ state: literal("sent") }),
   object({ state: literal("delivery_failed"), safeError: string() }),
 );
 
 const SAFE_WORKFLOW_ERROR = "Account deletion needs staff attention.";
-const PROVIDER_UNCONFIRMED_ERROR =
-  "One or more upstream provider revocations could not be confirmed.";
-const CONVEX_MANUAL_REVOCATION_NOTICE =
-  "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications.";
 const MAX_QUIESCE_CHECKS = 40;
 const MAX_BATCH_STEPS = 96;
 
@@ -60,24 +52,10 @@ export async function startAccountDeletionWorkflow(
   );
 }
 
-function summarizeProviderOutcome(result: RevokeProviderAccessResult) {
-  const results = [result.github, result.cloudflare, result.convex];
-  if (results.some(({ state }) => state === "unconfirmed")) {
-    return { state: "unconfirmed" as const, safeError: PROVIDER_UNCONFIRMED_ERROR };
-  }
-  if (results.some(({ state }) => state === "manual_revocation_required")) {
-    return { state: "unconfirmed" as const, safeError: CONVEX_MANUAL_REVOCATION_NOTICE };
-  }
-  if (results.every(({ state }) => state === "not_connected")) {
-    return { state: "not_applicable" as const };
-  }
-  return { state: "succeeded" as const };
-}
-
-function mergeProviderResult(
-  previous: ProviderRevocationResult,
-  current: ProviderRevocationResult,
-): ProviderRevocationResult {
+function mergeProviderResult<ProviderResult extends { state: string }>(
+  previous: ProviderResult,
+  current: ProviderResult,
+): ProviderResult {
   return previous.state === "unconfirmed" ? current : previous;
 }
 
@@ -153,7 +131,7 @@ export const recordBillingOutcome = internalMutation({
 export const recordProviderOutcome = internalMutation({
   args: {
     ...workflowOwnershipArgs,
-    outcome: vClosedProviderOutcome,
+    outcome: vCompletedAccountDeletionProviderRevocationOutcome,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -333,7 +311,7 @@ export const deleteAccountWorkflow = workflow.define({
       }
       await step.runMutation(
         internal.accountDeletion.workflow.recordProviderOutcome,
-        { ...ownedArgs, outcome: summarizeProviderOutcome(providerResult) },
+        { ...ownedArgs, outcome: { state: "completed", ...providerResult } },
         { name: "record_provider_outcome" },
       );
     }
@@ -372,6 +350,17 @@ export const deleteAccountWorkflow = workflow.define({
       }
     }
 
+    const finalBilling = await step.runAction(
+      internal.accountDeletion.billingActions.cancelForAccountDeletion,
+      ownedArgs,
+      { name: "recheck_billing_before_finalizing", retry: false },
+    );
+    await step.runMutation(
+      internal.accountDeletion.workflow.recordBillingOutcome,
+      { ...ownedArgs, outcome: finalBilling },
+      { name: "record_final_billing_outcome" },
+    );
+    if (finalBilling.state === "failed") throw new Error(SAFE_WORKFLOW_ERROR);
     if (initialOutcomes.completionEmail.state === "not_started") {
       const email = await step.runAction(
         internal.accountDeletion.completionEmail.sendForAccountDeletion,

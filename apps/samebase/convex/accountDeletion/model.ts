@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 
 const { id, literal, number, object, string, union } = v;
 
@@ -38,11 +38,59 @@ export const vAccountDeletionBillingOutcome = union(
   object({ state: literal("failed"), safeError: string() }),
 );
 
+export const GITHUB_REVOCATION_UNCONFIRMED_ERROR =
+  "GitHub OAuth revocation could not be confirmed.";
+export const CLOUDFLARE_REVOCATION_UNCONFIRMED_ERROR =
+  "Cloudflare OAuth revocation could not be confirmed.";
+export const CONVEX_MANUAL_REVOCATION_NOTICE =
+  "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications.";
+
+const vProviderNotConnected = object({ state: literal("not_connected") });
+const vProviderLocalDeleteOnly = object({ state: literal("local_delete_only") });
+const vProviderRevoked = object({ state: literal("revoked") });
+
+export const vAccountDeletionGithubOutcome = union(
+  vProviderNotConnected,
+  vProviderLocalDeleteOnly,
+  vProviderRevoked,
+  object({
+    state: literal("unconfirmed"),
+    safeError: literal(GITHUB_REVOCATION_UNCONFIRMED_ERROR),
+  }),
+);
+export type AccountDeletionGithubOutcome = Infer<typeof vAccountDeletionGithubOutcome>;
+
+export const vAccountDeletionCloudflareOutcome = union(
+  vProviderNotConnected,
+  vProviderLocalDeleteOnly,
+  vProviderRevoked,
+  object({
+    state: literal("unconfirmed"),
+    safeError: literal(CLOUDFLARE_REVOCATION_UNCONFIRMED_ERROR),
+  }),
+);
+export type AccountDeletionCloudflareOutcome = Infer<typeof vAccountDeletionCloudflareOutcome>;
+
+export const vAccountDeletionConvexOutcome = union(
+  vProviderNotConnected,
+  vProviderLocalDeleteOnly,
+  object({
+    state: literal("manual_revocation_required"),
+    safeNotice: literal(CONVEX_MANUAL_REVOCATION_NOTICE),
+  }),
+);
+export type AccountDeletionConvexOutcome = Infer<typeof vAccountDeletionConvexOutcome>;
+
+export const vCompletedAccountDeletionProviderRevocationOutcome = object({
+  state: literal("completed"),
+  github: vAccountDeletionGithubOutcome,
+  cloudflare: vAccountDeletionCloudflareOutcome,
+  convex: vAccountDeletionConvexOutcome,
+});
+
 export const vAccountDeletionProviderRevocationOutcome = union(
   object({ state: literal("not_started") }),
-  object({ state: literal("not_applicable") }),
-  object({ state: literal("succeeded") }),
-  object({ state: literal("unconfirmed"), safeError: string() }),
+  vCompletedAccountDeletionProviderRevocationOutcome,
 );
 
 export const vAccountDeletionCompletionEmailOutcome = union(

@@ -201,8 +201,17 @@ describe("account deletion foundation", () => {
     const succeededOutcomes = {
       billing: { state: "succeeded" as const },
       providerRevocation: {
-        state: "unconfirmed" as const,
-        safeError: "Upstream revocation was not confirmed.",
+        state: "completed" as const,
+        github: {
+          state: "unconfirmed" as const,
+          safeError: "GitHub OAuth revocation could not be confirmed." as const,
+        },
+        cloudflare: { state: "revoked" as const },
+        convex: {
+          state: "manual_revocation_required" as const,
+          safeNotice:
+            "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications." as const,
+        },
       },
       completionEmail: {
         state: "delivery_failed" as const,

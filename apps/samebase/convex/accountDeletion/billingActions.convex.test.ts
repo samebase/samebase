@@ -76,7 +76,12 @@ describe("account deletion billing actions", () => {
         completedAt: 2,
         outcomes: {
           billing: { state: "succeeded" },
-          providerRevocation: { state: "succeeded" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "revoked" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
           completionEmail: { state: "sent" },
         },
       });

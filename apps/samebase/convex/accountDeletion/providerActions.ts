@@ -6,34 +6,30 @@ import type { Doc } from "../_generated/dataModel";
 import { revokeCloudflareMcpOAuthGrant } from "../cloudflareMcpOAuth";
 import { revokeCloudflareOAuthGrant } from "../cloudflareOAuth";
 import { revokeGithubOAuthGrant } from "../githubOAuth";
+import {
+  CLOUDFLARE_REVOCATION_UNCONFIRMED_ERROR,
+  CONVEX_MANUAL_REVOCATION_NOTICE,
+  GITHUB_REVOCATION_UNCONFIRMED_ERROR,
+  type AccountDeletionCloudflareOutcome,
+  type AccountDeletionConvexOutcome,
+  type AccountDeletionGithubOutcome,
+  vAccountDeletionCloudflareOutcome,
+  vAccountDeletionConvexOutcome,
+  vAccountDeletionGithubOutcome,
+} from "./model";
 
-const { id, literal, object, string, union } = v;
-
-export const vProviderRevocationResult = union(
-  object({ state: literal("not_connected") }),
-  object({ state: literal("local_delete_only") }),
-  object({ state: literal("revoked") }),
-  object({
-    state: literal("manual_revocation_required"),
-    safeNotice: string(),
-  }),
-  object({ state: literal("unconfirmed"), safeError: string() }),
-);
-export type ProviderRevocationResult = Infer<typeof vProviderRevocationResult>;
+const { id, object, string } = v;
 
 export const vRevokeProviderAccessResult = object({
-  github: vProviderRevocationResult,
-  cloudflare: vProviderRevocationResult,
-  convex: vProviderRevocationResult,
+  github: vAccountDeletionGithubOutcome,
+  cloudflare: vAccountDeletionCloudflareOutcome,
+  convex: vAccountDeletionConvexOutcome,
 });
 export type RevokeProviderAccessResult = Infer<typeof vRevokeProviderAccessResult>;
 
-const CONVEX_MANUAL_REVOCATION_NOTICE =
-  "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications.";
-
 async function revokeGithub(
   connection: Doc<"providerConnections"> | null,
-): Promise<ProviderRevocationResult> {
+): Promise<AccountDeletionGithubOutcome> {
   if (connection?.kind !== "github") {
     return { state: "not_connected" };
   }
@@ -47,14 +43,14 @@ async function revokeGithub(
   } catch {
     return {
       state: "unconfirmed",
-      safeError: "GitHub OAuth revocation could not be confirmed.",
+      safeError: GITHUB_REVOCATION_UNCONFIRMED_ERROR,
     };
   }
 }
 
 async function revokeCloudflare(
   connection: Doc<"providerConnections"> | null,
-): Promise<ProviderRevocationResult> {
+): Promise<AccountDeletionCloudflareOutcome> {
   if (connection?.kind !== "cloudflare") {
     return { state: "not_connected" };
   }
@@ -75,12 +71,14 @@ async function revokeCloudflare(
   } catch {
     return {
       state: "unconfirmed",
-      safeError: "Cloudflare OAuth revocation could not be confirmed.",
+      safeError: CLOUDFLARE_REVOCATION_UNCONFIRMED_ERROR,
     };
   }
 }
 
-function classifyConvex(connection: Doc<"providerConnections"> | null): ProviderRevocationResult {
+function classifyConvex(
+  connection: Doc<"providerConnections"> | null,
+): AccountDeletionConvexOutcome {
   if (connection?.kind !== "convex") {
     return { state: "not_connected" };
   }

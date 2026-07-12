@@ -101,6 +101,26 @@ describe("account deletion workflow ownership and outcomes", () => {
     ).rejects.toThrow("Account deletion workflow ownership changed.");
   });
 
+  it("rejects provider errors outside the fixed safe outcome set", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.recordProviderOutcome, {
+        runId: ids.runId,
+        workflowId,
+        outcome: {
+          state: "completed",
+          github: {
+            state: "unconfirmed",
+            // @ts-expect-error Provider outcomes retain only the fixed safe error.
+            safeError: "provider-owned-sensitive-error",
+          },
+          cloudflare: { state: "not_connected" },
+          convex: { state: "not_connected" },
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
   it("keeps billing failure as a hard finalization gate", async () => {
     const { ids, t } = await seedRunningDeletion();
     const args = { runId: ids.runId, workflowId };
@@ -111,6 +131,43 @@ describe("account deletion workflow ownership and outcomes", () => {
     await expect(
       t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
     ).rejects.toThrow("Billing cancellation is not complete.");
+  });
+
+  it("rejects finalization when the final billing recheck replaces prior success", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
+      ...args,
+      outcome: { state: "succeeded" },
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordProviderOutcome, {
+      ...args,
+      outcome: {
+        state: "completed",
+        github: { state: "not_connected" },
+        cloudflare: { state: "not_connected" },
+        convex: { state: "not_connected" },
+      },
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordCompletionEmailOutcome, {
+      ...args,
+      outcome: { state: "sent" },
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
+      ...args,
+      outcome: { state: "failed", safeError: "Billing cancellation was not confirmed." },
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).rejects.toThrow("Billing cancellation is not complete.");
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      outcomes: {
+        billing: { state: "failed" },
+        completionEmail: { state: "sent" },
+        providerRevocation: { state: "completed" },
+      },
+    });
   });
 
   it("cancels branch refresh demand that would otherwise remain queued", async () => {
@@ -184,8 +241,17 @@ describe("account deletion workflow ownership and outcomes", () => {
     await t.mutation(internal.accountDeletion.workflow.recordProviderOutcome, {
       ...args,
       outcome: {
-        state: "unconfirmed",
-        safeError: "Upstream provider revocation was not confirmed.",
+        state: "completed",
+        github: {
+          state: "unconfirmed",
+          safeError: "GitHub OAuth revocation could not be confirmed.",
+        },
+        cloudflare: { state: "revoked" },
+        convex: {
+          state: "manual_revocation_required",
+          safeNotice:
+            "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications.",
+        },
       },
     });
     await t.mutation(internal.accountDeletion.workflow.recordCompletionEmailOutcome, {
@@ -201,7 +267,12 @@ describe("account deletion workflow ownership and outcomes", () => {
     await expect(readRun(t, ids.runId)).resolves.toMatchObject({
       state: "running",
       outcomes: {
-        providerRevocation: { state: "unconfirmed" },
+        providerRevocation: {
+          state: "completed",
+          github: { state: "unconfirmed" },
+          cloudflare: { state: "revoked" },
+          convex: { state: "manual_revocation_required" },
+        },
         completionEmail: { state: "delivery_failed" },
       },
     });

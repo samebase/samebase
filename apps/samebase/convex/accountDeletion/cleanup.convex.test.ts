@@ -64,7 +64,12 @@ describe("account-local deletion cleanup", () => {
         completedAt: 2,
         outcomes: {
           billing: { state: "not_applicable" },
-          providerRevocation: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
           completionEmail: { state: "sent" },
         },
       });
