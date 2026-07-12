@@ -129,6 +129,7 @@ const routeAccessMetadataByPath = {
     },
     availableEnvironments: ["local"],
   },
+  "/workspace-layout-v2": { availableEnvironments: ["local"], access: "access_public" },
 } as const satisfies Record<keyof FileRoutesByFullPath, RouteMetadata>;
 
 export const ROUTE_ACCESS_METADATA_BY_PATH: Record<keyof FileRoutesByFullPath, RouteMetadata> =

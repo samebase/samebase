@@ -41,6 +41,7 @@ export const routes = rootRoute("root.tsx", [
   route("/terms", "terms.tsx"),
   route("/test", "test.tsx"),
   route("/walkthrough/cloudflare-worker-builds", "walkthrough-cloudflare-worker-builds.tsx"),
+  route("/workspace-layout-v2", "workspace-layout-v2.tsx"),
   route("/pitch", "pitch.tsx"),
   route("/pitch/print", "pitch-print.tsx"),
   route("/pitch/print/mobile", "pitch-print-mobile.tsx"),

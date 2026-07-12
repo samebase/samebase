@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/root";
+import { Route as workspaceLayoutV2RouteImport } from "./routes/workspace-layout-v2";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
@@ -53,6 +54,11 @@ import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 import { Route as vaultSchemaMonoRouteImport } from "./routes/vault-schema-mono";
 import { Route as vaultDatabaseMonoRouteImport } from "./routes/vault-database-mono";
 
+const workspaceLayoutV2Route = workspaceLayoutV2RouteImport.update({
+  id: "/workspace-layout-v2",
+  path: "/workspace-layout-v2",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const visualFixtureRoute = visualFixtureRouteImport.update({
   id: "/visual-fixture",
   path: "/visual-fixture",
@@ -290,6 +296,7 @@ export interface FileRoutesByFullPath {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/workspace-layout-v2": typeof workspaceLayoutV2Route;
   "/vault/": typeof vaultDashboardRootRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -335,6 +342,7 @@ export interface FileRoutesByTo {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/workspace-layout-v2": typeof workspaceLayoutV2Route;
   "/vault": typeof vaultDashboardRootRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -381,6 +389,7 @@ export interface FileRoutesById {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/workspace-layout-v2": typeof workspaceLayoutV2Route;
   "/vault/": typeof vaultDashboardRootRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -428,6 +437,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/workspace-layout-v2"
     | "/vault/"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -473,6 +483,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/workspace-layout-v2"
     | "/vault"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -518,6 +529,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/workspace-layout-v2"
     | "/vault/"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -564,6 +576,7 @@ export interface RootRouteChildren {
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
+  workspaceLayoutV2Route: typeof workspaceLayoutV2Route;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
@@ -594,6 +607,13 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/workspace-layout-v2": {
+      id: "/workspace-layout-v2";
+      path: "/workspace-layout-v2";
+      fullPath: "/workspace-layout-v2";
+      preLoaderRoute: typeof workspaceLayoutV2RouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/visual-fixture": {
       id: "/visual-fixture";
       path: "/visual-fixture";
@@ -916,6 +936,7 @@ const rootRouteChildren: RootRouteChildren = {
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
+  workspaceLayoutV2Route: workspaceLayoutV2Route,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   agentsConnectRoute: agentsConnectRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
