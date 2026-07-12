@@ -9,7 +9,7 @@ import { revokeGithubOAuthGrant } from "../githubOAuth";
 
 const { id, literal, object, string, union } = v;
 
-const vProviderRevocationResult = union(
+export const vProviderRevocationResult = union(
   object({ state: literal("not_connected") }),
   object({ state: literal("local_delete_only") }),
   object({ state: literal("revoked") }),
@@ -19,14 +19,14 @@ const vProviderRevocationResult = union(
   }),
   object({ state: literal("unconfirmed"), safeError: string() }),
 );
-type ProviderRevocationResult = Infer<typeof vProviderRevocationResult>;
+export type ProviderRevocationResult = Infer<typeof vProviderRevocationResult>;
 
-const vRevokeProviderAccessResult = object({
+export const vRevokeProviderAccessResult = object({
   github: vProviderRevocationResult,
   cloudflare: vProviderRevocationResult,
   convex: vProviderRevocationResult,
 });
-type RevokeProviderAccessResult = Infer<typeof vRevokeProviderAccessResult>;
+export type RevokeProviderAccessResult = Infer<typeof vRevokeProviderAccessResult>;
 
 const CONVEX_MANUAL_REVOCATION_NOTICE =
   "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications.";
@@ -96,15 +96,14 @@ function classifyConvex(connection: Doc<"providerConnections"> | null): Provider
 export const revokeForAccountDeletion = internalAction({
   args: {
     runId: id("accountDeletionRuns"),
+    workflowId: string(),
   },
   returns: vRevokeProviderAccessResult,
   handler: async (ctx, args): Promise<RevokeProviderAccessResult> => {
-    const identity = await ctx.runQuery(internal.accountDeletion.stepContext.getActiveIdentity, {
-      runId: args.runId,
-    });
-    if (identity === null) {
-      throw new Error("Account deletion run is not active.");
-    }
+    const identity = await ctx.runQuery(
+      internal.accountDeletion.stepContext.getOwnedIdentity,
+      args,
+    );
     const [githubConnection, cloudflareConnection, convexConnection] = await Promise.all([
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId: identity.userId,

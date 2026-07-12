@@ -5,6 +5,7 @@ import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
+const workflowId = "account-deletion-workflow-1";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -25,8 +26,8 @@ async function seedUser(
     });
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: { state: "active", userId, email: "test@example.invalid" },
-      state: "queued",
-      workflow: { state: "not_started" },
+      state: "running",
+      workflow: { state: "started", workflowId, attempt: 1 },
       currentStep: "request_accepted",
       requestedAt: 1,
       updatedAt: 1,
@@ -57,7 +58,10 @@ describe("account deletion provider actions", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, { runId }),
+      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
     ).resolves.toEqual({
       github: { state: "not_connected" },
       cloudflare: { state: "not_connected" },
@@ -98,7 +102,10 @@ describe("account deletion provider actions", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, { runId }),
+      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
     ).resolves.toEqual({
       github: { state: "local_delete_only" },
       cloudflare: { state: "local_delete_only" },
@@ -155,7 +162,7 @@ describe("account deletion provider actions", () => {
 
     const result = await t.action(
       internal.accountDeletion.providerActions.revokeForAccountDeletion,
-      { runId },
+      { runId, workflowId },
     );
     expect(result.github).toEqual({ state: "revoked" });
     expect(result.cloudflare).toEqual({ state: "revoked" });
@@ -205,7 +212,7 @@ describe("account deletion provider actions", () => {
 
     const result = await t.action(
       internal.accountDeletion.providerActions.revokeForAccountDeletion,
-      { runId },
+      { runId, workflowId },
     );
     expect(result.cloudflare).toEqual({ state: "revoked" });
     expect(requests).toEqual([
@@ -235,24 +242,23 @@ describe("account deletion provider actions", () => {
         updatedAt: 1,
       });
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ detail: "provider-owned-sensitive-marker" }), {
-            status: 503,
-          }),
-      ),
+    const fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ detail: "provider-owned-sensitive-marker" }), {
+          status: 503,
+        }),
     );
+    vi.stubGlobal("fetch", fetch);
 
     const result = await t.action(
       internal.accountDeletion.providerActions.revokeForAccountDeletion,
-      { runId },
+      { runId, workflowId },
     );
     expect(result.cloudflare).toEqual({
       state: "unconfirmed",
       safeError: "Cloudflare OAuth revocation could not be confirmed.",
     });
+    expect(fetch).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(result)).not.toContain("provider-owned-sensitive-marker");
   });
 });

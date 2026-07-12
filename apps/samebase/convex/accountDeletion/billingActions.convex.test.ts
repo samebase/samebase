@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
+const workflowId = "account-deletion-workflow-1";
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
@@ -22,8 +24,8 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
     });
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: { state: "active", userId, email: "test@example.invalid" },
-      state: "queued",
-      workflow: { state: "not_started" },
+      state: "running",
+      workflow: { state: "started", workflowId, attempt: 1 },
       currentStep: "request_accepted",
       requestedAt: 1,
       updatedAt: 1,
@@ -40,10 +42,10 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
   return { t, ...ids };
 }
 
-function polarSubscriptionList(items: Array<{ id: string }>, maxPage = 1) {
+function polarSubscriptionList(items: Array<{ id: string; status?: string }>, maxPage = 1) {
   return new Response(
     JSON.stringify({
-      items,
+      items: items.map((item) => ({ status: "active", ...item })),
       pagination: {
         total_count: items.length,
         max_page: maxPage,
@@ -83,8 +85,11 @@ describe("account deletion billing actions", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, { runId }),
-    ).rejects.toThrow("Account deletion run is not active.");
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).rejects.toThrow("Account deletion workflow is not running.");
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -94,7 +99,10 @@ describe("account deletion billing actions", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, { runId }),
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
     ).resolves.toEqual({ state: "not_applicable" });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -112,7 +120,10 @@ describe("account deletion billing actions", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, { runId }),
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
     ).resolves.toEqual({
       state: "failed",
       safeError: "Polar subscription cancellation could not be confirmed.",
@@ -134,7 +145,11 @@ describe("account deletion billing actions", () => {
         if (method === "GET") {
           listRequestCount += 1;
           return listRequestCount === 1
-            ? polarSubscriptionList([{ id: "subscription-a" }, { id: "subscription-b" }])
+            ? polarSubscriptionList([
+                { id: "subscription-a" },
+                { id: "subscription-b", status: "past_due" },
+                { id: "subscription-canceled", status: "canceled" },
+              ])
             : polarSubscriptionList([]);
         }
         return new Response(JSON.stringify({}), { status: 200 });
@@ -142,12 +157,15 @@ describe("account deletion billing actions", () => {
     );
 
     await expect(
-      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, { runId }),
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
     ).resolves.toEqual({ state: "succeeded" });
     expect(requests).toHaveLength(4);
     expect(requests[0]?.url).toContain("/subscriptions/?");
     expect(requests[0]?.url).toContain("external_customer_id=external-customer-test");
-    expect(requests[0]?.url).toContain("active=true");
+    expect(requests[0]?.url).not.toContain("active=");
     expect(requests.slice(1, 3)).toEqual([
       {
         method: "DELETE",
@@ -175,7 +193,10 @@ describe("account deletion billing actions", () => {
     );
 
     await expect(
-      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, { runId }),
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
     ).resolves.toEqual({
       state: "failed",
       safeError: "Polar subscription cancellation could not be confirmed.",
@@ -197,7 +218,7 @@ describe("account deletion billing actions", () => {
 
     const result = await t.action(
       internal.accountDeletion.billingActions.cancelForAccountDeletion,
-      { runId },
+      { runId, workflowId },
     );
     expect(result).toEqual({
       state: "failed",

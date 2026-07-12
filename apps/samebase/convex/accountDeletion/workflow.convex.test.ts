@@ -1,0 +1,293 @@
+/// <reference types="vite/client" />
+
+import { convexTest } from "convex-test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import schema from "../schema";
+import { makeConvexTest } from "../test.setup";
+
+const workflowId = "account-deletion-workflow-1";
+const now = 1_700_000_000_000;
+const modules = import.meta.glob([
+  "../**/*.ts",
+  "../_generated/*.js",
+  "!../**/*.test.ts",
+  "!../**/*.convex.test.ts",
+  "!../**/*.generated.ts",
+  "!../test.setup.ts",
+]);
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+async function seedRunningDeletion() {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      email: "deleting@example.com",
+      isApproved: true,
+    });
+    const initiatingSessionId = await ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: now + 60_000,
+    });
+    const runId = await ctx.db.insert("accountDeletionRuns", {
+      identity: { state: "active", userId, email: "deleting@example.com" },
+      state: "running",
+      workflow: { state: "started", workflowId, attempt: 1 },
+      currentStep: "request_accepted",
+      requestedAt: now,
+      updatedAt: now,
+      initiatingSessionId,
+      retryCount: 0,
+      outcomes: {
+        billing: { state: "not_started" },
+        providerRevocation: { state: "not_started" },
+        completionEmail: { state: "not_started" },
+      },
+    });
+    await ctx.db.patch(userId, {
+      accountDeletion: { state: "deleting", runId, requestedAt: now },
+    });
+    return { initiatingSessionId, runId, userId };
+  });
+  return { ids, t };
+}
+
+async function readRun(t: ReturnType<typeof makeConvexTest>, runId: Id<"accountDeletionRuns">) {
+  return await t.run(async (ctx) => await ctx.db.get(runId));
+}
+
+describe("account deletion workflow ownership and outcomes", () => {
+  it("rolls back the run and marker when workflow start fails", async () => {
+    const t = convexTest(schema, modules);
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "deleting@example.com",
+        isApproved: true,
+      });
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: now + 60_000,
+      });
+      return { sessionId, userId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|${ids.sessionId}`,
+      tokenIdentifier: `test:${ids.sessionId}`,
+    });
+
+    await expect(asUser.mutation(api.accountDeletion.index.request)).rejects.toThrow();
+    const stored = await t.run(async (ctx) => ({
+      user: await ctx.db.get(ids.userId),
+      runs: await ctx.db.query("accountDeletionRuns").collect(),
+      events: await ctx.db.query("accountDeletionEvents").collect(),
+    }));
+    expect(stored.user?.accountDeletion).toBeUndefined();
+    expect(stored.runs).toEqual([]);
+    expect(stored.events).toEqual([]);
+  });
+
+  it("rejects stale workflow ownership", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.claimWorkflowRun, {
+        runId: ids.runId,
+        workflowId: "stale-workflow",
+      }),
+    ).rejects.toThrow("Account deletion workflow ownership changed.");
+  });
+
+  it("keeps billing failure as a hard finalization gate", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
+      ...args,
+      outcome: { state: "failed", safeError: "Billing cancellation was not confirmed." },
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).rejects.toThrow("Billing cancellation is not complete.");
+  });
+
+  it("cancels branch refresh demand that would otherwise remain queued", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const requestId = await t.run(async (ctx) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        userId: ids.userId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      return await ctx.db.insert("repositoryRefreshRequests", {
+        userId: ids.userId,
+        vaultId,
+        dedupeKey: `${vaultId}:main`,
+        demand: { scope: "branch", branch: "main", source: "file_view" },
+        lifecycle: { state: "queued", notBefore: now, queuedAt: now },
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.repositoryRefresh.quiesceForAccountDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "needs_more" });
+    await expect(t.run(async (ctx) => await ctx.db.get(requestId))).resolves.toMatchObject({
+      lifecycle: { state: "canceled", reason: "worker_canceled" },
+    });
+    await expect(
+      t.mutation(internal.repositoryRefresh.quiesceForAccountDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "done" });
+  });
+
+  it("deletes provider connections in bounded idempotent batches", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.run(async (ctx) => {
+      for (let index = 0; index < 26; index += 1) {
+        await ctx.db.insert("providerConnections", {
+          kind: "github",
+          userId: ids.userId,
+          auth: { method: "api_key", credential: `credential-${index}` },
+          createdAt: now + index,
+          updatedAt: now + index,
+        });
+      }
+    });
+    const args = { runId: ids.runId, workflowId };
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.deleteProviderConnections, args),
+    ).resolves.toBe(false);
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.deleteProviderConnections, args),
+    ).resolves.toBe(true);
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.deleteProviderConnections, args),
+    ).resolves.toBe(true);
+  });
+
+  it("allows provider and email failures to continue to finalization", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const args = { runId: ids.runId, workflowId };
+    await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
+      ...args,
+      outcome: { state: "not_applicable" },
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordProviderOutcome, {
+      ...args,
+      outcome: {
+        state: "unconfirmed",
+        safeError: "Upstream provider revocation was not confirmed.",
+      },
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordCompletionEmailOutcome, {
+      ...args,
+      outcome: {
+        state: "delivery_failed",
+        safeError: "Completion email delivery could not be confirmed.",
+      },
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      state: "running",
+      outcomes: {
+        providerRevocation: { state: "unconfirmed" },
+        completionEmail: { state: "delivery_failed" },
+      },
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.toMatchObject({
+      accountDeletion: { state: "finalizing", runId: ids.runId },
+    });
+  });
+
+  it("records completion email failure without retaining the workflow", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "configured-without-token");
+    await expect(
+      t.action(internal.accountDeletion.completionEmail.sendForAccountDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "delivery_failed",
+      safeError: "Completion email delivery could not be confirmed.",
+    });
+  });
+
+  it("ignores stale completion and marks only the current failed attempt", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId: "stale-workflow",
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "provider-owned-sensitive-error" },
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({ state: "running" });
+
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "provider-owned-sensitive-error" },
+    });
+    const failed = await readRun(t, ids.runId);
+    expect(failed).toMatchObject({
+      state: "needs_attention",
+      latestSafeError: "Account deletion needs staff attention.",
+    });
+    expect(JSON.stringify(failed)).not.toContain("provider-owned-sensitive-error");
+  });
+
+  it("starts a fresh staff retry and ignores the old completion", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "canceled" },
+    });
+    const staffId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "nicu@samebase.com",
+        isApproved: true,
+      });
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: now + 60_000,
+      });
+      return { sessionId, userId };
+    });
+    const asStaff = t.withIdentity({
+      subject: `${staffId.userId}|${staffId.sessionId}`,
+      tokenIdentifier: `test:${staffId.sessionId}`,
+    });
+    const retried = await asStaff.mutation(api.accountDeletion.index.retry, {
+      runId: ids.runId,
+    });
+    expect(retried).toMatchObject({ state: "running", markerPhase: "deleting" });
+    const retriedRun = await readRun(t, ids.runId);
+    expect(retriedRun).toMatchObject({
+      state: "running",
+      retryCount: 1,
+      workflow: { state: "started", attempt: 2 },
+    });
+    if (retriedRun === null || retriedRun.state !== "running") {
+      throw new Error("Expected a running retry.");
+    }
+    expect(retriedRun.workflow.workflowId).not.toBe(workflowId);
+
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "late failure" },
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({ state: "running" });
+  });
+});

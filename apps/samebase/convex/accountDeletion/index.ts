@@ -10,6 +10,7 @@ import {
   vAccountDeletionOutcomeSummary,
   vAccountDeletionStep,
 } from "./model";
+import { startAccountDeletionWorkflow } from "./workflow";
 
 const { array, id, literal, number, object, optional, string, union } = v;
 
@@ -138,12 +139,87 @@ export const request = mutation({
         requestedAt: now,
       },
     });
+    const workflowId = await startAccountDeletionWorkflow(ctx, runId);
+    await ctx.db.replace(runId, {
+      identity: {
+        state: "active",
+        userId: ctx.viewer.userId,
+        email: ctx.viewer.user.email,
+      },
+      state: "running",
+      workflow: { state: "started", workflowId, attempt: 1 },
+      currentStep: "request_accepted",
+      requestedAt: now,
+      updatedAt: now,
+      initiatingSessionId,
+      retryCount: 0,
+      outcomes: {
+        billing: { state: "not_started" },
+        providerRevocation: { state: "not_started" },
+        completionEmail: { state: "not_started" },
+      },
+    });
 
     const run = await ctx.db.get(runId);
     if (run === null) {
       throw new Error("Account deletion run was not created.");
     }
     return projectStatus(run, "deleting");
+  },
+});
+
+export const retry = mutation({
+  access: "access_admin",
+  args: { runId: id("accountDeletionRuns") },
+  returns: vAccountDeletionStatus,
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (run === null || run.identity.state !== "active" || run.state !== "needs_attention") {
+      throw new Error("Account deletion run is not retryable.");
+    }
+    const user = await ctx.db.get(run.identity.userId);
+    if (user === null || user.accountDeletion?.runId !== run._id) {
+      throw new Error("Account deletion marker is inconsistent.");
+    }
+
+    const workflowId = await startAccountDeletionWorkflow(ctx, run._id);
+    const now = Date.now();
+    const retryCount = run.retryCount + 1;
+    await ctx.db.replace(run._id, {
+      identity: run.identity,
+      state: "running",
+      workflow: {
+        state: "started",
+        workflowId,
+        attempt: run.workflow.attempt + 1,
+      },
+      currentStep: run.currentStep,
+      requestedAt: run.requestedAt,
+      updatedAt: now,
+      initiatingSessionId: run.initiatingSessionId,
+      retryCount,
+      outcomes: run.outcomes,
+    });
+    await ctx.db.patch(user._id, {
+      accountDeletion: {
+        state: "deleting",
+        runId: run._id,
+        requestedAt: run.requestedAt,
+      },
+    });
+    await ctx.db.insert("accountDeletionEvents", {
+      runId: run._id,
+      step: run.currentStep,
+      level: "info",
+      message: "Staff retried account deletion.",
+      createdAt: now,
+    });
+
+    const retried = await ctx.db.get(run._id);
+    if (retried === null) {
+      throw new Error("Account deletion run was not restarted.");
+    }
+    return projectStatus(retried, "deleting");
   },
 });
 

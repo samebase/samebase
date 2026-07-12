@@ -40,8 +40,11 @@ describe("account-local deletion cleanup", () => {
     });
 
     await expect(
-      t.mutation(internal.accountDeletion.cleanup.cleanupAccountLocalDataBatch, { runId }),
-    ).rejects.toThrow("Active account deletion run not found.");
+      t.mutation(internal.accountDeletion.cleanup.cleanupAccountLocalDataBatch, {
+        runId,
+        workflowId: "stale-workflow",
+      }),
+    ).rejects.toThrow("Account deletion workflow is not running.");
   });
 
   it("blocks while separately-authorized vault deletion is active", async () => {

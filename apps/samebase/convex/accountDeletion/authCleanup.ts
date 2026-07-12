@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { readOwnedActiveRun } from "./stepContext";
 
 const AUTH_CHILD_BATCH_SIZE = 64;
 
@@ -14,17 +15,7 @@ async function readOwnedRun(
   ctx: MutationCtx,
   args: { runId: Id<"accountDeletionRuns">; workflowId: string },
 ) {
-  const run = await ctx.db.get(args.runId);
-  if (run === null || run.identity.state !== "active") {
-    throw new Error("Account deletion run is not active.");
-  }
-  if (run.state !== "running" && run.state !== "needs_attention") {
-    throw new Error("Account deletion workflow is not running.");
-  }
-  if (run.workflow.workflowId !== args.workflowId) {
-    throw new Error("Account deletion workflow ownership changed.");
-  }
-  return run;
+  return await readOwnedActiveRun(ctx, args);
 }
 
 async function deleteRateLimit(ctx: MutationCtx, identifier: string): Promise<void> {
@@ -149,11 +140,36 @@ export const deleteInitiatingSessionBatch = internalMutation({
   },
 });
 
+export const deleteEventBatch = internalMutation({
+  args: workflowArgs,
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    await readOwnedRun(ctx, args);
+    const events = await ctx.db
+      .query("accountDeletionEvents")
+      .withIndex("by_run_and_created_at", (query) => query.eq("runId", args.runId))
+      .take(AUTH_CHILD_BATCH_SIZE);
+    for (const event of events) {
+      await ctx.db.delete(event._id);
+    }
+    return events.length < AUTH_CHILD_BATCH_SIZE;
+  },
+});
+
 export const finishIdentityDeletion = internalMutation({
   args: workflowArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedRun(ctx, args);
+    if (run.outcomes.billing.state === "not_started" || run.outcomes.billing.state === "failed") {
+      throw new Error("Billing cancellation is not complete.");
+    }
+    if (run.outcomes.providerRevocation.state === "not_started") {
+      throw new Error("Provider revocation is not complete.");
+    }
+    if (run.outcomes.completionEmail.state === "not_started") {
+      throw new Error("Completion email was not attempted.");
+    }
     const user = await ctx.db.get(run.identity.userId);
     if (
       user === null ||
@@ -187,6 +203,13 @@ export const finishIdentityDeletion = internalMutation({
       .first();
     if (remainingAccount !== null) {
       throw new Error("Auth accounts remain for the deleting account.");
+    }
+    const remainingEvent = await ctx.db
+      .query("accountDeletionEvents")
+      .withIndex("by_run_and_created_at", (query) => query.eq("runId", run._id))
+      .first();
+    if (remainingEvent !== null) {
+      throw new Error("Account deletion events remain during finalization.");
     }
 
     const completedAt = Date.now();

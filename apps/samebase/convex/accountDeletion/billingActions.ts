@@ -9,12 +9,12 @@ import { createUrlSearchParams } from "../../shared/urlSearchParams";
 
 const { id, literal, object, string, union } = v;
 
-const vCancelBillingResult = union(
+export const vCancelBillingResult = union(
   object({ state: literal("not_applicable") }),
   object({ state: literal("succeeded") }),
   object({ state: literal("failed"), safeError: string() }),
 );
-type CancelBillingResult = Infer<typeof vCancelBillingResult>;
+export type CancelBillingResult = Infer<typeof vCancelBillingResult>;
 
 const POLAR_API_FETCH_TIMEOUT_MS = 10_000;
 const POLAR_SUBSCRIPTION_PAGE_SIZE = 100;
@@ -51,14 +51,13 @@ async function requestPolar(args: { path: string; method: "GET" | "DELETE" }): P
   }
 }
 
-async function listActivePolarSubscriptionIds(externalCustomerId: string): Promise<string[]> {
+async function listCancelablePolarSubscriptionIds(externalCustomerId: string): Promise<string[]> {
   const subscriptionIds: string[] = [];
   let page = 1;
 
   while (page <= POLAR_MAX_SUBSCRIPTION_PAGES) {
     const searchParams = createUrlSearchParams({
       external_customer_id: externalCustomerId,
-      active: "true",
       page: String(page),
       limit: String(POLAR_SUBSCRIPTION_PAGE_SIZE),
     });
@@ -75,10 +74,24 @@ async function listActivePolarSubscriptionIds(externalCustomerId: string): Promi
         throw new Error("Polar subscription list response is invalid.");
       }
       const subscriptionId = readString(item, "id");
-      if (!subscriptionId) {
+      const status = readString(item, "status");
+      if (!subscriptionId || !status) {
         throw new Error("Polar subscription list response is invalid.");
       }
-      subscriptionIds.push(subscriptionId);
+      switch (status) {
+        case "incomplete":
+        case "trialing":
+        case "active":
+        case "past_due":
+        case "unpaid":
+          subscriptionIds.push(subscriptionId);
+          break;
+        case "incomplete_expired":
+        case "canceled":
+          break;
+        default:
+          throw new Error("Polar subscription status is invalid.");
+      }
     }
 
     const maxPage = readNumber(payload.pagination, "max_page");
@@ -103,15 +116,14 @@ async function listActivePolarSubscriptionIds(externalCustomerId: string): Promi
 export const cancelForAccountDeletion = internalAction({
   args: {
     runId: id("accountDeletionRuns"),
+    workflowId: string(),
   },
   returns: vCancelBillingResult,
   handler: async (ctx, args): Promise<CancelBillingResult> => {
-    const identity = await ctx.runQuery(internal.accountDeletion.stepContext.getActiveIdentity, {
-      runId: args.runId,
-    });
-    if (identity === null) {
-      throw new Error("Account deletion run is not active.");
-    }
+    const identity = await ctx.runQuery(
+      internal.accountDeletion.stepContext.getOwnedIdentity,
+      args,
+    );
     const user = await ctx.runQuery(internal.users.getById, { userId: identity.userId });
     if (!user) {
       return {
@@ -137,7 +149,7 @@ export const cancelForAccountDeletion = internalAction({
     }
 
     try {
-      const activeSubscriptionIds = await listActivePolarSubscriptionIds(externalCustomerId);
+      const activeSubscriptionIds = await listCancelablePolarSubscriptionIds(externalCustomerId);
       for (const subscriptionId of activeSubscriptionIds) {
         await requestPolar({
           path: `/subscriptions/${encodeURIComponent(subscriptionId)}`,
@@ -146,7 +158,7 @@ export const cancelForAccountDeletion = internalAction({
       }
 
       const remainingActiveSubscriptionIds =
-        await listActivePolarSubscriptionIds(externalCustomerId);
+        await listCancelablePolarSubscriptionIds(externalCustomerId);
       if (remainingActiveSubscriptionIds.length > 0) {
         return {
           state: "failed",

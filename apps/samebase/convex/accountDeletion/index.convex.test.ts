@@ -36,7 +36,7 @@ const notStartedOutcomes = {
 };
 
 describe("account deletion foundation", () => {
-  it("atomically gates the user and reuses one queued run", async () => {
+  it("atomically gates the user and reuses one running workflow", async () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
 
     const first = await asUser.mutation(api.accountDeletion.index.request);
@@ -44,7 +44,7 @@ describe("account deletion foundation", () => {
 
     expect(second).toEqual(first);
     expect(first).toMatchObject({
-      state: "queued",
+      state: "running",
       markerPhase: "deleting",
       currentStep: "request_accepted",
     });
@@ -63,8 +63,8 @@ describe("account deletion foundation", () => {
     });
     expect(stored.runs).toMatchObject([
       {
-        state: "queued",
-        workflow: { state: "not_started" },
+        state: "running",
+        workflow: { state: "started", attempt: 1 },
         outcomes: notStartedOutcomes,
       },
     ]);
@@ -140,7 +140,7 @@ describe("account deletion foundation", () => {
       expect.objectContaining({
         runId: run.runId,
         email: "ada@example.com",
-        state: "queued",
+        state: "running",
         outcomes: notStartedOutcomes,
       }),
     ]);
@@ -163,24 +163,6 @@ describe("account deletion foundation", () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const staff = await seedUser({ email: "nicu@samebase.com", t: owner.t });
     const requested = await owner.asUser.mutation(api.accountDeletion.index.request);
-
-    await owner.t.run(async (ctx) => {
-      const queued = await ctx.db.get(requested.runId);
-      if (queued === null || queued.state !== "queued") {
-        throw new Error("Expected queued account deletion run.");
-      }
-      await ctx.db.replace(requested.runId, {
-        identity: queued.identity,
-        state: "running",
-        workflow: { state: "started", workflowId: "workflow-1", attempt: 1 },
-        currentStep: "cancel_billing",
-        requestedAt: queued.requestedAt,
-        updatedAt: queued.updatedAt + 1,
-        initiatingSessionId: queued.initiatingSessionId,
-        retryCount: queued.retryCount,
-        outcomes: queued.outcomes,
-      });
-    });
 
     await owner.t.run(async (ctx) => {
       const running = await ctx.db.get(requested.runId);

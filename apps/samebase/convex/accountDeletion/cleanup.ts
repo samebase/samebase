@@ -1,14 +1,10 @@
 import { v, type Infer } from "convex/values";
 
-import { components, internal } from "../_generated/api";
+import { components } from "../_generated/api";
 import type { Id, TableNames } from "../_generated/dataModel";
-import {
-  internalAction,
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-} from "../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { deleteVaultLocalDataBatchForUser } from "../vault/deletion/cleanup";
+import { readOwnedActiveRun } from "./stepContext";
 
 const { id, literal, number, object, union } = v;
 
@@ -138,6 +134,12 @@ const accountLocalCleanupBatchResult = union(
   object({ state: literal("done") }),
 );
 export type AccountLocalCleanupBatchResult = Infer<typeof accountLocalCleanupBatchResult>;
+
+const accountDeletionQuiescenceResult = union(
+  object({ state: literal("done") }),
+  object({ state: literal("waiting"), blocker: literal("active_vault_deletion") }),
+  object({ state: literal("waiting"), blocker: literal("active_app_provisioning") }),
+);
 
 const ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE = 25;
 type AccountLocalCleanupCtx = Pick<MutationCtx, "db" | "storage">;
@@ -596,43 +598,53 @@ export async function cleanupAccountLocalDataBatchForUser(
 }
 
 export const cleanupAccountLocalDataBatch = internalMutation({
-  args: { runId: id("accountDeletionRuns") },
+  args: { runId: id("accountDeletionRuns"), workflowId: v.string() },
   returns: accountLocalCleanupBatchResult,
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run || run.identity.state !== "active") {
-      throw new Error("Active account deletion run not found.");
-    }
+    const run = await readOwnedActiveRun(ctx, args);
     return await cleanupAccountLocalDataBatchForUser(ctx, {
       userId: run.identity.userId,
     });
   },
 });
 
-export const resolveActiveUserId = internalQuery({
-  args: { runId: id("accountDeletionRuns") },
-  returns: id("users"),
+export const inspectQuiescence = internalMutation({
+  args: { runId: id("accountDeletionRuns"), workflowId: v.string() },
+  returns: accountDeletionQuiescenceResult,
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run || run.identity.state !== "active") {
-      throw new Error("Active account deletion run not found.");
+    const run = await readOwnedActiveRun(ctx, args);
+    if (await findActiveVaultDeletion(ctx, run.identity.userId)) {
+      return { state: "waiting", blocker: "active_vault_deletion" } as const;
     }
-    return run.identity.userId;
+    if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
+      return { state: "waiting", blocker: "active_app_provisioning" } as const;
+    }
+    return { state: "done" } as const;
   },
 });
 
 /** The Agent component owns its own bounded, internally-rescheduled deletion. */
-export const cleanupAgentComponentData = internalAction({
-  args: { runId: id("accountDeletionRuns") },
+export const cleanupAgentComponentData = internalMutation({
+  args: { runId: id("accountDeletionRuns"), workflowId: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId: Id<"users"> = await ctx.runQuery(
-      internal.accountDeletion.cleanup.resolveActiveUserId,
-      { runId: args.runId },
-    );
-    await ctx.runAction(components.agent.users.deleteAllForUserId, {
-      userId,
+    const run = await readOwnedActiveRun(ctx, args);
+    await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
+      userId: run.identity.userId,
     });
     return null;
+  },
+});
+
+export const hasAgentComponentData = internalQuery({
+  args: { runId: id("accountDeletionRuns"), workflowId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    const threads = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
+      userId: run.identity.userId,
+      paginationOpts: { cursor: null, numItems: 1 },
+    });
+    return threads.page.length > 0;
   },
 });

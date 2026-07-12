@@ -8,6 +8,7 @@ import { mutation } from "./functions";
 import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
 import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { toErrorMessage } from "./jsonUtils";
+import { readOwnedActiveRun } from "./accountDeletion/stepContext";
 import {
   deriveRepositoryRefreshDedupeKey,
   getRepositoryRefreshPriority,
@@ -34,6 +35,7 @@ import {
 } from "./repositoryRefreshModel";
 
 const { id, literal, null: vNull, object, string, union } = v;
+const ACCOUNT_DELETION_QUIESCE_BATCH_SIZE = 25;
 /**
  * One repository refresh pool for this runner.
  *
@@ -755,6 +757,68 @@ async function finishActiveRepositoryRefreshRequestCanceled(
     updatedAt: canceled.updatedAt,
   });
 }
+
+export const quiesceForAccountDeletion = internalMutation({
+  args: object({
+    runId: id("accountDeletionRuns"),
+    workflowId: string(),
+  }),
+  returns: union(object({ state: literal("done") }), object({ state: literal("needs_more") })),
+  handler: async (ctx, args) => {
+    const deletionRun = await readOwnedActiveRun(ctx, args);
+    let rowsChanged = 0;
+    let foundRunning = false;
+
+    for (const state of ["queued", "scheduled", "running"] as const) {
+      const requests = await ctx.db
+        .query("repositoryRefreshRequests")
+        .withIndex("by_userId_and_lifecycle_state_and_updatedAt", (q) =>
+          q.eq("userId", deletionRun.identity.userId).eq("lifecycle.state", state),
+        )
+        .take(ACCOUNT_DELETION_QUIESCE_BATCH_SIZE - rowsChanged);
+      for (const request of requests) {
+        if (request.lifecycle.state === "queued") {
+          const canceled = markRepositoryRefreshRequestCanceled(request, {
+            now: Date.now(),
+            reason: "worker_canceled",
+          });
+          await ctx.db.patch(request._id, {
+            lifecycle: canceled.lifecycle,
+            updatedAt: canceled.updatedAt,
+          });
+          rowsChanged += 1;
+          continue;
+        }
+
+        if (request.lifecycle.state === "scheduled") {
+          // @ts-expect-error This value was returned by this Workpool and persisted as a string.
+          await repositoryRefreshWorkpool.cancel(ctx, request.lifecycle.workpoolJobId);
+          await finishActiveRepositoryRefreshRequestCanceled(ctx, {
+            requestId: request._id,
+            workpoolJobId: request.lifecycle.workpoolJobId,
+            reason: "worker_canceled",
+          });
+          rowsChanged += 1;
+          continue;
+        }
+        if (request.lifecycle.state === "running") {
+          // @ts-expect-error This value was returned by this Workpool and persisted as a string.
+          await repositoryRefreshWorkpool.cancel(ctx, request.lifecycle.workpoolJobId);
+          foundRunning = true;
+          continue;
+        }
+        throw new Error("Repository refresh state changed during account deletion quiescence.");
+      }
+      if (rowsChanged >= ACCOUNT_DELETION_QUIESCE_BATCH_SIZE) {
+        break;
+      }
+    }
+
+    return rowsChanged === 0 && !foundRunning
+      ? ({ state: "done" } as const)
+      : ({ state: "needs_more" } as const);
+  },
+});
 
 /**
  * Terminal success transition used by the Workpool action.

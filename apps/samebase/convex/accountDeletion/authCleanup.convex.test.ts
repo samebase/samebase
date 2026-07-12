@@ -156,6 +156,13 @@ describe("account deletion auth cleanup", () => {
       await ctx.db.patch(ids.userId, {
         accountDeletion: { state: "finalizing", runId: ids.runId, requestedAt: Date.now() },
       });
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: { state: "not_applicable" },
+          completionEmail: { state: "sent" },
+        },
+      });
     });
 
     await expect(
@@ -183,7 +190,11 @@ describe("account deletion auth cleanup", () => {
       identity: { state: "scrubbed" },
       state: "succeeded",
       currentStep: "finish",
-      outcomes: notStartedOutcomes,
+      outcomes: {
+        billing: { state: "not_applicable" },
+        providerRevocation: { state: "not_applicable" },
+        completionEmail: { state: "sent" },
+      },
     });
     expect(stored.run).not.toHaveProperty("initiatingSessionId");
   });
@@ -200,6 +211,13 @@ describe("account deletion auth cleanup", () => {
     await t.run(async (ctx) => {
       await ctx.db.patch(ids.userId, {
         accountDeletion: { state: "finalizing", runId: ids.runId, requestedAt: Date.now() },
+      });
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: { state: "not_applicable" },
+          completionEmail: { state: "sent" },
+        },
       });
       await ctx.db.insert("authSessions", {
         userId: ids.userId,
