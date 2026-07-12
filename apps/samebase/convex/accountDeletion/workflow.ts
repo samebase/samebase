@@ -1,6 +1,6 @@
 import { WorkflowManager } from "@convex-dev/workflow";
 import { vResultValidator } from "@convex-dev/workpool";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -35,6 +35,26 @@ const vClosedEmailOutcome = union(
 const SAFE_WORKFLOW_ERROR = "Account deletion needs staff attention.";
 const MAX_QUIESCE_CHECKS = 40;
 const MAX_BATCH_STEPS = 96;
+
+type AccountDeletionStep = Infer<typeof vAccountDeletionStep>;
+const ACCOUNT_DELETION_STEP_RANK = {
+  request_accepted: 0,
+  cancel_billing: 1,
+  revoke_access: 2,
+  delete_samebase_data: 3,
+  send_completion_email: 4,
+  delete_identity: 5,
+  finish: 6,
+} satisfies Record<AccountDeletionStep, number>;
+
+function latestAccountDeletionStep(
+  current: AccountDeletionStep,
+  candidate: AccountDeletionStep,
+): AccountDeletionStep {
+  return ACCOUNT_DELETION_STEP_RANK[candidate] > ACCOUNT_DELETION_STEP_RANK[current]
+    ? candidate
+    : current;
+}
 
 export async function startAccountDeletionWorkflow(
   ctx: MutationCtx,
@@ -104,7 +124,7 @@ export const appendRunEvent = internalMutation({
       createdAt: now,
     });
     await ctx.db.patch(run._id, {
-      currentStep: args.step,
+      currentStep: latestAccountDeletionStep(run.currentStep, args.step),
       updatedAt: now,
     });
     return null;
@@ -137,7 +157,7 @@ export const recordProviderOutcome = internalMutation({
     const run = await readOwnedActiveRun(ctx, args);
     await ctx.db.patch(run._id, {
       outcomes: { ...run.outcomes, providerRevocation: args.outcome },
-      currentStep: "revoke_access",
+      currentStep: latestAccountDeletionStep(run.currentStep, "revoke_access"),
       updatedAt: Date.now(),
     });
     return null;
@@ -170,7 +190,7 @@ export const recordCompletionEmailOutcome = internalMutation({
     const run = await readOwnedActiveRun(ctx, args);
     await ctx.db.patch(run._id, {
       outcomes: { ...run.outcomes, completionEmail: args.outcome },
-      currentStep: "send_completion_email",
+      currentStep: latestAccountDeletionStep(run.currentStep, "send_completion_email"),
       updatedAt: Date.now(),
     });
     return null;
@@ -208,7 +228,7 @@ export const markFinalizing = internalMutation({
       },
     });
     await ctx.db.patch(run._id, {
-      currentStep: "delete_identity",
+      currentStep: latestAccountDeletionStep(run.currentStep, "delete_identity"),
       updatedAt: now,
     });
     await ctx.db.insert("accountDeletionEvents", {

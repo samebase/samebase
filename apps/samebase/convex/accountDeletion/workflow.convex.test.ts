@@ -395,8 +395,15 @@ describe("account deletion workflow ownership and outcomes", () => {
     expect(JSON.stringify(failed)).not.toContain("provider-owned-sensitive-error");
   });
 
-  it("starts a fresh staff retry and ignores the old completion", async () => {
+  it("starts a fresh staff retry without regressing a late failed step", async () => {
     const { ids, t } = await seedRunningDeletion();
+    await t.mutation(internal.accountDeletion.workflow.appendRunEvent, {
+      runId: ids.runId,
+      workflowId,
+      step: "send_completion_email",
+      level: "info",
+      message: "Sending account deletion confirmation.",
+    });
     await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
       workflowId,
       context: { runId: ids.runId },
@@ -424,6 +431,7 @@ describe("account deletion workflow ownership and outcomes", () => {
     const retriedRun = await readRun(t, ids.runId);
     expect(retriedRun).toMatchObject({
       state: "running",
+      currentStep: "send_completion_email",
       retryCount: 1,
       workflow: { state: "started", attempt: 2 },
     });
@@ -431,6 +439,17 @@ describe("account deletion workflow ownership and outcomes", () => {
       throw new Error("Expected a running retry.");
     }
     expect(retriedRun.workflow.workflowId).not.toBe(workflowId);
+
+    await t.mutation(internal.accountDeletion.workflow.appendRunEvent, {
+      runId: ids.runId,
+      workflowId: retriedRun.workflow.workflowId,
+      step: "request_accepted",
+      level: "info",
+      message: "Waiting for active Samebase work to stop.",
+    });
+    await expect(readRun(t, ids.runId)).resolves.toMatchObject({
+      currentStep: "send_completion_email",
+    });
 
     await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
       workflowId,

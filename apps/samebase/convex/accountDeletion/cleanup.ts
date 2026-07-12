@@ -114,52 +114,6 @@ const accountLocalCleanupTarget = union(
 );
 export type AccountLocalCleanupTarget = Infer<typeof accountLocalCleanupTarget>;
 
-type AccountLocalCleanupStage =
-  | "content"
-  | "machine_credentials"
-  | "machine_identity"
-  | "preferences"
-  | "oauth_credentials"
-  | "mcp_credentials"
-  | "security_audit"
-  | "workflow_history";
-
-/**
- * Every account-local policy entry has an implemented cleanup target and its
- * deterministic stage. Adding an account-local table fails typechecking until
- * its implementation entry is added here.
- */
-export const ACCOUNT_LOCAL_CLEANUP_IMPLEMENTATION = {
-  chatMessageMetadata: { target: "chatMessageMetadata", stage: "content" },
-  agentThreadContext: { target: "agentThreadContext", stage: "content" },
-  machineCredentials: { target: "machineCredentials", stage: "machine_credentials" },
-  machineControlTokens: { target: "machineControlTokens", stage: "machine_credentials" },
-  machineRegistrationRequests: {
-    target: "machineRegistrationRequests",
-    stage: "machine_identity",
-  },
-  connectedMachines: { target: "connectedMachines", stage: "machine_identity" },
-  dashboardSettings: { target: "dashboardSettings", stage: "preferences" },
-  workspaceSidebarState: { target: "workspaceSidebarState", stage: "preferences" },
-  oauthStates: { target: "oauthStates", stage: "oauth_credentials" },
-  mcpAuthRequests: { target: "mcpAuthRequests", stage: "mcp_credentials" },
-  mcpAuthorizationCodes: { target: "mcpAuthorizationCodes", stage: "mcp_credentials" },
-  mcpAccessTokens: { target: "mcpAccessTokens", stage: "mcp_credentials" },
-  mcpRefreshTokens: { target: "mcpRefreshTokens", stage: "mcp_credentials" },
-  agentBrowserHandoffs: { target: "agentBrowserHandoffs", stage: "mcp_credentials" },
-  mcpGrants: { target: "mcpGrants", stage: "mcp_credentials" },
-  mcpAccessAudit: { target: "mcpAccessAudit", stage: "security_audit" },
-  aiProdAccessAudit: { target: "aiProdAccessAudit", stage: "security_audit" },
-  aiProdAccessRequests: { target: "aiProdAccessRequests", stage: "security_audit" },
-  vaultDeletionEvents: { target: "vaultDeletionEvents", stage: "workflow_history" },
-  vaultDeletionRuns: { target: "vaultDeletionRuns", stage: "workflow_history" },
-} satisfies {
-  [TableName in AccountLocalTableName]: {
-    target: TableName & AccountLocalCleanupTarget;
-    stage: AccountLocalCleanupStage;
-  };
-};
-
 const accountLocalCleanupBatchResult = union(
   object({
     state: literal("blocked"),
@@ -328,6 +282,290 @@ async function cleanupVaultBatch(
     : { state: "needs_more", target: "vaults", rowsChanged: result.rowsChanged };
 }
 
+type AccountLocalCleanupHandler = (
+  ctx: AccountLocalCleanupCtx,
+  userId: Id<"users">,
+) => Promise<AccountLocalCleanupBatchResult | null>;
+
+/**
+ * Property order is the production cleanup order. Every account-local table
+ * must provide the handler that the account deletion workflow executes.
+ */
+export const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
+  chatMessageMetadata: async (ctx, userId) => {
+    const context = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    if (!context) return null;
+    const rowsChanged = await deleteThreadMetadataBatch(ctx, context.threadId);
+    return rowsChanged > 0
+      ? { state: "needs_more", target: "chatMessageMetadata", rowsChanged }
+      : null;
+  },
+  agentThreadContext: async (ctx, userId) => {
+    const context = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    if (!context) return null;
+    await ctx.db.delete(context._id);
+    return { state: "needs_more", target: "agentThreadContext", rowsChanged: 1 };
+  },
+  machineCredentials: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("machineCredentials")
+      .withIndex("by_user_machine_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "machineCredentials",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  machineControlTokens: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("machineControlTokens")
+      .withIndex("by_user_machine_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "machineControlTokens",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  machineRegistrationRequests: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("machineRegistrationRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "machineRegistrationRequests",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  connectedMachines: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("connectedMachines")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "connectedMachines",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  dashboardSettings: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("dashboardSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "dashboardSettings",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  workspaceSidebarState: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("workspaceSidebarState")
+      .withIndex("by_user_and_workspace_key", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "workspaceSidebarState",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  oauthStates: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("oauthStates")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "oauthStates",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  mcpAuthRequests: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("mcpAuthRequests")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "mcpAuthRequests",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  mcpAuthorizationCodes: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("mcpAuthorizationCodes")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "mcpAuthorizationCodes",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  mcpAccessTokens: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("mcpAccessTokens")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "mcpAccessTokens",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  mcpRefreshTokens: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("mcpRefreshTokens")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "mcpRefreshTokens",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  agentBrowserHandoffs: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("agentBrowserHandoffs")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "agentBrowserHandoffs",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  mcpGrants: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("mcpGrants")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "mcpGrants",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  mcpAccessAudit: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("mcpAccessAudit")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "mcpAccessAudit",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  aiProdAccessAudit: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("aiProdAccessAudit")
+      .withIndex("by_actor", (q) => q.eq("actorUserId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "aiProdAccessAudit",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  aiProdAccessRequests: async (ctx, userId) => {
+    const requested = await ctx.db
+      .query("aiProdAccessRequests")
+      .withIndex("by_requester", (q) => q.eq("requesterUserId", userId))
+      .first();
+    if (requested) {
+      const audit = await ctx.db
+        .query("aiProdAccessAudit")
+        .withIndex("by_request", (q) => q.eq("requestId", requested._id))
+        .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+      if (audit.length > 0) {
+        return {
+          state: "needs_more",
+          target: "aiProdAccessAudit",
+          rowsChanged: await deleteRowsById(ctx, audit),
+        };
+      }
+      await ctx.db.delete(requested._id);
+      return { state: "needs_more", target: "aiProdAccessRequests", rowsChanged: 1 };
+    }
+    const approved = await ctx.db
+      .query("aiProdAccessRequests")
+      .withIndex("by_approved_by", (q) => q.eq("approvedBy", userId))
+      .first();
+    if (!approved) return null;
+    await ctx.db.patch(approved._id, { approvedBy: undefined });
+    return { state: "needs_more", target: "aiProdAccessRequests", rowsChanged: 1 };
+  },
+  vaultDeletionEvents: async (ctx, userId) => {
+    const run = await ctx.db
+      .query("vaultDeletionRuns")
+      .withIndex("by_user_and_updated_at", (q) => q.eq("userId", userId))
+      .order("asc")
+      .first();
+    if (!run) return null;
+    const rows = await ctx.db
+      .query("vaultDeletionEvents")
+      .withIndex("by_run_and_created_at", (q) => q.eq("runId", run._id))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "vaultDeletionEvents",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  vaultDeletionRuns: async (ctx, userId) => {
+    const run = await ctx.db
+      .query("vaultDeletionRuns")
+      .withIndex("by_user_and_updated_at", (q) => q.eq("userId", userId))
+      .order("asc")
+      .first();
+    if (!run) return null;
+    await ctx.db.delete(run._id);
+    return { state: "needs_more", target: "vaultDeletionRuns", rowsChanged: 1 };
+  },
+} satisfies Record<AccountLocalTableName, AccountLocalCleanupHandler>;
+
 /**
  * Deletes at most one bounded slice. The account workflow owns repetition and
  * does not advance while a separately-authorized vault deletion is active.
@@ -368,251 +606,9 @@ export async function cleanupAccountLocalDataBatchForUser(
     return vaultResult;
   }
 
-  const context = await ctx.db
-    .query("agentThreadContext")
-    .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-    .first();
-  if (context) {
-    const metadataDeleted = await deleteThreadMetadataBatch(ctx, context.threadId);
-    if (metadataDeleted > 0) {
-      return {
-        state: "needs_more",
-        target: "chatMessageMetadata",
-        rowsChanged: metadataDeleted,
-      };
-    }
-    await ctx.db.delete(context._id);
-    return { state: "needs_more", target: "agentThreadContext", rowsChanged: 1 };
-  }
-
-  const machineCredentials = await ctx.db
-    .query("machineCredentials")
-    .withIndex("by_user_machine_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (machineCredentials.length > 0) {
-    return {
-      state: "needs_more",
-      target: "machineCredentials",
-      rowsChanged: await deleteRowsById(ctx, machineCredentials),
-    };
-  }
-
-  const machineControlTokens = await ctx.db
-    .query("machineControlTokens")
-    .withIndex("by_user_machine_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (machineControlTokens.length > 0) {
-    return {
-      state: "needs_more",
-      target: "machineControlTokens",
-      rowsChanged: await deleteRowsById(ctx, machineControlTokens),
-    };
-  }
-
-  const registrationRequests = await ctx.db
-    .query("machineRegistrationRequests")
-    .withIndex("by_user", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (registrationRequests.length > 0) {
-    return {
-      state: "needs_more",
-      target: "machineRegistrationRequests",
-      rowsChanged: await deleteRowsById(ctx, registrationRequests),
-    };
-  }
-
-  const connectedMachines = await ctx.db
-    .query("connectedMachines")
-    .withIndex("by_user", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (connectedMachines.length > 0) {
-    return {
-      state: "needs_more",
-      target: "connectedMachines",
-      rowsChanged: await deleteRowsById(ctx, connectedMachines),
-    };
-  }
-
-  const dashboardSettings = await ctx.db
-    .query("dashboardSettings")
-    .withIndex("by_user", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (dashboardSettings.length > 0) {
-    return {
-      state: "needs_more",
-      target: "dashboardSettings",
-      rowsChanged: await deleteRowsById(ctx, dashboardSettings),
-    };
-  }
-
-  const sidebarState = await ctx.db
-    .query("workspaceSidebarState")
-    .withIndex("by_user_and_workspace_key", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (sidebarState.length > 0) {
-    return {
-      state: "needs_more",
-      target: "workspaceSidebarState",
-      rowsChanged: await deleteRowsById(ctx, sidebarState),
-    };
-  }
-
-  const oauthStates = await ctx.db
-    .query("oauthStates")
-    .withIndex("by_user", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (oauthStates.length > 0) {
-    return {
-      state: "needs_more",
-      target: "oauthStates",
-      rowsChanged: await deleteRowsById(ctx, oauthStates),
-    };
-  }
-
-  const mcpAuthRequests = await ctx.db
-    .query("mcpAuthRequests")
-    .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (mcpAuthRequests.length > 0) {
-    return {
-      state: "needs_more",
-      target: "mcpAuthRequests",
-      rowsChanged: await deleteRowsById(ctx, mcpAuthRequests),
-    };
-  }
-
-  const authorizationCodes = await ctx.db
-    .query("mcpAuthorizationCodes")
-    .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (authorizationCodes.length > 0) {
-    return {
-      state: "needs_more",
-      target: "mcpAuthorizationCodes",
-      rowsChanged: await deleteRowsById(ctx, authorizationCodes),
-    };
-  }
-
-  const accessTokens = await ctx.db
-    .query("mcpAccessTokens")
-    .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (accessTokens.length > 0) {
-    return {
-      state: "needs_more",
-      target: "mcpAccessTokens",
-      rowsChanged: await deleteRowsById(ctx, accessTokens),
-    };
-  }
-
-  const refreshTokens = await ctx.db
-    .query("mcpRefreshTokens")
-    .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (refreshTokens.length > 0) {
-    return {
-      state: "needs_more",
-      target: "mcpRefreshTokens",
-      rowsChanged: await deleteRowsById(ctx, refreshTokens),
-    };
-  }
-
-  const handoffs = await ctx.db
-    .query("agentBrowserHandoffs")
-    .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (handoffs.length > 0) {
-    return {
-      state: "needs_more",
-      target: "agentBrowserHandoffs",
-      rowsChanged: await deleteRowsById(ctx, handoffs),
-    };
-  }
-
-  const grants = await ctx.db
-    .query("mcpGrants")
-    .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (grants.length > 0) {
-    return {
-      state: "needs_more",
-      target: "mcpGrants",
-      rowsChanged: await deleteRowsById(ctx, grants),
-    };
-  }
-
-  const mcpAudit = await ctx.db
-    .query("mcpAccessAudit")
-    .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (mcpAudit.length > 0) {
-    return {
-      state: "needs_more",
-      target: "mcpAccessAudit",
-      rowsChanged: await deleteRowsById(ctx, mcpAudit),
-    };
-  }
-
-  const prodAudit = await ctx.db
-    .query("aiProdAccessAudit")
-    .withIndex("by_actor", (q) => q.eq("actorUserId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  if (prodAudit.length > 0) {
-    return {
-      state: "needs_more",
-      target: "aiProdAccessAudit",
-      rowsChanged: await deleteRowsById(ctx, prodAudit),
-    };
-  }
-
-  const prodRequest = await ctx.db
-    .query("aiProdAccessRequests")
-    .withIndex("by_requester", (q) => q.eq("requesterUserId", args.userId))
-    .first();
-  if (prodRequest) {
-    const requestAudit = await ctx.db
-      .query("aiProdAccessAudit")
-      .withIndex("by_request", (q) => q.eq("requestId", prodRequest._id))
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-    if (requestAudit.length > 0) {
-      return {
-        state: "needs_more",
-        target: "aiProdAccessAudit",
-        rowsChanged: await deleteRowsById(ctx, requestAudit),
-      };
-    }
-    await ctx.db.delete(prodRequest._id);
-    return { state: "needs_more", target: "aiProdAccessRequests", rowsChanged: 1 };
-  }
-
-  const approvedRequest = await ctx.db
-    .query("aiProdAccessRequests")
-    .withIndex("by_approved_by", (q) => q.eq("approvedBy", args.userId))
-    .first();
-  if (approvedRequest) {
-    await ctx.db.patch(approvedRequest._id, { approvedBy: undefined });
-    return { state: "needs_more", target: "aiProdAccessRequests", rowsChanged: 1 };
-  }
-
-  const deletionRun = await ctx.db
-    .query("vaultDeletionRuns")
-    .withIndex("by_user_and_updated_at", (q) => q.eq("userId", args.userId))
-    .order("asc")
-    .first();
-  if (deletionRun) {
-    const events = await ctx.db
-      .query("vaultDeletionEvents")
-      .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRun._id))
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-    if (events.length > 0) {
-      return {
-        state: "needs_more",
-        target: "vaultDeletionEvents",
-        rowsChanged: await deleteRowsById(ctx, events),
-      };
-    }
-    await ctx.db.delete(deletionRun._id);
-    return { state: "needs_more", target: "vaultDeletionRuns", rowsChanged: 1 };
+  for (const cleanup of Object.values(ACCOUNT_LOCAL_CLEANUP_HANDLERS)) {
+    const result = await cleanup(ctx, args.userId);
+    if (result) return result;
   }
 
   return { state: "done" };
