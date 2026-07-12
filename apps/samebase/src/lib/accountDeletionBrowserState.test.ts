@@ -2,10 +2,12 @@
 
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import {
-  markAccountDeletionFinalizing,
+  createAccountDeletionCompletionCapability,
   readAccountDeletionBrowserMarker,
   writeAccountDeletionBrowserMarker,
 } from "./accountDeletionBrowserState";
+
+const completionCapability = "a".repeat(64);
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -32,30 +34,23 @@ describe("account deletion browser state", () => {
   it("creates a marker only when deletion acceptance writes one", () => {
     expect(readAccountDeletionBrowserMarker()).toBeNull();
 
-    writeAccountDeletionBrowserMarker("run-1");
+    writeAccountDeletionBrowserMarker(completionCapability);
 
     expect(readAccountDeletionBrowserMarker()).toEqual({
-      runId: "run-1",
-      observedFinalizing: false,
-    });
-  });
-
-  it("records finalization only for the accepted run", () => {
-    writeAccountDeletionBrowserMarker("run-1");
-
-    markAccountDeletionFinalizing("run-2");
-    expect(readAccountDeletionBrowserMarker()?.observedFinalizing).toBe(false);
-
-    markAccountDeletionFinalizing("run-1");
-    expect(readAccountDeletionBrowserMarker()).toEqual({
-      runId: "run-1",
-      observedFinalizing: true,
+      completionCapability,
     });
   });
 
   it("fails closed for malformed browser state", () => {
-    window.localStorage.setItem("samebase:account-deletion", '{"runId":4}');
+    window.localStorage.setItem("samebase:account-deletion", '{"completionCapability":"short"}');
 
     expect(readAccountDeletionBrowserMarker()).toBeNull();
+  });
+
+  it("creates a random 256-bit completion capability", () => {
+    const capability = createAccountDeletionCompletionCapability();
+
+    expect(capability).toMatch(/^[0-9a-f]{64}$/);
+    expect(capability).not.toBe(createAccountDeletionCompletionCapability());
   });
 });

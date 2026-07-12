@@ -1,5 +1,9 @@
 import { notEmpty } from "@samebase/dependent";
-import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
+import {
+  closeConvexQueryCacheDatabases,
+  CONVEX_QUERY_CACHE_DB_NAME,
+} from "@/lib/convexQueryCacheStorage";
+import { clearConvexQueryMemoryCache } from "@/lib/convexQueryCache";
 import { ensureWindowStorageAccess } from "@/lib/storageAccess";
 
 const RECOVERY_QUERY_PARAM = "__samebase-reload";
@@ -79,14 +83,14 @@ function deleteIndexedDbDatabase(name: string): Promise<void> {
     return Promise.resolve();
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     try {
       const request = indexedDB.deleteDatabase(name);
-      request.onerror = () => resolve();
-      request.onblocked = () => resolve();
+      request.onerror = () => reject(request.error ?? new Error(`Could not delete ${name}.`));
+      request.onblocked = () => reject(new Error(`Close other Samebase tabs to delete ${name}.`));
       request.onsuccess = () => resolve();
-    } catch {
-      resolve();
+    } catch (error) {
+      reject(error);
     }
   });
 }
@@ -115,12 +119,8 @@ async function clearCacheStorage() {
     return;
   }
 
-  try {
-    const cacheKeys = await caches.keys();
-    await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
-  } catch {
-    // Ignore storage APIs blocked by the browser.
-  }
+  const cacheKeys = await caches.keys();
+  await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
 }
 
 async function unregisterServiceWorkers() {
@@ -136,34 +136,29 @@ async function unregisterServiceWorkers() {
     return;
   }
 
-  try {
-    const registrations = await serviceWorkerContainer.getRegistrations();
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-  } catch {
-    // Ignore browsers that reject service-worker enumeration in private modes.
-  }
+  const registrations = await serviceWorkerContainer.getRegistrations();
+  await Promise.all(registrations.map((registration) => registration.unregister()));
 }
 
 function clearWindowStorage(storageKey: "localStorage" | "sessionStorage") {
-  try {
-    window[storageKey].clear();
-  } catch {
-    // Ignore storage failures and keep clearing the remaining stores.
-  }
+  window[storageKey].clear();
 }
 
 export async function resetLocalAppData() {
   ensureWindowStorageAccess("localStorage");
   ensureWindowStorageAccess("sessionStorage");
 
-  clearWindowStorage("localStorage");
-  clearWindowStorage("sessionStorage");
+  closeConvexQueryCacheDatabases();
 
   await Promise.all([
     clearAllIndexedDbDatabases(),
     clearCacheStorage(),
     unregisterServiceWorkers(),
   ]);
+
+  clearConvexQueryMemoryCache();
+  clearWindowStorage("sessionStorage");
+  clearWindowStorage("localStorage");
 }
 
 export function reloadApp() {

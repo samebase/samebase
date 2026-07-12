@@ -64,6 +64,12 @@ export type VaultDashboardStaticAccountSectionProps = {
   providerLabel: string | null;
 };
 
+export type VaultDashboardStaticAccountStatusSectionProps = {
+  accountPresentation: AccountPresentation;
+  dataTestId?: string;
+  statusLabel: string;
+};
+
 export function VaultDashboardAccountSectionFrame({
   children,
   dataTestId = "dashboard-sidebar-account-section",
@@ -284,6 +290,38 @@ export function VaultDashboardStaticAccountSection({
           >
             /settings
           </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function VaultDashboardStaticAccountStatusSection({
+  accountPresentation,
+  dataTestId,
+  statusLabel,
+}: VaultDashboardStaticAccountStatusSectionProps) {
+  return (
+    <div
+      data-testid={dataTestId ?? "dashboard-sidebar-account-section"}
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
+      <div className="flex flex-wrap items-start gap-3">
+        <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+          <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+            <PersonIcon className="h-4 w-4" />
+          </div>
+          <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+            <div
+              className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+              title={accountPresentation.label}
+            >
+              {accountPresentation.label}
+            </div>
+            <div className="text-xs leading-5 text-muted-foreground" role="status">
+              {statusLabel}
+            </div>
+          </div>
         </div>
       </div>
     </div>

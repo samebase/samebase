@@ -78,9 +78,11 @@ function AppRouterRoot() {
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>
       <AppWorkspaceShell>
-        <RouteAvailabilityOutlet>
-          <RouteAccessOutlet />
-        </RouteAvailabilityOutlet>
+        <AccountDeletionBrowserBoundary>
+          <RouteAvailabilityOutlet>
+            <RouteAccessOutlet />
+          </RouteAvailabilityOutlet>
+        </AccountDeletionBrowserBoundary>
       </AppWorkspaceShell>
       <RouterGestureDebugOverlay />
     </OptionalThemeProvider>
@@ -93,12 +95,10 @@ export function AppRootClient() {
 
   return (
     <ConvexAuthProvider client={convexClient}>
-      <AccountDeletionBrowserBoundary>
-        <AppAuthPresentationProvider storageNamespace={convexClient.url}>
-          <AppRouterRoot />
-          <QueryDevtools />
-        </AppAuthPresentationProvider>
-      </AccountDeletionBrowserBoundary>
+      <AppAuthPresentationProvider storageNamespace={convexClient.url}>
+        <AppRouterRoot />
+        <QueryDevtools />
+      </AppAuthPresentationProvider>
     </ConvexAuthProvider>
   );
 }

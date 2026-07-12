@@ -75,6 +75,7 @@ describe("AccountDeletionPage", () => {
       );
       expect(current?.getAttribute("data-step-state")).toBe("current");
       expect(current?.getAttribute("aria-current")).toBe("step");
+      expect(current?.textContent).toContain("in progress");
       expect(current?.querySelector(".animate-spin")).not.toBeNull();
       expect(
         mounted.rootElement
@@ -102,6 +103,7 @@ describe("AccountDeletionPage", () => {
       );
       expect(current?.querySelector(".animate-spin")).toBeNull();
       expect(current?.querySelector(".text-destructive")).not.toBeNull();
+      expect(current?.textContent).toContain("needs attention");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();

@@ -502,8 +502,8 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("writes the accepted run marker before navigating and keeps deletion controls pending", async () => {
-    const deletion = createDeferred<{ runId: string }>();
+  it("persists the completion capability before requesting deletion", async () => {
+    const deletion = createDeferred<{ completionCapability: string; runId: string }>();
     mutationState.requestDeletion.mockReturnValue(deletion.promise);
     const mounted = await mountSettingsPage();
     try {
@@ -527,19 +527,61 @@ describe("UserSettingsPage", () => {
       expect(pageDelete?.disabled).toBe(true);
       expect(dialogDelete?.disabled).toBe(true);
       expect(routerState.navigate).not.toHaveBeenCalled();
+      const requestArgs = mutationState.requestDeletion.mock.calls[0]?.[0];
+      expect(requestArgs?.completionCapability).toMatch(/^[0-9a-f]{64}$/);
+      expect(
+        JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
+      ).toEqual({ completionCapability: requestArgs?.completionCapability });
 
       await act(async () => {
-        deletion.resolve({ runId: "run-1" });
+        deletion.resolve({
+          completionCapability: requestArgs?.completionCapability ?? "",
+          runId: "run-1",
+        });
         await deletion.promise;
       });
 
       expect(
         JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
-      ).toEqual({ runId: "run-1", observedFinalizing: false });
+      ).toEqual({ completionCapability: requestArgs?.completionCapability });
       expect(routerState.navigate).toHaveBeenCalledWith({
         href: "/account-deletion",
         replace: true,
       });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("does not request deletion when the capability cannot be persisted", async () => {
+    const blockedStorage = createTestStorage();
+    blockedStorage.setItem = () => {
+      throw new Error("blocked");
+    };
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: blockedStorage,
+    });
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Delete account")
+          ?.click();
+      });
+      const dialogDelete = Array.from(document.body.querySelectorAll("button")).find(
+        (button) =>
+          button.textContent === "Delete account" && !mounted.rootElement.contains(button),
+      );
+      await act(async () => {
+        dialogDelete?.click();
+        await Promise.resolve();
+      });
+
+      expect(mutationState.requestDeletion).not.toHaveBeenCalled();
+      expect(document.body.textContent).toContain(
+        "Could not start account deletion. Please try again.",
+      );
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

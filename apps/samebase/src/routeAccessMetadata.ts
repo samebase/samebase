@@ -22,7 +22,7 @@ const routeAccessMetadataByPath = {
   },
   "/account-deletion": {
     access: "access_account_deletion",
-    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none", mobilePane: "main" },
+    appWorkspaceRouteChrome: { leftPane: "none", mobilePane: "main" },
   },
   "/admin/account-deletions": {
     access: "access_admin",

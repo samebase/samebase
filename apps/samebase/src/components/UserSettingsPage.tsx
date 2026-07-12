@@ -21,7 +21,10 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "@tanstack/react-router";
 import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
-import { writeAccountDeletionBrowserMarker } from "@/lib/accountDeletionBrowserState";
+import {
+  createAccountDeletionCompletionCapability,
+  writeAccountDeletionBrowserMarker,
+} from "@/lib/accountDeletionBrowserState";
 
 type ProfileSaveState =
   | { kind: "idle" }
@@ -166,9 +169,15 @@ export function UserSettingsPage() {
     }
     setIsRequestingDeletion(true);
     setDeletionError(null);
+    const completionCapability = createAccountDeletionCompletionCapability();
+    if (completionCapability === null || !writeAccountDeletionBrowserMarker(completionCapability)) {
+      setDeletionError("Could not start account deletion. Please try again.");
+      setIsRequestingDeletion(false);
+      return;
+    }
     try {
-      const status = await requestAccountDeletion({});
-      writeAccountDeletionBrowserMarker(status.runId);
+      const status = await requestAccountDeletion({ completionCapability });
+      writeAccountDeletionBrowserMarker(status.completionCapability);
       void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
     } catch {
       setDeletionError("Could not start account deletion. Please try again.");

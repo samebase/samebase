@@ -7,6 +7,8 @@ import type { OptionalRestArgsOrSkip } from "convex/react";
 import {
   CONVEX_QUERY_CACHE_DB_NAME,
   readConvexQueryCacheNamespace,
+  registerConvexQueryCacheDatabase,
+  releaseConvexQueryCacheDatabase,
 } from "@/lib/convexQueryCacheStorage";
 
 // ---------- tiny stable stringify + hash ----------
@@ -56,24 +58,32 @@ function openDB(): Promise<IDBDatabase> {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      registerConvexQueryCacheDatabase(db);
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
   });
 }
 
 async function idbGet<T>(key: string): Promise<IdbRecord<T> | undefined> {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readonly");
-      const store = tx.objectStore(STORE);
-      const req = store.get(key);
-      req.onsuccess = () => {
-        const result: IdbRecord<T> | undefined = req.result;
-        resolve(result);
-      };
-      req.onerror = () => reject(req.error);
-    });
+    const openedDb = await openDB();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = openedDb.transaction(STORE, "readonly");
+        const store = tx.objectStore(STORE);
+        const req = store.get(key);
+        req.onsuccess = () => {
+          const result: IdbRecord<T> | undefined = req.result;
+          resolve(result);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    } finally {
+      releaseConvexQueryCacheDatabase(openedDb);
+    }
   } catch {
     return undefined;
   }
@@ -81,14 +91,18 @@ async function idbGet<T>(key: string): Promise<IdbRecord<T> | undefined> {
 
 async function idbSet<T>(key: string, value: IdbRecord<T>): Promise<void> {
   try {
-    const db = await openDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      const store = tx.objectStore(STORE);
-      const req = store.put(value, key);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    const openedDb = await openDB();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = openedDb.transaction(STORE, "readwrite");
+        const store = tx.objectStore(STORE);
+        const req = store.put(value, key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } finally {
+      releaseConvexQueryCacheDatabase(openedDb);
+    }
   } catch {
     /* ignore */
   }
@@ -97,6 +111,10 @@ async function idbSet<T>(key: string, value: IdbRecord<T>): Promise<void> {
 // ---------- in-memory cache (per tab) ----------
 
 const memoryCache = new Map<string, IdbRecord<unknown>>();
+
+export function clearConvexQueryMemoryCache() {
+  memoryCache.clear();
+}
 
 // ---------- main hook ----------
 

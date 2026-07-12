@@ -6,19 +6,23 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AccountDeletionBrowserBoundary } from "./AccountDeletionBrowserBoundary";
 import { writeAccountDeletionBrowserMarker } from "@/lib/accountDeletionBrowserState";
 
+const completionCapability = "a".repeat(64);
+
 const authState = vi.hoisted(() => ({ isAuthenticated: true, isLoading: false }));
 const locationState = vi.hoisted(() => ({ pathname: "/" }));
 const queryState = vi.hoisted<{
+  completion: null | { completedAt: number; state: "succeeded" };
   status: null | {
+    completionCapability: string;
     currentStep: "delete_identity";
     latestProgressAt: number;
-    markerPhase: "finalizing";
+    markerPhase: "deleting" | "finalizing";
     requestedAt: number;
     runId: string;
-    state: "running";
+    state: "needs_attention" | "running";
   };
   viewer: undefined | { role: "role_deleting" | "role_member" };
-}>(() => ({ status: null, viewer: undefined }));
+}>(() => ({ completion: null, status: null, viewer: undefined }));
 const routerState = vi.hoisted(() => ({ navigate: vi.fn() }));
 const cleanupState = vi.hoisted(() => ({ resetLocalAppData: vi.fn() }));
 const posthogState = vi.hoisted(() => ({ reset: vi.fn() }));
@@ -43,9 +47,14 @@ vi.mock("convex/react", async (importOriginal) => {
       if (args === "skip") {
         return undefined;
       }
-      return getFunctionName(reference) === "users:currentViewerAccess"
-        ? queryState.viewer
-        : queryState.status;
+      const functionName = getFunctionName(reference);
+      if (functionName === "users:currentViewerAccess") {
+        return queryState.viewer;
+      }
+      if (functionName === "accountDeletion/index:completion") {
+        return queryState.completion;
+      }
+      return queryState.status;
     },
   };
 });
@@ -95,12 +104,13 @@ describe("AccountDeletionBrowserBoundary", () => {
     authState.isAuthenticated = true;
     authState.isLoading = false;
     locationState.pathname = "/";
+    queryState.completion = null;
     queryState.status = null;
     queryState.viewer = undefined;
     routerState.navigate.mockReset();
     routerState.navigate.mockResolvedValue(undefined);
     cleanupState.resetLocalAppData.mockReset();
-    cleanupState.resetLocalAppData.mockReturnValue(new Promise<void>(() => {}));
+    cleanupState.resetLocalAppData.mockResolvedValue(undefined);
     posthogState.reset.mockReset();
     posthogState.reset.mockResolvedValue(undefined);
   });
@@ -130,43 +140,72 @@ describe("AccountDeletionBrowserBoundary", () => {
     }
   });
 
-  it("observes finalization only for the browser's accepted run", async () => {
-    writeAccountDeletionBrowserMarker("run-1");
+  it("reconstructs a missing marker and follows the authenticated run", async () => {
     queryState.viewer = { role: "role_deleting" };
     queryState.status = {
+      completionCapability,
       currentStep: "delete_identity",
       latestProgressAt: 2,
       markerPhase: "finalizing",
       requestedAt: 1,
-      runId: "run-2",
+      runId: "run-1",
       state: "running",
     };
     locationState.pathname = "/account-deletion";
     const mounted = await renderBoundary();
     try {
-      expect(window.localStorage.getItem("samebase:account-deletion")).toContain(
-        '"observedFinalizing":false',
-      );
-
-      queryState.status = { ...queryState.status, runId: "run-1" };
-      await act(async () => {
-        mounted.root.render(
-          <AccountDeletionBrowserBoundary>
-            <div>Deletion route</div>
-          </AccountDeletionBrowserBoundary>,
-        );
-      });
-      expect(window.localStorage.getItem("samebase:account-deletion")).toContain(
-        '"observedFinalizing":true',
-      );
+      expect(
+        JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
+      ).toEqual({ completionCapability });
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();
     }
   });
 
-  it("starts browser cleanup after auth loss only when finalization was observed", async () => {
-    writeAccountDeletionBrowserMarker("run-1");
+  it("keeps the authoritative run in memory when browser storage rejects the marker", async () => {
+    const blockedStorage = createTestStorage();
+    blockedStorage.setItem = () => {
+      throw new Error("blocked");
+    };
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: blockedStorage,
+    });
+    queryState.viewer = { role: "role_deleting" };
+    queryState.status = {
+      completionCapability,
+      currentStep: "delete_identity",
+      latestProgressAt: 2,
+      markerPhase: "finalizing",
+      requestedAt: 1,
+      runId: "run-1",
+      state: "running",
+    };
+    locationState.pathname = "/account-deletion";
+    const mounted = await renderBoundary();
+    try {
+      authState.isAuthenticated = false;
+      queryState.viewer = undefined;
+      queryState.completion = { completedAt: 3, state: "succeeded" };
+      await act(async () => {
+        mounted.root.render(
+          <AccountDeletionBrowserBoundary>
+            <div>Signed out</div>
+          </AccountDeletionBrowserBoundary>,
+        );
+        await Promise.resolve();
+      });
+      expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Account deleted");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("does not claim terminal success from auth loss after finalization", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
     const mounted = await renderBoundary();
     try {
       authState.isAuthenticated = false;
@@ -177,11 +216,10 @@ describe("AccountDeletionBrowserBoundary", () => {
           </AccountDeletionBrowserBoundary>,
         );
       });
-      expect(posthogState.reset).not.toHaveBeenCalled();
-
       authState.isAuthenticated = true;
       queryState.viewer = { role: "role_deleting" };
       queryState.status = {
+        completionCapability,
         currentStep: "delete_identity",
         latestProgressAt: 2,
         markerPhase: "finalizing",
@@ -197,6 +235,9 @@ describe("AccountDeletionBrowserBoundary", () => {
           </AccountDeletionBrowserBoundary>,
         );
       });
+      expect(
+        JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
+      ).toEqual({ completionCapability });
 
       authState.isAuthenticated = false;
       queryState.viewer = undefined;
@@ -206,10 +247,78 @@ describe("AccountDeletionBrowserBoundary", () => {
             <div>Signed out</div>
           </AccountDeletionBrowserBoundary>,
         );
+      });
+      expect(mounted.rootElement.textContent).toContain("Checking account deletion");
+      const signIn = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Sign in to view status",
+      );
+      await act(async () => signIn?.click());
+      expect(mounted.rootElement.textContent).toContain("Signed out");
+      expect(window.localStorage.getItem("samebase:account-deletion")).not.toBeNull();
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("corrects a stale marker when the run needs attention", async () => {
+    writeAccountDeletionBrowserMarker("b".repeat(64));
+    queryState.viewer = { role: "role_deleting" };
+    queryState.status = {
+      completionCapability,
+      currentStep: "delete_identity",
+      latestProgressAt: 2,
+      markerPhase: "finalizing",
+      requestedAt: 1,
+      runId: "run-1",
+      state: "needs_attention",
+    };
+    locationState.pathname = "/account-deletion";
+    const mounted = await renderBoundary();
+    try {
+      expect(
+        JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
+      ).toEqual({ completionCapability });
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("clears browser data and shows completion only after the receipt succeeds", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    authState.isAuthenticated = false;
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary();
+    try {
+      await act(async () => {
         await Promise.resolve();
       });
       expect(posthogState.reset).toHaveBeenCalledTimes(1);
       expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Account deleted");
+      expect(mounted.rootElement.textContent).not.toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("does not claim completion when browser cleanup fails", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    authState.isAuthenticated = false;
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+    cleanupState.resetLocalAppData.mockRejectedValue(new Error("blocked"));
+
+    const mounted = await renderBoundary();
+    try {
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mounted.rootElement.textContent).toContain("Finishing account deletion");
+      expect(mounted.rootElement.textContent).toContain("Close other Samebase tabs");
+      expect(mounted.rootElement.textContent).not.toContain("Account deleted");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();

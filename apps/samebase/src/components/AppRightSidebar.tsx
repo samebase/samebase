@@ -7,6 +7,7 @@ import {
   VaultDashboardSidebarContent,
   VaultDashboardStaticAccountLoadingSection,
   VaultDashboardStaticAccountSection,
+  VaultDashboardStaticAccountStatusSection,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import {
@@ -116,15 +117,30 @@ function TemporaryAuthenticatedAppRightSidebarContent({
 
 function AccountOnlyAuthenticatedAppRightSidebarContent({
   profile,
+  deleting,
 }: {
   profile: AppAuthPresentationProfile | null;
+  deleting: boolean;
 }) {
   const user = useConvexQuery(api.users.viewer);
-  const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
+  const authProviders = useConvexQuery(api.users.getViewerAuthProviders, deleting ? "skip" : {});
+  const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
 
   return (
     <VaultDashboardSidebarContent>
-      <GenericSignedInAccountSection authProviders={authProviders} profile={profile} user={user} />
+      {deleting && accountPresentation !== undefined ? (
+        <VaultDashboardStaticAccountStatusSection
+          accountPresentation={accountPresentation}
+          dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
+          statusLabel="Deleting account"
+        />
+      ) : (
+        <GenericSignedInAccountSection
+          authProviders={authProviders}
+          profile={profile}
+          user={user}
+        />
+      )}
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -203,7 +219,12 @@ export function AppRightSidebarContent() {
         return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
       }
 
-      return <AccountOnlyAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+      return (
+        <AccountOnlyAuthenticatedAppRightSidebarContent
+          deleting={viewerAccess.role === "role_deleting"}
+          profile={authPresentation.profile}
+        />
+      );
     }
 
     return <AuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;

@@ -76,6 +76,8 @@ describe("AdminAccountDeletionsPage", () => {
       );
       await act(async () => operation?.click());
 
+      expect(rootElement.textContent).toContain("person@example.test");
+      expect(rootElement.textContent).toContain("run-1");
       expect(rootElement.textContent).toContain("GitHub OAuth revocation could not be confirmed.");
       expect(rootElement.textContent).toContain("Convex OAuth requires manual revocation.");
       const retry = Array.from(rootElement.querySelectorAll("button")).find(

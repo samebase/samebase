@@ -56,6 +56,13 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
         {ACCOUNT_DELETION_STEPS.map(({ step, label }, index) => {
           const completed = status.state === "succeeded" || index < currentStepIndex;
           const current = status.state !== "succeeded" && index === currentStepIndex;
+          const stateLabel = completed
+            ? "completed"
+            : current && needsAttention
+              ? "needs attention"
+              : current
+                ? "in progress"
+                : "not started";
           return (
             <li
               key={step}
@@ -80,6 +87,7 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
               )}
               <span className={current ? "text-sm font-medium" : "text-sm text-muted-foreground"}>
                 {label}
+                <span className="sr-only">, {stateLabel}</span>
               </span>
             </li>
           );

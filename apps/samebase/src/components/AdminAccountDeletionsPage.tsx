@@ -29,6 +29,11 @@ export function AdminAccountDeletionsPage() {
   const [retryingRunId, setRetryingRunId] = useState<Id<"accountDeletionRuns"> | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
 
+  const selectRun = (runId: Id<"accountDeletionRuns">) => {
+    setSelectedRunId(runId);
+    setRetryError(null);
+  };
+
   const handleRetry = async (runId: Id<"accountDeletionRuns">) => {
     if (retryingRunId !== null) {
       return;
@@ -69,7 +74,7 @@ export function AdminAccountDeletionsPage() {
                   <button
                     type="button"
                     className="font-mono text-xs underline underline-offset-4"
-                    onClick={() => setSelectedRunId(run.runId)}
+                    onClick={() => selectRun(run.runId)}
                   >
                     {run.runId}
                   </button>
@@ -131,6 +136,8 @@ export function AdminAccountDeletionsPage() {
             </p>
           )}
           <dl className="mt-6 space-y-4">
+            <OutcomeState label="Operation" state={detail.run.runId} />
+            <OutcomeState label="Account" state={detail.run.email ?? "Scrubbed"} />
             <OutcomeState label="Billing" state={detail.run.outcomes.billing.state} />
             <OutcomeState
               label="Provider revocation"
