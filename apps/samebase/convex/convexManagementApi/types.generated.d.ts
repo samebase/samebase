@@ -25,6 +25,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/projects/{project_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get project by ID
+     * @description Get a project by its ID.
+     */
+    get: operations["get project by id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update project
+     * @description Update a project's name and/or slug. Returns the updated project.
+     */
+    patch: operations["update project"];
+    trace?: never;
+  };
   "/teams/{team_id}/list_projects": {
     parameters: {
       query?: never;
@@ -122,26 +146,6 @@ export interface paths {
      * @description Delete a project. Deletes all deployments in the project as well.
      */
     post: operations["delete project"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/projects/{project_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get project by ID
-     * @description Get a project by its ID.
-     */
-    get: operations["get project by id"];
-    put?: never;
-    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -422,6 +426,12 @@ export interface paths {
      * @description Create a preview deploy key like "preview:team-slug:project-slug|ey..."
      *     which can be used with the Convex CLI to create and manage preview
      *     deployments within the project.
+     *
+     *     When access to the project is granted through an OAuth token this preview
+     *     deploy key will use the same OAuth-granted token.
+     *
+     *     When access to the project is granted any other way a new token scoped to
+     *     preview deployments in this project will be created.
      */
     post: operations["create preview deploy key"];
     delete?: never;
@@ -1596,9 +1606,20 @@ export interface components {
        * @description Timestamp in milliseconds.
        */
       createTime: number;
+      /**
+       * @description The name of the requesting member's default development deployment for
+       *     this project, if one exists (an active local deployment or default
+       *     cloud dev deployment).
+       */
+      devDeploymentName?: string | null;
       id: components["schemas"]["ProjectId"];
       /** @description The full project name, including spaces and punctuation. */
       name: components["schemas"]["ProjectName"];
+      /**
+       * @description The name of the default production deployment for this project, if one
+       *     exists (e.g. "happy-otter-123").
+       */
+      prodDeploymentName?: string | null;
       /** @description This shortened version of the name used in Convex Dashboard URLs. */
       slug: components["schemas"]["ProjectSlug"];
       teamId: components["schemas"]["TeamId"];
@@ -1695,6 +1716,10 @@ export interface components {
        *     overridden.
        */
       sendLogsToClient?: boolean | null;
+    };
+    PlatformUpdateProjectArgs: {
+      name?: null | components["schemas"]["ProjectName"];
+      slug?: null | components["schemas"]["ProjectSlug"];
     };
     PreviewDeploymentIdentifier: string;
     /** Format: int64 */
@@ -1999,6 +2024,7 @@ export type PlatformTokenDetailsResponse = components["schemas"]["PlatformTokenD
 export type PlatformTransferDeploymentArgs =
   components["schemas"]["PlatformTransferDeploymentArgs"];
 export type PlatformUpdateDeploymentArgs = components["schemas"]["PlatformUpdateDeploymentArgs"];
+export type PlatformUpdateProjectArgs = components["schemas"]["PlatformUpdateProjectArgs"];
 export type PreviewDeploymentIdentifier = components["schemas"]["PreviewDeploymentIdentifier"];
 export type ProjectId = components["schemas"]["ProjectId"];
 export type ProjectName = components["schemas"]["ProjectName"];
@@ -2049,6 +2075,54 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PlatformCreateProjectResponse"];
+        };
+      };
+    };
+  };
+  "get project by id": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Project ID */
+        project_id: components["schemas"]["ProjectId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlatformProjectDetails"];
+        };
+      };
+    };
+  };
+  "update project": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Project ID */
+        project_id: components["schemas"]["ProjectId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlatformUpdateProjectArgs"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlatformProjectDetails"];
         };
       };
     };
@@ -2187,28 +2261,6 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
-      };
-    };
-  };
-  "get project by id": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Project ID */
-        project_id: components["schemas"]["ProjectId"];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PlatformProjectDetails"];
-        };
       };
     };
   };

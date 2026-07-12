@@ -19,6 +19,9 @@ export type ConvexManagementResponseDecimalPath = readonly string[];
 
 export const convexManagementResponseValidators: {
   GET: {
+    "/projects/{project_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["get project by id"]>
+    >;
     "/teams/{team_id}/list_projects": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["list projects"]>
     >;
@@ -30,9 +33,6 @@ export const convexManagementResponseValidators: {
     >;
     "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["get deployment in project by project slug"]>
-    >;
-    "/projects/{project_id}": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<operations["get project by id"]>
     >;
     "/teams/{team_id_or_slug}/projects/{project_slug}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["get project by slug"]>
@@ -134,11 +134,11 @@ export const convexManagementResponseValidators: {
 
 export const convexManagementResponseDecimalPaths: {
   GET: {
+    "/projects/{project_id}": readonly ConvexManagementResponseDecimalPath[];
     "/teams/{team_id}/list_projects": readonly ConvexManagementResponseDecimalPath[];
     "/projects/{project_id}/list_deployments": readonly ConvexManagementResponseDecimalPath[];
     "/projects/{project_id}/deployment": readonly ConvexManagementResponseDecimalPath[];
     "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": readonly ConvexManagementResponseDecimalPath[];
-    "/projects/{project_id}": readonly ConvexManagementResponseDecimalPath[];
     "/teams/{team_id_or_slug}/projects/{project_slug}": readonly ConvexManagementResponseDecimalPath[];
     "/deployments/{deployment_name}": readonly ConvexManagementResponseDecimalPath[];
     "/teams/{team_id}/list_deployment_classes": readonly ConvexManagementResponseDecimalPath[];
