@@ -181,4 +181,17 @@ describe("Cloudflare email sending", () => {
       "Cloudflare Email Sending permanently bounced: nicu@samebase.com",
     );
   });
+
+  it("preserves the status for non-JSON provider failures", async () => {
+    const t = makeConvexTest();
+    stubEmailConfiguration("prod:samebase");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("Bad gateway", { status: 502 })),
+    );
+
+    await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
+      "Cloudflare Email Sending returned a non-JSON response (502).",
+    );
+  });
 });

@@ -96,7 +96,15 @@ export const send = internalAction({
         }),
       },
     );
-    const payload: unknown = await response.json();
+    const responseText = await response.text();
+    let payload: unknown;
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      throw new Error(
+        `Cloudflare Email Sending returned a non-JSON response (${response.status}).`,
+      );
+    }
     const result = cloudflareEmailResponseSchema.safeParse(payload);
     if (!result.success) {
       throw new Error(

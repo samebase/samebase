@@ -7,12 +7,12 @@ describe("new user notification", () => {
     expect(
       buildNewUserNotification({
         existingUserId: null,
-        passwordAuthMode: "off",
         profile: {
           email: "ada@example.com",
           name: "Ada Lovelace",
         },
         providerId: "google",
+        seededPasswordEmail: null,
         userId: "user-id",
       }),
     ).toEqual({
@@ -31,9 +31,9 @@ Provider: google`,
     expect(
       buildNewUserNotification({
         existingUserId: "existing-user-id",
-        passwordAuthMode: "off",
         profile: {},
         providerId: "google",
+        seededPasswordEmail: null,
         userId: "existing-user-id",
       }),
     ).toBeNull();
@@ -43,11 +43,26 @@ Provider: google`,
     expect(
       buildNewUserNotification({
         existingUserId: null,
-        passwordAuthMode: "preview_seed",
         profile: { email: "preview@example.com" },
         providerId: "password",
+        seededPasswordEmail: "preview@example.com",
         userId: "seed-user-id",
       }),
     ).toBeNull();
+  });
+
+  it("notifies for a password signup that is not the seeded account", () => {
+    expect(
+      buildNewUserNotification({
+        existingUserId: null,
+        profile: { email: "new-user@example.com" },
+        providerId: "password",
+        seededPasswordEmail: "nicu@samebase.com",
+        userId: "new-user-id",
+      }),
+    ).toMatchObject({
+      subject: "New Samebase signup",
+      to: "nicu@samebase.com",
+    });
   });
 });

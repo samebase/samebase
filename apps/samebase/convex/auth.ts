@@ -3,6 +3,7 @@ import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials"
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth, getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent/main";
+import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { env, type DatabaseWriter } from "./_generated/server";
@@ -141,6 +142,23 @@ const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
 const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
 const passwordAuthEnabled = passwordAuthMode !== "off";
+
+function readSeededPasswordEmail(): string | null {
+  switch (passwordAuthMode) {
+    case "off":
+      return null;
+    case "local_worktree_seed":
+      return LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL;
+    case "preview_seed":
+      return readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL");
+    case "production_review_seed":
+      return env.OPENAI_REVIEW_AUTH_EMAIL ?? null;
+    default:
+      passwordAuthMode satisfies never;
+      return null;
+  }
+}
+
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${
@@ -240,9 +258,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
       const notification = buildNewUserNotification({
         existingUserId: args.existingUserId,
-        passwordAuthMode,
         profile: args.profile,
         providerId: args.provider.id,
+        seededPasswordEmail: readSeededPasswordEmail(),
         userId: args.userId,
       });
       if (notification) {
