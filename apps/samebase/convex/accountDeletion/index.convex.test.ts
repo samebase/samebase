@@ -364,4 +364,25 @@ describe("account deletion foundation", () => {
       staff.t.query(api.accountDeletion.index.completion, { completionCapability }),
     ).resolves.toBeNull();
   });
+
+  it("rejects active runs without a completion capability", async () => {
+    const { ids, t } = await seedUser({ email: "ada@example.com" });
+
+    await expect(
+      t.run(async (ctx) => {
+        // @ts-expect-error Active deletion runs always require the browser capability.
+        await ctx.db.insert("accountDeletionRuns", {
+          identity: { state: "active", userId: ids.userId, email: "ada@example.com" },
+          state: "queued",
+          workflow: { state: "not_started" },
+          currentStep: "request_accepted",
+          requestedAt: now,
+          updatedAt: now,
+          initiatingSessionId: ids.sessionId,
+          retryCount: 0,
+          outcomes: notStartedOutcomes,
+        });
+      }),
+    ).rejects.toThrow();
+  });
 });

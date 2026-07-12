@@ -31,7 +31,7 @@ export const vAccountDeletionEventLevel = union(
   literal("error"),
 );
 
-export const vAccountDeletionBillingOutcome = union(
+const vAccountDeletionBillingOutcome = union(
   object({ state: literal("not_started") }),
   object({ state: literal("not_applicable") }),
   object({ state: literal("succeeded") }),
@@ -105,11 +105,11 @@ export const vAccountDeletionOutcomeSummary = object({
   completionEmail: vAccountDeletionCompletionEmailOutcome,
 });
 
-export const vAccountDeletionWorkflowNotStarted = object({
+const vAccountDeletionWorkflowNotStarted = object({
   state: literal("not_started"),
 });
 
-export const vAccountDeletionWorkflowStarted = object({
+const vAccountDeletionWorkflowStarted = object({
   state: literal("started"),
   workflowId: string(),
   attempt: number(),
@@ -132,19 +132,19 @@ const activeRunFields = {
   outcomes: vAccountDeletionOutcomeSummary,
 } as const;
 
-export const vQueuedAccountDeletionRun = object({
+const vQueuedAccountDeletionRun = object({
   ...activeRunFields,
   state: literal("queued"),
   workflow: vAccountDeletionWorkflowNotStarted,
 });
 
-export const vRunningAccountDeletionRun = object({
+const vRunningAccountDeletionRun = object({
   ...activeRunFields,
   state: literal("running"),
   workflow: vAccountDeletionWorkflowStarted,
 });
 
-export const vNeedsAttentionAccountDeletionRun = object({
+const vNeedsAttentionAccountDeletionRun = object({
   ...activeRunFields,
   state: literal("needs_attention"),
   workflow: vAccountDeletionWorkflowStarted,
@@ -164,7 +164,7 @@ const scrubbedRunFields = {
   outcomes: vAccountDeletionOutcomeSummary,
 } as const;
 
-export const vScrubbedAccountDeletionRun = object({
+const vScrubbedAccountDeletionRun = object({
   ...scrubbedRunFields,
   // Receipts completed before public completion tracking shipped cannot be
   // backfilled because their browser-only capability was never created.

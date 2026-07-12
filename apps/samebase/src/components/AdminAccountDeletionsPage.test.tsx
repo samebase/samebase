@@ -18,7 +18,10 @@ const queryState = vi.hoisted(() => ({
       email: "person@example.test",
       latestSafeError: "Provider revocation needs staff attention.",
       outcomes: {
-        billing: { state: "succeeded" },
+        billing: {
+          state: "failed",
+          safeError: "Billing cancellation could not be confirmed.",
+        },
         providerRevocation: {
           state: "completed",
           github: {
@@ -31,7 +34,10 @@ const queryState = vi.hoisted(() => ({
             safeNotice: "Convex OAuth requires manual revocation.",
           },
         },
-        completionEmail: { state: "not_started" },
+        completionEmail: {
+          state: "delivery_failed",
+          safeError: "Completion email delivery could not be confirmed.",
+        },
       },
     },
     events: [
@@ -76,8 +82,13 @@ describe("AdminAccountDeletionsPage", () => {
       );
       await act(async () => operation?.click());
 
+      expect(operation?.getAttribute("aria-pressed")).toBe("true");
       expect(rootElement.textContent).toContain("person@example.test");
       expect(rootElement.textContent).toContain("run-1");
+      expect(rootElement.textContent).toContain("Billing cancellation could not be confirmed.");
+      expect(rootElement.textContent).toContain(
+        "Completion email delivery could not be confirmed.",
+      );
       expect(rootElement.textContent).toContain("GitHub OAuth revocation could not be confirmed.");
       expect(rootElement.textContent).toContain("Convex OAuth requires manual revocation.");
       const retry = Array.from(rootElement.querySelectorAll("button")).find(

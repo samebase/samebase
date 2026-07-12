@@ -6,7 +6,7 @@ import { internal } from "../_generated/api";
 
 const { id, literal, object, string } = v;
 
-export const vCompletionEmailResult = v.union(
+const vCompletionEmailResult = v.union(
   object({ state: literal("sent") }),
   object({ state: literal("delivery_failed"), safeError: string() }),
 );

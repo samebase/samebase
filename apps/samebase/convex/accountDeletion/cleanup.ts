@@ -8,23 +8,21 @@ import { readOwnedActiveRun } from "./stepContext";
 
 const { id, literal, number, object, union } = v;
 
-export const vAccountDeletionTablePolicy = union(
-  literal("account_local"),
-  literal("vault_local"),
-  literal("provider_revocation"),
-  literal("auth_finalization"),
-  literal("receipt"),
-  literal("global"),
-  literal("action_quiescence"),
-  literal("user_finalization"),
-);
-export type AccountDeletionTablePolicy = Infer<typeof vAccountDeletionTablePolicy>;
+type AccountDeletionTablePolicy =
+  | "account_local"
+  | "vault_local"
+  | "provider_revocation"
+  | "auth_finalization"
+  | "receipt"
+  | "global"
+  | "action_quiescence"
+  | "user_finalization";
 
 /**
  * Every app table has one deletion owner. Adding a table to the schema fails
  * typechecking until its account-deletion policy is chosen here.
  */
-export const ACCOUNT_DELETION_TABLE_REGISTRY = {
+const ACCOUNT_DELETION_TABLE_REGISTRY = {
   authSessions: "auth_finalization",
   authAccounts: "auth_finalization",
   authRefreshTokens: "auth_finalization",
@@ -114,8 +112,6 @@ const accountLocalCleanupTarget = union(
   literal("vaultDeletionEvents"),
   literal("vaultDeletionRuns"),
 );
-export type AccountLocalCleanupTarget = Infer<typeof accountLocalCleanupTarget>;
-
 const accountLocalCleanupBatchResult = union(
   object({
     state: literal("blocked"),
@@ -139,7 +135,7 @@ const accountLocalCleanupBatchResult = union(
   }),
   object({ state: literal("done") }),
 );
-export type AccountLocalCleanupBatchResult = Infer<typeof accountLocalCleanupBatchResult>;
+type AccountLocalCleanupBatchResult = Infer<typeof accountLocalCleanupBatchResult>;
 
 const accountDeletionQuiescenceResult = union(
   object({ state: literal("done") }),
@@ -298,7 +294,7 @@ type AccountLocalCleanupHandler = (
  * Property order is the production cleanup order. Every account-local table
  * must provide the handler that the account deletion workflow executes.
  */
-export const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
+const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
   chatMessageMetadata: async (ctx, userId) => {
     const context = await ctx.db
       .query("agentThreadContext")

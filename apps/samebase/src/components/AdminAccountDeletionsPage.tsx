@@ -74,6 +74,7 @@ export function AdminAccountDeletionsPage() {
                   <button
                     type="button"
                     className="font-mono text-xs underline underline-offset-4"
+                    aria-pressed={selectedRunId === run.runId}
                     onClick={() => selectRun(run.runId)}
                   >
                     {run.runId}
@@ -139,6 +140,9 @@ export function AdminAccountDeletionsPage() {
             <OutcomeState label="Operation" state={detail.run.runId} />
             <OutcomeState label="Account" state={detail.run.email ?? "Scrubbed"} />
             <OutcomeState label="Billing" state={detail.run.outcomes.billing.state} />
+            {detail.run.outcomes.billing.state === "failed" ? (
+              <OutcomeState label="Billing error" state={detail.run.outcomes.billing.safeError} />
+            ) : null}
             <OutcomeState
               label="Provider revocation"
               state={detail.run.outcomes.providerRevocation.state}
@@ -158,20 +162,23 @@ export function AdminAccountDeletionsPage() {
                   state={detail.run.outcomes.providerRevocation.convex.state}
                 />
                 {detail.run.outcomes.providerRevocation.github.state === "unconfirmed" ? (
-                  <p className="text-sm text-muted-foreground">
-                    {detail.run.outcomes.providerRevocation.github.safeError}
-                  </p>
+                  <OutcomeState
+                    label="GitHub error"
+                    state={detail.run.outcomes.providerRevocation.github.safeError}
+                  />
                 ) : null}
                 {detail.run.outcomes.providerRevocation.cloudflare.state === "unconfirmed" ? (
-                  <p className="text-sm text-muted-foreground">
-                    {detail.run.outcomes.providerRevocation.cloudflare.safeError}
-                  </p>
+                  <OutcomeState
+                    label="Cloudflare error"
+                    state={detail.run.outcomes.providerRevocation.cloudflare.safeError}
+                  />
                 ) : null}
                 {detail.run.outcomes.providerRevocation.convex.state ===
                 "manual_revocation_required" ? (
-                  <p className="text-sm text-muted-foreground">
-                    {detail.run.outcomes.providerRevocation.convex.safeNotice}
-                  </p>
+                  <OutcomeState
+                    label="Convex notice"
+                    state={detail.run.outcomes.providerRevocation.convex.safeNotice}
+                  />
                 ) : null}
               </>
             ) : null}
@@ -179,6 +186,12 @@ export function AdminAccountDeletionsPage() {
               label="Completion email"
               state={detail.run.outcomes.completionEmail.state}
             />
+            {detail.run.outcomes.completionEmail.state === "delivery_failed" ? (
+              <OutcomeState
+                label="Completion email error"
+                state={detail.run.outcomes.completionEmail.safeError}
+              />
+            ) : null}
             <OutcomeState label="Retries" state={`${detail.run.retryCount}`} />
           </dl>
           {detail.run.latestSafeError === undefined ? null : (

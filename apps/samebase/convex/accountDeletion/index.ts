@@ -14,6 +14,12 @@ import { startAccountDeletionWorkflow } from "./workflow";
 
 const { array, id, literal, number, object, optional, string, union } = v;
 
+const vActiveAccountDeletionRunState = union(
+  literal("queued"),
+  literal("running"),
+  literal("needs_attention"),
+);
+
 const vAccountDeletionRunState = union(
   literal("queued"),
   literal("running"),
@@ -26,7 +32,7 @@ const vAccountDeletionMarkerPhase = union(literal("deleting"), literal("finalizi
 const vAccountDeletionStatus = object({
   runId: id("accountDeletionRuns"),
   completionCapability: string(),
-  state: vAccountDeletionRunState,
+  state: vActiveAccountDeletionRunState,
   markerPhase: vAccountDeletionMarkerPhase,
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
@@ -59,7 +65,7 @@ const vAdminAccountDeletionListItem = object({
 });
 
 function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" | "finalizing") {
-  if (run.completionCapability === undefined) {
+  if (run.state === "succeeded") {
     throw new Error("Account deletion completion state is inconsistent.");
   }
   return {
@@ -129,15 +135,13 @@ export const request = mutation({
     }
 
     const now = Date.now();
-    const runId = await ctx.db.insert("accountDeletionRuns", {
+    const activeRunFields = {
       identity: {
         state: "active",
         userId: ctx.viewer.userId,
         email: ctx.viewer.user.email,
       },
       completionCapability: args.completionCapability,
-      state: "queued",
-      workflow: { state: "not_started" },
       currentStep: "request_accepted",
       requestedAt: now,
       updatedAt: now,
@@ -148,6 +152,11 @@ export const request = mutation({
         providerRevocation: { state: "not_started" },
         completionEmail: { state: "not_started" },
       },
+    } as const;
+    const runId = await ctx.db.insert("accountDeletionRuns", {
+      ...activeRunFields,
+      state: "queued",
+      workflow: { state: "not_started" },
     });
     await ctx.db.insert("accountDeletionEvents", {
       runId,
@@ -165,24 +174,9 @@ export const request = mutation({
     });
     const workflowId = await startAccountDeletionWorkflow(ctx, runId);
     await ctx.db.replace(runId, {
-      identity: {
-        state: "active",
-        userId: ctx.viewer.userId,
-        email: ctx.viewer.user.email,
-      },
-      completionCapability: args.completionCapability,
+      ...activeRunFields,
       state: "running",
       workflow: { state: "started", workflowId, attempt: 1 },
-      currentStep: "request_accepted",
-      requestedAt: now,
-      updatedAt: now,
-      initiatingSessionId,
-      retryCount: 0,
-      outcomes: {
-        billing: { state: "not_started" },
-        providerRevocation: { state: "not_started" },
-        completionEmail: { state: "not_started" },
-      },
     });
 
     const run = await ctx.db.get(runId);

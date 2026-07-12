@@ -9,12 +9,12 @@ import { createUrlSearchParams } from "../../shared/urlSearchParams";
 
 const { id, literal, object, string, union } = v;
 
-export const vCancelBillingResult = union(
+const vCancelBillingResult = union(
   object({ state: literal("not_applicable") }),
   object({ state: literal("succeeded") }),
   object({ state: literal("failed"), safeError: string() }),
 );
-export type CancelBillingResult = Infer<typeof vCancelBillingResult>;
+type CancelBillingResult = Infer<typeof vCancelBillingResult>;
 
 const POLAR_API_FETCH_TIMEOUT_MS = 10_000;
 const POLAR_SUBSCRIPTION_PAGE_SIZE = 100;

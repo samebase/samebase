@@ -1,17 +1,28 @@
 import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Check, Circle, Loader2, TriangleAlert } from "lucide-react";
+import { entries } from "@samebase/dependent/object";
 import { api } from "../../convex/_generated/api";
 
-const ACCOUNT_DELETION_STEPS = [
-  { step: "request_accepted", label: "Request accepted" },
-  { step: "cancel_billing", label: "Cancel billing" },
-  { step: "revoke_access", label: "Revoke access" },
-  { step: "delete_samebase_data", label: "Delete Samebase data" },
-  { step: "send_completion_email", label: "Send completion email" },
-  { step: "delete_identity", label: "Delete account identity" },
-  { step: "finish", label: "Finish" },
-] as const;
+type AccountDeletionStatus = Pick<
+  Exclude<FunctionReturnType<typeof api.accountDeletion.index.status>, null>,
+  "currentStep" | "latestProgressAt" | "state"
+>;
+
+const ACCOUNT_DELETION_STEP_LABELS = {
+  request_accepted: "Request accepted",
+  cancel_billing: "Cancel billing",
+  revoke_access: "Revoke access",
+  delete_samebase_data: "Delete Samebase data",
+  send_completion_email: "Send completion email",
+  delete_identity: "Delete account identity",
+  finish: "Finish",
+} satisfies Record<AccountDeletionStatus["currentStep"], string>;
+
+const ACCOUNT_DELETION_STEPS = entries(ACCOUNT_DELETION_STEP_LABELS).map(([step, label]) => ({
+  step,
+  label,
+}));
 
 export function AccountDeletionPage() {
   const status = useQuery(api.accountDeletion.index.status);
@@ -32,11 +43,6 @@ export function AccountDeletionPage() {
   return <AccountDeletionStatusView status={status} />;
 }
 
-type AccountDeletionStatus = Pick<
-  Exclude<FunctionReturnType<typeof api.accountDeletion.index.status>, null>,
-  "currentStep" | "latestProgressAt" | "state"
->;
-
 export function AccountDeletionStatusView({ status }: { status: AccountDeletionStatus }) {
   const needsAttention = status.state === "needs_attention";
   const currentStepIndex = ACCOUNT_DELETION_STEPS.findIndex(
@@ -54,8 +60,8 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
       </p>
       <ol className="mt-8 border-t pt-6" aria-label="Account deletion progress">
         {ACCOUNT_DELETION_STEPS.map(({ step, label }, index) => {
-          const completed = status.state === "succeeded" || index < currentStepIndex;
-          const current = status.state !== "succeeded" && index === currentStepIndex;
+          const completed = index < currentStepIndex;
+          const current = index === currentStepIndex;
           const stateLabel = completed
             ? "completed"
             : current && needsAttention
