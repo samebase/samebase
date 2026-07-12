@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions } from "@/authClient";
@@ -27,6 +28,7 @@ function readErrorMessage(error: unknown, fallback: string) {
 }
 
 export function UserSettingsPage() {
+  const router = useRouter();
   const settings = useQuery(api.users.getUserSettings);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const { signOut } = useAppAuthActions();
@@ -127,6 +129,9 @@ export function UserSettingsPage() {
     }
     setIsSigningOut(true);
     void signOut()
+      .then(() => {
+        void router.navigate({ href: "/", replace: true, state: true });
+      })
       .catch((error: unknown) => {
         toast({
           description: readErrorMessage(error, "Please try again."),

@@ -35,6 +35,9 @@ const authState = vi.hoisted(() => ({
 const appAuthState = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
+const routerState = vi.hoisted(() => ({
+  navigate: vi.fn(),
+}));
 const mutationState = vi.hoisted(() => ({
   setDisplayName: vi.fn(),
 }));
@@ -53,6 +56,10 @@ vi.mock("@convex-dev/auth/react", () => ({
 
 vi.mock("@/authClient", () => ({
   useAppAuthActions: () => appAuthState,
+}));
+
+vi.mock("@tanstack/react-router", () => ({
+  useRouter: () => routerState,
 }));
 
 vi.mock("convex/react", () => ({
@@ -109,6 +116,7 @@ describe("UserSettingsPage", () => {
   beforeEach(() => {
     authState.fetchAccessToken.mockReset();
     appAuthState.signOut.mockReset();
+    routerState.navigate.mockReset();
     mutationState.setDisplayName.mockReset();
     queryState.settings = {
       displayName: "Current name",
@@ -143,6 +151,7 @@ describe("UserSettingsPage", () => {
         signOut.resolve();
         await signOut.promise;
       });
+      expect(routerState.navigate).toHaveBeenCalledWith({ href: "/", replace: true, state: true });
       expect(button?.disabled).toBe(false);
       expect(button?.textContent).toBe("Sign out");
     } finally {
