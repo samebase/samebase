@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AccountDeletionBrowserBoundary } from "./AccountDeletionBrowserBoundary";
@@ -11,7 +11,11 @@ const completionCapability = "a".repeat(64);
 const authState = vi.hoisted(() => ({ isAuthenticated: true, isLoading: false }));
 const locationState = vi.hoisted(() => ({ pathname: "/" }));
 const queryState = vi.hoisted<{
-  completion: null | { completedAt: number; state: "succeeded" };
+  completion: undefined | null | { completedAt: number; state: "succeeded" };
+  completionByCapability: Map<
+    string,
+    undefined | null | { completedAt: number; state: "succeeded" }
+  >;
   status: null | {
     completionCapability: string;
     currentStep: "delete_identity";
@@ -22,10 +26,21 @@ const queryState = vi.hoisted<{
     state: "needs_attention" | "running";
   };
   viewer: undefined | { role: "role_deleting" | "role_member" | "role_pending_access" };
-}>(() => ({ completion: null, status: null, viewer: undefined }));
+}>(() => ({
+  completion: null,
+  completionByCapability: new Map(),
+  status: null,
+  viewer: undefined,
+}));
 const routerState = vi.hoisted(() => ({ navigate: vi.fn() }));
 const cleanupState = vi.hoisted(() => ({ resetLocalAppData: vi.fn() }));
+const authActionState = vi.hoisted(() => ({ signOut: vi.fn() }));
 const posthogState = vi.hoisted(() => ({ reset: vi.fn() }));
+
+vi.mock("@convex-dev/auth/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@convex-dev/auth/react")>();
+  return { ...actual, useAuthActions: () => authActionState };
+});
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
@@ -52,6 +67,13 @@ vi.mock("convex/react", async (importOriginal) => {
         return queryState.viewer;
       }
       if (functionName === "accountDeletion/index:completion") {
+        if (
+          "completionCapability" in args &&
+          typeof args.completionCapability === "string" &&
+          queryState.completionByCapability.has(args.completionCapability)
+        ) {
+          return queryState.completionByCapability.get(args.completionCapability);
+        }
         return queryState.completion;
       }
       return queryState.status;
@@ -81,16 +103,29 @@ function createTestStorage(): Storage {
   };
 }
 
-async function renderBoundary() {
+function createDeferred<Value>() {
+  const control: { resolve: (value: Value) => void } = {
+    resolve: () => {
+      throw new Error("Deferred promise was not initialized.");
+    },
+  };
+  const promise = new Promise<Value>((resolve) => {
+    control.resolve = resolve;
+  });
+  return { promise, resolve: control.resolve };
+}
+
+async function renderBoundary(strict = false) {
   const rootElement = document.createElement("div");
   document.body.append(rootElement);
   const root = createRoot(rootElement);
+  const boundary = (
+    <AccountDeletionBrowserBoundary>
+      <div data-testid="children">Normal route</div>
+    </AccountDeletionBrowserBoundary>
+  );
   await act(async () => {
-    root.render(
-      <AccountDeletionBrowserBoundary>
-        <div data-testid="children">Normal route</div>
-      </AccountDeletionBrowserBoundary>,
-    );
+    root.render(strict ? <StrictMode>{boundary}</StrictMode> : boundary);
   });
   return { root, rootElement };
 }
@@ -105,12 +140,15 @@ describe("AccountDeletionBrowserBoundary", () => {
     authState.isLoading = false;
     locationState.pathname = "/";
     queryState.completion = null;
+    queryState.completionByCapability = new Map();
     queryState.status = null;
     queryState.viewer = undefined;
     routerState.navigate.mockReset();
     routerState.navigate.mockResolvedValue(undefined);
     cleanupState.resetLocalAppData.mockReset();
     cleanupState.resetLocalAppData.mockResolvedValue(undefined);
+    authActionState.signOut.mockReset();
+    authActionState.signOut.mockResolvedValue(undefined);
     posthogState.reset.mockReset();
     posthogState.reset.mockResolvedValue(undefined);
   });
@@ -295,7 +333,7 @@ describe("AccountDeletionBrowserBoundary", () => {
       await act(async () => {
         await Promise.resolve();
       });
-      expect(posthogState.reset).toHaveBeenCalledTimes(1);
+      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
       expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
       expect(mounted.rootElement.textContent).toContain("Account deleted");
       expect(mounted.rootElement.textContent).not.toContain("Normal route");
@@ -307,6 +345,7 @@ describe("AccountDeletionBrowserBoundary", () => {
 
   it("shows completion while the deleted session still appears authenticated", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
+    locationState.pathname = "/account-deletion";
     queryState.viewer = { role: "role_pending_access" };
     queryState.completion = { completedAt: 3, state: "succeeded" };
 
@@ -315,9 +354,186 @@ describe("AccountDeletionBrowserBoundary", () => {
       await act(async () => {
         await Promise.resolve();
       });
+      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
+      expect(posthogState.reset).toHaveBeenCalledTimes(1);
       expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
       expect(mounted.rootElement.textContent).toContain("Account deleted");
       expect(mounted.rootElement.textContent).not.toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("recovers a pending OAuth return from the root route", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    queryState.viewer = { role: "role_pending_access" };
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary();
+    try {
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        href: "/account-deletion",
+        replace: true,
+      });
+      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Account deleted");
+      expect(mounted.rootElement.textContent).not.toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("keeps a pending authenticated account behind receipt verification", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    locationState.pathname = "/account-deletion";
+    queryState.viewer = { role: "role_pending_access" };
+    queryState.completion = null;
+
+    const mounted = await renderBoundary();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Checking account deletion");
+      expect(mounted.rootElement.textContent).not.toContain("Normal route");
+      expect(mounted.rootElement.textContent).toContain("Continue to Samebase");
+      const continueButton = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Continue to Samebase",
+      );
+      await act(async () => continueButton?.click());
+      expect(window.localStorage.getItem("samebase:account-deletion")).toBeNull();
+      expect(mounted.rootElement.textContent).toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("does not expose pending access while the completion receipt is loading", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    locationState.pathname = "/account-deletion";
+    queryState.viewer = { role: "role_pending_access" };
+    queryState.completion = undefined;
+
+    const mounted = await renderBoundary();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Checking account deletion");
+      expect(mounted.rootElement.textContent).not.toContain("Normal route");
+      expect(mounted.rootElement.querySelector("button")).toBeNull();
+
+      queryState.completion = { completedAt: 3, state: "succeeded" };
+      await act(async () => {
+        mounted.root.render(
+          <AccountDeletionBrowserBoundary>
+            <div>Normal route</div>
+          </AccountDeletionBrowserBoundary>,
+        );
+        await Promise.resolve();
+      });
+      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Account deleted");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("runs sign-out and analytics reset once before clearing browser data", async () => {
+    const signOut = createDeferred<void>();
+    const posthogReset = createDeferred<void>();
+    authActionState.signOut.mockReturnValue(signOut.promise);
+    posthogState.reset.mockReturnValue(posthogReset.promise);
+    writeAccountDeletionBrowserMarker(completionCapability);
+    authState.isAuthenticated = false;
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary(true);
+    try {
+      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
+      expect(posthogState.reset).toHaveBeenCalledTimes(1);
+      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
+      expect(mounted.rootElement.textContent).toContain("Finishing account deletion");
+
+      await act(async () => {
+        signOut.resolve();
+        posthogReset.resolve();
+        await signOut.promise;
+        await posthogReset.promise;
+      });
+      expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Account deleted");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("reports cleanup failure after still clearing local data when sign-out fails", async () => {
+    authActionState.signOut.mockRejectedValue(new Error("session already deleted"));
+    writeAccountDeletionBrowserMarker(completionCapability);
+    authState.isAuthenticated = false;
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary();
+    try {
+      expect(posthogState.reset).toHaveBeenCalledTimes(1);
+      expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Finishing account deletion");
+      expect(mounted.rootElement.textContent).toContain(
+        "Reload this page to finish clearing browser data.",
+      );
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("does not consume a stale successful receipt while the active run owns another capability", async () => {
+    const staleCapability = "b".repeat(64);
+    writeAccountDeletionBrowserMarker(staleCapability);
+    locationState.pathname = "/account-deletion";
+    queryState.viewer = { role: "role_deleting" };
+    queryState.status = {
+      completionCapability,
+      currentStep: "delete_identity",
+      latestProgressAt: 2,
+      markerPhase: "finalizing",
+      requestedAt: 1,
+      runId: "run-1",
+      state: "running",
+    };
+    queryState.completionByCapability.set(staleCapability, {
+      completedAt: 3,
+      state: "succeeded",
+    });
+    queryState.completionByCapability.set(completionCapability, null);
+
+    const mounted = await renderBoundary();
+    try {
+      expect(authActionState.signOut).not.toHaveBeenCalled();
+      expect(posthogState.reset).not.toHaveBeenCalled();
+      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
+      expect(
+        JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
+      ).toEqual({ completionCapability });
+      expect(mounted.rootElement.textContent).toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("ignores a stale successful receipt for an ordinary signed-in member", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    queryState.viewer = { role: "role_member" };
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary();
+    try {
+      expect(authActionState.signOut).not.toHaveBeenCalled();
+      expect(posthogState.reset).not.toHaveBeenCalled();
+      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
+      expect(window.localStorage.getItem("samebase:account-deletion")).toBeNull();
+      expect(mounted.rootElement.textContent).toContain("Normal route");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();
@@ -336,7 +552,9 @@ describe("AccountDeletionBrowserBoundary", () => {
         await Promise.resolve();
       });
       expect(mounted.rootElement.textContent).toContain("Finishing account deletion");
-      expect(mounted.rootElement.textContent).toContain("Close other Samebase tabs");
+      expect(mounted.rootElement.textContent).toContain(
+        "Reload this page to finish clearing browser data.",
+      );
       expect(mounted.rootElement.textContent).not.toContain("Account deleted");
     } finally {
       await act(async () => mounted.root.unmount());

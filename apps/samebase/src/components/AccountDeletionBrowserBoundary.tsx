@@ -1,8 +1,10 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import {
+  clearAccountDeletionBrowserMarker,
   readAccountDeletionBrowserMarker,
   writeAccountDeletionBrowserMarker,
 } from "@/lib/accountDeletionBrowserState";
@@ -11,14 +13,23 @@ import { resetLocalAppData } from "@/lib/appBootRecovery";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 import { Button } from "@/components/ui/button";
 
-type CompletionState = "idle" | "verifying" | "clearing" | "complete" | "cleanup_failed";
+type CleanupState = "idle" | "clearing" | "complete" | "cleanup_failed";
+
+async function clearDeletedAccountBrowserData(signOut: () => Promise<void>) {
+  const cleanupResults = await Promise.allSettled([signOut(), resetSamebasePostHogClient()]);
+  await resetLocalAppData();
+  const failure = cleanupResults.find((result) => result.status === "rejected");
+  if (failure?.status === "rejected") {
+    throw failure.reason;
+  }
+}
 
 function AccountDeletionCompletionPage({
-  onSignIn,
+  action,
   state,
 }: {
-  onSignIn?: () => void;
-  state: Exclude<CompletionState, "idle">;
+  action?: { label: string; onClick: () => void };
+  state: Exclude<CleanupState, "idle"> | "verifying";
 }) {
   const completed = state === "complete";
   return (
@@ -32,16 +43,16 @@ function AccountDeletionCompletionPage({
       </h1>
       <p className="mt-4 text-sm text-muted-foreground" role="status">
         {state === "cleanup_failed"
-          ? "Close other Samebase tabs, then reload this page to finish clearing browser data."
+          ? "Reload this page to finish clearing browser data."
           : completed
             ? "Your Samebase account and saved browser data have been deleted."
             : state === "verifying"
               ? "Confirming that account deletion finished."
               : "Clearing saved Samebase data from this browser."}
       </p>
-      {onSignIn ? (
-        <Button className="mt-6" type="button" variant="outline" onClick={onSignIn}>
-          Sign in to view status
+      {action ? (
+        <Button className="mt-6" type="button" variant="outline" onClick={action.onClick}>
+          {action.label}
         </Button>
       ) : null}
     </main>
@@ -50,6 +61,7 @@ function AccountDeletionCompletionPage({
 
 export function AccountDeletionBrowserBoundary({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const { signOut } = useAuthActions();
   const pathname = useLocation({ select: (location) => location.pathname });
   const router = useRouter();
   const viewerAccess = useQuery(
@@ -60,22 +72,46 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     api.accountDeletion.index.status,
     isAuthenticated && !isLoading && viewerAccess?.role === "role_deleting" ? {} : "skip",
   );
-  const marker = readAccountDeletionBrowserMarker();
   const [completionCapability, setCompletionCapability] = useState<string | null>(
-    marker?.completionCapability ?? null,
+    () => readAccountDeletionBrowserMarker()?.completionCapability ?? null,
   );
   const completion = useQuery(
     api.accountDeletion.index.completion,
     !isLoading && completionCapability !== null ? { completionCapability } : "skip",
   );
-  const [completionState, setCompletionState] = useState<CompletionState>("idle");
-  const [showSignedOutChildren, setShowSignedOutChildren] = useState(false);
+  const [cleanupState, setCleanupState] = useState<CleanupState>("idle");
+  const [showChildren, setShowChildren] = useState(false);
+  const cleanupStartedRef = useRef(false);
+  const ownsCompletionReceipt =
+    completionCapability !== null &&
+    (!isAuthenticated ||
+      (viewerAccess?.role === "role_deleting" &&
+        status?.completionCapability === completionCapability) ||
+      viewerAccess?.role === "role_pending_access");
   useEffect(() => {
-    if (viewerAccess?.role !== "role_deleting" || pathname === ACCOUNT_DELETION_ROUTE) {
+    if (
+      pathname === ACCOUNT_DELETION_ROUTE ||
+      (viewerAccess?.role !== "role_deleting" &&
+        (viewerAccess?.role !== "role_pending_access" || completionCapability === null))
+    ) {
       return;
     }
     void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
-  }, [pathname, router, viewerAccess?.role]);
+  }, [completionCapability, pathname, router, viewerAccess?.role]);
+
+  useEffect(() => {
+    if (
+      completionCapability === null ||
+      !isAuthenticated ||
+      viewerAccess === undefined ||
+      viewerAccess.role === "role_deleting" ||
+      viewerAccess.role === "role_pending_access"
+    ) {
+      return;
+    }
+    clearAccountDeletionBrowserMarker(completionCapability);
+    setCompletionCapability(null);
+  }, [completionCapability, isAuthenticated, viewerAccess]);
 
   useEffect(() => {
     if (
@@ -91,28 +127,46 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
   }, [completionCapability, status, viewerAccess?.role]);
 
   useEffect(() => {
-    if (completion?.state !== "succeeded" || completionState !== "idle") {
+    if (completion?.state !== "succeeded" || !ownsCompletionReceipt || cleanupStartedRef.current) {
       return;
     }
-    setCompletionState("clearing");
-    void resetSamebasePostHogClient()
-      .then(resetLocalAppData)
-      .then(() => setCompletionState("complete"))
-      .catch(() => setCompletionState("cleanup_failed"));
-  }, [completion?.state, completionState]);
+    cleanupStartedRef.current = true;
+    setCleanupState("clearing");
+    void clearDeletedAccountBrowserData(signOut)
+      .then(() => setCleanupState("complete"))
+      .catch(() => setCleanupState("cleanup_failed"));
+  }, [completion?.state, ownsCompletionReceipt, signOut]);
 
-  if (completionState !== "idle") {
-    return <AccountDeletionCompletionPage state={completionState} />;
+  if (cleanupState !== "idle") {
+    return <AccountDeletionCompletionPage state={cleanupState} />;
   }
 
-  if (completion?.state === "succeeded") {
+  if (completion?.state === "succeeded" && ownsCompletionReceipt) {
     return <AccountDeletionCompletionPage state="clearing" />;
   }
 
-  if (!showSignedOutChildren && !isLoading && !isAuthenticated && completionCapability !== null) {
+  if (
+    !showChildren &&
+    !isLoading &&
+    ownsCompletionReceipt &&
+    viewerAccess?.role !== "role_deleting"
+  ) {
     return (
       <AccountDeletionCompletionPage
-        onSignIn={completion === null ? () => setShowSignedOutChildren(true) : undefined}
+        action={
+          completion === null
+            ? {
+                label: isAuthenticated ? "Continue to Samebase" : "Sign in to view status",
+                onClick: () => {
+                  if (isAuthenticated) {
+                    clearAccountDeletionBrowserMarker(completionCapability);
+                    setCompletionCapability(null);
+                  }
+                  setShowChildren(true);
+                },
+              }
+            : undefined
+        }
         state="verifying"
       />
     );

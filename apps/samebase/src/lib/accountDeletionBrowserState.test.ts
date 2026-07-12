@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import {
+  clearAccountDeletionBrowserMarker,
   createAccountDeletionCompletionCapability,
   readAccountDeletionBrowserMarker,
   writeAccountDeletionBrowserMarker,
@@ -44,6 +45,16 @@ describe("account deletion browser state", () => {
   it("fails closed for malformed browser state", () => {
     window.localStorage.setItem("samebase:account-deletion", '{"completionCapability":"short"}');
 
+    expect(readAccountDeletionBrowserMarker()).toBeNull();
+  });
+
+  it("clears only the matching completion capability", () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+
+    clearAccountDeletionBrowserMarker("b".repeat(64));
+    expect(readAccountDeletionBrowserMarker()).toEqual({ completionCapability });
+
+    clearAccountDeletionBrowserMarker(completionCapability);
     expect(readAccountDeletionBrowserMarker()).toBeNull();
   });
 

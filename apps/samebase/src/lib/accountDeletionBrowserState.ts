@@ -66,3 +66,14 @@ export function writeAccountDeletionBrowserMarker(completionCapability: string):
     return false;
   }
 }
+
+export function clearAccountDeletionBrowserMarker(completionCapability: string): void {
+  if (readAccountDeletionBrowserMarker()?.completionCapability !== completionCapability) {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(ACCOUNT_DELETION_BROWSER_MARKER_KEY);
+  } catch {
+    // The caller still dismisses the marker in memory for the current page.
+  }
+}

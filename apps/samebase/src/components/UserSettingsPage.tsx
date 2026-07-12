@@ -180,6 +180,8 @@ export function UserSettingsPage() {
       writeAccountDeletionBrowserMarker(status.completionCapability);
       void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
     } catch {
+      // A transport failure cannot prove the atomic request did not commit.
+      // Keep the prewritten capability so the browser can still find that run.
       setDeletionError("Could not start account deletion. Please try again.");
       setIsRequestingDeletion(false);
     }
