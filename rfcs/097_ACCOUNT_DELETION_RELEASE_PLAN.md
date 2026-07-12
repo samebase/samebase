@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Accepted for implementation
 - Owner: Nicu Chiciuc
 - Created: 2026-07-12
 - Related research:
@@ -53,6 +53,17 @@ Convex projects, Cloudflare Workers, and other external resources keep running.
 
 The current signed-in session proves which account is requesting deletion. Version one does not ask
 the user to type their email and does not add a separate recent-authentication flow.
+
+Before confirmation, the dialog counts staged files across the user's vaults. When the count is
+non-zero, the same dialog adds this warning:
+
+```text
+You have <count> uncommitted file changes. Deleting your account permanently
+deletes them. They will not be pushed to GitHub.
+```
+
+Account deletion never commits, exports, or publishes staged changes. The user can cancel, commit
+the work normally, and return to deletion without a second confirmation mechanism.
 
 The confirmation action is disabled while the request is being accepted. Acceptance atomically
 creates one durable account deletion run and gates the user. Repeated submission returns the same
@@ -213,17 +224,19 @@ test succeeds in the production-like environment with a dedicated non-staff acco
 ### Manual release acceptance
 
 1. Sign in to the dedicated account and record its Convex user ID.
-2. Give the account exactly this minimum state: one vault containing a file or staged change, one
-   connected provider, and a second signed-in browser session. Machine, MCP, and billing boundaries
-   use automated fixtures rather than making the human walkthrough depend on optional setup.
+2. Give the account exactly this minimum state: one vault containing at least one uncommitted staged
+   change, one connected provider, and the same account signed in through a different browser or
+   isolated browser profile. Machine, MCP, and billing boundaries use automated fixtures rather than
+   making the human walkthrough depend on optional setup.
 3. Open `/settings`, choose `Delete account`, verify the confirmation says external resources
-   survive, and confirm once.
+   survive and the staged changes will be permanently deleted without being pushed to GitHub, then
+   confirm once.
 4. Verify the app immediately navigates to `/account-deletion`, ordinary product navigation is no
    longer available, and a second confirmation cannot create another run.
 5. Verify the staff `/admin/account-deletions` page shows the same operation, account identity,
    current step, and progress.
-6. Verify the other browser session and provider connection stop granting Samebase access while the
-   initiating session can only read deletion status.
+6. Verify the other browser or isolated profile and the provider connection stop granting Samebase
+   access while the initiating session can only read deletion status.
 7. Let the run succeed. Verify the browser is signed out, local Samebase browser data is cleared,
    and the completion email arrives or its delivery failure is visible to staff.
 8. Verify the auth account, sessions, user row, credentials, Samebase storage objects, and all
