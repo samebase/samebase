@@ -26,7 +26,7 @@ root inbound MX records.
 Application email uses:
 
 - sender: `Samebase <notifications@samebase.com>`
-- first recipient: `nicu@samebase.com` for new-user notifications
+- first recipient: `nicuchiciuc@gmail.com` for new-user notifications
 - provider API: `POST /accounts/{account_id}/email/sending/send`
 - Convex environment variables:
   - `CLOUDFLARE_EMAIL_API_TOKEN`
@@ -117,6 +117,6 @@ and receiving remains the responsibility of Google Workspace.
 - Auth notification tests verify new-user, existing-user, and seeded-account decisions.
 - Local and worktree tests verify that missing email configuration causes no external request.
 - A manual production smoke test creates a fresh test account and confirms one message reaches
-  `nicu@samebase.com` with the production subject.
+  `nicuchiciuc@gmail.com` with the production subject.
 - A manual preview smoke test invokes the internal email action or creates a genuinely new Google
   account, then confirms the `[Preview]` prefix and Cloudflare Email Sending activity log entry.
