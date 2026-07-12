@@ -54,12 +54,11 @@ Convex projects, Cloudflare Workers, and other external resources keep running.
 The current signed-in session proves which account is requesting deletion. Version one does not ask
 the user to type their email and does not add a separate recent-authentication flow.
 
-Before confirmation, the dialog counts staged files across the user's vaults. When the count is
-non-zero, the same dialog adds this warning:
+The confirmation dialog always includes this warning:
 
 ```text
-You have <count> uncommitted file changes. Deleting your account permanently
-deletes them. They will not be pushed to GitHub.
+Any uncommitted file changes in Samebase will be permanently deleted.
+They will not be pushed to GitHub.
 ```
 
 Account deletion never commits, exports, or publishes staged changes. The user can cancel, commit
@@ -92,10 +91,11 @@ If the user closes the browser or signs out before completion, signing in again 
 deletion status route. Authentication and the `users` row are deleted last so a failed deletion does
 not leave the user without visibility.
 
-The initiating browser stores a local, non-secret deletion marker when the request is accepted. At
-the terminal step, loss of the final authenticated status subscription while that marker is present
-means deletion completed: the client clears Samebase browser data and returns to the signed-out
-landing page. Ordinary signed-out sessions without the marker do not infer deletion success.
+The initiating browser stores a local, non-secret deletion marker when the request is accepted. The
+status route exposes when the run has entered finalization. Only after that browser has observed
+finalization does loss of the authenticated status subscription mean deletion completed: the client
+clears Samebase browser data and returns to the signed-out landing page. Sign-out, expiry, or auth
+failure before finalization never infer deletion success.
 
 ### Success
 
@@ -204,6 +204,9 @@ The workflow processes bounded, idempotent steps. A fail-closed cleanup registry
 user-owned or user-referencing table as delete, detach, anonymize, or retain. Adding an unclassified
 table fails validation so future schema additions cannot silently escape account deletion.
 
+Staff accounts cannot request self-deletion in version one. A non-staff account performs the release
+acceptance flow so at least one staff operator retains access to inspect and retry a failed run.
+
 PostHog deletion is not automated and is not a workflow completion gate in version one. At current
 scale, the operator handles an identified PostHog deletion manually when required. Browser PostHog
 reset remains device cleanup and is not proof of processor deletion. Automation is deferred until
@@ -214,6 +217,7 @@ real deletion volume justifies it, and the account run never retains identity on
 - No public or secret-token deletion status URL.
 - No general admin user-management system.
 - No admin-initiated arbitrary account deletion.
+- No staff-account self-deletion until recovery no longer depends on another staff operator.
 - No automatic deletion of repositories, deployments, projects, Workers, domains, or other external
   provider resources.
 - No automatic PostHog deletion integration.
@@ -232,8 +236,8 @@ test succeeds in the production-like environment with a dedicated non-staff acco
    isolated browser profile. Machine, MCP, and billing boundaries use automated fixtures rather than
    making the human walkthrough depend on optional setup.
 3. Open `/settings`, choose `Delete account`, verify the confirmation says external resources
-   survive and the staged changes will be permanently deleted without being pushed to GitHub, then
-   confirm once.
+   survive and any uncommitted changes will be permanently deleted without being pushed to GitHub,
+   then confirm once.
 4. Verify the app immediately navigates to `/account-deletion`, ordinary product navigation is no
    longer available, and a second confirmation cannot create another run.
 5. Verify the staff `/admin/account-deletions` page shows the same operation, account identity,
