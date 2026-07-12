@@ -3,10 +3,13 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { v } from "convex/values";
 
 import type { Doc } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
-import { hasStagedFileChanges } from "../stagingChanges";
-import { vAccountDeletionEventLevel, vAccountDeletionStep } from "./model";
+import { isAdminUser } from "../userAccess";
+import {
+  vAccountDeletionEventLevel,
+  vAccountDeletionOutcomeSummary,
+  vAccountDeletionStep,
+} from "./model";
 
 const { array, id, literal, number, object, optional, string, union } = v;
 
@@ -17,13 +20,15 @@ const vAccountDeletionRunState = union(
   literal("succeeded"),
 );
 
+const vAccountDeletionMarkerPhase = union(literal("deleting"), literal("finalizing"));
+
 const vAccountDeletionStatus = object({
   runId: id("accountDeletionRuns"),
   state: vAccountDeletionRunState,
+  markerPhase: vAccountDeletionMarkerPhase,
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
   latestProgressAt: number(),
-  stagedFileCount: number(),
 });
 
 const vAccountDeletionEvent = object({
@@ -39,75 +44,48 @@ const vAdminAccountDeletionListItem = object({
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
   latestProgressAt: number(),
-  stagedFileCount: number(),
   retryCount: number(),
+  outcomes: vAccountDeletionOutcomeSummary,
   email: optional(string()),
   latestSafeError: optional(string()),
   completedAt: optional(number()),
 });
 
-async function countUserStagedFileChanges(
-  ctx: QueryCtx | MutationCtx,
-  userId: Doc<"users">["_id"],
-): Promise<number> {
-  let count = 0;
-  const vaults = ctx.db.query("vaults").withIndex("by_userId", (q) => q.eq("userId", userId));
-
-  for await (const vault of vaults) {
-    const stagedFiles = ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault", (q) => q.eq("vaultId", vault._id));
-    for await (const stagedFile of stagedFiles) {
-      if (hasStagedFileChanges(stagedFile)) {
-        count += 1;
-      }
-    }
-  }
-  return count;
+function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" | "finalizing") {
+  return {
+    runId: run._id,
+    state: run.state,
+    markerPhase,
+    currentStep: run.currentStep,
+    requestedAt: run.requestedAt,
+    latestProgressAt: run.updatedAt,
+  };
 }
 
-function projectStatus(run: Doc<"accountDeletionRuns">) {
+function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
   return {
     runId: run._id,
     state: run.state,
     currentStep: run.currentStep,
     requestedAt: run.requestedAt,
     latestProgressAt: run.updatedAt,
-    stagedFileCount: run.stagedFileCount,
-  };
-}
-
-function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
-  return {
-    ...projectStatus(run),
     retryCount: run.retryCount,
+    outcomes: run.outcomes,
     ...(run.identity.state === "active" ? { email: run.identity.email } : {}),
     ...(run.state === "needs_attention" ? { latestSafeError: run.latestSafeError } : {}),
     ...(run.state === "succeeded" ? { completedAt: run.completedAt } : {}),
   };
 }
 
-export const preflight = query({
-  access: "access_account_deletion",
-  args: {},
-  returns: object({
-    stagedFileCount: number(),
-  }),
-  handler: async (ctx) => {
-    if (ctx.viewer.user.accountDeletion !== undefined) {
-      throw new Error("Account deletion has already been requested.");
-    }
-    return {
-      stagedFileCount: await countUserStagedFileChanges(ctx, ctx.viewer.userId),
-    };
-  },
-});
-
 export const request = mutation({
   access: "access_account_deletion",
   args: {},
   returns: vAccountDeletionStatus,
   handler: async (ctx) => {
+    if (isAdminUser(ctx.viewer.user.email)) {
+      throw new Error("Staff accounts cannot request account deletion.");
+    }
+
     const existingMarker = ctx.viewer.user.accountDeletion;
     if (existingMarker !== undefined) {
       const existingRun = await ctx.db.get(existingMarker.runId);
@@ -118,7 +96,7 @@ export const request = mutation({
       ) {
         throw new Error("Account deletion state is inconsistent.");
       }
-      return projectStatus(existingRun);
+      return projectStatus(existingRun, existingMarker.state);
     }
 
     const initiatingSessionId = await getAuthSessionId(ctx);
@@ -127,7 +105,6 @@ export const request = mutation({
     }
 
     const now = Date.now();
-    const stagedFileCount = await countUserStagedFileChanges(ctx, ctx.viewer.userId);
     const runId = await ctx.db.insert("accountDeletionRuns", {
       identity: {
         state: "active",
@@ -135,12 +112,17 @@ export const request = mutation({
         email: ctx.viewer.user.email,
       },
       state: "queued",
+      workflow: { state: "not_started" },
       currentStep: "request_accepted",
       requestedAt: now,
-      stagedFileCount,
       updatedAt: now,
       initiatingSessionId,
       retryCount: 0,
+      outcomes: {
+        billing: { state: "not_started" },
+        providerRevocation: { state: "not_started" },
+        completionEmail: { state: "not_started" },
+      },
     });
     await ctx.db.insert("accountDeletionEvents", {
       runId,
@@ -161,7 +143,7 @@ export const request = mutation({
     if (run === null) {
       throw new Error("Account deletion run was not created.");
     }
-    return projectStatus(run);
+    return projectStatus(run, "deleting");
   },
 });
 
@@ -182,7 +164,7 @@ export const status = query({
     ) {
       throw new Error("Account deletion state is inconsistent.");
     }
-    return projectStatus(run);
+    return projectStatus(run, marker.state);
   },
 });
 

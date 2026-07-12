@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-const { id, literal, number, object, optional, string, union } = v;
+const { id, literal, number, object, string, union } = v;
 
 export const vAccountDeletionMarker = union(
   object({
@@ -31,24 +31,75 @@ export const vAccountDeletionEventLevel = union(
   literal("error"),
 );
 
-const accountDeletionRunProgress = {
+export const vAccountDeletionBillingOutcome = union(
+  object({ state: literal("not_started") }),
+  object({ state: literal("not_applicable") }),
+  object({ state: literal("succeeded") }),
+  object({ state: literal("failed"), safeError: string() }),
+);
+
+export const vAccountDeletionProviderRevocationOutcome = union(
+  object({ state: literal("not_started") }),
+  object({ state: literal("not_applicable") }),
+  object({ state: literal("succeeded") }),
+  object({ state: literal("unconfirmed"), safeError: string() }),
+);
+
+export const vAccountDeletionCompletionEmailOutcome = union(
+  object({ state: literal("not_started") }),
+  object({ state: literal("sent") }),
+  object({ state: literal("delivery_failed"), safeError: string() }),
+);
+
+export const vAccountDeletionOutcomeSummary = object({
+  billing: vAccountDeletionBillingOutcome,
+  providerRevocation: vAccountDeletionProviderRevocationOutcome,
+  completionEmail: vAccountDeletionCompletionEmailOutcome,
+});
+
+export const vAccountDeletionWorkflowNotStarted = object({
+  state: literal("not_started"),
+});
+
+export const vAccountDeletionWorkflowStarted = object({
+  state: literal("started"),
+  workflowId: string(),
+  attempt: number(),
+});
+
+const activeIdentity = object({
+  state: literal("active"),
+  userId: id("users"),
+  email: string(),
+});
+
+const activeRunFields = {
+  identity: activeIdentity,
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
-  stagedFileCount: number(),
   updatedAt: number(),
-} as const;
-
-export const vActiveAccountDeletionRun = object({
-  identity: object({
-    state: literal("active"),
-    userId: id("users"),
-    email: string(),
-  }),
-  state: union(literal("queued"), literal("running"), literal("needs_attention")),
-  ...accountDeletionRunProgress,
   initiatingSessionId: id("authSessions"),
   retryCount: number(),
-  latestSafeError: optional(string()),
+  outcomes: vAccountDeletionOutcomeSummary,
+} as const;
+
+export const vQueuedAccountDeletionRun = object({
+  ...activeRunFields,
+  state: literal("queued"),
+  workflow: vAccountDeletionWorkflowNotStarted,
+});
+
+export const vRunningAccountDeletionRun = object({
+  ...activeRunFields,
+  state: literal("running"),
+  workflow: vAccountDeletionWorkflowStarted,
+});
+
+export const vNeedsAttentionAccountDeletionRun = object({
+  ...activeRunFields,
+  state: literal("needs_attention"),
+  workflow: vAccountDeletionWorkflowStarted,
+  latestSafeError: string(),
 });
 
 export const vScrubbedAccountDeletionRun = object({
@@ -56,9 +107,17 @@ export const vScrubbedAccountDeletionRun = object({
     state: literal("scrubbed"),
   }),
   state: literal("succeeded"),
-  ...accountDeletionRunProgress,
+  currentStep: literal("finish"),
+  requestedAt: number(),
+  updatedAt: number(),
   retryCount: number(),
   completedAt: number(),
+  outcomes: vAccountDeletionOutcomeSummary,
 });
 
-export const vAccountDeletionRun = union(vActiveAccountDeletionRun, vScrubbedAccountDeletionRun);
+export const vAccountDeletionRun = union(
+  vQueuedAccountDeletionRun,
+  vRunningAccountDeletionRun,
+  vNeedsAttentionAccountDeletionRun,
+  vScrubbedAccountDeletionRun,
+);
