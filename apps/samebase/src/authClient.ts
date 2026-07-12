@@ -136,7 +136,7 @@ export function signOutWithAnalytics(args: {
  * clear analytics identity without making the public landing path preload it.
  */
 function resetDeferredPostHogClient() {
-  resetSamebasePostHogClient();
+  void resetSamebasePostHogClient();
 }
 
 const deferredPostHogResetClient: PostHogResetClient = {

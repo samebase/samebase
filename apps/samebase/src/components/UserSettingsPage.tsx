@@ -11,6 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
+import { AppDialogContent } from "@/components/AppDialogContent";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useRouter } from "@tanstack/react-router";
+import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
+import { writeAccountDeletionBrowserMarker } from "@/lib/accountDeletionBrowserState";
 
 type ProfileSaveState =
   | { kind: "idle" }
@@ -31,6 +42,8 @@ export function UserSettingsPage() {
   const router = useRouter();
   const settings = useQuery(api.users.getUserSettings);
   const setDisplayName = useMutation(api.users.setDisplayName);
+  const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
+  const router = useRouter();
   const { signOut } = useAppAuthActions();
   const { fetchAccessToken } = useConvexAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -38,6 +51,9 @@ export function UserSettingsPage() {
   const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
     kind: "current",
   });
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
 
   if (settings === undefined) {
     return null;
@@ -144,6 +160,22 @@ export function UserSettingsPage() {
       });
   };
 
+  const handleDeleteAccount = async () => {
+    if (isRequestingDeletion) {
+      return;
+    }
+    setIsRequestingDeletion(true);
+    setDeletionError(null);
+    try {
+      const status = await requestAccountDeletion({});
+      writeAccountDeletionBrowserMarker(status.runId);
+      void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
+    } catch {
+      setDeletionError("Could not start account deletion. Please try again.");
+      setIsRequestingDeletion(false);
+    }
+  };
+
   return (
     <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
       <div className="flex items-center justify-between gap-4">
@@ -229,7 +261,81 @@ export function UserSettingsPage() {
             {settings.signInEmail}
           </dd>
         </dl>
+        <div className="mt-6">
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={isRequestingDeletion}
+            onClick={() => {
+              setDeletionError(null);
+              setIsDeleteDialogOpen(true);
+            }}
+          >
+            {isRequestingDeletion ? "Deleting..." : "Delete account"}
+          </Button>
+        </div>
       </section>
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isRequestingDeletion) {
+            setIsDeleteDialogOpen(open);
+          }
+        }}
+      >
+        <AppDialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete account?</DialogTitle>
+            <DialogDescription>
+              This deletes your Samebase account and data. Your GitHub repositories, Convex
+              projects, Cloudflare Workers, and other external resources keep running.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              Any uncommitted file changes in Samebase will be permanently deleted. They will not be
+              pushed to GitHub.
+            </p>
+            {settings.hasActiveSubscription ? (
+              <p>
+                Your Samebase subscription will be canceled immediately. Unused time is not
+                automatically refunded.
+              </p>
+            ) : null}
+            {deletionError === null ? null : (
+              <p className="text-destructive" role="alert">
+                {deletionError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isRequestingDeletion}
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isRequestingDeletion}
+              onClick={() => void handleDeleteAccount()}
+            >
+              {isRequestingDeletion ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete account"
+              )}
+            </Button>
+          </DialogFooter>
+        </AppDialogContent>
+      </Dialog>
     </main>
   );
 }

@@ -15,6 +15,7 @@ import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeMod
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 import { captureSamebasePostHogPageview, identifySamebasePostHogUser } from "@/lib/posthogClient";
+import { AccountDeletionBrowserBoundary } from "@/components/AccountDeletionBrowserBoundary";
 
 function usePostHogPageviews() {
   const href = useLocation({
@@ -92,10 +93,12 @@ export function AppRootClient() {
 
   return (
     <ConvexAuthProvider client={convexClient}>
-      <AppAuthPresentationProvider storageNamespace={convexClient.url}>
-        <AppRouterRoot />
-        <QueryDevtools />
-      </AppAuthPresentationProvider>
+      <AccountDeletionBrowserBoundary>
+        <AppAuthPresentationProvider storageNamespace={convexClient.url}>
+          <AppRouterRoot />
+          <QueryDevtools />
+        </AppAuthPresentationProvider>
+      </AccountDeletionBrowserBoundary>
     </ConvexAuthProvider>
   );
 }

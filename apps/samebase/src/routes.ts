@@ -19,6 +19,7 @@ import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { PROVIDERS_ROUTE } from "./lib/providersRoute";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
+import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
 
 /**
  * Use virtual file routes so the generated route tree can preserve the current
@@ -59,6 +60,8 @@ export const routes = rootRoute("root.tsx", [
   route(NEW_APP_ROUTE, "new-app.tsx"),
   route(PROVIDERS_ROUTE, "providers.tsx"),
   route(SETTINGS_ROUTE, "settings.tsx"),
+  route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
+  route("/admin/account-deletions", "admin-account-deletions.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),
   route(MACHINE_CONNECT_ROUTE, "machine-connect.tsx"),
   route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),

@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: June 29, 2026
+Last updated: July 12, 2026
 
-Reviewed and updated by Codex (GPT-5) on June 29, 2026, based on the current Samebase source code.
+Reviewed and updated by Codex (GPT-5) on July 12, 2026, based on the current Samebase source code.
 
 This Privacy Policy describes how Samebase handles information in the current app code. It is
 intentionally narrow: it covers the data flows, integrations, browser storage, and retention
@@ -104,7 +104,16 @@ provider-side resource identifiers may be created and stored as part of that wor
   stored by Samebase.
 - You can delete vaults from the dashboard, and that deletion flow can also remove related GitHub,
   Codespaces, Convex, and Cloudflare resources when those options are selected.
-- A self-serve account deletion flow is not currently implemented in the app code.
+- You can delete your account from Settings. Deletion locks the account, cancels an active Samebase
+  subscription, removes Samebase account, authentication, workspace, stored credential, and related
+  product data, and retains a scrubbed operation receipt without your email or user ID.
+- Account deletion does not delete external repositories, projects, deployments, Workers, domains,
+  or other provider resources. Convex OAuth credentials stored by Samebase are deleted, but existing
+  Convex production and preview deploy keys remain usable until you revoke Samebase in Convex
+  Authorized Applications.
+- Provider backups, application logs, billing records, and PostHog data can remain under those
+  providers' retention controls after active Samebase account data is deleted. Samebase handles an
+  identified PostHog deletion manually when required.
 
 ## Changes to This Policy
 

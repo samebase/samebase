@@ -39,13 +39,15 @@ const routerState = vi.hoisted(() => ({
   navigate: vi.fn(),
 }));
 const mutationState = vi.hoisted(() => ({
+  requestDeletion: vi.fn(),
   setDisplayName: vi.fn(),
 }));
 const queryState = vi.hoisted<{
-  settings: { displayName?: string; signInEmail: string };
+  settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
 }>(() => ({
   settings: {
     displayName: "Current name",
+    hasActiveSubscription: false,
     signInEmail: "nicu@samebase.com",
   },
 }));
@@ -58,14 +60,37 @@ vi.mock("@/authClient", () => ({
   useAppAuthActions: () => appAuthState,
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  useRouter: () => routerState,
-}));
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-router")>();
+  return { ...actual, useRouter: () => routerState };
+});
 
-vi.mock("convex/react", () => ({
-  useMutation: () => mutationState.setDisplayName,
-  useQuery: () => queryState.settings,
-}));
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+  const { getFunctionName } = await import("convex/server");
+  return {
+    ...actual,
+    useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
+      getFunctionName(reference) === "accountDeletion/index:request"
+        ? mutationState.requestDeletion
+        : mutationState.setDisplayName,
+    useQuery: () => queryState.settings,
+  };
+});
+
+function createTestStorage(): Storage {
+  const entries = new Map<string, string>();
+  return {
+    clear: () => entries.clear(),
+    getItem: (key) => entries.get(key) ?? null,
+    key: (index) => Array.from(entries.keys())[index] ?? null,
+    get length() {
+      return entries.size;
+    },
+    removeItem: (key) => entries.delete(key),
+    setItem: (key, value) => entries.set(key, value),
+  };
+}
 
 async function mountSettingsPage() {
   const rootElement = document.createElement("div");
@@ -116,10 +141,17 @@ describe("UserSettingsPage", () => {
   beforeEach(() => {
     authState.fetchAccessToken.mockReset();
     appAuthState.signOut.mockReset();
-    routerState.navigate.mockReset();
+    mutationState.requestDeletion.mockReset();
     mutationState.setDisplayName.mockReset();
+    routerState.navigate.mockReset();
+    routerState.navigate.mockResolvedValue(undefined);
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
     queryState.settings = {
       displayName: "Current name",
+      hasActiveSubscription: false,
       signInEmail: "nicu@samebase.com",
     };
   });
@@ -425,6 +457,117 @@ describe("UserSettingsPage", () => {
 
       expect(mounted.rootElement.textContent).toContain("Display name must be one line.");
       expect(authState.fetchAccessToken).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("warns about local changes and preserves external resources", async () => {
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Delete account")
+          ?.click();
+      });
+
+      expect(document.body.textContent).toContain("Delete account?");
+      expect(document.body.textContent).toContain(
+        "Your GitHub repositories, Convex projects, Cloudflare Workers, and other external resources keep running.",
+      );
+      expect(document.body.textContent).toContain(
+        "Any uncommitted file changes in Samebase will be permanently deleted. They will not be pushed to GitHub.",
+      );
+      expect(document.body.textContent).not.toContain("Unused time is not automatically refunded.");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows the immediate subscription cancellation warning only when active", async () => {
+    queryState.settings.hasActiveSubscription = true;
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Delete account")
+          ?.click();
+      });
+
+      expect(document.body.textContent).toContain(
+        "Your Samebase subscription will be canceled immediately. Unused time is not automatically refunded.",
+      );
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("writes the accepted run marker before navigating and keeps deletion controls pending", async () => {
+    const deletion = createDeferred<{ runId: string }>();
+    mutationState.requestDeletion.mockReturnValue(deletion.promise);
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Delete account")
+          ?.click();
+      });
+      const dialogDelete = Array.from(document.body.querySelectorAll("button")).find(
+        (button) =>
+          button.textContent === "Delete account" && !mounted.rootElement.contains(button),
+      );
+      await act(async () => {
+        dialogDelete?.click();
+        await Promise.resolve();
+      });
+
+      const pageDelete = Array.from(mounted.rootElement.querySelectorAll("button")).find((button) =>
+        button.textContent.includes("Deleting..."),
+      );
+      expect(pageDelete?.disabled).toBe(true);
+      expect(dialogDelete?.disabled).toBe(true);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+
+      await act(async () => {
+        deletion.resolve({ runId: "run-1" });
+        await deletion.promise;
+      });
+
+      expect(
+        JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
+      ).toEqual({ runId: "run-1", observedFinalizing: false });
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        href: "/account-deletion",
+        replace: true,
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows a fixed inline failure and lets the user retry", async () => {
+    mutationState.requestDeletion.mockRejectedValue(new Error("provider secret response"));
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Delete account")
+          ?.click();
+      });
+      const dialogDelete = Array.from(document.body.querySelectorAll("button")).find(
+        (button) =>
+          button.textContent === "Delete account" && !mounted.rootElement.contains(button),
+      );
+      await act(async () => {
+        dialogDelete?.click();
+        await Promise.resolve();
+      });
+
+      expect(document.body.textContent).toContain(
+        "Could not start account deletion. Please try again.",
+      );
+      expect(document.body.textContent).not.toContain("provider secret response");
+      expect(dialogDelete?.disabled).toBe(false);
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

@@ -152,8 +152,11 @@ export async function identifySamebasePostHogUser(userId: string) {
  * Sign-out clears the PostHog identity without making auth code import the SDK
  * eagerly. This can no-op when the token is absent or the SDK import fails.
  */
-export function resetSamebasePostHogClient() {
-  void loadSamebasePostHogClient().then((posthog) => {
+export async function resetSamebasePostHogClient() {
+  const posthog = await loadSamebasePostHogClient();
+  try {
     posthog?.reset();
-  });
+  } catch {
+    // Analytics cleanup is best-effort; browser data cleanup must still continue.
+  }
 }

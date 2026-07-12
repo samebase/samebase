@@ -20,6 +20,14 @@ const routeAccessMetadataByPath = {
     pathSuggestion: "hidden",
     prerender: false,
   },
+  "/account-deletion": {
+    access: "access_account_deletion",
+    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none", mobilePane: "main" },
+  },
+  "/admin/account-deletions": {
+    access: "access_admin",
+    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none", mobilePane: "main" },
+  },
   "/connect-repo": {
     access: "access_repo_connect",
     appWorkspaceRouteChrome: { leftPane: "none" },
