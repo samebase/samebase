@@ -14,6 +14,7 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
+import { buildNewUserNotification } from "./newUserNotification";
 import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
 import {
   buildSeedCloudflareDefaultAccount,
@@ -237,6 +238,16 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     afterUserCreatedOrUpdated: async (ctx, args) => {
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
+      const notification = buildNewUserNotification({
+        existingUserId: args.existingUserId,
+        passwordAuthMode,
+        profile: args.profile,
+        providerId: args.provider.id,
+        userId: args.userId,
+      });
+      if (notification) {
+        await ctx.scheduler.runAfter(0, internal.email.send, notification);
+      }
     },
   },
 });
