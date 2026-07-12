@@ -16,7 +16,7 @@ describe("new user notification", () => {
         userId: "user-id",
       }),
     ).toEqual({
-      to: "nicu@samebase.com",
+      to: "nicuchiciuc@gmail.com",
       subject: "New Samebase signup",
       text: `A new user signed up for Samebase.
 
@@ -62,7 +62,7 @@ Provider: google`,
       }),
     ).toMatchObject({
       subject: "New Samebase signup",
-      to: "nicu@samebase.com",
+      to: "nicuchiciuc@gmail.com",
     });
   });
 });
