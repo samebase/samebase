@@ -91,11 +91,12 @@ If the user closes the browser or signs out before completion, signing in again 
 deletion status route. Authentication and the `users` row are deleted last so a failed deletion does
 not leave the user without visibility.
 
-The initiating browser stores a local, non-secret deletion marker when the request is accepted. The
-status route exposes when the run has entered finalization. Only after that browser has observed
-finalization does loss of the authenticated status subscription mean deletion completed: the client
-clears Samebase browser data and returns to the signed-out landing page. Sign-out, expiry, or auth
-failure before finalization never infer deletion success.
+Before requesting deletion, the initiating browser creates and stores a random 256-bit completion
+capability. The authenticated request binds that capability to the new run. While the identity
+exists, the deletion-only status query returns the same capability only to that run's owner. After
+identity deletion, the browser uses the capability with a public, capability-gated completion query
+to verify the scrubbed receipt. The random capability is not guessable in practice. Authentication
+loss, expiry, or a missing receipt never infer deletion success.
 
 ### Success
 
@@ -110,10 +111,14 @@ On success:
    removed. Email delivery failure is visible to staff but does not retain the user's account
    indefinitely.
 5. The final authentication session, authentication account, and `users` row are deleted.
-6. The browser clears Samebase local storage, session storage, IndexedDB, caches, and service-worker
-   state, then returns to the signed-out landing page.
-7. The deletion run retains only its random operation ID, step outcomes, timestamps, and final
-   result. It retains no email, display name, provider credential, repository path, or user ID.
+6. The browser signs out, clears Samebase local storage, session storage, IndexedDB, caches, and
+   service-worker state, then shows terminal confirmation under the signed-out application shell.
+7. The deletion run retains only its random operation ID, browser completion capability, step
+   outcomes, timestamps, and final result. It retains no email, display name, provider credential,
+   repository path, or user ID.
+
+Legacy scrubbed receipts created before completion tracking are admin-only because no browser
+capability exists that could resolve them publicly.
 
 A later sign-in with the same provider may create a new empty Samebase account through the normal
 signup and approval flow. It must never restore the deleted account or its Samebase data.
@@ -193,8 +198,9 @@ initiate arbitrary account deletion from this page in version one.
 ## Backend Contract
 
 Add durable `accountDeletionRuns` and `accountDeletionEvents` tables. The run ID is the stable
-identifier used by the user state, workflow, status route, admin route, events, and retries. Email
-is never used as a workflow identifier.
+internal identifier used by the user state, workflow, authenticated status route, admin route,
+events, and retries. A separate browser-generated completion capability resolves only the terminal
+scrubbed receipt after authentication is removed. Email is never used as a workflow identifier.
 
 An active user's row has no deletion marker. A deleting user's row contains the run ID and request
 time. Access resolution maps that user to a deletion-only role granting only public access and the
@@ -214,7 +220,7 @@ real deletion volume justifies it, and the account run never retains identity on
 
 ## Non-Goals
 
-- No public or secret-token deletion status URL.
+- No deletion capability in the URL and no enumerable public deletion status.
 - No general admin user-management system.
 - No admin-initiated arbitrary account deletion.
 - No staff-account self-deletion until recovery no longer depends on another staff operator.
