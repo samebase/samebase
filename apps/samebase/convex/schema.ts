@@ -38,7 +38,11 @@ import {
 } from "./accountDeletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-const { users: _authUsers, ...authTablesWithoutUsers } = authTables;
+const {
+  users: _authUsers,
+  authVerifiers: _authVerifiers,
+  ...authTablesWithoutUsersAndVerifiers
+} = authTables;
 
 const BillingProvider = optional(literal("polar"));
 const BillingPlan = optional(union(literal("free"), literal("pro")));
@@ -330,7 +334,14 @@ export type ProviderConnection = Infer<typeof vProviderConnection>;
 // requires indexes defined on `authTables`.
 // The schema provides more precise TypeScript types.
 export default defineSchema({
-  ...authTablesWithoutUsers,
+  ...authTablesWithoutUsersAndVerifiers,
+
+  authVerifiers: defineTable({
+    sessionId: optional(id("authSessions")),
+    signature: optional(string()),
+  })
+    .index("signature", ["signature"])
+    .index("sessionId", ["sessionId"]),
 
   /**
    * Users.

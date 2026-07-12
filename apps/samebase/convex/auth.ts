@@ -27,6 +27,19 @@ const isNonEmptyString = guard<unknown, string>((value) =>
   typeof value === "string" && value.trim().length > 0 ? value : null,
 );
 
+const isAuthSessionUser = guard<unknown, { accountDeletion?: unknown }>((value) =>
+  typeof value === "object" && value !== null ? value : null,
+);
+
+export function assertAuthSessionUserCanSignIn(user: unknown): void {
+  if (!isAuthSessionUser(user)) {
+    throw new Error("Account is unavailable.");
+  }
+  if (user.accountDeletion !== undefined) {
+    throw new Error("Account deletion is already in progress.");
+  }
+}
+
 async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
   if (credential === null) {
@@ -254,6 +267,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
 
   callbacks: {
+    beforeSessionCreation: async (ctx, { userId }) => {
+      // Convex Auth exposes AnyDataModel here, so the database result must be
+      // validated before reading Samebase-owned fields.
+      const user: unknown = await ctx.db.get("users", userId);
+      assertAuthSessionUserCanSignIn(user);
+    },
     afterUserCreatedOrUpdated: async (ctx, args) => {
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
       const notification = buildNewUserNotification({
