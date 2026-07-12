@@ -42,11 +42,7 @@ const configuredDeployment = Object.prototype.hasOwnProperty.call(config, "CONVE
 const deploymentName = configuredDeployment?.split(":").slice(-1)[0] ?? "<your deployment name>";
 
 const variables = JSON.stringify({
-  help:
-    "This template includes GitHub provider connections via OAuth and " +
-    "magic links via Resend. " +
-    "This command can help you configure the credentials for these services " +
-    "via additional Convex environment variables.",
+  help: "This command configures the additional Convex environment variables for GitHub OAuth.",
   providers: [
     {
       name: "GitHub OAuth",
@@ -67,16 +63,6 @@ const variables = JSON.stringify({
         {
           name: "PROVIDER_GITHUB_OAUTH_REDIRECT_URL",
           description: "the callback URL from above",
-        },
-      ],
-    },
-    {
-      name: "Resend",
-      help: "Sign up for Resend at https://resend.com/signup. Then create an API Key.",
-      variables: [
-        {
-          name: "AUTH_RESEND_KEY",
-          description: "the API Key",
         },
       ],
     },
