@@ -9,6 +9,7 @@
  */
 
 import type * as accessModelValidators from "../accessModelValidators.js";
+import type * as accountDeletion_cleanup from "../accountDeletion/cleanup.js";
 import type * as accountDeletion_index from "../accountDeletion/index.js";
 import type * as accountDeletion_model from "../accountDeletion/model.js";
 import type * as agent_graph from "../agent/graph.js";
@@ -149,6 +150,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accessModelValidators: typeof accessModelValidators;
+  "accountDeletion/cleanup": typeof accountDeletion_cleanup;
   "accountDeletion/index": typeof accountDeletion_index;
   "accountDeletion/model": typeof accountDeletion_model;
   "agent/graph": typeof agent_graph;

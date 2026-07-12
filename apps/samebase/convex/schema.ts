@@ -386,7 +386,8 @@ export default defineSchema({
 
   machineRegistrationRequests: defineTable(vMachineRegistrationRequestRow)
     .index("by_request_id", ["requestId"])
-    .index("by_machine_id", ["machineId"]),
+    .index("by_machine_id", ["machineId"])
+    .index("by_user", ["userId"]),
 
   machineRegistrationBootstrapRateLimits: defineTable(
     vMachineRegistrationBootstrapRateLimitRow,
@@ -591,6 +592,11 @@ export default defineSchema({
       "lifecycle.state",
     ])
     .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
+    .index("by_userId_and_lifecycle_state_and_updatedAt", [
+      "userId",
+      "lifecycle.state",
+      "updatedAt",
+    ])
     .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
     .index("by_lifecycle_state_and_lifecycle_notBefore", [
       "lifecycle.state",
@@ -679,6 +685,7 @@ export default defineSchema({
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflowId"]),
 
   /**
@@ -704,6 +711,7 @@ export default defineSchema({
   vaultDeletionRuns: defineTable(vVaultDeletionRun)
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflow.workflowId"])
     .index("by_retry_of", ["attempt.retryOf"]),
 
@@ -897,6 +905,7 @@ export default defineSchema({
   })
     .index("by_threadId", ["threadId"])
     .index("by_requester", ["requesterUserId"])
+    .index("by_approved_by", ["approvedBy"])
     .index("by_status", ["status"])
     .index("by_vault", ["vaultId"]),
 
@@ -981,6 +990,7 @@ export default defineSchema({
     expiresAt: number(),
   })
     .index("by_request_id", ["requestId"])
+    .index("by_user_id", ["userId"])
     .index("by_client_id", ["clientId"])
     .index("by_status", ["status"])
     .index("by_expires_at", ["expiresAt"]),
@@ -1001,6 +1011,7 @@ export default defineSchema({
     usedAt: optional(number()),
   })
     .index("by_code_hash", ["codeHash"])
+    .index("by_user_id", ["userId"])
     .index("by_grant_id", ["grantId"])
     .index("by_client_id", ["clientId"])
     .index("by_expires_at", ["expiresAt"]),
@@ -1094,6 +1105,7 @@ export default defineSchema({
     consumedAt: optional(number()),
   })
     .index("by_token_hash", ["tokenHash"])
+    .index("by_user_id", ["userId"])
     .index("by_grant_id", ["grantId"]),
 
   collaborativeUpdates: defineTable({
