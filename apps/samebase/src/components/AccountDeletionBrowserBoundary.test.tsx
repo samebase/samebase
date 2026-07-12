@@ -21,7 +21,7 @@ const queryState = vi.hoisted<{
     runId: string;
     state: "needs_attention" | "running";
   };
-  viewer: undefined | { role: "role_deleting" | "role_member" };
+  viewer: undefined | { role: "role_deleting" | "role_member" | "role_pending_access" };
 }>(() => ({ completion: null, status: null, viewer: undefined }));
 const routerState = vi.hoisted(() => ({ navigate: vi.fn() }));
 const cleanupState = vi.hoisted(() => ({ resetLocalAppData: vi.fn() }));
@@ -296,6 +296,25 @@ describe("AccountDeletionBrowserBoundary", () => {
         await Promise.resolve();
       });
       expect(posthogState.reset).toHaveBeenCalledTimes(1);
+      expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Account deleted");
+      expect(mounted.rootElement.textContent).not.toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("shows completion while the deleted session still appears authenticated", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    queryState.viewer = { role: "role_pending_access" };
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary();
+    try {
+      await act(async () => {
+        await Promise.resolve();
+      });
       expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
       expect(mounted.rootElement.textContent).toContain("Account deleted");
       expect(mounted.rootElement.textContent).not.toContain("Normal route");

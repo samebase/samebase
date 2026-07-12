@@ -59,6 +59,9 @@ const vAdminAccountDeletionListItem = object({
 });
 
 function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" | "finalizing") {
+  if (run.completionCapability === undefined) {
+    throw new Error("Account deletion completion state is inconsistent.");
+  }
   return {
     runId: run._id,
     completionCapability: run.completionCapability,
@@ -183,7 +186,7 @@ export const request = mutation({
     });
 
     const run = await ctx.db.get(runId);
-    if (run === null) {
+    if (run === null || run.identity.state !== "active") {
       throw new Error("Account deletion run was not created.");
     }
     return projectStatus(run, "deleting");

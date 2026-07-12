@@ -151,11 +151,10 @@ export const vNeedsAttentionAccountDeletionRun = object({
   latestSafeError: string(),
 });
 
-export const vScrubbedAccountDeletionRun = object({
+const scrubbedRunFields = {
   identity: object({
     state: literal("scrubbed"),
   }),
-  completionCapability: string(),
   state: literal("succeeded"),
   currentStep: literal("finish"),
   requestedAt: number(),
@@ -163,6 +162,13 @@ export const vScrubbedAccountDeletionRun = object({
   retryCount: number(),
   completedAt: number(),
   outcomes: vAccountDeletionOutcomeSummary,
+} as const;
+
+export const vScrubbedAccountDeletionRun = object({
+  ...scrubbedRunFields,
+  // Receipts completed before public completion tracking shipped cannot be
+  // backfilled because their browser-only capability was never created.
+  completionCapability: v.optional(string()),
 });
 
 export const vAccountDeletionRun = union(

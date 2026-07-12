@@ -330,4 +330,38 @@ describe("account deletion foundation", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("keeps legacy scrubbed receipts deployable without making them publicly discoverable", async () => {
+    const staff = await seedUser({ email: "nicu@samebase.com" });
+    const legacyOutcomes = {
+      billing: { state: "not_applicable" as const },
+      providerRevocation: {
+        state: "completed" as const,
+        github: { state: "not_connected" as const },
+        cloudflare: { state: "not_connected" as const },
+        convex: { state: "not_connected" as const },
+      },
+      completionEmail: { state: "sent" as const },
+    };
+    const legacyRunId = await staff.t.run(async (ctx) => {
+      return await ctx.db.insert("accountDeletionRuns", {
+        identity: { state: "scrubbed" },
+        state: "succeeded",
+        currentStep: "finish",
+        requestedAt: now,
+        updatedAt: now + 1,
+        retryCount: 0,
+        completedAt: now + 1,
+        outcomes: legacyOutcomes,
+      });
+    });
+
+    const detail = await staff.asUser.query(api.accountDeletion.index.detailForAdmin, {
+      runId: legacyRunId,
+    });
+    expect(detail?.run).toMatchObject({ state: "succeeded", completedAt: now + 1 });
+    await expect(
+      staff.t.query(api.accountDeletion.index.completion, { completionCapability }),
+    ).resolves.toBeNull();
+  });
 });

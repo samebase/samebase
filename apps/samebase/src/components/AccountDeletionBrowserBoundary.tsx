@@ -66,9 +66,7 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
   );
   const completion = useQuery(
     api.accountDeletion.index.completion,
-    !isLoading && !isAuthenticated && completionCapability !== null
-      ? { completionCapability }
-      : "skip",
+    !isLoading && completionCapability !== null ? { completionCapability } : "skip",
   );
   const [completionState, setCompletionState] = useState<CompletionState>("idle");
   const [showSignedOutChildren, setShowSignedOutChildren] = useState(false);
