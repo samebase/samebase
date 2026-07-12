@@ -1,8 +1,10 @@
 export const ACCESS_APP_CREATE = "access_app_create";
 export const ACCESS_BROWSER_LOGIN_HANDOFF = "access_browser_login_handoff";
+export const ACCESS_ACCOUNT_DELETION = "access_account_deletion";
 
 export const ACCESS_KEYS = [
   "access_public",
+  ACCESS_ACCOUNT_DELETION,
   "access_user_preferences",
   "access_dashboard",
   "access_provider_connections",
@@ -24,6 +26,7 @@ export type AuthenticatedAccessKey = Exclude<AccessKey, PublicAccessKey>;
 
 export const VIEWER_ROLES = [
   "role_anonymous",
+  "role_deleting",
   "role_pending_access",
   "role_member",
   "role_staff",
@@ -33,9 +36,11 @@ export type ViewerRole = (typeof VIEWER_ROLES)[number];
 
 export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
-  role_pending_access: ["access_public", "access_user_preferences"],
+  role_deleting: ["access_public", ACCESS_ACCOUNT_DELETION],
+  role_pending_access: ["access_public", ACCESS_ACCOUNT_DELETION, "access_user_preferences"],
   role_member: [
     "access_public",
+    ACCESS_ACCOUNT_DELETION,
     "access_user_preferences",
     "access_dashboard",
     "access_provider_connections",

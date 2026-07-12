@@ -9,6 +9,8 @@
  */
 
 import type * as accessModelValidators from "../accessModelValidators.js";
+import type * as accountDeletion_index from "../accountDeletion/index.js";
+import type * as accountDeletion_model from "../accountDeletion/model.js";
 import type * as agent_graph from "../agent/graph.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
 import type * as agentBrowserHandoff from "../agentBrowserHandoff.js";
@@ -147,6 +149,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accessModelValidators: typeof accessModelValidators;
+  "accountDeletion/index": typeof accountDeletion_index;
+  "accountDeletion/model": typeof accountDeletion_model;
   "agent/graph": typeof agent_graph;
   "agent/systemPrompt": typeof agent_systemPrompt;
   agentBrowserHandoff: typeof agentBrowserHandoff;

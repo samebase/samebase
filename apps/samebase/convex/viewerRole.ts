@@ -3,8 +3,11 @@ import { isAdminUser } from "./userAccess";
 import type { ViewerRole } from "../shared/accessModel";
 
 export function readViewerRoleForUser(
-  user: Pick<Doc<"users">, "email" | "isApproved">,
+  user: Pick<Doc<"users">, "accountDeletion" | "email" | "isApproved">,
 ): ViewerRole {
+  if (user.accountDeletion !== undefined) {
+    return "role_deleting";
+  }
   if (isAdminUser(user.email)) {
     return "role_staff";
   }

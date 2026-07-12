@@ -30,6 +30,12 @@ import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 import { vVaultResourceLinksStateRow } from "./vault/resourceLinksStateModel";
 import { vConvexSchemaGraphLayout, vConvexSchemaSnapshot } from "./vault/convexSchemaGraphModel";
+import {
+  vAccountDeletionEventLevel,
+  vAccountDeletionMarker,
+  vAccountDeletionRun,
+  vAccountDeletionStep,
+} from "./accountDeletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const { users: _authUsers, ...authTablesWithoutUsers } = authTables;
@@ -339,6 +345,7 @@ export default defineSchema({
     phoneVerificationTime: optional(number()),
     isAnonymous: optional(boolean()),
     isApproved: optional(boolean()),
+    accountDeletion: optional(vAccountDeletionMarker),
 
     // Billing (Polar-backed for now).
     billingProvider: BillingProvider,
@@ -351,6 +358,21 @@ export default defineSchema({
     .index("email", ["email"])
     .index("phone", ["phone"])
     .index("by_polar_external_customer_id", ["billingPolarExternalCustomerId"]),
+
+  /**
+   * Durable account deletion operations. Active identity is removed when a
+   * successful run becomes a scrubbed receipt.
+   */
+  accountDeletionRuns: defineTable(vAccountDeletionRun).index("by_updated_at", ["updatedAt"]),
+
+  /** User-safe progress without account identity or provider payloads. */
+  accountDeletionEvents: defineTable({
+    runId: id("accountDeletionRuns"),
+    step: vAccountDeletionStep,
+    level: vAccountDeletionEventLevel,
+    message: string(),
+    createdAt: number(),
+  }).index("by_run_and_created_at", ["runId", "createdAt"]),
 
   providerConnections: defineTable(vProviderConnection)
     .index("by_user", ["userId"])

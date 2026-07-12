@@ -58,6 +58,7 @@ describe("users Convex contract", () => {
       role: "role_member",
       accessKeys: [
         "access_public",
+        "access_account_deletion",
         "access_user_preferences",
         "access_dashboard",
         "access_provider_connections",
@@ -203,7 +204,7 @@ describe("users Convex contract", () => {
     });
     await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
       role: "role_pending_access",
-      accessKeys: ["access_public", "access_user_preferences"],
+      accessKeys: ["access_public", "access_account_deletion", "access_user_preferences"],
     });
     await expect(asViewer.query(api.users.currentViewerRole)).resolves.toEqual({
       role: "role_pending_access",
