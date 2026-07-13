@@ -14,7 +14,10 @@ test("account deletion running timeline", async ({ page }) => {
   });
 
   const status = page.getByTestId("account-deletion-page");
-  await expect(status.locator('[data-step-state="current"] .animate-spin')).toBeVisible();
+  const vaults = status.locator('[data-account-deletion-data-group="vaultsAndStagedChanges"]');
+  await expect(vaults.locator(".animate-spin")).toBeVisible();
+  await expect(vaults).toContainText("1 vault deleted");
+  await expect(vaults).toContainText("Deleting staged changes");
   await expect(status).toHaveScreenshot("account-deletion-running-desktop.png", screenshotOptions);
 });
 
@@ -34,7 +37,10 @@ test("account deletion running timeline on mobile", async ({ browser }, testInfo
       waitUntil: "networkidle",
     });
     const status = page.getByTestId("account-deletion-page");
-    await expect(status.locator('[data-step-state="current"] .animate-spin')).toBeVisible();
+    const vaults = status.locator('[data-account-deletion-data-group="vaultsAndStagedChanges"]');
+    await expect(vaults.locator(".animate-spin")).toBeVisible();
+    await expect(vaults).toContainText("1 vault deleted");
+    await expect(vaults).toContainText("Deleting staged changes");
     await expect(status).toHaveScreenshot("account-deletion-running-mobile.png", screenshotOptions);
   } finally {
     await context.close();
@@ -51,7 +57,10 @@ test("account deletion attention timeline", async ({ page }) => {
   await expect(
     status.getByRole("heading", { name: "Account deletion needs attention" }),
   ).toBeVisible();
-  await expect(status.locator('[data-step-state="current"] .animate-spin')).toHaveCount(0);
+  const vaults = status.locator('[data-account-deletion-data-group="vaultsAndStagedChanges"]');
+  await expect(vaults.locator(".animate-spin")).toHaveCount(0);
+  await expect(vaults).toContainText("1 vault deleted");
+  await expect(vaults).toContainText("Stopped while deleting staged changes");
   await expect(status).toHaveScreenshot(
     "account-deletion-attention-desktop.png",
     screenshotOptions,
@@ -77,7 +86,10 @@ test("account deletion attention timeline on mobile", async ({ browser }, testIn
     await expect(
       status.getByRole("heading", { name: "Account deletion needs attention" }),
     ).toBeVisible();
-    await expect(status.locator('[data-step-state="current"] .animate-spin')).toHaveCount(0);
+    const vaults = status.locator('[data-account-deletion-data-group="vaultsAndStagedChanges"]');
+    await expect(vaults.locator(".animate-spin")).toHaveCount(0);
+    await expect(vaults).toContainText("1 vault deleted");
+    await expect(vaults).toContainText("Stopped while deleting staged changes");
     await expect(status).toHaveScreenshot(
       "account-deletion-attention-mobile.png",
       screenshotOptions,
