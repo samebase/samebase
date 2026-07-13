@@ -52,6 +52,7 @@ function NotFoundContent(props: {
       depth: 2,
       primary: `${takeUnusedRandomColorFamily()}-800`,
       secondary: `${takeUnusedRandomColorFamily()}-500`,
+      shuffleMoves: 1,
       top: `${takeUnusedRandomColorFamily()}-200`,
       vox: MENGER_SPONGE_VOXEL_STATE,
     } as const satisfies LogoRouteSearch;
