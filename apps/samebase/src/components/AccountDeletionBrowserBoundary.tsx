@@ -46,7 +46,7 @@ function AccountDeletionCompletionPage({
       </h1>
       <p className="mt-4 text-sm text-muted-foreground" role="status">
         {state === "cleanup_failed"
-          ? "Reload this page to finish clearing browser data."
+          ? "Close other Samebase tabs, then reload this page to try clearing browser data again."
           : completed
             ? "Your Samebase account and saved browser data have been deleted."
             : state === "verifying"
@@ -159,14 +159,10 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     return (
       <AccountDeletionCompletionPage
         action={
-          completion === null && viewerAccess?.role !== "role_anonymous"
+          completion === null && !isAuthenticated
             ? {
-                label: isAuthenticated ? "Continue to Samebase" : "Sign in to view status",
+                label: "Sign in to view status",
                 onClick: () => {
-                  if (isAuthenticated) {
-                    clearAccountDeletionBrowserMarker(completionCapability);
-                    setCompletionCapability(null);
-                  }
                   setShowChildren(true);
                 },
               }

@@ -23,6 +23,7 @@ import { useRouter } from "@tanstack/react-router";
 import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
 import {
   createAccountDeletionCompletionCapability,
+  readAccountDeletionBrowserMarker,
   writeAccountDeletionBrowserMarker,
 } from "@/lib/accountDeletionBrowserState";
 
@@ -175,7 +176,9 @@ export function UserSettingsPage() {
     setIsRequestingDeletion(true);
     setDeletionError(null);
 
-    const completionCapability = createAccountDeletionCompletionCapability();
+    const completionCapability =
+      readAccountDeletionBrowserMarker()?.completionCapability ??
+      createAccountDeletionCompletionCapability();
 
     if (completionCapability === null || !writeAccountDeletionBrowserMarker(completionCapability)) {
       setDeletionError("Could not start account deletion. Please try again.");

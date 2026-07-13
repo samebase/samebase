@@ -476,7 +476,7 @@ describe("AccountDeletionBrowserBoundary", () => {
       expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
       expect(mounted.rootElement.textContent).toContain("Finishing account deletion");
       expect(mounted.rootElement.textContent).toContain(
-        "Reload this page to finish clearing browser data.",
+        "Close other Samebase tabs, then reload this page to try clearing browser data again.",
       );
     } finally {
       await act(async () => mounted.root.unmount());
@@ -550,7 +550,7 @@ describe("AccountDeletionBrowserBoundary", () => {
       });
       expect(mounted.rootElement.textContent).toContain("Finishing account deletion");
       expect(mounted.rootElement.textContent).toContain(
-        "Reload this page to finish clearing browser data.",
+        "Close other Samebase tabs, then reload this page to try clearing browser data again.",
       );
       expect(mounted.rootElement.textContent).not.toContain("Account deleted");
     } finally {

@@ -6,6 +6,7 @@ import {
   initializeAppBootRecovery,
   isLikelyStaleAssetError,
   resetLocalAppData,
+  resetLocalAppDataForRecovery,
   stripRecoveryReloadParam,
 } from "@/lib/appBootRecovery";
 import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
@@ -214,6 +215,47 @@ describe("appBootRecovery", () => {
     await expect(resetLocalAppData()).rejects.toThrow("Close other Samebase tabs");
     expect(window.localStorage.getItem("samebase:account-deletion")).toBe("run-1");
     expect(window.sessionStorage.getItem("auth")).toBe("session");
+  });
+
+  it("still clears browser storage during app recovery when IndexedDB deletion is blocked", async () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+    window.localStorage.setItem("theme", "dark");
+    window.sessionStorage.setItem("auth", "session");
+
+    const deleteDatabase = vi.fn(() => {
+      const request: {
+        onblocked: ((event: Event) => void) | null;
+        onerror: ((event: Event) => void) | null;
+        onsuccess: ((event: Event) => void) | null;
+      } = {
+        onblocked: null,
+        onerror: null,
+        onsuccess: null,
+      };
+      queueMicrotask(() => {
+        request.onblocked?.(new Event("blocked"));
+      });
+      return request;
+    });
+
+    Object.defineProperty(window, "indexedDB", {
+      configurable: true,
+      value: {
+        databases: vi.fn(async () => [{ name: CONVEX_QUERY_CACHE_DB_NAME }]),
+        deleteDatabase,
+      },
+    });
+
+    await expect(resetLocalAppDataForRecovery()).resolves.toBeUndefined();
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
   });
 
   it("retains the completion capability when session storage cleanup fails", async () => {

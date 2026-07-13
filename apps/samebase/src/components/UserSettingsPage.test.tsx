@@ -587,7 +587,7 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("shows a fixed inline failure and lets the user retry", async () => {
+  it("reuses the persisted completion capability when a deletion request is retried", async () => {
     mutationState.requestDeletion.mockRejectedValue(new Error("provider secret response"));
     const mounted = await mountSettingsPage();
     try {
@@ -610,6 +610,21 @@ describe("UserSettingsPage", () => {
       );
       expect(document.body.textContent).not.toContain("provider secret response");
       expect(dialogDelete?.disabled).toBe(false);
+
+      const firstCapability =
+        mutationState.requestDeletion.mock.calls[0]?.[0]?.completionCapability;
+      await act(async () => {
+        dialogDelete?.click();
+        await Promise.resolve();
+      });
+
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(2);
+      expect(mutationState.requestDeletion.mock.calls[1]?.[0]?.completionCapability).toBe(
+        firstCapability,
+      );
+      expect(
+        JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
+      ).toEqual({ completionCapability: firstCapability });
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

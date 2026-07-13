@@ -161,6 +161,30 @@ export async function resetLocalAppData() {
   clearWindowStorage("localStorage");
 }
 
+export async function resetLocalAppDataForRecovery() {
+  closeConvexQueryCacheDatabases();
+
+  await Promise.allSettled([
+    clearAllIndexedDbDatabases(),
+    clearCacheStorage(),
+    unregisterServiceWorkers(),
+  ]);
+
+  clearConvexQueryMemoryCache();
+
+  try {
+    clearWindowStorage("sessionStorage");
+  } catch {
+    // App recovery is best-effort because the next reload is still useful.
+  }
+
+  try {
+    clearWindowStorage("localStorage");
+  } catch {
+    // App recovery is best-effort because the next reload is still useful.
+  }
+}
+
 export function reloadApp() {
   window.location.replace(buildRecoveryReloadUrl(new URL(window.location.href)));
 }
