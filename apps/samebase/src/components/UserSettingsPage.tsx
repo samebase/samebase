@@ -473,7 +473,9 @@ export function UserSettingsPage() {
                 Type the phrase to confirm
               </Label>
               {expectedConfirmationPhrase === null ? null : (
-                <p className="font-medium select-all">{expectedConfirmationPhrase}</p>
+                <code className="block cursor-text select-all bg-muted px-3 py-2 font-mono text-sm leading-6 [overflow-wrap:anywhere]">
+                  {expectedConfirmationPhrase}
+                </code>
               )}
               <Input
                 id="settings-delete-account-confirmation"
