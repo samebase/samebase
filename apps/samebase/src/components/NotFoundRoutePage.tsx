@@ -48,10 +48,12 @@ function NotFoundContent(props: {
       )[0] ?? NOT_FOUND_LOGO_COLOR_FAMILIES[0];
 
     return {
+      "auto-rotate": true,
       "auto-shuffle": true,
       depth: 2,
       primary: `${takeUnusedRandomColorFamily()}-800`,
       secondary: `${takeUnusedRandomColorFamily()}-500`,
+      shuffleMoves: 1,
       top: `${takeUnusedRandomColorFamily()}-200`,
       vox: MENGER_SPONGE_VOXEL_STATE,
     } as const satisfies LogoRouteSearch;
@@ -64,7 +66,6 @@ function NotFoundContent(props: {
         className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center"
       >
         <PublicLandingLogo
-          autoRotate
           routeSearch={logoRouteSearch}
           routeSearchSource="static"
           viewStateKey={NOT_FOUND_LOGO_VIEW_STATE_KEY}

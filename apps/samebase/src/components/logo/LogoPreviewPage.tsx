@@ -1,5 +1,6 @@
 import { NLogoScene } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
+import { advanceLogoAutoRotation } from "@/components/logo/logoAutoRotation";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
   readLogoRouteRenderState,
@@ -143,7 +144,6 @@ import {
   type ReactNode,
 } from "react";
 
-const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_ROTATION_AXIS_MODE: LogoRotationAxisMode = "cube-y";
 const LOGO_PREVIEW_ROUTE_COMMIT_DEBOUNCE_MS = 150;
 const LOGO_DISTANCE_INPUT_DECIMALS = 3;
@@ -689,9 +689,7 @@ function useLogoPreviewController({
       advanceAutoRotation: (deltaSeconds: number) => {
         setRouteStateDraft((currentState) => ({
           ...currentState,
-          rotationDegrees: normalizeRotationDegrees(
-            currentState.rotationDegrees + deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND,
-          ),
+          rotationDegrees: advanceLogoAutoRotation(currentState.rotationDegrees, deltaSeconds),
         }));
       },
       applyPreset: (presetId: Exclude<LogoPresetSelection, "custom">) => {

@@ -34,17 +34,17 @@ vi.mock("@/components/ApprovalGate", () => ({
 
 vi.mock("@/components/logo/PublicLandingLogo", () => ({
   PublicLandingLogo: (props: {
-    autoRotate?: boolean;
     routeSearch?: LogoRouteSearch;
     routeSearchSource?: "static" | "url";
     viewStateKey?: string;
   }) => (
     <div
       data-testid="not-found-logo"
-      data-auto-rotate={props.autoRotate}
+      data-auto-rotate={props.routeSearch?.["auto-rotate"]}
       data-auto-shuffle={props.routeSearch?.["auto-shuffle"]}
       data-primary={props.routeSearch?.primary}
       data-secondary={props.routeSearch?.secondary}
+      data-shuffle-moves={props.routeSearch?.shuffleMoves}
       data-top={props.routeSearch?.top}
       data-route-search-source={props.routeSearchSource}
       data-view-state-key={props.viewStateKey}
@@ -92,8 +92,10 @@ describe("NotFoundRoutePage", () => {
     expect(lastMarkup).toContain('data-top="fuchsia-200"');
     expect(firstMarkup).toContain('data-auto-rotate="true"');
     expect(firstMarkup).toContain('data-auto-shuffle="true"');
+    expect(firstMarkup).toContain('data-shuffle-moves="1"');
     expect(firstMarkup).toContain('data-route-search-source="static"');
     expect(firstMarkup).toContain('data-view-state-key="not-found"');
+    expect(firstMarkup).not.toContain('href="/logo"');
   });
 
   it("sends signed-out visitors to the landing page", () => {

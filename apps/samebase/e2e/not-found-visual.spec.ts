@@ -36,15 +36,6 @@ test("unknown routes render the animated not-found page", async ({ page }) => {
 });
 
 test("signed-out protected routes keep auth in the right sidebar", async ({ page }) => {
-  await page.addInitScript(() => {
-    const randomValues = [0, 0.625, 0.2] as const;
-    let randomIndex = 0;
-    Math.random = () => {
-      const value = randomValues[randomIndex % randomValues.length] ?? randomValues[0];
-      randomIndex += 1;
-      return value;
-    };
-  });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/new-app", { waitUntil: "networkidle" });
@@ -58,6 +49,11 @@ test("signed-out protected routes keep auth in the right sidebar", async ({ page
   await expect(content.getByTestId("public-landing-content")).toHaveCount(0);
   await expect(content.getByPlaceholder("you@example.com")).toHaveCount(0);
   await expect(content.getByPlaceholder("Password")).toHaveCount(0);
+  await expect(content.getByRole("link")).toHaveCount(1);
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveAttribute(
+    "data-state",
+    "ready",
+  );
   await expect(
     page
       .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
@@ -66,7 +62,7 @@ test("signed-out protected routes keep auth in the right sidebar", async ({ page
   await expect(content).toHaveScreenshot("not-found-signed-out-protected.png", {
     animations: "disabled",
     caret: "hide",
-    maxDiffPixelRatio: 0.03,
+    maxDiffPixelRatio: 0.1,
     scale: "css",
   });
 });

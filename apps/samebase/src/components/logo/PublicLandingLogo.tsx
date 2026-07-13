@@ -1,4 +1,5 @@
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
+import { advanceLogoAutoRotation } from "@/components/logo/logoAutoRotation";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
@@ -8,10 +9,7 @@ import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
 } from "@/components/logo/logoStaticSvgContract";
-import {
-  DEFAULT_LOGO_FRACTAL_DEPTH,
-  normalizeRotationDegrees,
-} from "@/components/logo/logoVoxelState";
+import { DEFAULT_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE,
@@ -46,7 +44,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
 
-const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
 const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
 const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
@@ -362,9 +359,10 @@ export function PublicLandingLogo({
         setView((currentView) => {
           const nextView = {
             ...currentView,
-            rotationDegrees: normalizeRotationDegrees(
-              currentView.rotationDegrees +
-                deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND * speedMultiplier,
+            rotationDegrees: advanceLogoAutoRotation(
+              currentView.rotationDegrees,
+              deltaSeconds,
+              speedMultiplier,
             ),
           };
           latestViewRef.current = nextView;
