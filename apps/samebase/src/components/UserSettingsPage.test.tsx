@@ -609,7 +609,7 @@ describe("UserSettingsPage", () => {
         Array.from(document.body.querySelectorAll<HTMLAnchorElement>("a")).map((link) =>
           link.getAttribute("href"),
         ),
-      ).toContain("/vault/samebase/notes/fs/feature%2Freview?review");
+      ).toContain("/vault/samebase/notes/fs/feature%2Freview?diff&compare");
       expect(
         document.body.querySelector(
           '[aria-label="Review changes in samebase/notes on feature/review"]',

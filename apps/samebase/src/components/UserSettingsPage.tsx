@@ -65,7 +65,7 @@ function buildAccountDeletionReviewHref(repositoryFullName: string, branch: stri
       branch,
     }),
     search: {},
-    fileViewSearch: buildFileViewRouteSearch({ review: true }),
+    fileViewSearch: buildFileViewRouteSearch({ diff: true, compare: true }),
   });
 }
 

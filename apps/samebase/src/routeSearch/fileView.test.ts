@@ -89,9 +89,12 @@ describe("fileViewRouteSearch", () => {
         pathname: "/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md",
         search: parseTanStackSearch("?dev"),
         fileViewSearch: {
+          diff: true,
           compare: true,
         },
       }),
-    ).toBe("/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md?dev&compare");
+    ).toBe(
+      "/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md?dev&diff&compare",
+    );
   });
 });

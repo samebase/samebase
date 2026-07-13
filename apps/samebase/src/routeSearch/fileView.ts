@@ -78,8 +78,8 @@ export function mergeFileViewRouteSearch(
   fileViewSearch: FileViewRouteSearchPatch,
 ) {
   return applySearchPatch(search, {
-    compare: null,
     diff: null,
+    compare: null,
     mobileLineNumbers: null,
     review: null,
     ...fileViewSearch,
