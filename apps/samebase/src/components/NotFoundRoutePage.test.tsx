@@ -12,8 +12,25 @@ const locationState = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, className, to }: { children: ReactNode; className?: string; to: string }) => (
-    <a className={className} href={to}>
+  Link: ({
+    children,
+    className,
+    search,
+    to,
+  }: {
+    children: ReactNode;
+    className?: string;
+    search?: LogoRouteSearch;
+    to: string;
+  }) => (
+    <a
+      className={className}
+      data-search-auto-rotate={search?.["auto-rotate"]}
+      data-search-auto-shuffle={search?.["auto-shuffle"]}
+      data-search-depth={search?.depth}
+      data-search-shuffle-moves={search?.shuffleMoves}
+      href={to}
+    >
       {children}
     </a>
   ),
@@ -34,14 +51,13 @@ vi.mock("@/components/ApprovalGate", () => ({
 
 vi.mock("@/components/logo/PublicLandingLogo", () => ({
   PublicLandingLogo: (props: {
-    autoRotate?: boolean;
     routeSearch?: LogoRouteSearch;
     routeSearchSource?: "static" | "url";
     viewStateKey?: string;
   }) => (
     <div
       data-testid="not-found-logo"
-      data-auto-rotate={props.autoRotate}
+      data-auto-rotate={props.routeSearch?.["auto-rotate"]}
       data-auto-shuffle={props.routeSearch?.["auto-shuffle"]}
       data-primary={props.routeSearch?.primary}
       data-secondary={props.routeSearch?.secondary}
@@ -96,6 +112,11 @@ describe("NotFoundRoutePage", () => {
     expect(firstMarkup).toContain('data-shuffle-moves="1"');
     expect(firstMarkup).toContain('data-route-search-source="static"');
     expect(firstMarkup).toContain('data-view-state-key="not-found"');
+    expect(firstMarkup).toContain('href="/logo"');
+    expect(firstMarkup).toContain('data-search-auto-rotate="true"');
+    expect(firstMarkup).toContain('data-search-auto-shuffle="true"');
+    expect(firstMarkup).toContain('data-search-depth="2"');
+    expect(firstMarkup).toContain('data-search-shuffle-moves="1"');
   });
 
   it("sends signed-out visitors to the landing page", () => {

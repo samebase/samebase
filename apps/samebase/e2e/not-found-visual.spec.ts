@@ -4,6 +4,7 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { MENGER_SPONGE_VOXEL_STATE } from "../src/components/logo/logoVoxelState";
 
 test("unknown routes render the animated not-found page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -33,16 +34,39 @@ test("unknown routes render the animated not-found page", async ({ page }) => {
       async () => (await logoScene.getAttribute("data-rotation-degrees")) ?? initialRotationDegrees,
     )
     .not.toBe(initialRotationDegrees);
+
+  const logoLink = content.getByRole("link", { exact: true, name: "/logo" });
+  await expect(logoLink).toBeVisible();
+  await logoLink.click();
+  await expect(page).toHaveURL(/\/logo\?/);
+
+  const logoUrl = new URL(page.url());
+  expect(logoUrl.pathname).toBe("/logo");
+  expect(logoUrl.searchParams.has("auto-rotate")).toBe(true);
+  expect(logoUrl.searchParams.has("auto-shuffle")).toBe(true);
+  expect(logoUrl.searchParams.get("depth")).toBe("2");
+  expect(logoUrl.searchParams.get("shuffleMoves")).toBe("1");
+  expect(logoUrl.searchParams.get("vox")).toBe(MENGER_SPONGE_VOXEL_STATE);
+  expect(logoUrl.searchParams.get("primary")).not.toBeNull();
+  expect(logoUrl.searchParams.get("secondary")).not.toBeNull();
+  expect(logoUrl.searchParams.get("top")).not.toBeNull();
 });
 
 test("signed-out protected routes keep auth in the right sidebar", async ({ page }) => {
   await page.addInitScript(() => {
     const randomValues = [0, 0.625, 0.2] as const;
+    const random = Math.random;
     let randomIndex = 0;
     Math.random = () => {
-      const value = randomValues[randomIndex % randomValues.length] ?? randomValues[0];
+      const value = randomValues[randomIndex];
       randomIndex += 1;
-      return value;
+      if (value !== undefined) {
+        if (randomIndex === randomValues.length) {
+          Math.random = random;
+        }
+        return value;
+      }
+      return random();
     };
   });
   await page.setViewportSize({ width: 1280, height: 900 });

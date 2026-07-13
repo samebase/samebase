@@ -48,6 +48,7 @@ function NotFoundContent(props: {
       )[0] ?? NOT_FOUND_LOGO_COLOR_FAMILIES[0];
 
     return {
+      "auto-rotate": true,
       "auto-shuffle": true,
       depth: 2,
       primary: `${takeUnusedRandomColorFamily()}-800`,
@@ -65,15 +66,23 @@ function NotFoundContent(props: {
         className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center"
       >
         <PublicLandingLogo
-          autoRotate
           routeSearch={logoRouteSearch}
           routeSearchSource="static"
           viewStateKey={NOT_FOUND_LOGO_VIEW_STATE_KEY}
         />
         <h2 className="text-xl font-semibold tracking-tight">Page not available</h2>
-        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={props.routeTo}>
-          {props.routeLabel}
-        </Link>
+        <div className="flex gap-4">
+          <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={props.routeTo}>
+            {props.routeLabel}
+          </Link>
+          <Link
+            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+            search={logoRouteSearch}
+            to="/logo"
+          >
+            /logo
+          </Link>
+        </div>
       </div>
     </div>
   );
