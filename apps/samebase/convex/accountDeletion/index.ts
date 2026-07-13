@@ -1,10 +1,16 @@
 import { getAuthSessionId } from "@convex-dev/auth/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { DatabaseReader } from "../_generated/server";
 import { mutation, query } from "../functions";
 import { isAdminUser } from "../userAccess";
+import {
+  ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
+  buildAccountDeletionConfirmationPhrase,
+} from "../../shared/accountDeletionPhrase";
+import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import {
   INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
   vAccountDeletionDataProgress,
@@ -41,6 +47,18 @@ const vAccountDeletionStatus = object({
     object({ state: literal("legacy_unavailable") }),
   ),
 });
+
+const accountDeletionStakesFields = {
+  vaultCount: number(),
+  uncommittedFileChangeCount: union(number(), literal("more_than_cap")),
+} as const;
+
+const vAccountDeletionStakes = object(accountDeletionStakesFields);
+
+const vAccountDeletionRequestResult = union(
+  object({ state: literal("accepted"), status: vAccountDeletionStatus }),
+  object({ state: literal("stakes_changed"), ...accountDeletionStakesFields }),
+);
 
 const vAccountDeletionEvent = object({
   step: vAccountDeletionStep,
@@ -109,10 +127,69 @@ function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
   };
 }
 
+const STAKES_FILE_STAGING_READ_BATCH_SIZE = 200;
+
+/**
+Counts what deletion would destroy for the confirmation phrase. fileStaging
+reads walk the by_vault index in take() batches cursored on _creationTime
+(unique per table), and stop at the cap so one huge vault cannot make the
+stakes read unbounded.
+*/
+async function countAccountDeletionStakes(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<Infer<typeof vAccountDeletionStakes>> {
+  const vaults = await db
+    .query("vaults")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+
+  let uncommittedFileChangeCount = 0;
+  for (const vault of vaults) {
+    let cursorCreationTime: number | undefined;
+    for (;;) {
+      const batch = await db
+        .query("fileStaging")
+        .withIndex("by_vault", (q) =>
+          cursorCreationTime === undefined
+            ? q.eq("vaultId", vault._id)
+            : q.eq("vaultId", vault._id).gt("_creationTime", cursorCreationTime),
+        )
+        .take(STAKES_FILE_STAGING_READ_BATCH_SIZE);
+
+      for (const file of batch) {
+        if (!hasStagedFileChanges(file)) {
+          continue;
+        }
+        uncommittedFileChangeCount += 1;
+        if (uncommittedFileChangeCount > ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP) {
+          return { vaultCount: vaults.length, uncommittedFileChangeCount: "more_than_cap" };
+        }
+      }
+
+      if (batch.length < STAKES_FILE_STAGING_READ_BATCH_SIZE) {
+        break;
+      }
+      cursorCreationTime = batch[batch.length - 1]._creationTime;
+    }
+  }
+
+  return { vaultCount: vaults.length, uncommittedFileChangeCount };
+}
+
+export const stakes = query({
+  access: "access_account_deletion",
+  args: {},
+  returns: vAccountDeletionStakes,
+  handler: async (ctx) => {
+    return await countAccountDeletionStakes(ctx.db, ctx.viewer.userId);
+  },
+});
+
 export const request = mutation({
   access: "access_account_deletion",
-  args: { completionCapability: string() },
-  returns: vAccountDeletionStatus,
+  args: { completionCapability: string(), confirmationPhrase: string() },
+  returns: vAccountDeletionRequestResult,
   handler: async (ctx, args) => {
     if (isAdminUser(ctx.viewer.user.email)) {
       throw new Error("Staff accounts cannot request account deletion.");
@@ -129,7 +206,9 @@ export const request = mutation({
         throw new Error("Account deletion state is inconsistent.");
       }
 
-      return projectStatus(existingRun);
+      // The run is already committed; re-requests stay idempotent and do not
+      // recheck the phrase against counts the running deletion is changing.
+      return { state: "accepted" as const, status: projectStatus(existingRun) };
     }
 
     const initiatingSessionId = await getAuthSessionId(ctx);
@@ -150,6 +229,14 @@ export const request = mutation({
 
     if (existingCapability !== null) {
       throw new Error("Account deletion completion capability is already in use.");
+    }
+
+    const currentStakes = await countAccountDeletionStakes(ctx.db, ctx.viewer.userId);
+    if (args.confirmationPhrase !== buildAccountDeletionConfirmationPhrase(currentStakes)) {
+      // Expected UI state: the counts moved after the dialog rendered its
+      // phrase (or the phrase was mistyped). Nothing is created; the dialog
+      // re-renders from these fresh counts and asks for confirmation again.
+      return { state: "stakes_changed" as const, ...currentStakes };
     }
 
     const now = Date.now();
@@ -209,7 +296,7 @@ export const request = mutation({
       throw new Error("Account deletion run was not created.");
     }
 
-    return projectStatus(run);
+    return { state: "accepted" as const, status: projectStatus(run) };
   },
 });
 

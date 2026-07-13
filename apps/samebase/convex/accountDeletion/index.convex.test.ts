@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import {
+  ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
+  buildAccountDeletionConfirmationPhrase,
+} from "../../shared/accountDeletionPhrase";
 
 const now = 1_700_000_000_000;
 const completionCapability = "a".repeat(64);
+const zeroStakesConfirmationPhrase = buildAccountDeletionConfirmationPhrase({
+  vaultCount: 0,
+  uncommittedFileChangeCount: 0,
+});
 
 async function seedUser(args: {
   email: string;
@@ -30,6 +39,53 @@ async function seedUser(args: {
   return { asUser, ids, t };
 }
 
+async function requestAccepted(
+  asUser: ReturnType<ReturnType<typeof makeConvexTest>["withIdentity"]>,
+  confirmationPhrase = zeroStakesConfirmationPhrase,
+) {
+  const result = await asUser.mutation(api.accountDeletion.index.request, {
+    completionCapability,
+    confirmationPhrase,
+  });
+  if (result.state !== "accepted") {
+    throw new Error("Expected the account deletion request to be accepted.");
+  }
+  return result.status;
+}
+
+async function seedVault(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("vaults", {
+      userId,
+      state: "not_connected",
+      deletion: { state: "not_deleting" },
+    });
+  });
+}
+
+async function seedStagedFile(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { userId: Id<"users">; vaultId: Id<"vaults">; filePath: string; changed: boolean },
+) {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("fileStaging", {
+      ownerId: args.userId,
+      vaultId: args.vaultId,
+      fileDeleted: false,
+      kind: "text",
+      filePath: args.filePath,
+      initialFilePath: args.filePath,
+      content: args.changed ? "draft" : "same",
+      initialContent: "same",
+      parentCommitSha: "parent-sha",
+      lastEditTime: now,
+      lastEditUserId: args.userId,
+      branch: "main",
+      version: 1,
+    });
+  });
+}
+
 const notStartedOutcomes = {
   billing: { state: "not_started" as const },
   providerRevocation: { state: "not_started" as const },
@@ -40,12 +96,8 @@ describe("account deletion foundation", () => {
   it("atomically gates the user and reuses one running workflow", async () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
 
-    const first = await asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
-    const second = await asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
+    const first = await requestAccepted(asUser);
+    const second = await requestAccepted(asUser);
 
     expect(second).toEqual(first);
     expect(first).toMatchObject({
@@ -96,7 +148,10 @@ describe("account deletion foundation", () => {
     const staff = await seedUser({ email: "nicu@samebase.com" });
 
     await expect(
-      staff.asUser.mutation(api.accountDeletion.index.request, { completionCapability }),
+      staff.asUser.mutation(api.accountDeletion.index.request, {
+        completionCapability,
+        confirmationPhrase: zeroStakesConfirmationPhrase,
+      }),
     ).rejects.toThrow("Staff accounts cannot request account deletion.");
     await expect(
       staff.asUser.query(api.accountDeletion.index.listForAdmin, {
@@ -108,9 +163,7 @@ describe("account deletion foundation", () => {
   it("exposes status only for the current deleting user", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const other = await seedUser({ email: "grace@example.com", t: owner.t });
-    const status = await owner.asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
+    const status = await requestAccepted(owner.asUser);
 
     await expect(owner.asUser.query(api.accountDeletion.index.status)).resolves.toEqual(status);
     await expect(other.asUser.query(api.accountDeletion.index.status)).resolves.toBeNull();
@@ -118,9 +171,7 @@ describe("account deletion foundation", () => {
 
   it("does not fabricate detailed progress for active legacy runs", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
-    const requested = await owner.asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
+    const requested = await requestAccepted(owner.asUser);
     await owner.t.run(async (ctx) => {
       await ctx.db.patch(requested.runId, { dataDeletion: undefined });
     });
@@ -132,9 +183,7 @@ describe("account deletion foundation", () => {
 
   it("keeps deletion status readable while the user marker is finalizing", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
-    const status = await owner.asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
+    const status = await requestAccepted(owner.asUser);
 
     await owner.t.run(async (ctx) => {
       await ctx.db.patch(owner.ids.userId, {
@@ -156,9 +205,7 @@ describe("account deletion foundation", () => {
 
   it("exposes only a scrubbed completion receipt by capability", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
-    const requested = await owner.asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
+    const requested = await requestAccepted(owner.asUser);
 
     await expect(
       owner.t.query(api.accountDeletion.index.completion, { completionCapability }),
@@ -190,9 +237,7 @@ describe("account deletion foundation", () => {
   it("provides safe paginated staff list and detail results", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const staff = await seedUser({ email: "nicu@samebase.com", t: owner.t });
-    const run = await owner.asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
+    const run = await requestAccepted(owner.asUser);
 
     await expect(
       owner.asUser.query(api.accountDeletion.index.listForAdmin, {
@@ -237,9 +282,7 @@ describe("account deletion foundation", () => {
   it("represents started work, required attention errors, and scrubbed success legally", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const staff = await seedUser({ email: "nicu@samebase.com", t: owner.t });
-    const requested = await owner.asUser.mutation(api.accountDeletion.index.request, {
-      completionCapability,
-    });
+    const requested = await requestAccepted(owner.asUser);
 
     await owner.t.run(async (ctx) => {
       const running = await ctx.db.get(requested.runId);
@@ -420,5 +463,168 @@ describe("account deletion foundation", () => {
         });
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("account deletion stakes and typed confirmation", () => {
+  it("counts only the viewer's vaults and real staged changes", async () => {
+    const owner = await seedUser({ email: "ada@example.com" });
+    const other = await seedUser({ email: "grace@example.com", t: owner.t });
+    const firstVaultId = await seedVault(owner.t, owner.ids.userId);
+    const secondVaultId = await seedVault(owner.t, owner.ids.userId);
+    const otherVaultId = await seedVault(owner.t, other.ids.userId);
+    await seedStagedFile(owner.t, {
+      userId: owner.ids.userId,
+      vaultId: firstVaultId,
+      filePath: "changed.md",
+      changed: true,
+    });
+    await seedStagedFile(owner.t, {
+      userId: owner.ids.userId,
+      vaultId: firstVaultId,
+      filePath: "unchanged.md",
+      changed: false,
+    });
+    await seedStagedFile(owner.t, {
+      userId: owner.ids.userId,
+      vaultId: secondVaultId,
+      filePath: "second-vault.md",
+      changed: true,
+    });
+    await seedStagedFile(owner.t, {
+      userId: other.ids.userId,
+      vaultId: otherVaultId,
+      filePath: "other-owner.md",
+      changed: true,
+    });
+
+    await expect(owner.asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
+      vaultCount: 2,
+      uncommittedFileChangeCount: 2,
+    });
+    await expect(other.asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
+      vaultCount: 1,
+      uncommittedFileChangeCount: 1,
+    });
+  });
+
+  it("reports exact counts at the cap and more_than_cap past it", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await t.run(async (ctx) => {
+      for (let index = 0; index < ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP; index += 1) {
+        await ctx.db.insert("fileStaging", {
+          ownerId: ids.userId,
+          vaultId,
+          fileDeleted: false,
+          kind: "text",
+          filePath: `file-${index}.md`,
+          initialFilePath: `file-${index}.md`,
+          content: "draft",
+          initialContent: "",
+          parentCommitSha: null,
+          lastEditTime: now,
+          lastEditUserId: ids.userId,
+          branch: "main",
+          version: 1,
+        });
+      }
+    });
+
+    await expect(asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
+      vaultCount: 1,
+      uncommittedFileChangeCount: ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
+    });
+
+    await seedStagedFile(t, {
+      userId: ids.userId,
+      vaultId,
+      filePath: "one-past-the-cap.md",
+      changed: true,
+    });
+
+    await expect(asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
+      vaultCount: 1,
+      uncommittedFileChangeCount: "more_than_cap",
+    });
+  });
+
+  it("rejects a mismatched phrase without creating a run", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    await seedVault(t, ids.userId);
+
+    const result = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+      confirmationPhrase: zeroStakesConfirmationPhrase,
+    });
+
+    expect(result).toEqual({
+      state: "stakes_changed",
+      vaultCount: 1,
+      uncommittedFileChangeCount: 0,
+    });
+    const stored = await t.run(async (ctx) => ({
+      user: await ctx.db.get(ids.userId),
+      runs: await ctx.db.query("accountDeletionRuns").collect(),
+      events: await ctx.db.query("accountDeletionEvents").collect(),
+    }));
+    expect(stored.user?.accountDeletion).toBeUndefined();
+    expect(stored.runs).toEqual([]);
+    expect(stored.events).toEqual([]);
+    await expect(asUser.query(api.accountDeletion.index.status)).resolves.toBeNull();
+  });
+
+  it("accepts the phrase that names the current vaults and changes", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await seedStagedFile(t, { userId: ids.userId, vaultId, filePath: "a.md", changed: true });
+    await seedStagedFile(t, { userId: ids.userId, vaultId, filePath: "b.md", changed: true });
+
+    const status = await requestAccepted(
+      asUser,
+      buildAccountDeletionConfirmationPhrase({ vaultCount: 1, uncommittedFileChangeCount: 2 }),
+    );
+
+    expect(status).toMatchObject({ state: "running", currentStep: "request_accepted" });
+    const user = await t.run(async (ctx) => await ctx.db.get(ids.userId));
+    expect(user?.accountDeletion).toMatchObject({ state: "deleting", runId: status.runId });
+  });
+
+  it("returns fresh stakes when counts move between phrase build and request", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const staleStakes = await asUser.query(api.accountDeletion.index.stakes);
+    const stalePhrase = buildAccountDeletionConfirmationPhrase(staleStakes);
+    await seedVault(t, ids.userId);
+
+    const raced = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+      confirmationPhrase: stalePhrase,
+    });
+    expect(raced).toEqual({
+      state: "stakes_changed",
+      vaultCount: 1,
+      uncommittedFileChangeCount: 0,
+    });
+    if (raced.state !== "stakes_changed") {
+      throw new Error("Expected the raced request to report changed stakes.");
+    }
+
+    const accepted = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+      confirmationPhrase: buildAccountDeletionConfirmationPhrase(raced),
+    });
+    expect(accepted).toMatchObject({ state: "accepted", status: { state: "running" } });
+  });
+
+  it("ignores the phrase for an already-deleting account", async () => {
+    const { asUser } = await seedUser({ email: "ada@example.com" });
+    const first = await requestAccepted(asUser);
+
+    const again = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+      confirmationPhrase: "not the phrase",
+    });
+
+    expect(again).toEqual({ state: "accepted", status: first });
   });
 });

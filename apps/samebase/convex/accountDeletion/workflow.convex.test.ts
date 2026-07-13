@@ -85,6 +85,8 @@ describe("account deletion workflow ownership and outcomes", () => {
     await expect(
       asUser.mutation(api.accountDeletion.index.request, {
         completionCapability: "a".repeat(64),
+        // Zero vaults are seeded, so the current confirmation phrase is the base one.
+        confirmationPhrase: "delete my account",
       }),
     ).rejects.toThrow();
     const stored = await t.run(async (ctx) => ({
