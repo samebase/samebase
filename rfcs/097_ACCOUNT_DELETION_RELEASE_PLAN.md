@@ -45,7 +45,7 @@ acceptance test in this RFC passes with a dedicated real account.
 ### Starting deletion
 
 The authenticated `/settings` Account section has a destructive `Delete account` action. It opens
-the existing destructive confirmation dialog with this meaning:
+the URL-owned `?delete-account` confirmation dialog with this meaning:
 
 ```text
 Delete account?

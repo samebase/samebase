@@ -36,6 +36,8 @@ const appAuthState = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 const routerState = vi.hoisted(() => ({
+  back: vi.fn(),
+  canGoBack: vi.fn(),
   navigate: vi.fn(),
 }));
 const locationState = vi.hoisted<{ search: Record<string, unknown> }>(() => ({ search: {} }));
@@ -95,6 +97,10 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
   return {
     ...actual,
+    getRouteApi: () => ({
+      useNavigate: () => routerState.navigate,
+      useSearch: () => locationState.search,
+    }),
     Link: ({
       children,
       className,
@@ -110,8 +116,13 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         {children}
       </a>
     ),
-    useLocation: () => locationState.search,
-    useRouter: () => routerState,
+    useRouter: () => ({
+      history: {
+        back: routerState.back,
+        canGoBack: routerState.canGoBack,
+      },
+      navigate: routerState.navigate,
+    }),
   };
 });
 
@@ -151,10 +162,13 @@ async function mountSettingsPage() {
   const rootElement = document.createElement("div");
   document.body.append(rootElement);
   const root = createRoot(rootElement);
-  await act(async () => {
-    root.render(<UserSettingsPage />);
-  });
-  return { root, rootElement };
+  const render = async () => {
+    await act(async () => {
+      root.render(<UserSettingsPage />);
+    });
+  };
+  await render();
+  return { render, root, rootElement };
 }
 
 async function unmount(root: Root, rootElement: HTMLElement) {
@@ -207,6 +221,10 @@ async function openDeleteDialog(mounted: Awaited<ReturnType<typeof mountSettings
       .find((button) => button.textContent === "Delete account")
       ?.click();
   });
+  locationState.search = { ...locationState.search, "delete-account": true };
+  await mounted.render();
+  routerState.navigate.mockClear();
+
   const confirmButton = Array.from(document.body.querySelectorAll("button")).find(
     (button) => button.textContent === "Delete account" && !mounted.rootElement.contains(button),
   );
@@ -231,6 +249,9 @@ describe("UserSettingsPage", () => {
     mutationState.setDisplayName.mockReset();
     routerState.navigate.mockReset();
     routerState.navigate.mockResolvedValue(undefined);
+    routerState.back.mockReset();
+    routerState.canGoBack.mockReset();
+    routerState.canGoBack.mockReturnValue(true);
     locationState.search = {};
     Object.defineProperty(window, "localStorage", {
       configurable: true,
@@ -537,6 +558,81 @@ describe("UserSettingsPage", () => {
 
       expect(mounted.rootElement.textContent).toContain("Display name must be one line.");
       expect(authState.fetchAccessToken).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("opens the delete dialog from the delete-account query param", async () => {
+    locationState.search = { "delete-account": true };
+    const mounted = await mountSettingsPage();
+    try {
+      expect(document.body.textContent).toContain("Delete account?");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("opens the delete dialog through route search while preserving unrelated params", async () => {
+    locationState.search = { devtools: true, primary: "red-600" };
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Delete account")
+          ?.click();
+      });
+
+      const openNavigation = routerState.navigate.mock.calls[0]?.[0];
+      if (typeof openNavigation?.search !== "function") {
+        throw new Error("Delete account navigation did not include a search updater.");
+      }
+      expect(openNavigation.search(locationState.search)).toEqual({
+        devtools: true,
+        primary: "red-600",
+        "delete-account": true,
+      });
+
+      locationState.search = { ...locationState.search, "delete-account": true };
+      await mounted.render();
+      routerState.navigate.mockClear();
+
+      await act(async () => {
+        Array.from(document.body.querySelectorAll("button"))
+          .find((button) => button.textContent === "Cancel")
+          ?.click();
+      });
+
+      expect(routerState.back).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("removes delete-account in place when closing a direct dialog URL", async () => {
+    locationState.search = {
+      devtools: true,
+      "delete-account": true,
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(document.body.querySelectorAll("button"))
+          .find((button) => button.textContent === "Cancel")
+          ?.click();
+      });
+
+      expect(routerState.back).not.toHaveBeenCalled();
+      const closeNavigation = routerState.navigate.mock.calls[0]?.[0];
+      if (typeof closeNavigation?.search !== "function") {
+        throw new Error("Delete account close did not include a search updater.");
+      }
+      expect(closeNavigation).toMatchObject({ replace: true, state: true, to: "." });
+      expect(closeNavigation.search(locationState.search)).toEqual({
+        devtools: true,
+        "delete-account": undefined,
+      });
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import {
@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Link, useLocation, useRouter } from "@tanstack/react-router";
+import { getRouteApi, Link, useRouter } from "@tanstack/react-router";
 import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
 import {
   createAccountDeletionCompletionCapability,
@@ -33,8 +33,12 @@ import {
 } from "@/lib/accountDeletionBrowserState";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch/fileView";
+import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
+import { applySearchPatch } from "@/routing/searchFlags";
 
 type AccountDeletionStakes = (typeof api.accountDeletion.index.stakes)["_returnType"];
+
+const settingsRouteApi = getRouteApi("/settings");
 
 type ProfileSaveState =
   | { kind: "idle" }
@@ -67,14 +71,15 @@ function buildAccountDeletionReviewHref(
       repoName: repository.name,
       branch,
     }),
-    search,
+    search: applySearchPatch(search, { [DELETE_ACCOUNT_QUERY_PARAM]: null }),
     fileViewSearch: buildFileViewRouteSearch({ diff: true, compare: true }),
   });
 }
 
 export function UserSettingsPage() {
   const router = useRouter();
-  const search = useLocation({ select: (location) => location.search });
+  const navigate = settingsRouteApi.useNavigate();
+  const search = settingsRouteApi.useSearch();
   const settings = useQuery(api.users.getUserSettings);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
@@ -85,7 +90,9 @@ export function UserSettingsPage() {
   const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
     kind: "current",
   });
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM] === true;
+  const previousDeleteDialogOpenRef = useRef(isDeleteDialogOpen);
+  const shouldPopDeleteDialogHistoryRef = useRef(false);
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmationInput, setConfirmationInput] = useState("");
@@ -124,6 +131,22 @@ export function UserSettingsPage() {
       setRequestStakesOverride(null);
     }
   }, [requestStakesOverride, subscribedStakes]);
+
+  useEffect(() => {
+    const wasDeleteDialogOpen = previousDeleteDialogOpenRef.current;
+    if (!wasDeleteDialogOpen && isDeleteDialogOpen) {
+      shouldPopDeleteDialogHistoryRef.current = true;
+    }
+
+    if (!isDeleteDialogOpen) {
+      shouldPopDeleteDialogHistoryRef.current = false;
+      setDeletionError(null);
+      setConfirmationInput("");
+      setRequestStakesOverride(null);
+    }
+
+    previousDeleteDialogOpenRef.current = isDeleteDialogOpen;
+  }, [isDeleteDialogOpen]);
 
   if (settings === undefined) {
     return null;
@@ -233,6 +256,36 @@ export function UserSettingsPage() {
       .finally(() => {
         setIsSigningOut(false);
       });
+  };
+
+  const openDeleteDialog = () => {
+    void navigate({
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, { [DELETE_ACCOUNT_QUERY_PARAM]: true }),
+      to: ".",
+    });
+  };
+
+  const closeDeleteDialog = ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
+    const shouldPopHistory =
+      preferHistoryBack &&
+      isDeleteDialogOpen &&
+      shouldPopDeleteDialogHistoryRef.current &&
+      router.history.canGoBack();
+    shouldPopDeleteDialogHistoryRef.current = false;
+
+    if (shouldPopHistory) {
+      router.history.back();
+      return;
+    }
+
+    void navigate({
+      replace: true,
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, { [DELETE_ACCOUNT_QUERY_PARAM]: null }),
+      state: true,
+      to: ".",
+    });
   };
 
   const handleDeleteAccount = async () => {
@@ -368,12 +421,7 @@ export function UserSettingsPage() {
             type="button"
             variant="destructive"
             disabled={isRequestingDeletion}
-            onClick={() => {
-              setDeletionError(null);
-              setConfirmationInput("");
-              setRequestStakesOverride(null);
-              setIsDeleteDialogOpen(true);
-            }}
+            onClick={openDeleteDialog}
           >
             {isRequestingDeletion ? "Deleting..." : "Delete account"}
           </Button>
@@ -383,12 +431,11 @@ export function UserSettingsPage() {
       <Dialog
         open={isDeleteDialogOpen}
         onOpenChange={(open) => {
-          if (!isRequestingDeletion) {
-            if (!open) {
-              setRequestStakesOverride(null);
-            }
-            setIsDeleteDialogOpen(open);
+          if (open || isRequestingDeletion) {
+            return;
           }
+
+          closeDeleteDialog({ preferHistoryBack: true });
         }}
       >
         <AppDialogContent>
@@ -514,7 +561,7 @@ export function UserSettingsPage() {
               type="button"
               variant="outline"
               disabled={isRequestingDeletion}
-              onClick={() => setIsDeleteDialogOpen(false)}
+              onClick={() => closeDeleteDialog({ preferHistoryBack: true })}
             >
               Cancel
             </Button>

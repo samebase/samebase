@@ -130,6 +130,7 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   });
 
   await settingsPage.getByRole("button", { name: "Delete account" }).click();
+  await expect(page).toHaveURL(/\/settings\?delete-account$/u);
   const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
   await expect(
     deleteDialog.getByText("This permanently deletes your Samebase account and data.", {
@@ -154,6 +155,10 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
     "settings-delete-account-dialog-desktop.png",
     screenshotOptions,
   );
+
+  await deleteDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/settings$/u);
+  await expect(deleteDialog).toBeHidden();
 });
 
 test("Settings link returns the mobile workspace to the main pane", async ({
@@ -207,6 +212,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     });
 
     await settingsPage.getByRole("button", { name: "Delete account" }).click();
+    await expect(page).toHaveURL(/\/settings\?delete-account$/u);
     const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
     await expect(deleteDialog).toBeVisible();
     await expect(deleteDialog).toHaveScreenshot(

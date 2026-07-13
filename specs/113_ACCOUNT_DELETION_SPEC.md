@@ -7,10 +7,11 @@ release plan and manual acceptance evidence.
 
 ## User Contract
 
-A signed-in, non-staff user can start account deletion from `/settings`. The confirmation must say
-that Samebase data and uncommitted staged changes are permanently deleted, while nothing outside
-Samebase is deleted: apps, GitHub repositories, Convex projects and deployments, Cloudflare Workers,
-domains, and other external resources keep running. The permanent-deletion statement and the
+A signed-in, non-staff user can start account deletion from `/settings`. The `Delete account` action
+opens the URL-owned `?delete-account` confirmation dialog. The confirmation must say that Samebase
+data and uncommitted staged changes are permanently deleted, while nothing outside Samebase is
+deleted: apps, GitHub repositories, Convex projects and deployments, Cloudflare Workers, domains,
+and other external resources keep running. The permanent-deletion statement and the
 external-resource reassurance are visually separate, with stronger emphasis on what is deleted.
 
 When uncommitted file changes exist, the dialog shows the exact count and says they will be
