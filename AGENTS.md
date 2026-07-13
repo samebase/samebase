@@ -89,7 +89,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 
 ## Worktree Rules
 
-- If HEAD is detached, use `./scripts/bootstrap-worktree.ts` to create a `codex/<...>` branch.
+- On detached HEAD, `pnpm dev` and `pnpm dev --once` create the `codex/<...>` branch themselves.
 - Treat the current worktree root from `git rev-parse --show-toplevel` as the workspace boundary
   unless the user explicitly asks otherwise.
 - Before dev/test/commit work, confirm the current worktree and branch with
