@@ -1673,6 +1673,7 @@ export const trackedFilePaths = [
   "runtime/convexSyncDevEnv.ts",
   "runtime/localWorktreePasswordAuth.ts",
   "samebase.md",
+  "scripts/bootstrap-worktree.test.ts",
   "scripts/bootstrap-worktree.ts",
   "scripts/check-agents-doc-budget.ts",
   "scripts/ci-bootstrap-convex.ts",
