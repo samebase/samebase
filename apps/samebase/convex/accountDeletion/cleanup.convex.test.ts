@@ -208,6 +208,56 @@ describe("account-local deletion cleanup", () => {
     });
   });
 
+  it("completes one vault beyond the former 96-batch cleanup budget", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "large-vault@example.com");
+    const runId = await seedRunningDeletion(t, userId);
+    const vaultId = await seedVault(t, userId);
+    const rowCount = 50 * 96 + 1;
+
+    for (let start = 0; start < rowCount; start += 500) {
+      await t.run(async (ctx) => {
+        for (let index = start; index < Math.min(start + 500, rowCount); index += 1) {
+          await ctx.db.insert("folderExpansionState", {
+            userId,
+            vaultId,
+            folderPath: `folder-${index}`,
+            isExpanded: true,
+          });
+        }
+      });
+    }
+
+    const args = { runId, workflowId: "workflow-1" };
+
+    await t.mutation(internal.accountDeletion.cleanup.startVaultDataDeletion, args);
+    await expect(
+      t.action(internal.accountDeletion.cleanupActions.cleanupVaultData, args),
+    ).resolves.toBeNull();
+
+    await t.run(async (ctx) => {
+      const vaults = await ctx.db
+        .query("vaults")
+        .withIndex("by_userId", (query) => query.eq("userId", userId))
+        .collect();
+      const folderState = await ctx.db
+        .query("folderExpansionState")
+        .withIndex("by_vault", (query) => query.eq("vaultId", vaultId))
+        .collect();
+      const run = await ctx.db.get(runId);
+
+      expect(vaults).toHaveLength(0);
+      expect(folderState).toHaveLength(0);
+      if (run === null || run.state !== "running") {
+        throw new Error("Expected a running deletion run.");
+      }
+      expect(run.dataDeletion?.vaultsAndStagedChanges).toMatchObject({
+        state: "completed",
+        deletedVaultCount: 1,
+      });
+    });
+  });
+
   it("rejects workflow calls for scrubbed deletion receipts", async () => {
     const t = makeConvexTest();
     const runId = await t.run(async (ctx) => {
@@ -312,6 +362,43 @@ describe("account-local deletion cleanup", () => {
       blocker: "active_app_provisioning",
       runId,
     });
+  });
+
+  it("rechecks active work before every detailed deletion batch", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const runId = await seedRunningDeletion(t, userId);
+    const settingsId = await t.run(async (ctx) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "owner/repository",
+        trigger: "create",
+        state: "running",
+        currentStep: "claim_infra",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      return await ctx.db.insert("dashboardSettings", {
+        userId,
+        providersPanelOpen: false,
+        pricingBillingCycle: "monthly",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch, {
+        runId,
+        workflowId: "workflow-1",
+        group: "preferences",
+      }),
+    ).rejects.toThrow("Account deletion cleanup is blocked by active work.");
+    await expect(t.run(async (ctx) => await ctx.db.get(settingsId))).resolves.not.toBeNull();
   });
 
   it("deletes terminal refresh requests after their vault row is already gone", async () => {

@@ -1,11 +1,13 @@
 import { WorkflowManager } from "@convex-dev/workflow";
 import { vResultValidator } from "@convex-dev/workpool";
+import { entries } from "@samebase/dependent/object";
 import { v, type Infer } from "convex/values";
 
 import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { assertIdentityDeletionReady } from "./authCleanup";
+import type { SimpleDataDeletionGroup } from "./cleanup";
 import {
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
@@ -49,6 +51,14 @@ const ACCOUNT_DELETION_STEP_RANK = {
   delete_identity: 5,
   finish: 6,
 } satisfies Record<AccountDeletionStep, number>;
+
+const DATA_DELETION_GROUP_ACTION_NAMES = {
+  chatsAndAgentData: "delete_chat_and_agent_data",
+  connectedMachines: "delete_connected_machines",
+  preferences: "delete_preferences",
+  appAccessAndTokens: "delete_app_access_and_tokens",
+  accessRequestsAndHistory: "delete_access_requests_and_history",
+} satisfies Record<SimpleDataDeletionGroup, string>;
 
 function latestAccountDeletionStep(
   current: AccountDeletionStep,
@@ -451,62 +461,30 @@ export const deleteAccountWorkflow = workflow.define({
     }
 
     if (args.dataDeletionProgress) {
-      for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
-        const done = await step.runMutation(
-          internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch,
-          { ...ownedArgs, group: "chatsAndAgentData" },
-          { name: `delete_chat_and_agent_data_${batch}` },
-        );
-
-        if (done) {
-          break;
-        }
-
-        if (batch === MAX_BATCH_STEPS - 1) {
-          throw new Error(SAFE_WORKFLOW_ERROR);
-        }
-      }
+      await step.runAction(
+        internal.accountDeletion.cleanupActions.cleanupDataDeletionGroup,
+        { ...ownedArgs, group: "chatsAndAgentData" },
+        { name: DATA_DELETION_GROUP_ACTION_NAMES.chatsAndAgentData, retry: true },
+      );
 
       await step.runMutation(internal.accountDeletion.cleanup.startVaultDataDeletion, ownedArgs, {
         name: "start_vault_data_cleanup",
       });
-      for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
-        const done = await step.runMutation(
-          internal.accountDeletion.cleanup.cleanupVaultDataDeletionBatch,
-          ownedArgs,
-          { name: `delete_vault_data_${batch}` },
+      await step.runAction(internal.accountDeletion.cleanupActions.cleanupVaultData, ownedArgs, {
+        name: "delete_vault_data",
+        retry: true,
+      });
+
+      for (const [group, name] of entries(DATA_DELETION_GROUP_ACTION_NAMES)) {
+        if (group === "chatsAndAgentData") {
+          continue;
+        }
+
+        await step.runAction(
+          internal.accountDeletion.cleanupActions.cleanupDataDeletionGroup,
+          { ...ownedArgs, group },
+          { name, retry: true },
         );
-
-        if (done) {
-          break;
-        }
-
-        if (batch === MAX_BATCH_STEPS - 1) {
-          throw new Error(SAFE_WORKFLOW_ERROR);
-        }
-      }
-
-      for (const group of [
-        "connectedMachines",
-        "preferences",
-        "appAccessAndTokens",
-        "accessRequestsAndHistory",
-      ] as const) {
-        for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
-          const done = await step.runMutation(
-            internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch,
-            { ...ownedArgs, group },
-            { name: `delete_${group}_${batch}` },
-          );
-
-          if (done) {
-            break;
-          }
-
-          if (batch === MAX_BATCH_STEPS - 1) {
-            throw new Error(SAFE_WORKFLOW_ERROR);
-          }
-        }
       }
     } else {
       for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
@@ -655,8 +633,6 @@ export const deleteAccountWorkflow = workflow.define({
     await step.runMutation(internal.accountDeletion.workflow.markFinalizing, ownedArgs, {
       name: "mark_finalizing",
     });
-
-    await step.sleep(3_000, { name: "observe_finalizing" });
 
     await step.runMutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, ownedArgs, {
       name: "finish_identity_deletion",

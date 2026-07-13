@@ -20,7 +20,6 @@ const queryState = vi.hoisted<{
     completionCapability: string;
     currentStep: "delete_identity";
     latestProgressAt: number;
-    markerPhase: "deleting" | "finalizing";
     requestedAt: number;
     runId: string;
     state: "needs_attention" | "running";
@@ -186,7 +185,6 @@ describe("AccountDeletionBrowserBoundary", () => {
       completionCapability,
       currentStep: "delete_identity",
       latestProgressAt: 2,
-      markerPhase: "finalizing",
       requestedAt: 1,
       runId: "run-1",
       state: "running",
@@ -217,7 +215,6 @@ describe("AccountDeletionBrowserBoundary", () => {
       completionCapability,
       currentStep: "delete_identity",
       latestProgressAt: 2,
-      markerPhase: "finalizing",
       requestedAt: 1,
       runId: "run-1",
       state: "running",
@@ -262,7 +259,6 @@ describe("AccountDeletionBrowserBoundary", () => {
         completionCapability,
         currentStep: "delete_identity",
         latestProgressAt: 2,
-        markerPhase: "finalizing",
         requestedAt: 1,
         runId: "run-1",
         state: "running",
@@ -308,7 +304,6 @@ describe("AccountDeletionBrowserBoundary", () => {
       completionCapability,
       currentStep: "delete_identity",
       latestProgressAt: 2,
-      markerPhase: "finalizing",
       requestedAt: 1,
       runId: "run-1",
       state: "needs_attention",
@@ -493,7 +488,6 @@ describe("AccountDeletionBrowserBoundary", () => {
       completionCapability,
       currentStep: "delete_identity",
       latestProgressAt: 2,
-      markerPhase: "finalizing",
       requestedAt: 1,
       runId: "run-1",
       state: "running",

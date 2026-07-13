@@ -660,7 +660,7 @@ If you connected Convex with OAuth, revoke Samebase in Convex Authorized Applica
     const retried = await asStaff.mutation(api.accountDeletion.index.retry, {
       runId: ids.runId,
     });
-    expect(retried).toMatchObject({ state: "running", markerPhase: "deleting" });
+    expect(retried).toMatchObject({ state: "running" });
     const retriedRun = await readRun(t, ids.runId);
     expect(retriedRun).toMatchObject({
       state: "running",

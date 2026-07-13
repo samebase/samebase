@@ -12,6 +12,7 @@ import type * as accessModelValidators from "../accessModelValidators.js";
 import type * as accountDeletion_authCleanup from "../accountDeletion/authCleanup.js";
 import type * as accountDeletion_billingActions from "../accountDeletion/billingActions.js";
 import type * as accountDeletion_cleanup from "../accountDeletion/cleanup.js";
+import type * as accountDeletion_cleanupActions from "../accountDeletion/cleanupActions.js";
 import type * as accountDeletion_completionEmail from "../accountDeletion/completionEmail.js";
 import type * as accountDeletion_index from "../accountDeletion/index.js";
 import type * as accountDeletion_model from "../accountDeletion/model.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "accountDeletion/authCleanup": typeof accountDeletion_authCleanup;
   "accountDeletion/billingActions": typeof accountDeletion_billingActions;
   "accountDeletion/cleanup": typeof accountDeletion_cleanup;
+  "accountDeletion/cleanupActions": typeof accountDeletion_cleanupActions;
   "accountDeletion/completionEmail": typeof accountDeletion_completionEmail;
   "accountDeletion/index": typeof accountDeletion_index;
   "accountDeletion/model": typeof accountDeletion_model;

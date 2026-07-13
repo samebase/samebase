@@ -50,7 +50,6 @@ describe("account deletion foundation", () => {
     expect(second).toEqual(first);
     expect(first).toMatchObject({
       state: "running",
-      markerPhase: "deleting",
       currentStep: "request_accepted",
       dataDeletion: {
         chatsAndAgentData: { state: "not_started" },
@@ -131,7 +130,7 @@ describe("account deletion foundation", () => {
     });
   });
 
-  it("projects finalizing before the user loses authenticated status", async () => {
+  it("keeps deletion status readable while the user marker is finalizing", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const status = await owner.asUser.mutation(api.accountDeletion.index.request, {
       completionCapability,
@@ -148,8 +147,10 @@ describe("account deletion foundation", () => {
     });
 
     await expect(owner.asUser.query(api.accountDeletion.index.status)).resolves.toMatchObject({
+      completionCapability,
+      currentStep: "request_accepted",
       runId: status.runId,
-      markerPhase: "finalizing",
+      state: "running",
     });
   });
 

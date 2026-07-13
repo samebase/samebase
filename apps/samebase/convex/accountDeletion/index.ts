@@ -29,13 +29,10 @@ const vAccountDeletionRunState = union(
   literal("succeeded"),
 );
 
-const vAccountDeletionMarkerPhase = union(literal("deleting"), literal("finalizing"));
-
 const vAccountDeletionStatus = object({
   runId: id("accountDeletionRuns"),
   completionCapability: string(),
   state: vActiveAccountDeletionRunState,
-  markerPhase: vAccountDeletionMarkerPhase,
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
   latestProgressAt: number(),
@@ -81,7 +78,7 @@ const vAdminAccountDeletionDetail = object({
   ),
 });
 
-function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" | "finalizing") {
+function projectStatus(run: Doc<"accountDeletionRuns">) {
   if (run.state === "succeeded") {
     throw new Error("Account deletion completion state is inconsistent.");
   }
@@ -90,7 +87,6 @@ function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" 
     runId: run._id,
     completionCapability: run.completionCapability,
     state: run.state,
-    markerPhase,
     currentStep: run.currentStep,
     requestedAt: run.requestedAt,
     latestProgressAt: run.updatedAt,
@@ -133,7 +129,7 @@ export const request = mutation({
         throw new Error("Account deletion state is inconsistent.");
       }
 
-      return projectStatus(existingRun, existingMarker.state);
+      return projectStatus(existingRun);
     }
 
     const initiatingSessionId = await getAuthSessionId(ctx);
@@ -213,7 +209,7 @@ export const request = mutation({
       throw new Error("Account deletion run was not created.");
     }
 
-    return projectStatus(run, "deleting");
+    return projectStatus(run);
   },
 });
 
@@ -276,7 +272,7 @@ export const retry = mutation({
       throw new Error("Account deletion run was not restarted.");
     }
 
-    return projectStatus(retried, "deleting");
+    return projectStatus(retried);
   },
 });
 
@@ -300,7 +296,7 @@ export const status = query({
       throw new Error("Account deletion state is inconsistent.");
     }
 
-    return projectStatus(run, marker.state);
+    return projectStatus(run);
   },
 });
 

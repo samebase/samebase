@@ -146,14 +146,14 @@ const accountLocalCleanupBatchResult = union(
 );
 type AccountLocalCleanupBatchResult = Infer<typeof accountLocalCleanupBatchResult>;
 
-const vSimpleDataDeletionGroup = union(
+export const vSimpleDataDeletionGroup = union(
   literal("chatsAndAgentData"),
   literal("connectedMachines"),
   literal("preferences"),
   literal("appAccessAndTokens"),
   literal("accessRequestsAndHistory"),
 );
-type SimpleDataDeletionGroup = Infer<typeof vSimpleDataDeletionGroup>;
+export type SimpleDataDeletionGroup = Infer<typeof vSimpleDataDeletionGroup>;
 
 const vVaultDataCleanupBatchResult = union(
   object({
@@ -178,6 +178,7 @@ const accountDeletionQuiescenceResult = union(
 );
 
 const ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE = 25;
+const ACTIVE_WORK_BLOCKS_DELETION_ERROR = "Account deletion cleanup is blocked by active work.";
 type AccountLocalCleanupCtx = Pick<MutationCtx, "db" | "storage">;
 
 async function deleteRowsById<TableName extends TableNames>(
@@ -258,6 +259,50 @@ async function findActiveRepositoryRefresh(
   }
 
   return null;
+}
+
+async function findAccountDeletionCleanupBlocker(
+  ctx: AccountLocalCleanupCtx,
+  userId: Id<"users">,
+): Promise<Extract<AccountLocalCleanupBatchResult, { state: "blocked" }> | null> {
+  const activeVaultDeletionRunId = await findActiveVaultDeletion(ctx, userId);
+
+  if (activeVaultDeletionRunId) {
+    return {
+      state: "blocked",
+      blocker: "active_vault_deletion",
+      runId: activeVaultDeletionRunId,
+    };
+  }
+
+  const activeProvisioningRunId = await findActiveAppProvisioning(ctx, userId);
+
+  if (activeProvisioningRunId) {
+    return {
+      state: "blocked",
+      blocker: "active_app_provisioning",
+      runId: activeProvisioningRunId,
+    };
+  }
+
+  const activeRefreshRequestId = await findActiveRepositoryRefresh(ctx, userId);
+
+  return activeRefreshRequestId
+    ? {
+        state: "blocked",
+        blocker: "active_repository_refresh",
+        requestId: activeRefreshRequestId,
+      }
+    : null;
+}
+
+async function assertAccountDeletionCleanupIsQuiescent(
+  ctx: AccountLocalCleanupCtx,
+  userId: Id<"users">,
+) {
+  if (await findAccountDeletionCleanupBlocker(ctx, userId)) {
+    throw new Error(ACTIVE_WORK_BLOCKS_DELETION_ERROR);
+  }
 }
 
 async function deleteThreadMetadataBatch(
@@ -732,34 +777,10 @@ export async function cleanupAccountLocalDataBatchForUser(
   ctx: AccountLocalCleanupCtx,
   args: { userId: Id<"users"> },
 ): Promise<AccountLocalCleanupBatchResult> {
-  const activeVaultDeletionRunId = await findActiveVaultDeletion(ctx, args.userId);
+  const blocker = await findAccountDeletionCleanupBlocker(ctx, args.userId);
 
-  if (activeVaultDeletionRunId) {
-    return {
-      state: "blocked",
-      blocker: "active_vault_deletion",
-      runId: activeVaultDeletionRunId,
-    };
-  }
-
-  const activeProvisioningRunId = await findActiveAppProvisioning(ctx, args.userId);
-
-  if (activeProvisioningRunId) {
-    return {
-      state: "blocked",
-      blocker: "active_app_provisioning",
-      runId: activeProvisioningRunId,
-    };
-  }
-
-  const activeRefreshRequestId = await findActiveRepositoryRefresh(ctx, args.userId);
-
-  if (activeRefreshRequestId) {
-    return {
-      state: "blocked",
-      blocker: "active_repository_refresh",
-      requestId: activeRefreshRequestId,
-    };
+  if (blocker) {
+    return blocker;
   }
 
   const vaultResult = await cleanupVaultBatch(ctx, args.userId);
@@ -805,6 +826,8 @@ export const cleanupDataDeletionGroupBatch = internalMutation({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+    await assertAccountDeletionCleanupIsQuiescent(ctx, run.identity.userId);
+
     const dataDeletion = run.dataDeletion;
 
     if (dataDeletion === undefined) {
@@ -858,6 +881,8 @@ export const startVaultDataDeletion = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+    await assertAccountDeletionCleanupIsQuiescent(ctx, run.identity.userId);
+
     const dataDeletion = run.dataDeletion;
 
     if (dataDeletion === undefined) {
@@ -896,6 +921,8 @@ export const cleanupVaultDataDeletionBatch = internalMutation({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+    await assertAccountDeletionCleanupIsQuiescent(ctx, run.identity.userId);
+
     const dataDeletion = run.dataDeletion;
 
     if (dataDeletion === undefined) {
