@@ -17,9 +17,12 @@ type CleanupState = "idle" | "clearing" | "complete" | "cleanup_failed";
 
 async function clearDeletedAccountBrowserData(signOut: () => Promise<void>) {
   const cleanupResults = await Promise.allSettled([signOut(), resetSamebasePostHogClient()]);
+
   await resetLocalAppData();
+
   const failure = cleanupResults.find((result) => result.status === "rejected");
-  if (failure?.status === "rejected") {
+
+  if (failure) {
     throw failure.reason;
   }
 }

@@ -196,6 +196,10 @@ declaring one.
   boundary. Tests that only assert the helper's obvious input/output wrapper are deletion evidence,
   not coverage evidence; move the useful assertion to the caller behavior or delete the test with
   the helper.
+- Use blank lines to separate logical phases inside a function. In particular, separate a read or
+  setup block from the branch, loop, mutation, or final return that acts on its result. Keep tightly
+  coupled declarations together, but do not compress a handler into an undifferentiated statement
+  wall.
 - Do not add custom Error subclasses unless production code catches that exact class, branches on
   structured fields, or the error type is part of an existing module contract. Tests should not be
   the reason an error class exists.

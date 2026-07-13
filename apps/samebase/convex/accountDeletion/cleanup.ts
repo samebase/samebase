@@ -187,6 +187,7 @@ async function deleteRowsById<TableName extends TableNames>(
   for (const row of rows) {
     await ctx.db.delete(row._id);
   }
+
   return rows.length;
 }
 
@@ -201,9 +202,11 @@ async function findActiveVaultDeletion(
     )
     .order("asc")
     .first();
+
   if (queued) {
     return queued._id;
   }
+
   const running = await ctx.db
     .query("vaultDeletionRuns")
     .withIndex("by_user_and_state_and_updated_at", (q) =>
@@ -211,6 +214,7 @@ async function findActiveVaultDeletion(
     )
     .order("asc")
     .first();
+
   return running?._id ?? null;
 }
 
@@ -226,10 +230,12 @@ async function findActiveAppProvisioning(
       )
       .order("asc")
       .first();
+
     if (run) {
       return run._id;
     }
   }
+
   return null;
 }
 
@@ -245,10 +251,12 @@ async function findActiveRepositoryRefresh(
       )
       .order("asc")
       .first();
+
     if (request) {
       return request._id;
     }
   }
+
   return null;
 }
 
@@ -260,7 +268,8 @@ async function deleteThreadMetadataBatch(
     .query("chatMessageMetadata")
     .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
     .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-  return await deleteRowsById(ctx, rows);
+
+  return deleteRowsById(ctx, rows);
 }
 
 async function cleanupVaultBatch(
@@ -272,6 +281,7 @@ async function cleanupVaultBatch(
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .order("asc")
     .first();
+
   if (!vault) {
     return { state: "done" };
   }
@@ -280,8 +290,10 @@ async function cleanupVaultBatch(
     .query("agentThreadContext")
     .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
     .first();
+
   if (context) {
     const metadataDeleted = await deleteThreadMetadataBatch(ctx, context.threadId);
+
     if (metadataDeleted > 0) {
       return {
         state: "needs_more",
@@ -289,7 +301,9 @@ async function cleanupVaultBatch(
         rowsChanged: metadataDeleted,
       };
     }
+
     await ctx.db.delete(context._id);
+
     return { state: "needs_more", currentPhase: "vault_data", rowsChanged: 1 };
   }
 
@@ -297,6 +311,7 @@ async function cleanupVaultBatch(
     .query("repositoryRefreshRequests")
     .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", vault._id))
     .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
   if (refreshRequests.length > 0) {
     return {
       state: "needs_more",
@@ -309,6 +324,7 @@ async function cleanupVaultBatch(
     userId,
     vaultId: vault._id,
   });
+
   return result.state === "deleted"
     ? { state: "vault_deleted" }
     : {
@@ -370,8 +386,13 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("agentThreadContext")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
-    if (!context) return null;
+
+    if (!context) {
+      return null;
+    }
+
     const rowsChanged = await deleteThreadMetadataBatch(ctx, context.threadId);
+
     return rowsChanged > 0
       ? { state: "needs_more", target: "chatMessageMetadata", rowsChanged }
       : null;
@@ -381,8 +402,13 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("agentThreadContext")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
-    if (!context) return null;
+
+    if (!context) {
+      return null;
+    }
+
     await ctx.db.delete(context._id);
+
     return { state: "needs_more", target: "agentThreadContext", rowsChanged: 1 };
   },
   machineCredentials: async (ctx, userId) => {
@@ -390,6 +416,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("machineCredentials")
       .withIndex("by_user_machine_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -403,6 +430,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("machineControlTokens")
       .withIndex("by_user_machine_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -416,6 +444,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("machineRegistrationRequests")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -429,6 +458,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("connectedMachines")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -442,6 +472,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("dashboardSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -455,6 +486,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("workspaceSidebarState")
       .withIndex("by_user_and_workspace_key", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -468,6 +500,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("oauthStates")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -481,6 +514,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("mcpAuthRequests")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -494,6 +528,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("mcpAuthorizationCodes")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -507,6 +542,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("mcpAccessTokens")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -520,6 +556,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("mcpRefreshTokens")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -533,6 +570,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("agentBrowserHandoffs")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -546,6 +584,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("mcpGrants")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -559,6 +598,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("mcpAccessAudit")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -572,6 +612,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("aiProdAccessAudit")
       .withIndex("by_actor", (q) => q.eq("actorUserId", userId))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -585,11 +626,13 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .query("aiProdAccessRequests")
       .withIndex("by_requester", (q) => q.eq("requesterUserId", userId))
       .first();
+
     if (requested) {
       const audit = await ctx.db
         .query("aiProdAccessAudit")
         .withIndex("by_request", (q) => q.eq("requestId", requested._id))
         .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
       if (audit.length > 0) {
         return {
           state: "needs_more",
@@ -597,15 +640,23 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
           rowsChanged: await deleteRowsById(ctx, audit),
         };
       }
+
       await ctx.db.delete(requested._id);
+
       return { state: "needs_more", target: "aiProdAccessRequests", rowsChanged: 1 };
     }
+
     const approved = await ctx.db
       .query("aiProdAccessRequests")
       .withIndex("by_approved_by", (q) => q.eq("approvedBy", userId))
       .first();
-    if (!approved) return null;
+
+    if (!approved) {
+      return null;
+    }
+
     await ctx.db.patch(approved._id, { approvedBy: undefined });
+
     return { state: "needs_more", target: "aiProdAccessRequests", rowsChanged: 1 };
   },
   vaultDeletionEvents: async (ctx, userId) => {
@@ -614,11 +665,16 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .withIndex("by_user_and_updated_at", (q) => q.eq("userId", userId))
       .order("asc")
       .first();
-    if (!run) return null;
+
+    if (!run) {
+      return null;
+    }
+
     const rows = await ctx.db
       .query("vaultDeletionEvents")
       .withIndex("by_run_and_created_at", (q) => q.eq("runId", run._id))
       .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
     return rows.length > 0
       ? {
           state: "needs_more",
@@ -633,8 +689,13 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       .withIndex("by_user_and_updated_at", (q) => q.eq("userId", userId))
       .order("asc")
       .first();
-    if (!run) return null;
+
+    if (!run) {
+      return null;
+    }
+
     await ctx.db.delete(run._id);
+
     return { state: "needs_more", target: "vaultDeletionRuns", rowsChanged: 1 };
   },
 } satisfies Record<AccountLocalTableName, AccountLocalCleanupHandler>;
@@ -671,6 +732,7 @@ export async function cleanupAccountLocalDataBatchForUser(
   args: { userId: Id<"users"> },
 ): Promise<AccountLocalCleanupBatchResult> {
   const activeVaultDeletionRunId = await findActiveVaultDeletion(ctx, args.userId);
+
   if (activeVaultDeletionRunId) {
     return {
       state: "blocked",
@@ -680,6 +742,7 @@ export async function cleanupAccountLocalDataBatchForUser(
   }
 
   const activeProvisioningRunId = await findActiveAppProvisioning(ctx, args.userId);
+
   if (activeProvisioningRunId) {
     return {
       state: "blocked",
@@ -689,6 +752,7 @@ export async function cleanupAccountLocalDataBatchForUser(
   }
 
   const activeRefreshRequestId = await findActiveRepositoryRefresh(ctx, args.userId);
+
   if (activeRefreshRequestId) {
     return {
       state: "blocked",
@@ -698,16 +762,21 @@ export async function cleanupAccountLocalDataBatchForUser(
   }
 
   const vaultResult = await cleanupVaultBatch(ctx, args.userId);
+
   if (vaultResult.state === "needs_more") {
     return { state: "needs_more", target: "vaults", rowsChanged: vaultResult.rowsChanged };
   }
+
   if (vaultResult.state === "vault_deleted") {
     return { state: "needs_more", target: "vaults", rowsChanged: 1 };
   }
 
   for (const cleanup of Object.values(ACCOUNT_LOCAL_CLEANUP_HANDLERS)) {
     const result = await cleanup(ctx, args.userId);
-    if (result) return result;
+
+    if (result) {
+      return result;
+    }
   }
 
   return { state: "done" };
@@ -723,10 +792,13 @@ export const cleanupDataDeletionGroupBatch = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const dataDeletion = run.dataDeletion;
+
     if (dataDeletion === undefined) {
       throw new Error("Account deletion progress is unavailable for this run.");
     }
+
     const current = dataDeletion[args.group];
+
     if (current.state === "completed") {
       return true;
     }
@@ -737,10 +809,13 @@ export const cleanupDataDeletionGroupBatch = internalMutation({
       if (ACCOUNT_LOCAL_CLEANUP_GROUPS[tableName] !== args.group) {
         continue;
       }
+
       const result = await cleanup(ctx, run.identity.userId);
+
       if (result === null) {
         continue;
       }
+
       await ctx.db.patch(run._id, {
         dataDeletion: {
           ...dataDeletion,
@@ -748,6 +823,7 @@ export const cleanupDataDeletionGroupBatch = internalMutation({
         },
         updatedAt: now,
       });
+
       return false;
     }
 
@@ -758,6 +834,7 @@ export const cleanupDataDeletionGroupBatch = internalMutation({
       },
       updatedAt: now,
     });
+
     return true;
   },
 });
@@ -768,10 +845,13 @@ export const startVaultDataDeletion = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const dataDeletion = run.dataDeletion;
+
     if (dataDeletion === undefined) {
       throw new Error("Account deletion progress is unavailable for this run.");
     }
+
     const current = dataDeletion.vaultsAndStagedChanges;
+
     if (current.state !== "not_started") {
       return null;
     }
@@ -784,6 +864,7 @@ export const startVaultDataDeletion = internalMutation({
       deletedVaultCount: 0,
       currentVaultPhase: "vault_data",
     };
+
     await ctx.db.patch(run._id, {
       dataDeletion: {
         ...dataDeletion,
@@ -791,6 +872,7 @@ export const startVaultDataDeletion = internalMutation({
       },
       updatedAt: now,
     });
+
     return null;
   },
 });
@@ -801,19 +883,24 @@ export const cleanupVaultDataDeletionBatch = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const dataDeletion = run.dataDeletion;
+
     if (dataDeletion === undefined) {
       throw new Error("Account deletion progress is unavailable for this run.");
     }
+
     const current = dataDeletion.vaultsAndStagedChanges;
+
     if (current.state === "not_started") {
       throw new Error("Vault data deletion was not started.");
     }
+
     if (current.state === "completed") {
       return true;
     }
 
     const result = await cleanupVaultBatch(ctx, run.identity.userId);
     const now = Date.now();
+
     if (result.state === "needs_more") {
       await ctx.db.patch(run._id, {
         dataDeletion: {
@@ -826,14 +913,17 @@ export const cleanupVaultDataDeletionBatch = internalMutation({
         },
         updatedAt: now,
       });
+
       return false;
     }
+
     if (result.state === "vault_deleted") {
       const deletedVaultCount = current.deletedVaultCount + 1;
       const nextVault = await ctx.db
         .query("vaults")
         .withIndex("by_userId", (query) => query.eq("userId", run.identity.userId))
         .first();
+
       await ctx.db.patch(run._id, {
         dataDeletion: {
           ...dataDeletion,
@@ -855,6 +945,7 @@ export const cleanupVaultDataDeletionBatch = internalMutation({
         },
         updatedAt: now,
       });
+
       return nextVault === null;
     }
 
@@ -871,6 +962,7 @@ export const cleanupVaultDataDeletionBatch = internalMutation({
       },
       updatedAt: now,
     });
+
     return true;
   },
 });
@@ -880,7 +972,8 @@ export const cleanupAccountLocalDataBatch = internalMutation({
   returns: accountLocalCleanupBatchResult,
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    return await cleanupAccountLocalDataBatchForUser(ctx, {
+
+    return cleanupAccountLocalDataBatchForUser(ctx, {
       userId: run.identity.userId,
     });
   },
@@ -891,17 +984,21 @@ export const inspectQuiescence = internalMutation({
   returns: accountDeletionQuiescenceResult,
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     if (await findActiveVaultDeletion(ctx, run.identity.userId)) {
       return { state: "waiting", blocker: "active_vault_deletion" } as const;
     }
+
     if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
       return { state: "waiting", blocker: "active_app_provisioning" } as const;
     }
+
     const now = Date.now();
     const leases = await ctx.db
       .query("agentActionLeases")
       .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
       .take(25);
+
     for (const lease of leases) {
       if (lease.expiresAt > now) {
         return {
@@ -910,11 +1007,14 @@ export const inspectQuiescence = internalMutation({
           retryAfterMs: lease.expiresAt - now,
         } as const;
       }
+
       await ctx.db.delete(lease._id);
     }
+
     if (leases.length === 25) {
       return { state: "waiting", blocker: "active_agent_action", retryAfterMs: 0 } as const;
     }
+
     return { state: "done" } as const;
   },
 });
@@ -926,10 +1026,13 @@ export const cleanupAgentComponentData = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const dataDeletion = run.dataDeletion;
+
     if (dataDeletion !== undefined) {
       const current = dataDeletion.chatsAndAgentData;
+
       if (current.state !== "completed") {
         const now = Date.now();
+
         await ctx.db.patch(run._id, {
           dataDeletion: {
             ...dataDeletion,
@@ -943,9 +1046,11 @@ export const cleanupAgentComponentData = internalMutation({
         });
       }
     }
+
     await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
       userId: run.identity.userId,
     });
+
     return null;
   },
 });
@@ -955,10 +1060,12 @@ export const hasAgentComponentData = internalQuery({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     const threads = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
       userId: run.identity.userId,
       paginationOpts: { cursor: null, numItems: 1 },
     });
+
     return threads.page.length > 0;
   },
 });

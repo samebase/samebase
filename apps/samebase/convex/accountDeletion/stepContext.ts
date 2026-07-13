@@ -12,12 +12,15 @@ export async function readOwnedActiveRun(
   args: { runId: Id<"accountDeletionRuns">; workflowId: string },
 ): Promise<RunningAccountDeletionRun> {
   const run = await ctx.db.get(args.runId);
+
   if (run === null || run.state !== "running") {
     throw new Error("Account deletion workflow is not running.");
   }
+
   if (run.workflow.workflowId !== args.workflowId) {
     throw new Error("Account deletion workflow ownership changed.");
   }
+
   return run;
 }
 
@@ -32,6 +35,7 @@ export const getOwnedIdentity = internalQuery({
   }),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     return {
       userId: run.identity.userId,
       email: run.identity.email,

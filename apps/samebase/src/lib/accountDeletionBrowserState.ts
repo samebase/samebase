@@ -27,6 +27,7 @@ export function readAccountDeletionBrowserMarker(): AccountDeletionBrowserMarker
   } catch {
     return null;
   }
+
   if (stored === null) {
     return null;
   }
@@ -36,6 +37,7 @@ export function readAccountDeletionBrowserMarker(): AccountDeletionBrowserMarker
     if (value === null || typeof value !== "object") {
       return null;
     }
+
     const completionCapability = Object.getOwnPropertyDescriptor(
       value,
       "completionCapability",
@@ -46,6 +48,7 @@ export function readAccountDeletionBrowserMarker(): AccountDeletionBrowserMarker
     ) {
       return null;
     }
+
     return { completionCapability };
   } catch {
     return null;
@@ -56,6 +59,7 @@ export function writeAccountDeletionBrowserMarker(completionCapability: string):
   if (!COMPLETION_CAPABILITY_PATTERN.test(completionCapability)) {
     return false;
   }
+
   try {
     window.localStorage.setItem(
       ACCOUNT_DELETION_BROWSER_MARKER_KEY,
@@ -71,6 +75,7 @@ export function clearAccountDeletionBrowserMarker(completionCapability: string):
   if (readAccountDeletionBrowserMarker()?.completionCapability !== completionCapability) {
     return;
   }
+
   try {
     window.localStorage.removeItem(ACCOUNT_DELETION_BROWSER_MARKER_KEY);
   } catch {

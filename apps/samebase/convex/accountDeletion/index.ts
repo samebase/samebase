@@ -69,7 +69,9 @@ const adminAccountDeletionFields = {
   latestSafeError: optional(string()),
   completedAt: optional(number()),
 } as const;
+
 const vAdminAccountDeletionListItem = object(adminAccountDeletionFields);
+
 const vAdminAccountDeletionDetail = object({
   ...adminAccountDeletionFields,
   dataDeletion: union(
@@ -83,6 +85,7 @@ function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" 
   if (run.state === "succeeded") {
     throw new Error("Account deletion completion state is inconsistent.");
   }
+
   return {
     runId: run._id,
     completionCapability: run.completionCapability,
@@ -110,17 +113,6 @@ function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
   };
 }
 
-function projectAdminDetail(run: Doc<"accountDeletionRuns">) {
-  const dataDeletion =
-    run.state === "succeeded"
-      ? ({ state: "receipt_scrubbed" } as const)
-      : (run.dataDeletion ?? ({ state: "legacy_unavailable" } as const));
-  return {
-    ...projectAdminListItem(run),
-    dataDeletion,
-  };
-}
-
 export const request = mutation({
   access: "access_account_deletion",
   args: { completionCapability: string() },
@@ -140,6 +132,7 @@ export const request = mutation({
       ) {
         throw new Error("Account deletion state is inconsistent.");
       }
+
       return projectStatus(existingRun, existingMarker.state);
     }
 
@@ -151,12 +144,14 @@ export const request = mutation({
     if (!/^[0-9a-f]{64}$/.test(args.completionCapability)) {
       throw new Error("Account deletion completion capability is invalid.");
     }
+
     const existingCapability = await ctx.db
       .query("accountDeletionRuns")
       .withIndex("by_completion_capability", (query) =>
         query.eq("completionCapability", args.completionCapability),
       )
       .first();
+
     if (existingCapability !== null) {
       throw new Error("Account deletion completion capability is already in use.");
     }
@@ -181,11 +176,13 @@ export const request = mutation({
       },
       dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     } as const;
+
     const runId = await ctx.db.insert("accountDeletionRuns", {
       ...activeRunFields,
       state: "queued",
       workflow: { state: "not_started" },
     });
+
     await ctx.db.insert("accountDeletionEvents", {
       runId,
       step: "request_accepted",
@@ -193,6 +190,7 @@ export const request = mutation({
       message: "Account deletion was requested.",
       createdAt: now,
     });
+
     await ctx.db.patch(ctx.viewer.userId, {
       accountDeletion: {
         state: "deleting",
@@ -200,7 +198,9 @@ export const request = mutation({
         requestedAt: now,
       },
     });
+
     const workflowId = await startAccountDeletionWorkflow(ctx, runId);
+
     await ctx.db.replace(runId, {
       ...activeRunFields,
       state: "running",
@@ -208,9 +208,11 @@ export const request = mutation({
     });
 
     const run = await ctx.db.get(runId);
+
     if (run === null || run.identity.state !== "active") {
       throw new Error("Account deletion run was not created.");
     }
+
     return projectStatus(run, "deleting");
   },
 });
@@ -224,14 +226,16 @@ export const retry = mutation({
     if (run === null || run.identity.state !== "active" || run.state !== "needs_attention") {
       throw new Error("Account deletion run is not retryable.");
     }
+
     const user = await ctx.db.get(run.identity.userId);
+
     if (user === null || user.accountDeletion?.runId !== run._id) {
       throw new Error("Account deletion marker is inconsistent.");
     }
 
     const workflowId = await startAccountDeletionWorkflow(ctx, run._id);
     const now = Date.now();
-    const retryCount = run.retryCount + 1;
+
     await ctx.db.replace(run._id, {
       identity: run.identity,
       completionCapability: run.completionCapability,
@@ -245,10 +249,11 @@ export const retry = mutation({
       requestedAt: run.requestedAt,
       updatedAt: now,
       initiatingSessionId: run.initiatingSessionId,
-      retryCount,
+      retryCount: run.retryCount + 1,
       outcomes: run.outcomes,
       dataDeletion: run.dataDeletion,
     });
+
     await ctx.db.patch(user._id, {
       accountDeletion: {
         state: "deleting",
@@ -256,6 +261,7 @@ export const retry = mutation({
         requestedAt: run.requestedAt,
       },
     });
+
     await ctx.db.insert("accountDeletionEvents", {
       runId: run._id,
       step: run.currentStep,
@@ -265,9 +271,11 @@ export const retry = mutation({
     });
 
     const retried = await ctx.db.get(run._id);
+
     if (retried === null) {
       throw new Error("Account deletion run was not restarted.");
     }
+
     return projectStatus(retried, "deleting");
   },
 });
@@ -281,7 +289,9 @@ export const status = query({
     if (marker === undefined) {
       return null;
     }
+
     const run = await ctx.db.get(marker.runId);
+
     if (
       run === null ||
       run.identity.state !== "active" ||
@@ -289,6 +299,7 @@ export const status = query({
     ) {
       throw new Error("Account deletion state is inconsistent.");
     }
+
     return projectStatus(run, marker.state);
   },
 });
@@ -301,15 +312,18 @@ export const completion = query({
     if (!/^[0-9a-f]{64}$/.test(args.completionCapability)) {
       return null;
     }
+
     const run = await ctx.db
       .query("accountDeletionRuns")
       .withIndex("by_completion_capability", (query) =>
         query.eq("completionCapability", args.completionCapability),
       )
       .first();
+
     if (run === null || run.identity.state !== "scrubbed" || run.state !== "succeeded") {
       return null;
     }
+
     return { state: run.state, completedAt: run.completedAt };
   },
 });
@@ -326,6 +340,7 @@ export const listForAdmin = query({
       .withIndex("by_updated_at")
       .order("desc")
       .paginate(args.paginationOpts);
+
     return {
       ...runs,
       page: runs.page.map(projectAdminListItem),
@@ -347,16 +362,27 @@ export const detailForAdmin = query({
   ),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
+
     if (run === null) {
       return null;
     }
+
     const events = await ctx.db
       .query("accountDeletionEvents")
       .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
       .order("desc")
       .take(100);
+
+    const dataDeletion =
+      run.state === "succeeded"
+        ? ({ state: "receipt_scrubbed" } as const)
+        : (run.dataDeletion ?? ({ state: "legacy_unavailable" } as const));
+
     return {
-      run: projectAdminDetail(run),
+      run: {
+        ...projectAdminListItem(run),
+        dataDeletion,
+      },
       events: events.reverse().map(({ step, level, message, createdAt }) => ({
         step,
         level,

@@ -102,6 +102,7 @@ export const revokeForAccountDeletion = internalAction({
       internal.accountDeletion.stepContext.getOwnedIdentity,
       args,
     );
+
     const [githubConnection, cloudflareConnection, convexConnection] = await Promise.all([
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId: identity.userId,
@@ -121,6 +122,7 @@ export const revokeForAccountDeletion = internalAction({
       revokeGithub(githubConnection),
       revokeCloudflare(cloudflareConnection),
     ]);
+
     return {
       github,
       cloudflare,

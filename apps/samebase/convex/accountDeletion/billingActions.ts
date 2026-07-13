@@ -21,18 +21,16 @@ const POLAR_SUBSCRIPTION_PAGE_SIZE = 100;
 const POLAR_MAX_SUBSCRIPTION_PAGES = 100;
 const POLAR_CANCELLATION_SAFE_ERROR = "Polar subscription cancellation could not be confirmed.";
 
-function getPolarApiBaseUrl(): string {
-  return resolveDeploymentProfile().kind === "production"
-    ? "https://api.polar.sh/v1"
-    : "https://sandbox-api.polar.sh/v1";
-}
-
 async function requestPolar(args: { path: string; method: "GET" | "DELETE" }): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), POLAR_API_FETCH_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${getPolarApiBaseUrl()}${args.path}`, {
+    const apiBaseUrl =
+      resolveDeploymentProfile().kind === "production"
+        ? "https://api.polar.sh/v1"
+        : "https://sandbox-api.polar.sh/v1";
+    const response = await fetch(`${apiBaseUrl}${args.path}`, {
       method: args.method,
       headers: {
         Authorization: `Bearer ${readRequiredEnv("POLAR_ACCESS_TOKEN")}`,
@@ -42,9 +40,11 @@ async function requestPolar(args: { path: string; method: "GET" | "DELETE" }): P
       signal: controller.signal,
     });
     const payload: unknown = await response.json().catch(() => null);
+
     if (!response.ok) {
       throw new Error(`Polar subscription request failed (${response.status}).`);
     }
+
     return payload;
   } finally {
     clearTimeout(timeout);
@@ -61,10 +61,12 @@ async function listCancelablePolarSubscriptionIds(externalCustomerId: string): P
       page: String(page),
       limit: String(POLAR_SUBSCRIPTION_PAGE_SIZE),
     });
+
     const payload = await requestPolar({
       path: `/subscriptions/?${searchParams.toString()}`,
       method: "GET",
     });
+
     if (!isRecord(payload) || !Array.isArray(payload.items) || !isRecord(payload.pagination)) {
       throw new Error("Polar subscription list response is invalid.");
     }
@@ -73,11 +75,14 @@ async function listCancelablePolarSubscriptionIds(externalCustomerId: string): P
       if (!isRecord(item)) {
         throw new Error("Polar subscription list response is invalid.");
       }
+
       const subscriptionId = readString(item, "id");
       const status = readString(item, "status");
+
       if (!subscriptionId || !status) {
         throw new Error("Polar subscription list response is invalid.");
       }
+
       switch (status) {
         case "incomplete":
         case "trialing":
@@ -104,9 +109,11 @@ async function listCancelablePolarSubscriptionIds(externalCustomerId: string): P
     ) {
       throw new Error("Polar subscription pagination response is invalid.");
     }
+
     if (page >= maxPage) {
       return subscriptionIds;
     }
+
     page += 1;
   }
 
@@ -125,13 +132,16 @@ export const cancelForAccountDeletion = internalAction({
       args,
     );
     const user = await ctx.runQuery(internal.users.getById, { userId: identity.userId });
+
     if (!user) {
       return {
         state: "failed",
         safeError: POLAR_CANCELLATION_SAFE_ERROR,
       };
     }
+
     const externalCustomerId = user.billingPolarExternalCustomerId?.trim();
+
     if (!externalCustomerId) {
       if (
         user.billingProvider === "polar" ||
@@ -145,11 +155,13 @@ export const cancelForAccountDeletion = internalAction({
           safeError: POLAR_CANCELLATION_SAFE_ERROR,
         };
       }
+
       return { state: "not_applicable" };
     }
 
     try {
       const activeSubscriptionIds = await listCancelablePolarSubscriptionIds(externalCustomerId);
+
       for (const subscriptionId of activeSubscriptionIds) {
         await requestPolar({
           path: `/subscriptions/${encodeURIComponent(subscriptionId)}`,
@@ -159,12 +171,14 @@ export const cancelForAccountDeletion = internalAction({
 
       const remainingActiveSubscriptionIds =
         await listCancelablePolarSubscriptionIds(externalCustomerId);
+
       if (remainingActiveSubscriptionIds.length > 0) {
         return {
           state: "failed",
           safeError: POLAR_CANCELLATION_SAFE_ERROR,
         };
       }
+
       return { state: "succeeded" };
     } catch {
       return {

@@ -86,6 +86,7 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
   );
   const dataDeletion = "state" in status.dataDeletion ? null : status.dataDeletion;
   const showDataDeletion = dataDeletion !== null && currentStepIndex >= dataDeletionStepIndex;
+
   return (
     <main data-testid="account-deletion-page" className="container mx-auto w-full max-w-2xl py-6">
       <h1 className="text-xl font-semibold sm:text-2xl">

@@ -22,12 +22,15 @@ const workflowOwnershipArgs = {
   runId: id("accountDeletionRuns"),
   workflowId: string(),
 };
+
 const workflowCompletionContext = object({ runId: id("accountDeletionRuns") });
+
 const vClosedBillingOutcome = union(
   object({ state: literal("not_applicable") }),
   object({ state: literal("succeeded") }),
   object({ state: literal("failed"), safeError: string() }),
 );
+
 const vClosedEmailOutcome = union(
   object({ state: literal("sent") }),
   object({ state: literal("delivery_failed"), safeError: string() }),
@@ -61,10 +64,12 @@ export async function startAccountDeletionWorkflow(
   runId: Id<"accountDeletionRuns">,
 ): Promise<string> {
   const run = await ctx.db.get(runId);
+
   if (run === null || run.state === "succeeded") {
     throw new Error("Account deletion run is not active.");
   }
-  return await workflow.start(
+
+  return workflow.start(
     ctx,
     internal.accountDeletion.workflow.deleteAccountWorkflow,
     run.dataDeletion === undefined ? { runId } : { runId, dataDeletionProgress: true },
@@ -83,17 +88,6 @@ function mergeProviderResult<ProviderResult extends { state: string }>(
   return previous.state === "unconfirmed" ? current : previous;
 }
 
-function mergeProviderResults(
-  previous: RevokeProviderAccessResult,
-  current: RevokeProviderAccessResult,
-): RevokeProviderAccessResult {
-  return {
-    github: mergeProviderResult(previous.github, current.github),
-    cloudflare: mergeProviderResult(previous.cloudflare, current.cloudflare),
-    convex: mergeProviderResult(previous.convex, current.convex),
-  };
-}
-
 function hasUnconfirmedProvider(result: RevokeProviderAccessResult): boolean {
   return [result.github, result.cloudflare, result.convex].some(
     ({ state }) => state === "unconfirmed",
@@ -105,6 +99,7 @@ export const claimWorkflowRun = internalMutation({
   returns: vAccountDeletionOutcomeSummary,
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     return run.outcomes;
   },
 });
@@ -120,6 +115,7 @@ export const appendRunEvent = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const now = Date.now();
+
     await ctx.db.insert("accountDeletionEvents", {
       runId: run._id,
       step: args.step,
@@ -127,10 +123,12 @@ export const appendRunEvent = internalMutation({
       message: args.message,
       createdAt: now,
     });
+
     await ctx.db.patch(run._id, {
       currentStep: latestAccountDeletionStep(run.currentStep, args.step),
       updatedAt: now,
     });
+
     return null;
   },
 });
@@ -143,10 +141,12 @@ export const recordBillingOutcome = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     await ctx.db.patch(run._id, {
       outcomes: { ...run.outcomes, billing: args.outcome },
       updatedAt: Date.now(),
     });
+
     return null;
   },
 });
@@ -159,11 +159,13 @@ export const recordProviderOutcome = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     await ctx.db.patch(run._id, {
       outcomes: { ...run.outcomes, providerRevocation: args.outcome },
       currentStep: latestAccountDeletionStep(run.currentStep, "revoke_access"),
       updatedAt: Date.now(),
     });
+
     return null;
   },
 });
@@ -173,13 +175,16 @@ export const deleteProviderConnections = internalMutation({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     const connections = await ctx.db
       .query("providerConnections")
       .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
       .take(25);
+
     for (const connection of connections) {
       await ctx.db.delete(connection._id);
     }
+
     return connections.length < 25;
   },
 });
@@ -192,11 +197,13 @@ export const recordCompletionEmailOutcome = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+
     await ctx.db.patch(run._id, {
       outcomes: { ...run.outcomes, completionEmail: args.outcome },
       currentStep: latestAccountDeletionStep(run.currentStep, "send_completion_email"),
       updatedAt: Date.now(),
     });
+
     return null;
   },
 });
@@ -207,6 +214,7 @@ export const markFinalizing = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const user = await ctx.db.get(run.identity.userId);
+
     if (
       user === null ||
       user.accountDeletion?.runId !== run._id ||
@@ -214,8 +222,11 @@ export const markFinalizing = internalMutation({
     ) {
       throw new Error("Account deletion marker is inconsistent.");
     }
+
     await assertIdentityDeletionReady(ctx, run);
+
     const now = Date.now();
+
     await ctx.db.patch(user._id, {
       accountDeletion: {
         state: "finalizing",
@@ -223,10 +234,12 @@ export const markFinalizing = internalMutation({
         requestedAt: run.requestedAt,
       },
     });
+
     await ctx.db.patch(run._id, {
       currentStep: latestAccountDeletionStep(run.currentStep, "delete_identity"),
       updatedAt: now,
     });
+
     return null;
   },
 });
@@ -240,7 +253,6 @@ export const deleteAccountWorkflow = workflow.define({
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    const dataDeletionProgressAvailable = args.dataDeletionProgress === true;
     const ownedArgs = { runId: args.runId, workflowId: step.workflowId };
     const initialOutcomes = await step.runMutation(
       internal.accountDeletion.workflow.claimWorkflowRun,
@@ -249,14 +261,21 @@ export const deleteAccountWorkflow = workflow.define({
         name: "claim_workflow",
       },
     );
+
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
         ownedArgs,
         { name: `delete_other_sessions_${batch}` },
       );
-      if (done) break;
-      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (done) {
+        break;
+      }
+
+      if (batch === MAX_BATCH_STEPS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
 
     await step.runMutation(
@@ -269,28 +288,44 @@ export const deleteAccountWorkflow = workflow.define({
       },
       { name: "start_quiescence" },
     );
+
     for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
       const result = await step.runMutation(
         internal.accountDeletion.cleanup.inspectQuiescence,
         ownedArgs,
         { name: `inspect_quiescence_${check}` },
       );
-      if (result.state === "done") break;
-      if (check === MAX_QUIESCE_CHECKS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (result.state === "done") {
+        break;
+      }
+
+      if (check === MAX_QUIESCE_CHECKS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+
       const waitMs =
         result.blocker === "active_agent_action"
           ? Math.max(1, Math.min(result.retryAfterMs, 5_000))
           : 1_000;
       await step.sleep(waitMs, { name: `wait_for_active_work_${check}` });
     }
+
     for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
       const result = await step.runMutation(
         internal.repositoryRefresh.quiesceForAccountDeletion,
         ownedArgs,
         { name: `quiesce_repository_refresh_${check}` },
       );
-      if (result.state === "done") break;
-      if (check === MAX_QUIESCE_CHECKS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (result.state === "done") {
+        break;
+      }
+
+      if (check === MAX_QUIESCE_CHECKS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+
       await step.sleep(1_000, { name: `wait_for_repository_refresh_${check}` });
     }
 
@@ -308,17 +343,22 @@ export const deleteAccountWorkflow = workflow.define({
         },
         { name: "start_billing_cancellation" },
       );
+
       const billing = await step.runAction(
         internal.accountDeletion.billingActions.cancelForAccountDeletion,
         ownedArgs,
         { name: "cancel_billing", retry: false },
       );
+
       await step.runMutation(
         internal.accountDeletion.workflow.recordBillingOutcome,
         { ...ownedArgs, outcome: billing },
         { name: "record_billing_outcome" },
       );
-      if (billing.state === "failed") throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (billing.state === "failed") {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
 
     if (initialOutcomes.providerRevocation.state === "not_started") {
@@ -332,34 +372,50 @@ export const deleteAccountWorkflow = workflow.define({
         },
         { name: "start_provider_revocation" },
       );
+
       let providerResult: RevokeProviderAccessResult = await step.runAction(
         internal.accountDeletion.providerActions.revokeForAccountDeletion,
         ownedArgs,
         { name: "revoke_provider_access_1", retry: false },
       );
+
       for (let attempt = 2; hasUnconfirmedProvider(providerResult) && attempt <= 3; attempt += 1) {
         await step.sleep(5_000, { name: `wait_for_provider_revocation_${attempt}` });
+
         const current = await step.runAction(
           internal.accountDeletion.providerActions.revokeForAccountDeletion,
           ownedArgs,
           { name: `revoke_provider_access_${attempt}`, retry: false },
         );
-        providerResult = mergeProviderResults(providerResult, current);
+
+        providerResult = {
+          github: mergeProviderResult(providerResult.github, current.github),
+          cloudflare: mergeProviderResult(providerResult.cloudflare, current.cloudflare),
+          convex: mergeProviderResult(providerResult.convex, current.convex),
+        };
       }
+
       await step.runMutation(
         internal.accountDeletion.workflow.recordProviderOutcome,
         { ...ownedArgs, outcome: { state: "completed", ...providerResult } },
         { name: "record_provider_outcome" },
       );
     }
+
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.workflow.deleteProviderConnections,
         ownedArgs,
         { name: `delete_provider_connections_${batch}` },
       );
-      if (done) break;
-      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (done) {
+        break;
+      }
+
+      if (batch === MAX_BATCH_STEPS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
 
     await step.runMutation(
@@ -375,26 +431,40 @@ export const deleteAccountWorkflow = workflow.define({
     await step.runMutation(internal.accountDeletion.cleanup.cleanupAgentComponentData, ownedArgs, {
       name: "delete_agent_component_data",
     });
+
     for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
       const hasData = await step.runQuery(
         internal.accountDeletion.cleanup.hasAgentComponentData,
         ownedArgs,
         { name: `inspect_agent_component_data_${check}` },
       );
-      if (!hasData) break;
-      if (check === MAX_QUIESCE_CHECKS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (!hasData) {
+        break;
+      }
+
+      if (check === MAX_QUIESCE_CHECKS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+
       await step.sleep(5_000, { name: `wait_for_agent_component_data_${check}` });
     }
 
-    if (dataDeletionProgressAvailable) {
+    if (args.dataDeletionProgress) {
       for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
         const done = await step.runMutation(
           internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch,
           { ...ownedArgs, group: "chatsAndAgentData" },
           { name: `delete_chat_and_agent_data_${batch}` },
         );
-        if (done) break;
-        if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+        if (done) {
+          break;
+        }
+
+        if (batch === MAX_BATCH_STEPS - 1) {
+          throw new Error(SAFE_WORKFLOW_ERROR);
+        }
       }
 
       await step.runMutation(internal.accountDeletion.cleanup.startVaultDataDeletion, ownedArgs, {
@@ -406,8 +476,14 @@ export const deleteAccountWorkflow = workflow.define({
           ownedArgs,
           { name: `delete_vault_data_${batch}` },
         );
-        if (done) break;
-        if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+        if (done) {
+          break;
+        }
+
+        if (batch === MAX_BATCH_STEPS - 1) {
+          throw new Error(SAFE_WORKFLOW_ERROR);
+        }
       }
 
       for (const group of [
@@ -422,8 +498,14 @@ export const deleteAccountWorkflow = workflow.define({
             { ...ownedArgs, group },
             { name: `delete_${group}_${batch}` },
           );
-          if (done) break;
-          if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+          if (done) {
+            break;
+          }
+
+          if (batch === MAX_BATCH_STEPS - 1) {
+            throw new Error(SAFE_WORKFLOW_ERROR);
+          }
         }
       }
     } else {
@@ -433,7 +515,11 @@ export const deleteAccountWorkflow = workflow.define({
           ownedArgs,
           { name: `delete_samebase_data_${batch}` },
         );
-        if (result.state === "done") break;
+
+        if (result.state === "done") {
+          break;
+        }
+
         if (result.state === "blocked" || batch === MAX_BATCH_STEPS - 1) {
           throw new Error(SAFE_WORKFLOW_ERROR);
         }
@@ -445,12 +531,17 @@ export const deleteAccountWorkflow = workflow.define({
       ownedArgs,
       { name: "recheck_billing_before_finalizing", retry: false },
     );
+
     await step.runMutation(
       internal.accountDeletion.workflow.recordBillingOutcome,
       { ...ownedArgs, outcome: finalBilling },
       { name: "record_final_billing_outcome" },
     );
-    if (finalBilling.state === "failed") throw new Error(SAFE_WORKFLOW_ERROR);
+
+    if (finalBilling.state === "failed") {
+      throw new Error(SAFE_WORKFLOW_ERROR);
+    }
+
     if (initialOutcomes.completionEmail.state === "not_started") {
       await step.runMutation(
         internal.accountDeletion.workflow.appendRunEvent,
@@ -462,74 +553,115 @@ export const deleteAccountWorkflow = workflow.define({
         },
         { name: "start_completion_email" },
       );
+
       const email = await step.runAction(
         internal.accountDeletion.completionEmail.sendForAccountDeletion,
         ownedArgs,
         { name: "send_completion_email", retry: false },
       );
+
       await step.runMutation(
         internal.accountDeletion.workflow.recordCompletionEmailOutcome,
         { ...ownedArgs, outcome: email },
         { name: "record_completion_email_outcome" },
       );
     }
+
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.workflow.deleteProviderConnections,
         ownedArgs,
         { name: `reclean_provider_connections_${batch}` },
       );
-      if (done) break;
-      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (done) {
+        break;
+      }
+
+      if (batch === MAX_BATCH_STEPS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
+
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
         ownedArgs,
         { name: `delete_late_sessions_${batch}` },
       );
-      if (done) break;
-      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (done) {
+        break;
+      }
+
+      if (batch === MAX_BATCH_STEPS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
+
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteAuthAccountBatch,
         ownedArgs,
         { name: `delete_auth_accounts_${batch}` },
       );
-      if (done) break;
-      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (done) {
+        break;
+      }
+
+      if (batch === MAX_BATCH_STEPS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
     await step.runMutation(
       internal.accountDeletion.authCleanup.deleteIdentityRateLimit,
       ownedArgs,
       { name: "delete_identity_rate_limit" },
     );
+
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch,
         ownedArgs,
         { name: `delete_initiating_session_children_${batch}` },
       );
-      if (done) break;
-      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (done) {
+        break;
+      }
+
+      if (batch === MAX_BATCH_STEPS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
+
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteEventBatch,
         ownedArgs,
         { name: `delete_account_deletion_events_${batch}` },
       );
-      if (done) break;
-      if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+
+      if (done) {
+        break;
+      }
+
+      if (batch === MAX_BATCH_STEPS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
     }
+
     await step.runMutation(internal.accountDeletion.workflow.markFinalizing, ownedArgs, {
       name: "mark_finalizing",
     });
+
     await step.sleep(3_000, { name: "observe_finalizing" });
+
     await step.runMutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, ownedArgs, {
       name: "finish_identity_deletion",
     });
+
     return null;
   },
 });
@@ -543,14 +675,17 @@ export const handleWorkflowComplete = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.context.runId);
+
     if (run === null || run.identity.state === "scrubbed") {
       return null;
     }
+
     if (run.state !== "running" || run.workflow.workflowId !== args.workflowId) {
       return null;
     }
 
     const user = await ctx.db.get(run.identity.userId);
+
     if (user?.accountDeletion?.runId === run._id && user.accountDeletion.state === "finalizing") {
       await ctx.db.patch(user._id, {
         accountDeletion: {
@@ -562,6 +697,7 @@ export const handleWorkflowComplete = internalMutation({
     }
 
     const now = Date.now();
+
     await ctx.db.replace(run._id, {
       identity: run.identity,
       completionCapability: run.completionCapability,
@@ -576,6 +712,7 @@ export const handleWorkflowComplete = internalMutation({
       latestSafeError: SAFE_WORKFLOW_ERROR,
       updatedAt: now,
     });
+
     await ctx.db.insert("accountDeletionEvents", {
       runId: run._id,
       step: run.currentStep,
@@ -583,6 +720,7 @@ export const handleWorkflowComplete = internalMutation({
       message: SAFE_WORKFLOW_ERROR,
       createdAt: now,
     });
+
     return null;
   },
 });

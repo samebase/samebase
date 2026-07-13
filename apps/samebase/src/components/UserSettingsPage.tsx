@@ -64,10 +64,13 @@ export function UserSettingsPage() {
 
   const refreshSession = async (expectedPresentation: AccountPresentation) => {
     const token = await fetchAccessToken({ forceRefreshToken: true });
+
     if (token === null) {
       throw new Error("The session refresh did not return a token.");
     }
+
     const profile = readCurrentAuthTokenProfileClaims(token);
+
     if (
       profile === null ||
       profile.accountPresentation.kind !== expectedPresentation.kind ||
@@ -79,12 +82,14 @@ export function UserSettingsPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     if (saveState.kind === "saving" || sessionRefreshState.kind === "refreshing") {
       return;
     }
 
     const formData = new FormData(event.currentTarget);
     const displayNameEntry = formData.get("displayName");
+
     if (typeof displayNameEntry !== "string") {
       setSaveState({ kind: "saveFailed", message: "Display name is missing." });
       return;
@@ -169,12 +174,15 @@ export function UserSettingsPage() {
     }
     setIsRequestingDeletion(true);
     setDeletionError(null);
+
     const completionCapability = createAccountDeletionCompletionCapability();
+
     if (completionCapability === null || !writeAccountDeletionBrowserMarker(completionCapability)) {
       setDeletionError("Could not start account deletion. Please try again.");
       setIsRequestingDeletion(false);
       return;
     }
+
     try {
       const status = await requestAccountDeletion({ completionCapability });
       writeAccountDeletionBrowserMarker(status.completionCapability);
