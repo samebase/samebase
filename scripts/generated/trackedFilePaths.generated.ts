@@ -876,6 +876,8 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/logo/NLogoScene.tsx",
   "apps/samebase/src/components/logo/PublicLandingLogo.test.tsx",
   "apps/samebase/src/components/logo/PublicLandingLogo.tsx",
+  "apps/samebase/src/components/logo/logoAutoRotation.test.ts",
+  "apps/samebase/src/components/logo/logoAutoRotation.ts",
   "apps/samebase/src/components/logo/logoDepthLimits.ts",
   "apps/samebase/src/components/logo/logoDistanceScale.ts",
   "apps/samebase/src/components/logo/logoFaceTreatment.ts",

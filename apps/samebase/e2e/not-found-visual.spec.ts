@@ -35,7 +35,7 @@ test("unknown routes render the animated not-found page", async ({ page }) => {
     )
     .not.toBe(initialRotationDegrees);
 
-  const logoLink = content.getByRole("link", { exact: true, name: "/logo" });
+  const logoLink = content.getByRole("link", { exact: true, name: "play with this logo" });
   await expect(logoLink).toBeVisible();
   await logoLink.click();
   await expect(page).toHaveURL(/\/logo\?/);

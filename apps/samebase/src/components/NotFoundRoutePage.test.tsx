@@ -113,6 +113,7 @@ describe("NotFoundRoutePage", () => {
     expect(firstMarkup).toContain('data-route-search-source="static"');
     expect(firstMarkup).toContain('data-view-state-key="not-found"');
     expect(firstMarkup).toContain('href="/logo"');
+    expect(firstMarkup).toContain("play with this logo");
     expect(firstMarkup).toContain('data-search-auto-rotate="true"');
     expect(firstMarkup).toContain('data-search-auto-shuffle="true"');
     expect(firstMarkup).toContain('data-search-depth="2"');
