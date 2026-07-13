@@ -2,7 +2,6 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
 import {
   ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
@@ -74,7 +73,6 @@ export function UserSettingsPage() {
   const settings = useQuery(api.users.getUserSettings);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
-  const router = useRouter();
   const { signOut } = useAppAuthActions();
   const { fetchAccessToken } = useConvexAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
