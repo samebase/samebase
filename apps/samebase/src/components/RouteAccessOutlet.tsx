@@ -27,8 +27,13 @@ function AuthenticatedRouteAccessOutlet({
 }) {
   const viewerAccess = useQuery(api.users.currentViewerAccess);
   const router = useRouter();
+  const routeAccessAllowed =
+    viewerAccess !== undefined && canAccessRouteMatchesAccess(matches, viewerAccess);
+  // The deletion boundary owns this redirect. Do not clean route search or paint
+  // a denied-route 404 while its navigation to /account-deletion is pending.
+  const deletionRedirectPending = viewerAccess?.role === "role_deleting" && !routeAccessAllowed;
   const canonicalRouteAddress =
-    viewerAccess === undefined
+    viewerAccess === undefined || deletionRedirectPending
       ? null
       : readRouteSearchAccessCanonicalRouteAddress({
           location,
@@ -49,15 +54,11 @@ function AuthenticatedRouteAccessOutlet({
     });
   }, [canonicalRouteAddress, router]);
 
-  if (viewerAccess === undefined || canonicalRouteAddress !== null) {
+  if (viewerAccess === undefined || deletionRedirectPending || canonicalRouteAddress !== null) {
     return null;
   }
 
-  const routeContent = canAccessRouteMatchesAccess(matches, viewerAccess) ? (
-    <Outlet />
-  ) : (
-    <NotFoundRoutePage />
-  );
+  const routeContent = routeAccessAllowed ? <Outlet /> : <NotFoundRoutePage />;
 
   return (
     <ApprovalGateViewerAccessProvider viewerAccess={viewerAccess}>
