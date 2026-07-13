@@ -3,6 +3,10 @@ import { AuthenticatedUserRoutePage } from "@/components/AuthenticatedAppRoutePa
 import { UserSettingsPage } from "@/components/UserSettingsPage";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import {
+  SETTINGS_ROUTE_SEARCH_STATIC_DATA,
+  validateSettingsRouteSearch,
+} from "@/routeSearch/settings";
 
 function SettingsRouteComponent() {
   return (
@@ -13,6 +17,10 @@ function SettingsRouteComponent() {
 }
 
 export const Route = createFileRoute("/settings")({
-  staticData: ROUTE_ACCESS_METADATA_BY_PATH[SETTINGS_ROUTE],
+  staticData: {
+    ...ROUTE_ACCESS_METADATA_BY_PATH[SETTINGS_ROUTE],
+    ...SETTINGS_ROUTE_SEARCH_STATIC_DATA,
+  },
   component: SettingsRouteComponent,
+  validateSearch: validateSettingsRouteSearch,
 });

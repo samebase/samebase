@@ -45,7 +45,7 @@ acceptance test in this RFC passes with a dedicated real account.
 ### Starting deletion
 
 The authenticated `/settings` Account section has a destructive `Delete account` action. It opens
-the existing destructive confirmation dialog with this meaning:
+the URL-owned `?delete-account` confirmation dialog with this meaning:
 
 ```text
 Delete account?
@@ -92,8 +92,8 @@ phrase is selectable, and pasting into the confirmation input is allowed.
 The request mutation recomputes the phrase and the complete displayed stakes from current data. It
 rejects either mismatch with a `stakes_changed` result instead of creating a run, so confirmation
 cannot silently survive a change moving between repositories or branches, or a Samebase subscription
-becoming cancellable. The dialog then shows the refreshed details with a short notice and asks the
-user to confirm again.
+becoming cancellable. The subscribed stakes query remains the only source of displayed details. The
+dialog then clears the typed phrase, shows a short notice, and asks the user to confirm again.
 
 The confirmation action is disabled until the typed phrase matches and while the request is being
 accepted. Acceptance atomically creates one durable account deletion run and gates the user.

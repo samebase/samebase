@@ -26,6 +26,7 @@ const viewerAccessState = vi.hoisted(
     result:
       | {
           accessKeys: string[];
+          role?: "role_anonymous" | "role_deleting" | "role_member" | "role_pending_access";
         }
       | undefined;
   } => ({
@@ -226,5 +227,24 @@ describe("RouteAccessOutlet", () => {
 
     expect(markup).toContain("Not found route");
     expect(markup).not.toContain("Route outlet");
+  });
+
+  it("suppresses denied routes without competing with the deleting-viewer redirect", async () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_user_preferences" } },
+    ];
+    locationState.pathname = "/settings";
+    locationState.searchStr = "?delete-account";
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_account_deletion"],
+      role: "role_deleting",
+    };
+
+    const markup = await renderRouteAccessOutletAfterEffects();
+
+    expect(markup).toBe("");
+    expect(markup).not.toContain("Not found route");
+    expect(routerState.navigateCalls).toEqual([]);
   });
 });

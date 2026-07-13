@@ -36,9 +36,14 @@ const appAuthState = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 const routerState = vi.hoisted(() => ({
+  back: vi.fn(),
+  canGoBack: vi.fn(),
   navigate: vi.fn(),
 }));
-const locationState = vi.hoisted<{ search: Record<string, unknown> }>(() => ({ search: {} }));
+const locationState = vi.hoisted<{
+  search: Record<string, unknown>;
+  state: { settingsDeleteAccountDialog?: true };
+}>(() => ({ search: {}, state: {} }));
 const mutationState = vi.hoisted(() => ({
   requestDeletion: vi.fn(),
   setDisplayName: vi.fn(),
@@ -95,6 +100,10 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
   return {
     ...actual,
+    getRouteApi: () => ({
+      useNavigate: () => routerState.navigate,
+      useSearch: () => locationState.search,
+    }),
     Link: ({
       children,
       className,
@@ -110,8 +119,18 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         {children}
       </a>
     ),
-    useLocation: () => locationState.search,
-    useRouter: () => routerState,
+    useLocation: ({
+      select,
+    }: {
+      select: (location: { state: { settingsDeleteAccountDialog?: true } }) => unknown;
+    }) => select({ state: locationState.state }),
+    useRouter: () => ({
+      history: {
+        back: routerState.back,
+        canGoBack: routerState.canGoBack,
+      },
+      navigate: routerState.navigate,
+    }),
   };
 });
 
@@ -151,10 +170,13 @@ async function mountSettingsPage() {
   const rootElement = document.createElement("div");
   document.body.append(rootElement);
   const root = createRoot(rootElement);
-  await act(async () => {
-    root.render(<UserSettingsPage />);
-  });
-  return { root, rootElement };
+  const render = async () => {
+    await act(async () => {
+      root.render(<UserSettingsPage />);
+    });
+  };
+  await render();
+  return { render, root, rootElement };
 }
 
 async function unmount(root: Root, rootElement: HTMLElement) {
@@ -207,6 +229,11 @@ async function openDeleteDialog(mounted: Awaited<ReturnType<typeof mountSettings
       .find((button) => button.textContent === "Delete account")
       ?.click();
   });
+  locationState.search = { ...locationState.search, "delete-account": true };
+  locationState.state = { settingsDeleteAccountDialog: true };
+  await mounted.render();
+  routerState.navigate.mockClear();
+
   const confirmButton = Array.from(document.body.querySelectorAll("button")).find(
     (button) => button.textContent === "Delete account" && !mounted.rootElement.contains(button),
   );
@@ -231,7 +258,11 @@ describe("UserSettingsPage", () => {
     mutationState.setDisplayName.mockReset();
     routerState.navigate.mockReset();
     routerState.navigate.mockResolvedValue(undefined);
+    routerState.back.mockReset();
+    routerState.canGoBack.mockReset();
+    routerState.canGoBack.mockReturnValue(true);
     locationState.search = {};
+    locationState.state = {};
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: createTestStorage(),
@@ -542,6 +573,126 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("opens the delete dialog from the delete-account query param", async () => {
+    locationState.search = { "delete-account": true };
+    const mounted = await mountSettingsPage();
+    try {
+      expect(document.body.textContent).toContain("Delete account?");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("opens the delete dialog through route search while preserving unrelated params", async () => {
+    locationState.search = { devtools: true, primary: "red-600" };
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Delete account")
+          ?.click();
+      });
+
+      const openNavigation = routerState.navigate.mock.calls[0]?.[0];
+      if (typeof openNavigation?.search !== "function") {
+        throw new Error("Delete account navigation did not include a search updater.");
+      }
+      expect(openNavigation.search(locationState.search)).toEqual({
+        devtools: true,
+        primary: "red-600",
+        "delete-account": true,
+      });
+      if (typeof openNavigation.state !== "function") {
+        throw new Error("Delete account navigation did not mark its history entry.");
+      }
+      expect(openNavigation.state({ __TSR_index: 4 })).toEqual({
+        __TSR_index: 4,
+        settingsDeleteAccountDialog: true,
+      });
+
+      locationState.search = { ...locationState.search, "delete-account": true };
+      locationState.state = { settingsDeleteAccountDialog: true };
+      await mounted.render();
+      routerState.navigate.mockClear();
+
+      await act(async () => {
+        Array.from(document.body.querySelectorAll("button"))
+          .find((button) => button.textContent === "Cancel")
+          ?.click();
+      });
+
+      expect(routerState.back).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("removes delete-account in place when closing a direct dialog URL", async () => {
+    locationState.search = {
+      devtools: true,
+      "delete-account": true,
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(document.body.querySelectorAll("button"))
+          .find((button) => button.textContent === "Cancel")
+          ?.click();
+      });
+
+      expect(routerState.back).not.toHaveBeenCalled();
+      const closeNavigation = routerState.navigate.mock.calls[0]?.[0];
+      if (typeof closeNavigation?.search !== "function") {
+        throw new Error("Delete account close did not include a search updater.");
+      }
+      if (typeof closeNavigation.state !== "function") {
+        throw new Error("Delete account close did not clear its history marker.");
+      }
+      expect(closeNavigation).toMatchObject({ replace: true, to: "." });
+      expect(closeNavigation.search(locationState.search)).toEqual({
+        devtools: true,
+        "delete-account": undefined,
+      });
+      expect(
+        closeNavigation.state({
+          __TSR_index: 4,
+          settingsDeleteAccountDialog: true,
+        }),
+      ).toEqual({
+        __TSR_index: 4,
+        settingsDeleteAccountDialog: undefined,
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("resets confirmation state when browser history closes and reopens the dialog", async () => {
+    const mounted = await mountSettingsPage();
+    try {
+      const { phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+
+      locationState.search = {};
+      locationState.state = {};
+      await mounted.render();
+      expect(document.getElementById("settings-delete-account-confirmation")).toBeNull();
+
+      locationState.search = { "delete-account": true };
+      locationState.state = { settingsDeleteAccountDialog: true };
+      await mounted.render();
+
+      const reopenedInput = document.getElementById("settings-delete-account-confirmation");
+      if (!(reopenedInput instanceof HTMLInputElement)) {
+        throw new Error("Confirmation phrase input did not reopen.");
+      }
+      expect(reopenedInput.value).toBe("");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("separates the destructive consequence from the external-resource reassurance", async () => {
     const mounted = await mountSettingsPage();
     try {
@@ -676,22 +827,24 @@ describe("UserSettingsPage", () => {
   });
 
   it("asks for a new confirmation when the stakes changed during the request", async () => {
-    mutationState.requestDeletion.mockResolvedValue({
-      state: "stakes_changed",
-      vaultCount: 1,
-      uncommittedFileChangeCount: 1,
-      hasActiveSubscription: false,
-      affectedVaults: {
-        state: "complete",
-        vaults: [
-          {
-            vaultId: "vault-1",
-            repositoryFullName: "samebase/notes",
-            uncommittedFileChangeCount: 1,
-            branches: [{ branch: "main", uncommittedFileChangeCount: 1 }],
-          },
-        ],
-      },
+    mutationState.requestDeletion.mockImplementation(async () => {
+      queryState.stakes = {
+        vaultCount: 1,
+        uncommittedFileChangeCount: 1,
+        hasActiveSubscription: false,
+        affectedVaults: {
+          state: "complete",
+          vaults: [
+            {
+              vaultId: "vault-1",
+              repositoryFullName: "samebase/notes",
+              uncommittedFileChangeCount: 1,
+              branches: [{ branch: "main", uncommittedFileChangeCount: 1 }],
+            },
+          ],
+        },
+      };
+      return { state: "stakes_changed" };
     });
     const mounted = await mountSettingsPage();
     try {
@@ -720,10 +873,12 @@ describe("UserSettingsPage", () => {
   });
 
   it("shows a newly active subscription before allowing confirmation again", async () => {
-    mutationState.requestDeletion.mockResolvedValue({
-      state: "stakes_changed",
-      ...EMPTY_ACCOUNT_DELETION_STAKES,
-      hasActiveSubscription: true,
+    mutationState.requestDeletion.mockImplementation(async () => {
+      queryState.stakes = {
+        ...EMPTY_ACCOUNT_DELETION_STAKES,
+        hasActiveSubscription: true,
+      };
+      return { state: "stakes_changed" };
     });
     const mounted = await mountSettingsPage();
     try {
@@ -761,8 +916,8 @@ describe("UserSettingsPage", () => {
         await Promise.resolve();
       });
 
-      const pageDelete = Array.from(mounted.rootElement.querySelectorAll("button")).find((button) =>
-        button.textContent.includes("Deleting..."),
+      const pageDelete = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Delete account",
       );
       expect(pageDelete?.disabled).toBe(true);
       expect(confirmButton?.disabled).toBe(true);

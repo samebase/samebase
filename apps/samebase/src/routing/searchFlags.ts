@@ -11,6 +11,7 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "create-account",
   "dark",
   "delete",
+  "delete-account",
   "dev",
   "devtools",
   "diff",

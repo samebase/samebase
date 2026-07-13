@@ -4,9 +4,9 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/app shell
-- Last updated: 2026-05-27
+- Last updated: 2026-07-13
 - Depends on:
-  - `apps/samebase/src/lib/routeSearchFlags.ts`
+  - `apps/samebase/src/routing/searchFlags.ts`
   - `apps/samebase/src/lib/tanstackSearchParams.ts`
   - `research/2026-05-02-route-search-presence-flags-and-validation.md`
 
@@ -39,17 +39,24 @@ URL key being present means the flag is on. The value attached to that key is no
 
 The shared known list lives in `ROUTE_SEARCH_PRESENCE_FLAG_KEYS`. It currently contains:
 
+- `add-app-root`
+- `add-cloudflare`
+- `add-convex`
 - `compare`
+- `create-account`
 - `dark`
 - `delete`
+- `delete-account`
 - `dev`
 - `devtools`
 - `diff`
 - `freeView`
 - `light`
+- `mcp_login_required`
 - `openedByCli`
 - `prod-ui`
 - `reset`
+- `sign-in`
 
 New key-only route toggles must be added to that list and covered by a focused route-search test.
 
