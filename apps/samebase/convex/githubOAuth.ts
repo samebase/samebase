@@ -178,7 +178,7 @@ async function fetchGithubUser(accessToken: string): Promise<{ username: string 
   }
 }
 
-async function revokeGithubOAuthGrant(accessToken: string): Promise<void> {
+export async function revokeGithubOAuthGrant(accessToken: string): Promise<void> {
   const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
   const clientSecret = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET");
   const octokit = new Octokit({ userAgent: "samebase-app" });

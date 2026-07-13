@@ -15,6 +15,7 @@ import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeMod
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 import { captureSamebasePostHogPageview, identifySamebasePostHogUser } from "@/lib/posthogClient";
+import { AccountDeletionBrowserBoundary } from "@/components/AccountDeletionBrowserBoundary";
 
 function usePostHogPageviews() {
   const href = useLocation({
@@ -77,9 +78,11 @@ function AppRouterRoot() {
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>
       <AppWorkspaceShell>
-        <RouteAvailabilityOutlet>
-          <RouteAccessOutlet />
-        </RouteAvailabilityOutlet>
+        <AccountDeletionBrowserBoundary>
+          <RouteAvailabilityOutlet>
+            <RouteAccessOutlet />
+          </RouteAvailabilityOutlet>
+        </AccountDeletionBrowserBoundary>
       </AppWorkspaceShell>
       <RouterGestureDebugOverlay />
     </OptionalThemeProvider>

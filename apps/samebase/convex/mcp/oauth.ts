@@ -309,6 +309,14 @@ export const createAuthRequest = internalMutation({
   args: createAuthRequestArgsValidator,
   returns: id("mcpAuthRequests"),
   handler: async (ctx, args: CreateAuthRequestArgs) => {
+    if (args.userId) {
+      const user = await ctx.db.get(args.userId);
+
+      if (!user || user.accountDeletion) {
+        throw new Error("Account deletion is in progress.");
+      }
+    }
+
     return await ctx.db.insert("mcpAuthRequests", {
       requestId: args.requestId,
       clientId: args.clientId,
@@ -461,6 +469,15 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
         status: 403,
         error: "invalid_request",
         errorDescription: "Authorization request belongs to a different user.",
+      });
+    }
+
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
       });
     }
 
@@ -743,6 +760,15 @@ export const exchangeAuthorizationCode = internalMutation({
       });
     }
 
+    const user = await ctx.db.get(authorizationCode.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
+      });
+    }
+
     const authRequest = await ctx.db
       .query("mcpAuthRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", authorizationCode.requestId))
@@ -911,6 +937,15 @@ export const exchangeRefreshToken = internalMutation({
         status: 400,
         error: "invalid_grant",
         errorDescription: "Refresh token is invalid.",
+      });
+    }
+
+    const user = await ctx.db.get(refreshToken.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
       });
     }
 
@@ -1086,6 +1121,15 @@ export const validateAccessToken = internalMutation({
         status: 401,
         error: "invalid_token",
         errorDescription: "Access token expired.",
+      });
+    }
+
+    const user = await ctx.db.get(accessToken.userId);
+    if (!user || user.accountDeletion) {
+      return oauthError({
+        status: 401,
+        error: "invalid_token",
+        errorDescription: "Grant is no longer active.",
       });
     }
 

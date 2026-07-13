@@ -131,102 +131,111 @@ export const sendAgentMessage = action({
   returns: sendAgentMessageReturns,
   handler: async (ctx, args: SendAgentMessageArgs) => {
     const userId = ctx.viewer.userId;
-    console.log("agentGraph:sendAgentMessage:start", {
-      vaultId: args.vaultId,
-      agentPath: args.agentPath,
-      hasThreadId: Boolean(args.threadId),
-      userId,
-    });
-
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
-    });
-
-    if (!vault) {
-      throw new Error("Vault not found");
+    const leaseId = await ctx.runMutation(internal.agent.actionLease.acquire, { userId });
+    if (leaseId === null) {
+      throw new Error("Account deletion is in progress");
     }
 
-    if (vault.userId !== userId) {
-      throw new Error("You do not have access to this vault");
-    }
-    const connectedVault = assertConnectedVault(vault);
-
-    const user = await ctx.runQuery(internal.users.getById, {
-      userId,
-    });
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
-    });
-    const githubAccessToken =
-      githubConnection?.kind === "github" ? githubConnection.auth.credential : undefined;
-    const resolvedThreadId = await resolveThreadId(ctx, userId, args.vaultId, args.threadId);
-    const threadContext = await ctx.runQuery(internal.chat.index.getThreadContextForAction, {
-      threadId: resolvedThreadId,
-    });
-    const fallbackBranch =
-      threadContext?.branch ??
-      (await resolveFallbackBranch({
-        vault: connectedVault,
-        githubAccessToken,
-      }));
-    const threadBranch = requireThreadBranch(threadContext?.branch ?? fallbackBranch);
-    if (!threadContext?.branch) {
-      await ctx.runMutation(internal.chat.index.setThreadBranchInternal, {
-        threadId: resolvedThreadId,
-        branch: threadBranch,
-      });
-    }
-
-    let systemPrompt: string;
     try {
-      systemPrompt = await loadAgentPrompt({
-        ctx,
-        vault: connectedVault,
-        githubAccessToken,
+      console.log("agentGraph:sendAgentMessage:start", {
+        vaultId: args.vaultId,
         agentPath: args.agentPath,
-        branch: threadBranch,
+        hasThreadId: Boolean(args.threadId),
+        userId,
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load agent prompt";
-      throw new Error(message);
+
+      const vault = await ctx.runQuery(internal.vault.records.getById, {
+        id: args.vaultId,
+      });
+
+      if (!vault) {
+        throw new Error("Vault not found");
+      }
+
+      if (vault.userId !== userId) {
+        throw new Error("You do not have access to this vault");
+      }
+      const connectedVault = assertConnectedVault(vault);
+
+      const user = await ctx.runQuery(internal.users.getById, {
+        userId,
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+      const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "github",
+      });
+      const githubAccessToken =
+        githubConnection?.kind === "github" ? githubConnection.auth.credential : undefined;
+      const resolvedThreadId = await resolveThreadId(ctx, userId, args.vaultId, args.threadId);
+      const threadContext = await ctx.runQuery(internal.chat.index.getThreadContextForAction, {
+        threadId: resolvedThreadId,
+      });
+      const fallbackBranch =
+        threadContext?.branch ??
+        (await resolveFallbackBranch({
+          vault: connectedVault,
+          githubAccessToken,
+        }));
+      const threadBranch = requireThreadBranch(threadContext?.branch ?? fallbackBranch);
+      if (!threadContext?.branch) {
+        await ctx.runMutation(internal.chat.index.setThreadBranchInternal, {
+          threadId: resolvedThreadId,
+          branch: threadBranch,
+        });
+      }
+
+      let systemPrompt: string;
+      try {
+        systemPrompt = await loadAgentPrompt({
+          ctx,
+          vault: connectedVault,
+          githubAccessToken,
+          agentPath: args.agentPath,
+          branch: threadBranch,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load agent prompt";
+        throw new Error(message);
+      }
+
+      if (systemPrompt.startsWith("Error:")) {
+        throw new Error(systemPrompt);
+      }
+
+      const trimmedPrompt = systemPrompt.trim();
+      if (!trimmedPrompt) {
+        throw new Error("Agent prompt file is empty");
+      }
+
+      const { messageId } = await saveMessage(ctx, components.agent, {
+        threadId: resolvedThreadId,
+        userId,
+        prompt: args.message,
+      });
+
+      const result = await runAgentGraph({
+        ctx,
+        systemPrompt,
+        threadId: resolvedThreadId,
+        promptMessageId: messageId,
+        userId,
+      });
+
+      console.log("agentGraph:sendAgentMessage:done", {
+        threadId: resolvedThreadId,
+        responseLength: result.text.length,
+      });
+
+      return {
+        threadId: resolvedThreadId,
+        response: result.text,
+      };
+    } finally {
+      await ctx.runMutation(internal.agent.actionLease.release, { leaseId });
     }
-
-    if (systemPrompt.startsWith("Error:")) {
-      throw new Error(systemPrompt);
-    }
-
-    const trimmedPrompt = systemPrompt.trim();
-    if (!trimmedPrompt) {
-      throw new Error("Agent prompt file is empty");
-    }
-
-    const { messageId } = await saveMessage(ctx, components.agent, {
-      threadId: resolvedThreadId,
-      userId,
-      prompt: args.message,
-    });
-
-    const result = await runAgentGraph({
-      ctx,
-      systemPrompt,
-      threadId: resolvedThreadId,
-      promptMessageId: messageId,
-      userId,
-    });
-
-    console.log("agentGraph:sendAgentMessage:done", {
-      threadId: resolvedThreadId,
-      responseLength: result.text.length,
-    });
-
-    return {
-      threadId: resolvedThreadId,
-      response: result.text,
-    };
   },
 });

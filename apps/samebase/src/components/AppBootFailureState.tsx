@@ -3,7 +3,7 @@ import {
   isLikelyStaleAssetError,
   readBootFailureMessage,
   reloadApp,
-  resetLocalAppData,
+  resetLocalAppDataForRecovery,
 } from "@/lib/appBootRecovery";
 import { readAppBuildCommit } from "@/lib/appBuildMetadata";
 
@@ -32,7 +32,9 @@ export function AppBootFailureState({ error }: AppBootFailureStateProps) {
 
     setPendingAction("reset");
     try {
-      await resetLocalAppData();
+      await resetLocalAppDataForRecovery();
+    } catch {
+      // Reload even when a browser API prevents part of the best-effort reset.
     } finally {
       reloadApp();
     }

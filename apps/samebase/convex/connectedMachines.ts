@@ -338,6 +338,14 @@ export const publishHeartbeatFromConnector = internalMutation({
       };
     }
 
+    const user = await ctx.db.get(credential.userId);
+    if (!user || user.accountDeletion) {
+      return {
+        ok: false,
+        reason: "not_found",
+      };
+    }
+
     await ctx.db.patch(credential._id, {
       lastUsedAt: args.now,
     });

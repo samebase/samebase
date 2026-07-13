@@ -13,6 +13,7 @@ import {
 import { internalAction, internalMutation, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
+  assertProviderConnectionWriteAllowed,
   buildSeedCloudflareDefaultAccount,
   getConnectionByUserAndKind,
 } from "./providerConnections";
@@ -113,6 +114,7 @@ async function upsertGithubApiKey(
   userId: Id<"users">,
   credential: string,
 ): Promise<void> {
+  await assertProviderConnectionWriteAllowed(db, userId);
   const existing = await getConnectionByUserAndKind(db, userId, "github");
   const now = Date.now();
   if (existing) {
@@ -144,6 +146,7 @@ async function upsertConvexApiKey(
   teamId: string,
   teamSlug: string | undefined,
 ): Promise<void> {
+  await assertProviderConnectionWriteAllowed(db, userId);
   const existing = await getConnectionByUserAndKind(db, userId, "convex");
   const now = Date.now();
   if (existing) {
@@ -179,6 +182,7 @@ async function upsertCloudflareApiKey(
   credential: string,
   accountId?: string,
 ): Promise<void> {
+  await assertProviderConnectionWriteAllowed(db, userId);
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
   const defaultAccount = buildSeedCloudflareDefaultAccount(accountId);

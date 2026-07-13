@@ -18,6 +18,7 @@ import {
 import { buildNewUserNotification } from "./newUserNotification";
 import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
 import {
+  assertProviderConnectionWriteAllowed,
   buildSeedCloudflareDefaultAccount,
   getConnectionByUserAndKind,
 } from "./providerConnections";
@@ -27,11 +28,32 @@ const isNonEmptyString = guard<unknown, string>((value) =>
   typeof value === "string" && value.trim().length > 0 ? value : null,
 );
 
+const isAuthSessionUser = guard<unknown, { accountDeletion?: unknown }>((value) =>
+  typeof value === "object" && value !== null ? value : null,
+);
+
+function isDeletingAccountMarker(value: unknown) {
+  return (
+    typeof value === "object" && value !== null && "state" in value && value.state === "deleting"
+  );
+}
+
+export function assertAuthSessionUserCanSignIn(user: unknown): void {
+  if (!isAuthSessionUser(user)) {
+    throw new Error("Account is unavailable.");
+  }
+  if (user.accountDeletion === undefined || isDeletingAccountMarker(user.accountDeletion)) {
+    return;
+  }
+  throw new Error("Account deletion is already finalizing.");
+}
+
 async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
   if (credential === null) {
     return;
   }
+  await assertProviderConnectionWriteAllowed(db, userId);
   const existing = await getConnectionByUserAndKind(db, userId, "github");
   const now = Date.now();
   if (existing) {
@@ -63,6 +85,7 @@ async function upsertSeedConvexConnection(db: DatabaseWriter, userId: Id<"users"
   if (credential === null || teamId === null) {
     return;
   }
+  await assertProviderConnectionWriteAllowed(db, userId);
   const existing = await getConnectionByUserAndKind(db, userId, "convex");
   const now = Date.now();
   if (existing) {
@@ -100,6 +123,7 @@ async function upsertSeedCloudflareConnection(
   if (credential === null) {
     return;
   }
+  await assertProviderConnectionWriteAllowed(db, userId);
   const accountId = readOptionalEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
@@ -254,7 +278,18 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
 
   callbacks: {
+    beforeSessionCreation: async (ctx, { userId }) => {
+      // Convex Auth exposes AnyDataModel here, so the database result must be
+      // validated before reading Samebase-owned fields.
+      const user: unknown = await ctx.db.get("users", userId);
+      assertAuthSessionUserCanSignIn(user);
+    },
     afterUserCreatedOrUpdated: async (ctx, args) => {
+      const user: unknown = await ctx.db.get("users", args.userId);
+      assertAuthSessionUserCanSignIn(user);
+      if (isAuthSessionUser(user) && isDeletingAccountMarker(user.accountDeletion)) {
+        return;
+      }
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
       const notification = buildNewUserNotification({
         existingUserId: args.existingUserId,

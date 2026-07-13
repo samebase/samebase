@@ -1,8 +1,11 @@
 # User Settings And Account Deletion Research
 
+> Historical exploration. The accepted implementation contract now lives in
+> `rfcs/097_ACCOUNT_DELETION_RELEASE_PLAN.md`.
+
 ## Document Control
 
-- Status: Settings and display name implemented; account deletion remains research
+- Status: Superseded by RFC 097 for account deletion implementation
 - Date: 2026-07-10
 - Updated: 2026-07-11
 - Scope: user settings, private display identity, sidebar privacy, and self-serve account deletion

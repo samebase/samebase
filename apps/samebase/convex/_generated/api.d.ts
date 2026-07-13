@@ -9,6 +9,17 @@
  */
 
 import type * as accessModelValidators from "../accessModelValidators.js";
+import type * as accountDeletion_authCleanup from "../accountDeletion/authCleanup.js";
+import type * as accountDeletion_billingActions from "../accountDeletion/billingActions.js";
+import type * as accountDeletion_cleanup from "../accountDeletion/cleanup.js";
+import type * as accountDeletion_cleanupActions from "../accountDeletion/cleanupActions.js";
+import type * as accountDeletion_completionEmail from "../accountDeletion/completionEmail.js";
+import type * as accountDeletion_index from "../accountDeletion/index.js";
+import type * as accountDeletion_model from "../accountDeletion/model.js";
+import type * as accountDeletion_providerActions from "../accountDeletion/providerActions.js";
+import type * as accountDeletion_stepContext from "../accountDeletion/stepContext.js";
+import type * as accountDeletion_workflow from "../accountDeletion/workflow.js";
+import type * as agent_actionLease from "../agent/actionLease.js";
 import type * as agent_graph from "../agent/graph.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
 import type * as agentBrowserHandoff from "../agentBrowserHandoff.js";
@@ -147,6 +158,17 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accessModelValidators: typeof accessModelValidators;
+  "accountDeletion/authCleanup": typeof accountDeletion_authCleanup;
+  "accountDeletion/billingActions": typeof accountDeletion_billingActions;
+  "accountDeletion/cleanup": typeof accountDeletion_cleanup;
+  "accountDeletion/cleanupActions": typeof accountDeletion_cleanupActions;
+  "accountDeletion/completionEmail": typeof accountDeletion_completionEmail;
+  "accountDeletion/index": typeof accountDeletion_index;
+  "accountDeletion/model": typeof accountDeletion_model;
+  "accountDeletion/providerActions": typeof accountDeletion_providerActions;
+  "accountDeletion/stepContext": typeof accountDeletion_stepContext;
+  "accountDeletion/workflow": typeof accountDeletion_workflow;
+  "agent/actionLease": typeof agent_actionLease;
   "agent/graph": typeof agent_graph;
   "agent/systemPrompt": typeof agent_systemPrompt;
   agentBrowserHandoff: typeof agentBrowserHandoff;

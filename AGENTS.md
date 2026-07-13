@@ -119,8 +119,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Preserve the established visual language. Do not add shadows, rounded corners, custom easing,
   decorative borders, or similar visual embellishments unless the user explicitly asks for them or
   the surrounding component already uses them.
-- For motion and timing, prefer Tailwind defaults unless there is a concrete product reason to
-  override them.
+- Use Tailwind motion and timing defaults unless the product requires otherwise.
 - Assume Cloudflare is the default front door and observability layer for `samebase.com`, and keep
   application logic in Convex by default unless there is a clear reason not to.
 - In copy, docs, and examples: never use Vercel as an example provider; use Netlify when a
@@ -136,11 +135,8 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   this machine: clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
   alongside any localhost URL, and samebase.com vault file URLs instead of local filesystem paths
   whenever the branch is pushed.
-- When pointing the operator at code, include a precise location such as a 1-based line number or
-  another unambiguous anchor unless the whole file is genuinely the subject. Do not cite only a
-  large file path when the relevant code lives in one small area.
-- When a relevant preview exists, include at least one clickable localhost URL in the user-facing
-  response; otherwise say that no preview is running.
+- Code references need a precise line or anchor; do not cite only a large file.
+- Link a relevant localhost preview, or say none is running.
 - For preview deploy URLs, use the `?prod-ui` query param.
 - When screenshot or visual regression work changes images, show the relevant before/after or diff
   images in the user-facing response.
@@ -156,8 +152,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Worktree frontend should avoid port `5173`; prefer the worktree defaults.
 - Treat shadcn-generated files in `apps/samebase/src/components/ui/*` as read-only unless the user
   explicitly asks to update shadcn output.
-- Treat speculative future-proofing as a bug. Do not add backup env vars, imagined code paths, or
-  placeholder config.
+- Do not add speculative env vars, code paths, allowlists, or placeholder config.
 
 ## Communication
 
@@ -228,6 +223,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Editor: Monaco plus CodeMirror 6 / `@prosemark/core`
 - UI: Tailwind CSS, Base UI, shadcn/ui
 - State: Convex subscriptions plus TanStack Query
+- Chat/agent, GitHub Codespaces, and remote-machine features are dormant: they have no active users
+  or planned release. Preserve them cheaply, but do not let them drive migrations or expand task
+  scope unless the operator explicitly reactivates them.
 
 Key domain entities:
 
@@ -413,7 +411,8 @@ UI code:
   without invented chrome, and a failing route-level or honest production-component repro comes
   before narrower fixture coverage. Fixture ownership must match the changed product surface
   (`docs/agent-workflows.md`, Route-First UI Regression Policy).
-- Use rectangular app chrome by default.
+- Authenticated app routes keep the standard right sidebar for navigation unless a documented
+  product requirement removes it.
 - Disable async destructive triggers while pending and show an in-button pending state.
 - Persist user-visible UI state in Convex by default unless per-device behavior is explicitly
   desired.

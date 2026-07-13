@@ -580,6 +580,7 @@ export const getUserSettings = query({
   args: {},
   returns: object({
     displayName: optional(string()),
+    hasActiveSubscription: boolean(),
     signInEmail: string(),
   }),
   handler: async (ctx) => {
@@ -587,6 +588,7 @@ export const getUserSettings = query({
     return {
       displayName:
         user.displayName === undefined ? undefined : normalizeDisplayName(user.displayName),
+      hasActiveSubscription: user.billingStatus === "active" || user.billingStatus === "past_due",
       signInEmail: normalizeAccountEmail(user.email),
     };
   },

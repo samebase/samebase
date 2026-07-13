@@ -130,17 +130,15 @@ export function signOutWithAnalytics(args: {
   return args.signOut();
 }
 
-/**
- * Reset PostHog on sign-out without importing analytics into the initial auth
- * client chunk. The PostHog helper keeps the SDK import lazy, so sign-out can
- * clear analytics identity without making the public landing path preload it.
- */
-function resetDeferredPostHogClient() {
-  resetSamebasePostHogClient();
-}
-
 const deferredPostHogResetClient: PostHogResetClient = {
-  reset: resetDeferredPostHogClient,
+  /**
+   * Reset PostHog on sign-out without importing analytics into the initial auth
+   * client chunk. The PostHog helper keeps the SDK import lazy, so sign-out can
+   * clear analytics identity without making the public landing path preload it.
+   */
+  reset: () => {
+    void resetSamebasePostHogClient();
+  },
 };
 
 export function useAppSignInActions() {

@@ -96,6 +96,13 @@ export const introspectMachineControlToken = internalMutation({
       };
     }
 
+    const user = await ctx.db.get(token.userId);
+    if (!user || user.accountDeletion) {
+      return {
+        active: false,
+      };
+    }
+
     const machine = await ctx.db
       .query("connectedMachines")
       .withIndex("by_user_machine_id", (q) =>

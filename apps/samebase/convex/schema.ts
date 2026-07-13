@@ -30,9 +30,19 @@ import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 import { vVaultResourceLinksStateRow } from "./vault/resourceLinksStateModel";
 import { vConvexSchemaGraphLayout, vConvexSchemaSnapshot } from "./vault/convexSchemaGraphModel";
+import {
+  vAccountDeletionEventLevel,
+  vAccountDeletionMarker,
+  vAccountDeletionRun,
+  vAccountDeletionStep,
+} from "./accountDeletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-const { users: _authUsers, ...authTablesWithoutUsers } = authTables;
+const {
+  users: _authUsers,
+  authVerifiers: _authVerifiers,
+  ...authTablesWithoutUsersAndVerifiers
+} = authTables;
 
 const BillingProvider = optional(literal("polar"));
 const BillingPlan = optional(union(literal("free"), literal("pro")));
@@ -324,7 +334,14 @@ export type ProviderConnection = Infer<typeof vProviderConnection>;
 // requires indexes defined on `authTables`.
 // The schema provides more precise TypeScript types.
 export default defineSchema({
-  ...authTablesWithoutUsers,
+  ...authTablesWithoutUsersAndVerifiers,
+
+  authVerifiers: defineTable({
+    sessionId: optional(id("authSessions")),
+    signature: optional(string()),
+  })
+    .index("signature", ["signature"])
+    .index("sessionId", ["sessionId"]),
 
   /**
    * Users.
@@ -339,6 +356,7 @@ export default defineSchema({
     phoneVerificationTime: optional(number()),
     isAnonymous: optional(boolean()),
     isApproved: optional(boolean()),
+    accountDeletion: optional(vAccountDeletionMarker),
 
     // Billing (Polar-backed for now).
     billingProvider: BillingProvider,
@@ -352,6 +370,29 @@ export default defineSchema({
     .index("phone", ["phone"])
     .index("by_polar_external_customer_id", ["billingPolarExternalCustomerId"]),
 
+  /**
+   * Durable account deletion operations. Active identity is removed when a
+   * successful run becomes a scrubbed receipt.
+   */
+  accountDeletionRuns: defineTable(vAccountDeletionRun)
+    .index("by_completion_capability", ["completionCapability"])
+    .index("by_updated_at", ["updatedAt"]),
+
+  /** User-safe progress without account identity or provider payloads. */
+  accountDeletionEvents: defineTable({
+    runId: id("accountDeletionRuns"),
+    step: vAccountDeletionStep,
+    level: vAccountDeletionEventLevel,
+    message: string(),
+    createdAt: number(),
+  }).index("by_run_and_created_at", ["runId", "createdAt"]),
+
+  /** In-flight actions that can write to the Agent component. */
+  agentActionLeases: defineTable({
+    userId: id("users"),
+    expiresAt: number(),
+  }).index("by_user_and_expires_at", ["userId", "expiresAt"]),
+
   providerConnections: defineTable(vProviderConnection)
     .index("by_user", ["userId"])
     .index("by_user_kind", ["userId", "kind"])
@@ -364,7 +405,8 @@ export default defineSchema({
 
   machineRegistrationRequests: defineTable(vMachineRegistrationRequestRow)
     .index("by_request_id", ["requestId"])
-    .index("by_machine_id", ["machineId"]),
+    .index("by_machine_id", ["machineId"])
+    .index("by_user", ["userId"]),
 
   machineRegistrationBootstrapRateLimits: defineTable(
     vMachineRegistrationBootstrapRateLimitRow,
@@ -569,6 +611,11 @@ export default defineSchema({
       "lifecycle.state",
     ])
     .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
+    .index("by_userId_and_lifecycle_state_and_updatedAt", [
+      "userId",
+      "lifecycle.state",
+      "updatedAt",
+    ])
     .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
     .index("by_lifecycle_state_and_lifecycle_notBefore", [
       "lifecycle.state",
@@ -657,6 +704,7 @@ export default defineSchema({
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflowId"]),
 
   /**
@@ -682,6 +730,7 @@ export default defineSchema({
   vaultDeletionRuns: defineTable(vVaultDeletionRun)
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflow.workflowId"])
     .index("by_retry_of", ["attempt.retryOf"]),
 
@@ -757,6 +806,7 @@ export default defineSchema({
     .index("by_vault_and_branch_and_initial_path", ["vaultId", "branch", "initialFilePath"])
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_storageId", ["vaultId", "storageId"])
+    .index("by_storageId", ["storageId"])
     .index("by_user", ["lastEditUserId"]),
 
   // Unique content (dedup by sha)
@@ -774,7 +824,8 @@ export default defineSchema({
   })
     .index("by_sha", ["sha"])
     .index("by_vault", ["vaultId"])
-    .index("by_vault_and_storageId", ["vaultId", "storageId"]),
+    .index("by_vault_and_storageId", ["vaultId", "storageId"])
+    .index("by_storageId", ["storageId"]),
 
   /**
    * Folder expansion state for file tree sidebar.
@@ -875,6 +926,7 @@ export default defineSchema({
   })
     .index("by_threadId", ["threadId"])
     .index("by_requester", ["requesterUserId"])
+    .index("by_approved_by", ["approvedBy"])
     .index("by_status", ["status"])
     .index("by_vault", ["vaultId"]),
 
@@ -959,6 +1011,7 @@ export default defineSchema({
     expiresAt: number(),
   })
     .index("by_request_id", ["requestId"])
+    .index("by_user_id", ["userId"])
     .index("by_client_id", ["clientId"])
     .index("by_status", ["status"])
     .index("by_expires_at", ["expiresAt"]),
@@ -979,6 +1032,7 @@ export default defineSchema({
     usedAt: optional(number()),
   })
     .index("by_code_hash", ["codeHash"])
+    .index("by_user_id", ["userId"])
     .index("by_grant_id", ["grantId"])
     .index("by_client_id", ["clientId"])
     .index("by_expires_at", ["expiresAt"]),
@@ -1072,6 +1126,7 @@ export default defineSchema({
     consumedAt: optional(number()),
   })
     .index("by_token_hash", ["tokenHash"])
+    .index("by_user_id", ["userId"])
     .index("by_grant_id", ["grantId"]),
 
   collaborativeUpdates: defineTable({

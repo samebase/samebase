@@ -14,13 +14,11 @@ describe("fileViewRouteSearch", () => {
         compare: "",
         diff: "true",
         mobileLineNumbers: "1",
-        review: true,
       }),
     ).toEqual({
       compare: true,
       diff: true,
       mobileLineNumbers: "1",
-      review: true,
     });
   });
 
@@ -30,12 +28,10 @@ describe("fileViewRouteSearch", () => {
         compare: "1",
         diff: "false",
         mobileLineNumbers: true,
-        review: false,
       }),
     ).toEqual({
       compare: true,
       diff: true,
-      review: true,
     });
     expect(
       validateFileViewRouteSearch({
@@ -48,12 +44,12 @@ describe("fileViewRouteSearch", () => {
   it("accepts parsed search params for the file-view contract", () => {
     expect(
       validateFileViewRouteSearch(
-        Object.fromEntries(new URLSearchParams("?compare&review&mobileLineNumbers=1").entries()),
+        Object.fromEntries(new URLSearchParams("?compare&diff&mobileLineNumbers=1").entries()),
       ),
     ).toEqual({
       compare: true,
+      diff: true,
       mobileLineNumbers: "1",
-      review: true,
     });
   });
 
@@ -62,12 +58,10 @@ describe("fileViewRouteSearch", () => {
       buildFileViewRouteSearch({
         compare: true,
         diff: false,
-        review: true,
       }),
     ).toEqual({
       compare: true,
       diff: null,
-      review: true,
     });
   });
 
@@ -77,10 +71,9 @@ describe("fileViewRouteSearch", () => {
         mergeFileViewRouteSearch(parseTanStackSearch("?devtools&mobileLineNumbers=1&compare"), {
           diff: true,
           mobileLineNumbers: "1",
-          review: true,
         }),
       ),
-    ).toBe("?devtools&mobileLineNumbers=1&diff&review");
+    ).toBe("?devtools&mobileLineNumbers=1&diff");
   });
 
   it("builds file-view hrefs without decoding encoded branch slashes", () => {
@@ -89,9 +82,12 @@ describe("fileViewRouteSearch", () => {
         pathname: "/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md",
         search: parseTanStackSearch("?dev"),
         fileViewSearch: {
+          diff: true,
           compare: true,
         },
       }),
-    ).toBe("/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md?dev&compare");
+    ).toBe(
+      "/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md?dev&diff&compare",
+    );
   });
 });

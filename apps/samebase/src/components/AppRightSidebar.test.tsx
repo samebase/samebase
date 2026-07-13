@@ -461,6 +461,39 @@ describe("AppRightSidebarContent", () => {
     expectProviderStatusQueriesNotSeen();
   });
 
+  it("shows a non-interactive account state while deletion runs", async () => {
+    blockProviderStatusQueries();
+
+    const mounted = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_deleting",
+            accessKeys: ["access_public", "access_account_deletion"],
+          },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_deleting",
+            accountPresentation: {
+              kind: "email",
+              label: "deleting@example.com",
+            },
+          },
+        ],
+      ]),
+    );
+
+    expect(mounted).toContain("deleting@example.com");
+    expect(mounted).toContain("Deleting account");
+    expect(mounted).toContain('role="status"');
+    expect(mounted).not.toContain("/settings");
+    expect(mounted).not.toContain("/providers");
+    expectProviderStatusQueriesNotSeen();
+  });
+
   it("renders the account section after the authenticated viewer loads", async () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
     blockProviderStatusQueries();

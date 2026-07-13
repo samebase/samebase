@@ -136,6 +136,11 @@ Rules:
 ## Review And Ship
 
 - Inspect the diff shape with `git diff --stat` before `commit`, `create pr`, or `ship`.
+- After correctness fixes are complete, inspect the actual final patch and run a separate reduction
+  and readability pass. Look for pass-through helpers, one-call extraction seams, redundant
+  intermediates, dense statement walls, and missing separation between reads, decisions, effects,
+  and returns. Do not treat formatter success or the diff summary as a substitute for reading the
+  patch.
 - Do not request CodeRabbit or Codex review automatically for a startup draft PR or obvious early
   work-in-progress branch. Request review when the PR is ready or when the user explicitly asks for
   draft-state review.

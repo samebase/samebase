@@ -1,0 +1,18 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AccountDeletionPage } from "@/components/AccountDeletionPage";
+import { AuthenticatedUserRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+
+function AccountDeletionRouteComponent() {
+  return (
+    <AuthenticatedUserRoutePage>
+      <AccountDeletionPage />
+    </AuthenticatedUserRoutePage>
+  );
+}
+
+export const Route = createFileRoute("/account-deletion")({
+  staticData: ROUTE_ACCESS_METADATA_BY_PATH[ACCOUNT_DELETION_ROUTE],
+  component: AccountDeletionRouteComponent,
+});

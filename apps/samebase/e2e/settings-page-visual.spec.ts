@@ -128,6 +128,32 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
     mask: [signInEmail],
     maskColor: "#d1d5db",
   });
+
+  await settingsPage.getByRole("button", { name: "Delete account" }).click();
+  const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
+  await expect(
+    deleteDialog.getByText("This permanently deletes your Samebase account and data.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    deleteDialog.getByText(
+      "Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(deleteDialog).not.toContainText(
+    "uncommitted file changes will be permanently deleted",
+  );
+  await expect(deleteDialog).toContainText("Type the phrase to confirm");
+  await expect(deleteDialog.getByLabel("Type the phrase to confirm")).toHaveCSS(
+    "font-size",
+    "16px",
+  );
+  await expect(deleteDialog).toHaveScreenshot(
+    "settings-delete-account-dialog-desktop.png",
+    screenshotOptions,
+  );
 });
 
 test("Settings link returns the mobile workspace to the main pane", async ({
@@ -179,6 +205,14 @@ test("Settings link returns the mobile workspace to the main pane", async ({
       mask: [settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, { exact: true })],
       maskColor: "#d1d5db",
     });
+
+    await settingsPage.getByRole("button", { name: "Delete account" }).click();
+    const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
+    await expect(deleteDialog).toBeVisible();
+    await expect(deleteDialog).toHaveScreenshot(
+      "settings-delete-account-dialog-mobile.png",
+      screenshotOptions,
+    );
   } finally {
     await context.close();
   }
