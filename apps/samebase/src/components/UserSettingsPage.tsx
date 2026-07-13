@@ -1,11 +1,16 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
-import { buildAccountDeletionConfirmationPhrase } from "../../shared/accountDeletionPhrase";
+import {
+  ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
+  buildAccountDeletionConfirmationPhrase,
+  serializeAccountDeletionConfirmationStakes,
+} from "../../shared/accountDeletionPhrase";
 import { type AccountPresentation } from "../../shared/accountPresentation";
+import { tryParseRepositoryFullName } from "../../shared/repoName";
 import { useAppAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +25,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
 import {
   createAccountDeletionCompletionCapability,
   readAccountDeletionBrowserMarker,
   writeAccountDeletionBrowserMarker,
 } from "@/lib/accountDeletionBrowserState";
+import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch/fileView";
+
+type AccountDeletionStakes = (typeof api.accountDeletion.index.stakes)["_returnType"];
 
 type ProfileSaveState =
   | { kind: "idle" }
@@ -41,6 +50,23 @@ type SessionRefreshState =
 
 function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function buildAccountDeletionReviewHref(repositoryFullName: string, branch: string) {
+  const repository = tryParseRepositoryFullName(repositoryFullName);
+  if (repository === null) {
+    return null;
+  }
+
+  return buildFileViewSearchHref({
+    pathname: buildVaultFileRoute({
+      owner: repository.owner,
+      repoName: repository.name,
+      branch,
+    }),
+    search: {},
+    fileViewSearch: buildFileViewRouteSearch({ review: true }),
+  });
 }
 
 export function UserSettingsPage() {
@@ -60,12 +86,41 @@ export function UserSettingsPage() {
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmationInput, setConfirmationInput] = useState("");
-  const deletionStakes = useQuery(
+  const [requestStakesOverride, setRequestStakesOverride] = useState<{
+    previousStakes: string;
+    stakes: AccountDeletionStakes;
+  } | null>(null);
+  const subscribedDeletionStakes = useQuery(
     api.accountDeletion.index.stakes,
     isDeleteDialogOpen ? {} : "skip",
   );
+  const subscribedStakes =
+    subscribedDeletionStakes === undefined
+      ? null
+      : serializeAccountDeletionConfirmationStakes(subscribedDeletionStakes);
+  const deletionStakes =
+    requestStakesOverride !== null &&
+    (subscribedStakes === null || subscribedStakes === requestStakesOverride.previousStakes)
+      ? requestStakesOverride.stakes
+      : subscribedDeletionStakes;
   const expectedConfirmationPhrase =
     deletionStakes === undefined ? null : buildAccountDeletionConfirmationPhrase(deletionStakes);
+  const confirmationStakesSnapshot =
+    deletionStakes === undefined
+      ? null
+      : serializeAccountDeletionConfirmationStakes(deletionStakes);
+
+  useEffect(() => {
+    // A mutation can return newer stakes before the live query subscription updates.
+    // Keep that response visible until the subscription moves past the rejected snapshot.
+    if (
+      requestStakesOverride !== null &&
+      subscribedStakes !== null &&
+      subscribedStakes !== requestStakesOverride.previousStakes
+    ) {
+      setRequestStakesOverride(null);
+    }
+  }, [requestStakesOverride, subscribedStakes]);
 
   if (settings === undefined) {
     return null;
@@ -178,7 +233,7 @@ export function UserSettingsPage() {
   };
 
   const handleDeleteAccount = async () => {
-    if (isRequestingDeletion) {
+    if (isRequestingDeletion || confirmationStakesSnapshot === null) {
       return;
     }
     setIsRequestingDeletion(true);
@@ -198,11 +253,15 @@ export function UserSettingsPage() {
       const result = await requestAccountDeletion({
         completionCapability,
         confirmationPhrase: confirmationInput,
+        confirmationStakesSnapshot,
       });
       if (result.state === "stakes_changed") {
-        // The displayed phrase self-updates through the stakes subscription;
-        // the stale input stops matching, so the confirm button re-disables.
-        setDeletionError("The numbers changed. Review and confirm again.");
+        setRequestStakesOverride({
+          previousStakes: confirmationStakesSnapshot,
+          stakes: result,
+        });
+        setConfirmationInput("");
+        setDeletionError("The account data changed. Review and confirm again.");
         setIsRequestingDeletion(false);
         return;
       }
@@ -309,6 +368,7 @@ export function UserSettingsPage() {
             onClick={() => {
               setDeletionError(null);
               setConfirmationInput("");
+              setRequestStakesOverride(null);
               setIsDeleteDialogOpen(true);
             }}
           >
@@ -321,6 +381,9 @@ export function UserSettingsPage() {
         open={isDeleteDialogOpen}
         onOpenChange={(open) => {
           if (!isRequestingDeletion) {
+            if (!open) {
+              setRequestStakesOverride(null);
+            }
             setIsDeleteDialogOpen(open);
           }
         }}
@@ -328,18 +391,78 @@ export function UserSettingsPage() {
         <AppDialogContent>
           <DialogHeader>
             <DialogTitle>Delete account?</DialogTitle>
-            <DialogDescription>
-              This permanently deletes your Samebase account and data. Nothing outside Samebase is
-              deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep
-              running.
+            <DialogDescription className="space-y-2 text-foreground">
+              <span className="block font-medium">
+                This permanently deletes your Samebase account and data.
+              </span>
+              <span className="block text-muted-foreground">
+                Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex
+                projects, and Cloudflare Workers keep running.
+              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
-            <p>
-              Any uncommitted file changes in Samebase will be permanently deleted. They will not be
-              pushed to GitHub.
-            </p>
-            {settings.hasActiveSubscription ? (
+            {deletionStakes === undefined ||
+            deletionStakes.uncommittedFileChangeCount === 0 ? null : (
+              <div className="space-y-3">
+                <p>
+                  <strong>
+                    {deletionStakes.uncommittedFileChangeCount === "more_than_cap"
+                      ? `More than ${ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP} uncommitted file changes`
+                      : `${deletionStakes.uncommittedFileChangeCount} uncommitted file ${deletionStakes.uncommittedFileChangeCount === 1 ? "change" : "changes"}`}
+                  </strong>{" "}
+                  will be permanently deleted.{" "}
+                  {deletionStakes.uncommittedFileChangeCount === 1 ? "It" : "They"} will not be
+                  pushed to GitHub.
+                </p>
+                {deletionStakes.affectedVaults.state === "complete" &&
+                deletionStakes.affectedVaults.vaults.length > 0 ? (
+                  <div className="max-h-40 space-y-3 overflow-y-auto pr-1">
+                    {deletionStakes.affectedVaults.vaults.map((vault) => (
+                      <div key={vault.vaultId}>
+                        <p className="font-medium [overflow-wrap:anywhere]">
+                          {vault.repositoryFullName}
+                        </p>
+                        <ul className="mt-1 space-y-1">
+                          {vault.branches.map((branch) => {
+                            const reviewHref = buildAccountDeletionReviewHref(
+                              vault.repositoryFullName,
+                              branch.branch,
+                            );
+
+                            return (
+                              <li
+                                key={branch.branch}
+                                className="flex items-baseline justify-between gap-3"
+                              >
+                                <span className="min-w-0 break-words text-muted-foreground">
+                                  {branch.branch} · {branch.uncommittedFileChangeCount}{" "}
+                                  {branch.uncommittedFileChangeCount === 1 ? "file" : "files"}
+                                </span>
+                                {reviewHref === null ? null : (
+                                  <Link
+                                    to={reviewHref}
+                                    aria-label={`Review changes in ${vault.repositoryFullName} on ${branch.branch}`}
+                                    className="shrink-0 underline underline-offset-4 hover:text-blue-600"
+                                  >
+                                    Review changes
+                                  </Link>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Link to="/vault" className="underline underline-offset-4 hover:text-blue-600">
+                    Review changes
+                  </Link>
+                )}
+              </div>
+            )}
+            {deletionStakes?.hasActiveSubscription ? (
               <p>
                 Your Samebase subscription will be canceled immediately. Unused time is not
                 automatically refunded.

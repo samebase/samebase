@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AccountPresentation } from "../../shared/accountPresentation";
@@ -42,16 +42,44 @@ const mutationState = vi.hoisted(() => ({
   requestDeletion: vi.fn(),
   setDisplayName: vi.fn(),
 }));
+type AccountDeletionStakes = {
+  vaultCount: number;
+  uncommittedFileChangeCount: number | "more_than_cap";
+  hasActiveSubscription: boolean;
+  affectedVaults:
+    | {
+        state: "complete";
+        vaults: Array<{
+          vaultId: string;
+          repositoryFullName: string;
+          uncommittedFileChangeCount: number;
+          branches: Array<{ branch: string; uncommittedFileChangeCount: number }>;
+        }>;
+      }
+    | { state: "unavailable" };
+};
+
+const EMPTY_ACCOUNT_DELETION_STAKES = {
+  vaultCount: 0,
+  uncommittedFileChangeCount: 0,
+  hasActiveSubscription: false,
+  affectedVaults: { state: "complete", vaults: [] },
+} satisfies AccountDeletionStakes;
 const queryState = vi.hoisted<{
   settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
-  stakes: { vaultCount: number; uncommittedFileChangeCount: number | "more_than_cap" } | undefined;
+  stakes: AccountDeletionStakes | undefined;
 }>(() => ({
   settings: {
     displayName: "Current name",
     hasActiveSubscription: false,
     signInEmail: "nicu@samebase.com",
   },
-  stakes: { vaultCount: 0, uncommittedFileChangeCount: 0 },
+  stakes: {
+    vaultCount: 0,
+    uncommittedFileChangeCount: 0,
+    hasActiveSubscription: false,
+    affectedVaults: { state: "complete", vaults: [] },
+  },
 }));
 
 vi.mock("@convex-dev/auth/react", () => ({
@@ -64,7 +92,25 @@ vi.mock("@/authClient", () => ({
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
-  return { ...actual, useRouter: () => routerState };
+  return {
+    ...actual,
+    Link: ({
+      children,
+      className,
+      to,
+      ...linkProps
+    }: {
+      children: ReactNode;
+      className?: string;
+      to: string;
+      "aria-label"?: string;
+    }) => (
+      <a {...linkProps} className={className} href={to}>
+        {children}
+      </a>
+    ),
+    useRouter: () => routerState,
+  };
 });
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -192,7 +238,7 @@ describe("UserSettingsPage", () => {
       hasActiveSubscription: false,
       signInEmail: "nicu@samebase.com",
     };
-    queryState.stakes = { vaultCount: 0, uncommittedFileChangeCount: 0 };
+    queryState.stakes = EMPTY_ACCOUNT_DELETION_STAKES;
   });
 
   it("keeps Sign out prominent in the page header and pending until completion", async () => {
@@ -493,18 +539,19 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("warns about local changes and preserves external resources", async () => {
+  it("separates the destructive consequence from the external-resource reassurance", async () => {
     const mounted = await mountSettingsPage();
     try {
       await openDeleteDialog(mounted);
 
       expect(document.body.textContent).toContain("Delete account?");
       expect(document.body.textContent).toContain(
-        "This permanently deletes your Samebase account and data. Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
+        "This permanently deletes your Samebase account and data.",
       );
       expect(document.body.textContent).toContain(
-        "Any uncommitted file changes in Samebase will be permanently deleted. They will not be pushed to GitHub.",
+        "Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
       );
+      expect(document.body.textContent).not.toContain("will be permanently deleted");
       expect(document.body.textContent).not.toContain("Unused time is not automatically refunded.");
     } finally {
       await unmount(mounted.root, mounted.rootElement);
@@ -512,7 +559,10 @@ describe("UserSettingsPage", () => {
   });
 
   it("shows the immediate subscription cancellation warning only when active", async () => {
-    queryState.settings.hasActiveSubscription = true;
+    queryState.stakes = {
+      ...EMPTY_ACCOUNT_DELETION_STAKES,
+      hasActiveSubscription: true,
+    };
     const mounted = await mountSettingsPage();
     try {
       await openDeleteDialog(mounted);
@@ -526,11 +576,45 @@ describe("UserSettingsPage", () => {
   });
 
   it("renders the stakes phrase and enables deletion only on an exact match", async () => {
-    queryState.stakes = { vaultCount: 2, uncommittedFileChangeCount: 3 };
+    queryState.stakes = {
+      vaultCount: 2,
+      uncommittedFileChangeCount: 3,
+      hasActiveSubscription: false,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            vaultId: "vault-1",
+            repositoryFullName: "samebase/notes",
+            uncommittedFileChangeCount: 3,
+            branches: [
+              { branch: "feature/review", uncommittedFileChangeCount: 2 },
+              { branch: "main", uncommittedFileChangeCount: 1 },
+            ],
+          },
+        ],
+      },
+    };
     const mounted = await mountSettingsPage();
     try {
       const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
 
+      expect(document.body.textContent).toContain(
+        "3 uncommitted file changes will be permanently deleted. They will not be pushed to GitHub.",
+      );
+      expect(document.body.textContent).toContain("samebase/notes");
+      expect(document.body.textContent).toContain("feature/review · 2 files");
+      expect(document.body.textContent).toContain("main · 1 file");
+      expect(
+        Array.from(document.body.querySelectorAll<HTMLAnchorElement>("a")).map((link) =>
+          link.getAttribute("href"),
+        ),
+      ).toContain("/vault/samebase/notes/fs/feature%2Freview?review");
+      expect(
+        document.body.querySelector(
+          '[aria-label="Review changes in samebase/notes on feature/review"]',
+        ),
+      ).not.toBeNull();
       expect(document.body.textContent).toContain("Type the phrase to confirm");
       expect(document.body.textContent).toContain(
         "delete my account, 2 vaults, and 3 uncommitted file changes",
@@ -563,11 +647,47 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("uses the vault page when a complete review list is unavailable", async () => {
+    queryState.stakes = {
+      vaultCount: 1,
+      uncommittedFileChangeCount: "more_than_cap",
+      hasActiveSubscription: false,
+      affectedVaults: { state: "unavailable" },
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      await openDeleteDialog(mounted);
+
+      expect(document.body.textContent).toContain(
+        "More than 500 uncommitted file changes will be permanently deleted.",
+      );
+      expect(
+        Array.from(document.body.querySelectorAll<HTMLAnchorElement>("a"))
+          .find((link) => link.textContent === "Review changes")
+          ?.getAttribute("href"),
+      ).toBe("/vault");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("asks for a new confirmation when the stakes changed during the request", async () => {
     mutationState.requestDeletion.mockResolvedValue({
       state: "stakes_changed",
       vaultCount: 1,
-      uncommittedFileChangeCount: 0,
+      uncommittedFileChangeCount: 1,
+      hasActiveSubscription: false,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            vaultId: "vault-1",
+            repositoryFullName: "samebase/notes",
+            uncommittedFileChangeCount: 1,
+            branches: [{ branch: "main", uncommittedFileChangeCount: 1 }],
+          },
+        ],
+      },
     });
     const mounted = await mountSettingsPage();
     try {
@@ -579,9 +699,44 @@ describe("UserSettingsPage", () => {
       });
 
       expect(mutationState.requestDeletion).toHaveBeenCalledTimes(1);
-      expect(document.body.textContent).toContain("The numbers changed. Review and confirm again.");
+      expect(document.body.textContent).toContain(
+        "The account data changed. Review and confirm again.",
+      );
+      expect(document.body.textContent).toContain(
+        "delete my account, 1 vault, and 1 uncommitted file change",
+      );
+      expect(document.body.textContent).toContain(
+        "1 uncommitted file change will be permanently deleted. It will not be pushed to GitHub.",
+      );
       expect(routerState.navigate).not.toHaveBeenCalled();
-      expect(confirmButton?.disabled).toBe(false);
+      expect(confirmButton?.disabled).toBe(true);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows a newly active subscription before allowing confirmation again", async () => {
+    mutationState.requestDeletion.mockResolvedValue({
+      state: "stakes_changed",
+      ...EMPTY_ACCOUNT_DELETION_STAKES,
+      hasActiveSubscription: true,
+    });
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      await act(async () => {
+        confirmButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(document.body.textContent).toContain(
+        "Your Samebase subscription will be canceled immediately. Unused time is not automatically refunded.",
+      );
+      expect(document.body.textContent).toContain(
+        "The account data changed. Review and confirm again.",
+      );
+      expect(confirmButton?.disabled).toBe(true);
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
@@ -611,6 +766,9 @@ describe("UserSettingsPage", () => {
       const requestArgs = mutationState.requestDeletion.mock.calls[0]?.[0];
       expect(requestArgs?.completionCapability).toMatch(/^[0-9a-f]{64}$/);
       expect(requestArgs?.confirmationPhrase).toBe("delete my account");
+      expect(JSON.parse(requestArgs?.confirmationStakesSnapshot ?? "null")).toEqual(
+        EMPTY_ACCOUNT_DELETION_STAKES,
+      );
       expect(
         JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
       ).toEqual({ completionCapability: requestArgs?.completionCapability });
