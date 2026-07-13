@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
 import {
   createAccountDeletionCompletionCapability,
@@ -51,7 +51,11 @@ function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function buildAccountDeletionReviewHref(repositoryFullName: string, branch: string) {
+function buildAccountDeletionReviewHref(
+  repositoryFullName: string,
+  branch: string,
+  search: Record<string, unknown>,
+) {
   const repository = tryParseRepositoryFullName(repositoryFullName);
   if (repository === null) {
     return null;
@@ -63,13 +67,14 @@ function buildAccountDeletionReviewHref(repositoryFullName: string, branch: stri
       repoName: repository.name,
       branch,
     }),
-    search: {},
+    search,
     fileViewSearch: buildFileViewRouteSearch({ diff: true, compare: true }),
   });
 }
 
 export function UserSettingsPage() {
   const router = useRouter();
+  const search = useLocation({ select: (location) => location.search });
   const settings = useQuery(api.users.getUserSettings);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
@@ -426,6 +431,7 @@ export function UserSettingsPage() {
                             const reviewHref = buildAccountDeletionReviewHref(
                               vault.repositoryFullName,
                               branch.branch,
+                              search,
                             );
 
                             return (
@@ -438,13 +444,27 @@ export function UserSettingsPage() {
                                   {branch.uncommittedFileChangeCount === 1 ? "file" : "files"}
                                 </span>
                                 {reviewHref === null ? null : (
-                                  <Link
-                                    to={reviewHref}
+                                  <a
+                                    href={reviewHref}
+                                    onClick={(event) => {
+                                      if (
+                                        event.button !== 0 ||
+                                        event.metaKey ||
+                                        event.ctrlKey ||
+                                        event.shiftKey ||
+                                        event.altKey
+                                      ) {
+                                        return;
+                                      }
+
+                                      event.preventDefault();
+                                      void router.navigate({ href: reviewHref });
+                                    }}
                                     aria-label={`Review changes in ${vault.repositoryFullName} on ${branch.branch}`}
                                     className="shrink-0 underline underline-offset-4 hover:text-blue-600"
                                   >
                                     Review changes
-                                  </Link>
+                                  </a>
                                 )}
                               </li>
                             );

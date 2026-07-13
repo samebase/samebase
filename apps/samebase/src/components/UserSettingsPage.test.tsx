@@ -38,6 +38,7 @@ const appAuthState = vi.hoisted(() => ({
 const routerState = vi.hoisted(() => ({
   navigate: vi.fn(),
 }));
+const locationState = vi.hoisted<{ search: Record<string, unknown> }>(() => ({ search: {} }));
 const mutationState = vi.hoisted(() => ({
   requestDeletion: vi.fn(),
   setDisplayName: vi.fn(),
@@ -109,6 +110,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         {children}
       </a>
     ),
+    useLocation: () => locationState.search,
     useRouter: () => routerState,
   };
 });
@@ -229,6 +231,7 @@ describe("UserSettingsPage", () => {
     mutationState.setDisplayName.mockReset();
     routerState.navigate.mockReset();
     routerState.navigate.mockResolvedValue(undefined);
+    locationState.search = {};
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: createTestStorage(),
@@ -576,6 +579,7 @@ describe("UserSettingsPage", () => {
   });
 
   it("renders the stakes phrase and enables deletion only on an exact match", async () => {
+    locationState.search = { devtools: true, primary: "red-600" };
     queryState.stakes = {
       vaultCount: 2,
       uncommittedFileChangeCount: 3,
@@ -605,16 +609,16 @@ describe("UserSettingsPage", () => {
       expect(document.body.textContent).toContain("samebase/notes");
       expect(document.body.textContent).toContain("feature/review · 2 files");
       expect(document.body.textContent).toContain("main · 1 file");
-      expect(
-        Array.from(document.body.querySelectorAll<HTMLAnchorElement>("a")).map((link) =>
-          link.getAttribute("href"),
-        ),
-      ).toContain("/vault/samebase/notes/fs/feature%2Freview?diff&compare");
-      expect(
-        document.body.querySelector(
-          '[aria-label="Review changes in samebase/notes on feature/review"]',
-        ),
-      ).not.toBeNull();
+      const reviewLink = document.body.querySelector<HTMLAnchorElement>(
+        '[aria-label="Review changes in samebase/notes on feature/review"]',
+      );
+      const expectedReviewHref =
+        "/vault/samebase/notes/fs/feature%2Freview?devtools&primary=red-600&diff&compare";
+      expect(reviewLink?.getAttribute("href")).toBe(expectedReviewHref);
+      await act(async () => {
+        reviewLink?.click();
+      });
+      expect(routerState.navigate).toHaveBeenCalledWith({ href: expectedReviewHref });
       expect(document.body.textContent).toContain("Type the phrase to confirm");
       expect(document.body.textContent).toContain(
         "delete my account, 2 vaults, and 3 uncommitted file changes",
