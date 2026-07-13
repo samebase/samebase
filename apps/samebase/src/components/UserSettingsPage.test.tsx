@@ -40,7 +40,10 @@ const routerState = vi.hoisted(() => ({
   canGoBack: vi.fn(),
   navigate: vi.fn(),
 }));
-const locationState = vi.hoisted<{ search: Record<string, unknown> }>(() => ({ search: {} }));
+const locationState = vi.hoisted<{
+  search: Record<string, unknown>;
+  state: { settingsDeleteAccountDialog?: true };
+}>(() => ({ search: {}, state: {} }));
 const mutationState = vi.hoisted(() => ({
   requestDeletion: vi.fn(),
   setDisplayName: vi.fn(),
@@ -116,6 +119,11 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         {children}
       </a>
     ),
+    useLocation: ({
+      select,
+    }: {
+      select: (location: { state: { settingsDeleteAccountDialog?: true } }) => unknown;
+    }) => select({ state: locationState.state }),
     useRouter: () => ({
       history: {
         back: routerState.back,
@@ -222,6 +230,7 @@ async function openDeleteDialog(mounted: Awaited<ReturnType<typeof mountSettings
       ?.click();
   });
   locationState.search = { ...locationState.search, "delete-account": true };
+  locationState.state = { settingsDeleteAccountDialog: true };
   await mounted.render();
   routerState.navigate.mockClear();
 
@@ -253,6 +262,7 @@ describe("UserSettingsPage", () => {
     routerState.canGoBack.mockReset();
     routerState.canGoBack.mockReturnValue(true);
     locationState.search = {};
+    locationState.state = {};
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: createTestStorage(),
@@ -592,8 +602,16 @@ describe("UserSettingsPage", () => {
         primary: "red-600",
         "delete-account": true,
       });
+      if (typeof openNavigation.state !== "function") {
+        throw new Error("Delete account navigation did not mark its history entry.");
+      }
+      expect(openNavigation.state({ __TSR_index: 4 })).toEqual({
+        __TSR_index: 4,
+        settingsDeleteAccountDialog: true,
+      });
 
       locationState.search = { ...locationState.search, "delete-account": true };
+      locationState.state = { settingsDeleteAccountDialog: true };
       await mounted.render();
       routerState.navigate.mockClear();
 
@@ -628,11 +646,48 @@ describe("UserSettingsPage", () => {
       if (typeof closeNavigation?.search !== "function") {
         throw new Error("Delete account close did not include a search updater.");
       }
-      expect(closeNavigation).toMatchObject({ replace: true, state: true, to: "." });
+      if (typeof closeNavigation.state !== "function") {
+        throw new Error("Delete account close did not clear its history marker.");
+      }
+      expect(closeNavigation).toMatchObject({ replace: true, to: "." });
       expect(closeNavigation.search(locationState.search)).toEqual({
         devtools: true,
         "delete-account": undefined,
       });
+      expect(
+        closeNavigation.state({
+          __TSR_index: 4,
+          settingsDeleteAccountDialog: true,
+        }),
+      ).toEqual({
+        __TSR_index: 4,
+        settingsDeleteAccountDialog: undefined,
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("resets confirmation state when browser history closes and reopens the dialog", async () => {
+    const mounted = await mountSettingsPage();
+    try {
+      const { phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+
+      locationState.search = {};
+      locationState.state = {};
+      await mounted.render();
+      expect(document.getElementById("settings-delete-account-confirmation")).toBeNull();
+
+      locationState.search = { "delete-account": true };
+      locationState.state = { settingsDeleteAccountDialog: true };
+      await mounted.render();
+
+      const reopenedInput = document.getElementById("settings-delete-account-confirmation");
+      if (!(reopenedInput instanceof HTMLInputElement)) {
+        throw new Error("Confirmation phrase input did not reopen.");
+      }
+      expect(reopenedInput.value).toBe("");
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
@@ -857,8 +912,8 @@ describe("UserSettingsPage", () => {
         await Promise.resolve();
       });
 
-      const pageDelete = Array.from(mounted.rootElement.querySelectorAll("button")).find((button) =>
-        button.textContent.includes("Deleting..."),
+      const pageDelete = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Delete account",
       );
       expect(pageDelete?.disabled).toBe(true);
       expect(confirmButton?.disabled).toBe(true);

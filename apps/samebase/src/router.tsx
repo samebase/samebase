@@ -34,4 +34,9 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: AppRouter;
   }
+
+  interface HistoryState {
+    // Marks the entry pushed by Settings so Cancel can safely return to the entry beneath it.
+    settingsDeleteAccountDialog?: true;
+  }
 }
