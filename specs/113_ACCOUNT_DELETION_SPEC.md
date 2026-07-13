@@ -10,7 +10,15 @@ release plan and manual acceptance evidence.
 A signed-in, non-staff user can start account deletion from `/settings`. The confirmation must say
 that Samebase data and uncommitted staged changes are permanently deleted, while nothing outside
 Samebase is deleted: apps, GitHub repositories, Convex projects and deployments, Cloudflare Workers,
-domains, and other external resources keep running.
+domains, and other external resources keep running. The permanent-deletion statement and the
+external-resource reassurance are visually separate, with stronger emphasis on what is deleted.
+
+When uncommitted file changes exist, the dialog shows the exact count and says they will be
+permanently deleted without being pushed to GitHub. It lists every affected repository and branch,
+including the per-branch count, with direct links to staged-changes review. A bounded internal
+scroller contains long lists. The warning is absent for a confirmed zero count and while stakes are
+loading. Above the 500-change cap, or when the backend cannot produce a complete reviewable list,
+the dialog links to the vault list instead of showing a partial list.
 
 The confirmation dialog shows the viewer's current deletion stakes and requires typing a dynamic
 confirmation phrase before the destructive action enables. The base phrase is `delete my account`;
@@ -18,8 +26,9 @@ nonzero counts extend it with the vault count and the uncommitted file change co
 `delete my account, 3 vaults, and 5 uncommitted file changes`. Counting uncommitted file changes
 stops at 500, after which the phrase reads `more than 500 uncommitted file changes`. The displayed
 phrase is selectable and pasting is allowed. The request mutation recomputes the phrase from current
-data and rejects a mismatch with a `stakes_changed` result instead of creating a run; the dialog
-shows the refreshed counts and asks for confirmation again.
+data and compares the complete displayed stakes, including affected repositories, branches, and
+cancellable-subscription state. It rejects either mismatch with a `stakes_changed` result instead of
+creating a run; the dialog shows the refreshed details and asks for confirmation again.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the

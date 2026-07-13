@@ -131,11 +131,19 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
 
   await settingsPage.getByRole("button", { name: "Delete account" }).click();
   const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
-  await expect(deleteDialog).toContainText(
-    "Any uncommitted file changes in Samebase will be permanently deleted. They will not be pushed to GitHub.",
-  );
-  await expect(deleteDialog).toContainText(
-    "Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
+  await expect(
+    deleteDialog.getByText("This permanently deletes your Samebase account and data.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    deleteDialog.getByText(
+      "Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(deleteDialog).not.toContainText(
+    "uncommitted file changes will be permanently deleted",
   );
   await expect(deleteDialog).toContainText("Type the phrase to confirm");
   await expect(deleteDialog.getByLabel("Type the phrase to confirm")).toHaveCSS(

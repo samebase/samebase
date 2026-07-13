@@ -668,6 +668,8 @@ export const trackedFilePaths = [
   "apps/samebase/scripts/strip-public-prerender-modulepreloads.ts",
   "apps/samebase/scripts/sync-site-url.ts",
   "apps/samebase/shared/accessModel.ts",
+  "apps/samebase/shared/accountDeletionPhrase.test.ts",
+  "apps/samebase/shared/accountDeletionPhrase.ts",
   "apps/samebase/shared/accountPresentation.test.ts",
   "apps/samebase/shared/accountPresentation.ts",
   "apps/samebase/shared/agentBrowserHandoff.test.ts",

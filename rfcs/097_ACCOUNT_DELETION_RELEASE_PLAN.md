@@ -50,9 +50,10 @@ the existing destructive confirmation dialog with this meaning:
 ```text
 Delete account?
 
-This permanently deletes your Samebase account and data. Nothing outside
-Samebase is deleted: your apps, GitHub repositories, Convex projects, and
-Cloudflare Workers keep running.
+This permanently deletes your Samebase account and data.
+
+Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex
+projects, and Cloudflare Workers keep running.
 
 [ Cancel ] [ Delete account ]
 ```
@@ -60,12 +61,20 @@ Cloudflare Workers keep running.
 The current signed-in session proves which account is requesting deletion. The flow does not ask the
 user to type their email and does not add a separate recent-authentication flow.
 
-The confirmation dialog always includes this warning:
+When the account has uncommitted file changes, the dialog includes an exact warning sourced from the
+same live stakes as the typed phrase:
 
 ```text
-Any uncommitted file changes in Samebase will be permanently deleted.
-They will not be pushed to GitHub.
+5 uncommitted file changes will be permanently deleted. They will not be
+pushed to GitHub.
 ```
+
+One change uses singular grammar. More than 500 changes uses the capped wording from the typed
+phrase. The dialog does not show a staged-changes warning when the count is zero or still loading.
+For exact counts, it lists every affected repository and branch with its change count and a direct
+link to the staged-changes review. The list is bounded by an internal scroller. If the count is over
+the cap, or a complete reviewable list cannot be produced, the dialog links to the vault list
+instead of presenting a partial list.
 
 Account deletion never commits, exports, or publishes staged changes. The user can cancel, commit
 the work normally, and return to deletion without a second confirmation mechanism.
@@ -80,10 +89,11 @@ extend it with the vault count and the uncommitted file change count, for exampl
 file changes, after which the phrase reads `more than 500 uncommitted file changes`. The displayed
 phrase is selectable, and pasting into the confirmation input is allowed.
 
-The request mutation recomputes the same phrase from current data and rejects a mismatch with a
-`stakes_changed` result instead of creating a run, so a phrase typed against stale counts never
-starts deletion. The dialog then shows the refreshed counts with a short notice and asks the user to
-confirm again.
+The request mutation recomputes the phrase and the complete displayed stakes from current data. It
+rejects either mismatch with a `stakes_changed` result instead of creating a run, so confirmation
+cannot silently survive a change moving between repositories or branches, or a Samebase subscription
+becoming cancellable. The dialog then shows the refreshed details with a short notice and asks the
+user to confirm again.
 
 The confirmation action is disabled until the typed phrase matches and while the request is being
 accepted. Acceptance atomically creates one durable account deletion run and gates the user.
@@ -271,9 +281,9 @@ test succeeds in the production-like environment with a dedicated non-staff acco
    change, one connected provider, and the same account signed in through a different browser or
    isolated browser profile. Machine, MCP, and billing boundaries use automated fixtures rather than
    making the human walkthrough depend on optional setup.
-3. Open `/settings`, choose `Delete account`, verify the confirmation says external resources
-   survive and any uncommitted changes will be permanently deleted without being pushed to GitHub,
-   then confirm once.
+3. Open `/settings`, choose `Delete account`, verify the destructive statement and external-resource
+   reassurance are visually separate, verify the exact uncommitted-change warning and every affected
+   repository and branch are shown with working review links, then confirm once.
 4. Verify the app immediately navigates to `/account-deletion`, ordinary product navigation is no
    longer available, and a second confirmation cannot create another run.
 5. Verify the staff `/admin/account-deletions` page shows the same operation, account identity,
