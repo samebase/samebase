@@ -30,6 +30,7 @@ import { FORCE_PROD_UI_QUERY_PARAM, isProdUiModeEnabled } from "@/lib/prodUiMode
 
 export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
 export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
+export type VaultDashboardQueryDialog = "add-app-root" | "add-cloudflare" | "add-convex" | "delete";
 
 const RouteSearchSchema_root = defineRouteSearchParams({
   [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: routeSearchPresenceParam({
@@ -109,6 +110,30 @@ const RouteSearchSchema_root = defineRouteSearchParams({
 
 type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
+
+const VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES = {
+  "add-app-root": {
+    [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
+  },
+  "add-cloudflare": {
+    "add-cloudflare": null,
+    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+  },
+  "add-convex": {
+    "add-convex": null,
+    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+  },
+  delete: {
+    delete: null,
+  },
+} satisfies Record<VaultDashboardQueryDialog, SearchPatch<RootRouteSearch>>;
+
+export function clearVaultDashboardQueryDialogSearch(
+  currentSearch: RootRouteSearch,
+  dialog: VaultDashboardQueryDialog,
+): RootRouteSearch {
+  return applySearchPatch(currentSearch, VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES[dialog]);
+}
 
 function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_METADATA) {
   return {

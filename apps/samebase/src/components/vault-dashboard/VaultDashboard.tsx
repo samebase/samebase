@@ -95,9 +95,11 @@ import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
   DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM,
+  clearVaultDashboardQueryDialogSearch,
   replaceRootLogoRouteSearch,
   type RootRouteSearch,
   useRootRouteSearch,
+  type VaultDashboardQueryDialog,
 } from "@/routeSearch/root";
 import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/routing/searchFlags";
@@ -889,7 +891,6 @@ export function VaultDashboardDeleteControl({
   isRemovingVault?: boolean;
   repositoryFullName: string;
 }) {
-  const navigate = useNavigate();
   const deleteTriggerDisabled = isRemovingVault || deleteAction.state === "disabled";
   const title = deleteAction.state === "disabled" ? deleteAction.reason : "Remove vault";
 
@@ -901,6 +902,10 @@ export function VaultDashboardDeleteControl({
           ...currentSearch,
           delete: true,
         })}
+        state={(currentState) => ({
+          ...currentState,
+          vaultDashboardDialog: "delete",
+        })}
         aria-label={`Remove vault ${repositoryFullName}`}
         title={title}
         aria-disabled={deleteTriggerDisabled ? true : undefined}
@@ -908,22 +913,7 @@ export function VaultDashboardDeleteControl({
         onClick={(event) => {
           if (deleteTriggerDisabled) {
             event.preventDefault();
-            return;
           }
-          if (
-            event.button !== 0 ||
-            event.metaKey ||
-            event.altKey ||
-            event.ctrlKey ||
-            event.shiftKey
-          ) {
-            return;
-          }
-          event.preventDefault();
-          void navigate({
-            search: (currentSearch) => applySearchPatch(currentSearch, { delete: true }),
-            to: ".",
-          });
         }}
         className={clsx(
           buttonVariants({ variant: "destructive", size: "icon-sm" }),
@@ -3101,7 +3091,10 @@ export function VaultDashboardView({
             currentSearch,
             provider,
           }),
-        state: true,
+        state: (currentState) => ({
+          ...currentState,
+          vaultDashboardDialog: provider === "convex" ? "add-convex" : "add-cloudflare",
+        }),
       });
     },
     [navigate],
@@ -3110,7 +3103,10 @@ export function VaultDashboardView({
     void navigate({
       to: ".",
       search: applyVaultDashboardAddAppRootSearch,
-      state: true,
+      state: (currentState) => ({
+        ...currentState,
+        vaultDashboardDialog: "add-app-root",
+      }),
     });
   }, [navigate]);
 
@@ -3423,6 +3419,9 @@ export function VaultDashboardView({
 export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardProps) {
   const navigate = useNavigate();
   const router = useRouter();
+  const vaultDashboardDialogHistoryEntry = useLocation({
+    select: (location) => location.state.vaultDashboardDialog,
+  });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
@@ -3607,16 +3606,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
   const preparedAddConvexRepositoryRef = useRef<string | null>(null);
   const preparedAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
-  // In-app delete icon clicks should close back to the dashboard entry that
-  // existed before the modal; direct links should only replace the delete key.
-  const previousDeleteModeActiveRef = useRef(deleteModeActive);
-  const shouldPopDeleteHistoryRef = useRef(false);
-  const previousAddAppRootModeActiveRef = useRef(addAppRootModeActive);
-  const shouldPopAddAppRootHistoryRef = useRef(false);
-  const previousAddConvexModeActiveRef = useRef(addConvexModeActive);
-  const shouldPopAddConvexHistoryRef = useRef(false);
-  const previousAddCloudflareWorkerModeActiveRef = useRef(addCloudflareWorkerModeActive);
-  const shouldPopAddCloudflareWorkerHistoryRef = useRef(false);
   const convexDialogResourcesRequestIdRef = useRef(0);
   const cloudflareWorkersRequestIdRef = useRef(0);
   const cloudflareDialogResourcesRequestIdRef = useRef(0);
@@ -3775,57 +3764,31 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     CODESPACES_ENABLED && vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
 
-  const clearAddAppRootSearchParam = useCallback(
-    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
-      const shouldPopAddAppRootRoute =
-        preferHistoryBack &&
-        addAppRootModeActive &&
-        shouldPopAddAppRootHistoryRef.current &&
-        router.history.canGoBack();
-      shouldPopAddAppRootHistoryRef.current = false;
-
-      if (shouldPopAddAppRootRoute) {
-        router.history.back();
-        return;
-      }
-
+  const replaceVaultDashboardDialogRoute = useCallback(
+    (dialog: VaultDashboardQueryDialog) => {
       void navigate({
         replace: true,
-        search: (currentSearch) =>
-          applySearchPatch(currentSearch, { [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null }),
-        state: true,
+        search: (currentSearch) => clearVaultDashboardQueryDialogSearch(currentSearch, dialog),
+        state: (currentState) => ({
+          ...currentState,
+          vaultDashboardDialog: undefined,
+        }),
         to: ".",
       });
     },
-    [addAppRootModeActive, navigate, router],
+    [navigate],
   );
 
-  const clearDeleteSearchParam = useCallback(
-    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
-      const shouldPopDeleteRoute =
-        preferHistoryBack &&
-        deleteModeActive &&
-        shouldPopDeleteHistoryRef.current &&
-        router.history.canGoBack();
-      shouldPopDeleteHistoryRef.current = false;
+  const closeVaultDashboardDialog = (dialog: VaultDashboardQueryDialog) => {
+    if (vaultDashboardDialogHistoryEntry === dialog && router.history.canGoBack()) {
+      router.history.back();
+      return;
+    }
 
-      if (shouldPopDeleteRoute) {
-        router.history.back();
-        return;
-      }
-
-      void navigate({
-        replace: true,
-        search: (currentSearch) => applySearchPatch(currentSearch, { delete: null }),
-        state: true,
-        to: ".",
-      });
-    },
-    [deleteModeActive, navigate, router],
-  );
+    replaceVaultDashboardDialogRoute(dialog);
+  };
 
   const closeDeletedVaultRoute = useCallback(() => {
-    shouldPopDeleteHistoryRef.current = false;
     void navigate({
       replace: true,
       search: (currentSearch) =>
@@ -3836,66 +3799,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           "add-convex": null,
           delete: null,
         }),
-      state: true,
+      state: (currentState) => ({
+        ...currentState,
+        vaultDashboardDialog: undefined,
+      }),
       to: "/vault",
     });
   }, [navigate]);
-
-  const clearAddConvexSearchParam = useCallback(
-    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
-      const shouldPopAddConvexRoute =
-        preferHistoryBack &&
-        addConvexModeActive &&
-        shouldPopAddConvexHistoryRef.current &&
-        router.history.canGoBack();
-      shouldPopAddConvexHistoryRef.current = false;
-
-      if (shouldPopAddConvexRoute) {
-        router.history.back();
-        return;
-      }
-
-      void navigate({
-        replace: true,
-        search: (currentSearch) =>
-          applySearchPatch(currentSearch, {
-            "add-convex": null,
-            [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
-          }),
-        state: true,
-        to: ".",
-      });
-    },
-    [addConvexModeActive, navigate, router],
-  );
-
-  const clearAddCloudflareWorkerSearchParam = useCallback(
-    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
-      const shouldPopAddCloudflareWorkerRoute =
-        preferHistoryBack &&
-        addCloudflareWorkerModeActive &&
-        shouldPopAddCloudflareWorkerHistoryRef.current &&
-        router.history.canGoBack();
-      shouldPopAddCloudflareWorkerHistoryRef.current = false;
-
-      if (shouldPopAddCloudflareWorkerRoute) {
-        router.history.back();
-        return;
-      }
-
-      void navigate({
-        replace: true,
-        search: (currentSearch) =>
-          applySearchPatch(currentSearch, {
-            "add-cloudflare": null,
-            [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
-          }),
-        state: true,
-        to: ".",
-      });
-    },
-    [addCloudflareWorkerModeActive, navigate, router],
-  );
 
   const loadConvexDialogResources = useCallback(async () => {
     const requestId = convexDialogResourcesRequestIdRef.current + 1;
@@ -4034,22 +3944,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   }, [resetCloudflareConnectDialogState]);
 
   useEffect(() => {
-    const previousAddAppRootModeActive = previousAddAppRootModeActiveRef.current;
-    if (!previousAddAppRootModeActive && addAppRootModeActive) {
-      shouldPopAddAppRootHistoryRef.current = true;
-    }
-    if (!addAppRootModeActive) {
-      shouldPopAddAppRootHistoryRef.current = false;
-    }
-    previousAddAppRootModeActiveRef.current = addAppRootModeActive;
-
     if (!vaultToAddAppRoot) {
       if (preparedAddAppRootRepositoryRef.current) {
         preparedAddAppRootRepositoryRef.current = null;
         resetAddAppRootDialogState();
       }
       if (addAppRootModeActive && vaults) {
-        clearAddAppRootSearchParam({ preferHistoryBack: false });
+        replaceVaultDashboardDialogRoute("add-app-root");
       }
       return;
     }
@@ -4062,30 +3963,21 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     prepareAddAppRootDialog({ hasAppRoots: vaultToAddAppRoot.hasAppRoots });
   }, [
     addAppRootModeActive,
-    clearAddAppRootSearchParam,
     prepareAddAppRootDialog,
+    replaceVaultDashboardDialogRoute,
     resetAddAppRootDialogState,
     vaultToAddAppRoot,
     vaults,
   ]);
 
   useEffect(() => {
-    const previousDeleteModeActive = previousDeleteModeActiveRef.current;
-    if (!previousDeleteModeActive && deleteModeActive) {
-      shouldPopDeleteHistoryRef.current = true;
-    }
-    if (!deleteModeActive) {
-      shouldPopDeleteHistoryRef.current = false;
-    }
-    previousDeleteModeActiveRef.current = deleteModeActive;
-
     if (!vaultToDelete) {
       if (preparedDeleteRepositoryRef.current) {
         preparedDeleteRepositoryRef.current = null;
         resetDeleteDialogState();
       }
       if (deleteModeActive && vaults && !deleteDialogVault) {
-        clearDeleteSearchParam({ preferHistoryBack: false });
+        replaceVaultDashboardDialogRoute("delete");
       }
       return;
     }
@@ -4099,32 +3991,23 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     prepareDeleteDialog();
     preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
   }, [
-    clearDeleteSearchParam,
     deleteModeActive,
     prepareDeleteDialog,
     resetDeleteDialogState,
+    replaceVaultDashboardDialogRoute,
     deleteDialogVault,
     vaultToDelete,
     vaults,
   ]);
 
   useEffect(() => {
-    const previousAddConvexModeActive = previousAddConvexModeActiveRef.current;
-    if (!previousAddConvexModeActive && addConvexModeActive) {
-      shouldPopAddConvexHistoryRef.current = true;
-    }
-    if (!addConvexModeActive) {
-      shouldPopAddConvexHistoryRef.current = false;
-    }
-    previousAddConvexModeActiveRef.current = addConvexModeActive;
-
     if (!vaultToConnectConvex) {
       if (preparedAddConvexRepositoryRef.current) {
         preparedAddConvexRepositoryRef.current = null;
         resetConvexDialogState();
       }
       if (addConvexModeActive && vaults) {
-        clearAddConvexSearchParam({ preferHistoryBack: false });
+        replaceVaultDashboardDialogRoute("add-convex");
       }
       return;
     }
@@ -4145,8 +4028,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     void loadConvexDialogResources();
   }, [
     addConvexModeActive,
-    clearAddConvexSearchParam,
     loadConvexDialogResources,
+    replaceVaultDashboardDialogRoute,
     resetConvexDialogState,
     setConvexConnectDialogAppRoot,
     setConvexConnectDialogCreateProjectName,
@@ -4155,22 +4038,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   ]);
 
   useEffect(() => {
-    const previousAddCloudflareWorkerModeActive = previousAddCloudflareWorkerModeActiveRef.current;
-    if (!previousAddCloudflareWorkerModeActive && addCloudflareWorkerModeActive) {
-      shouldPopAddCloudflareWorkerHistoryRef.current = true;
-    }
-    if (!addCloudflareWorkerModeActive) {
-      shouldPopAddCloudflareWorkerHistoryRef.current = false;
-    }
-    previousAddCloudflareWorkerModeActiveRef.current = addCloudflareWorkerModeActive;
-
     if (!vaultToConnectCloudflare) {
       if (preparedAddCloudflareWorkerRepositoryRef.current) {
         preparedAddCloudflareWorkerRepositoryRef.current = null;
         resetCloudflareDialogState();
       }
       if (addCloudflareWorkerModeActive && vaults) {
-        clearAddCloudflareWorkerSearchParam({ preferHistoryBack: false });
+        replaceVaultDashboardDialogRoute("add-cloudflare");
       }
       return;
     }
@@ -4195,10 +4069,10 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     });
   }, [
     addCloudflareWorkerModeActive,
-    clearAddCloudflareWorkerSearchParam,
     connectedCloudflareConnection?.accountId,
     loadCloudflareDialogResources,
     resetCloudflareDialogState,
+    replaceVaultDashboardDialogRoute,
     setCloudflareConnectDialogAppRoot,
     setCloudflareConnectDialogCreateWorkerName,
     vaultToConnectCloudflare,
@@ -4209,7 +4083,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     if (isOpen || isSubmittingAppRoot) {
       return;
     }
-    clearAddAppRootSearchParam({ preferHistoryBack: true });
+    closeVaultDashboardDialog("add-app-root");
   };
 
   const handleSubmitAppRoot = async () => {
@@ -4228,7 +4102,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         appRoot,
       });
       resetAddAppRootDialogState();
-      clearAddAppRootSearchParam({ preferHistoryBack: true });
+      closeVaultDashboardDialog("add-app-root");
     } catch (error) {
       setAddAppRootDialogError(error instanceof Error ? error.message : "Could not add app root.");
     } finally {
@@ -4254,14 +4128,14 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     if (isOpen) {
       return;
     }
-    clearAddCloudflareWorkerSearchParam({ preferHistoryBack: true });
+    closeVaultDashboardDialog("add-cloudflare");
   };
 
   const handleConnectConvexDialogOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       return;
     }
-    clearAddConvexSearchParam({ preferHistoryBack: true });
+    closeVaultDashboardDialog("add-convex");
   };
 
   const handleSubmitConvexProject = async () => {
@@ -4288,7 +4162,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         });
       }
       resetConvexDialogState();
-      clearAddConvexSearchParam({ preferHistoryBack: true });
+      closeVaultDashboardDialog("add-convex");
     } catch (error) {
       setConvexConnectDialogError(
         error instanceof Error ? error.message : "Could not connect Convex project.",
@@ -4321,7 +4195,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         });
       }
       resetCloudflareDialogState();
-      clearAddCloudflareWorkerSearchParam({ preferHistoryBack: true });
+      closeVaultDashboardDialog("add-cloudflare");
     } catch (error) {
       setCloudflareConnectDialogError(
         error instanceof Error ? error.message : "Could not connect Cloudflare Worker.",
@@ -4582,7 +4456,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       return;
     }
 
-    clearDeleteSearchParam({ preferHistoryBack: true });
+    closeVaultDashboardDialog("delete");
   };
 
   const selectedVaultMissing = Boolean(selectedRepositoryFullName) && selectedVault === null;

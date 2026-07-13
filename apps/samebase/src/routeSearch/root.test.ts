@@ -7,13 +7,45 @@ import {
   MAX_LOGO_GRID_SIZE,
 } from "@/components/logo/logoVoxelState";
 import {
+  clearVaultDashboardQueryDialogSearch,
   readCanonicalRouteAddressForRootSearch,
   readRootRouteSearch,
   replaceRootLogoRouteSearch,
+  type RootRouteSearch,
   validateRootRouteSearch,
 } from "./root";
 
 describe("rootRouteSearch", () => {
+  it("clears only the selected vault dashboard dialog search", () => {
+    const currentSearch = {
+      "add-app-root": true,
+      "add-cloudflare": true,
+      "add-convex": true,
+      "app-root": "apps/samebase",
+      delete: true,
+      devtools: true,
+    } satisfies RootRouteSearch;
+
+    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-app-root")).toEqual({
+      ...currentSearch,
+      "add-app-root": undefined,
+    });
+    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-cloudflare")).toEqual({
+      ...currentSearch,
+      "add-cloudflare": undefined,
+      "app-root": undefined,
+    });
+    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-convex")).toEqual({
+      ...currentSearch,
+      "add-convex": undefined,
+      "app-root": undefined,
+    });
+    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "delete")).toEqual({
+      ...currentSearch,
+      delete: undefined,
+    });
+  });
+
   it("drops conflicting dashboard modal flags while keeping independent root search", () => {
     expect(
       validateRootRouteSearch({

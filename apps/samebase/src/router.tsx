@@ -3,6 +3,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { routeTree } from "./routeTree.gen";
 import { createAppQueryClients } from "@/lib/appQueryClient";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+import type { VaultDashboardQueryDialog } from "@/routeSearch/root";
 
 export function getRouter() {
   return createAppRouter();
@@ -36,7 +37,8 @@ declare module "@tanstack/react-router" {
   }
 
   interface HistoryState {
-    // Marks the entry pushed by Settings so Cancel can safely return to the entry beneath it.
+    // Marks query-dialog entries so Cancel can safely return to the entry beneath them.
     settingsDeleteAccountDialog?: true;
+    vaultDashboardDialog?: VaultDashboardQueryDialog;
   }
 }
