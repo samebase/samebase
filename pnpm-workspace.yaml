@@ -9,9 +9,6 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future Convex releases do not bypass the
 # cooling period automatically.
 minimumReleaseAgeExclude:
-  # TODO(2026-07-01): Remove the convex@1.42.0 release-age exception after
-  # the normal 7-day cooling period has passed.
-  - convex@1.42.0
   # TODO(2026-06-25): Remove the dompurify@3.4.11 and undici@7.28.0 release-age
   # exceptions after the normal 7-day cooling period has passed. Keep the
   # overrides below until upstream packages no longer resolve vulnerable
