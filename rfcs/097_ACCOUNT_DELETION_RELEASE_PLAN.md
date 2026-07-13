@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Accepted for implementation
+- Status: Implemented, release acceptance pending
 - Owner: Nicu Chiciuc
 - Created: 2026-07-12
 - Related research:
@@ -12,6 +12,7 @@
 - Related specs:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
+  - `specs/113_ACCOUNT_DELETION_SPEC.md`
 - Related code:
   - `apps/samebase/convex/auth.ts`
   - `apps/samebase/convex/email.ts`
@@ -20,6 +21,10 @@
   - `apps/samebase/src/components/UserSettingsPage.tsx`
 
 ## Summary
+
+The durable product contract now lives in `specs/113_ACCOUNT_DELETION_SPEC.md`. This RFC retains the
+rollout sequence, release checklist, and manual validation evidence until release acceptance is
+complete.
 
 Before release, a signed-in user must be able to delete their Samebase account from Settings and
 observe the deletion until it succeeds or needs attention. Staff must be able to observe the same
@@ -132,8 +137,8 @@ error and retry controls in the admin view.
 Active billing cancellation is a hard completion boundary. The workflow cannot report success while
 Samebase can continue charging the user. A provider revocation failure is recorded and retried, but
 it does not retain the user's local Samebase data forever after Samebase has removed its stored
-credential. Upstream provider revocation gets three attempts over at most 24 hours. After that, the
-workflow deletes the local credential, records that upstream revocation was not confirmed, and
+credential. Upstream provider revocation gets three attempts separated by five seconds. After that,
+the workflow deletes the local credential, records that upstream revocation was not confirmed, and
 continues local erasure.
 
 ## External Resources
@@ -206,9 +211,11 @@ An active user's row has no deletion marker. A deleting user's row contains the 
 time. Access resolution maps that user to a deletion-only role granting only public access and the
 narrow account-deletion status function.
 
-The workflow processes bounded, idempotent steps. A fail-closed cleanup registry classifies every
-user-owned or user-referencing table as delete, detach, anonymize, or retain. Adding an unclassified
-table fails validation so future schema additions cannot silently escape account deletion.
+The workflow processes bounded, idempotent steps. A fail-closed policy registry classifies every
+user-owned or user-referencing table as delete, detach, anonymize, or retain. Executable cleanup
+registries have separate coverage tests because some account-owned rows are cleaned through their
+vault or parent context. Adding an unclassified table fails validation so future schema additions
+cannot silently escape account deletion.
 
 The user progress timeline expands account-data deletion into chats and agent data, vaults and
 staged changes, connected machines, preferences, app access and tokens, and access requests and
@@ -307,5 +314,5 @@ Applications.
    deletion for release only after the full test passes and external applications are proven to
    survive.
 
-After the proposal is accepted and implementation begins, extract the durable product contract and
-validation expectations into `specs/`. Archive this rollout plan when the rollout is complete.
+The durable product contract and validation expectations are extracted to
+`specs/113_ACCOUNT_DELETION_SPEC.md`. Archive this rollout plan when release acceptance is complete.
