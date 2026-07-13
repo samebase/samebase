@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { getRouteApi, Link, useRouter } from "@tanstack/react-router";
@@ -31,8 +31,6 @@ import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
 
-type AccountDeletionStakes = (typeof api.accountDeletion.index.stakes)["_returnType"];
-
 const settingsRouteApi = getRouteApi("/settings");
 
 function buildAccountDeletionReviewHref(
@@ -60,41 +58,16 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const search = settingsRouteApi.useSearch();
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
-  const subscribedDeletionStakes = useQuery(api.accountDeletion.index.stakes, {});
+  const deletionStakes = useQuery(api.accountDeletion.index.stakes, {});
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmationInput, setConfirmationInput] = useState("");
-  const [requestStakesOverride, setRequestStakesOverride] = useState<{
-    previousStakes: string;
-    stakes: AccountDeletionStakes;
-  } | null>(null);
-  const subscribedStakes =
-    subscribedDeletionStakes === undefined
-      ? null
-      : serializeAccountDeletionConfirmationStakes(subscribedDeletionStakes);
-  const deletionStakes =
-    requestStakesOverride !== null &&
-    (subscribedStakes === null || subscribedStakes === requestStakesOverride.previousStakes)
-      ? requestStakesOverride.stakes
-      : subscribedDeletionStakes;
   const expectedConfirmationPhrase =
     deletionStakes === undefined ? null : buildAccountDeletionConfirmationPhrase(deletionStakes);
   const confirmationStakesSnapshot =
     deletionStakes === undefined
       ? null
       : serializeAccountDeletionConfirmationStakes(deletionStakes);
-
-  useEffect(() => {
-    // A mutation can return newer stakes before the live query subscription updates.
-    // Keep that response visible until the subscription moves past the rejected snapshot.
-    if (
-      requestStakesOverride !== null &&
-      subscribedStakes !== null &&
-      subscribedStakes !== requestStakesOverride.previousStakes
-    ) {
-      setRequestStakesOverride(null);
-    }
-  }, [requestStakesOverride, subscribedStakes]);
 
   const handleDeleteAccount = async () => {
     if (isRequestingDeletion || confirmationStakesSnapshot === null) {
@@ -122,10 +95,6 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
       });
 
       if (result.state === "stakes_changed") {
-        setRequestStakesOverride({
-          previousStakes: confirmationStakesSnapshot,
-          stakes: result,
-        });
         setConfirmationInput("");
         setDeletionError("The account data changed. Review and confirm again.");
         setIsRequestingDeletion(false);

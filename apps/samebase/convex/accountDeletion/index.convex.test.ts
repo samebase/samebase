@@ -693,13 +693,7 @@ describe("account deletion stakes and typed confirmation", () => {
       ),
     });
 
-    expect(result).toEqual({
-      state: "stakes_changed",
-      vaultCount: 1,
-      uncommittedFileChangeCount: 0,
-      hasActiveSubscription: false,
-      affectedVaults: { state: "complete", vaults: [] },
-    });
+    expect(result).toEqual({ state: "stakes_changed" });
     const stored = await t.run(async (ctx) => ({
       user: await ctx.db.get(ids.userId),
       runs: await ctx.db.query("accountDeletionRuns").collect(),
@@ -727,7 +721,7 @@ describe("account deletion stakes and typed confirmation", () => {
     expect(user?.accountDeletion).toMatchObject({ state: "deleting", runId: status.runId });
   });
 
-  it("returns fresh stakes when counts move between phrase build and request", async () => {
+  it("rejects when counts move between phrase build and request", async () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
     const staleStakes = await asUser.query(api.accountDeletion.index.stakes);
     const stalePhrase = buildAccountDeletionConfirmationPhrase(staleStakes);
@@ -738,21 +732,14 @@ describe("account deletion stakes and typed confirmation", () => {
       confirmationPhrase: stalePhrase,
       confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(staleStakes),
     });
-    expect(raced).toEqual({
-      state: "stakes_changed",
-      vaultCount: 1,
-      uncommittedFileChangeCount: 0,
-      hasActiveSubscription: false,
-      affectedVaults: { state: "complete", vaults: [] },
-    });
-    if (raced.state !== "stakes_changed") {
-      throw new Error("Expected the raced request to report changed stakes.");
-    }
+    expect(raced).toEqual({ state: "stakes_changed" });
+
+    const currentStakes = await asUser.query(api.accountDeletion.index.stakes);
 
     const accepted = await asUser.mutation(api.accountDeletion.index.request, {
       completionCapability,
-      confirmationPhrase: buildAccountDeletionConfirmationPhrase(raced),
-      confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(raced),
+      confirmationPhrase: buildAccountDeletionConfirmationPhrase(currentStakes),
+      confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(currentStakes),
     });
     expect(accepted).toMatchObject({ state: "accepted", status: { state: "running" } });
   });
@@ -784,8 +771,8 @@ describe("account deletion stakes and typed confirmation", () => {
       confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(staleStakes),
     });
 
-    expect(result).toMatchObject({
-      state: "stakes_changed",
+    expect(result).toEqual({ state: "stakes_changed" });
+    await expect(asUser.query(api.accountDeletion.index.stakes)).resolves.toMatchObject({
       vaultCount: 2,
       uncommittedFileChangeCount: 1,
       affectedVaults: {
@@ -814,8 +801,8 @@ describe("account deletion stakes and typed confirmation", () => {
       confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(staleStakes),
     });
 
-    expect(result).toEqual({
-      state: "stakes_changed",
+    expect(result).toEqual({ state: "stakes_changed" });
+    await expect(asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
       vaultCount: 0,
       uncommittedFileChangeCount: 0,
       hasActiveSubscription: true,

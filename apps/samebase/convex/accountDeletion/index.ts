@@ -81,7 +81,7 @@ const vAccountDeletionStakes = object(accountDeletionStakesFields);
 
 const vAccountDeletionRequestResult = union(
   object({ state: literal("accepted"), status: vAccountDeletionStatus }),
-  object({ state: literal("stakes_changed"), ...accountDeletionStakesFields }),
+  object({ state: literal("stakes_changed") }),
 );
 
 const vAccountDeletionEvent = object({
@@ -324,9 +324,9 @@ export const request = mutation({
       args.confirmationStakesSnapshot !== serializeAccountDeletionConfirmationStakes(currentStakes)
     ) {
       // Expected UI state: any displayed stake moved after the dialog rendered,
-      // or the phrase was mistyped. Nothing is created; the dialog re-renders
-      // from this fresh snapshot and asks for confirmation again.
-      return { state: "stakes_changed" as const, ...currentStakes };
+      // or the phrase was mistyped. Nothing is created; the subscribed stakes
+      // query supplies the current confirmation details.
+      return { state: "stakes_changed" as const };
     }
 
     const now = Date.now();

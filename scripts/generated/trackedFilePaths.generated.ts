@@ -996,6 +996,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/vault-dashboard/VaultDashboardCloudflareAccountDialog.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultDashboardLogos.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand.ts",
+  "apps/samebase/src/components/vault-dashboard/VaultDashboardRouting.test.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultDashboardVisualFixture.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultLastUpdatedStatus.test.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultLastUpdatedStatus.tsx",

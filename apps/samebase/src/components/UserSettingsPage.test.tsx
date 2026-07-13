@@ -827,22 +827,24 @@ describe("UserSettingsPage", () => {
   });
 
   it("asks for a new confirmation when the stakes changed during the request", async () => {
-    mutationState.requestDeletion.mockResolvedValue({
-      state: "stakes_changed",
-      vaultCount: 1,
-      uncommittedFileChangeCount: 1,
-      hasActiveSubscription: false,
-      affectedVaults: {
-        state: "complete",
-        vaults: [
-          {
-            vaultId: "vault-1",
-            repositoryFullName: "samebase/notes",
-            uncommittedFileChangeCount: 1,
-            branches: [{ branch: "main", uncommittedFileChangeCount: 1 }],
-          },
-        ],
-      },
+    mutationState.requestDeletion.mockImplementation(async () => {
+      queryState.stakes = {
+        vaultCount: 1,
+        uncommittedFileChangeCount: 1,
+        hasActiveSubscription: false,
+        affectedVaults: {
+          state: "complete",
+          vaults: [
+            {
+              vaultId: "vault-1",
+              repositoryFullName: "samebase/notes",
+              uncommittedFileChangeCount: 1,
+              branches: [{ branch: "main", uncommittedFileChangeCount: 1 }],
+            },
+          ],
+        },
+      };
+      return { state: "stakes_changed" };
     });
     const mounted = await mountSettingsPage();
     try {
@@ -871,10 +873,12 @@ describe("UserSettingsPage", () => {
   });
 
   it("shows a newly active subscription before allowing confirmation again", async () => {
-    mutationState.requestDeletion.mockResolvedValue({
-      state: "stakes_changed",
-      ...EMPTY_ACCOUNT_DELETION_STAKES,
-      hasActiveSubscription: true,
+    mutationState.requestDeletion.mockImplementation(async () => {
+      queryState.stakes = {
+        ...EMPTY_ACCOUNT_DELETION_STAKES,
+        hasActiveSubscription: true,
+      };
+      return { state: "stakes_changed" };
     });
     const mounted = await mountSettingsPage();
     try {

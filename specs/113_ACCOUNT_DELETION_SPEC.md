@@ -29,7 +29,8 @@ stops at 500, after which the phrase reads `more than 500 uncommitted file chang
 phrase is selectable and pasting is allowed. The request mutation recomputes the phrase from current
 data and compares the complete displayed stakes, including affected repositories, branches, and
 cancellable-subscription state. It rejects either mismatch with a `stakes_changed` result instead of
-creating a run; the dialog shows the refreshed details and asks for confirmation again.
+creating a run. The subscribed stakes query remains the only source of displayed details, and the
+dialog clears the typed phrase and asks for confirmation again.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the
