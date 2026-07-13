@@ -123,6 +123,12 @@ export default defineConfig({
         },
       },
       {
+        files: ["apps/samebase/convex/accountDeletion/**/*.{ts,tsx}"],
+        rules: {
+          "samebase/no-pass-through-function-declaration": "error",
+        },
+      },
+      {
         files: [
           "scripts/**/*.ts",
           "runtime/**/*.ts",

@@ -202,6 +202,9 @@ describe("lint config", () => {
     const appWideOverride = oxlintConfig.overrides?.find((override) =>
       override.files?.includes("apps/samebase/**/*.{ts,tsx}"),
     );
+    const accountDeletionOverride = oxlintConfig.overrides?.find((override) =>
+      override.files?.includes("apps/samebase/convex/accountDeletion/**/*.{ts,tsx}"),
+    );
 
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
@@ -243,6 +246,9 @@ describe("lint config", () => {
           message: expect.stringContaining("route search"),
         },
       ],
+    });
+    expect(accountDeletionOverride?.rules).toMatchObject({
+      "samebase/no-pass-through-function-declaration": "error",
     });
   });
 
