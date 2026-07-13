@@ -25,7 +25,9 @@ const queryState = vi.hoisted<{
     runId: string;
     state: "needs_attention" | "running";
   };
-  viewer: undefined | { role: "role_deleting" | "role_member" | "role_pending_access" };
+  viewer:
+    | undefined
+    | { role: "role_anonymous" | "role_deleting" | "role_member" | "role_pending_access" };
 }>(() => ({
   completion: null,
   completionByCapability: new Map(),
@@ -346,7 +348,7 @@ describe("AccountDeletionBrowserBoundary", () => {
   it("shows completion while the deleted session still appears authenticated", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
     locationState.pathname = "/account-deletion";
-    queryState.viewer = { role: "role_pending_access" };
+    queryState.viewer = { role: "role_anonymous" };
     queryState.completion = { completedAt: 3, state: "succeeded" };
 
     const mounted = await renderBoundary();
@@ -365,9 +367,9 @@ describe("AccountDeletionBrowserBoundary", () => {
     }
   });
 
-  it("recovers a pending OAuth return from the root route", async () => {
+  it("recovers an authenticated deleted session from the root route", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
-    queryState.viewer = { role: "role_pending_access" };
+    queryState.viewer = { role: "role_anonymous" };
     queryState.completion = { completedAt: 3, state: "succeeded" };
 
     const mounted = await renderBoundary();
@@ -385,21 +387,16 @@ describe("AccountDeletionBrowserBoundary", () => {
     }
   });
 
-  it("keeps a pending authenticated account behind receipt verification", async () => {
+  it("does not let a new pending account consume an old deletion receipt", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
     locationState.pathname = "/account-deletion";
     queryState.viewer = { role: "role_pending_access" };
-    queryState.completion = null;
+    queryState.completion = { completedAt: 3, state: "succeeded" };
 
     const mounted = await renderBoundary();
     try {
-      expect(mounted.rootElement.textContent).toContain("Checking account deletion");
-      expect(mounted.rootElement.textContent).not.toContain("Normal route");
-      expect(mounted.rootElement.textContent).toContain("Continue to Samebase");
-      const continueButton = Array.from(mounted.rootElement.querySelectorAll("button")).find(
-        (button) => button.textContent === "Continue to Samebase",
-      );
-      await act(async () => continueButton?.click());
+      expect(authActionState.signOut).not.toHaveBeenCalled();
+      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
       expect(window.localStorage.getItem("samebase:account-deletion")).toBeNull();
       expect(mounted.rootElement.textContent).toContain("Normal route");
     } finally {
@@ -408,11 +405,11 @@ describe("AccountDeletionBrowserBoundary", () => {
     }
   });
 
-  it("does not expose pending access while the completion receipt is loading", async () => {
+  it("keeps the deleted JWT behind verification while the completion receipt catches up", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
     locationState.pathname = "/account-deletion";
-    queryState.viewer = { role: "role_pending_access" };
-    queryState.completion = undefined;
+    queryState.viewer = { role: "role_anonymous" };
+    queryState.completion = null;
 
     const mounted = await renderBoundary();
     try {

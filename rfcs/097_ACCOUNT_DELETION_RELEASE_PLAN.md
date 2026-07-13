@@ -275,6 +275,19 @@ test succeeds in the production-like environment with a dedicated non-staff acco
 - Add route and UI tests for confirmation, deletion-only progress, failure, retry, and success.
 - Add real-route desktop and mobile screenshots, then pass `pnpm test:visual:linux`.
 
+### Manual validation evidence
+
+On 2026-07-13, after deleting the Samebase account that provisioned
+`nicu-chiciuc/tmp-something-something` through Convex OAuth, two new non-main pull requests
+completed Cloudflare Workers Builds and published live branch previews:
+[PR #1](https://github.com/nicu-chiciuc/tmp-something-something/pull/1) and
+[PR #2](https://github.com/nicu-chiciuc/tmp-something-something/pull/2). This template requires
+`PREVIEW_CONVEX_DEPLOY_KEY` and runs `convex deploy --preview-name` for every non-main build. The
+successful builds confirm that the previously distributed OAuth-backed Convex preview deploy key
+remained usable after Samebase erased its local account and provider credentials. This does not
+claim that the key survives the user manually revoking Samebase under Convex Authorized
+Applications.
+
 ## Rollout
 
 1. **Foundation:** add the deletion gate, run and event model, cleanup registry, bounded workflow,

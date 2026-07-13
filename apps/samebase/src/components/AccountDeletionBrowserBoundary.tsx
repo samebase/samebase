@@ -82,17 +82,19 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
   const [cleanupState, setCleanupState] = useState<CleanupState>("idle");
   const [showChildren, setShowChildren] = useState(false);
   const cleanupStartedRef = useRef(false);
+  // A deleted initiating session can retain its cached JWT briefly. The missing user row makes
+  // that authenticated browser anonymous until sign-out clears the local tokens.
   const ownsCompletionReceipt =
     completionCapability !== null &&
     (!isAuthenticated ||
       (viewerAccess?.role === "role_deleting" &&
         status?.completionCapability === completionCapability) ||
-      viewerAccess?.role === "role_pending_access");
+      viewerAccess?.role === "role_anonymous");
   useEffect(() => {
     if (
       pathname === ACCOUNT_DELETION_ROUTE ||
       (viewerAccess?.role !== "role_deleting" &&
-        (viewerAccess?.role !== "role_pending_access" || completionCapability === null))
+        (viewerAccess?.role !== "role_anonymous" || completionCapability === null))
     ) {
       return;
     }
@@ -105,7 +107,7 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
       !isAuthenticated ||
       viewerAccess === undefined ||
       viewerAccess.role === "role_deleting" ||
-      viewerAccess.role === "role_pending_access"
+      viewerAccess.role === "role_anonymous"
     ) {
       return;
     }
@@ -154,7 +156,7 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     return (
       <AccountDeletionCompletionPage
         action={
-          completion === null
+          completion === null && viewerAccess?.role !== "role_anonymous"
             ? {
                 label: isAuthenticated ? "Continue to Samebase" : "Sign in to view status",
                 onClick: () => {
