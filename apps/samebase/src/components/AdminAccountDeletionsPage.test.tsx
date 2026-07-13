@@ -9,13 +9,13 @@ const mutationState = vi.hoisted(() => ({ retry: vi.fn() }));
 const queryState = vi.hoisted(() => ({
   detail: {
     run: {
-      runId: "run-1",
+      runId: "run_id-1",
       state: "needs_attention",
       currentStep: "revoke_access",
       requestedAt: 1,
       latestProgressAt: 2,
       retryCount: 1,
-      email: "person@example.test",
+      email: "person_name@example.test",
       latestSafeError: "Provider revocation needs staff attention.",
       outcomes: {
         billing: {
@@ -78,13 +78,30 @@ describe("AdminAccountDeletionsPage", () => {
     try {
       expect(rootElement.querySelector("[data-posthog-mask]")).not.toBeNull();
       const operation = Array.from(rootElement.querySelectorAll("button")).find(
-        (button) => button.textContent === "run-1",
+        (button) => button.textContent === "run_id-1",
       );
       await act(async () => operation?.click());
 
       expect(operation?.getAttribute("aria-pressed")).toBe("true");
-      expect(rootElement.textContent).toContain("person@example.test");
-      expect(rootElement.textContent).toContain("run-1");
+      const detailList = rootElement.querySelector("section dl");
+      const detailRows = Array.from(detailList?.children ?? []);
+      const operationDetail = detailRows.find(
+        (row) => row.querySelector("dt")?.textContent === "Operation",
+      );
+      const accountDetail = detailRows.find(
+        (row) => row.querySelector("dt")?.textContent === "Account",
+      );
+      const convexDetail = detailRows.find(
+        (row) => row.querySelector("dt")?.textContent === "Convex",
+      );
+      const completionEmailDetail = detailRows.find(
+        (row) => row.querySelector("dt")?.textContent === "Completion email",
+      );
+
+      expect(operationDetail?.querySelector("dd")?.textContent).toBe("run_id-1");
+      expect(accountDetail?.querySelector("dd")?.textContent).toBe("person_name@example.test");
+      expect(convexDetail?.querySelector("dd")?.textContent).toBe("manual revocation required");
+      expect(completionEmailDetail?.querySelector("dd")?.textContent).toBe("delivery failed");
       expect(rootElement.textContent).toContain("Billing cancellation could not be confirmed.");
       expect(rootElement.textContent).toContain(
         "Completion email delivery could not be confirmed.",
@@ -99,7 +116,7 @@ describe("AdminAccountDeletionsPage", () => {
         retry?.click();
         await Promise.resolve();
       });
-      expect(mutationState.retry).toHaveBeenCalledWith({ runId: "run-1" });
+      expect(mutationState.retry).toHaveBeenCalledWith({ runId: "run_id-1" });
     } finally {
       await act(async () => root.unmount());
       rootElement.remove();

@@ -9,7 +9,7 @@ function OutcomeState({ label, state }: { label: string; state: string }) {
   return (
     <div className="grid gap-1 sm:grid-cols-[10rem_1fr] sm:gap-4">
       <dt className="text-sm font-medium">{label}</dt>
-      <dd className="text-sm text-muted-foreground">{state.replace(/_/g, " ")}</dd>
+      <dd className="text-sm text-muted-foreground">{state}</dd>
     </div>
   );
 }
@@ -28,11 +28,6 @@ export function AdminAccountDeletionsPage() {
   const retry = useMutation(api.accountDeletion.index.retry);
   const [retryingRunId, setRetryingRunId] = useState<Id<"accountDeletionRuns"> | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
-
-  const selectRun = (runId: Id<"accountDeletionRuns">) => {
-    setSelectedRunId(runId);
-    setRetryError(null);
-  };
 
   const handleRetry = async (runId: Id<"accountDeletionRuns">) => {
     if (retryingRunId !== null) {
@@ -75,7 +70,10 @@ export function AdminAccountDeletionsPage() {
                     type="button"
                     className="font-mono text-xs underline underline-offset-4"
                     aria-pressed={selectedRunId === run.runId}
-                    onClick={() => selectRun(run.runId)}
+                    onClick={() => {
+                      setSelectedRunId(run.runId);
+                      setRetryError(null);
+                    }}
                   >
                     {run.runId}
                   </button>
@@ -139,27 +137,30 @@ export function AdminAccountDeletionsPage() {
           <dl className="mt-6 space-y-4">
             <OutcomeState label="Operation" state={detail.run.runId} />
             <OutcomeState label="Account" state={detail.run.email ?? "Scrubbed"} />
-            <OutcomeState label="Billing" state={detail.run.outcomes.billing.state} />
+            <OutcomeState
+              label="Billing"
+              state={detail.run.outcomes.billing.state.replace(/_/g, " ")}
+            />
             {detail.run.outcomes.billing.state === "failed" ? (
               <OutcomeState label="Billing error" state={detail.run.outcomes.billing.safeError} />
             ) : null}
             <OutcomeState
               label="Provider revocation"
-              state={detail.run.outcomes.providerRevocation.state}
+              state={detail.run.outcomes.providerRevocation.state.replace(/_/g, " ")}
             />
             {detail.run.outcomes.providerRevocation.state === "completed" ? (
               <>
                 <OutcomeState
                   label="GitHub"
-                  state={detail.run.outcomes.providerRevocation.github.state}
+                  state={detail.run.outcomes.providerRevocation.github.state.replace(/_/g, " ")}
                 />
                 <OutcomeState
                   label="Cloudflare"
-                  state={detail.run.outcomes.providerRevocation.cloudflare.state}
+                  state={detail.run.outcomes.providerRevocation.cloudflare.state.replace(/_/g, " ")}
                 />
                 <OutcomeState
                   label="Convex"
-                  state={detail.run.outcomes.providerRevocation.convex.state}
+                  state={detail.run.outcomes.providerRevocation.convex.state.replace(/_/g, " ")}
                 />
                 {detail.run.outcomes.providerRevocation.github.state === "unconfirmed" ? (
                   <OutcomeState
@@ -184,7 +185,7 @@ export function AdminAccountDeletionsPage() {
             ) : null}
             <OutcomeState
               label="Completion email"
-              state={detail.run.outcomes.completionEmail.state}
+              state={detail.run.outcomes.completionEmail.state.replace(/_/g, " ")}
             />
             {detail.run.outcomes.completionEmail.state === "delivery_failed" ? (
               <OutcomeState

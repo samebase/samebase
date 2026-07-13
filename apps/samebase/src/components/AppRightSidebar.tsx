@@ -59,9 +59,9 @@ function AppRightSidebarSignedInAccountSection({
   profile,
   user,
 }: {
-  authProviders: AppRightSidebarAuthProviders | undefined;
+  authProviders?: AppRightSidebarAuthProviders;
   profile: AppAuthPresentationProfile | null;
-  user: AppRightSidebarViewer | null | undefined;
+  user?: AppRightSidebarViewer | null;
 }) {
   const { setMobilePane } = useWorkspacePaneActions();
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
@@ -82,24 +82,6 @@ function AppRightSidebarSignedInAccountSection({
   );
 }
 
-function GenericSignedInAccountSection({
-  authProviders,
-  profile,
-  user,
-}: {
-  authProviders?: AppRightSidebarAuthProviders;
-  profile: AppAuthPresentationProfile | null;
-  user?: AppRightSidebarViewer | null;
-}) {
-  return (
-    <AppRightSidebarSignedInAccountSection
-      authProviders={authProviders}
-      profile={profile}
-      user={user}
-    />
-  );
-}
-
 function TemporaryAuthenticatedAppRightSidebarContent({
   profile,
 }: {
@@ -107,7 +89,7 @@ function TemporaryAuthenticatedAppRightSidebarContent({
 }) {
   return (
     <VaultDashboardSidebarContent>
-      <GenericSignedInAccountSection profile={profile} />
+      <AppRightSidebarSignedInAccountSection profile={profile} />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -135,7 +117,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           statusLabel="Deleting account"
         />
       ) : (
-        <GenericSignedInAccountSection
+        <AppRightSidebarSignedInAccountSection
           authProviders={authProviders}
           profile={profile}
           user={user}

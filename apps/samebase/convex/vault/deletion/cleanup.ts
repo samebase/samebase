@@ -90,80 +90,48 @@ function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLoca
   };
 }
 
-async function deleteFileStagingBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("fileStaging")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  const storageIds = new Set<Id<"_storage">>();
-  for (const row of rows) {
-    if (row.storageId) {
-      storageIds.add(row.storageId);
-    }
-    await ctx.db.delete(row._id);
-  }
+function deleteStorageBackedByVaultBatch(
+  tableName: "fileStaging" | "blobs",
+): VaultLocalCleanupHandler {
+  return async function deleteStorageBackedByVault(ctx, args) {
+    const rows = await ctx.db
+      .query(tableName)
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+    const storageIds = new Set<Id<"_storage">>();
 
-  for (const storageId of storageIds) {
-    const survivingStaging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-      .first();
-    if (survivingStaging) {
-      continue;
+    for (const row of rows) {
+      if (row.storageId) {
+        storageIds.add(row.storageId);
+      }
+
+      await ctx.db.delete(row._id);
     }
 
-    const survivingBlob = await ctx.db
-      .query("blobs")
-      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-      .first();
-    if (survivingBlob) {
-      continue;
+    for (const storageId of storageIds) {
+      const survivingStaging = await ctx.db
+        .query("fileStaging")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+        .first();
+
+      if (survivingStaging) {
+        continue;
+      }
+
+      const survivingBlob = await ctx.db
+        .query("blobs")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+        .first();
+
+      if (survivingBlob) {
+        continue;
+      }
+
+      await ctx.storage.delete(storageId);
     }
 
-    await ctx.storage.delete(storageId);
-  }
-  return rows.length;
-}
-
-async function deleteBlobsBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("blobs")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  const storageIds = new Set<Id<"_storage">>();
-  for (const row of rows) {
-    if (row.storageId) {
-      storageIds.add(row.storageId);
-    }
-    await ctx.db.delete(row._id);
-  }
-
-  for (const storageId of storageIds) {
-    const survivingStaging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-      .first();
-    if (survivingStaging) {
-      continue;
-    }
-
-    const survivingBlob = await ctx.db
-      .query("blobs")
-      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-      .first();
-    if (survivingBlob) {
-      continue;
-    }
-
-    await ctx.storage.delete(storageId);
-  }
-  return rows.length;
+    return rows.length;
+  };
 }
 
 async function deleteVaultBranchTreesBatch(
@@ -240,7 +208,7 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "fileStaging",
-    cleanup: deleteFileStagingBatch,
+    cleanup: deleteStorageBackedByVaultBatch("fileStaging"),
   },
   {
     table: "collaborativeUpdates",
@@ -248,7 +216,7 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "blobs",
-    cleanup: deleteBlobsBatch,
+    cleanup: deleteStorageBackedByVaultBatch("blobs"),
   },
   {
     table: "folderExpansionState",
@@ -349,14 +317,6 @@ const vaultLocalCleanupRegistryByStep = {
   cleanup_provisioning_history: ["appProvisioningEvents", "appProvisioningRuns"],
 } satisfies Record<VaultDeletionCleanupStep, readonly VaultLocalCleanupTable[]>;
 
-function cleanupEntriesForStep(step: VaultDeletionCleanupStep): ReadonlyArray<{
-  table: VaultLocalCleanupTable;
-  cleanup: VaultLocalCleanupHandler;
-}> {
-  const tables: readonly VaultLocalCleanupTable[] = vaultLocalCleanupRegistryByStep[step];
-  return vaultLocalCleanupRegistry.filter((entry) => tables.some((table) => table === entry.table));
-}
-
 export async function deleteVaultLocalDataBatchForUser(
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
@@ -386,34 +346,6 @@ export async function deleteVaultLocalDataBatchForUser(
   return { state: "deleted" };
 }
 
-export async function cleanupVaultLocalDataStepBatchForUser(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs & {
-    step: VaultDeletionCleanupStep;
-  },
-): Promise<VaultLocalCleanupStepBatchResult> {
-  const vault = await ctx.db.get(args.vaultId);
-  if (!vault) {
-    return { state: "done" };
-  }
-  if (vault.userId !== args.userId) {
-    throw new Error("Vault not found");
-  }
-
-  for (const entry of cleanupEntriesForStep(args.step)) {
-    const rowsChanged = await entry.cleanup(ctx, args);
-    if (rowsChanged > 0) {
-      return {
-        state: "needs_more",
-        table: entry.table,
-        rowsChanged,
-      };
-    }
-  }
-
-  return { state: "done" };
-}
-
 export const deleteVaultLocalDataBatch = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -430,7 +362,37 @@ export const cleanupVaultLocalDataStepBatch = internalMutation({
     step: vVaultDeletionCleanupStep,
   },
   returns: vaultLocalCleanupStepBatchResult,
-  handler: cleanupVaultLocalDataStepBatchForUser,
+  handler: async (ctx, args): Promise<VaultLocalCleanupStepBatchResult> => {
+    const vault = await ctx.db.get(args.vaultId);
+
+    if (!vault) {
+      return { state: "done" };
+    }
+
+    if (vault.userId !== args.userId) {
+      throw new Error("Vault not found");
+    }
+
+    const tables: readonly VaultLocalCleanupTable[] = vaultLocalCleanupRegistryByStep[args.step];
+
+    for (const entry of vaultLocalCleanupRegistry) {
+      if (!tables.some((table) => table === entry.table)) {
+        continue;
+      }
+
+      const rowsChanged = await entry.cleanup(ctx, args);
+
+      if (rowsChanged > 0) {
+        return {
+          state: "needs_more",
+          table: entry.table,
+          rowsChanged,
+        };
+      }
+    }
+
+    return { state: "done" };
+  },
 });
 
 export const deleteVaultRow = internalMutation({

@@ -205,7 +205,6 @@ describe("lint config", () => {
     const accountDeletionOverride = oxlintConfig.overrides?.find((override) =>
       override.files?.includes("apps/samebase/convex/accountDeletion/**/*.{ts,tsx}"),
     );
-
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
     expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
@@ -247,6 +246,16 @@ describe("lint config", () => {
         },
       ],
     });
+    expect(accountDeletionOverride?.files).toEqual(
+      expect.arrayContaining([
+        "apps/samebase/convex/vault/deletion/**/*.{ts,tsx}",
+        "apps/samebase/src/authClient.ts",
+        "apps/samebase/src/components/AccountDeletion*.tsx",
+        "apps/samebase/src/components/AdminAccountDeletionsPage.tsx",
+        "apps/samebase/src/components/AppRightSidebar.tsx",
+        "apps/samebase/src/lib/accountDeletion*.ts",
+      ]),
+    );
     expect(accountDeletionOverride?.rules).toMatchObject({
       "samebase/no-pass-through-function-declaration": "error",
     });
