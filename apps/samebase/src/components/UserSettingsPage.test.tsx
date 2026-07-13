@@ -44,12 +44,14 @@ const mutationState = vi.hoisted(() => ({
 }));
 const queryState = vi.hoisted<{
   settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
+  stakes: { vaultCount: number; uncommittedFileChangeCount: number | "more_than_cap" } | undefined;
 }>(() => ({
   settings: {
     displayName: "Current name",
     hasActiveSubscription: false,
     signInEmail: "nicu@samebase.com",
   },
+  stakes: { vaultCount: 0, uncommittedFileChangeCount: 0 },
 }));
 
 vi.mock("@convex-dev/auth/react", () => ({
@@ -74,7 +76,12 @@ vi.mock("convex/react", async (importOriginal) => {
       getFunctionName(reference) === "accountDeletion/index:request"
         ? mutationState.requestDeletion
         : mutationState.setDisplayName,
-    useQuery: () => queryState.settings,
+    useQuery: (reference: Parameters<typeof getFunctionName>[0], args?: unknown) => {
+      if (getFunctionName(reference) === "accountDeletion/index:stakes") {
+        return args === "skip" ? undefined : queryState.stakes;
+      }
+      return queryState.settings;
+    },
   };
 });
 
@@ -137,6 +144,37 @@ function createDeferred<Value>() {
   return { promise, resolve: control.resolve };
 }
 
+function setInputValue(input: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
+  if (!descriptor || typeof descriptor.set !== "function") {
+    throw new Error("HTMLInputElement value setter is unavailable.");
+  }
+  descriptor.set.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+async function openDeleteDialog(mounted: Awaited<ReturnType<typeof mountSettingsPage>>) {
+  await act(async () => {
+    Array.from(mounted.rootElement.querySelectorAll("button"))
+      .find((button) => button.textContent === "Delete account")
+      ?.click();
+  });
+  const confirmButton = Array.from(document.body.querySelectorAll("button")).find(
+    (button) => button.textContent === "Delete account" && !mounted.rootElement.contains(button),
+  );
+  const phraseInput = document.getElementById("settings-delete-account-confirmation");
+  if (!(phraseInput instanceof HTMLInputElement)) {
+    throw new Error("Confirmation phrase input did not render.");
+  }
+  return { confirmButton, phraseInput };
+}
+
+async function typeConfirmationPhrase(input: HTMLInputElement, phrase: string) {
+  await act(async () => {
+    setInputValue(input, phrase);
+  });
+}
+
 describe("UserSettingsPage", () => {
   beforeEach(() => {
     authState.fetchAccessToken.mockReset();
@@ -154,6 +192,7 @@ describe("UserSettingsPage", () => {
       hasActiveSubscription: false,
       signInEmail: "nicu@samebase.com",
     };
+    queryState.stakes = { vaultCount: 0, uncommittedFileChangeCount: 0 };
   });
 
   it("keeps Sign out prominent in the page header and pending until completion", async () => {
@@ -279,15 +318,7 @@ describe("UserSettingsPage", () => {
 
       expect(mounted.rootElement.textContent).toContain("Refresh unavailable");
       await act(async () => {
-        const descriptor = Object.getOwnPropertyDescriptor(
-          window.HTMLInputElement.prototype,
-          "value",
-        );
-        if (!descriptor || typeof descriptor.set !== "function") {
-          throw new Error("HTMLInputElement value setter is unavailable.");
-        }
-        descriptor.set.call(input, "Unsaved draft");
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        setInputValue(input, "Unsaved draft");
       });
 
       expect(mounted.rootElement.textContent).toContain("Refresh unavailable");
@@ -465,15 +496,11 @@ describe("UserSettingsPage", () => {
   it("warns about local changes and preserves external resources", async () => {
     const mounted = await mountSettingsPage();
     try {
-      await act(async () => {
-        Array.from(mounted.rootElement.querySelectorAll("button"))
-          .find((button) => button.textContent === "Delete account")
-          ?.click();
-      });
+      await openDeleteDialog(mounted);
 
       expect(document.body.textContent).toContain("Delete account?");
       expect(document.body.textContent).toContain(
-        "Your GitHub repositories, Convex projects, Cloudflare Workers, and other external resources keep running.",
+        "This permanently deletes your Samebase account and data. Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
       );
       expect(document.body.textContent).toContain(
         "Any uncommitted file changes in Samebase will be permanently deleted. They will not be pushed to GitHub.",
@@ -488,11 +515,7 @@ describe("UserSettingsPage", () => {
     queryState.settings.hasActiveSubscription = true;
     const mounted = await mountSettingsPage();
     try {
-      await act(async () => {
-        Array.from(mounted.rootElement.querySelectorAll("button"))
-          .find((button) => button.textContent === "Delete account")
-          ?.click();
-      });
+      await openDeleteDialog(mounted);
 
       expect(document.body.textContent).toContain(
         "Your Samebase subscription will be canceled immediately. Unused time is not automatically refunded.",
@@ -502,22 +525,80 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("renders the stakes phrase and enables deletion only on an exact match", async () => {
+    queryState.stakes = { vaultCount: 2, uncommittedFileChangeCount: 3 };
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+
+      expect(document.body.textContent).toContain("Type the phrase to confirm");
+      expect(document.body.textContent).toContain(
+        "delete my account, 2 vaults, and 3 uncommitted file changes",
+      );
+      expect(confirmButton?.disabled).toBe(true);
+
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      expect(confirmButton?.disabled).toBe(true);
+
+      await typeConfirmationPhrase(
+        phraseInput,
+        "delete my account, 2 vaults, and 3 uncommitted file changes",
+      );
+      expect(confirmButton?.disabled).toBe(false);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("keeps deletion disabled while the stakes are still loading", async () => {
+    queryState.stakes = undefined;
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      expect(confirmButton?.disabled).toBe(true);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("asks for a new confirmation when the stakes changed during the request", async () => {
+    mutationState.requestDeletion.mockResolvedValue({
+      state: "stakes_changed",
+      vaultCount: 1,
+      uncommittedFileChangeCount: 0,
+    });
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      await act(async () => {
+        confirmButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(1);
+      expect(document.body.textContent).toContain("The numbers changed. Review and confirm again.");
+      expect(routerState.navigate).not.toHaveBeenCalled();
+      expect(confirmButton?.disabled).toBe(false);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("persists the completion capability before requesting deletion", async () => {
-    const deletion = createDeferred<{ completionCapability: string; runId: string }>();
+    const deletion = createDeferred<{
+      state: "accepted";
+      status: { completionCapability: string; runId: string };
+    }>();
     mutationState.requestDeletion.mockReturnValue(deletion.promise);
     const mounted = await mountSettingsPage();
     try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
       await act(async () => {
-        Array.from(mounted.rootElement.querySelectorAll("button"))
-          .find((button) => button.textContent === "Delete account")
-          ?.click();
-      });
-      const dialogDelete = Array.from(document.body.querySelectorAll("button")).find(
-        (button) =>
-          button.textContent === "Delete account" && !mounted.rootElement.contains(button),
-      );
-      await act(async () => {
-        dialogDelete?.click();
+        confirmButton?.click();
         await Promise.resolve();
       });
 
@@ -525,18 +606,22 @@ describe("UserSettingsPage", () => {
         button.textContent.includes("Deleting..."),
       );
       expect(pageDelete?.disabled).toBe(true);
-      expect(dialogDelete?.disabled).toBe(true);
+      expect(confirmButton?.disabled).toBe(true);
       expect(routerState.navigate).not.toHaveBeenCalled();
       const requestArgs = mutationState.requestDeletion.mock.calls[0]?.[0];
       expect(requestArgs?.completionCapability).toMatch(/^[0-9a-f]{64}$/);
+      expect(requestArgs?.confirmationPhrase).toBe("delete my account");
       expect(
         JSON.parse(window.localStorage.getItem("samebase:account-deletion") ?? "null"),
       ).toEqual({ completionCapability: requestArgs?.completionCapability });
 
       await act(async () => {
         deletion.resolve({
-          completionCapability: requestArgs?.completionCapability ?? "",
-          runId: "run-1",
+          state: "accepted",
+          status: {
+            completionCapability: requestArgs?.completionCapability ?? "",
+            runId: "run-1",
+          },
         });
         await deletion.promise;
       });
@@ -564,17 +649,10 @@ describe("UserSettingsPage", () => {
     });
     const mounted = await mountSettingsPage();
     try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
       await act(async () => {
-        Array.from(mounted.rootElement.querySelectorAll("button"))
-          .find((button) => button.textContent === "Delete account")
-          ?.click();
-      });
-      const dialogDelete = Array.from(document.body.querySelectorAll("button")).find(
-        (button) =>
-          button.textContent === "Delete account" && !mounted.rootElement.contains(button),
-      );
-      await act(async () => {
-        dialogDelete?.click();
+        confirmButton?.click();
         await Promise.resolve();
       });
 
@@ -591,17 +669,10 @@ describe("UserSettingsPage", () => {
     mutationState.requestDeletion.mockRejectedValue(new Error("provider secret response"));
     const mounted = await mountSettingsPage();
     try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
       await act(async () => {
-        Array.from(mounted.rootElement.querySelectorAll("button"))
-          .find((button) => button.textContent === "Delete account")
-          ?.click();
-      });
-      const dialogDelete = Array.from(document.body.querySelectorAll("button")).find(
-        (button) =>
-          button.textContent === "Delete account" && !mounted.rootElement.contains(button),
-      );
-      await act(async () => {
-        dialogDelete?.click();
+        confirmButton?.click();
         await Promise.resolve();
       });
 
@@ -609,12 +680,12 @@ describe("UserSettingsPage", () => {
         "Could not start account deletion. Please try again.",
       );
       expect(document.body.textContent).not.toContain("provider secret response");
-      expect(dialogDelete?.disabled).toBe(false);
+      expect(confirmButton?.disabled).toBe(false);
 
       const firstCapability =
         mutationState.requestDeletion.mock.calls[0]?.[0]?.completionCapability;
       await act(async () => {
-        dialogDelete?.click();
+        confirmButton?.click();
         await Promise.resolve();
       });
 

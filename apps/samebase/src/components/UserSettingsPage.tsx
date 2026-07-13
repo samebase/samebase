@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
+import { buildAccountDeletionConfirmationPhrase } from "../../shared/accountDeletionPhrase";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,13 @@ export function UserSettingsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
+  const [confirmationInput, setConfirmationInput] = useState("");
+  const deletionStakes = useQuery(
+    api.accountDeletion.index.stakes,
+    isDeleteDialogOpen ? {} : "skip",
+  );
+  const expectedConfirmationPhrase =
+    deletionStakes === undefined ? null : buildAccountDeletionConfirmationPhrase(deletionStakes);
 
   if (settings === undefined) {
     return null;
@@ -187,8 +195,18 @@ export function UserSettingsPage() {
     }
 
     try {
-      const status = await requestAccountDeletion({ completionCapability });
-      writeAccountDeletionBrowserMarker(status.completionCapability);
+      const result = await requestAccountDeletion({
+        completionCapability,
+        confirmationPhrase: confirmationInput,
+      });
+      if (result.state === "stakes_changed") {
+        // The displayed phrase self-updates through the stakes subscription;
+        // the stale input stops matching, so the confirm button re-disables.
+        setDeletionError("The numbers changed. Review and confirm again.");
+        setIsRequestingDeletion(false);
+        return;
+      }
+      writeAccountDeletionBrowserMarker(result.status.completionCapability);
       void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
     } catch {
       // A transport failure cannot prove the atomic request did not commit.
@@ -290,6 +308,7 @@ export function UserSettingsPage() {
             disabled={isRequestingDeletion}
             onClick={() => {
               setDeletionError(null);
+              setConfirmationInput("");
               setIsDeleteDialogOpen(true);
             }}
           >
@@ -310,8 +329,9 @@ export function UserSettingsPage() {
           <DialogHeader>
             <DialogTitle>Delete account?</DialogTitle>
             <DialogDescription>
-              This deletes your Samebase account and data. Your GitHub repositories, Convex
-              projects, Cloudflare Workers, and other external resources keep running.
+              This permanently deletes your Samebase account and data. Nothing outside Samebase is
+              deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep
+              running.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
@@ -325,6 +345,21 @@ export function UserSettingsPage() {
                 automatically refunded.
               </p>
             ) : null}
+            <div className="space-y-2">
+              <Label htmlFor="settings-delete-account-confirmation">
+                Type the phrase to confirm
+              </Label>
+              {expectedConfirmationPhrase === null ? null : (
+                <p className="font-medium select-all">{expectedConfirmationPhrase}</p>
+              )}
+              <Input
+                id="settings-delete-account-confirmation"
+                value={confirmationInput}
+                autoComplete="off"
+                disabled={isRequestingDeletion}
+                onChange={(event) => setConfirmationInput(event.target.value)}
+              />
+            </div>
             {deletionError === null ? null : (
               <p className="text-destructive" role="alert">
                 {deletionError}
@@ -343,7 +378,11 @@ export function UserSettingsPage() {
             <Button
               type="button"
               variant="destructive"
-              disabled={isRequestingDeletion}
+              disabled={
+                isRequestingDeletion ||
+                expectedConfirmationPhrase === null ||
+                confirmationInput !== expectedConfirmationPhrase
+              }
               onClick={() => void handleDeleteAccount()}
             >
               {isRequestingDeletion ? (
