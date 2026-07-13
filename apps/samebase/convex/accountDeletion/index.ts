@@ -6,9 +6,11 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { DatabaseReader } from "../_generated/server";
 import { mutation, query } from "../functions";
 import { isAdminUser } from "../userAccess";
+import { isLiveConnectedVault } from "../vault/state";
 import {
   ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
   buildAccountDeletionConfirmationPhrase,
+  serializeAccountDeletionConfirmationStakes,
 } from "../../shared/accountDeletionPhrase";
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import {
@@ -20,7 +22,7 @@ import {
 } from "./model";
 import { startAccountDeletionWorkflow } from "./workflow";
 
-const { array, id, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const vActiveAccountDeletionRunState = union(
   literal("queued"),
@@ -48,9 +50,31 @@ const vAccountDeletionStatus = object({
   ),
 });
 
+const vAccountDeletionAffectedBranch = object({
+  branch: string(),
+  uncommittedFileChangeCount: number(),
+});
+
+const vAccountDeletionAffectedVault = object({
+  vaultId: id("vaults"),
+  repositoryFullName: string(),
+  uncommittedFileChangeCount: number(),
+  branches: array(vAccountDeletionAffectedBranch),
+});
+
+const vAccountDeletionAffectedVaults = union(
+  object({
+    state: literal("complete"),
+    vaults: array(vAccountDeletionAffectedVault),
+  }),
+  object({ state: literal("unavailable") }),
+);
+
 const accountDeletionStakesFields = {
   vaultCount: number(),
   uncommittedFileChangeCount: union(number(), literal("more_than_cap")),
+  hasActiveSubscription: boolean(),
+  affectedVaults: vAccountDeletionAffectedVaults,
 } as const;
 
 const vAccountDeletionStakes = object(accountDeletionStakesFields);
@@ -138,15 +162,23 @@ stakes read unbounded.
 async function countAccountDeletionStakes(
   db: DatabaseReader,
   userId: Id<"users">,
+  hasActiveSubscription: boolean,
 ): Promise<Infer<typeof vAccountDeletionStakes>> {
   const vaults = await db
     .query("vaults")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .collect();
 
+  const affectedVaults: Array<Infer<typeof vAccountDeletionAffectedVault>> = [];
+  let affectedVaultsComplete = true;
   let uncommittedFileChangeCount = 0;
+
   for (const vault of vaults) {
+    const reviewableVault = isLiveConnectedVault(vault) ? vault : null;
+    const uncommittedFileChangesByBranch = new Map<string, number>();
+    let vaultUncommittedFileChangeCount = 0;
     let cursorCreationTime: number | undefined;
+
     for (;;) {
       const batch = await db
         .query("fileStaging")
@@ -161,9 +193,26 @@ async function countAccountDeletionStakes(
         if (!hasStagedFileChanges(file)) {
           continue;
         }
+
         uncommittedFileChangeCount += 1;
+        vaultUncommittedFileChangeCount += 1;
+
+        if (reviewableVault === null) {
+          affectedVaultsComplete = false;
+        } else {
+          uncommittedFileChangesByBranch.set(
+            file.branch,
+            (uncommittedFileChangesByBranch.get(file.branch) ?? 0) + 1,
+          );
+        }
+
         if (uncommittedFileChangeCount > ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP) {
-          return { vaultCount: vaults.length, uncommittedFileChangeCount: "more_than_cap" };
+          return {
+            vaultCount: vaults.length,
+            uncommittedFileChangeCount: "more_than_cap",
+            hasActiveSubscription,
+            affectedVaults: { state: "unavailable" },
+          };
         }
       }
 
@@ -172,9 +221,35 @@ async function countAccountDeletionStakes(
       }
       cursorCreationTime = batch[batch.length - 1]._creationTime;
     }
+
+    if (reviewableVault !== null && vaultUncommittedFileChangeCount > 0) {
+      affectedVaults.push({
+        vaultId: reviewableVault._id,
+        repositoryFullName: `${reviewableVault.owner}/${reviewableVault.name}`,
+        uncommittedFileChangeCount: vaultUncommittedFileChangeCount,
+        branches: Array.from(uncommittedFileChangesByBranch, ([branch, count]) => ({
+          branch,
+          uncommittedFileChangeCount: count,
+        })).sort((left, right) => left.branch.localeCompare(right.branch)),
+      });
+    }
   }
 
-  return { vaultCount: vaults.length, uncommittedFileChangeCount };
+  return {
+    vaultCount: vaults.length,
+    uncommittedFileChangeCount,
+    hasActiveSubscription,
+    affectedVaults: affectedVaultsComplete
+      ? {
+          state: "complete",
+          vaults: affectedVaults.sort(
+            (left, right) =>
+              left.repositoryFullName.localeCompare(right.repositoryFullName) ||
+              left.vaultId.localeCompare(right.vaultId),
+          ),
+        }
+      : { state: "unavailable" },
+  };
 }
 
 export const stakes = query({
@@ -182,13 +257,21 @@ export const stakes = query({
   args: {},
   returns: vAccountDeletionStakes,
   handler: async (ctx) => {
-    return await countAccountDeletionStakes(ctx.db, ctx.viewer.userId);
+    return await countAccountDeletionStakes(
+      ctx.db,
+      ctx.viewer.userId,
+      ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
+    );
   },
 });
 
 export const request = mutation({
   access: "access_account_deletion",
-  args: { completionCapability: string(), confirmationPhrase: string() },
+  args: {
+    completionCapability: string(),
+    confirmationPhrase: string(),
+    confirmationStakesSnapshot: string(),
+  },
   returns: vAccountDeletionRequestResult,
   handler: async (ctx, args) => {
     if (isAdminUser(ctx.viewer.user.email)) {
@@ -231,11 +314,18 @@ export const request = mutation({
       throw new Error("Account deletion completion capability is already in use.");
     }
 
-    const currentStakes = await countAccountDeletionStakes(ctx.db, ctx.viewer.userId);
-    if (args.confirmationPhrase !== buildAccountDeletionConfirmationPhrase(currentStakes)) {
-      // Expected UI state: the counts moved after the dialog rendered its
-      // phrase (or the phrase was mistyped). Nothing is created; the dialog
-      // re-renders from these fresh counts and asks for confirmation again.
+    const currentStakes = await countAccountDeletionStakes(
+      ctx.db,
+      ctx.viewer.userId,
+      ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
+    );
+    if (
+      args.confirmationPhrase !== buildAccountDeletionConfirmationPhrase(currentStakes) ||
+      args.confirmationStakesSnapshot !== serializeAccountDeletionConfirmationStakes(currentStakes)
+    ) {
+      // Expected UI state: any displayed stake moved after the dialog rendered,
+      // or the phrase was mistyped. Nothing is created; the dialog re-renders
+      // from this fresh snapshot and asks for confirmation again.
       return { state: "stakes_changed" as const, ...currentStakes };
     }
 

@@ -9,6 +9,24 @@ export type AccountDeletionStakes = {
   uncommittedFileChangeCount: number | "more_than_cap";
 };
 
+export type AccountDeletionConfirmationStakes = AccountDeletionStakes & {
+  hasActiveSubscription: boolean;
+  affectedVaults:
+    | {
+        state: "complete";
+        vaults: ReadonlyArray<{
+          vaultId: string;
+          repositoryFullName: string;
+          uncommittedFileChangeCount: number;
+          branches: ReadonlyArray<{
+            branch: string;
+            uncommittedFileChangeCount: number;
+          }>;
+        }>;
+      }
+    | { state: "unavailable" };
+};
+
 function formatCount(count: number, singularNoun: string): string {
   return count === 1 ? `1 ${singularNoun}` : `${count} ${singularNoun}s`;
 }
@@ -39,4 +57,34 @@ export function buildAccountDeletionConfirmationPhrase(stakes: AccountDeletionSt
     return `delete my account and ${stakeParts[0]}`;
   }
   return `delete my account, ${stakeParts[0]}, and ${stakeParts[1]}`;
+}
+
+/**
+The request binds confirmation to every stake the dialog displays, not only the
+aggregate counts in the typed phrase. Rebuilding the object also ignores union
+discriminants added by mutation result wrappers.
+*/
+export function serializeAccountDeletionConfirmationStakes(
+  stakes: AccountDeletionConfirmationStakes,
+): string {
+  return JSON.stringify({
+    vaultCount: stakes.vaultCount,
+    uncommittedFileChangeCount: stakes.uncommittedFileChangeCount,
+    hasActiveSubscription: stakes.hasActiveSubscription,
+    affectedVaults:
+      stakes.affectedVaults.state === "unavailable"
+        ? { state: "unavailable" }
+        : {
+            state: "complete",
+            vaults: stakes.affectedVaults.vaults.map((vault) => ({
+              vaultId: vault.vaultId,
+              repositoryFullName: vault.repositoryFullName,
+              uncommittedFileChangeCount: vault.uncommittedFileChangeCount,
+              branches: vault.branches.map((branch) => ({
+                branch: branch.branch,
+                uncommittedFileChangeCount: branch.uncommittedFileChangeCount,
+              })),
+            })),
+          },
+  });
 }

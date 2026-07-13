@@ -7,6 +7,7 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import schema from "../schema";
 import { makeConvexTest } from "../test.setup";
+import { serializeAccountDeletionConfirmationStakes } from "../../shared/accountDeletionPhrase";
 
 const workflowId = "account-deletion-workflow-1";
 const now = 1_700_000_000_000;
@@ -87,6 +88,12 @@ describe("account deletion workflow ownership and outcomes", () => {
         completionCapability: "a".repeat(64),
         // Zero vaults are seeded, so the current confirmation phrase is the base one.
         confirmationPhrase: "delete my account",
+        confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes({
+          vaultCount: 0,
+          uncommittedFileChangeCount: 0,
+          hasActiveSubscription: false,
+          affectedVaults: { state: "complete", vaults: [] },
+        }),
       }),
     ).rejects.toThrow();
     const stored = await t.run(async (ctx) => ({

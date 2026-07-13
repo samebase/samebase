@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildAccountDeletionConfirmationPhrase } from "./accountDeletionPhrase";
+import {
+  buildAccountDeletionConfirmationPhrase,
+  serializeAccountDeletionConfirmationStakes,
+} from "./accountDeletionPhrase";
 
 describe("buildAccountDeletionConfirmationPhrase", () => {
   it("names only the account when nothing else is at stake", () => {
@@ -52,5 +55,47 @@ describe("buildAccountDeletionConfirmationPhrase", () => {
         uncommittedFileChangeCount: "more_than_cap",
       }),
     ).toBe("delete my account, 2 vaults, and more than 500 uncommitted file changes");
+  });
+});
+
+describe("serializeAccountDeletionConfirmationStakes", () => {
+  it("changes when the displayed repository, branch, or billing warning changes", () => {
+    const initial = {
+      vaultCount: 1,
+      uncommittedFileChangeCount: 1,
+      hasActiveSubscription: false,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            vaultId: "vault-1",
+            repositoryFullName: "samebase/notes",
+            uncommittedFileChangeCount: 1,
+            branches: [{ branch: "main", uncommittedFileChangeCount: 1 }],
+          },
+        ],
+      },
+    } as const;
+
+    expect(
+      serializeAccountDeletionConfirmationStakes({
+        ...initial,
+        affectedVaults: {
+          state: "complete",
+          vaults: [
+            {
+              ...initial.affectedVaults.vaults[0],
+              branches: [{ branch: "feature/review", uncommittedFileChangeCount: 1 }],
+            },
+          ],
+        },
+      }),
+    ).not.toBe(serializeAccountDeletionConfirmationStakes(initial));
+    expect(
+      serializeAccountDeletionConfirmationStakes({
+        ...initial,
+        hasActiveSubscription: true,
+      }),
+    ).not.toBe(serializeAccountDeletionConfirmationStakes(initial));
   });
 });

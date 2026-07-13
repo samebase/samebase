@@ -6,6 +6,7 @@ import { makeConvexTest } from "../test.setup";
 import {
   ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
   buildAccountDeletionConfirmationPhrase,
+  serializeAccountDeletionConfirmationStakes,
 } from "../../shared/accountDeletionPhrase";
 
 const now = 1_700_000_000_000;
@@ -43,9 +44,11 @@ async function requestAccepted(
   asUser: ReturnType<ReturnType<typeof makeConvexTest>["withIdentity"]>,
   confirmationPhrase = zeroStakesConfirmationPhrase,
 ) {
+  const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
   const result = await asUser.mutation(api.accountDeletion.index.request, {
     completionCapability,
     confirmationPhrase,
+    confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(confirmationStakes),
   });
   if (result.state !== "accepted") {
     throw new Error("Expected the account deletion request to be accepted.");
@@ -53,22 +56,59 @@ async function requestAccepted(
   return result.status;
 }
 
-async function seedVault(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
+async function seedVault(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Id<"users">,
+  name = "test-vault",
+) {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert("vaults", {
+    const vaultId = await ctx.db.insert("vaults", {
       userId,
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
+    const runId = await ctx.db.insert("appProvisioningRuns", {
+      userId,
+      vaultId,
+      repositoryFullName: `ada/${name}`,
+      trigger: "create",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: now,
+      updatedAt: now,
+      completedAt: now,
+    });
+
+    await ctx.db.replace(vaultId, {
+      userId,
+      deletion: { state: "not_deleting" },
+      state: "connected",
+      githubMode: "create_repository",
+      runId,
+      ghRepoId: `${vaultId}-github`,
+      owner: "ada",
+      name,
+      defaultBranch: "main",
+      visibility: "private",
+      connectedAt: now,
+    });
+
+    return vaultId;
   });
 }
 
 async function seedStagedFile(
   t: ReturnType<typeof makeConvexTest>,
-  args: { userId: Id<"users">; vaultId: Id<"vaults">; filePath: string; changed: boolean },
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    filePath: string;
+    changed: boolean;
+    branch?: string;
+  },
 ) {
-  await t.run(async (ctx) => {
-    await ctx.db.insert("fileStaging", {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("fileStaging", {
       ownerId: args.userId,
       vaultId: args.vaultId,
       fileDeleted: false,
@@ -80,7 +120,7 @@ async function seedStagedFile(
       parentCommitSha: "parent-sha",
       lastEditTime: now,
       lastEditUserId: args.userId,
-      branch: "main",
+      branch: args.branch ?? "main",
       version: 1,
     });
   });
@@ -151,6 +191,7 @@ describe("account deletion foundation", () => {
       staff.asUser.mutation(api.accountDeletion.index.request, {
         completionCapability,
         confirmationPhrase: zeroStakesConfirmationPhrase,
+        confirmationStakesSnapshot: "staff deletion is rejected before confirmation",
       }),
     ).rejects.toThrow("Staff accounts cannot request account deletion.");
     await expect(
@@ -470,14 +511,21 @@ describe("account deletion stakes and typed confirmation", () => {
   it("counts only the viewer's vaults and real staged changes", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const other = await seedUser({ email: "grace@example.com", t: owner.t });
-    const firstVaultId = await seedVault(owner.t, owner.ids.userId);
-    const secondVaultId = await seedVault(owner.t, owner.ids.userId);
-    const otherVaultId = await seedVault(owner.t, other.ids.userId);
+    const firstVaultId = await seedVault(owner.t, owner.ids.userId, "zeta");
+    const secondVaultId = await seedVault(owner.t, owner.ids.userId, "alpha");
+    const otherVaultId = await seedVault(owner.t, other.ids.userId, "other");
     await seedStagedFile(owner.t, {
       userId: owner.ids.userId,
       vaultId: firstVaultId,
       filePath: "changed.md",
       changed: true,
+    });
+    await seedStagedFile(owner.t, {
+      userId: owner.ids.userId,
+      vaultId: firstVaultId,
+      filePath: "feature.md",
+      changed: true,
+      branch: "feature/zeta",
     });
     await seedStagedFile(owner.t, {
       userId: owner.ids.userId,
@@ -490,6 +538,7 @@ describe("account deletion stakes and typed confirmation", () => {
       vaultId: secondVaultId,
       filePath: "second-vault.md",
       changed: true,
+      branch: "feature/alpha",
     });
     await seedStagedFile(owner.t, {
       userId: other.ids.userId,
@@ -500,11 +549,75 @@ describe("account deletion stakes and typed confirmation", () => {
 
     await expect(owner.asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
       vaultCount: 2,
-      uncommittedFileChangeCount: 2,
+      uncommittedFileChangeCount: 3,
+      hasActiveSubscription: false,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            vaultId: secondVaultId,
+            repositoryFullName: "ada/alpha",
+            uncommittedFileChangeCount: 1,
+            branches: [{ branch: "feature/alpha", uncommittedFileChangeCount: 1 }],
+          },
+          {
+            vaultId: firstVaultId,
+            repositoryFullName: "ada/zeta",
+            uncommittedFileChangeCount: 2,
+            branches: [
+              { branch: "feature/zeta", uncommittedFileChangeCount: 1 },
+              { branch: "main", uncommittedFileChangeCount: 1 },
+            ],
+          },
+        ],
+      },
     });
     await expect(other.asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
       vaultCount: 1,
       uncommittedFileChangeCount: 1,
+      hasActiveSubscription: false,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            vaultId: otherVaultId,
+            repositoryFullName: "ada/other",
+            uncommittedFileChangeCount: 1,
+            branches: [{ branch: "main", uncommittedFileChangeCount: 1 }],
+          },
+        ],
+      },
+    });
+  });
+
+  it("does not return a partial review list when a changed vault is not reviewable", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const connectedVaultId = await seedVault(t, ids.userId);
+    const disconnectedVaultId = await t.run(async (ctx) => {
+      return await ctx.db.insert("vaults", {
+        userId: ids.userId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+    });
+    await seedStagedFile(t, {
+      userId: ids.userId,
+      vaultId: connectedVaultId,
+      filePath: "connected.md",
+      changed: true,
+    });
+    await seedStagedFile(t, {
+      userId: ids.userId,
+      vaultId: disconnectedVaultId,
+      filePath: "disconnected.md",
+      changed: true,
+    });
+
+    await expect(asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
+      vaultCount: 2,
+      uncommittedFileChangeCount: 2,
+      hasActiveSubscription: false,
+      affectedVaults: { state: "unavailable" },
     });
   });
 
@@ -534,6 +647,23 @@ describe("account deletion stakes and typed confirmation", () => {
     await expect(asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
       vaultCount: 1,
       uncommittedFileChangeCount: ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
+      hasActiveSubscription: false,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            vaultId,
+            repositoryFullName: "ada/test-vault",
+            uncommittedFileChangeCount: ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
+            branches: [
+              {
+                branch: "main",
+                uncommittedFileChangeCount: ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
+              },
+            ],
+          },
+        ],
+      },
     });
 
     await seedStagedFile(t, {
@@ -546,6 +676,8 @@ describe("account deletion stakes and typed confirmation", () => {
     await expect(asUser.query(api.accountDeletion.index.stakes)).resolves.toEqual({
       vaultCount: 1,
       uncommittedFileChangeCount: "more_than_cap",
+      hasActiveSubscription: false,
+      affectedVaults: { state: "unavailable" },
     });
   });
 
@@ -556,12 +688,17 @@ describe("account deletion stakes and typed confirmation", () => {
     const result = await asUser.mutation(api.accountDeletion.index.request, {
       completionCapability,
       confirmationPhrase: zeroStakesConfirmationPhrase,
+      confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(
+        await asUser.query(api.accountDeletion.index.stakes),
+      ),
     });
 
     expect(result).toEqual({
       state: "stakes_changed",
       vaultCount: 1,
       uncommittedFileChangeCount: 0,
+      hasActiveSubscription: false,
+      affectedVaults: { state: "complete", vaults: [] },
     });
     const stored = await t.run(async (ctx) => ({
       user: await ctx.db.get(ids.userId),
@@ -599,11 +736,14 @@ describe("account deletion stakes and typed confirmation", () => {
     const raced = await asUser.mutation(api.accountDeletion.index.request, {
       completionCapability,
       confirmationPhrase: stalePhrase,
+      confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(staleStakes),
     });
     expect(raced).toEqual({
       state: "stakes_changed",
       vaultCount: 1,
       uncommittedFileChangeCount: 0,
+      hasActiveSubscription: false,
+      affectedVaults: { state: "complete", vaults: [] },
     });
     if (raced.state !== "stakes_changed") {
       throw new Error("Expected the raced request to report changed stakes.");
@@ -612,8 +752,75 @@ describe("account deletion stakes and typed confirmation", () => {
     const accepted = await asUser.mutation(api.accountDeletion.index.request, {
       completionCapability,
       confirmationPhrase: buildAccountDeletionConfirmationPhrase(raced),
+      confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(raced),
     });
     expect(accepted).toMatchObject({ state: "accepted", status: { state: "running" } });
+  });
+
+  it("rejects confirmation when a change moves but aggregate counts stay the same", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const firstVaultId = await seedVault(t, ids.userId, "first");
+    const secondVaultId = await seedVault(t, ids.userId, "second");
+    const initialFileId = await seedStagedFile(t, {
+      userId: ids.userId,
+      vaultId: firstVaultId,
+      filePath: "initial.md",
+      changed: true,
+    });
+    const staleStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+    await t.run(async (ctx) => await ctx.db.delete(initialFileId));
+    await seedStagedFile(t, {
+      userId: ids.userId,
+      vaultId: secondVaultId,
+      filePath: "moved.md",
+      branch: "feature/moved",
+      changed: true,
+    });
+
+    const result = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+      confirmationPhrase: buildAccountDeletionConfirmationPhrase(staleStakes),
+      confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(staleStakes),
+    });
+
+    expect(result).toMatchObject({
+      state: "stakes_changed",
+      vaultCount: 2,
+      uncommittedFileChangeCount: 1,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            repositoryFullName: "ada/second",
+            branches: [{ branch: "feature/moved", uncommittedFileChangeCount: 1 }],
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects confirmation when the subscription warning changes", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const staleStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.userId, { billingStatus: "active" });
+    });
+
+    const result = await asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+      confirmationPhrase: buildAccountDeletionConfirmationPhrase(staleStakes),
+      confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(staleStakes),
+    });
+
+    expect(result).toEqual({
+      state: "stakes_changed",
+      vaultCount: 0,
+      uncommittedFileChangeCount: 0,
+      hasActiveSubscription: true,
+      affectedVaults: { state: "complete", vaults: [] },
+    });
   });
 
   it("ignores the phrase for an already-deleting account", async () => {
@@ -623,6 +830,7 @@ describe("account deletion stakes and typed confirmation", () => {
     const again = await asUser.mutation(api.accountDeletion.index.request, {
       completionCapability,
       confirmationPhrase: "not the phrase",
+      confirmationStakesSnapshot: "not the stakes",
     });
 
     expect(again).toEqual({ state: "accepted", status: first });
