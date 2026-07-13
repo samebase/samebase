@@ -430,6 +430,10 @@ export const createInitialRun = internalMutation({
     deletionRunId: id("vaultDeletionRuns"),
   }),
   handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.accountDeletion) {
+      throw new Error("Account deletion is in progress.");
+    }
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== args.userId) {
       throw new Error("Vault not found");
@@ -494,6 +498,10 @@ export const createRetryRun = internalMutation({
     deletionRunId: id("vaultDeletionRuns"),
   }),
   handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.accountDeletion) {
+      throw new Error("Account deletion is in progress.");
+    }
     const failedRun = await ctx.db.get(args.failedRunId);
     if (!failedRun || failedRun.userId !== args.userId) {
       throw new Error("Deletion run not found.");

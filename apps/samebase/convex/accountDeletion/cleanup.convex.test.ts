@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { cleanupAccountLocalDataBatchForUser } from "./cleanup";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
@@ -50,7 +51,163 @@ async function seedVault(
   });
 }
 
+async function seedRunningDeletion(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Awaited<ReturnType<typeof seedUser>>,
+) {
+  return await t.run(async (ctx) => {
+    const sessionId = await ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: Date.now() + 60_000,
+    });
+    return await ctx.db.insert("accountDeletionRuns", {
+      identity: { state: "active", userId, email: "owner@example.com" },
+      completionCapability: "progress-test",
+      state: "running",
+      workflow: { state: "started", workflowId: "workflow-1", attempt: 1 },
+      currentStep: "delete_samebase_data",
+      requestedAt: 1,
+      updatedAt: 1,
+      initiatingSessionId: sessionId,
+      retryCount: 0,
+      outcomes: {
+        billing: { state: "not_applicable" },
+        providerRevocation: { state: "not_started" },
+        completionEmail: { state: "not_started" },
+      },
+      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
+    });
+  });
+}
+
 describe("account-local deletion cleanup", () => {
+  it("persists exact vault cleanup phases and completed-vault counts", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const firstVaultId = await seedVault(t, userId);
+    await seedVault(t, userId);
+    const runId = await seedRunningDeletion(t, userId);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId: firstVaultId,
+        fileDeleted: false,
+        kind: "text",
+        filePath: "draft.txt",
+        initialFilePath: "draft.txt",
+        content: "draft",
+        initialContent: "",
+        parentCommitSha: null,
+        lastEditTime: 1,
+        lastEditUserId: userId,
+        branch: "main",
+        version: 1,
+      });
+    });
+
+    const workflowArgs = { runId, workflowId: "workflow-1" };
+    await t.mutation(internal.accountDeletion.cleanup.startVaultDataDeletion, workflowArgs);
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupVaultDataDeletionBatch, workflowArgs),
+    ).resolves.toBe(false);
+    await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      if (run === null || run.state !== "running") {
+        throw new Error("Expected a running deletion run.");
+      }
+      expect(run.dataDeletion?.vaultsAndStagedChanges).toMatchObject({
+        state: "in_progress",
+        deletedVaultCount: 0,
+        currentVaultPhase: "staged_changes",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupVaultDataDeletionBatch, workflowArgs),
+    ).resolves.toBe(false);
+    await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      if (run === null || run.state !== "running") {
+        throw new Error("Expected a running deletion run.");
+      }
+      expect(run.dataDeletion?.vaultsAndStagedChanges).toMatchObject({
+        state: "in_progress",
+        deletedVaultCount: 1,
+        currentVaultPhase: "vault_data",
+      });
+    });
+
+    let done = false;
+    for (let attempt = 0; attempt < 10 && !done; attempt += 1) {
+      done = await t.mutation(
+        internal.accountDeletion.cleanup.cleanupVaultDataDeletionBatch,
+        workflowArgs,
+      );
+    }
+    expect(done).toBe(true);
+    await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      if (run === null || run.state !== "running") {
+        throw new Error("Expected a running deletion run.");
+      }
+      expect(run.dataDeletion?.vaultsAndStagedChanges).toMatchObject({
+        state: "completed",
+        deletedVaultCount: 2,
+        currentVaultPhase: null,
+      });
+    });
+  });
+
+  it("keeps completed data groups completed when a workflow retries", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const runId = await seedRunningDeletion(t, userId);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("connectedMachines", {
+        userId,
+        machineId: "machine-1",
+        displayName: "Machine 1",
+        hostname: "host-1",
+        os: "linux",
+        status: "offline",
+        lastSeenAt: 1,
+        connectorVersion: "test",
+        capabilities: ["presence"],
+        allowedRoots: [],
+      });
+    });
+    const args = {
+      runId,
+      workflowId: "workflow-1",
+      group: "connectedMachines" as const,
+    };
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch, args),
+    ).resolves.toBe(false);
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch, args),
+    ).resolves.toBe(true);
+    const completed = await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      if (run === null || run.state !== "running") {
+        throw new Error("Expected a running deletion run.");
+      }
+      return run.dataDeletion;
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch, args),
+    ).resolves.toBe(true);
+    await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      if (run === null || run.state !== "running") {
+        throw new Error("Expected a running deletion run.");
+      }
+      expect(run.dataDeletion).toEqual(completed);
+    });
+  });
+
   it("rejects workflow calls for scrubbed deletion receipts", async () => {
     const t = makeConvexTest();
     const runId = await t.run(async (ctx) => {

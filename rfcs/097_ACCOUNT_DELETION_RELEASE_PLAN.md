@@ -210,6 +210,15 @@ The workflow processes bounded, idempotent steps. A fail-closed cleanup registry
 user-owned or user-referencing table as delete, detach, anonymize, or retain. Adding an unclassified
 table fails validation so future schema additions cannot silently escape account deletion.
 
+The user progress timeline expands account-data deletion into chats and agent data, vaults and
+staged changes, connected machines, preferences, app access and tokens, and access requests and
+history. These states are persisted by the cleanup mutations that perform the work. Vault cleanup
+also records the number of vault rows deleted and the current per-vault cleanup phase. It does not
+show a percentage or total-vault denominator because vaults have different amounts of staged and
+associated data. New vault, vault-deletion, staging, OAuth-state, app-provisioning, and repository
+refresh writes reject users whose account deletion has started so completed progress cannot be
+recreated by an in-flight action.
+
 Staff accounts cannot request self-deletion in version one. A non-staff account performs the release
 acceptance flow so at least one staff operator retains access to inspect and retry a failed run.
 

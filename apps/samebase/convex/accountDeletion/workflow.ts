@@ -32,7 +32,6 @@ const vClosedEmailOutcome = union(
   object({ state: literal("sent") }),
   object({ state: literal("delivery_failed"), safeError: string() }),
 );
-
 const SAFE_WORKFLOW_ERROR = "Account deletion needs staff attention.";
 const MAX_QUIESCE_CHECKS = 130;
 const MAX_BATCH_STEPS = 96;
@@ -61,10 +60,14 @@ export async function startAccountDeletionWorkflow(
   ctx: MutationCtx,
   runId: Id<"accountDeletionRuns">,
 ): Promise<string> {
+  const run = await ctx.db.get(runId);
+  if (run === null || run.state === "succeeded") {
+    throw new Error("Account deletion run is not active.");
+  }
   return await workflow.start(
     ctx,
     internal.accountDeletion.workflow.deleteAccountWorkflow,
-    { runId },
+    run.dataDeletion === undefined ? { runId } : { runId, dataDeletionProgress: true },
     {
       startAsync: true,
       onComplete: internal.accountDeletion.workflow.handleWorkflowComplete,
@@ -229,9 +232,15 @@ export const markFinalizing = internalMutation({
 });
 
 export const deleteAccountWorkflow = workflow.define({
-  args: { runId: id("accountDeletionRuns") },
+  args: {
+    runId: id("accountDeletionRuns"),
+    // Persisted workflow input selects the journal shape without inserting a
+    // compatibility-breaking discovery step into older runs.
+    dataDeletionProgress: v.optional(literal(true)),
+  },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
+    const dataDeletionProgressAvailable = args.dataDeletionProgress === true;
     const ownedArgs = { runId: args.runId, workflowId: step.workflowId };
     const initialOutcomes = await step.runMutation(
       internal.accountDeletion.workflow.claimWorkflowRun,
@@ -240,7 +249,6 @@ export const deleteAccountWorkflow = workflow.define({
         name: "claim_workflow",
       },
     );
-
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
@@ -377,15 +385,58 @@ export const deleteAccountWorkflow = workflow.define({
       if (check === MAX_QUIESCE_CHECKS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
       await step.sleep(5_000, { name: `wait_for_agent_component_data_${check}` });
     }
-    for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
-      const result = await step.runMutation(
-        internal.accountDeletion.cleanup.cleanupAccountLocalDataBatch,
-        ownedArgs,
-        { name: `delete_samebase_data_${batch}` },
-      );
-      if (result.state === "done") break;
-      if (result.state === "blocked" || batch === MAX_BATCH_STEPS - 1) {
-        throw new Error(SAFE_WORKFLOW_ERROR);
+
+    if (dataDeletionProgressAvailable) {
+      for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
+        const done = await step.runMutation(
+          internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch,
+          { ...ownedArgs, group: "chatsAndAgentData" },
+          { name: `delete_chat_and_agent_data_${batch}` },
+        );
+        if (done) break;
+        if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+
+      await step.runMutation(internal.accountDeletion.cleanup.startVaultDataDeletion, ownedArgs, {
+        name: "start_vault_data_cleanup",
+      });
+      for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
+        const done = await step.runMutation(
+          internal.accountDeletion.cleanup.cleanupVaultDataDeletionBatch,
+          ownedArgs,
+          { name: `delete_vault_data_${batch}` },
+        );
+        if (done) break;
+        if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+
+      for (const group of [
+        "connectedMachines",
+        "preferences",
+        "appAccessAndTokens",
+        "accessRequestsAndHistory",
+      ] as const) {
+        for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
+          const done = await step.runMutation(
+            internal.accountDeletion.cleanup.cleanupDataDeletionGroupBatch,
+            { ...ownedArgs, group },
+            { name: `delete_${group}_${batch}` },
+          );
+          if (done) break;
+          if (batch === MAX_BATCH_STEPS - 1) throw new Error(SAFE_WORKFLOW_ERROR);
+        }
+      }
+    } else {
+      for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
+        const result = await step.runMutation(
+          internal.accountDeletion.cleanup.cleanupAccountLocalDataBatch,
+          ownedArgs,
+          { name: `delete_samebase_data_${batch}` },
+        );
+        if (result.state === "done") break;
+        if (result.state === "blocked" || batch === MAX_BATCH_STEPS - 1) {
+          throw new Error(SAFE_WORKFLOW_ERROR);
+        }
       }
     }
 
@@ -521,6 +572,7 @@ export const handleWorkflowComplete = internalMutation({
       initiatingSessionId: run.initiatingSessionId,
       retryCount: run.retryCount,
       outcomes: run.outcomes,
+      dataDeletion: run.dataDeletion,
       latestSafeError: SAFE_WORKFLOW_ERROR,
       updatedAt: now,
     });

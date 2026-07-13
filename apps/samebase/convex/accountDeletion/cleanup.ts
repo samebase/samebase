@@ -1,9 +1,18 @@
+import { entries } from "@samebase/dependent/object";
 import { v, type Infer } from "convex/values";
 
 import { components } from "../_generated/api";
 import type { Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
-import { deleteVaultLocalDataBatchForUser } from "../vault/deletion/cleanup";
+import {
+  deleteVaultLocalDataBatchForUser,
+  type VaultLocalCleanupBatchResult,
+} from "../vault/deletion/cleanup";
+import {
+  type AccountDeletionDataProgress,
+  type AccountDeletionVaultCleanupPhase,
+  vAccountDeletionVaultCleanupPhase,
+} from "./model";
 import { readOwnedActiveRun } from "./stepContext";
 
 const { id, literal, number, object, union } = v;
@@ -137,6 +146,26 @@ const accountLocalCleanupBatchResult = union(
 );
 type AccountLocalCleanupBatchResult = Infer<typeof accountLocalCleanupBatchResult>;
 
+const vSimpleDataDeletionGroup = union(
+  literal("chatsAndAgentData"),
+  literal("connectedMachines"),
+  literal("preferences"),
+  literal("appAccessAndTokens"),
+  literal("accessRequestsAndHistory"),
+);
+type SimpleDataDeletionGroup = Infer<typeof vSimpleDataDeletionGroup>;
+
+const vVaultDataCleanupBatchResult = union(
+  object({
+    state: literal("needs_more"),
+    currentPhase: vAccountDeletionVaultCleanupPhase,
+    rowsChanged: number(),
+  }),
+  object({ state: literal("vault_deleted") }),
+  object({ state: literal("done") }),
+);
+type VaultDataCleanupBatchResult = Infer<typeof vVaultDataCleanupBatchResult>;
+
 const accountDeletionQuiescenceResult = union(
   object({ state: literal("done") }),
   object({ state: literal("waiting"), blocker: literal("active_vault_deletion") }),
@@ -237,14 +266,14 @@ async function deleteThreadMetadataBatch(
 async function cleanupVaultBatch(
   ctx: AccountLocalCleanupCtx,
   userId: Id<"users">,
-): Promise<AccountLocalCleanupBatchResult | null> {
+): Promise<VaultDataCleanupBatchResult> {
   const vault = await ctx.db
     .query("vaults")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .order("asc")
     .first();
   if (!vault) {
-    return null;
+    return { state: "done" };
   }
 
   const context = await ctx.db
@@ -256,12 +285,12 @@ async function cleanupVaultBatch(
     if (metadataDeleted > 0) {
       return {
         state: "needs_more",
-        target: "chatMessageMetadata",
+        currentPhase: "vault_data",
         rowsChanged: metadataDeleted,
       };
     }
     await ctx.db.delete(context._id);
-    return { state: "needs_more", target: "agentThreadContext", rowsChanged: 1 };
+    return { state: "needs_more", currentPhase: "vault_data", rowsChanged: 1 };
   }
 
   const refreshRequests = await ctx.db
@@ -271,7 +300,7 @@ async function cleanupVaultBatch(
   if (refreshRequests.length > 0) {
     return {
       state: "needs_more",
-      target: "repositoryRefreshRequests",
+      currentPhase: "source_data",
       rowsChanged: await deleteRowsById(ctx, refreshRequests),
     };
   }
@@ -281,8 +310,49 @@ async function cleanupVaultBatch(
     vaultId: vault._id,
   });
   return result.state === "deleted"
-    ? { state: "needs_more", target: "vaults", rowsChanged: 1 }
-    : { state: "needs_more", target: "vaults", rowsChanged: result.rowsChanged };
+    ? { state: "vault_deleted" }
+    : {
+        state: "needs_more",
+        currentPhase: vaultCleanupPhase(result),
+        rowsChanged: result.rowsChanged,
+      };
+}
+
+function vaultCleanupPhase(
+  result: Extract<VaultLocalCleanupBatchResult, { state: "needs_more" }>,
+): AccountDeletionVaultCleanupPhase {
+  switch (result.table) {
+    case "fileStaging":
+    case "collaborativeUpdates":
+    case "blobs":
+      return "staged_changes";
+    case "vaultBranchFilters":
+    case "vaultResourceLinksState":
+    case "folderExpansionState":
+    case "vaultRemoteBranches":
+    case "vaultBranchTrees":
+      return "source_data";
+    case "vaultDomains":
+    case "vaultApps":
+    case "vaultConvexDeployments":
+    case "vaultConvexSchemaSnapshots":
+    case "vaultConvexSchemaGraphLayouts":
+    case "vaultCloudflareWorkers":
+    case "vaultInfrastructureTargets":
+    case "vaultInfrastructureOwnership":
+    case "codespaces":
+    case "agentGraphNodeLayout":
+    case "agentThreadContext":
+      return "app_data";
+    case "aiProdAccessRequests":
+      return "access_state";
+    case "appProvisioningEvents":
+    case "appProvisioningRuns":
+      return "provisioning_history";
+    default:
+      result.table satisfies never;
+      return "vault_data";
+  }
 }
 
 type AccountLocalCleanupHandler = (
@@ -569,6 +639,29 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
   },
 } satisfies Record<AccountLocalTableName, AccountLocalCleanupHandler>;
 
+const ACCOUNT_LOCAL_CLEANUP_GROUPS = {
+  chatMessageMetadata: "chatsAndAgentData",
+  agentThreadContext: "chatsAndAgentData",
+  machineCredentials: "connectedMachines",
+  machineControlTokens: "connectedMachines",
+  machineRegistrationRequests: "connectedMachines",
+  connectedMachines: "connectedMachines",
+  dashboardSettings: "preferences",
+  workspaceSidebarState: "preferences",
+  oauthStates: "appAccessAndTokens",
+  mcpAuthRequests: "appAccessAndTokens",
+  mcpAuthorizationCodes: "appAccessAndTokens",
+  mcpAccessTokens: "appAccessAndTokens",
+  mcpRefreshTokens: "appAccessAndTokens",
+  agentBrowserHandoffs: "appAccessAndTokens",
+  mcpGrants: "appAccessAndTokens",
+  mcpAccessAudit: "accessRequestsAndHistory",
+  aiProdAccessAudit: "accessRequestsAndHistory",
+  aiProdAccessRequests: "accessRequestsAndHistory",
+  vaultDeletionEvents: "accessRequestsAndHistory",
+  vaultDeletionRuns: "accessRequestsAndHistory",
+} satisfies Record<AccountLocalTableName, SimpleDataDeletionGroup>;
+
 /**
  * Deletes at most one bounded slice. The account workflow owns repetition and
  * does not advance while a separately-authorized vault deletion is active.
@@ -605,8 +698,11 @@ export async function cleanupAccountLocalDataBatchForUser(
   }
 
   const vaultResult = await cleanupVaultBatch(ctx, args.userId);
-  if (vaultResult) {
-    return vaultResult;
+  if (vaultResult.state === "needs_more") {
+    return { state: "needs_more", target: "vaults", rowsChanged: vaultResult.rowsChanged };
+  }
+  if (vaultResult.state === "vault_deleted") {
+    return { state: "needs_more", target: "vaults", rowsChanged: 1 };
   }
 
   for (const cleanup of Object.values(ACCOUNT_LOCAL_CLEANUP_HANDLERS)) {
@@ -616,6 +712,168 @@ export async function cleanupAccountLocalDataBatchForUser(
 
   return { state: "done" };
 }
+
+export const cleanupDataDeletionGroupBatch = internalMutation({
+  args: {
+    runId: id("accountDeletionRuns"),
+    workflowId: v.string(),
+    group: vSimpleDataDeletionGroup,
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    const dataDeletion = run.dataDeletion;
+    if (dataDeletion === undefined) {
+      throw new Error("Account deletion progress is unavailable for this run.");
+    }
+    const current = dataDeletion[args.group];
+    if (current.state === "completed") {
+      return true;
+    }
+
+    const now = Date.now();
+    const startedAt = current.state === "not_started" ? now : current.startedAt;
+    for (const [tableName, cleanup] of entries(ACCOUNT_LOCAL_CLEANUP_HANDLERS)) {
+      if (ACCOUNT_LOCAL_CLEANUP_GROUPS[tableName] !== args.group) {
+        continue;
+      }
+      const result = await cleanup(ctx, run.identity.userId);
+      if (result === null) {
+        continue;
+      }
+      await ctx.db.patch(run._id, {
+        dataDeletion: {
+          ...dataDeletion,
+          [args.group]: { state: "in_progress", startedAt, updatedAt: now },
+        },
+        updatedAt: now,
+      });
+      return false;
+    }
+
+    await ctx.db.patch(run._id, {
+      dataDeletion: {
+        ...dataDeletion,
+        [args.group]: { state: "completed", startedAt, completedAt: now },
+      },
+      updatedAt: now,
+    });
+    return true;
+  },
+});
+
+export const startVaultDataDeletion = internalMutation({
+  args: { runId: id("accountDeletionRuns"), workflowId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    const dataDeletion = run.dataDeletion;
+    if (dataDeletion === undefined) {
+      throw new Error("Account deletion progress is unavailable for this run.");
+    }
+    const current = dataDeletion.vaultsAndStagedChanges;
+    if (current.state !== "not_started") {
+      return null;
+    }
+
+    const now = Date.now();
+    const vaultProgress: AccountDeletionDataProgress["vaultsAndStagedChanges"] = {
+      state: "in_progress",
+      startedAt: now,
+      updatedAt: now,
+      deletedVaultCount: 0,
+      currentVaultPhase: "vault_data",
+    };
+    await ctx.db.patch(run._id, {
+      dataDeletion: {
+        ...dataDeletion,
+        vaultsAndStagedChanges: vaultProgress,
+      },
+      updatedAt: now,
+    });
+    return null;
+  },
+});
+
+export const cleanupVaultDataDeletionBatch = internalMutation({
+  args: { runId: id("accountDeletionRuns"), workflowId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    const dataDeletion = run.dataDeletion;
+    if (dataDeletion === undefined) {
+      throw new Error("Account deletion progress is unavailable for this run.");
+    }
+    const current = dataDeletion.vaultsAndStagedChanges;
+    if (current.state === "not_started") {
+      throw new Error("Vault data deletion was not started.");
+    }
+    if (current.state === "completed") {
+      return true;
+    }
+
+    const result = await cleanupVaultBatch(ctx, run.identity.userId);
+    const now = Date.now();
+    if (result.state === "needs_more") {
+      await ctx.db.patch(run._id, {
+        dataDeletion: {
+          ...dataDeletion,
+          vaultsAndStagedChanges: {
+            ...current,
+            updatedAt: now,
+            currentVaultPhase: result.currentPhase,
+          },
+        },
+        updatedAt: now,
+      });
+      return false;
+    }
+    if (result.state === "vault_deleted") {
+      const deletedVaultCount = current.deletedVaultCount + 1;
+      const nextVault = await ctx.db
+        .query("vaults")
+        .withIndex("by_userId", (query) => query.eq("userId", run.identity.userId))
+        .first();
+      await ctx.db.patch(run._id, {
+        dataDeletion: {
+          ...dataDeletion,
+          vaultsAndStagedChanges:
+            nextVault === null
+              ? {
+                  state: "completed",
+                  startedAt: current.startedAt,
+                  completedAt: now,
+                  deletedVaultCount,
+                  currentVaultPhase: null,
+                }
+              : {
+                  ...current,
+                  updatedAt: now,
+                  deletedVaultCount,
+                  currentVaultPhase: "vault_data",
+                },
+        },
+        updatedAt: now,
+      });
+      return nextVault === null;
+    }
+
+    await ctx.db.patch(run._id, {
+      dataDeletion: {
+        ...dataDeletion,
+        vaultsAndStagedChanges: {
+          state: "completed",
+          startedAt: current.startedAt,
+          completedAt: now,
+          deletedVaultCount: current.deletedVaultCount,
+          currentVaultPhase: null,
+        },
+      },
+      updatedAt: now,
+    });
+    return true;
+  },
+});
 
 export const cleanupAccountLocalDataBatch = internalMutation({
   args: { runId: id("accountDeletionRuns"), workflowId: v.string() },
@@ -667,6 +925,24 @@ export const cleanupAgentComponentData = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+    const dataDeletion = run.dataDeletion;
+    if (dataDeletion !== undefined) {
+      const current = dataDeletion.chatsAndAgentData;
+      if (current.state !== "completed") {
+        const now = Date.now();
+        await ctx.db.patch(run._id, {
+          dataDeletion: {
+            ...dataDeletion,
+            chatsAndAgentData: {
+              state: "in_progress",
+              startedAt: current.state === "not_started" ? now : current.startedAt,
+              updatedAt: now,
+            },
+          },
+          updatedAt: now,
+        });
+      }
+    }
     await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
       userId: run.identity.userId,
     });

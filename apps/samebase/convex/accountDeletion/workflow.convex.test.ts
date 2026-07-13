@@ -107,6 +107,16 @@ describe("account deletion workflow ownership and outcomes", () => {
     ).rejects.toThrow("Account deletion workflow ownership changed.");
   });
 
+  it("keeps the generic cleanup path available for active legacy runs", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupAccountLocalDataBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "done" });
+  });
+
   it("rejects provider errors outside the fixed safe outcome set", async () => {
     const { ids, t } = await seedRunningDeletion();
     await expect(

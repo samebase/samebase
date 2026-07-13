@@ -65,6 +65,10 @@ export const createForVault = internalMutation({
     if (!vault || vault.userId !== args.userId) {
       throw new Error("Vault not found for provisioning run.");
     }
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.accountDeletion !== undefined) {
+      throw new Error("App provisioning is unavailable during account deletion.");
+    }
     const connectedVault = assertConnectedVault(vault);
 
     const now = Date.now();

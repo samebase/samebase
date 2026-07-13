@@ -392,6 +392,10 @@ async function enqueueRepositoryRefresh(
   if (!vault || vault.userId !== args.userId) {
     throw new Error("Vault not found.");
   }
+  const user = await ctx.db.get(args.userId);
+  if (!user || user.accountDeletion !== undefined) {
+    throw new Error("Repository refresh is unavailable during account deletion.");
+  }
   if (vault.deletion.state !== "not_deleting") {
     return {
       kind: "blocked",

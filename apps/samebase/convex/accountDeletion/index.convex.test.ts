@@ -52,6 +52,14 @@ describe("account deletion foundation", () => {
       state: "running",
       markerPhase: "deleting",
       currentStep: "request_accepted",
+      dataDeletion: {
+        chatsAndAgentData: { state: "not_started" },
+        vaultsAndStagedChanges: { state: "not_started" },
+        connectedMachines: { state: "not_started" },
+        preferences: { state: "not_started" },
+        appAccessAndTokens: { state: "not_started" },
+        accessRequestsAndHistory: { state: "not_started" },
+      },
     });
     expect(first).not.toHaveProperty("stagedFileCount");
 
@@ -107,6 +115,20 @@ describe("account deletion foundation", () => {
 
     await expect(owner.asUser.query(api.accountDeletion.index.status)).resolves.toEqual(status);
     await expect(other.asUser.query(api.accountDeletion.index.status)).resolves.toBeNull();
+  });
+
+  it("does not fabricate detailed progress for active legacy runs", async () => {
+    const owner = await seedUser({ email: "ada@example.com" });
+    const requested = await owner.asUser.mutation(api.accountDeletion.index.request, {
+      completionCapability,
+    });
+    await owner.t.run(async (ctx) => {
+      await ctx.db.patch(requested.runId, { dataDeletion: undefined });
+    });
+
+    await expect(owner.asUser.query(api.accountDeletion.index.status)).resolves.toMatchObject({
+      dataDeletion: { state: "legacy_unavailable" },
+    });
   });
 
   it("projects finalizing before the user loses authenticated status", async () => {
@@ -196,7 +218,15 @@ describe("account deletion foundation", () => {
       runId: run.runId,
     });
     expect(detail).toMatchObject({
-      run: { runId: run.runId, email: "ada@example.com", outcomes: notStartedOutcomes },
+      run: {
+        runId: run.runId,
+        email: "ada@example.com",
+        outcomes: notStartedOutcomes,
+        dataDeletion: {
+          chatsAndAgentData: { state: "not_started" },
+          vaultsAndStagedChanges: { state: "not_started" },
+        },
+      },
       events: [{ step: "request_accepted", level: "info" }],
     });
     expect(detail?.events[0]).not.toHaveProperty("userId");
@@ -285,6 +315,7 @@ describe("account deletion foundation", () => {
       state: "succeeded",
       completedAt: requested.latestProgressAt + 3,
       outcomes: succeededOutcomes,
+      dataDeletion: { state: "receipt_scrubbed" },
     });
     expect(succeeded?.run).not.toHaveProperty("email");
     expect(succeeded?.run).not.toHaveProperty("userId");
@@ -359,7 +390,11 @@ describe("account deletion foundation", () => {
     const detail = await staff.asUser.query(api.accountDeletion.index.detailForAdmin, {
       runId: legacyRunId,
     });
-    expect(detail?.run).toMatchObject({ state: "succeeded", completedAt: now + 1 });
+    expect(detail?.run).toMatchObject({
+      state: "succeeded",
+      completedAt: now + 1,
+      dataDeletion: { state: "receipt_scrubbed" },
+    });
     await expect(
       staff.t.query(api.accountDeletion.index.completion, { completionCapability }),
     ).resolves.toBeNull();

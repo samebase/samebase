@@ -24,6 +24,10 @@ export const createOauthState = internalMutation({
   },
   returns: v.id("oauthStates"),
   handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.accountDeletion) {
+      throw new Error("Account deletion is in progress.");
+    }
     return await ctx.db.insert("oauthStates", {
       provider: args.provider,
       userId: args.userId,

@@ -6,6 +6,8 @@ import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
 import { isAdminUser } from "../userAccess";
 import {
+  INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
+  vAccountDeletionDataProgress,
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
   vAccountDeletionStep,
@@ -37,6 +39,10 @@ const vAccountDeletionStatus = object({
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
   latestProgressAt: number(),
+  dataDeletion: union(
+    vAccountDeletionDataProgress,
+    object({ state: literal("legacy_unavailable") }),
+  ),
 });
 
 const vAccountDeletionEvent = object({
@@ -51,7 +57,7 @@ const vAccountDeletionCompletion = object({
   completedAt: number(),
 });
 
-const vAdminAccountDeletionListItem = object({
+const adminAccountDeletionFields = {
   runId: id("accountDeletionRuns"),
   state: vAccountDeletionRunState,
   currentStep: vAccountDeletionStep,
@@ -62,6 +68,15 @@ const vAdminAccountDeletionListItem = object({
   email: optional(string()),
   latestSafeError: optional(string()),
   completedAt: optional(number()),
+} as const;
+const vAdminAccountDeletionListItem = object(adminAccountDeletionFields);
+const vAdminAccountDeletionDetail = object({
+  ...adminAccountDeletionFields,
+  dataDeletion: union(
+    vAccountDeletionDataProgress,
+    object({ state: literal("legacy_unavailable") }),
+    object({ state: literal("receipt_scrubbed") }),
+  ),
 });
 
 function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" | "finalizing") {
@@ -76,6 +91,7 @@ function projectStatus(run: Doc<"accountDeletionRuns">, markerPhase: "deleting" 
     currentStep: run.currentStep,
     requestedAt: run.requestedAt,
     latestProgressAt: run.updatedAt,
+    dataDeletion: run.dataDeletion ?? { state: "legacy_unavailable" as const },
   };
 }
 
@@ -91,6 +107,17 @@ function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
     ...(run.identity.state === "active" ? { email: run.identity.email } : {}),
     ...(run.state === "needs_attention" ? { latestSafeError: run.latestSafeError } : {}),
     ...(run.state === "succeeded" ? { completedAt: run.completedAt } : {}),
+  };
+}
+
+function projectAdminDetail(run: Doc<"accountDeletionRuns">) {
+  const dataDeletion =
+    run.state === "succeeded"
+      ? ({ state: "receipt_scrubbed" } as const)
+      : (run.dataDeletion ?? ({ state: "legacy_unavailable" } as const));
+  return {
+    ...projectAdminListItem(run),
+    dataDeletion,
   };
 }
 
@@ -152,6 +179,7 @@ export const request = mutation({
         providerRevocation: { state: "not_started" },
         completionEmail: { state: "not_started" },
       },
+      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     } as const;
     const runId = await ctx.db.insert("accountDeletionRuns", {
       ...activeRunFields,
@@ -219,6 +247,7 @@ export const retry = mutation({
       initiatingSessionId: run.initiatingSessionId,
       retryCount,
       outcomes: run.outcomes,
+      dataDeletion: run.dataDeletion,
     });
     await ctx.db.patch(user._id, {
       accountDeletion: {
@@ -312,7 +341,7 @@ export const detailForAdmin = query({
   returns: union(
     v.null(),
     object({
-      run: vAdminAccountDeletionListItem,
+      run: vAdminAccountDeletionDetail,
       events: array(vAccountDeletionEvent),
     }),
   ),
@@ -327,7 +356,7 @@ export const detailForAdmin = query({
       .order("desc")
       .take(100);
     return {
-      run: projectAdminListItem(run),
+      run: projectAdminDetail(run),
       events: events.reverse().map(({ step, level, message, createdAt }) => ({
         step,
         level,

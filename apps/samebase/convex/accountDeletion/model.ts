@@ -105,6 +105,81 @@ export const vAccountDeletionOutcomeSummary = object({
   completionEmail: vAccountDeletionCompletionEmailOutcome,
 });
 
+const vAccountDeletionDataGroupNotStarted = object({
+  state: literal("not_started"),
+});
+
+const vAccountDeletionDataGroupInProgress = object({
+  state: literal("in_progress"),
+  startedAt: number(),
+  updatedAt: number(),
+});
+
+const vAccountDeletionDataGroupCompleted = object({
+  state: literal("completed"),
+  startedAt: number(),
+  completedAt: number(),
+});
+
+export const vAccountDeletionDataGroupProgress = union(
+  vAccountDeletionDataGroupNotStarted,
+  vAccountDeletionDataGroupInProgress,
+  vAccountDeletionDataGroupCompleted,
+);
+
+export const vAccountDeletionVaultCleanupPhase = union(
+  literal("staged_changes"),
+  literal("vault_data"),
+  literal("source_data"),
+  literal("app_data"),
+  literal("access_state"),
+  literal("provisioning_history"),
+);
+export type AccountDeletionVaultCleanupPhase = Infer<typeof vAccountDeletionVaultCleanupPhase>;
+
+const vAccountDeletionVaultsNotStarted = object({
+  state: literal("not_started"),
+});
+
+const vAccountDeletionVaultsInProgress = object({
+  state: literal("in_progress"),
+  startedAt: number(),
+  updatedAt: number(),
+  deletedVaultCount: number(),
+  currentVaultPhase: vAccountDeletionVaultCleanupPhase,
+});
+
+const vAccountDeletionVaultsCompleted = object({
+  state: literal("completed"),
+  startedAt: number(),
+  completedAt: number(),
+  deletedVaultCount: number(),
+  currentVaultPhase: v.null(),
+});
+
+export const vAccountDeletionDataProgress = object({
+  chatsAndAgentData: vAccountDeletionDataGroupProgress,
+  vaultsAndStagedChanges: union(
+    vAccountDeletionVaultsNotStarted,
+    vAccountDeletionVaultsInProgress,
+    vAccountDeletionVaultsCompleted,
+  ),
+  connectedMachines: vAccountDeletionDataGroupProgress,
+  preferences: vAccountDeletionDataGroupProgress,
+  appAccessAndTokens: vAccountDeletionDataGroupProgress,
+  accessRequestsAndHistory: vAccountDeletionDataGroupProgress,
+});
+export type AccountDeletionDataProgress = Infer<typeof vAccountDeletionDataProgress>;
+
+export const INITIAL_ACCOUNT_DELETION_DATA_PROGRESS = {
+  chatsAndAgentData: { state: "not_started" },
+  vaultsAndStagedChanges: { state: "not_started" },
+  connectedMachines: { state: "not_started" },
+  preferences: { state: "not_started" },
+  appAccessAndTokens: { state: "not_started" },
+  accessRequestsAndHistory: { state: "not_started" },
+} as const satisfies AccountDeletionDataProgress;
+
 const vAccountDeletionWorkflowNotStarted = object({
   state: literal("not_started"),
 });
@@ -130,6 +205,9 @@ const activeRunFields = {
   initiatingSessionId: id("authSessions"),
   retryCount: number(),
   outcomes: vAccountDeletionOutcomeSummary,
+  // Active runs created before durable data progress shipped remain readable
+  // and finish through the legacy cleanup path.
+  dataDeletion: v.optional(vAccountDeletionDataProgress),
 } as const;
 
 const vQueuedAccountDeletionRun = object({

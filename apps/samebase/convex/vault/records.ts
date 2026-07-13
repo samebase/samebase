@@ -141,6 +141,9 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     if (!user) {
       throw new Error("User not found");
     }
+    if (user.accountDeletion) {
+      throw new Error("Account deletion is in progress.");
+    }
     const owner = args.ghRepoOwner.trim();
     const name = args.ghRepoName.trim();
     if (!owner || !name) {
@@ -298,6 +301,9 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     const user = await ctx.db.get(args.userId);
     if (!user) {
       throw new Error("User not found");
+    }
+    if (user.accountDeletion) {
+      throw new Error("Account deletion is in progress.");
     }
 
     const owner = args.ghRepoOwner.trim();

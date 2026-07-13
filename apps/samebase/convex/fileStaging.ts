@@ -279,6 +279,10 @@ async function assertConnectedVaultForStagingWrite(
   },
 ) {
   const vault = await assertVaultForStagingAccess(ctx, args);
+  const user = await ctx.db.get(args.userId);
+  if (!user || user.accountDeletion) {
+    throw new Error("Account deletion is in progress.");
+  }
   return assertConnectedVault(vault);
 }
 
