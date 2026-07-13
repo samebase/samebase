@@ -16,12 +16,15 @@ git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-2. Use `pnpm dev` as the normal startup path. It dispatches to the primary dev runner from the main
-   checkout and the anonymous local runner from linked git worktrees.
-3. In a git worktree, run `pnpm dev --once` or `pnpm dev:worktree:once` once after checkout. A
-   successful run records that the anonymous seed/auth bootstrap completed. Later `pnpm dev` starts
-   can skip that one-time seed/auth setup. Use `pnpm dev --force-bootstrap` when normal startup
-   should rerun it.
+2. Use `pnpm dev` as the normal startup path, including in a checkout with no `node_modules`. It
+   installs dependencies when the workspace manifests or lockfile changed, then dispatches to the
+   primary dev runner from the main checkout or the anonymous local runner from a linked worktree. A
+   Codex environment setup command may prewarm dependencies, but startup does not depend on it.
+3. In a new linked worktree, `pnpm dev` performs dependency install, local Convex startup, seed env
+   sync, and local auth setup before it starts the long-running processes. Use `pnpm dev --once` to
+   perform the same setup and exit. Both commands are safe to run again. A successful run records
+   that the anonymous seed/auth bootstrap completed, so later `pnpm dev` starts can skip that
+   one-time work. Use `pnpm dev --force-bootstrap` when normal startup should rerun it.
 4. Do not replace worktree startup with direct `npx convex dev`.
 5. Do not run `npx convex dev --env-file` pointing at another checkout's `.env.local`; it rewrites
    the current worktree's env and breaks local worktree bootstrapping.

@@ -6,11 +6,11 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 
 ## Startup
 
-- Use `pnpm dev` as the normal startup command. It runs the primary dev flow from the main checkout
-  and the anonymous local flow from linked git worktrees.
-- In a git worktree, `pnpm dev --once` or `pnpm dev:worktree:once` bootstraps once after checkout.
-- In a git worktree, use the worktree startup flow before dev/lint/test/commit workflows. Do not
-  replace it with direct `npx convex dev`.
+- Use `pnpm dev` everywhere. It installs dependencies, completes linked-worktree local Convex
+  seed/auth setup, then starts the correct primary or anonymous dev flow. It does not depend on a
+  Codex setup command.
+- In a new linked worktree, use `pnpm dev --once` to perform the same setup and exit before
+  lint/test/commit workflows. Do not replace this flow with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
   `Local backend isn't running`, run `pnpm dev --once` and retry.
 
