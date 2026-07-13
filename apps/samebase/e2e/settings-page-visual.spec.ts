@@ -150,11 +150,10 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
     "font-size",
     "16px",
   );
-  await expect(page).toHaveScreenshot("settings-delete-account-dialog-desktop.png", {
-    ...screenshotOptions,
-    mask: [signInEmail],
-    maskColor: "#d1d5db",
-  });
+  await expect(deleteDialog).toHaveScreenshot(
+    "settings-delete-account-dialog-desktop.png",
+    screenshotOptions,
+  );
 });
 
 test("Settings link returns the mobile workspace to the main pane", async ({
@@ -210,11 +209,10 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     await settingsPage.getByRole("button", { name: "Delete account" }).click();
     const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
     await expect(deleteDialog).toBeVisible();
-    await expect(page).toHaveScreenshot("settings-delete-account-dialog-mobile.png", {
-      ...screenshotOptions,
-      mask: [settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, { exact: true })],
-      maskColor: "#d1d5db",
-    });
+    await expect(deleteDialog).toHaveScreenshot(
+      "settings-delete-account-dialog-mobile.png",
+      screenshotOptions,
+    );
   } finally {
     await context.close();
   }
