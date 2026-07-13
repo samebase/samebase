@@ -65,20 +65,11 @@ function NotFoundContent(props: {
         data-testid="not-found-route-content"
         className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center"
       >
-        <div className="flex flex-col items-center gap-2">
-          <PublicLandingLogo
-            routeSearch={logoRouteSearch}
-            routeSearchSource="static"
-            viewStateKey={NOT_FOUND_LOGO_VIEW_STATE_KEY}
-          />
-          <Link
-            className="text-sm text-muted-foreground underline underline-offset-4"
-            search={logoRouteSearch}
-            to="/logo"
-          >
-            play with this logo
-          </Link>
-        </div>
+        <PublicLandingLogo
+          routeSearch={logoRouteSearch}
+          routeSearchSource="static"
+          viewStateKey={NOT_FOUND_LOGO_VIEW_STATE_KEY}
+        />
         <h2 className="text-xl font-semibold tracking-tight">Page not available</h2>
         <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={props.routeTo}>
           {props.routeLabel}

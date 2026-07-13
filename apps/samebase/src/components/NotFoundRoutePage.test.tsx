@@ -12,25 +12,8 @@ const locationState = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({
-    children,
-    className,
-    search,
-    to,
-  }: {
-    children: ReactNode;
-    className?: string;
-    search?: LogoRouteSearch;
-    to: string;
-  }) => (
-    <a
-      className={className}
-      data-search-auto-rotate={search?.["auto-rotate"]}
-      data-search-auto-shuffle={search?.["auto-shuffle"]}
-      data-search-depth={search?.depth}
-      data-search-shuffle-moves={search?.shuffleMoves}
-      href={to}
-    >
+  Link: ({ children, className, to }: { children: ReactNode; className?: string; to: string }) => (
+    <a className={className} href={to}>
       {children}
     </a>
   ),
@@ -112,12 +95,7 @@ describe("NotFoundRoutePage", () => {
     expect(firstMarkup).toContain('data-shuffle-moves="1"');
     expect(firstMarkup).toContain('data-route-search-source="static"');
     expect(firstMarkup).toContain('data-view-state-key="not-found"');
-    expect(firstMarkup).toContain('href="/logo"');
-    expect(firstMarkup).toContain("play with this logo");
-    expect(firstMarkup).toContain('data-search-auto-rotate="true"');
-    expect(firstMarkup).toContain('data-search-auto-shuffle="true"');
-    expect(firstMarkup).toContain('data-search-depth="2"');
-    expect(firstMarkup).toContain('data-search-shuffle-moves="1"');
+    expect(firstMarkup).not.toContain('href="/logo"');
   });
 
   it("sends signed-out visitors to the landing page", () => {
