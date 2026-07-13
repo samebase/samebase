@@ -32,7 +32,9 @@ export const sendForAccountDeletion = internalAction({
 
 External repositories, deployments, projects, and Workers were not deleted.
 
-If you connected Convex with OAuth, revoke Samebase in Convex Authorized Applications to invalidate previously issued production and preview deploy keys.`,
+If you connected Convex with OAuth, revoke Samebase in Convex Authorized Applications to invalidate previously issued production and preview deploy keys.
+
+Deletion reference: ${args.runId}`,
       });
       return { state: "sent" } as const;
     } catch {

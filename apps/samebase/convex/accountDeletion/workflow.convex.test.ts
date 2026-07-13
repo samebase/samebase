@@ -602,7 +602,9 @@ describe("account deletion workflow ownership and outcomes", () => {
 
 External repositories, deployments, projects, and Workers were not deleted.
 
-If you connected Convex with OAuth, revoke Samebase in Convex Authorized Applications to invalidate previously issued production and preview deploy keys.`,
+If you connected Convex with OAuth, revoke Samebase in Convex Authorized Applications to invalidate previously issued production and preview deploy keys.
+
+Deletion reference: ${ids.runId}`,
     });
   });
 

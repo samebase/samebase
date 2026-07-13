@@ -58,7 +58,8 @@ The workflow must:
 3. Attempt supported provider authorization revocation, then remove local provider credentials.
 4. Delete Samebase-owned vault, staged, storage, profile, preference, access, and workflow data in
    retryable batches.
-5. Recheck billing, then attempt the completion email.
+5. Recheck billing, then attempt the completion email with the opaque deletion operation ID as the
+   user's support reference.
 6. Recheck late sessions, credentials, and cleanup invariants.
 7. Delete the final auth session, auth account, and user row.
 8. Retain only the scrubbed operation receipt in application tables. The workflow component can
