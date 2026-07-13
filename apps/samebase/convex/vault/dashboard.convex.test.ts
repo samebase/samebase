@@ -2466,6 +2466,22 @@ describe("vault dashboard Convex contract", () => {
         filePath: "README.md",
         createdAt: 12,
       });
+      await ctx.db.insert("chatMessageMetadata", {
+        messageId: "message-1",
+        threadId: "thread-1",
+        type: "tool_activity",
+        payloadJson: "{}",
+        createdAt: 12,
+      });
+      await ctx.db.insert("repositoryRefreshRequests", {
+        userId,
+        vaultId,
+        dedupeKey: `${vaultId}:main`,
+        demand: { scope: "branch", branch: "main", source: "file_view" },
+        lifecycle: { state: "canceled", canceledAt: 12, reason: "vault_deleting" },
+        createdAt: 12,
+        updatedAt: 12,
+      });
       const requestId = await ctx.db.insert("aiProdAccessRequests", {
         threadId: "thread-1",
         requesterUserId: userId,
@@ -2524,6 +2540,14 @@ describe("vault dashboard Convex contract", () => {
     }
 
     expect(result).toEqual({ state: "deleted" });
+    await expect(
+      t.mutation(internal.chat.index.saveMessageMetadataInternal, {
+        messageId: "late-message",
+        threadId: "thread-1",
+        type: "tool_activity",
+        payloadJson: "{}",
+      }),
+    ).rejects.toThrow("Agent thread context not found.");
     expect(tables).toEqual(
       expect.arrayContaining([
         "vaultBranchFilters",
@@ -2541,6 +2565,7 @@ describe("vault dashboard Convex contract", () => {
         "agentGraphNodeLayout",
         "aiProdAccessRequests",
         "agentThreadContext",
+        "repositoryRefreshRequests",
         "appProvisioningEvents",
         "appProvisioningRuns",
       ]),
@@ -2573,6 +2598,14 @@ describe("vault dashboard Convex contract", () => {
           .query("aiProdAccessRequests")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
+        refreshRequests: await ctx.db
+          .query("repositoryRefreshRequests")
+          .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
+        threadMetadata: await ctx.db
+          .query("chatMessageMetadata")
+          .withIndex("by_threadId", (q) => q.eq("threadId", "thread-1"))
+          .collect(),
       };
     });
 
@@ -2581,6 +2614,8 @@ describe("vault dashboard Convex contract", () => {
     expect(snapshot.resourceLinksState).toHaveLength(0);
     expect(snapshot.branchTrees).toHaveLength(0);
     expect(snapshot.prodRequestsForVault).toHaveLength(0);
+    expect(snapshot.refreshRequests).toHaveLength(0);
+    expect(snapshot.threadMetadata).toHaveLength(0);
     expect(snapshot.storage).toBeNull();
     expect(snapshot.stagedStorage).toBeNull();
     expect(snapshot.request).toMatchObject({

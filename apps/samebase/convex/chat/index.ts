@@ -815,6 +815,15 @@ export const saveMessageMetadataInternal = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
+    const context = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .unique();
+
+    if (!context) {
+      throw new Error("Agent thread context not found.");
+    }
+
     await ctx.db.insert("chatMessageMetadata", {
       messageId: args.messageId,
       threadId: args.threadId,

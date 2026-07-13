@@ -309,6 +309,14 @@ export const createAuthRequest = internalMutation({
   args: createAuthRequestArgsValidator,
   returns: id("mcpAuthRequests"),
   handler: async (ctx, args: CreateAuthRequestArgs) => {
+    if (args.userId) {
+      const user = await ctx.db.get(args.userId);
+
+      if (!user || user.accountDeletion) {
+        throw new Error("Account deletion is in progress.");
+      }
+    }
+
     return await ctx.db.insert("mcpAuthRequests", {
       requestId: args.requestId,
       clientId: args.clientId,

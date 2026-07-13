@@ -244,6 +244,82 @@ describe("MCP OAuth refresh token replay", () => {
 });
 
 describe("MCP OAuth account deletion access", () => {
+  it("does not create authenticated authorization requests for deleting or missing users", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const deletingUserId = await ctx.db.insert("users", {
+        email: "deleting-auth-request@example.test",
+        isApproved: true,
+      });
+      const missingUserId = await ctx.db.insert("users", {
+        email: "missing-auth-request@example.test",
+        isApproved: true,
+      });
+      const initiatingSessionId = await ctx.db.insert("authSessions", {
+        userId: deletingUserId,
+        expirationTime: now + 60_000,
+      });
+      const runId = await ctx.db.insert("accountDeletionRuns", {
+        identity: {
+          state: "active",
+          userId: deletingUserId,
+          email: "deleting-auth-request@example.test",
+        },
+        completionCapability: "mcp-auth-request-test",
+        state: "running",
+        workflow: { state: "started", workflowId: "mcp-auth-request-test", attempt: 1 },
+        currentStep: "revoke_access",
+        requestedAt: now,
+        updatedAt: now,
+        initiatingSessionId,
+        retryCount: 0,
+        outcomes: {
+          billing: { state: "not_started" },
+          providerRevocation: { state: "not_started" },
+          completionEmail: { state: "not_started" },
+        },
+      });
+      await ctx.db.patch(deletingUserId, {
+        accountDeletion: { state: "deleting", runId, requestedAt: now },
+      });
+      await ctx.db.delete(missingUserId);
+      return { deletingUserId, missingUserId };
+    });
+    const createArgs = {
+      clientId,
+      redirectUri: "http://127.0.0.1/callback",
+      resource,
+      scope,
+      codeChallenge: "unused-code-challenge",
+      codeChallengeMethod: "S256" as const,
+      createdAt: now,
+      expiresAt: now + 60_000,
+    };
+
+    for (const [requestId, userId] of [
+      ["mcpar_deleting_auth_request", ids.deletingUserId],
+      ["mcpar_missing_auth_request", ids.missingUserId],
+    ] as const) {
+      await expect(
+        t.mutation(internal.mcp.oauth.createAuthRequest, {
+          ...createArgs,
+          requestId,
+          userId,
+        }),
+      ).rejects.toThrow("Account deletion is in progress.");
+    }
+
+    await expect(
+      t.mutation(internal.mcp.oauth.createAuthRequest, {
+        ...createArgs,
+        requestId: "mcpar_anonymous_auth_request",
+      }),
+    ).resolves.toBeDefined();
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("mcpAuthRequests").collect()),
+    ).resolves.toHaveLength(1);
+  });
+
   it("does not issue authorization codes for deleting or missing users", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

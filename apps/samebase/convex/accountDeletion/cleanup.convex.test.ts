@@ -314,6 +314,36 @@ describe("account-local deletion cleanup", () => {
     });
   });
 
+  it("deletes terminal refresh requests after their vault row is already gone", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const requestId = await t.run(async (ctx) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      const seededRequestId = await ctx.db.insert("repositoryRefreshRequests", {
+        userId,
+        vaultId,
+        dedupeKey: `${vaultId}:main`,
+        demand: { scope: "branch", branch: "main", source: "file_view" },
+        lifecycle: { state: "canceled", canceledAt: 1, reason: "vault_deleted" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.delete(vaultId);
+      return seededRequestId;
+    });
+
+    await expect(runCleanup(t, userId)).resolves.toEqual({
+      state: "needs_more",
+      target: "repositoryRefreshRequests",
+      rowsChanged: 1,
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(requestId))).resolves.toBeNull();
+  });
+
   it("revokes machine bearer access before deleting machine identity rows", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "owner@example.com");

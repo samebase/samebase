@@ -347,6 +347,7 @@ function vaultCleanupPhase(
     case "folderExpansionState":
     case "vaultRemoteBranches":
     case "vaultBranchTrees":
+    case "repositoryRefreshRequests":
       return "source_data";
     case "vaultDomains":
     case "vaultApps":
@@ -769,6 +770,19 @@ export async function cleanupAccountLocalDataBatchForUser(
 
   if (vaultResult.state === "vault_deleted") {
     return { state: "needs_more", target: "vaults", rowsChanged: 1 };
+  }
+
+  const refreshRequests = await ctx.db
+    .query("repositoryRefreshRequests")
+    .withIndex("by_userId_and_updatedAt", (q) => q.eq("userId", args.userId))
+    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
+  if (refreshRequests.length > 0) {
+    return {
+      state: "needs_more",
+      target: "repositoryRefreshRequests",
+      rowsChanged: await deleteRowsById(ctx, refreshRequests),
+    };
   }
 
   for (const cleanup of Object.values(ACCOUNT_LOCAL_CLEANUP_HANDLERS)) {

@@ -21,7 +21,6 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultInfrastructureOwnership"),
   literal("codespaces"),
   literal("agentGraphNodeLayout"),
-  literal("agentThreadContext"),
 );
 type DeleteOnlyByVaultCleanupTable = Infer<typeof deleteOnlyByVaultCleanupTables>;
 
@@ -33,6 +32,8 @@ const vaultLocalCleanupTable = union(
   literal("aiProdAccessRequests"),
   literal("appProvisioningEvents"),
   literal("appProvisioningRuns"),
+  literal("agentThreadContext"),
+  literal("repositoryRefreshRequests"),
 );
 type VaultLocalCleanupTable = Infer<typeof vaultLocalCleanupTable>;
 
@@ -197,6 +198,58 @@ async function deleteAppProvisioningRunsBatch(
   return rows.length;
 }
 
+async function deleteAgentThreadContextsBatch(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs,
+): Promise<number> {
+  const contexts = await ctx.db
+    .query("agentThreadContext")
+    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+  let rowsChanged = 0;
+
+  for (const context of contexts) {
+    const metadata = await ctx.db
+      .query("chatMessageMetadata")
+      .withIndex("by_threadId", (q) => q.eq("threadId", context.threadId))
+      .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE - rowsChanged);
+
+    for (const row of metadata) {
+      await ctx.db.delete(row._id);
+      rowsChanged += 1;
+    }
+
+    if (metadata.length > 0) {
+      return rowsChanged;
+    }
+
+    await ctx.db.delete(context._id);
+    rowsChanged += 1;
+
+    if (rowsChanged === VAULT_LOCAL_CLEANUP_BATCH_SIZE) {
+      return rowsChanged;
+    }
+  }
+
+  return rowsChanged;
+}
+
+async function deleteRepositoryRefreshRequestsBatch(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs,
+): Promise<number> {
+  const rows = await ctx.db
+    .query("repositoryRefreshRequests")
+    .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", args.vaultId))
+    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+
+  for (const row of rows) {
+    await ctx.db.delete(row._id);
+  }
+
+  return rows.length;
+}
+
 const vaultLocalCleanupRegistry = [
   {
     table: "vaultBranchFilters",
@@ -276,7 +329,11 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "agentThreadContext",
-    cleanup: deleteByVaultBatch("agentThreadContext"),
+    cleanup: deleteAgentThreadContextsBatch,
+  },
+  {
+    table: "repositoryRefreshRequests",
+    cleanup: deleteRepositoryRefreshRequestsBatch,
   },
   {
     table: "appProvisioningEvents",
@@ -299,6 +356,7 @@ const vaultLocalCleanupRegistryByStep = {
     "folderExpansionState",
     "vaultRemoteBranches",
     "vaultBranchTrees",
+    "repositoryRefreshRequests",
   ],
   cleanup_runtime_state: [
     "vaultDomains",
