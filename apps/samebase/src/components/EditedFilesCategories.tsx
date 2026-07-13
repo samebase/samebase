@@ -165,8 +165,7 @@ export function EditedFilesCategories({
           pathname: nextPath,
           search: mergeFileViewRouteSearch(location.search, {
             ...buildFileViewRouteSearch({
-              diff: file.fileDeleted,
-              review: !file.fileDeleted,
+              diff: true,
             }),
             mobileLineNumbers: currentFileViewSearch.mobileLineNumbers,
           }),

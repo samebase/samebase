@@ -13,9 +13,8 @@
 ## Summary
 
 Samebase route search uses key-only boolean query params for app-owned toggles and modes such as
-`?dev`, `?prod-ui`, `?light`, `?dark`, `?diff`, `?review`, and `?delete`. These params are presence
-flags: a URL key being present means the flag is on. The value attached to that key is not
-meaningful.
+`?dev`, `?prod-ui`, `?light`, `?dark`, `?diff`, and `?delete`. These params are presence flags: a
+URL key being present means the flag is on. The value attached to that key is not meaningful.
 
 ## Contract
 
@@ -51,7 +50,6 @@ The shared known list lives in `ROUTE_SEARCH_PRESENCE_FLAG_KEYS`. It currently c
 - `openedByCli`
 - `prod-ui`
 - `reset`
-- `review`
 
 New key-only route toggles must be added to that list and covered by a focused route-search test.
 

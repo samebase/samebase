@@ -44,8 +44,8 @@ Use `/mono/:appRoot...` for a nested monorepo app root. The `:appRoot...` tail i
 app-root path with each path segment encoded individually. A nested app root named `root` is
 addressed as `/vault/:owner/:repo/db/:branch/mono/root`.
 
-File compare, diff, and review modes remain query params on filesystem routes. They are view modes
-for the selected branch/file, not separate route surfaces.
+File compare and commit review remain the `?compare` and `?diff` query params on filesystem routes.
+They are view modes for the selected branch/file, not separate route surfaces.
 
 ## Naming Rules
 

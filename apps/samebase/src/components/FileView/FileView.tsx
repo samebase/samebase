@@ -615,7 +615,6 @@ function FileViewInner({
     },
     [router],
   );
-  const reviewOnMountRequested = routeSearch.review ?? false;
   const isCompareRequested = routeSearch.compare ?? false;
 
   const remoteBranches = useQuery(api.vault.branches.getVaultRemoteBranches, {
@@ -753,7 +752,7 @@ function FileViewInner({
       branch,
     },
     {
-      dontCache: isDiffRequested || reviewOnMountRequested,
+      dontCache: isDiffRequested,
     },
   );
   const stagedSimpleViewConfigFile = useQuery(
@@ -1012,8 +1011,6 @@ function FileViewInner({
       const targetBranch = options?.branch ?? branch;
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
       const preserveCurrentCompareMode = options?.compare === undefined;
-      const preserveReviewOnMount =
-        preserveCurrentReviewMode && routeSearch.review && !routeSearch.diff;
       const includeDiff =
         options?.reviewMode === "review" || (preserveCurrentReviewMode && routeSearch.diff);
       const includeCompare =
@@ -1026,7 +1023,6 @@ function FileViewInner({
       });
       const nextFileViewSearch = {
         ...buildFileViewRouteSearch({
-          review: preserveReviewOnMount,
           diff: includeDiff,
           compare: includeCompare,
         }),
@@ -1045,7 +1041,6 @@ function FileViewInner({
       routeSearch.mobileLineNumbers,
       routeSearch.compare,
       routeSearch.diff,
-      routeSearch.review,
     ],
   );
   const {
@@ -1083,7 +1078,6 @@ function FileViewInner({
       navigateByHref(
         buildCurrentFileViewHref(
           buildFileViewRouteSearch({
-            review: false,
             diff: mode === "review",
             compare: options?.compare ?? routeSearch.compare,
           }),
@@ -1105,13 +1099,12 @@ function FileViewInner({
           buildFileViewRouteSearch({
             compare: enabled,
             diff: routeSearch.diff,
-            review: routeSearch.review,
           }),
         ),
         { replace: options?.replace },
       );
     },
-    [buildCurrentFileViewHref, navigateByHref, routeSearch.diff, routeSearch.review],
+    [buildCurrentFileViewHref, navigateByHref, routeSearch.diff],
   );
   const resetRebaseConflictState = useCallback(() => {
     setRebaseConflictPreview(null);
@@ -1929,7 +1922,7 @@ function FileViewInner({
     return { agentGraphNodes: nodes, agentGraphEdges: edges };
   }, [finalTreeData]);
 
-  const forceSidebarSelectionVisible = reviewOnMountRequested || commitReviewMode === "review";
+  const forceSidebarSelectionVisible = commitReviewMode === "review";
   const alwaysVisibleSimpleViewPaths = useMemo(() => {
     return finalTreeData
       .filter((item) => {
@@ -2121,32 +2114,6 @@ function FileViewInner({
     hasChangesToCommit,
     commitReviewMode,
     isCompareRequested,
-    setReviewModeInQuery,
-  ]);
-
-  /**
-   * Dashboard links can land here with `?review`. Wait until staged files are
-   * resolved, then rewrite the URL to the canonical mode: `review` if there are
-   * staged changes, otherwise `editor`.
-   */
-  useEffect(() => {
-    if (!reviewOnMountRequested || commitReviewMode === "review" || !didResolveStagedFiles) {
-      return;
-    }
-    resetCommitPreviewState();
-    if (!hasChangesToCommit) {
-      setReviewModeInQuery("editor", { replace: true });
-      return;
-    }
-    // Dashboard staged-file links enter through ?review so we wait for branch
-    // staging to resolve before switching the canonical URL to ?diff.
-    setReviewModeInQuery("review", { replace: true });
-  }, [
-    reviewOnMountRequested,
-    commitReviewMode,
-    didResolveStagedFiles,
-    hasChangesToCommit,
-    resetCommitPreviewState,
     setReviewModeInQuery,
   ]);
 

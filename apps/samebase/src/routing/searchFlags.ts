@@ -20,7 +20,6 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "openedByCli",
   "prod-ui",
   "reset",
-  "review",
   "sign-in",
 ] as const;
 

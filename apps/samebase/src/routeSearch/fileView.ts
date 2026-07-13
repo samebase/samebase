@@ -32,10 +32,6 @@ const RouteSearchSchema_fileView = defineRouteSearchParams({
     valueSuggestions: ["1"],
     valueType: "options",
   }),
-  review: routeSearchPresenceParam({
-    access: "access_files_read",
-    suggestion: "route",
-  }),
 });
 
 export type FileViewRouteSearch = InferRouteSearch<typeof RouteSearchSchema_fileView>;
@@ -60,12 +56,10 @@ export function validateFileViewRouteSearch(search: Record<string, unknown>): Fi
 export function buildFileViewRouteSearch(args?: {
   compare?: boolean;
   diff?: boolean;
-  review?: boolean;
 }): FileViewRouteSearchPatch {
   return {
     ...(typeof args?.compare === "boolean" ? { compare: args.compare ? true : null } : {}),
     ...(typeof args?.diff === "boolean" ? { diff: args.diff ? true : null } : {}),
-    ...(typeof args?.review === "boolean" ? { review: args.review ? true : null } : {}),
   };
 }
 
@@ -81,7 +75,6 @@ export function mergeFileViewRouteSearch(
     diff: null,
     compare: null,
     mobileLineNumbers: null,
-    review: null,
     ...fileViewSearch,
   });
 }

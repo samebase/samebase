@@ -37,14 +37,14 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
       navigateByHref,
       repositoryFullName: "samebase/samebase",
       replace: true,
-      search: { review: true, mobileLineNumbers: "1" },
+      search: { diff: true, mobileLineNumbers: "1" },
     });
 
     expect(connectRepository).toHaveBeenCalledWith({
       repositoryFullName: "samebase/samebase",
     });
     expect(navigateByHref).toHaveBeenCalledWith(
-      "/vault/samebase/samebase?review&mobileLineNumbers=1",
+      "/vault/samebase/samebase?diff&mobileLineNumbers=1",
       {
         replace: true,
       },
