@@ -136,13 +136,17 @@ async function main() {
     process.exit(0);
   }
 
+  // Cloud deployments carry their own CONVEX_DEPLOYMENT env var so deploymentProfile.ts can
+  // classify them. Never copy the source's value: it would override the local anonymous
+  // specifier written below and re-profile the worktree deployment as convex_dev, which
+  // disables password account seeding.
   const entries = (
     await listDeploymentEnvVars({
       appDir,
       envFile: validatedSource.path,
       sourceDeployment: validatedSource.deployment,
     })
-  ).filter(({ name }) => WORKTREE_ENV_ALLOWLIST.has(name));
+  ).filter(({ name }) => WORKTREE_ENV_ALLOWLIST.has(name) && name !== "CONVEX_DEPLOYMENT");
 
   const sorted = entries.slice().sort((a, b) => a.name.localeCompare(b.name));
 
