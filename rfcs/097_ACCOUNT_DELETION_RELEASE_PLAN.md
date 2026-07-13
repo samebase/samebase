@@ -50,14 +50,15 @@ the existing destructive confirmation dialog with this meaning:
 ```text
 Delete account?
 
-This deletes your Samebase account and data. Your GitHub repositories,
-Convex projects, Cloudflare Workers, and other external resources keep running.
+This permanently deletes your Samebase account and data. Nothing outside
+Samebase is deleted: your apps, GitHub repositories, Convex projects, and
+Cloudflare Workers keep running.
 
 [ Cancel ] [ Delete account ]
 ```
 
-The current signed-in session proves which account is requesting deletion. Version one does not ask
-the user to type their email and does not add a separate recent-authentication flow.
+The current signed-in session proves which account is requesting deletion. The flow does not ask the
+user to type their email and does not add a separate recent-authentication flow.
 
 The confirmation dialog always includes this warning:
 
@@ -72,9 +73,22 @@ the work normally, and return to deletion without a second confirmation mechanis
 When the account has an active Samebase subscription, the same dialog also states that deletion
 immediately revokes the subscription and does not automatically refund unused time.
 
-The confirmation action is disabled while the request is being accepted. Acceptance atomically
-creates one durable account deletion run and gates the user. Repeated submission returns the same
-active run instead of creating another deletion.
+The dialog shows the viewer's current deletion stakes and requires typing a dynamic confirmation
+phrase before the destructive action enables. The base phrase is `delete my account`; nonzero counts
+extend it with the vault count and the uncommitted file change count, for example
+`delete my account, 3 vaults, and 5 uncommitted file changes`. Counting stops at 500 uncommitted
+file changes, after which the phrase reads `more than 500 uncommitted file changes`. The displayed
+phrase is selectable, and pasting into the confirmation input is allowed.
+
+The request mutation recomputes the same phrase from current data and rejects a mismatch with a
+`stakes_changed` result instead of creating a run, so a phrase typed against stale counts never
+starts deletion. The dialog then shows the refreshed counts with a short notice and asks the user to
+confirm again.
+
+The confirmation action is disabled until the typed phrase matches and while the request is being
+accepted. Acceptance atomically creates one durable account deletion run and gates the user.
+Repeated submission returns the same active run instead of creating another deletion and does not
+recheck the phrase.
 
 ### While deletion runs
 

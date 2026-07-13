@@ -8,13 +8,23 @@ release plan and manual acceptance evidence.
 ## User Contract
 
 A signed-in, non-staff user can start account deletion from `/settings`. The confirmation must say
-that Samebase data and uncommitted staged changes are permanently deleted, while GitHub
-repositories, Convex projects and deployments, Cloudflare Workers, domains, and other external
-resources keep running.
+that Samebase data and uncommitted staged changes are permanently deleted, while nothing outside
+Samebase is deleted: apps, GitHub repositories, Convex projects and deployments, Cloudflare Workers,
+domains, and other external resources keep running.
+
+The confirmation dialog shows the viewer's current deletion stakes and requires typing a dynamic
+confirmation phrase before the destructive action enables. The base phrase is `delete my account`;
+nonzero counts extend it with the vault count and the uncommitted file change count, for example
+`delete my account, 3 vaults, and 5 uncommitted file changes`. Counting uncommitted file changes
+stops at 500, after which the phrase reads `more than 500 uncommitted file changes`. The displayed
+phrase is selectable and pasting is allowed. The request mutation recomputes the phrase from current
+data and rejects a mismatch with a `stakes_changed` result instead of creating a run; the dialog
+shows the refreshed counts and asks for confirmation again.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
-session to `/account-deletion`. Repeated requests return the same active run. A deleting user cannot
-use ordinary authenticated product routes or create new user-owned data.
+session to `/account-deletion`. Repeated requests return the same active run without rechecking the
+phrase. A deleting user cannot use ordinary authenticated product routes or create new user-owned
+data.
 
 The deletion page is a direct projection of persisted backend progress. It shows these groups:
 

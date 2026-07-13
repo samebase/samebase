@@ -135,7 +135,12 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
     "Any uncommitted file changes in Samebase will be permanently deleted. They will not be pushed to GitHub.",
   );
   await expect(deleteDialog).toContainText(
-    "Your GitHub repositories, Convex projects, Cloudflare Workers, and other external resources keep running.",
+    "Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
+  );
+  await expect(deleteDialog).toContainText("Type the phrase to confirm");
+  await expect(deleteDialog.getByLabel("Type the phrase to confirm")).toHaveCSS(
+    "font-size",
+    "16px",
   );
   await expect(page).toHaveScreenshot("settings-delete-account-dialog-desktop.png", {
     ...screenshotOptions,
