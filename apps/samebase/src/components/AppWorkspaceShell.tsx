@@ -256,7 +256,6 @@ function AppWorkspaceShellFrame({
   const appRightSidebarPane = useAppRightSidebarPane();
   const headerAccessory = chrome?.headerAccessory;
   const staticLeftPaneAbsent = staticRouteChrome?.leftPane === "none";
-  const staticRightPaneAbsent = staticRouteChrome?.rightPane === "none";
   const mainPane = {
     header: headerAccessory,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
@@ -266,17 +265,11 @@ function AppWorkspaceShellFrame({
     : chrome?.left === null
       ? undefined
       : (chrome?.left ?? {});
-  const rightPane = staticRightPaneAbsent
-    ? undefined
-    : chrome?.right === null
-      ? undefined
-      : (chrome?.right ?? appRightSidebarPane);
+  const rightPane = chrome?.right === null ? undefined : (chrome?.right ?? appRightSidebarPane);
   const leftToggleVisibility = staticLeftPaneAbsent
     ? "hidden"
     : (chrome?.leftToggleVisibility ?? "desktop");
-  const rightToggleVisibility = staticRightPaneAbsent
-    ? "hidden"
-    : (chrome?.rightToggleVisibility ?? "desktop");
+  const rightToggleVisibility = chrome?.rightToggleVisibility ?? "desktop";
 
   return (
     <WorkspacePaneRuntimeProvider

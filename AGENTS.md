@@ -119,8 +119,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Preserve the established visual language. Do not add shadows, rounded corners, custom easing,
   decorative borders, or similar visual embellishments unless the user explicitly asks for them or
   the surrounding component already uses them.
-- For motion and timing, prefer Tailwind defaults unless there is a concrete product reason to
-  override them.
+- Use Tailwind motion and timing defaults unless the product requires otherwise.
 - Assume Cloudflare is the default front door and observability layer for `samebase.com`, and keep
   application logic in Convex by default unless there is a clear reason not to.
 - In copy, docs, and examples: never use Vercel as an example provider; use Netlify when a
@@ -156,8 +155,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Worktree frontend should avoid port `5173`; prefer the worktree defaults.
 - Treat shadcn-generated files in `apps/samebase/src/components/ui/*` as read-only unless the user
   explicitly asks to update shadcn output.
-- Treat speculative future-proofing as a bug. Do not add backup env vars, imagined code paths, or
-  placeholder config.
+- Do not add speculative env vars, code paths, allowlists, or placeholder config.
 
 ## Communication
 
@@ -413,7 +411,8 @@ UI code:
   without invented chrome, and a failing route-level or honest production-component repro comes
   before narrower fixture coverage. Fixture ownership must match the changed product surface
   (`docs/agent-workflows.md`, Route-First UI Regression Policy).
-- Use rectangular app chrome by default.
+- Authenticated app routes keep the standard right sidebar for navigation unless a documented
+  product requirement removes it.
 - Disable async destructive triggers while pending and show an in-button pending state.
 - Persist user-visible UI state in Convex by default unless per-device behavior is explicitly
   desired.

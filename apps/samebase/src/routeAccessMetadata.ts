@@ -16,7 +16,7 @@ const routeAccessMetadataByPath = {
   "/": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/agents/connect": {
     access: "access_public",
-    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none" },
+    appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "hidden",
     prerender: false,
   },
@@ -26,7 +26,7 @@ const routeAccessMetadataByPath = {
   },
   "/admin/account-deletions": {
     access: "access_admin",
-    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none", mobilePane: "main" },
+    appWorkspaceRouteChrome: { leftPane: "none", mobilePane: "main" },
   },
   "/connect-repo": {
     access: "access_repo_connect",
@@ -109,7 +109,7 @@ const routeAccessMetadataByPath = {
   },
   "/walkthrough/cloudflare-worker-builds": {
     access: "access_public",
-    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none" },
+    appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "hidden",
     prerender: false,
   },
