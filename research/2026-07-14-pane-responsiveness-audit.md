@@ -28,7 +28,9 @@ The convert list below shipped in one sweep with three decisions worth keeping:
    `@3xl`), so they use `pointer-fine:` classes and the renamed `useCoarsePointer` hook instead.
    Wide touch-first devices intentionally switch from the old width-selected desktop density to
    touch density and touch-oriented Monaco chrome even when their viewport is at least 768px wide.
-   FileTree unit tests cover coarse- and fine-pointer long press at 1024px, and a workspace visual
+   FileTree long press keys on the actual touch event rather than pointer capability, so hybrid
+   fine-pointer touchscreens keep it and a cancelled touch clears the pending timer. Unit tests
+   cover coarse- and fine-pointer long press plus touchcancel at 1024px, and a workspace visual
    baseline covers touch-oriented Monaco chrome at the same viewport width. Those tests cover the
    interaction boundary and a representative editor surface, not a complete wide-touch visual matrix
    for every converted density surface.

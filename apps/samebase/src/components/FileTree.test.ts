@@ -65,14 +65,17 @@ function renderRenameableFileTree(isCoarsePointer: boolean) {
   return { fileRow, rootElement };
 }
 
-function longPressFileTreeRow(fileRow: HTMLElement) {
+function createTouchStartEvent() {
   const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
   Object.defineProperty(touchStart, "touches", {
     value: [{ clientX: 40, clientY: 80 }],
   });
+  return touchStart;
+}
 
+function longPressFileTreeRow(fileRow: HTMLElement) {
   act(() => {
-    fileRow.dispatchEvent(touchStart);
+    fileRow.dispatchEvent(createTouchStartEvent());
     vi.advanceTimersByTime(500);
   });
 }
@@ -216,10 +219,22 @@ describe("FileTree", () => {
     expect(rootElement.textContent).toContain("Rename");
   });
 
-  it("ignores long press for a fine pointer at desktop width", () => {
+  it("opens actions on long press for a fine-pointer touchscreen at desktop width", () => {
     const { fileRow, rootElement } = renderRenameableFileTree(false);
 
     longPressFileTreeRow(fileRow);
+
+    expect(rootElement.textContent).toContain("Rename");
+  });
+
+  it("does not open actions when the touch is cancelled before the long-press delay", () => {
+    const { fileRow, rootElement } = renderRenameableFileTree(true);
+
+    act(() => {
+      fileRow.dispatchEvent(createTouchStartEvent());
+      fileRow.dispatchEvent(new Event("touchcancel", { bubbles: true }));
+      vi.advanceTimersByTime(500);
+    });
 
     expect(rootElement.textContent).not.toContain("Rename");
   });

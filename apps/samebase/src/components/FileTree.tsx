@@ -241,10 +241,12 @@ function TreeNodeComponent({
     openContextMenu(e.clientX, e.clientY);
   };
 
-  // Long press handlers for touch-first devices
+  // A real touchstart is itself the touch signal, so hybrid fine-pointer
+  // touchscreens keep long press; pointer capability only drives row density
+  // and tooltip wording.
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (!isCoarsePointer || !canOpenContextMenu) return;
+      if (!canOpenContextMenu) return;
       const touch = e.touches[0];
 
       didTriggerLongPressRef.current = false;
@@ -255,17 +257,10 @@ function TreeNodeComponent({
         openContextMenu(touchX, touchY);
       }, 500); // 500ms long press threshold
     },
-    [canOpenContextMenu, isCoarsePointer, openContextMenu],
+    [canOpenContextMenu, openContextMenu],
   );
 
-  const handleTouchEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
-  const handleTouchMove = useCallback(() => {
+  const clearLongPressTimer = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -403,8 +398,9 @@ function TreeNodeComponent({
                   onClick={handleClick}
                   onContextMenu={handleRightClick}
                   onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchMove}
+                  onTouchEnd={clearLongPressTimer}
+                  onTouchMove={clearLongPressTimer}
+                  onTouchCancel={clearLongPressTimer}
                 >
                   {nodeRowContent}
                 </a>
@@ -416,8 +412,9 @@ function TreeNodeComponent({
                   onClick={handleClick}
                   onContextMenu={handleRightClick}
                   onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchMove}
+                  onTouchEnd={clearLongPressTimer}
+                  onTouchMove={clearLongPressTimer}
+                  onTouchCancel={clearLongPressTimer}
                 >
                   {nodeRowContent}
                 </div>
