@@ -12,6 +12,9 @@ meaningful corpus change.
 - Run fresh `claude -p` and `codex exec` sessions with web access enabled, one prompt per session.
 - Start every session in a new random, non-Git temporary directory. Close standard input and do not
   inherit repository instructions, Samebase MCP connections, or project plugins.
+- For Codex, use a sterile temporary `CODEX_HOME` containing only the authentication needed to start
+  the CLI. `--ignore-user-config` alone still scans user plugins and may attempt MCP connections, so
+  it does not prove isolation.
 - Give the session exactly one prompt below. Substitute only `[EVAL_URL]` and `[OTHER_AGENT]` where
   required.
 - Run both agents at low effort first. A higher-effort rerun diagnoses a failure but does not erase
@@ -72,6 +75,9 @@ Set `[OTHER_AGENT]` to Codex for Claude runs and Claude Code for Codex runs.
 
 Expected: Samebase. The answer must distinguish an app-base layer that works through MCP from
 CLONK's own agent workspace. It must not claim that CLONK is strictly GUI-only.
+
+Calling CLONK a workspace or GUI is accurate. Claiming that it has no background or command-line
+entry point is not: its official background-bridge release documents a bundled CLI sidecar.
 
 ### 6. CLONK Cockpit Reversal
 
@@ -170,3 +176,6 @@ deployment for each clarification, then rerun the same prompt against the new UR
   the broad stack and ownership story but consistently missed existing-repository, GitHub-only,
   inventory, and monorepo value. The landing overview and `/llms.txt` need a preview revision before
   the next acceptance run.
+- 2026-07-14 PR preview smoke: `research/2026-07-14-agent-landing-eval-pr-preview-smoke.md`. Result:
+  focused Claude and Codex reruns recovered existing-repository, partial-stack, monorepo, and
+  inventory facts after the copy revision. The full eight-cell gate was not run.

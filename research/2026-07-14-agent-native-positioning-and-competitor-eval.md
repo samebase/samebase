@@ -11,6 +11,7 @@
   - `research/2026-07-06-agent-landing-eval-questions.md`
   - `research/2026-07-07-agent-landing-eval-round-0.md`
   - `research/2026-07-07-agent-landing-eval-round-1-findings.md`
+  - `research/2026-07-14-agent-landing-eval-pr-preview-smoke.md`
   - `research/2026-07-06-samebase-pitch-language.md`
   - `research/2026-05-18-convex-native-ai-app-builder-competitors.md`
   - `research/2026-06-28-landing-positioning-ideas.md`
@@ -22,8 +23,8 @@ or the recurring competitor watch.
 
 The causal order matters:
 
-1. GitHub, Convex, and Cloudflare are the best default base we have found for web apps.
-2. Once a good default is known, unnecessary stack variation becomes maintenance debt.
+1. GitHub, Convex, and Cloudflare are the best stack we have found for web apps.
+2. Once the best stack is known, unnecessary stack variation becomes maintenance debt.
 3. Samebase lets the coding agent the user already chose repeat and operate that base across many
    apps.
 4. The starter template is the introduction. Inventory, provider attachment, verification, repair,
@@ -168,8 +169,9 @@ The boundaries are equally important:
 
 ## The Public-Story Gap
 
-The current overview led with "a button that turns an idea into a running app," followed by "one
-place to watch them all" and the fact that an agent can create and list apps. It did not concretize:
+At the time of the first positioning probes, the overview led with "a button that turns an idea into
+a running app," followed by "one place to watch them all" and the fact that an agent could create
+and list apps. It did not concretize:
 
 - connecting an existing repository;
 - useful GitHub-only adoption;
@@ -181,6 +183,10 @@ place to watch them all" and the fact that an agent can create and list apps. It
 
 That omission explains why unrelated agents consistently inferred "greenfield scaffold" even when
 they used more effort.
+
+The subsequent `research/2026-07-14-agent-landing-eval-pr-preview-smoke.md` records the revised
+preview. Focused low-effort reruns then recovered existing adoption, partial stacks, monorepo roots,
+and the connected-app inventory.
 
 ## Competitor Category Map
 
@@ -221,8 +227,8 @@ agent cockpit. Lovable remains the rapid-prototype and nontechnical-user boundar
 
 | Part               | Role                                                                          |
 | ------------------ | ----------------------------------------------------------------------------- |
-| Hook               | GitHub, Convex, and Cloudflare are the best default base                      |
-| Conviction         | Once the default is known, needless variation is maintenance debt             |
+| Hook               | GitHub, Convex, and Cloudflare are the best stack we have found               |
+| Conviction         | Once the best stack is known, needless variation is maintenance debt          |
 | Product mechanism  | Samebase creates, adopts, inventories, wires, verifies, and repairs that base |
 | Compounding result | Many apps share one operational model instead of becoming unrelated systems   |
 
