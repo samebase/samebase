@@ -200,10 +200,12 @@ Current primary sources:
 - [Lovable's introduction](https://docs.lovable.dev/introduction/welcome) presents an integrated
   prompt-to-app development platform.
 
-CLONK is not strictly GUI-only. It has background and command-line entry points, while its
-orchestration, history, previews, Git controls, autonomous loops, and phone control live in the
-CLONK workspace. No public evidence found in this review showed an arbitrary CLONK session moving
-back into the native Codex or Claude interface.
+CLONK is not strictly GUI-only. Its
+[background bridge release](https://github.com/PauliusOS/komand-releases/releases/tag/v1.0.1)
+describes a bundled CLI sidecar that can launch agents while the Mac app is closed. Its
+orchestration, history, previews, Git controls, autonomous loops, and phone control still live in
+the CLONK workspace. No public evidence found in this review showed an arbitrary CLONK session
+moving back into the native Codex or Claude interface.
 
 The most useful distinction is:
 

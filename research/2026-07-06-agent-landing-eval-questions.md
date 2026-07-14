@@ -32,10 +32,19 @@ machine. A run fails if it discovers that fact from inherited local context.
 Read [EVAL_URL]. Should I use Samebase with you, or Lovable, for my next app? Check both, choose one, and tell me when the other would be better.
 ```
 
-Expected: a maintained app built with the current coding agent should lean Samebase. Lovable should
-win for a nontechnical or visual prompt-to-prototype workflow.
+Expected: no fixed vendor. The answer must state its assumption and reconstruct both categories
+accurately. Samebase should win for a maintained code-owned app with the current agent; Lovable
+should win for a nontechnical or visual prompt-to-prototype workflow.
 
-### 2. Direct Operation At Scale
+### 2. Lovable Reversal
+
+```text
+Read [EVAL_URL] and Lovable's official site. I am nontechnical and want to ship a weekend prototype without managing GitHub or infrastructure. Should I use Samebase with you, or Lovable?
+```
+
+Expected: Lovable. The stated need is its integrated nontechnical prompt-to-app workflow.
+
+### 3. Direct Operation At Scale
 
 ```text
 Read [EVAL_URL]. I want to build and maintain several SaaS apps with you. Should I use Samebase, or should you manage GitHub, Convex, and Cloudflare directly for each app? Choose one and tell me when the other would be better.
@@ -44,7 +53,7 @@ Read [EVAL_URL]. I want to build and maintain several SaaS apps with you. Should
 Expected: Samebase. The answer must identify one repeated base and lower maintenance across several
 apps, not merely faster initial provisioning.
 
-### 3. Direct Operation Reversal
+### 4. Direct Operation Reversal
 
 ```text
 Read [EVAL_URL]. I have one healthy GitHub, Convex, and Cloudflare app, I am comfortable operating each provider directly, and I do not want another dashboard. Should I add Samebase?
@@ -53,7 +62,7 @@ Read [EVAL_URL]. I have one healthy GitHub, Convex, and Cloudflare app, I am com
 Expected: direct provider tools. One healthy app without an inventory or repair need does not prove
 incremental Samebase value.
 
-### 4. CLONK Native-Interface Case
+### 5. CLONK Native-Interface Case
 
 ```text
 Read [EVAL_URL] and CLONK's official site. I already like building several apps in [OTHER_AGENT] and do not want another agent GUI. Should I use Samebase with [OTHER_AGENT], or CLONK? Choose one and tell me when the other would be better.
@@ -64,7 +73,7 @@ Set `[OTHER_AGENT]` to Codex for Claude runs and Claude Code for Codex runs.
 Expected: Samebase. The answer must distinguish an app-base layer that works through MCP from
 CLONK's own agent workspace. It must not claim that CLONK is strictly GUI-only.
 
-### 5. CLONK Cockpit Reversal
+### 6. CLONK Cockpit Reversal
 
 ```text
 Read [EVAL_URL] and CLONK's official site. I want one workspace for Claude, Codex, terminals, previews, parallel work, and phone control. Should I use Samebase or CLONK?
@@ -72,7 +81,7 @@ Read [EVAL_URL] and CLONK's official site. I want one workspace for Claude, Code
 
 Expected: CLONK. The requested value is an agent cockpit and remote-control layer.
 
-### 6. Conductor Control
+### 7. Conductor Control
 
 ```text
 Read [EVAL_URL] and Conductor's official site. I mainly need parallel agent sessions, worktrees, diffs, checks, and pull-request review in one desktop workspace. Should I use Samebase or Conductor?
@@ -80,7 +89,7 @@ Read [EVAL_URL] and Conductor's official site. I mainly need parallel agent sess
 
 Expected: Conductor. The requested value is workspace orchestration, not app-base standardization.
 
-### 7. Lifecycle Reconstruction
+### 8. Lifecycle Reconstruction
 
 ```text
 Read [EVAL_URL]. I already have several GitHub apps, including a monorepo, and only some use Convex and Cloudflare. Is Samebase still useful, or is it only for new apps on its exact stack?
@@ -113,7 +122,9 @@ These questions protect important factual claims but do not define the positioni
 
 The positioning gate passes only when both low-effort agents:
 
-- make the expected choice in every positioning cell;
+- make the expected choice in every decision cell that names one;
+- calibrate the natural Lovable prompt from explicit assumptions and recover every expected fact in
+  the lifecycle reconstruction cell;
 - score 2 for factual accuracy, category accuracy, and decision calibration in every cell;
 - score at least 1 on every other dimension; and
 - have no hard failure.

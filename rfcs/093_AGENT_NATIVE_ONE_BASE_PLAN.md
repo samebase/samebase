@@ -91,8 +91,9 @@ repair.
 
 ## The Invariant: One Contract Per Action
 
-The permanent rule is the "same-UI test": if the dashboard disappeared, an agent holding only the
-contracts could still operate everything:
+The permanent target and forward rule is the "same-UI test": if the dashboard disappeared, an agent
+holding only the contracts could still operate everything. Dashboard-only monorepo app-root creation
+is the current exception and requires a future contract before it passes this test.
 
 1. Every operational action exists as exactly **one contract module** colocated with its Convex
    function. The contract owns access, arguments, returns, MCP metadata, and the markdown doc body.
@@ -100,7 +101,7 @@ contracts could still operate everything:
    exported `/docs/actions/<name>.md` page, `/llms.txt`, plugin docs, and
    `chatgpt-app-submission.json`.
 3. No new operational UI button without a contract; no MCP tool without a contract; action docs are
-   never hand-written.
+   never hand-written. The existing app-root exception cannot expand to another UI-only action.
 4. Status names its own remedy: degraded provider and connection states carry `nextAction`, whose
    value is a bare action id. The enclosing app and app root supply positional context;
    target-selection arguments come from discovery reads. Failed `sourceSetup` is the one remaining
@@ -129,9 +130,10 @@ rule:
    same steps with raw provider tools is the pre-090 world again, with its mistakes landing in the
    registry as stale state.
 
-Everything else, including logs, env vars, migrations, custom domains, D1/queues/crons, and all
-day-2 operations, is deliberately never wrapped. Breadth is served by the other two legs of the
-design:
+Routine provider-native operations such as logs, env vars, migrations, custom domains,
+D1/queues/crons, and provider-specific debugging are deliberately not wrapped. Samebase does wrap
+the cross-provider and registry repair actions listed above. Breadth is served by the other two legs
+of the design:
 
 - **Rich nouns**: `getUserVaults` already returns every coordinate an agent needs to go direct
   (deployment names, team/project slugs, `workers.dev` URLs, provider dashboard URLs). The status
@@ -177,11 +179,12 @@ Recommended hero prompt (one exact recommendation, replacing the rotating slogan
 
 > **Don't take our word for it.** Paste this into Claude Code, Codex, or Cursor:
 >
-> `Read https://samebase.com. Should I use Samebase with you, or Lovable, for my next app? Check both, choose one, and tell me when the other would be better.`
+> `Read https://samebase.com. I build and maintain several apps with you. Should I use Samebase, or should you manage GitHub, Convex, and Cloudflare directly for each one? Choose one, and tell me when the other would be better.`
 
 This compact question tests the compound product: Samebase plus the coding agent the user already
-likes. The most diagnostic acceptance variant compares Samebase with having that agent operate
-GitHub, Convex, and Cloudflare directly across several apps.
+likes, against the most diagnostic alternative: having that agent operate each provider directly.
+CLONK is the first named competitor in the acceptance panel. The shorter natural Lovable question
+remains a calibration probe, not a forced Samebase win.
 
 Below the fold stays minimal, in this order:
 
