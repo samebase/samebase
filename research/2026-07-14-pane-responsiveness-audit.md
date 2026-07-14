@@ -2,13 +2,13 @@
 
 ## Document Control
 
-- Status: Accepted audit; conversions are follow-up work
+- Status: Completed audit; conversions landed
 - Date: 2026-07-14
 - Context: `WorkspaceLayoutV2PaneFrame` now declares the anonymous CSS container on its content
   scroller, and `docs/code-guardrails.md` plus `AGENTS.md` record the standard: workspace pane
   content uses container variants (`@2xl:`, `@3xl:`, `cqw`) against the pane, never viewport
   `sm:`/`md:`/`vw`. This audit classifies every existing viewport-relative usage in
-  `apps/samebase/src` so conversions can land as focused follow-ups.
+  `apps/samebase/src` before the conversions landed.
 
 ## Architecture Fact
 
@@ -35,7 +35,7 @@ The convert list below shipped in one sweep with three decisions worth keeping:
    print and printMobile surfaces render at fixed page dimensions, and the shared `MetricBlock`
    keeps its viewport variant because print output must not change.
 
-## Convert (follow-up work, highest value first)
+## Converted surfaces (original audit findings)
 
 1. `components/FileView/FileView.tsx`: `md:grid-cols-2 md:divide-x` diff split renders side-by-side
    in a narrow main pane between two open sidebars; also `md:text-sm`.
@@ -77,7 +77,7 @@ The convert list below shipped in one sweep with three decisions worth keeping:
 - True viewport units: `svh` scroll-end space on docs documents, `72svh` markdown media cap,
   `RouteUrlEditorNext.tsx` address-bar chrome.
 - Non-width media queries: `PublicLandingLogo.tsx` `prefers-reduced-motion`.
-- Infra hooks: `hooks/use-mobile.tsx`, `useUsesTouchSheet.ts`, theme/head helpers.
+- Infra hooks: `hooks/use-mobile.tsx`, `useCoarsePointer.ts`, theme/head helpers.
 - `AppBootFailureState.tsx`: renders when the shell itself fails to boot; no pane exists.
 - `components/ui/*`: shadcn-generated, read-only by repo rule.
 - Visual fixtures (`*VisualFixture.tsx`, `/visual-fixture` harness): pinned baselines, dev-only.

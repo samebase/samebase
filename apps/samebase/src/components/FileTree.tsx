@@ -18,7 +18,7 @@ import {
 } from "@/lib/radixIcons";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { DialogContext } from "@/contexts/dialog-context-state";
 import {
   getCommitStatusTextClassName,
@@ -181,7 +181,7 @@ function TreeNodeComponent({
   const isOpen = expansionState
     ? expansionState.isExpanded === true
     : autoExpandedPaths.has(node.path);
-  const isMobile = useIsMobile();
+  const isCoarsePointer = useCoarsePointer();
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renamingValue, setRenamingValue] = useState(node.name);
@@ -241,10 +241,10 @@ function TreeNodeComponent({
     openContextMenu(e.clientX, e.clientY);
   };
 
-  // Long press handlers for mobile
+  // Long press handlers for touch-first devices
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (!isMobile || !canOpenContextMenu) return;
+      if (!isCoarsePointer || !canOpenContextMenu) return;
       const touch = e.touches[0];
 
       didTriggerLongPressRef.current = false;
@@ -255,7 +255,7 @@ function TreeNodeComponent({
         openContextMenu(touchX, touchY);
       }, 500); // 500ms long press threshold
     },
-    [canOpenContextMenu, isMobile, openContextMenu],
+    [canOpenContextMenu, isCoarsePointer, openContextMenu],
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -428,7 +428,7 @@ function TreeNodeComponent({
                 hasContextMenuActions: canOpenContextMenu,
                 isFolder,
                 isDeletedFile,
-                isMobile,
+                isCoarsePointer,
                 type: node.type,
               })}
             </TooltipContent>

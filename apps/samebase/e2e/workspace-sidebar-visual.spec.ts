@@ -47,7 +47,9 @@ test("fileview desktop shell with left tree", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const pathTitle = page.getByTestId("fileview-layout-header").getByText("/", { exact: true });
   await expect(page.getByRole("button", { name: "Open bottom panel" })).toHaveCount(0);
+  await expect(pathTitle).toBeVisible();
 
   await expect(fixture).toHaveScreenshot("fileview-layout-shell-left-tree.png", {
     animations: "disabled",
@@ -55,6 +57,9 @@ test("fileview desktop shell with left tree", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await expect(pathTitle).toBeHidden();
 });
 
 test.describe("fileview mobile", () => {
