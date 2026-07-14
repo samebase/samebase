@@ -527,7 +527,7 @@ export function MarkdownLandingDocument({
     <article
       data-testid={dataTestId}
       className={cn(
-        "mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-10 text-sm @2xl:px-6 @4xl:py-14",
+        "mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-10 text-sm @2xl:px-6 @3xl:py-14",
         className,
       )}
     >

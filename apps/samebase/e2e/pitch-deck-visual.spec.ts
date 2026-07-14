@@ -18,6 +18,7 @@ async function signInForPitchRoute(page: Page): Promise<void> {
 }
 
 test("/pitch stays visually stable", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await signInForPitchRoute(page);
   await page.goto("/pitch", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -30,6 +31,10 @@ test("/pitch stays visually stable", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Download Mobile PDF" })).toHaveAttribute(
     "href",
     "/pitch-deck-mobile.pdf",
+  );
+  await expect(page.getByTestId(PITCH_DECK_SURFACE_TEST_ID)).toHaveScreenshot(
+    "pitch-deck-interactive.png",
+    pitchDeckScreenshotOptions,
   );
 });
 

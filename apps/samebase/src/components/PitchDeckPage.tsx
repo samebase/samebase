@@ -311,7 +311,7 @@ function resolveSurfaceClasses(mode: PitchDeckMode): string {
     return "grid h-full w-full overflow-hidden border border-border bg-background p-8 text-foreground";
   }
 
-  return "grid w-full max-w-[1360px] gap-6 border border-border bg-background p-5 text-foreground @2xl:p-6 @7xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.85fr)] @7xl:p-10";
+  return "grid w-full max-w-[1360px] gap-6 border border-border bg-background p-5 text-foreground @2xl:p-6 @5xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.85fr)] @5xl:p-10";
 }
 
 function resolveHeaderClasses(mode: PitchDeckMode): {
