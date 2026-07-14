@@ -36,7 +36,14 @@ import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts" | "pricing";
 
@@ -162,35 +169,38 @@ const LANDING_ZONE_MARKS = [
 ] as const satisfies readonly { routeSearch: LogoRouteSearch; viewStateKey: string }[];
 
 /**
-The rail column is display-none below md, where a mounted scene would still
-create an invisible WebGL context; CSS cannot gate the scene load, so the
-media query does.
+The rail column is display-none below the @3xl container width, where a mounted
+scene would still create an invisible WebGL context. CSS cannot gate the scene
+load, so this effect measures the landing article, which fills the pane
+container the @3xl variant reads; a viewport media query would disagree with
+the pane inside workspace chrome.
 */
-function useCanLoadZoneMarkScene() {
+const ZONE_MARK_MIN_ARTICLE_WIDTH_PX = 768;
+
+function useCanLoadZoneMarkScene(markRef: RefObject<HTMLDivElement | null>) {
   const [canLoadScene, setCanLoadScene] = useState(false);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") {
+    const article = markRef.current?.closest("article");
+    if (!article) {
       return;
     }
 
-    const mediaQuery = window.matchMedia("(min-width: 768px)");
-    const syncCanLoadScene = () => {
-      setCanLoadScene(mediaQuery.matches);
-    };
-
-    syncCanLoadScene();
-    mediaQuery.addEventListener("change", syncCanLoadScene);
+    const observer = new ResizeObserver(([entry]) => {
+      setCanLoadScene(entry.contentRect.width >= ZONE_MARK_MIN_ARTICLE_WIDTH_PX);
+    });
+    observer.observe(article);
     return () => {
-      mediaQuery.removeEventListener("change", syncCanLoadScene);
+      observer.disconnect();
     };
-  }, []);
+  }, [markRef]);
 
   return canLoadScene;
 }
 
 function LandingZoneMark({ index }: { index: 0 | 1 | 2 | 3 }) {
-  const canLoadScene = useCanLoadZoneMarkScene();
+  const markRef = useRef<HTMLDivElement>(null);
+  const canLoadScene = useCanLoadZoneMarkScene(markRef);
   const rootRouteSearch = useRootRouteSearch();
   const mark = LANDING_ZONE_MARKS[index];
   // Theme and color params follow the visitor's mark; the structural params
@@ -207,7 +217,7 @@ function LandingZoneMark({ index }: { index: 0 | 1 | 2 | 3 }) {
   } = rootRouteSearch;
 
   return (
-    <div className="mt-7 hidden md:block">
+    <div className="mt-7 hidden @3xl:block" ref={markRef}>
       <PublicLandingLogo
         loadInteractiveScene={canLoadScene}
         routeSearch={{
@@ -324,9 +334,9 @@ function LandingZone({
   mark?: ReactNode;
 }) {
   return (
-    <section className="grid grid-cols-1 gap-y-5 md:grid-cols-[168px_minmax(0,1fr)] md:gap-x-14">
+    <section className="grid grid-cols-1 gap-y-5 @3xl:grid-cols-[168px_minmax(0,1fr)] @3xl:gap-x-14">
       <div>
-        <p className="whitespace-nowrap font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground md:pt-3">
+        <p className="whitespace-nowrap font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground @3xl:pt-3">
           {label}
         </p>
         {mark}
@@ -408,10 +418,10 @@ function LandingFootnote({
 }) {
   return (
     <div
-      className="grid grid-cols-[26px_minmax(0,1fr)] gap-x-3 md:grid-cols-[168px_minmax(0,1fr)] md:gap-x-14"
+      className="grid grid-cols-[26px_minmax(0,1fr)] gap-x-3 @3xl:grid-cols-[168px_minmax(0,1fr)] @3xl:gap-x-14"
       id={fragment}
     >
-      <p aria-hidden className="pt-0.5 font-mono text-sm text-secondary md:text-right">
+      <p aria-hidden className="pt-0.5 font-mono text-sm text-secondary @3xl:text-right">
         {marker}
       </p>
       <div>
@@ -428,8 +438,8 @@ function LandingPreviewOverview() {
       className="min-h-full shrink-0 bg-background pb-48 text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
-      <div className="mx-auto w-full max-w-[1000px] px-6 pt-10 sm:px-10 md:pt-14">
-        <section className="md:grid md:grid-cols-[minmax(0,1fr)_440px] md:items-center md:gap-x-14">
+      <div className="mx-auto w-full max-w-[1000px] px-6 pt-10 @2xl:px-10 @3xl:pt-14">
+        <section className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_440px] @4xl:items-center @4xl:gap-x-14">
           <div>
             <p className="flex items-center gap-2.5">
               <img
@@ -443,7 +453,7 @@ function LandingPreviewOverview() {
             </p>
             <h1
               aria-describedby="landing-correct-definition"
-              className="mt-12 text-[clamp(44px,8vw,104px)] font-bold leading-none tracking-[-0.038em] md:mt-16 md:text-[clamp(40px,5.6vw,84px)]"
+              className="mt-12 text-[clamp(44px,10cqw,104px)] font-bold leading-none tracking-[-0.038em] @4xl:mt-16 @4xl:text-[clamp(40px,7cqw,84px)]"
             >
               The correct
               <LandingFootnoteMark
@@ -456,7 +466,7 @@ function LandingPreviewOverview() {
               <br />
               web apps
             </h1>
-            <p className="mt-9 max-w-[52ch] text-lg leading-relaxed text-primary sm:text-xl">
+            <p className="mt-9 max-w-[52ch] text-lg leading-relaxed text-primary @2xl:text-xl">
               Samebase starts a new app in about a minute on the best stack we've found:{" "}
               <strong className="font-semibold text-foreground">GitHub</strong>,{" "}
               <strong className="font-semibold text-foreground">Convex</strong>, and{" "}
@@ -473,7 +483,7 @@ function LandingPreviewOverview() {
               <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
             </p>
           </div>
-          <div className="mt-16 md:mt-0">
+          <div className="mt-16 @4xl:mt-0">
             <LandingInteractiveLogo />
           </div>
         </section>
@@ -481,15 +491,15 @@ function LandingPreviewOverview() {
         {/* Placeholder for the planned provisioning capture: connecting the three
             providers and creating the first app, in real time. Swap for the YouTube
             embed once recorded. */}
-        <div className="mt-20 flex aspect-video w-full items-center justify-center bg-muted md:mt-24">
+        <div className="mt-20 flex aspect-video w-full items-center justify-center bg-muted @3xl:mt-24">
           <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
             video: connect the providers, create the first app
           </p>
         </div>
 
-        <div className="mt-24 md:mt-32">
+        <div className="mt-24 @3xl:mt-32">
           <LandingZone label="01 · yours" mark={<LandingZoneMark index={0} />}>
-            <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] @3xl:text-[26px]">
               Standard, inspectable infrastructure: three real accounts, in your name.
             </p>
             <p className="mt-5 text-base text-primary">
@@ -497,7 +507,7 @@ function LandingPreviewOverview() {
               dashboard. Connect an existing GitHub repo too, including several app roots in a
               monorepo, and leave it GitHub-only until you attach Convex or Cloudflare.
             </p>
-            <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-9 sm:grid-cols-3">
+            <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-9 @2xl:grid-cols-3">
               <LandingTrioCell
                 dashboardUrl="https://github.com"
                 detail="repo + pull requests"
@@ -572,7 +582,7 @@ function LandingPreviewOverview() {
                 src="/brand/logo/v2-side-diagonal-duotone.svg"
                 width="32"
               />
-              <p className="max-w-[44ch] text-[19px] leading-normal tracking-[-0.01em] sm:text-[21px]">
+              <p className="max-w-[44ch] text-[19px] leading-normal tracking-[-0.01em] @2xl:text-[21px]">
                 Samebase uses <span className="font-semibold">the same base</span> it recommends.
                 samebase.com runs on its own Convex deployment and Cloudflare Workers.
               </p>
@@ -580,9 +590,9 @@ function LandingPreviewOverview() {
           </LandingZone>
         </div>
 
-        <div className="mt-24 md:mt-32">
+        <div className="mt-24 @3xl:mt-32">
           <LandingZone label="02 · safer" mark={<LandingZoneMark index={1} />}>
-            <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] @3xl:text-[26px]">
               A web app is three boxes (database, server, frontend) and two connections. Everyone
               stares at the boxes.{" "}
               <span className="font-semibold">The breaches happen on the connections.</span>
@@ -611,7 +621,7 @@ function LandingPreviewOverview() {
             <p className="mt-10 text-sm text-muted-foreground">
               The version I tell my engineer friends:
             </p>
-            <p className="mt-2 max-w-[32ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] md:text-[26px]">
+            <p className="mt-2 max-w-[32ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] @3xl:text-[26px]">
               At this point, if you're on Supabase or Firebase instead of Convex, your app is a
               security risk.
               <LandingFootnoteMark
@@ -623,9 +633,9 @@ function LandingPreviewOverview() {
           </LandingZone>
         </div>
 
-        <div className="mt-24 md:mt-32">
+        <div className="mt-24 @3xl:mt-32">
           <LandingZone label="03 · lanes" mark={<LandingZoneMark index={2} />}>
-            <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] @3xl:text-[26px]">
               Every pull request gets its own preview deploy,{" "}
               <span className="font-semibold">with its own database.</span>
             </p>
@@ -634,7 +644,7 @@ function LandingPreviewOverview() {
               step on each other's data. Here isolation comes provisioned: pull requests, worktrees,
               and your local folder alike.
             </p>
-            <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
+            <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-8 @2xl:grid-cols-3">
               {LANDING_LANES.map((lane) => (
                 <div className="border-t border-border pt-6" key={lane.name}>
                   <p className="font-mono text-[15px]">
@@ -671,12 +681,12 @@ function LandingPreviewOverview() {
           </LandingZone>
         </div>
 
-        <div className="mt-24 md:mt-32">
+        <div className="mt-24 @3xl:mt-32">
           <LandingZone label="04 · cheaper" mark={<LandingZoneMark index={3} />}>
-            <p className="text-[22px] leading-snug tracking-[-0.015em] text-primary md:text-[26px]">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] text-primary @3xl:text-[26px]">
               Most app builders resell LLM tokens.
             </p>
-            <p className="mt-5 text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+            <p className="mt-5 text-[22px] leading-snug tracking-[-0.015em] @3xl:text-[26px]">
               But the agent you already run is{" "}
               <span className="border-b-[3px] border-secondary pb-px font-semibold">
                 cheaper and more powerful
@@ -723,11 +733,11 @@ function LandingPreviewOverview() {
               <div className="mt-4 grid">
                 {LANDING_COST_ROWS.map((row) => (
                   <div
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-6 gap-y-1 border-t border-border py-3.5 md:grid-cols-[minmax(0,1fr)_13rem_auto]"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-6 gap-y-1 border-t border-border py-3.5 @3xl:grid-cols-[minmax(0,1fr)_13rem_auto]"
                     key={row.profile}
                   >
                     <p className="text-base">{row.profile}</p>
-                    <p className="order-3 col-span-2 text-sm text-muted-foreground md:order-none md:col-span-1">
+                    <p className="order-3 col-span-2 text-sm text-muted-foreground @3xl:order-none @3xl:col-span-1">
                       {row.note}
                     </p>
                     <p
@@ -753,8 +763,8 @@ function LandingPreviewOverview() {
           </LandingZone>
         </div>
 
-        <section className="py-24 md:py-32">
-          <blockquote className="max-w-[22ch] text-[clamp(30px,4vw,44px)] font-semibold leading-tight tracking-[-0.025em]">
+        <section className="py-24 @3xl:py-32">
+          <blockquote className="max-w-[22ch] text-[clamp(30px,5cqw,44px)] font-semibold leading-tight tracking-[-0.025em]">
             If your app builder is so good, why is it not building itself?
           </blockquote>
           <p className="mt-7 max-w-[52ch] text-base text-primary">
@@ -863,7 +873,7 @@ function LandingPreviewOverview() {
           </LandingFootnote>
         </section>
 
-        <section className="mt-24 border-t border-border pt-20 md:mt-28">
+        <section className="mt-24 border-t border-border pt-20 @3xl:mt-28">
           <div className="mb-16">
             <LandingInteractiveLogo autoRotate viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY} />
             <p className="mt-6 text-center font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -873,7 +883,7 @@ function LandingPreviewOverview() {
               </Link>
             </p>
           </div>
-          <h2 className="mt-8 max-w-[20ch] text-[clamp(28px,3.4vw,38px)] font-bold leading-tight tracking-[-0.025em]">
+          <h2 className="mt-8 max-w-[20ch] text-[clamp(28px,4cqw,38px)] font-bold leading-tight tracking-[-0.025em]">
             Same stack. Your accounts. No magic.
           </h2>
           <div className="mt-9">
@@ -889,10 +899,19 @@ function LandingPreviewOverview() {
   );
 }
 
+/**
+ * MarkdownLandingDocument merges this className after its own defaults, which include py-10 and
+ * lg:py-14. The base pb wins over py-10's bottom padding, but lg:py-14 sorts after every base
+ * utility, so the lg pb duplicate is required to keep the scroll-end space that lets the last
+ * heading anchor align to the top of the scrollport.
+ */
+const DOCS_DOCUMENT_CLASS_NAME =
+  "min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]";
+
 function DocsTheStackDocument() {
   return (
     <MarkdownLandingDocument
-      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      className={DOCS_DOCUMENT_CLASS_NAME}
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
       markdown={docsTheStackMarkdown}
     />
@@ -902,7 +921,7 @@ function DocsTheStackDocument() {
 function DocsDoItYourselfDocument() {
   return (
     <MarkdownLandingDocument
-      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      className={DOCS_DOCUMENT_CLASS_NAME}
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
       markdown={docsDoItYourselfMarkdown}
     />
@@ -912,7 +931,7 @@ function DocsDoItYourselfDocument() {
 function DocsReceiptsDocument() {
   return (
     <MarkdownLandingDocument
-      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      className={DOCS_DOCUMENT_CLASS_NAME}
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
       markdown={docsReceiptsMarkdown}
     />
@@ -922,7 +941,7 @@ function DocsReceiptsDocument() {
 function DocsPricingDocument() {
   return (
     <MarkdownLandingDocument
-      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      className={DOCS_DOCUMENT_CLASS_NAME}
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
       markdown={docsPricingMarkdown}
     />

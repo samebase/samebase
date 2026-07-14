@@ -209,6 +209,37 @@ test("landing preview route renders the React overview in workspace chrome", asy
     .toBeLessThan(81);
 });
 
+test("landing preview overview adapts to a narrow pane", async ({ page }) => {
+  // A tablet-width viewport leaves the pane beside the right sidebar narrower
+  // than the viewport md breakpoint. The overview must render its stacked
+  // container layout instead of forcing the two-column hero grid.
+  await page.setViewportSize({ width: 800, height: 900 });
+
+  await page.goto(LANDING_PREVIEW_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  await expect(
+    article.getByRole("heading", {
+      name: /The correct.*way to build web apps/,
+    }),
+  ).toBeVisible();
+
+  await expect(page).toHaveScreenshot("landing-preview-overview-narrow-pane.png", {
+    animations: "disabled",
+    caret: "hide",
+    mask: [page.getByTestId("public-landing-logo-stage")],
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
 test("docs receipts route renders the claims ledger", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
 
