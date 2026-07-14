@@ -67,7 +67,7 @@ export function AccountDeletionPage() {
   if (status === null) {
     return (
       <main className="container mx-auto w-full max-w-2xl py-6">
-        <h1 className="text-xl font-semibold sm:text-2xl">Account deletion</h1>
+        <h1 className="text-xl font-semibold @2xl:text-2xl">Account deletion</h1>
         <p className="mt-4 text-sm text-muted-foreground">No account deletion is in progress.</p>
       </main>
     );
@@ -89,7 +89,7 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
 
   return (
     <main data-testid="account-deletion-page" className="container mx-auto w-full max-w-2xl py-6">
-      <h1 className="text-xl font-semibold sm:text-2xl">
+      <h1 className="text-xl font-semibold @2xl:text-2xl">
         {needsAttention ? "Account deletion needs attention" : "Deleting your account"}
       </h1>
       <p className="mt-4 text-sm text-muted-foreground">

@@ -35,10 +35,10 @@ export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearc
 
   return (
     <div
-      className="relative flex min-h-full items-center justify-center overflow-hidden p-6 sm:p-10"
+      className="relative flex min-h-full items-center justify-center overflow-hidden p-6 @2xl:p-10"
       style={{ backgroundColor: logoTheme.backgroundColor }}
     >
-      <div className="absolute left-3 top-3 flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm sm:left-4 sm:top-4">
+      <div className="absolute left-3 top-3 flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm @2xl:left-4 @2xl:top-4">
         <Button asChild size="sm" variant="outline" className="rounded-none">
           <Link search={routeSearch} to="/logo">
             3D
@@ -59,7 +59,7 @@ export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearc
         </Button>
       </div>
 
-      <div className="grid max-w-4xl gap-5 border border-black/10 bg-white/84 p-6 text-black/75 backdrop-blur-sm sm:p-8">
+      <div className="grid max-w-4xl gap-5 border border-black/10 bg-white/84 p-6 text-black/75 backdrop-blur-sm @2xl:p-8">
         <div className="grid gap-2">
           <h1 className="text-lg font-medium text-black/85">Static SVG Preview</h1>
           <p className="max-w-2xl text-sm leading-6">
@@ -68,7 +68,7 @@ export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearc
           </p>
         </div>
 
-        <div className="flex items-center justify-center border border-black/10 bg-white p-6 sm:p-10">
+        <div className="flex items-center justify-center border border-black/10 bg-white p-6 @2xl:p-10">
           <img
             data-testid="logo-static-svg-image"
             src={staticSvgSrc}

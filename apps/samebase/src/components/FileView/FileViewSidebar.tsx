@@ -91,23 +91,23 @@ export function FileViewSidebarContent({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 md:h-6 md:w-6"
+            className="h-8 w-8 p-0 pointer-fine:h-6 pointer-fine:w-6"
             onClick={onOpenFileCreation}
             title="Create new file"
             aria-label="Create new file"
           >
-            <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
+            <PlusIcon className="h-4 w-4 pointer-fine:h-3 pointer-fine:w-3" />
           </Button>
 
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 md:h-6 md:w-6"
+            className="h-8 w-8 p-0 pointer-fine:h-6 pointer-fine:w-6"
             onClick={onOpenFolderCreation}
             title="Create new folder"
             aria-label="Create new folder"
           >
-            <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
+            <FilePlusIcon className="h-4 w-4 pointer-fine:h-3 pointer-fine:w-3" />
           </Button>
         </div>
         <div className="mt-2 flex items-center gap-2">

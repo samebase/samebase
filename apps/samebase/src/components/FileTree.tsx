@@ -326,10 +326,10 @@ function TreeNodeComponent({
 
   const nodeLabel = node.label ?? node.name;
   const nodeRowClassName = cn(
-    "flex items-center gap-0.5 px-1 py-1.5 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 md:py-0.5",
+    "flex items-center gap-0.5 px-1 py-1.5 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 pointer-fine:py-0.5",
     isSelected && "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
     "transition-colors",
-    "min-h-9 md:min-h-[auto]", // Touch-friendly height on mobile
+    "min-h-9 pointer-fine:min-h-[auto]", // Touch-friendly height on coarse pointers
   );
   const nodeRowStyle = {
     paddingLeft: `${level * FILE_TREE_LEVEL_INDENT_PX + FILE_TREE_BASE_PADDING_PX}px`,
@@ -343,7 +343,7 @@ function TreeNodeComponent({
           <ChevronRightIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
         )
       ) : (
-        <div className="h-4 w-1 flex-shrink-0 md:h-3" />
+        <div className="h-4 w-1 flex-shrink-0 pointer-fine:h-3" />
       )}
 
       {node.type === "tree" ? (
@@ -375,7 +375,7 @@ function TreeNodeComponent({
       ) : (
         <span
           className={cn(
-            "min-w-0 flex-1 line-clamp-2 text-muted-foreground text-sm md:text-xs",
+            "min-w-0 flex-1 line-clamp-2 text-muted-foreground text-sm pointer-fine:text-xs",
             fileStatusClassName,
             !fileStatus && isSelected && "text-foreground font-medium",
             isSelected && "font-medium",

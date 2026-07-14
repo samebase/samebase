@@ -51,7 +51,7 @@ export function LogoTransitionTransformsLabPage() {
   );
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
+    <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black @2xl:px-6">
       <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
         <Button asChild size="sm" variant="outline" className="rounded-none">
           <Link to="/logo">3D</Link>
@@ -76,7 +76,7 @@ export function LogoTransitionTransformsLabPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <div className="grid gap-6 @5xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
           <div>
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">

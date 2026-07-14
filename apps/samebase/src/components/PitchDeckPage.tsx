@@ -311,7 +311,7 @@ function resolveSurfaceClasses(mode: PitchDeckMode): string {
     return "grid h-full w-full overflow-hidden border border-border bg-background p-8 text-foreground";
   }
 
-  return "grid w-full max-w-[1360px] gap-6 border border-border bg-background p-5 text-foreground sm:p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.85fr)] xl:p-10";
+  return "grid w-full max-w-[1360px] gap-6 border border-border bg-background p-5 text-foreground @2xl:p-6 @7xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.85fr)] @7xl:p-10";
 }
 
 function resolveHeaderClasses(mode: PitchDeckMode): {
@@ -343,10 +343,10 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
 
   return {
     title:
-      "max-w-[11ch] font-sans text-[clamp(3.3rem,7vw,5.5rem)] font-medium leading-[0.92] tracking-[-0.07em]",
-    subtitle: "text-muted-foreground max-w-[58ch] text-lg leading-[1.55] sm:text-[21px]",
-    cards: "grid gap-4 md:grid-cols-2",
-    metrics: "grid gap-3 sm:grid-cols-3",
+      "max-w-[11ch] font-sans text-[clamp(3.3rem,7cqw,5.5rem)] font-medium leading-[0.92] tracking-[-0.07em]",
+    subtitle: "text-muted-foreground max-w-[58ch] text-lg leading-[1.55] @2xl:text-[21px]",
+    cards: "grid gap-4 @3xl:grid-cols-2",
+    metrics: "grid gap-3 @2xl:grid-cols-3",
     aside: "grid gap-4",
   };
 }
@@ -419,7 +419,7 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 @2xl:grid-cols-2">
           <div className="border border-border bg-primary p-4 text-primary-foreground">
             <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">Layout</div>
             <div className="mt-3 text-2xl leading-tight tracking-[-0.05em]">
@@ -459,7 +459,7 @@ function resolvePageFrameClasses(mode: PitchDeckMode): string {
     return "h-[1280px] w-[720px] overflow-hidden bg-background text-foreground";
   }
 
-  return "bg-background text-foreground min-h-screen px-4 py-6 sm:px-6 sm:py-8";
+  return "bg-background text-foreground min-h-screen px-4 py-6 @2xl:px-6 @2xl:py-8";
 }
 
 /**

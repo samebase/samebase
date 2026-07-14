@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import type { OnMount } from "@monaco-editor/react";
 import { useTheme } from "next-themes";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
@@ -47,12 +47,14 @@ export function MonacoEditorSurface({
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
   const isDark = effectiveTheme === "dark";
-  const isMobileViewport = useIsMobile();
+  // Touch conventions (hidden scrollbars, no folding targets, no ruler) follow
+  // pointer capability, not viewport or pane width.
+  const isCoarsePointer = useCoarsePointer();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(true);
   const [editorHeightPx, setEditorHeightPx] = useState(MIN_EDITOR_HEIGHT_PX);
-  const showLineNumbers = !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
-  const showFolding = !disableFolding && !isMobileViewport;
+  const showLineNumbers = !disableLineNumbers && (!isCoarsePointer || showMobileLineNumbers);
+  const showFolding = !disableFolding && !isCoarsePointer;
 
   useEffect(() => {
     const containerNode = containerRef.current;
@@ -116,14 +118,15 @@ export function MonacoEditorSurface({
           minimap: { enabled: false },
           scrollbar: {
             alwaysConsumeMouseWheel: false,
-            vertical: isMobileViewport ? "hidden" : "auto",
-            verticalScrollbarSize: isMobileViewport ? 0 : 10,
-            // Mobile Monaco now delegates horizontal touch drags to the shell,
-            // so keep wrapped content and remove the horizontal scrollbar cue.
-            horizontal: isMobileViewport ? "hidden" : "auto",
-            horizontalScrollbarSize: isMobileViewport ? 0 : 10,
+            vertical: isCoarsePointer ? "hidden" : "auto",
+            verticalScrollbarSize: isCoarsePointer ? 0 : 10,
+            // Coarse-pointer Monaco delegates horizontal touch drags to the
+            // shell, so keep wrapped content and remove the horizontal
+            // scrollbar cue.
+            horizontal: isCoarsePointer ? "hidden" : "auto",
+            horizontalScrollbarSize: isCoarsePointer ? 0 : 10,
           },
-          overviewRulerLanes: isMobileViewport ? 0 : 2,
+          overviewRulerLanes: isCoarsePointer ? 0 : 2,
           overviewRulerBorder: false,
           hideCursorInOverviewRuler: true,
           scrollBeyondLastLine: false,

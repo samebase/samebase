@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 function OutcomeState({ label, state }: { label: string; state: string }) {
   return (
-    <div className="grid gap-1 sm:grid-cols-[10rem_1fr] sm:gap-4">
+    <div className="grid gap-1 @2xl:grid-cols-[10rem_1fr] @2xl:gap-4">
       <dt className="text-sm font-medium">{label}</dt>
       <dd className="text-sm text-muted-foreground">{state}</dd>
     </div>
@@ -50,7 +50,7 @@ export function AdminAccountDeletionsPage() {
       data-posthog-mask
       className="container mx-auto w-full max-w-6xl py-6"
     >
-      <h1 className="text-xl font-semibold sm:text-2xl">Account deletions</h1>
+      <h1 className="text-xl font-semibold @2xl:text-2xl">Account deletions</h1>
       <div className="mt-8 overflow-x-auto border-t">
         <table className="w-full min-w-3xl text-left text-sm">
           <thead className="border-b">

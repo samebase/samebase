@@ -1090,7 +1090,7 @@ export function ProviderConnectionsPageView({
       className="container flex min-h-0 flex-1 flex-col py-6"
     >
       <div className="mb-6 flex-shrink-0">
-        <h1 className="text-xl font-semibold sm:text-2xl">Providers</h1>
+        <h1 className="text-xl font-semibold @2xl:text-2xl">Providers</h1>
       </div>
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl">

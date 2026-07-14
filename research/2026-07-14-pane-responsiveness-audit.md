@@ -16,6 +16,25 @@
 `WorkspaceLayoutV2PaneFrame`. There are no standalone routes: all page content is pane content, so
 the standard applies app-wide. The landing overview is the first converted consumer.
 
+## Conversion Outcome (landed the same day)
+
+The convert list below shipped in one sweep with three decisions worth keeping:
+
+1. Touch proxies became pointer variants, not width variants. `FileTree` row density,
+   `FileViewSidebar` button sizes, the FileView header text size, the dashboard sidebar row icons,
+   and `MonacoEditorSurface` chrome (scrollbars, folding, ruler, line numbers) all used `md:` or
+   `useIsMobile` to mean "not a touch device". Converting those to container variants would have
+   inverted desktop rendering in narrow panes (a 240px file tree or 288px sidebar is always below
+   `@3xl`), so they use `pointer-fine:` classes and the renamed `useCoarsePointer` hook instead,
+   which preserves current phone and desktop rendering exactly.
+2. Heights stay viewport-relative. Container length units for the block axis (`cqh`) do not resolve
+   against an inline-size container, so `100vh`/`60vh`/`svh`/`dvh` usages keep their viewport units
+   (`CodexThreadBrowserView` scroll cap, `AgentsConnectRoutePage` centering, `LogoPreviewPage`
+   panel, markdown media cap, walkthrough hero).
+3. Pitch deck: only the interactive mode converted (including `7vw` to `7cqw` on the title). The
+   print and printMobile surfaces render at fixed page dimensions, and the shared `MetricBlock`
+   keeps its viewport variant because print output must not change.
+
 ## Convert (follow-up work, highest value first)
 
 1. `components/FileView/FileView.tsx`: `md:grid-cols-2 md:divide-x` diff split renders side-by-side

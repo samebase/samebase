@@ -311,10 +311,10 @@ export function ConnectRepositoryPageContent({
 }: ConnectRepositoryPageContentProps) {
   return (
     <div className="container flex min-h-0 flex-1 flex-col py-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 flex-shrink-0">
+      <div className="flex flex-col @2xl:flex-row @2xl:items-center @2xl:justify-between gap-4 mb-6 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-          <h1 className="text-xl sm:text-2xl font-semibold">Connect an existing repository</h1>
+          <GitHubLogoIcon className="h-5 w-5 @2xl:h-6 @2xl:w-6" />
+          <h1 className="text-xl @2xl:text-2xl font-semibold">Connect an existing repository</h1>
         </div>
       </div>
 

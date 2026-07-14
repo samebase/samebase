@@ -331,7 +331,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
   const spacingScaleLabel = `${spacingScale.toFixed(3)}x`;
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
+    <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black @2xl:px-6">
       <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
         <Button asChild size="sm" variant="outline" className="rounded-none">
           <Link search={routeSearch} to="/logo/raster">
@@ -348,7 +348,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+      <div className="grid gap-6 @5xl:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
           <div>
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
@@ -546,7 +546,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
               </div>
               <div className="font-mono text-[11px] text-black/45">magenta = mismatch</div>
             </div>
-            <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
+            <div className="grid gap-3 @5xl:grid-cols-2 @7xl:grid-cols-4">
               {CURRENT_CASE_IMAGE_KINDS.map((imageKind) => (
                 <SeamLabCanvas
                   key={imageKind}
@@ -596,7 +596,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
                 Same tiny source, different awkward rotations.
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 @2xl:grid-cols-2 @5xl:grid-cols-3">
               {RASTER_SEAM_LAB_SAMPLE_ROTATIONS.map((sampleRotation) => (
                 <button
                   key={sampleRotation}
@@ -627,7 +627,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
                 Same angle, smaller source rasters make seam pixels easier to catch.
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 @2xl:grid-cols-2 @5xl:grid-cols-4">
               {RASTER_SEAM_LAB_SOURCE_SIZES.map((sampleSourceSizePx) => (
                 <button
                   key={sampleSourceSizePx}

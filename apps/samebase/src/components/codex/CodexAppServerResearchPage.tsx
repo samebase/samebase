@@ -208,7 +208,7 @@ function ProtocolFilesViewer(props: {
     null;
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="grid gap-3 @5xl:grid-cols-[260px_minmax(0,1fr)]">
       <div className="border border-border bg-white">
         <div className="border-b border-border px-3 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
           Files
@@ -296,7 +296,7 @@ function SelectedThreadDetailPanel(props: {
 
       {props.thread && props.thread.id === props.selectedThreadId ? (
         <>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 @3xl:grid-cols-2">
             <div className="grid gap-2 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Status</span>
@@ -717,7 +717,7 @@ export function CodexAppServerResearchPage() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.18),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] text-slate-950">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-4 py-6 md:px-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-4 py-6 @3xl:px-6">
         <div className="flex flex-col gap-3 border border-slate-200 bg-white/80 p-5 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -763,7 +763,7 @@ export function CodexAppServerResearchPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="grid gap-6 @7xl:grid-cols-[420px_minmax(0,1fr)]">
           <div className="grid gap-6">
             <Card>
               <CardHeader>
@@ -876,7 +876,7 @@ export function CodexAppServerResearchPage() {
                       }}
                     />
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 @2xl:grid-cols-2">
                     <div className="grid gap-2">
                       <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                         Approval policy
@@ -1028,7 +1028,7 @@ export function CodexAppServerResearchPage() {
                 <CardTitle className="font-mono text-base">Thread and turn control</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-6">
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 @5xl:grid-cols-2">
                   <div className="grid gap-3 border border-border bg-white p-4">
                     <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Thread
@@ -1122,7 +1122,7 @@ export function CodexAppServerResearchPage() {
                       }}
                       className="min-h-[180px] font-mono text-base"
                     />
-                    <div className="grid gap-3 md:grid-cols-3">
+                    <div className="grid gap-3 @3xl:grid-cols-3">
                       <Input
                         placeholder="effort"
                         value={turnForm.effort}
@@ -1190,7 +1190,7 @@ export function CodexAppServerResearchPage() {
                     >
                       Start turn
                     </Button>
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3 @3xl:grid-cols-2">
                       <Input
                         placeholder="Interrupt thread id"
                         value={interruptForm.threadId}
