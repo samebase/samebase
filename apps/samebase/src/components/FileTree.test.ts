@@ -15,6 +15,68 @@ const originalMatchMedia = window.matchMedia;
 
 let root: Root | null = null;
 
+function renderRenameableFileTree(isCoarsePointer: boolean) {
+  vi.useFakeTimers();
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 1024,
+  });
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: isCoarsePointer && query === "(hover: none) and (pointer: coarse)",
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  });
+
+  const rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  const mountedRoot = createRoot(rootElement);
+  root = mountedRoot;
+
+  act(() => {
+    mountedRoot.render(
+      createElement(FileTree, {
+        folderExpansionStates: [],
+        items: [
+          {
+            elementId: "pointer-file-row",
+            originalPath: "README.md",
+            path: "README.md",
+            type: "blob",
+          },
+        ],
+        onFileRename: vi.fn(),
+      }),
+    );
+  });
+
+  const fileRow = document.getElementById("pointer-file-row");
+  if (fileRow === null) {
+    throw new Error("Expected the FileTree file row to render");
+  }
+
+  return { fileRow, rootElement };
+}
+
+function longPressFileTreeRow(fileRow: HTMLElement) {
+  const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
+  Object.defineProperty(touchStart, "touches", {
+    value: [{ clientX: 40, clientY: 80 }],
+  });
+
+  act(() => {
+    fileRow.dispatchEvent(touchStart);
+    vi.advanceTimersByTime(500);
+  });
+}
+
 afterEach(() => {
   if (root !== null) {
     const mountedRoot = root;
@@ -147,63 +209,19 @@ describe("FileTree", () => {
   });
 
   it("opens actions on long press for a coarse pointer at desktop width", () => {
-    vi.useFakeTimers();
-    Object.defineProperty(window, "innerWidth", {
-      configurable: true,
-      value: 1024,
-    });
-    Object.defineProperty(window, "matchMedia", {
-      configurable: true,
-      value: vi.fn((query: string) => ({
-        addEventListener: vi.fn(),
-        addListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-        matches: query === "(hover: none) and (pointer: coarse)",
-        media: query,
-        onchange: null,
-        removeEventListener: vi.fn(),
-        removeListener: vi.fn(),
-      })),
-    });
+    const { fileRow, rootElement } = renderRenameableFileTree(true);
 
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const mountedRoot = createRoot(rootElement);
-    root = mountedRoot;
-
-    act(() => {
-      mountedRoot.render(
-        createElement(FileTree, {
-          folderExpansionStates: [],
-          items: [
-            {
-              elementId: "coarse-pointer-file-row",
-              originalPath: "README.md",
-              path: "README.md",
-              type: "blob",
-            },
-          ],
-          onFileRename: vi.fn(),
-        }),
-      );
-    });
-
-    const fileRow = document.getElementById("coarse-pointer-file-row");
-    if (fileRow === null) {
-      throw new Error("Expected the FileTree file row to render");
-    }
-
-    const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
-    Object.defineProperty(touchStart, "touches", {
-      value: [{ clientX: 40, clientY: 80 }],
-    });
-
-    act(() => {
-      fileRow.dispatchEvent(touchStart);
-      vi.advanceTimersByTime(500);
-    });
+    longPressFileTreeRow(fileRow);
 
     expect(rootElement.textContent).toContain("Rename");
+  });
+
+  it("ignores long press for a fine pointer at desktop width", () => {
+    const { fileRow, rootElement } = renderRenameableFileTree(false);
+
+    longPressFileTreeRow(fileRow);
+
+    expect(rootElement.textContent).not.toContain("Rename");
   });
 });
 

@@ -1,11 +1,15 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function openWorkspaceLayoutStatusBarFixture(page: Page) {
-  await page.setViewportSize({ width: 1440, height: 1000 });
+async function gotoWorkspaceLayoutStatusBarFixture(page: Page) {
   await page.goto("/visual-fixture?mode=workspace-layout-v2-status-bar", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
+}
+
+async function openWorkspaceLayoutStatusBarFixture(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await gotoWorkspaceLayoutStatusBarFixture(page);
 
   const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
   const leftSurface = page.getByTestId("workspace-layout-v2-prosemark-surface");
@@ -23,6 +27,18 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
     fixture,
     mainHeader,
   };
+}
+
+async function expectTouchFirstViewport(page: Page, expectedWidthPx: number) {
+  expect(
+    await page.evaluate(() => ({
+      isCoarsePointer: window.matchMedia("(hover: none) and (pointer: coarse)").matches,
+      widthPx: window.innerWidth,
+    })),
+  ).toEqual({
+    isCoarsePointer: true,
+    widthPx: expectedWidthPx,
+  });
 }
 
 /**
@@ -48,20 +64,50 @@ test("workspace layout v2 fixture renders the current pane chrome", async ({ pag
   });
 });
 
-test("workspace layout v2 keeps mobile sidebars lightly peeked around main", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture?mode=workspace-layout-v2-status-bar", {
-    waitUntil: "domcontentloaded",
+test.describe("workspace layout v2 touch-first phone", () => {
+  test.use({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
   });
-  await page.waitForLoadState("networkidle");
 
-  const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
+  test("keeps mobile sidebars lightly peeked around main", async ({ page }) => {
+    await gotoWorkspaceLayoutStatusBarFixture(page);
+    await expectTouchFirstViewport(page, 390);
 
-  await expect(fixture).toBeVisible();
-  await expect(fixture).toHaveScreenshot("workspace-layout-v2-status-bar-mobile.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.02,
+    const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
+
+    await expect(fixture).toBeVisible();
+    await expect(fixture).toHaveScreenshot("workspace-layout-v2-status-bar-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+});
+
+test.describe("workspace layout v2 touch-first tablet", () => {
+  test.use({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 1024, height: 768 },
+  });
+
+  test("keeps touch editor chrome at desktop layout width", async ({ page }) => {
+    await gotoWorkspaceLayoutStatusBarFixture(page);
+    await expectTouchFirstViewport(page, 1024);
+
+    const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
+    const mainSurface = page.getByTestId("workspace-layout-v2-main-editor-surface");
+
+    await expect(fixture).toBeVisible();
+    await expect(mainSurface.locator(".view-lines").first()).toBeVisible();
+    await expect(fixture).toHaveScreenshot("workspace-layout-v2-status-bar-wide-touch.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.02,
+    });
   });
 });

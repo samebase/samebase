@@ -72,7 +72,7 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">main</div>
-                  <h2 className="text-base font-medium md:text-sm">vite.config.ts</h2>
+                  <h2 className="text-base font-medium pointer-fine:text-sm">vite.config.ts</h2>
                 </div>
                 <div className="text-xs text-muted-foreground">
                   File-view Monaco height regression

@@ -134,7 +134,7 @@ export function RepositoryMediaVisualFixture({ mode }: { mode: RepositoryMediaVi
         content: (
           <div className="max-w-none h-full flex flex-col">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-medium md:text-sm">
+              <h2 className="text-base font-medium pointer-fine:text-sm">
                 <span className="block truncate text-foreground">{fixture.selectedFile}</span>
               </h2>
               <div className="text-xs text-muted-foreground">Read-only media preview</div>
