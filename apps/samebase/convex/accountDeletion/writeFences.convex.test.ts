@@ -121,7 +121,7 @@ describe("account deletion late-write fences", () => {
     const { ids, t } = await seedDeletingUserWithConnectedVault();
 
     await expect(
-      t.mutation(internal.appProvisioningRuns.createForVault, {
+      t.mutation(internal.appProvisioning.runs.createForVault, {
         userId: ids.userId,
         vaultId: ids.vaultId,
         trigger: "retry",
