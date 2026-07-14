@@ -147,4 +147,28 @@ describe("run-worktree-dev", () => {
       ["launch the long-running worktree dev server", "long-running"],
     ]);
   });
+
+  it("keeps only first-time anonymous backend setup noninteractive", () => {
+    const plan = buildWorktreeDevCommandPlan(
+      {
+        once: true,
+        enableBranch: true,
+        forceBootstrap: false,
+        vitePort: 5174,
+        sourceEnv: null,
+        sourceDeployKey: null,
+        allowMissingSourceEnv: false,
+        showHelp: false,
+      },
+      "/repo",
+      {},
+    );
+
+    expect(plan.filter(({ stdio }) => stdio !== undefined)).toEqual([
+      expect.objectContaining({
+        label: "bootstrap the anonymous local backend once",
+        stdio: ["ignore", "inherit", "inherit"],
+      }),
+    ]);
+  });
 });

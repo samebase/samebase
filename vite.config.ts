@@ -21,6 +21,8 @@ export default defineConfig({
     ignorePatterns: [
       "**/.agents/**",
       "**/convex/_generated/**",
+      "apps/samebase/AGENTS.md",
+      "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
     ],
     printWidth: 100,
