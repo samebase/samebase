@@ -26,14 +26,17 @@ The convert list below shipped in one sweep with three decisions worth keeping:
    `useIsMobile` to mean "not a touch device". Converting those to container variants would have
    inverted desktop rendering in narrow panes (a 240px file tree or 288px sidebar is always below
    `@3xl`), so they use `pointer-fine:` classes and the renamed `useCoarsePointer` hook instead.
-   Wide touch-first devices intentionally switch from the old width-selected desktop density to
-   touch density and touch-oriented Monaco chrome even when their viewport is at least 768px wide.
-   FileTree long press keys on the actual touch event rather than pointer capability, so hybrid
-   fine-pointer touchscreens keep it and a cancelled touch clears the pending timer. Unit tests
-   cover coarse- and fine-pointer long press plus touchcancel at 1024px, and a workspace visual
-   baseline covers touch-oriented Monaco chrome at the same viewport width. Those tests cover the
-   interaction boundary and a representative editor surface, not a complete wide-touch visual matrix
-   for every converted density surface.
+   `MonacoEditorSurface` splits the two axes: scrollbars and the overview ruler stay pointer
+   conventions, while line numbers and folding also shed below a 448px surface width so a
+   deliberately narrow pane keeps its columns for code (the cramped-pane case from converted surface
+   3 below). Wide touch-first devices intentionally switch from the old width-selected desktop
+   density to touch density and touch-oriented Monaco chrome even when their viewport is at least
+   768px wide. FileTree long press keys on the actual touch event rather than pointer capability, so
+   hybrid fine-pointer touchscreens keep it and a cancelled touch clears the pending timer. Unit
+   tests cover coarse- and fine-pointer long press plus touchcancel at 1024px, and a workspace
+   visual baseline covers touch-oriented Monaco chrome at the same viewport width. Those tests cover
+   the interaction boundary and a representative editor surface, not a complete wide-touch visual
+   matrix for every converted density surface.
 2. Heights stay viewport-relative. Container length units for the block axis (`cqh`) do not resolve
    against an inline-size container, so `100vh`/`60vh`/`svh`/`dvh` usages keep their viewport units
    (`CodexThreadBrowserView` scroll cap, `AgentsConnectRoutePage` centering, `LogoPreviewPage`

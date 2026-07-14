@@ -26,6 +26,8 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   return {
     fixture,
     mainHeader,
+    mainSurface,
+    rightSurface,
   };
 }
 
@@ -52,9 +54,15 @@ async function expectHeaderWithoutBottomBorder(header: Locator) {
 }
 
 test("workspace layout v2 fixture renders the current pane chrome", async ({ page }) => {
-  const { fixture, mainHeader } = await openWorkspaceLayoutStatusBarFixture(page);
+  const { fixture, mainHeader, mainSurface, rightSurface } =
+    await openWorkspaceLayoutStatusBarFixture(page);
 
   await expectHeaderWithoutBottomBorder(mainHeader);
+
+  // The wide fine-pointer main pane keeps gutter chrome; the 288px right pane
+  // sheds line numbers whatever the pointer.
+  await expect(mainSurface.locator(".line-numbers").first()).toBeVisible();
+  await expect(rightSurface.locator(".line-numbers")).toHaveCount(0);
 
   await expect(fixture).toHaveScreenshot("workspace-layout-v2-status-bar.png", {
     animations: "disabled",
