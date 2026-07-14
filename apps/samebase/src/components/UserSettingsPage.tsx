@@ -193,7 +193,7 @@ export function UserSettingsPage() {
   return (
     <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold sm:text-2xl">Settings</h1>
+        <h1 className="text-xl font-semibold @2xl:text-2xl">Settings</h1>
         <Button type="button" variant="outline" disabled={isSigningOut} onClick={handleSignOut}>
           {isSigningOut ? (
             <>

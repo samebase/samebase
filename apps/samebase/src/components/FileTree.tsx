@@ -18,7 +18,7 @@ import {
 } from "@/lib/radixIcons";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { DialogContext } from "@/contexts/dialog-context-state";
 import {
   getCommitStatusTextClassName,
@@ -181,7 +181,7 @@ function TreeNodeComponent({
   const isOpen = expansionState
     ? expansionState.isExpanded === true
     : autoExpandedPaths.has(node.path);
-  const isMobile = useIsMobile();
+  const isCoarsePointer = useCoarsePointer();
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renamingValue, setRenamingValue] = useState(node.name);
@@ -241,10 +241,12 @@ function TreeNodeComponent({
     openContextMenu(e.clientX, e.clientY);
   };
 
-  // Long press handlers for mobile
+  // A real touchstart is itself the touch signal, so hybrid fine-pointer
+  // touchscreens keep long press; pointer capability only drives row density
+  // and tooltip wording.
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (!isMobile || !canOpenContextMenu) return;
+      if (!canOpenContextMenu) return;
       const touch = e.touches[0];
 
       didTriggerLongPressRef.current = false;
@@ -255,17 +257,10 @@ function TreeNodeComponent({
         openContextMenu(touchX, touchY);
       }, 500); // 500ms long press threshold
     },
-    [canOpenContextMenu, isMobile, openContextMenu],
+    [canOpenContextMenu, openContextMenu],
   );
 
-  const handleTouchEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
-  const handleTouchMove = useCallback(() => {
+  const clearLongPressTimer = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -326,10 +321,10 @@ function TreeNodeComponent({
 
   const nodeLabel = node.label ?? node.name;
   const nodeRowClassName = cn(
-    "flex items-center gap-0.5 px-1 py-1.5 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 md:py-0.5",
+    "flex items-center gap-0.5 px-1 py-1.5 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 pointer-fine:py-0.5",
     isSelected && "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
     "transition-colors",
-    "min-h-9 md:min-h-[auto]", // Touch-friendly height on mobile
+    "min-h-9 pointer-fine:min-h-[auto]", // Touch-friendly height on coarse pointers
   );
   const nodeRowStyle = {
     paddingLeft: `${level * FILE_TREE_LEVEL_INDENT_PX + FILE_TREE_BASE_PADDING_PX}px`,
@@ -343,7 +338,7 @@ function TreeNodeComponent({
           <ChevronRightIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
         )
       ) : (
-        <div className="h-4 w-1 flex-shrink-0 md:h-3" />
+        <div className="h-4 w-1 flex-shrink-0 pointer-fine:h-3" />
       )}
 
       {node.type === "tree" ? (
@@ -375,7 +370,7 @@ function TreeNodeComponent({
       ) : (
         <span
           className={cn(
-            "min-w-0 flex-1 line-clamp-2 text-muted-foreground text-sm md:text-xs",
+            "min-w-0 flex-1 line-clamp-2 text-muted-foreground text-sm pointer-fine:text-xs",
             fileStatusClassName,
             !fileStatus && isSelected && "text-foreground font-medium",
             isSelected && "font-medium",
@@ -403,8 +398,9 @@ function TreeNodeComponent({
                   onClick={handleClick}
                   onContextMenu={handleRightClick}
                   onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchMove}
+                  onTouchEnd={clearLongPressTimer}
+                  onTouchMove={clearLongPressTimer}
+                  onTouchCancel={clearLongPressTimer}
                 >
                   {nodeRowContent}
                 </a>
@@ -416,8 +412,9 @@ function TreeNodeComponent({
                   onClick={handleClick}
                   onContextMenu={handleRightClick}
                   onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchMove}
+                  onTouchEnd={clearLongPressTimer}
+                  onTouchMove={clearLongPressTimer}
+                  onTouchCancel={clearLongPressTimer}
                 >
                   {nodeRowContent}
                 </div>
@@ -428,7 +425,7 @@ function TreeNodeComponent({
                 hasContextMenuActions: canOpenContextMenu,
                 isFolder,
                 isDeletedFile,
-                isMobile,
+                isCoarsePointer,
                 type: node.type,
               })}
             </TooltipContent>

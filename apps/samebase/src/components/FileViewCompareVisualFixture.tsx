@@ -2,7 +2,7 @@ import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
 import { FileTree } from "@/components/FileTree";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { FileViewSplitPreview } from "@/components/FileView/FileViewPreviewParts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -65,7 +65,10 @@ export function FileViewCompareVisualFixture({ mode }: { mode: FileViewCompareVi
       data-mode={mode}
       className="min-h-screen bg-slate-100 p-8 text-slate-900"
     >
-      <div className="mx-auto max-w-5xl corner-notch-1 border border-slate-300 bg-white p-6 shadow-sm">
+      <div
+        data-testid="file-view-compare-visual-card"
+        className="mx-auto max-w-5xl corner-notch-1 border border-slate-300 bg-white p-6 shadow-sm"
+      >
         <div className="flex items-center gap-2 text-xs text-slate-600">
           <GitHubLogoIcon className="h-3 w-3" />
           samebase/samebase
@@ -110,7 +113,10 @@ export function FileViewCompareVisualFixture({ mode }: { mode: FileViewCompareVi
               )}
             </div>
 
-            <div className="min-w-0 bg-white">
+            <div
+              data-testid="file-view-compare-preview-pane"
+              className="@container min-w-0 bg-white"
+            >
               {isLoadingMode ? (
                 <ChangedFilesLoadingState
                   elapsedLabel="00:04.8"
@@ -170,34 +176,14 @@ export function FileViewCompareVisualFixture({ mode }: { mode: FileViewCompareVi
                     </div>
                   </div>
 
-                  <div className="p-4">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="min-w-0 corner-notch-1 border bg-white p-3">
-                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700">
-                          Before
-                        </div>
-                        <ProsemarkReadOnly
-                          value={COMPARE_TEXT_BASE}
-                          filePath="src/lib/reviewDiffControls.ts"
-                          highlightedLineNumbers={splitDiffHighlights.oldLines}
-                          lineHighlightTone="remove"
-                          className="text-sm leading-6"
-                        />
-                      </div>
-                      <div className="min-w-0 corner-notch-1 border bg-white p-3">
-                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
-                          After
-                        </div>
-                        <ProsemarkReadOnly
-                          value={COMPARE_TEXT_NEXT}
-                          filePath="src/lib/reviewDiffControls.ts"
-                          highlightedLineNumbers={splitDiffHighlights.newLines}
-                          lineHighlightTone="add"
-                          className="text-sm leading-6"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <FileViewSplitPreview
+                    beforeValue={COMPARE_TEXT_BASE}
+                    afterValue={COMPARE_TEXT_NEXT}
+                    beforeFilePath="src/lib/reviewDiffControls.ts"
+                    afterFilePath="src/lib/reviewDiffControls.ts"
+                    oldHighlightedLineNumbers={splitDiffHighlights.oldLines}
+                    newHighlightedLineNumbers={splitDiffHighlights.newLines}
+                  />
                 </>
               )}
             </div>

@@ -1124,7 +1124,7 @@ const walkthroughCss = `
   margin-top: 16px;
 }
 
-@media (max-width: 1040px) {
+@container (max-width: 1040px) {
   .entry-grid,
   .guard-grid,
   .test-grid {
@@ -1146,7 +1146,7 @@ const walkthroughCss = `
   }
 }
 
-@media (max-width: 720px) {
+@container (max-width: 720px) {
   .walkthrough {
     padding: 18px;
   }

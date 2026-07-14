@@ -14,8 +14,11 @@ import { Link } from "@tanstack/react-router";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
 
 const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
+// pointer-fine, not a width variant: touch devices keep the stacked full-row
+// icon regardless of pane width, and the desktop sidebar pane (96-288px) keeps
+// the inline icon it always had.
 const SIDEBAR_ROW_ICON_CLASS =
-  "flex h-5 w-5 shrink-0 basis-full items-center justify-start md:basis-auto md:justify-center";
+  "flex h-5 w-5 shrink-0 basis-full items-center justify-start pointer-fine:basis-auto pointer-fine:justify-center";
 const SIDEBAR_ROW_CONTENT_CLASS =
   "flex min-w-0 shrink grow basis-[11rem] flex-wrap items-start gap-x-2 gap-y-1";
 const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-32 text-left";

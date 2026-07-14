@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import type { OnMount } from "@monaco-editor/react";
 import { useTheme } from "next-themes";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
@@ -27,10 +27,17 @@ export interface MonacoEditorSurfaceProps {
 const MIN_EDITOR_HEIGHT_PX = 400;
 
 /**
- * Shared Monaco wrapper that owns mobile pane drag and Monaco's mobile-specific
- * layout options. The collaborative editor uses it directly, and visual
- * fixtures reuse the same surface so mobile drag coverage exercises the
- * shipped shell handoff instead of a test-only stand-in.
+Below this surface width, gutter chrome (line numbers, folding) is shed so a
+deliberately narrow pane keeps its columns for code.
+*/
+const NARROW_PANE_MAX_WIDTH_PX = 448;
+
+/**
+ * Shared Monaco wrapper that owns mobile pane drag, pointer-capability chrome
+ * (scrollbars, overview ruler), and narrow-pane gutter shedding. The
+ * collaborative editor uses it directly, and visual fixtures reuse the same
+ * surface so mobile drag coverage exercises the shipped shell handoff instead
+ * of a test-only stand-in.
  */
 export function MonacoEditorSurface({
   branch,
@@ -47,12 +54,18 @@ export function MonacoEditorSurface({
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
   const isDark = effectiveTheme === "dark";
-  const isMobileViewport = useIsMobile();
+  // Touch conventions (hidden scrollbars, no overview ruler) follow pointer
+  // capability. Width-consuming gutter chrome (line numbers, folding) also
+  // sheds when the pane is narrow, whatever the pointer; showMobileLineNumbers
+  // is an explicit consumer override past both hide reasons.
+  const isCoarsePointer = useCoarsePointer();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(true);
   const [editorHeightPx, setEditorHeightPx] = useState(MIN_EDITOR_HEIGHT_PX);
-  const showLineNumbers = !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
-  const showFolding = !disableFolding && !isMobileViewport;
+  const [isNarrowPane, setIsNarrowPane] = useState(false);
+  const showLineNumbers =
+    !disableLineNumbers && ((!isCoarsePointer && !isNarrowPane) || showMobileLineNumbers);
+  const showFolding = !disableFolding && !isCoarsePointer && !isNarrowPane;
 
   useEffect(() => {
     const containerNode = containerRef.current;
@@ -62,34 +75,35 @@ export function MonacoEditorSurface({
 
     /**
      * Monaco needs a concrete pixel height because nested flex layouts can
-     * make percentage heights collapse even when the surface is visibly taller.
+     * make percentage heights collapse even when the surface is visibly
+     * taller. The same measurement reports the surface width so gutter chrome
+     * sheds in narrow panes.
      */
-    const updateEditorHeight = () => {
-      const nextHeightPx = Math.max(
-        MIN_EDITOR_HEIGHT_PX,
-        Math.round(containerNode.getBoundingClientRect().height),
-      );
+    const updateEditorLayout = () => {
+      const containerRect = containerNode.getBoundingClientRect();
+      const nextHeightPx = Math.max(MIN_EDITOR_HEIGHT_PX, Math.round(containerRect.height));
       setEditorHeightPx((currentHeightPx) =>
         currentHeightPx === nextHeightPx ? currentHeightPx : nextHeightPx,
       );
+      setIsNarrowPane(containerRect.width < NARROW_PANE_MAX_WIDTH_PX);
     };
 
-    updateEditorHeight();
+    updateEditorLayout();
 
     if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateEditorHeight);
+      window.addEventListener("resize", updateEditorLayout);
       return () => {
-        window.removeEventListener("resize", updateEditorHeight);
+        window.removeEventListener("resize", updateEditorLayout);
       };
     }
 
-    const resizeObserver = new ResizeObserver(updateEditorHeight);
+    const resizeObserver = new ResizeObserver(updateEditorLayout);
     resizeObserver.observe(containerNode);
-    window.addEventListener("resize", updateEditorHeight);
+    window.addEventListener("resize", updateEditorLayout);
 
     return () => {
       resizeObserver.disconnect();
-      window.removeEventListener("resize", updateEditorHeight);
+      window.removeEventListener("resize", updateEditorLayout);
     };
   }, []);
 
@@ -116,14 +130,15 @@ export function MonacoEditorSurface({
           minimap: { enabled: false },
           scrollbar: {
             alwaysConsumeMouseWheel: false,
-            vertical: isMobileViewport ? "hidden" : "auto",
-            verticalScrollbarSize: isMobileViewport ? 0 : 10,
-            // Mobile Monaco now delegates horizontal touch drags to the shell,
-            // so keep wrapped content and remove the horizontal scrollbar cue.
-            horizontal: isMobileViewport ? "hidden" : "auto",
-            horizontalScrollbarSize: isMobileViewport ? 0 : 10,
+            vertical: isCoarsePointer ? "hidden" : "auto",
+            verticalScrollbarSize: isCoarsePointer ? 0 : 10,
+            // Coarse-pointer Monaco delegates horizontal touch drags to the
+            // shell, so keep wrapped content and remove the horizontal
+            // scrollbar cue.
+            horizontal: isCoarsePointer ? "hidden" : "auto",
+            horizontalScrollbarSize: isCoarsePointer ? 0 : 10,
           },
-          overviewRulerLanes: isMobileViewport ? 0 : 2,
+          overviewRulerLanes: isCoarsePointer ? 0 : 2,
           overviewRulerBorder: false,
           hideCursorInOverviewRuler: true,
           scrollBeyondLastLine: false,

@@ -1130,7 +1130,7 @@ export function NewAppPage() {
     <div className="container flex min-h-0 flex-1 flex-col py-6" data-testid="new-app-page">
       <form className="flex w-full max-w-md flex-col gap-4" onSubmit={handleSubmit}>
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold">New App</h1>
+          <h1 className="text-xl @2xl:text-2xl font-semibold">New App</h1>
         </div>
         <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
         <div className="min-h-5">{createControlFooterMessages}</div>

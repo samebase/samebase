@@ -37,7 +37,7 @@ function AccountDeletionCompletionPage({
   const completed = state === "complete";
   return (
     <main className="container mx-auto w-full max-w-2xl py-6" aria-live="polite">
-      <h1 className="text-xl font-semibold sm:text-2xl">
+      <h1 className="text-xl font-semibold @2xl:text-2xl">
         {completed
           ? "Account deleted"
           : state === "verifying"

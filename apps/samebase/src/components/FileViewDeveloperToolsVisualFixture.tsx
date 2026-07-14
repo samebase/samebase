@@ -67,7 +67,9 @@ export function FileViewDeveloperToolsVisualFixture({
                   <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
                     feat/graph-toggle
                   </div>
-                  <h2 className="text-base font-medium md:text-sm">src/components/FileView.tsx</h2>
+                  <h2 className="text-base font-medium pointer-fine:text-sm">
+                    src/components/FileView.tsx
+                  </h2>
                 </div>
 
                 <div className="flex flex-col gap-2">

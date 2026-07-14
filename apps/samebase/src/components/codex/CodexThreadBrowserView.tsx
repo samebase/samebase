@@ -461,7 +461,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
       )}
     >
       <div
-        className="mx-auto grid max-w-[1680px] gap-4 px-4 py-4 md:px-6"
+        className="mx-auto grid max-w-[1680px] gap-4 px-4 py-4 @3xl:px-6"
         data-testid="codex-thread-browser-view"
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border border-slate-200 bg-white/90 px-4 py-3 backdrop-blur">
@@ -511,7 +511,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
           </div>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="grid gap-4 @2xl:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] @7xl:grid-cols-[380px_minmax(0,1fr)]">
           <Card>
             <CardHeader className="gap-3">
               <div className="flex items-center justify-between gap-3">
@@ -632,7 +632,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                 />
               ) : (
                 <>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 @3xl:grid-cols-2">
                     <div className="grid gap-2 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-slate-500">Preview</span>

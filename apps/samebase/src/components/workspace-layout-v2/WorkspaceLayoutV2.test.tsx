@@ -208,7 +208,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain("main pane");
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
-    expect(markup).not.toContain('class="h-8 shrink-0"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-main-pane-header"');
   });
 
   it("can hide the right toggle and collapse an otherwise empty header row", () => {
@@ -234,7 +234,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("right pane");
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
-    expect(markup).not.toContain('class="h-8 shrink-0"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-main-pane-header"');
   });
 
   it("treats omitted and null main headers the same outside mobile mode", () => {
@@ -274,11 +274,14 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("can skip the reserved header row when a pane intentionally has no header", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2PaneFrame content={<div>public pane</div>} />,
+      <WorkspaceLayoutV2PaneFrame
+        content={<div>public pane</div>}
+        headerTestId="public-pane-header"
+      />,
     );
 
     expect(markup).toContain("public pane");
-    expect(markup).not.toContain('class="h-8 shrink-0"');
+    expect(markup).not.toContain('data-testid="public-pane-header"');
   });
 
   it("keeps idle grip handles visually unobtrusive", () => {

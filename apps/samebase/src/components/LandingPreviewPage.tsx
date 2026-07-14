@@ -901,12 +901,12 @@ function LandingPreviewOverview() {
 
 /**
  * MarkdownLandingDocument merges this className after its own defaults, which include py-10 and
- * lg:py-14. The base pb wins over py-10's bottom padding, but lg:py-14 sorts after every base
- * utility, so the lg pb duplicate is required to keep the scroll-end space that lets the last
- * heading anchor align to the top of the scrollport.
+ * @3xl:py-14. The base pb wins over py-10's bottom padding, but @3xl:py-14 sorts after every base
+ * utility, so the @3xl pb duplicate is required to keep the scroll-end space that lets the last
+ * heading anchor align to the top of the scrollport. The svh value itself stays viewport-based.
  */
 const DOCS_DOCUMENT_CLASS_NAME =
-  "min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]";
+  "min-h-full shrink-0 pb-[calc(100svh-4rem)] @3xl:pb-[calc(100svh-4rem)]";
 
 function DocsTheStackDocument() {
   return (

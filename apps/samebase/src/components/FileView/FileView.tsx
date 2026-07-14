@@ -2403,7 +2403,7 @@ function FileViewInner({
           <div className="min-w-0">
             <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">{branch}</div>
             {selectedFile ? (
-              <h2 className="text-base font-medium md:text-sm">
+              <h2 className="text-base font-medium pointer-fine:text-sm">
                 <a
                   className={`block truncate ${linkStyle}`}
                   href={selectedFileGitHubUrl}
@@ -2604,7 +2604,7 @@ function FileViewInner({
                                   />
                                 </div>
                               ) : (
-                                <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
+                                <div className="grid min-h-0 @3xl:grid-cols-2 @3xl:divide-x">
                                   <div className="min-h-0">
                                     <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
                                       Base -&gt; Yours
@@ -2620,7 +2620,7 @@ function FileViewInner({
                                       />
                                     ) : null}
                                   </div>
-                                  <div className="min-h-0 border-t md:border-t-0">
+                                  <div className="min-h-0 border-t @3xl:border-t-0">
                                     <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
                                       Base -&gt; Upstream
                                     </div>

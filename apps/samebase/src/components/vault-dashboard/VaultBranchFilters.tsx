@@ -11,7 +11,7 @@ import {
   type VaultBranchFilterOption,
   type VaultBranchFilters,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
-import { useUsesTouchSheet } from "@/hooks/useUsesTouchSheet";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 
 function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   if (search.length === 0) {
@@ -167,7 +167,7 @@ export function VaultBranchFiltersControl({
   options: VaultBranchFilterOption[];
   onChange: (nextValue: VaultBranchFilters) => void;
 }) {
-  const usesTouchSheet = useUsesTouchSheet();
+  const usesTouchSheet = useCoarsePointer();
   const controlStore = useVaultBranchFiltersControlStore();
   const isOpen = useSelector(controlStore, (state) => state.isOpen);
   const { setOpen } = controlStore.actions;

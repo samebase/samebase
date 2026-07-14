@@ -221,7 +221,7 @@ function CopyableCommandBlock({ command, description, label }: CopyableCommandBl
 
   return (
     <section className="corner-notch-1 border border-border p-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-start @3xl:justify-between">
         <div className="space-y-1">
           <h2 className="text-sm font-medium">{label}</h2>
           <p className="text-sm text-muted-foreground">{description}</p>
@@ -231,7 +231,7 @@ function CopyableCommandBlock({ command, description, label }: CopyableCommandBl
           {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy"}
         </Button>
       </div>
-      <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 font-mono text-xs leading-5 md:whitespace-pre md:break-normal">
+      <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 font-mono text-xs leading-5 @3xl:whitespace-pre @3xl:break-normal">
         {command}
       </code>
     </section>
@@ -304,7 +304,7 @@ function renderMachineApprovalState(args: {
     case "pending":
       return (
         <section className="corner-notch-1 border border-border p-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-start @3xl:justify-between">
             <div className="space-y-2">
               <p className="text-sm font-medium">Approve this machine</p>
               <p className="text-sm text-muted-foreground">{machineSummary}</p>
@@ -402,7 +402,7 @@ function ConnectedMachineList({ machines }: { machines: ConnectedMachineItem[] }
 
           return (
             <section key={machine.machineId} className="corner-notch-1 border border-border p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-start @3xl:justify-between">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{machine.displayName}</p>
                   <p className="text-sm text-muted-foreground">{machine.hostname}</p>
@@ -470,7 +470,7 @@ export function MachineConnectPageContent({
         </div>
 
         <section className="corner-notch-1 border border-border p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium">Your machine list lives on this page</p>
               <p className="text-sm text-muted-foreground">

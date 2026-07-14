@@ -146,7 +146,7 @@ export function FileViewSplitPreview({
   newHighlightedLineNumbers,
 }: FileViewSplitPreviewProps) {
   return (
-    <div className="grid gap-3 p-3 md:grid-cols-2">
+    <div className="grid gap-3 p-3 @3xl:grid-cols-2">
       <div className="min-w-0 corner-notch-1 border bg-background p-3">
         <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
           Before

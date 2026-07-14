@@ -1,10 +1,104 @@
-import { createElement } from "react";
+// @vitest-environment jsdom
+
+import * as React from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { FileTree } from "@/components/FileTree";
 import { getFileTreeTooltipText, getRestoreDeletionLabel } from "@/lib/fileTreeLabels";
 import { buildEffectiveFolderExpansionStates, getAncestorFolderPaths } from "@/lib/fileTreeState";
+
+const { act, createElement } = React;
+const originalInnerWidthDescriptor = Object.getOwnPropertyDescriptor(window, "innerWidth");
+const originalMatchMedia = window.matchMedia;
+
+let root: Root | null = null;
+
+function renderRenameableFileTree(isCoarsePointer: boolean) {
+  vi.useFakeTimers();
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 1024,
+  });
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: isCoarsePointer && query === "(hover: none) and (pointer: coarse)",
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  });
+
+  const rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  const mountedRoot = createRoot(rootElement);
+  root = mountedRoot;
+
+  act(() => {
+    mountedRoot.render(
+      createElement(FileTree, {
+        folderExpansionStates: [],
+        items: [
+          {
+            elementId: "pointer-file-row",
+            originalPath: "README.md",
+            path: "README.md",
+            type: "blob",
+          },
+        ],
+        onFileRename: vi.fn(),
+      }),
+    );
+  });
+
+  const fileRow = document.getElementById("pointer-file-row");
+  if (fileRow === null) {
+    throw new Error("Expected the FileTree file row to render");
+  }
+
+  return { fileRow, rootElement };
+}
+
+function createTouchStartEvent() {
+  const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
+  Object.defineProperty(touchStart, "touches", {
+    value: [{ clientX: 40, clientY: 80 }],
+  });
+  return touchStart;
+}
+
+function longPressFileTreeRow(fileRow: HTMLElement) {
+  act(() => {
+    fileRow.dispatchEvent(createTouchStartEvent());
+    vi.advanceTimersByTime(500);
+  });
+}
+
+afterEach(() => {
+  if (root !== null) {
+    const mountedRoot = root;
+    act(() => {
+      mountedRoot.unmount();
+    });
+    root = null;
+  }
+
+  document.body.replaceChildren();
+  if (originalInnerWidthDescriptor !== undefined) {
+    Object.defineProperty(window, "innerWidth", originalInnerWidthDescriptor);
+  }
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: originalMatchMedia,
+  });
+  vi.useRealTimers();
+});
 
 describe("buildEffectiveFolderExpansionStates", () => {
   it("force-opens changed folders in changes mode", () => {
@@ -116,6 +210,34 @@ describe("FileTree", () => {
     expect(markup).toContain(">Guide<");
     expect(markup).toContain(">Intro<");
   });
+
+  it("opens actions on long press for a coarse pointer at desktop width", () => {
+    const { fileRow, rootElement } = renderRenameableFileTree(true);
+
+    longPressFileTreeRow(fileRow);
+
+    expect(rootElement.textContent).toContain("Rename");
+  });
+
+  it("opens actions on long press for a fine-pointer touchscreen at desktop width", () => {
+    const { fileRow, rootElement } = renderRenameableFileTree(false);
+
+    longPressFileTreeRow(fileRow);
+
+    expect(rootElement.textContent).toContain("Rename");
+  });
+
+  it("does not open actions when the touch is cancelled before the long-press delay", () => {
+    const { fileRow, rootElement } = renderRenameableFileTree(true);
+
+    act(() => {
+      fileRow.dispatchEvent(createTouchStartEvent());
+      fileRow.dispatchEvent(new Event("touchcancel", { bubbles: true }));
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(rootElement.textContent).not.toContain("Rename");
+  });
 });
 
 describe("getAncestorFolderPaths", () => {
@@ -133,23 +255,23 @@ describe("getAncestorFolderPaths", () => {
 });
 
 describe("getFileTreeTooltipText", () => {
-  it("uses action copy for mobile folders", () => {
+  it("uses action copy for coarse-pointer folders", () => {
     expect(
       getFileTreeTooltipText({
         isFolder: true,
         isDeletedFile: false,
-        isMobile: true,
+        isCoarsePointer: true,
         type: "tree",
       }),
     ).toBe("Long press for actions");
   });
 
-  it("describes deleted-file tap plus long press on mobile", () => {
+  it("describes deleted-file tap plus long press for coarse pointers", () => {
     expect(
       getFileTreeTooltipText({
         isFolder: false,
         isDeletedFile: true,
-        isMobile: true,
+        isCoarsePointer: true,
         type: "blob",
       }),
     ).toBe("Tap to review deleted file, long press for actions");
@@ -161,7 +283,7 @@ describe("getFileTreeTooltipText", () => {
         hasContextMenuActions: false,
         isFolder: false,
         isDeletedFile: false,
-        isMobile: false,
+        isCoarsePointer: false,
         type: "blob",
       }),
     ).toBe("Click to open");

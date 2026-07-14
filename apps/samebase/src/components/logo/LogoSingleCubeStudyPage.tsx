@@ -113,7 +113,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
   const { setAngleDegrees, toggleShowEdges, toggleShowGrid, toggleVividColors } = store.actions;
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
+    <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black @2xl:px-6">
       <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
         <Button asChild size="sm" variant="outline" className="rounded-none">
           <Link search={routeSearch} to="/logo">
@@ -130,7 +130,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+      <div className="grid gap-6 @5xl:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
           <div>
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
@@ -257,7 +257,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
                 Quick read on the usual candidate angles between 0° and 90°.
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 @2xl:grid-cols-2 @5xl:grid-cols-4">
               {SINGLE_CUBE_STUDY_SAMPLE_ANGLES.map((sampleAngle) => (
                 <button
                   key={sampleAngle}

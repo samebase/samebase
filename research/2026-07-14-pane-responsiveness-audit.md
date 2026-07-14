@@ -2,13 +2,13 @@
 
 ## Document Control
 
-- Status: Accepted audit; conversions are follow-up work
+- Status: Completed audit; conversions landed
 - Date: 2026-07-14
 - Context: `WorkspaceLayoutV2PaneFrame` now declares the anonymous CSS container on its content
   scroller, and `docs/code-guardrails.md` plus `AGENTS.md` record the standard: workspace pane
   content uses container variants (`@2xl:`, `@3xl:`, `cqw`) against the pane, never viewport
   `sm:`/`md:`/`vw`. This audit classifies every existing viewport-relative usage in
-  `apps/samebase/src` so conversions can land as focused follow-ups.
+  `apps/samebase/src` before the conversions landed.
 
 ## Architecture Fact
 
@@ -16,7 +16,37 @@
 `WorkspaceLayoutV2PaneFrame`. There are no standalone routes: all page content is pane content, so
 the standard applies app-wide. The landing overview is the first converted consumer.
 
-## Convert (follow-up work, highest value first)
+## Conversion Outcome (landed the same day)
+
+The convert list below shipped in one sweep with three decisions worth keeping:
+
+1. Touch proxies became pointer variants, not width variants. `FileTree` row density,
+   `FileViewSidebar` button sizes, the FileView header text size, the dashboard sidebar row icons,
+   and `MonacoEditorSurface` chrome (scrollbars, folding, ruler, line numbers) all used `md:` or
+   `useIsMobile` to mean "not a touch device". Converting those to container variants would have
+   inverted desktop rendering in narrow panes (a 240px file tree or 288px sidebar is always below
+   `@3xl`), so they use `pointer-fine:` classes and the renamed `useCoarsePointer` hook instead.
+   `MonacoEditorSurface` splits the two axes: scrollbars and the overview ruler stay pointer
+   conventions, while line numbers and folding also shed below a 448px surface width so a
+   deliberately narrow pane keeps its columns for code (the cramped-pane case from converted surface
+   3 below). Wide touch-first devices intentionally switch from the old width-selected desktop
+   density to touch density and touch-oriented Monaco chrome even when their viewport is at least
+   768px wide. FileTree long press keys on the actual touch event rather than pointer capability, so
+   hybrid fine-pointer touchscreens keep it and a cancelled touch clears the pending timer. Unit
+   tests cover coarse- and fine-pointer long press plus touchcancel at 1024px, and a workspace
+   visual baseline covers touch-oriented Monaco chrome at the same viewport width. Those tests cover
+   the interaction boundary and a representative editor surface, not a complete wide-touch visual
+   matrix for every converted density surface.
+2. Heights stay viewport-relative. Container length units for the block axis (`cqh`) do not resolve
+   against an inline-size container, so `100vh`/`60vh`/`svh`/`dvh` usages keep their viewport units
+   (`CodexThreadBrowserView` scroll cap, `AgentsConnectRoutePage` centering, `LogoPreviewPage`
+   panel, markdown media cap, walkthrough hero).
+3. Pitch deck: only the interactive mode converted (including `7vw` to `7cqw` on the title). The
+   print and printMobile surfaces render at fixed page dimensions, so the shared `MetricBlock` sizes
+   its value per surface: the viewport variant on print surfaces, where capture viewports are fixed
+   and output must not change, and a container variant interactively.
+
+## Converted surfaces (original audit findings)
 
 1. `components/FileView/FileView.tsx`: `md:grid-cols-2 md:divide-x` diff split renders side-by-side
    in a narrow main pane between two open sidebars; also `md:text-sm`.
@@ -58,7 +88,7 @@ the standard applies app-wide. The landing overview is the first converted consu
 - True viewport units: `svh` scroll-end space on docs documents, `72svh` markdown media cap,
   `RouteUrlEditorNext.tsx` address-bar chrome.
 - Non-width media queries: `PublicLandingLogo.tsx` `prefers-reduced-motion`.
-- Infra hooks: `hooks/use-mobile.tsx`, `useUsesTouchSheet.ts`, theme/head helpers.
+- Infra hooks: `hooks/use-mobile.tsx`, `useCoarsePointer.ts`, theme/head helpers.
 - `AppBootFailureState.tsx`: renders when the shell itself fails to boot; no pane exists.
 - `components/ui/*`: shadcn-generated, read-only by repo rule.
 - Visual fixtures (`*VisualFixture.tsx`, `/visual-fixture` harness): pinned baselines, dev-only.

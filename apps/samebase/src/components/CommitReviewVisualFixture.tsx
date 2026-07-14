@@ -399,7 +399,10 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
           </div>
         </aside>
 
-        <section className="flex h-full min-h-0 flex-col overflow-hidden">
+        <section
+          data-testid="commit-review-visual-main-pane"
+          className="@container flex h-full min-h-0 flex-col overflow-hidden"
+        >
           {mode === "deleted-staged-changes" ? (
             <TestRouterProvider initialEntries={["/vault/samebase/samebase/fs/main/README.md"]}>
               <div className="mb-3 space-y-3">
@@ -459,7 +462,10 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
                           Base blob: base-sha Upstream blob: upstream-sha
                         </div>
                       </div>
-                      <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
+                      <div
+                        data-testid="commit-review-conflict-split"
+                        className="grid min-h-0 @3xl:grid-cols-2 @3xl:divide-x"
+                      >
                         <div className="min-h-0">
                           <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
                             Base -&gt; Yours
@@ -468,7 +474,7 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
                             {renderPatchLines(CONFLICT_BASE_TO_OURS_PATCH)}
                           </div>
                         </div>
-                        <div className="min-h-0 border-t md:border-t-0">
+                        <div className="min-h-0 border-t @3xl:border-t-0">
                           <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
                             Base -&gt; Upstream
                           </div>
