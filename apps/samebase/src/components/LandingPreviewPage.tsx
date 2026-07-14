@@ -36,7 +36,14 @@ import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts" | "pricing";
 
@@ -162,35 +169,38 @@ const LANDING_ZONE_MARKS = [
 ] as const satisfies readonly { routeSearch: LogoRouteSearch; viewStateKey: string }[];
 
 /**
-The rail column is display-none below md, where a mounted scene would still
-create an invisible WebGL context; CSS cannot gate the scene load, so the
-media query does.
+The rail column is display-none below the @3xl container width, where a mounted
+scene would still create an invisible WebGL context. CSS cannot gate the scene
+load, so this effect measures the same landing article box the container query
+reads; a viewport media query would disagree with the pane inside workspace
+chrome.
 */
-function useCanLoadZoneMarkScene() {
+const ZONE_MARK_MIN_ARTICLE_WIDTH_PX = 768;
+
+function useCanLoadZoneMarkScene(markRef: RefObject<HTMLDivElement | null>) {
   const [canLoadScene, setCanLoadScene] = useState(false);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") {
+    const article = markRef.current?.closest("article");
+    if (!article) {
       return;
     }
 
-    const mediaQuery = window.matchMedia("(min-width: 768px)");
-    const syncCanLoadScene = () => {
-      setCanLoadScene(mediaQuery.matches);
-    };
-
-    syncCanLoadScene();
-    mediaQuery.addEventListener("change", syncCanLoadScene);
+    const observer = new ResizeObserver(([entry]) => {
+      setCanLoadScene(entry.contentRect.width >= ZONE_MARK_MIN_ARTICLE_WIDTH_PX);
+    });
+    observer.observe(article);
     return () => {
-      mediaQuery.removeEventListener("change", syncCanLoadScene);
+      observer.disconnect();
     };
-  }, []);
+  }, [markRef]);
 
   return canLoadScene;
 }
 
 function LandingZoneMark({ index }: { index: 0 | 1 | 2 | 3 }) {
-  const canLoadScene = useCanLoadZoneMarkScene();
+  const markRef = useRef<HTMLDivElement>(null);
+  const canLoadScene = useCanLoadZoneMarkScene(markRef);
   const rootRouteSearch = useRootRouteSearch();
   const mark = LANDING_ZONE_MARKS[index];
   // Theme and color params follow the visitor's mark; the structural params
@@ -207,7 +217,7 @@ function LandingZoneMark({ index }: { index: 0 | 1 | 2 | 3 }) {
   } = rootRouteSearch;
 
   return (
-    <div className="mt-7 hidden @3xl:block">
+    <div className="mt-7 hidden @3xl:block" ref={markRef}>
       <PublicLandingLogo
         loadInteractiveScene={canLoadScene}
         routeSearch={{
