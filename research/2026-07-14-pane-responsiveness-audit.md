@@ -42,8 +42,9 @@ The convert list below shipped in one sweep with three decisions worth keeping:
    (`CodexThreadBrowserView` scroll cap, `AgentsConnectRoutePage` centering, `LogoPreviewPage`
    panel, markdown media cap, walkthrough hero).
 3. Pitch deck: only the interactive mode converted (including `7vw` to `7cqw` on the title). The
-   print and printMobile surfaces render at fixed page dimensions, and the shared `MetricBlock`
-   keeps its viewport variant because print output must not change.
+   print and printMobile surfaces render at fixed page dimensions, so the shared `MetricBlock` sizes
+   its value per surface: the viewport variant on print surfaces, where capture viewports are fixed
+   and output must not change, and a container variant interactively.
 
 ## Converted surfaces (original audit findings)
 

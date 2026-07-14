@@ -114,11 +114,31 @@ function FeatureCard({
   );
 }
 
-function MetricBlock({ label, value }: { label: string; value: string }) {
+function MetricBlock({
+  label,
+  value,
+  sizing,
+}: {
+  label: string;
+  value: string;
+  /**
+  Print surfaces capture at fixed page viewports, so their value size keeps the
+  viewport variant; the interactive surface sizes against its pane container.
+  */
+  sizing: "print" | "pane";
+}) {
   return (
     <div className="border border-border bg-secondary px-4 py-3 text-secondary-foreground">
       <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">{label}</div>
-      <div className="mt-2 text-[24px] leading-none tracking-[-0.05em] sm:text-[28px]">{value}</div>
+      <div
+        className={
+          sizing === "print"
+            ? "mt-2 text-[24px] leading-none tracking-[-0.05em] sm:text-[28px]"
+            : "mt-2 text-[24px] leading-none tracking-[-0.05em] @2xl:text-[28px]"
+        }
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -166,7 +186,7 @@ function PrintDesktopSurface() {
 
         <div className="grid gap-2 sm:grid-cols-3">
           {metricBlocks.map((metric) => (
-            <MetricBlock key={metric.label} {...metric} />
+            <MetricBlock key={metric.label} {...metric} sizing="print" />
           ))}
         </div>
       </section>
@@ -284,7 +304,7 @@ function PrintMobileSurface() {
 
       <div className="grid gap-2 sm:grid-cols-3">
         {metricBlocks.map((metric) => (
-          <MetricBlock key={metric.label} {...metric} />
+          <MetricBlock key={metric.label} {...metric} sizing="print" />
         ))}
       </div>
 
@@ -401,7 +421,7 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
 
         <div className={`border-border border-t pt-5 ${classes.metrics}`}>
           {metricBlocks.map((metric) => (
-            <MetricBlock key={metric.label} {...metric} />
+            <MetricBlock key={metric.label} {...metric} sizing="pane" />
           ))}
         </div>
       </section>
