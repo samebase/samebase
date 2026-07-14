@@ -279,4 +279,12 @@ describe("lint config", () => {
     expect(appPackage.devDependencies?.eslint).toBeUndefined();
     expect(appPackage.devDependencies?.["@typescript-eslint/parser"]).toBeUndefined();
   });
+
+  it("keeps fully Convex-managed agent files out of repo formatting", () => {
+    const fmtConfig = readRootFmtConfig();
+
+    expect(readStringArray(fmtConfig.ignorePatterns, "vite.config.ts.fmt.ignorePatterns")).toEqual(
+      expect.arrayContaining(["apps/samebase/AGENTS.md", "apps/samebase/CLAUDE.md"]),
+    );
+  });
 });

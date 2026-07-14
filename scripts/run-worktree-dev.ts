@@ -62,6 +62,7 @@ type CommandSpec = {
   args: string[];
   phase: "always" | "once-bootstrap" | "long-running";
   env?: NodeJS.ProcessEnv;
+  stdio?: ["ignore", "inherit", "inherit"];
 };
 
 const LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV = {
@@ -244,6 +245,9 @@ export function buildWorktreeDevCommandPlan(
       ],
       env: anonymousEnv,
       phase: "always",
+      // Convex uses TTY stdin as the condition to refresh tracked AI files during
+      // first-time local deployment setup. Backend bootstrap needs no input.
+      stdio: ["ignore", "inherit", "inherit"],
     },
     {
       label: "sync allowlisted seed env values into the local backend",
@@ -330,7 +334,7 @@ function runBlockingCommand(spec: CommandSpec): void {
     env: spec.env,
     extendEnv: spec.env === undefined,
     reject: false,
-    stdio: "inherit",
+    stdio: spec.stdio ?? "inherit",
   });
   if (result.exitCode !== 0) {
     fail(`${spec.label} failed with exit code ${result.exitCode ?? 1}.`, result.exitCode ?? 1);
