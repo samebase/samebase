@@ -11,7 +11,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 type BootstrapOptions = {
   anonMode: boolean;
@@ -20,7 +19,6 @@ type BootstrapOptions = {
 
 type InstallOptions = {
   anonMode: boolean;
-  cacheRoot: string;
   currentHash: string;
   workspaceDir: string;
 };
@@ -118,11 +116,10 @@ if (options.enableBranch) {
   createBranchIfDetached();
 }
 
-const cacheRoot = configureCacheRoot();
+configureCacheRoot();
 const currentHash = computeInstallHash(workspaceDir);
 installDependenciesIfNeeded({
   anonMode: options.anonMode,
-  cacheRoot,
   currentHash,
   workspaceDir,
 });
@@ -340,16 +337,16 @@ function timestampForBranch(): string {
   return `${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
-function configureCacheRoot(): string {
+function configureCacheRoot(): void {
   const vscodeDir = "/vscode";
   if (!existsSync(vscodeDir)) {
-    return "";
+    return;
   }
 
   try {
     accessSync(vscodeDir, constants.W_OK);
   } catch {
-    return "";
+    return;
   }
 
   const cacheRoot = "/vscode/samebase-cache";
@@ -358,17 +355,12 @@ function configureCacheRoot(): string {
   process.env.PNPM_HOME = process.env.PNPM_HOME ?? path.join(cacheRoot, "pnpm-home");
   process.env.PNPM_STORE_DIR = process.env.PNPM_STORE_DIR ?? path.join(cacheRoot, "pnpm-store");
   process.env.PATH = `${process.env.PNPM_HOME}:${process.env.PATH ?? ""}`;
-
-  return cacheRoot;
 }
 
 function computeInstallHash(workspace: string): string {
   const hashInputs: string[] = [];
-  const rootFiles = [
-    trackedFilePath("package.json"),
-    trackedFilePath("pnpm-lock.yaml"),
-    trackedFilePath("pnpm-workspace.yaml"),
-  ];
+  // Bootstrap must use only Node built-ins because it installs workspace dependencies.
+  const rootFiles = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"];
 
   for (const file of rootFiles) {
     if (existsSync(path.join(workspace, file))) {
@@ -376,9 +368,10 @@ function computeInstallHash(workspace: string): string {
     }
   }
 
-  const appsDir = path.join(workspace, "apps");
-  if (existsSync(appsDir)) {
-    collectPackageJsonFiles("apps", 0, hashInputs);
+  for (const workspacePackageDir of ["apps", "packages"]) {
+    if (existsSync(path.join(workspace, workspacePackageDir))) {
+      collectPackageJsonFiles(workspacePackageDir, 0, hashInputs);
+    }
   }
 
   hashInputs.sort((left, right) => left.localeCompare(right));
@@ -418,16 +411,15 @@ function collectPackageJsonFiles(relativeDir: string, depth: number, output: str
 
 function installDependenciesIfNeeded({
   anonMode,
-  cacheRoot,
   currentHash,
   workspaceDir: workspace,
 }: InstallOptions): void {
-  const hashFileBase = cacheRoot || path.join(workspace, ".devcontainer");
-  const hashFile = path.join(hashFileBase, "pnpm-install.hash");
-  const previousHash = existsSync(hashFile) ? readFileSync(hashFile, "utf8").trim() : "";
   const nodeModulesDir = path.join(workspace, "node_modules");
+  const hashFile = path.join(nodeModulesDir, ".samebase-pnpm-install.hash");
+  const previousHash = existsSync(hashFile) ? readFileSync(hashFile, "utf8").trim() : "";
+  const pnpmModulesFile = path.join(nodeModulesDir, ".modules.yaml");
   const shouldInstall =
-    !existsSync(nodeModulesDir) || currentHash.length === 0 || currentHash !== previousHash;
+    !existsSync(pnpmModulesFile) || currentHash.length === 0 || currentHash !== previousHash;
 
   if (!shouldInstall) {
     console.log("Dependencies unchanged; skipping pnpm install.");
