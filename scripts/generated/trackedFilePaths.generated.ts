@@ -1570,6 +1570,8 @@ export const trackedFilePaths = [
   "research/2026-07-07-agent-landing-eval-round-1-findings.md",
   "research/2026-07-08-samebase-app-template-maintenance-plan.md",
   "research/2026-07-10-user-settings-and-account-deletion.md",
+  "research/2026-07-14-agent-landing-eval-pr-preview-smoke.md",
+  "research/2026-07-14-agent-native-positioning-and-competitor-eval.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",

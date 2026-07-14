@@ -1,12 +1,22 @@
 # Samebase
 
-> Samebase is a control plane for web apps on an opinionated stack: code in your GitHub
-> repository, Convex backend, Cloudflare Workers hosting. Humans use a dashboard; coding agents use
-> the same actions over MCP. The knowledge is free: you can build the identical stack with no
-> Samebase account.
+> Samebase standardizes web apps on the best stack we have found: code in the user's GitHub
+> repository, a Convex backend, and Cloudflare Workers delivery. Once you have found the best
+> stack, repeat it. Each new app adds a product, not another system to maintain.
+
+Samebase can create a new app in about a minute or connect an existing GitHub repository without
+touching its providers. A connected app can remain GitHub-only or attach Convex and Cloudflare
+later. One repository can contain several explicit app roots for a monorepo; humans configure those
+roots in the dashboard.
+
+The dashboard gives humans one inventory of every app they connect, its app roots, provider
+resources, current state, direct provider coordinates, and provider or connection repair actions.
+Samebase does not replace the coding-agent interface the user already chose: Codex, Claude Code,
+Cursor, or any MCP client can call its actions over MCP.
 
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
-Deleting the Samebase account does not stop a running app.
+Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build
+the identical stack with no Samebase account.
 
 The `.md` links under Docs return raw markdown, and the same paths without `.md` serve the
 HTML pages. Action and operate docs are raw markdown only.
@@ -14,7 +24,7 @@ HTML pages. Action and operate docs are raw markdown only.
 ## Docs
 
 - [Overview](https://samebase.com/landing-preview): why the base is GitHub, Convex, and Cloudflare,
-  and the leaving test
+  how it scales across connected apps, and the leaving test
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen
 - [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack by hand, for
