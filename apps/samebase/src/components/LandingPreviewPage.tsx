@@ -457,12 +457,12 @@ function LandingPreviewOverview() {
               web apps
             </h1>
             <p className="mt-9 max-w-[52ch] text-lg leading-relaxed text-primary sm:text-xl">
-              Samebase is a button that turns an idea into a running app: a{" "}
-              <strong className="font-semibold text-foreground">GitHub</strong> repo, a{" "}
-              <strong className="font-semibold text-foreground">Convex</strong> backend, a{" "}
-              <strong className="font-semibold text-foreground">Cloudflare</strong> deploy, in about
-              a minute, on accounts you own. One place to watch them all. You bring the agent:
-              Codex, Claude Code, Cursor, anything.
+              Samebase starts a new app in about a minute on the best stack we've found:{" "}
+              <strong className="font-semibold text-foreground">GitHub</strong>,{" "}
+              <strong className="font-semibold text-foreground">Convex</strong>, and{" "}
+              <strong className="font-semibold text-foreground">Cloudflare</strong>, in accounts you
+              own. Once you've found the best stack, repeat it: more products, not more systems to
+              maintain. It works inside the coding agent you already use.
             </p>
             <div className="mt-10">
               <LandingCtaRow />
@@ -492,7 +492,9 @@ function LandingPreviewOverview() {
               Standard, inspectable infrastructure: three real accounts, in your name.
             </p>
             <p className="mt-5 text-base text-primary">
-              Every service keeps its own dashboard. Nothing is hidden behind Samebase.
+              Samebase gives you one view of every app you connect without hiding each service's own
+              dashboard. Connect an existing GitHub repo too, including several app roots in a
+              monorepo, and leave it GitHub-only until you attach Convex or Cloudflare.
             </p>
             <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-9 sm:grid-cols-3">
               <LandingTrioCell

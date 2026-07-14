@@ -114,6 +114,13 @@ test("landing preview route renders the React overview in workspace chrome", asy
       name: "correct",
     }),
   ).toBeVisible();
+  await expect(article).toContainText("the best stack we've found");
+  await expect(article).toContainText("Once you've found the best stack, repeat it");
+  await expect(article).toContainText("more products, not more systems to maintain");
+  await expect(article).toContainText("the coding agent you already use");
+  await expect(article).toContainText("one view of every app you connect");
+  await expect(article).toContainText("including several app roots in a monorepo");
+  await expect(article).toContainText("leave it GitHub-only until you attach Convex or Cloudflare");
   await expect(article).toContainText("cheaper and more powerful");
   await expect(article).toContainText("cost follows real usage");
   await expect(article).toContainText("dash.cloudflare.com");

@@ -71,6 +71,13 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("correct");
     expect(markup).toContain("way to build");
     expect(markup).toContain("web apps");
+    expect(markup).toContain("the best stack we&#x27;ve found");
+    expect(markup).toContain("Once you&#x27;ve found the best stack, repeat it");
+    expect(markup).toContain("more products, not more systems to maintain");
+    expect(markup).toContain("the coding agent you already use");
+    expect(markup).toContain("one view of every app you connect");
+    expect(markup).toContain("including several app roots in a monorepo");
+    expect(markup).toContain("leave it GitHub-only until you attach Convex or Cloudflare");
     expect(markup).toContain("cheaper and more powerful");
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
