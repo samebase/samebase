@@ -171,9 +171,9 @@ const LANDING_ZONE_MARKS = [
 /**
 The rail column is display-none below the @3xl container width, where a mounted
 scene would still create an invisible WebGL context. CSS cannot gate the scene
-load, so this effect measures the same landing article box the container query
-reads; a viewport media query would disagree with the pane inside workspace
-chrome.
+load, so this effect measures the landing article, which fills the pane
+container the @3xl variant reads; a viewport media query would disagree with
+the pane inside workspace chrome.
 */
 const ZONE_MARK_MIN_ARTICLE_WIDTH_PX = 768;
 
@@ -435,7 +435,7 @@ function LandingFootnote({
 function LandingPreviewOverview() {
   return (
     <article
-      className="@container min-h-full shrink-0 bg-background pb-48 text-foreground"
+      className="min-h-full shrink-0 bg-background pb-48 text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
       <div className="mx-auto w-full max-w-[1000px] px-6 pt-10 @2xl:px-10 @3xl:pt-14">

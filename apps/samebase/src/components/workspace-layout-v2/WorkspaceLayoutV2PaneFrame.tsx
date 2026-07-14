@@ -8,6 +8,13 @@ export type WorkspaceLayoutV2PaneFrameProps = {
   headerVisibility?: "all" | "desktop";
 };
 
+/**
+The content scroller declares the anonymous CSS container for pane content:
+responsive pane content uses container variants such as @3xl: against this box
+instead of viewport breakpoints, so every surface adapts to its own pane width
+rather than the window's. Viewport units remain only for true viewport
+concerns such as svh scroll-end space.
+*/
 export function WorkspaceLayoutV2PaneFrame({
   header,
   content,
@@ -26,7 +33,7 @@ export function WorkspaceLayoutV2PaneFrame({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+      <div className="@container flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
         <div className="min-h-0 flex-1">{content}</div>
       </div>
 
