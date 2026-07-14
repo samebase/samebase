@@ -6,10 +6,6 @@ const SCENARIOS = [
     snapshotName: "commit-review-inline.png",
   },
   {
-    mode: "conflict",
-    snapshotName: "commit-review-conflict.png",
-  },
-  {
     mode: "deleted",
     snapshotName: "commit-review-deleted.png",
   },
@@ -33,6 +29,68 @@ for (const scenario of SCENARIOS) {
     });
   });
 }
+
+test("commit review conflict split responds to pane width", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/visual-fixture?mode=conflict");
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("commit-review-visual-fixture");
+  const mainPane = page.getByTestId("commit-review-visual-main-pane");
+  const conflictSplit = page.getByTestId("commit-review-conflict-split");
+  const beforePanel = conflictSplit.getByText("Base -> Yours", { exact: true }).locator("..");
+  const afterPanel = conflictSplit.getByText("Base -> Upstream", { exact: true }).locator("..");
+
+  await fixture.evaluate((element) => {
+    element.style.width = "900px";
+  });
+  await expect
+    .poll(async () => (await mainPane.boundingBox())?.width ?? Infinity)
+    .toBeLessThan(768);
+  await expect
+    .poll(async () => {
+      const [beforeBox, afterBox] = await Promise.all([
+        beforePanel.boundingBox(),
+        afterPanel.boundingBox(),
+      ]);
+      if (beforeBox === null || afterBox === null) {
+        return false;
+      }
+
+      return afterBox.y >= beforeBox.y + beforeBox.height;
+    })
+    .toBe(true);
+  await expect(fixture).toHaveScreenshot("commit-review-conflict-narrow.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await fixture.evaluate((element) => {
+    element.style.width = "";
+  });
+  await expect.poll(async () => (await mainPane.boundingBox())?.width ?? 0).toBeGreaterThan(768);
+  await expect
+    .poll(async () => {
+      const [beforeBox, afterBox] = await Promise.all([
+        beforePanel.boundingBox(),
+        afterPanel.boundingBox(),
+      ]);
+      if (beforeBox === null || afterBox === null) {
+        return false;
+      }
+
+      return Math.abs(afterBox.y - beforeBox.y) <= 1 && afterBox.x >= beforeBox.x + beforeBox.width;
+    })
+    .toBe(true);
+  await expect(fixture).toHaveScreenshot("commit-review-conflict.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
 
 test("commit review fixture exposes deleted sidebar revert action", async ({ page }) => {
   await page.goto("/visual-fixture?mode=deleted");
