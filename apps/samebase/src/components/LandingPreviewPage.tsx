@@ -461,8 +461,9 @@ function LandingPreviewOverview() {
               <strong className="font-semibold text-foreground">GitHub</strong>,{" "}
               <strong className="font-semibold text-foreground">Convex</strong>, and{" "}
               <strong className="font-semibold text-foreground">Cloudflare</strong>, in accounts you
-              own. Once you've found the best stack, repeat it: more products, not more systems to
-              maintain. It works inside the coding agent you already use.
+              own. Once you've found the best stack, repeat it through the coding agent you already
+              use, with one inventory for every app you connect: more products, not more systems to
+              maintain.
             </p>
             <div className="mt-10">
               <LandingCtaRow />
@@ -662,7 +663,10 @@ function LandingPreviewOverview() {
                 Type safety used to be taste. With agents it's leverage: the template is typed end
                 to end, so the compiler catches an agent's mistakes before your users do.
               </p>
-              <p>Samebase also speaks MCP: your agent can create and list your apps itself.</p>
+              <p>
+                Samebase has a dashboard for setup and inventory, and speaks MCP: your agent can
+                create and list apps without leaving its own interface.
+              </p>
             </div>
           </LandingZone>
         </div>

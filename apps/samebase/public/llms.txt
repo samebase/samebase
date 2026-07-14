@@ -11,8 +11,8 @@ roots in the dashboard.
 
 The dashboard gives humans one inventory of every app they connect, its app roots, provider
 resources, current state, direct provider coordinates, and provider or connection repair actions.
-Codex, Claude Code, Cursor, or any MCP client can call Samebase's actions without replacing the
-coding-agent interface the user already chose.
+Samebase does not replace the coding-agent interface the user already chose: Codex, Claude Code,
+Cursor, or any MCP client can call its actions over MCP.
 
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
 Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build
