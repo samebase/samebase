@@ -358,6 +358,9 @@ UI code:
 - Standardize shared layout chrome structure; no semantic content sub-APIs (`title`, `meta`,
   `leading`, `trailing`) without a real shared pattern.
 - No dynamically built Tailwind/CSS class names; map state to full literal strings.
+- Workspace pane content is pane-responsive: container variants (`@3xl:`, `cqw`) against the pane
+  container from `WorkspaceLayoutV2PaneFrame`, never viewport `sm:`/`md:`/`vw`; viewport-relative
+  styling only for true viewport concerns such as `svh` scroll-end space.
 - App-internal navigation goes through TanStack Router `Link`/`navigate`; plain anchors only for
   external URLs, downloads, or deliberate reloads; href-bearing internal actions still SPA-route
   ordinary left-clicks.
@@ -386,17 +389,14 @@ UI code:
 - On iOS/iPadOS WebKit, focused text-entry controls below 16 CSS px can trigger viewport zoom.
   Shipped inputs, textareas, selects, and contenteditable editor fields must render at 16px or
   larger unless the product intentionally accepts focus zoom for that control.
-- Browser-owned page scroll is the default for route surfaces. Do not use route-level `h-screen`,
-  `h-dvh`, `overflow-hidden`, or full-page `overflow-y-auto` shells under shared app chrome unless
-  the route truly needs contained pane behavior. When a route needs to fill the space below shared
-  chrome, use route-body flex sizing such as `flex min-h-0 flex-1 flex-col`, and place any
-  intentional local scroller lower in the tree so pull-to-refresh and edge-swipe keep working.
-- When headings, cards, or selected rows can be opened through a link, query param, or programmatic
-  scroll, preserve enough scroll-end space for the last target to align at the top of its
+- Browser-owned page scroll is the default for route surfaces: no route-level
+  `h-screen`/`h-dvh`/`overflow-hidden`/full-page `overflow-y-auto` under shared chrome unless the
+  route truly needs a contained pane. Fill space below chrome with `flex min-h-0 flex-1 flex-col`
+  and keep local scrollers lower in the tree so pull-to-refresh and edge-swipe keep working.
+- Preserve enough scroll-end space for the last link/param/scroll target to align at the top of its
   scrollport.
-- Temporary ProseMark workaround: when authoring a Markdown link whose label would exactly equal its
-  URL, prefix the label with `link` plus a leading space so the rendered link stays visible until
-  that ProseMark bug is fixed.
+- Temporary ProseMark workaround: prefix a Markdown link label that would equal its URL with `link`
+  plus a leading space so the link renders visibly.
 - Add or update screenshot coverage whenever a patch changes shipped UI.
 - For Playwright baselines, live validation, focused-vs-full acceptance runs, session rules, and
   fixture policy, follow `skills/samebase-playwright-live/SKILL.md` and
