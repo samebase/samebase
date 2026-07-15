@@ -101,56 +101,65 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
   await expect(page.getByTestId(DOCS_SIDEBAR_TEST_ID)).toHaveCount(0);
   await expect(rightSidebar).toHaveCSS("width", "288px");
-  // The hero footnote link labels itself "footnote: correct", so the h1
-  // accessible name reads "The correct footnote: correct way to build web apps".
   await expect(
     article.getByRole("heading", {
-      name: /The correct.*way to build web apps/,
+      name: /It's not an AI that builds apps/,
     }),
   ).toBeVisible();
-  await expect(
-    article.getByRole("heading", {
-      exact: true,
-      name: "correct",
-    }),
-  ).toBeVisible();
-  await expect(article).toContainText("the best stack we've found");
   await expect(article).toContainText(
-    "Once you've found the best stack, repeat it through the coding agent you already use",
+    "Your agent writes the app. One Samebase action makes it real: repo, backend, deploy, on accounts you own.",
   );
-  await expect(article).toContainText("one inventory for every app you connect");
-  await expect(article).toContainText("more products, not more systems to maintain");
-  await expect(article).toContainText("one view of every app you connect");
-  await expect(article).toContainText("including several app roots in a monorepo");
-  await expect(article).toContainText("leave it GitHub-only until you attach Convex or Cloudflare");
-  await expect(article).toContainText("a dashboard for setup and inventory");
-  await expect(article).toContainText("without leaving its own interface");
-  await expect(article).toContainText("cheaper and more powerful");
+  await expect(article).toContainText("build me tic-tac-toe, but 4x4. use samebase");
+  await expect(article).toContainText(
+    "GitHub + Convex + Cloudflare Workers is the best way we've found to build an app.",
+  );
+  await expect(article).toContainText("deploys + domains + edge");
+  await expect(
+    article.getByRole("heading", { exact: true, name: "Ask your agent." }),
+  ).toBeVisible();
+  await expect(article).toContainText(
+    "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
+  );
+  await expect(article.getByRole("button", { exact: true, name: "Copy" })).toBeVisible();
+  await expect(
+    article.getByRole("heading", { name: /breach class can't be expressed here/ }),
+  ).toBeVisible();
+  await expect(article).toContainText("no rules you have to configure perfectly, forever");
+  await expect(article).toContainText(
+    "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
+  );
+  await expect(article).toContainText("No account? You create one in the same flow.");
+  await expect(
+    article.getByRole("heading", { name: "More products, not more systems to maintain." }),
+  ).toBeVisible();
+  await expect(article).toContainText("also readable by your agent, over MCP");
+  // The wide pane renders the inventory as a table; the card variant is display-none.
+  const inventoryTable = article.getByRole("table");
+  await expect(inventoryTable).toBeVisible();
+  await expect(inventoryTable).toContainText("birdlog.you.workers.dev");
+  await expect(inventoryTable).toContainText("github-only");
+  await expect(inventoryTable).toContainText("not attached");
+  await expect(inventoryTable).toContainText("wire builds");
+  await expect(article).toContainText("several roots in one monorepo");
   await expect(article).toContainText("cost follows real usage");
-  await expect(article).toContainText("dash.cloudflare.com");
-  await expect(article).not.toContainText("samebase hides");
+  await expect(article).toContainText("Samebase runs on Samebase.");
   await expect(article).toContainText(
     "If your app builder is so good, why is it not building itself?",
   );
-  await expect(article).toContainText("samebase.com uses the exact same stack it recommends");
-  await expect(article).toContainText("the first customer was me, Nicu");
-  await expect(article).toContainText("personal and idle ideas should cost $0/month");
+  await expect(article).toContainText("$0/month, receipted.");
+  await expect(article).toContainText("First customer: me, Nicu.");
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article).toContainText("Cloudflare");
   await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
-  // One interactive logo beside the hero, four zone rail marks, one closing band.
-  await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(6);
+  // The closing band keeps the one interactive logo slot on the page.
+  await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
   await expect(article).toContainText("drag it");
   await expect(article.getByRole("link", { name: "open the logo lab" })).toBeVisible();
-  await expect(article.getByRole("heading", { name: "The base is a trio." })).toHaveCount(0);
-  await expect(article.getByRole("heading", { name: "Manual setup proves it" })).toHaveCount(0);
-  await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveCount(0);
-  await expect(article.getByRole("link", { name: "Do it yourself" })).toHaveCount(3);
-  await expect(article.getByRole("img", { name: "OpenAI" })).toHaveCount(0);
-  await expect(
-    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
-  ).toHaveCount(0);
+  await expect(article.getByRole("link", { name: "do-it-yourself recipe" })).toBeVisible();
+  await expect(article.getByRole("heading", { name: /The correct/ })).toHaveCount(0);
+  await expect(article).not.toContainText("the leaving test");
+  await expect(article).not.toContainText("account owner");
   await expect(article.locator("video")).toHaveCount(0);
 
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
@@ -227,9 +236,13 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   await expect(
     article.getByRole("heading", {
-      name: /The correct.*way to build web apps/,
+      name: /It's not an AI that builds apps/,
     }),
   ).toBeVisible();
+  // Below the @3xl container width the inventory renders as stacked per-app
+  // cards instead of the five-column table.
+  await expect(article.locator("table")).toBeHidden();
+  await expect(article).toContainText("wire builds");
 
   await expect(page).toHaveScreenshot("landing-preview-overview-narrow-pane.png", {
     animations: "disabled",
