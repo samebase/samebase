@@ -415,8 +415,8 @@ function LandingCopyPromptButton() {
 
 function LandingProviderRow({ logo, role }: { logo: ReactNode; role: string }) {
   return (
-    <div className="flex items-center gap-3.5">
-      <div className="flex w-fit items-center gap-2">{logo}</div>
+    <div className="contents @3xl:flex @3xl:items-center @3xl:gap-3.5">
+      <div className="flex items-center gap-2 @3xl:w-fit">{logo}</div>
       <div>
         <p className="text-sm text-muted-foreground">{role}</p>
         <p className="font-mono text-[11px] text-muted-foreground">
@@ -659,12 +659,12 @@ function LandingPreviewOverview() {
 
         <LandingSection>
           <LandingSectionIntro
-            heading="GitHub + Convex + Cloudflare Workers is the best way we've found to build an app."
+            heading="GitHub + Convex + Cloudflare is the best way we've found to build an app."
             kicker="the opinion we're selling"
             sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you never choose again."
           />
           <div
-            className="mt-8 grid gap-5 @3xl:grid-cols-3 @3xl:gap-8"
+            className="mt-8 grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-4 gap-y-5 @3xl:grid-cols-3 @3xl:gap-8"
             data-testid={LANDING_PREVIEW_PROVIDER_GRID_TEST_ID}
           >
             <LandingProviderRow
@@ -683,7 +683,7 @@ function LandingPreviewOverview() {
               logo={
                 <img
                   alt="Convex"
-                  className="h-9 w-auto dark:brightness-0 dark:invert"
+                  className="-ml-2 h-9 w-auto dark:brightness-0 dark:invert @3xl:ml-0"
                   height="26"
                   src="/landing-preview/logos/convex.svg"
                   width="104"
@@ -838,7 +838,7 @@ function LandingPreviewOverview() {
           <LandingSectionIntro
             heading="More products, not more systems to maintain."
             kicker="one base"
-            sub="Every app sits on the same base, so one inventory holds them all: provider state, coordinates, and the action that repairs what drifts."
+            sub="Every app sits on the same base, not the same shape. One inventory holds provider state, coordinates, and the action that repairs what drifts."
           />
           <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -898,7 +898,7 @@ function LandingPreviewOverview() {
               />
               <p className="max-w-[44ch] text-[15px] leading-relaxed text-primary">
                 <span className="font-semibold text-foreground">Samebase runs on Samebase.</span>{" "}
-                samebase.com is its own Convex deployment and Cloudflare Workers.
+                One monorepo, one Convex deployment, and three specialized Cloudflare Workers.
               </p>
             </div>
           </div>

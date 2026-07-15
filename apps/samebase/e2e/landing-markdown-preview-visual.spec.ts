@@ -131,7 +131,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article).not.toContainText("no chatbot");
   await expect(article).toContainText("build me tic-tac-toe, but 4x4. use samebase");
   await expect(article).toContainText(
-    "GitHub + Convex + Cloudflare Workers is the best way we've found to build an app.",
+    "GitHub + Convex + Cloudflare is the best way we've found to build an app.",
   );
   await expect(article).toContainText("deploys + domains + edge");
   await expect(
@@ -152,6 +152,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(
     article.getByRole("heading", { name: "More products, not more systems to maintain." }),
   ).toBeVisible();
+  await expect(article).toContainText("Every app sits on the same base, not the same shape.");
   await expect(article).toContainText("also readable by your agent, over MCP");
   // The wide pane renders the inventory as a table; the card variant is display-none.
   const inventoryTable = article.getByRole("table");
@@ -163,6 +164,9 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article).toContainText("several roots in one monorepo");
   await expect(article).toContainText("cost follows real usage");
   await expect(article).toContainText("Samebase runs on Samebase.");
+  await expect(article).toContainText(
+    "One monorepo, one Convex deployment, and three specialized Cloudflare Workers.",
+  );
   await expect(article).not.toContainText("If an AI chat box were really the best way");
   await expect(article).toContainText(
     "If your app builder is so good, why is it not building itself?",
@@ -281,6 +285,15 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+  await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
+    "landing-preview-provider-grid-narrow-pane.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
 });
 
 test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page }) => {
@@ -315,15 +328,26 @@ test.describe("mobile landing preview CTA", () => {
     await page.goto(LANDING_PREVIEW_ROUTE, {
       waitUntil: "domcontentloaded",
     });
+    await page.waitForLoadState("networkidle");
+
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
 
     const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
+    const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+    await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
+      "landing-preview-provider-grid-mobile.png",
+      {
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixelRatio: 0.02,
+        scale: "css",
+      },
+    );
 
-    await page
-      .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
-      .getByRole("button", { name: "Open Samebase" })
-      .first()
-      .click();
+    await article.getByRole("button", { name: "Open Samebase" }).first().click();
 
     await expectExplicitSignInUrl(page);
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right");

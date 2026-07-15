@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   DocsDoItYourselfPage,
   DocsPricingPage,
+  DocsTheStackPage,
   LandingPreviewPage,
 } from "@/components/LandingPreviewPage";
 
@@ -109,7 +110,7 @@ describe("LandingPreviewPage", () => {
     // The opinion, named, with the trio row under it.
     expect(markup).toContain("the opinion we&#x27;re selling");
     expect(markup).toContain(
-      "GitHub + Convex + Cloudflare Workers is the best way we&#x27;ve found to build an app.",
+      "GitHub + Convex + Cloudflare is the best way we&#x27;ve found to build an app.",
     );
     expect(markup).toContain("Samebase repeats it, so you never choose again.");
     expect(markup).toContain("deploys + domains + edge");
@@ -144,6 +145,7 @@ describe("LandingPreviewPage", () => {
 
     // One base: the inventory facts the positioning probes kept missing.
     expect(markup).toContain("More products, not more systems to maintain.");
+    expect(markup).toContain("Every app sits on the same base, not the same shape.");
     expect(markup).toContain("also readable by your agent, over MCP");
     expect(markup).toContain("github-only");
     expect(markup).toContain("not attached");
@@ -157,6 +159,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
     expect(markup).toContain("Samebase runs on Samebase.");
+    expect(markup).toContain(
+      "One monorepo, one Convex deployment, and three specialized Cloudflare Workers.",
+    );
     expect(markup).not.toContain("If an AI chat box were really the best way");
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 
@@ -229,6 +234,15 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Do it yourself: deploy the Samebase stack for $0/month");
     expect(markup).toContain('href="/docs/receipts"');
     expect(markup).toContain("What the Samebase account adds");
+  });
+
+  it("renders the broader Cloudflare topology in the stack guide", () => {
+    const markup = renderToStaticMarkup(<DocsTheStackPage />);
+
+    expect(markup).toContain("One base, more than one shape");
+    expect(markup).toContain("first-party analytics proxy");
+    expect(markup).toContain("three separate Cloudflare Workers");
+    expect(markup).toContain("Cloudflare Email Sending");
   });
 
   it("renders the pricing page separately", () => {
