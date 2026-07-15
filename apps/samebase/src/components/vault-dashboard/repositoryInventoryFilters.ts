@@ -1,23 +1,10 @@
-import {
-  normalizePullRequestLabelColor,
-  type PullRequestLabelInput,
-} from "@/lib/pullRequestLabels";
+import { normalizePullRequestLabelColor } from "@/lib/pullRequestLabels";
 
 export type RepositoryInventoryFilters = {
   hiddenLabels: string[];
   includeDrafts: boolean;
   includeNoLabel: boolean;
 };
-
-export type RepositoryInventoryFilterableItem =
-  | {
-      kind: "branch";
-    }
-  | {
-      kind: "pull_request";
-      pullRequestIsDraft: boolean;
-      pullRequestLabels: PullRequestLabelInput[];
-    };
 
 export type PullRequestLabelFacet = {
   name: string;
@@ -47,7 +34,15 @@ function normalizeLabelKey(name: string): string {
 }
 
 function compareLabelNames(left: string, right: string): number {
-  return left.localeCompare(right, undefined, { sensitivity: "base" }) || left.localeCompare(right);
+  const leftKey = normalizeLabelKey(left);
+  const rightKey = normalizeLabelKey(right);
+  if (leftKey !== rightKey) {
+    return leftKey < rightKey ? -1 : 1;
+  }
+  if (left === right) {
+    return 0;
+  }
+  return left < right ? -1 : 1;
 }
 
 // A normalized GitHub label name cannot contain this leading null character.
@@ -113,32 +108,6 @@ export function setRepositoryInventoryFilterLabelIncluded(args: {
   }
 
   return Array.from(hiddenLabelsByKey.values()).sort(compareLabelNames);
-}
-
-export function filterRepositoryInventoryItems<Item extends RepositoryInventoryFilterableItem>(
-  items: readonly Item[],
-  filters: Partial<RepositoryInventoryFilters> | null | undefined,
-): Item[] {
-  const normalizedFilters = normalizeRepositoryInventoryFilters(filters);
-  const hiddenLabelKeys = new Set(normalizedFilters.hiddenLabels.map(normalizeLabelKey));
-
-  return items.filter((item) => {
-    if (item.kind === "branch") {
-      return true;
-    }
-    if (!normalizedFilters.includeDrafts && item.pullRequestIsDraft) {
-      return false;
-    }
-
-    const labelKeys = item.pullRequestLabels
-      .map((label) => normalizeLabelKey(typeof label === "string" ? label : label.name))
-      .filter((labelKey) => labelKey.length > 0);
-    if (labelKeys.length === 0) {
-      return normalizedFilters.includeNoLabel;
-    }
-
-    return !labelKeys.some((labelKey) => hiddenLabelKeys.has(labelKey));
-  });
 }
 
 export function buildPullRequestFilterOptions(args: {

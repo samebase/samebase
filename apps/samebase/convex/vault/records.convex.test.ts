@@ -292,11 +292,28 @@ describe("vault records Convex contract", () => {
     };
     await t.run(async (ctx) => {
       const snapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+        state: "ready",
         vaultId: ids.vaultId,
         branchCount: 2,
         pullRequestCount: 0,
         labelCount: 0,
         labelChunkCount: 0,
+        labelFacetCount: 0,
+        noLabelPullRequestCount: 0,
+        repositoryNodeId: "R_inventory",
+        repositoryFullName: "Ada/Inventory",
+        defaultBranch: "trunk",
+        fingerprint: "inventory",
+        crawlCost: 1,
+      });
+      const filterViewId = await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
+        state: "complete",
+        vaultId: ids.vaultId,
+        snapshotId,
+        filterRevision: 0,
+        totalPullRequestCount: 0,
+        processedPullRequestCount: 0,
+        visiblePullRequestCount: 0,
       });
       await ctx.db.insert("vaultRepositoryInventories", {
         userId: ids.userId,
@@ -306,6 +323,8 @@ describe("vault records Convex contract", () => {
         lifecycle: { state: "idle" },
         publication: {
           snapshotId,
+          filterViewId,
+          filterRevision: 0,
           repositoryNodeId: "R_inventory",
           repositoryFullName: "Ada/Inventory",
           defaultBranch: "trunk",

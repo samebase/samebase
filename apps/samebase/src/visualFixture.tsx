@@ -202,6 +202,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-list-spacing",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
+  "vault-pull-request-filters",
   "vault-branch-pr-labels",
   "vault-branch-mobile-alignment",
 ] as const satisfies readonly VaultDashboardVisualMode[];
@@ -402,6 +403,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-list-spacing" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||
+    mode === "vault-pull-request-filters" ||
     mode === "vault-branch-pr-labels" ||
     mode === "vault-branch-mobile-alignment"
   ) {

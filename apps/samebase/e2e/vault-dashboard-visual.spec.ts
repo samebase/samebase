@@ -111,6 +111,30 @@ async function readVaultDashboardRightSidebarSeparatorPaint(
   };
 }
 
+async function expectMobileSafeTextEntrySize(locator: Locator) {
+  await expect(locator).toHaveCSS("font-size", "16px");
+}
+
+async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
+  await expect
+    .poll(async () => {
+      const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
+      if (firstBox === null || secondBox === null) {
+        return false;
+      }
+
+      const horizontalOverlap =
+        Math.min(firstBox.x + firstBox.width, secondBox.x + secondBox.width) -
+        Math.max(firstBox.x, secondBox.x);
+      const verticalOverlap =
+        Math.min(firstBox.y + firstBox.height, secondBox.y + secondBox.height) -
+        Math.max(firstBox.y, secondBox.y);
+
+      return horizontalOverlap <= 0 || verticalOverlap <= 0;
+    })
+    .toBe(true);
+}
+
 async function expectOptionalCheckboxUnchecked(locator: Locator) {
   if ((await locator.count()) === 0) {
     return;
@@ -1050,6 +1074,100 @@ test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await expect(page.getByText("codex/dashboard-main-pane-spacing")).toBeVisible();
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
+});
+
+test("vault dashboard fixture (pull request filters popover)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 640 });
+  await openVaultDashboardVisualFixture(page, "vault-pull-request-filters");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const branchRows = fixture.locator("[data-vault-dashboard-branch-row]");
+  await expect(fixture.getByText("1 of 4 PRs", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("main", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("codex/independent-branch-row", { exact: true })).toBeVisible();
+  await expect(branchRows).toHaveCount(3);
+  await expect(branchRows.nth(0)).toContainText("main");
+  await expect(branchRows.nth(1)).toContainText("PR #401 Keep visible pull requests first");
+  await expect(branchRows.nth(2)).toContainText("codex/independent-branch-row");
+  await expect(
+    fixture.getByText("PR #402 Document repository inventory research", { exact: true }),
+  ).toHaveCount(0);
+
+  await fixture.getByRole("button", { name: "Filters", exact: true }).click();
+  const popover = page.locator("[data-slot='popover-content']");
+  await expectMobileSafeTextEntrySize(popover.getByPlaceholder("Filter labels"));
+  await expect(page).toHaveScreenshot("vault-pull-request-filters-popover.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await popover.locator("label").filter({ hasText: "research" }).getByRole("checkbox").click();
+  await expect(fixture.getByText("2 of 4 PRs", { exact: true })).toBeVisible();
+  await expect(
+    fixture.getByText("PR #402 Document repository inventory research", { exact: true }),
+  ).toBeVisible();
+  await expect(fixture.getByText("main", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("codex/independent-branch-row", { exact: true })).toBeVisible();
+  await expect(branchRows).toHaveCount(4);
+  await expect(branchRows.nth(0)).toContainText("main");
+  await expect(branchRows.nth(1)).toContainText("PR #401 Keep visible pull requests first");
+  await expect(branchRows.nth(2)).toContainText("PR #402 Document repository inventory research");
+  await expect(branchRows.nth(3)).toContainText("codex/independent-branch-row");
+
+  await popover.getByRole("button", { name: "Reset all" }).click();
+  await expect(fixture.getByText("3 of 4 PRs", { exact: true })).toBeVisible();
+  await expect(
+    fixture.getByText("PR #403 Handle unlabeled pull requests", { exact: true }),
+  ).toBeVisible();
+  await expect(branchRows).toHaveCount(5);
+});
+
+test("vault dashboard fixture (pull request filters mobile sheet)", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+
+  await openVaultDashboardVisualFixture(page, "vault-pull-request-filters");
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("1 of 4 PRs", { exact: true })).toBeVisible();
+  await fixture.getByRole("button", { name: "Filters", exact: true }).click();
+
+  const sheet = page.locator("[data-slot='sheet-content']");
+  await expectMobileSafeTextEntrySize(sheet.getByPlaceholder("Filter labels"));
+  await expectElementsDoNotOverlap(
+    sheet.getByRole("button", { name: "Reset all" }),
+    sheet.getByRole("button", { name: "Close" }),
+  );
+  await expect(page).toHaveScreenshot("vault-pull-request-filters-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await sheet.locator("label").filter({ hasText: "No label" }).getByRole("checkbox").click();
+  await expect(fixture.getByText("2 of 4 PRs", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("main", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("codex/independent-branch-row", { exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 420 });
+  const includeDrafts = sheet.getByText("Include drafts", { exact: true });
+  await includeDrafts.scrollIntoViewIfNeeded();
+  await expect(includeDrafts).toBeVisible();
+
+  await context.close();
 });
 
 test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {

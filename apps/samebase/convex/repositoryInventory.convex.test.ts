@@ -77,26 +77,139 @@ async function insertSnapshot(
     pullRequestCount?: number;
     labelCount?: number;
     labelChunkCount?: number;
+    labelFacetCount?: number;
+    noLabelPullRequestCount?: number;
+    state?: "collecting" | "ready";
+  },
+) {
+  return await t.run(async (ctx) => {
+    const counts = {
+      branchCount: args.branchCount ?? 0,
+      pullRequestCount: args.pullRequestCount ?? 0,
+      labelCount: args.labelCount ?? 0,
+      labelChunkCount: args.labelChunkCount ?? 0,
+      labelFacetCount: args.labelFacetCount ?? 0,
+      noLabelPullRequestCount: args.noLabelPullRequestCount ?? 0,
+    };
+    return args.state === "collecting"
+      ? await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+          state: "collecting",
+          vaultId: args.vaultId,
+          ...counts,
+        })
+      : await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+          state: "ready",
+          repositoryNodeId: "R_inventory",
+          repositoryFullName: "ada/inventory",
+          defaultBranch: "main",
+          fingerprint: "published-fingerprint",
+          crawlCost: 10,
+          vaultId: args.vaultId,
+          ...counts,
+        });
+  });
+}
+
+async function insertFilterView(
+  t: ConvexTest,
+  args: {
+    vaultId: Id<"vaults">;
+    snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    filterRevision?: number;
+    totalPullRequestCount?: number;
+    visiblePullRequestCount?: number;
   },
 ) {
   return await t.run(
     async (ctx) =>
-      await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+      await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
+        state: "complete",
         vaultId: args.vaultId,
-        branchCount: args.branchCount ?? 0,
-        pullRequestCount: args.pullRequestCount ?? 0,
-        labelCount: args.labelCount ?? 0,
-        labelChunkCount: args.labelChunkCount ?? 0,
+        snapshotId: args.snapshotId,
+        filterRevision: args.filterRevision ?? 0,
+        totalPullRequestCount: args.totalPullRequestCount ?? 0,
+        processedPullRequestCount: args.totalPullRequestCount ?? 0,
+        visiblePullRequestCount: args.visiblePullRequestCount ?? 0,
       }),
   );
 }
 
+async function finishFilterMaterialization(
+  t: ConvexTest,
+  args: {
+    snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    filterRevision: number;
+  },
+): Promise<Id<"vaultRepositoryInventoryFilterViews">> {
+  for (let pass = 0; pass < 100; pass += 1) {
+    const view = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("vaultRepositoryInventoryFilterViews")
+          .withIndex("by_snapshot_and_filterRevision", (q) =>
+            q.eq("snapshotId", args.snapshotId).eq("filterRevision", args.filterRevision),
+          )
+          .unique(),
+    );
+    if (!view) {
+      throw new Error("Expected a repository inventory filter view to materialize.");
+    }
+    if (view.state === "complete") {
+      return view._id;
+    }
+    await t.mutation(internal.repositoryInventory.advanceRepositoryInventoryFilterMaterialization, {
+      viewId: view._id,
+    });
+  }
+  throw new Error("Repository inventory filter view did not finish materializing.");
+}
+
+async function handoffAndMaterializeSnapshot(
+  t: ConvexTest,
+  args: {
+    vaultId: Id<"vaults">;
+    snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    branchCount: number;
+    pullRequestCount: number;
+    labelCount: number;
+    labelChunkCount: number;
+    labelFacetCount: number;
+    noLabelPullRequestCount: number;
+    fingerprint: string;
+    crawlCost: number;
+    filterRevision?: number;
+  },
+) {
+  await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+    vaultId: args.vaultId,
+    snapshotId: args.snapshotId,
+    repositoryNodeId: "R_inventory",
+    repositoryFullName: "ada/inventory",
+    defaultBranch: "main",
+    branchCount: args.branchCount,
+    pullRequestCount: args.pullRequestCount,
+    labelCount: args.labelCount,
+    labelChunkCount: args.labelChunkCount,
+    labelFacetCount: args.labelFacetCount,
+    noLabelPullRequestCount: args.noLabelPullRequestCount,
+    fingerprint: args.fingerprint,
+    crawlCost: args.crawlCost,
+  });
+  return await finishFilterMaterialization(t, {
+    snapshotId: args.snapshotId,
+    filterRevision: args.filterRevision ?? 0,
+  });
+}
+
 function publication(
   snapshotId: Id<"vaultRepositoryInventorySnapshots">,
+  filterViewId: Id<"vaultRepositoryInventoryFilterViews">,
   overrides: Partial<RepositoryInventoryPublication> = {},
 ): RepositoryInventoryPublication {
   return {
     snapshotId,
+    filterViewId,
+    filterRevision: 0,
     repositoryNodeId: "R_inventory",
     repositoryFullName: "ada/inventory",
     defaultBranch: "main",
@@ -135,25 +248,46 @@ async function insertInventory(
 
 async function readVaultInventory(t: ConvexTest, vaultId: Id<"vaults">) {
   return await t.run(async (ctx) => {
-    const [inventory, snapshots, items, labelChunks] = await Promise.all([
-      ctx.db
-        .query("vaultRepositoryInventories")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-        .unique(),
-      ctx.db
-        .query("vaultRepositoryInventorySnapshots")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-        .collect(),
-      ctx.db
-        .query("vaultRepositoryInventoryItems")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-        .collect(),
-      ctx.db
-        .query("vaultRepositoryInventoryLabelChunks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-        .collect(),
-    ]);
-    return { inventory, snapshots, items, labelChunks };
+    const [inventory, snapshots, items, labelChunks, labelFacets, filterViews, filterViewRows] =
+      await Promise.all([
+        ctx.db
+          .query("vaultRepositoryInventories")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .unique(),
+        ctx.db
+          .query("vaultRepositoryInventorySnapshots")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .collect(),
+        ctx.db
+          .query("vaultRepositoryInventoryItems")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .collect(),
+        ctx.db
+          .query("vaultRepositoryInventoryLabelChunks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .collect(),
+        ctx.db
+          .query("vaultRepositoryInventoryLabelFacets")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .collect(),
+        ctx.db
+          .query("vaultRepositoryInventoryFilterViews")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .collect(),
+        ctx.db
+          .query("vaultRepositoryInventoryFilterViewRows")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .collect(),
+      ]);
+    return {
+      inventory,
+      snapshots,
+      items,
+      labelChunks,
+      labelFacets,
+      filterViews,
+      filterViewRows,
+    };
   });
 }
 
@@ -200,6 +334,7 @@ async function insertPullRequest(
     canOpenInSamebase: boolean;
     labelCount?: number;
     labelChunkCount?: number;
+    filterLabelKeys?: string[];
   },
 ) {
   return await t.run(
@@ -222,6 +357,7 @@ async function insertPullRequest(
         localHeadRefName: args.canOpenInSamebase ? args.headRefName : undefined,
         labelCount: args.labelCount ?? 0,
         labelChunkCount: args.labelChunkCount ?? 0,
+        filterLabelKeys: args.filterLabelKeys ?? [],
         headCommit: {
           sha: `${args.headRefName}-sha`,
           title: `Pull request ${args.number}`,
@@ -245,7 +381,7 @@ describe("repository inventory refresh state machine", () => {
 
   it("coalesces ordinary visible demand without scheduling a trailing crawl", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    const snapshotId = await insertSnapshot(t, ids);
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
     await insertInventory(t, {
       ...ids,
       lifecycle: {
@@ -269,16 +405,15 @@ describe("repository inventory refresh state machine", () => {
       }),
     ).resolves.toEqual({ kind: "running" });
 
-    await t.mutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
+    await handoffAndMaterializeSnapshot(t, {
       vaultId: ids.vaultId,
       snapshotId,
-      repositoryNodeId: "R_inventory",
-      repositoryFullName: "ada/inventory",
-      defaultBranch: "main",
       branchCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
       fingerprint: "first-publication",
       crawlCost: 12,
     });
@@ -292,9 +427,249 @@ describe("repository inventory refresh state machine", () => {
     expect(state.snapshots).toHaveLength(1);
   });
 
+  it("keeps a completed crawl unpublished until its filter view is complete", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-materializing",
+      },
+    });
+
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "materializing",
+      crawlCost: 9,
+    });
+
+    const materializingState = await readVaultInventory(t, ids.vaultId);
+    expect(materializingState).toMatchObject({
+      inventory: {
+        lifecycle: { state: "materializing", snapshotId },
+      },
+      snapshots: [{ _id: snapshotId, state: "ready" }],
+      filterViews: [{ state: "building", snapshotId, filterRevision: 0 }],
+    });
+    expect(materializingState.inventory).not.toHaveProperty("publication");
+
+    await t.mutation(internal.repositoryInventory.handleRepositoryInventoryComplete, {
+      // @ts-expect-error Workpool persists its branded WorkId as this validated string.
+      workId: "job-materializing",
+      context: { vaultId: ids.vaultId, snapshotId },
+      result: { kind: "success", returnValue: null },
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: { lifecycle: { state: "materializing", snapshotId } },
+    });
+
+    const filterViewId = await finishFilterMaterialization(t, {
+      snapshotId,
+      filterRevision: 0,
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: { state: "idle" },
+        publication: { snapshotId, filterViewId, filterRevision: 0 },
+      },
+    });
+  });
+
+  it("schedules one trailing refresh for focus demand received after collection", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lastStartedAt: now,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-trailing-focus",
+      },
+    });
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "before-focus",
+      crawlCost: 8,
+    });
+
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "running" });
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "running" });
+    await finishFilterMaterialization(t, { snapshotId, filterRevision: 0 });
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      lifecycle: {
+        state: "scheduled",
+        required: false,
+        wait: { kind: "queue", retryAt: now + 60_000 },
+      },
+      publication: { snapshotId, fingerprint: "before-focus" },
+    });
+    expect(state.snapshots).toHaveLength(2);
+  });
+
+  it("recovers a missing materialization batch from the watchdog", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-watchdog",
+      },
+    });
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "watchdog",
+      crawlCost: 7,
+    });
+    const abandonedView = (await readVaultInventory(t, ids.vaultId)).filterViews.at(0);
+    if (!abandonedView) {
+      throw new Error("Expected the initial materialization view.");
+    }
+    await t.run(async (ctx) => await ctx.db.delete(abandonedView._id));
+
+    await t.mutation(internal.repositoryInventory.repairRepositoryInventoryFilterMaterialization, {
+      vaultId: ids.vaultId,
+      snapshotId,
+    });
+    const recoveredViewId = await finishFilterMaterialization(t, {
+      snapshotId,
+      filterRevision: 0,
+    });
+    expect(recoveredViewId).not.toBe(abandonedView._id);
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: { state: "idle" },
+        publication: { snapshotId, filterViewId: recoveredViewId },
+      },
+    });
+  });
+
+  it("fails closed instead of remaining materializing after an invalid batch", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const activeSnapshotId = await insertSnapshot(t, ids);
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
+    const stagingSnapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lastStartedAt: now,
+      lifecycle: {
+        state: "running",
+        snapshotId: stagingSnapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-invalid-materialization",
+      },
+      publication: publication(activeSnapshotId, activeFilterViewId),
+    });
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId: stagingSnapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "invalid-view",
+      crawlCost: 6,
+    });
+    const stagingView = (await readVaultInventory(t, ids.vaultId)).filterViews.find(
+      (view) => view.snapshotId === stagingSnapshotId,
+    );
+    if (!stagingView) {
+      throw new Error("Expected the staging materialization view.");
+    }
+    await t.run(async (ctx) => await ctx.db.patch(stagingSnapshotId, { pullRequestCount: 1 }));
+
+    await t.mutation(internal.repositoryInventory.advanceRepositoryInventoryFilterMaterialization, {
+      viewId: stagingView._id,
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: {
+          state: "failed",
+          message: "Repository inventory filter materialization has an invalid snapshot.",
+        },
+        publication: { snapshotId: activeSnapshotId, filterViewId: activeFilterViewId },
+      },
+    });
+
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: { state: "scheduled" },
+        publication: { snapshotId: activeSnapshotId, filterViewId: activeFilterViewId },
+      },
+    });
+  });
+
   it("schedules exactly one immediate trailing snapshot after writes during a crawl", async () => {
     const { ids, t } = await createConnectedVault();
-    const snapshotId = await insertSnapshot(t, ids);
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
     await insertInventory(t, {
       ...ids,
       lifecycle: {
@@ -309,16 +684,15 @@ describe("repository inventory refresh state machine", () => {
 
     await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
     await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
-    await t.mutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
+    await handoffAndMaterializeSnapshot(t, {
       vaultId: ids.vaultId,
       snapshotId,
-      repositoryNodeId: "R_inventory",
-      repositoryFullName: "ada/inventory",
-      defaultBranch: "main",
       branchCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
       fingerprint: "after-write",
       crawlCost: 15,
     });
@@ -388,7 +762,11 @@ describe("repository inventory refresh state machine", () => {
   it("keeps the published snapshot and advances checkedAt after an unchanged crawl", async () => {
     const { ids, t } = await createConnectedVault();
     const activeSnapshotId = await insertSnapshot(t, ids);
-    const stagingSnapshotId = await insertSnapshot(t, ids);
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
+    const stagingSnapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
     await insertInventory(t, {
       ...ids,
       lifecycle: {
@@ -399,7 +777,7 @@ describe("repository inventory refresh state machine", () => {
         startedAt: now,
         workpoolJobId: "job-unchanged",
       },
-      publication: publication(activeSnapshotId),
+      publication: publication(activeSnapshotId, activeFilterViewId),
     });
 
     await expect(
@@ -427,7 +805,11 @@ describe("repository inventory refresh state machine", () => {
   it("rejects incomplete publication without disturbing the active snapshot", async () => {
     const { ids, t } = await createConnectedVault();
     const activeSnapshotId = await insertSnapshot(t, ids);
-    const stagingSnapshotId = await insertSnapshot(t, ids);
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
+    const stagingSnapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
     await insertInventory(t, {
       ...ids,
       lifecycle: {
@@ -438,11 +820,11 @@ describe("repository inventory refresh state machine", () => {
         startedAt: now,
         workpoolJobId: "job-incomplete",
       },
-      publication: publication(activeSnapshotId),
+      publication: publication(activeSnapshotId, activeFilterViewId),
     });
 
     await expect(
-      t.mutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
+      t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
         vaultId: ids.vaultId,
         snapshotId: stagingSnapshotId,
         repositoryNodeId: "R_inventory",
@@ -452,6 +834,8 @@ describe("repository inventory refresh state machine", () => {
         pullRequestCount: 0,
         labelCount: 0,
         labelChunkCount: 0,
+        labelFacetCount: 0,
+        noLabelPullRequestCount: 0,
         fingerprint: "incomplete",
         crawlCost: 5,
       }),
@@ -467,7 +851,7 @@ describe("repository inventory refresh state machine", () => {
 
   it("treats Workpool success without publication as an invariant failure", async () => {
     const { ids, t } = await createConnectedVault();
-    const snapshotId = await insertSnapshot(t, ids);
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
     await insertInventory(t, {
       ...ids,
       lifecycle: {
@@ -508,6 +892,7 @@ describe("repository inventory snapshot reads", () => {
       pullRequestCount: 1,
       labelCount: 3,
       labelChunkCount: 2,
+      labelFacetCount: 3,
     });
     await insertBranch(t, {
       vaultId: ids.vaultId,
@@ -517,7 +902,7 @@ describe("repository inventory snapshot reads", () => {
       sortTime: 0,
     });
     const rowKey = "pull-request:PR_42";
-    await insertPullRequest(t, {
+    const pullRequestItemId = await insertPullRequest(t, {
       vaultId: ids.vaultId,
       snapshotId,
       rowKey,
@@ -527,8 +912,54 @@ describe("repository inventory snapshot reads", () => {
       canOpenInSamebase: true,
       labelCount: 3,
       labelChunkCount: 2,
+      filterLabelKeys: ["bug", "priority", "ready"],
+    });
+    const filterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId,
+      totalPullRequestCount: 1,
+      visiblePullRequestCount: 1,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      publication: publication(snapshotId, filterViewId),
     });
     await t.run(async (ctx) => {
+      await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        pullRequestItemId,
+        rowKey,
+        sortTime: -now,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryLabelFacets", {
+        vaultId: ids.vaultId,
+        snapshotId,
+        labelKey: "bug",
+        sortKey: "bug",
+        name: "bug",
+        color: "ff0000",
+        pullRequestCount: 1,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryLabelFacets", {
+        vaultId: ids.vaultId,
+        snapshotId,
+        labelKey: "priority",
+        sortKey: "priority",
+        name: "priority",
+        pullRequestCount: 1,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryLabelFacets", {
+        vaultId: ids.vaultId,
+        snapshotId,
+        labelKey: "ready",
+        sortKey: "ready",
+        name: "ready",
+        color: "00ff00",
+        pullRequestCount: 1,
+      });
       await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
         vaultId: ids.vaultId,
         snapshotId,
@@ -545,22 +976,63 @@ describe("repository inventory snapshot reads", () => {
       });
     });
 
-    const itemPage = await asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
-      vaultId: ids.vaultId,
-      snapshotId,
-      paginationOpts: { cursor: null, numItems: 10 },
-    });
-    expect(itemPage).toMatchObject({
+    const branchPage = await asUser.query(
+      api.repositoryInventory.listRepositoryInventoryBranchPage,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      },
+    );
+    expect(branchPage).toMatchObject({
       state: "ready",
-      expectedItemCount: 2,
+      snapshotId,
+      expectedBranchCount: 1,
+      isDone: true,
+      page: [{ kind: "branch", rowKey: "branch:main", name: "main", isDefault: true }],
+    });
+
+    const pullRequestPage = await asUser.query(
+      api.repositoryInventory.listRepositoryInventoryPullRequestPage,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      },
+    );
+    expect(pullRequestPage).toMatchObject({
+      state: "ready",
+      snapshotId,
+      viewId: filterViewId,
+      expectedVisiblePullRequestCount: 1,
+      totalPullRequestCount: 1,
+      isDone: true,
+      page: [{ kind: "pull_request", rowKey, number: 42, labelCount: 3 }],
+    });
+    expect(pullRequestPage).not.toHaveProperty("page.0.labelChunkCount");
+    expect(pullRequestPage).not.toHaveProperty("page.0.localHeadRefName");
+
+    const facetPage = await asUser.query(
+      api.repositoryInventory.listRepositoryInventoryLabelFacetPage,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 25 },
+      },
+    );
+    expect(facetPage).toMatchObject({
+      state: "ready",
+      snapshotId,
+      expectedFacetCount: 3,
+      noLabelPullRequestCount: 0,
       isDone: true,
       page: [
-        { kind: "branch", rowKey: "branch:main", name: "main", isDefault: true },
-        { kind: "pull_request", rowKey, number: 42, labelCount: 3 },
+        { name: "bug", color: "ff0000", pullRequestCount: 1 },
+        { name: "priority", pullRequestCount: 1 },
+        { name: "ready", color: "00ff00", pullRequestCount: 1 },
       ],
     });
-    expect(itemPage).not.toHaveProperty("page.1.labelChunkCount");
-    expect(itemPage).not.toHaveProperty("page.1.localHeadRefName");
 
     const labelPage = await asUser.query(api.repositoryInventory.listRepositoryInventoryLabelPage, {
       vaultId: ids.vaultId,
@@ -586,21 +1058,41 @@ describe("repository inventory snapshot reads", () => {
   it("distinguishes a removed snapshot from a valid empty snapshot", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     const snapshotId = await insertSnapshot(t, ids);
+    const filterViewId = await insertFilterView(t, { ...ids, snapshotId });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      publication: publication(snapshotId, filterViewId),
+    });
     await expect(
-      asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
+      asUser.query(api.repositoryInventory.listRepositoryInventoryBranchPage, {
         vaultId: ids.vaultId,
         snapshotId,
         paginationOpts: { cursor: null, numItems: 10 },
       }),
     ).resolves.toMatchObject({
       state: "ready",
-      expectedItemCount: 0,
+      expectedBranchCount: 0,
+      page: [],
+      isDone: true,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedVisiblePullRequestCount: 0,
+      totalPullRequestCount: 0,
       page: [],
       isDone: true,
     });
     await t.run(async (ctx) => await ctx.db.delete(snapshotId));
     await expect(
-      asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
+      asUser.query(api.repositoryInventory.listRepositoryInventoryBranchPage, {
         vaultId: ids.vaultId,
         snapshotId,
         paginationOpts: { cursor: null, numItems: 10 },
@@ -611,17 +1103,22 @@ describe("repository inventory snapshot reads", () => {
   it("cleans only the exact obsolete snapshot", async () => {
     const { ids, t } = await createConnectedVault();
     const activeSnapshotId = await insertSnapshot(t, { vaultId: ids.vaultId, branchCount: 1 });
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
     const obsoleteSnapshotId = await insertSnapshot(t, {
       vaultId: ids.vaultId,
       branchCount: 1,
       pullRequestCount: 1,
       labelCount: 1,
       labelChunkCount: 1,
+      labelFacetCount: 1,
     });
     await insertInventory(t, {
       ...ids,
       lifecycle: { state: "idle" },
-      publication: publication(activeSnapshotId),
+      publication: publication(activeSnapshotId, activeFilterViewId),
     });
     await insertBranch(t, {
       vaultId: ids.vaultId,
@@ -635,7 +1132,7 @@ describe("repository inventory snapshot reads", () => {
       name: "old",
     });
     const rowKey = "pull-request:obsolete";
-    await insertPullRequest(t, {
+    const obsoletePullRequestItemId = await insertPullRequest(t, {
       vaultId: ids.vaultId,
       snapshotId: obsoleteSnapshotId,
       rowKey,
@@ -645,19 +1142,41 @@ describe("repository inventory snapshot reads", () => {
       canOpenInSamebase: true,
       labelCount: 1,
       labelChunkCount: 1,
+      filterLabelKeys: ["old"],
     });
-    await t.run(
-      async (ctx) =>
-        await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
-          vaultId: ids.vaultId,
-          snapshotId: obsoleteSnapshotId,
-          rowKey,
-          chunkIndex: 0,
-          labels: [{ name: "old" }],
-        }),
-    );
+    const obsoleteFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: obsoleteSnapshotId,
+      totalPullRequestCount: 1,
+      visiblePullRequestCount: 1,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
+        vaultId: ids.vaultId,
+        snapshotId: obsoleteSnapshotId,
+        viewId: obsoleteFilterViewId,
+        pullRequestItemId: obsoletePullRequestItemId,
+        rowKey,
+        sortTime: -1,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryLabelFacets", {
+        vaultId: ids.vaultId,
+        snapshotId: obsoleteSnapshotId,
+        labelKey: "old",
+        sortKey: "old",
+        name: "old",
+        pullRequestCount: 1,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
+        vaultId: ids.vaultId,
+        snapshotId: obsoleteSnapshotId,
+        rowKey,
+        chunkIndex: 0,
+        labels: [{ name: "old" }],
+      });
+    });
 
-    for (let pass = 0; pass < 3; pass += 1) {
+    for (let pass = 0; pass < 10; pass += 1) {
       await t.mutation(internal.repositoryInventory.cleanupRepositoryInventorySnapshot, {
         snapshotId: obsoleteSnapshotId,
       });
@@ -668,18 +1187,41 @@ describe("repository inventory snapshot reads", () => {
     expect(state.items).toHaveLength(1);
     expect(state.items[0]).toMatchObject({ snapshotId: activeSnapshotId, rowKey: "branch:main" });
     expect(state.labelChunks).toEqual([]);
+    expect(state.labelFacets).toEqual([]);
+    expect(state.filterViews.map((view) => view._id)).toEqual([activeFilterViewId]);
+    expect(state.filterViewRows).toEqual([]);
   });
 
-  it("bounds public item and label pages", async () => {
+  it("bounds public inventory pages", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     const snapshotId = await insertSnapshot(t, ids);
+    const filterViewId = await insertFilterView(t, { ...ids, snapshotId });
     await expect(
-      asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
+      asUser.query(api.repositoryInventory.listRepositoryInventoryBranchPage, {
         vaultId: ids.vaultId,
         snapshotId,
         paginationOpts: { cursor: null, numItems: 11 },
       }),
-    ).rejects.toThrow("Repository inventory pages must request between 1 and 10 items.");
+    ).rejects.toThrow("Repository inventory branch pages must request between 1 and 10 items.");
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        paginationOpts: { cursor: null, numItems: 11 },
+      }),
+    ).rejects.toThrow(
+      "Repository inventory pull request pages must request between 1 and 10 items.",
+    );
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryLabelFacetPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 26 },
+      }),
+    ).rejects.toThrow(
+      "Repository inventory label facet pages must request between 1 and 25 items.",
+    );
     await expect(
       asUser.query(api.repositoryInventory.listRepositoryInventoryLabelPage, {
         vaultId: ids.vaultId,
@@ -688,6 +1230,370 @@ describe("repository inventory snapshot reads", () => {
         paginationOpts: { cursor: null, numItems: 6 },
       }),
     ).rejects.toThrow("Repository inventory label pages must request between 1 and 5 chunks.");
+  });
+});
+
+describe("repository inventory pull request filters", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it("publishes complete filter views without changing branch visibility", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      branchCount: 1,
+      pullRequestCount: 4,
+      noLabelPullRequestCount: 1,
+    });
+    const initialFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId,
+      totalPullRequestCount: 4,
+      visiblePullRequestCount: 3,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      publication: publication(snapshotId, initialFilterViewId),
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "main",
+      isDefault: true,
+      sortTime: 0,
+    });
+    const researchPullRequestId = await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:research",
+      number: 1,
+      headRefName: "research",
+      sortTime: -400,
+      canOpenInSamebase: true,
+      labelCount: 1,
+      filterLabelKeys: ["research"],
+    });
+    const noLabelPullRequestId = await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:no-label",
+      number: 2,
+      headRefName: "no-label",
+      sortTime: -300,
+      canOpenInSamebase: true,
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:draft",
+      number: 42,
+      headRefName: "draft",
+      sortTime: -500,
+      canOpenInSamebase: true,
+      labelCount: 1,
+      filterLabelKeys: ["ready"],
+    });
+    const readyPullRequestId = await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:ready",
+      number: 3,
+      headRefName: "ready",
+      sortTime: -200,
+      canOpenInSamebase: true,
+      labelCount: 1,
+      filterLabelKeys: ["ready"],
+    });
+    await t.run(async (ctx) => {
+      for (const membership of [
+        {
+          pullRequestItemId: researchPullRequestId,
+          rowKey: "pull-request:research",
+          sortTime: -400,
+        },
+        {
+          pullRequestItemId: noLabelPullRequestId,
+          rowKey: "pull-request:no-label",
+          sortTime: -300,
+        },
+        {
+          pullRequestItemId: readyPullRequestId,
+          rowKey: "pull-request:ready",
+          sortTime: -200,
+        },
+      ]) {
+        await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
+          vaultId: ids.vaultId,
+          snapshotId,
+          viewId: initialFilterViewId,
+          ...membership,
+        });
+      }
+    });
+
+    await expect(
+      asUser.query(api.repositoryInventory.getRepositoryInventoryFilter, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({
+      hiddenLabels: [],
+      includeDrafts: false,
+      includeNoLabel: true,
+      revision: 0,
+    });
+
+    const defaultState = await asUser.query(api.repositoryInventory.getRepositoryInventoryState, {
+      vaultId: ids.vaultId,
+    });
+    expect(defaultState).toMatchObject({
+      state: "ready",
+      activeSnapshotId: snapshotId,
+      activeFilterRevision: 0,
+    });
+    if (defaultState.state !== "ready") {
+      throw new Error("Expected a published default repository inventory filter view.");
+    }
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: defaultState.activeFilterViewId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedVisiblePullRequestCount: 3,
+      totalPullRequestCount: 4,
+      page: [{ number: 1 }, { number: 2 }, { number: 3 }],
+      isDone: true,
+    });
+
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      hiddenLabels: [" Research ", "research"],
+      includeDrafts: true,
+      includeNoLabel: false,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.getRepositoryInventoryFilter, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({
+      hiddenLabels: ["Research"],
+      includeDrafts: true,
+      includeNoLabel: false,
+      revision: 1,
+    });
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      hiddenLabels: ["research"],
+      includeDrafts: true,
+      includeNoLabel: false,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.getRepositoryInventoryFilter, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({
+      hiddenLabels: ["Research"],
+      includeDrafts: true,
+      includeNoLabel: false,
+      revision: 1,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.getRepositoryInventoryState, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      activeFilterViewId: defaultState.activeFilterViewId,
+      activeFilterRevision: 0,
+    });
+
+    await finishFilterMaterialization(t, { snapshotId, filterRevision: 1 });
+    const filteredState = await asUser.query(api.repositoryInventory.getRepositoryInventoryState, {
+      vaultId: ids.vaultId,
+    });
+    expect(filteredState).toMatchObject({
+      state: "ready",
+      activeSnapshotId: snapshotId,
+      activeFilterRevision: 1,
+    });
+    if (filteredState.state !== "ready") {
+      throw new Error("Expected a published custom repository inventory filter view.");
+    }
+    expect(filteredState.activeFilterViewId).not.toBe(defaultState.activeFilterViewId);
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filteredState.activeFilterViewId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedVisiblePullRequestCount: 2,
+      totalPullRequestCount: 4,
+      page: [{ number: 42 }, { number: 3 }],
+      isDone: true,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryBranchPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedBranchCount: 1,
+      page: [{ kind: "branch", name: "main", isDefault: true }],
+      isDone: true,
+    });
+  });
+
+  it("publishes the latest filter revision without discarding a completed crawl", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const activeSnapshotId = await insertSnapshot(t, ids);
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
+    const stagingSnapshotId = await insertSnapshot(t, {
+      ...ids,
+      state: "collecting",
+      pullRequestCount: 2,
+      labelCount: 2,
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId: stagingSnapshotId,
+      rowKey: "pull-request:research",
+      number: 1,
+      headRefName: "research",
+      sortTime: -200,
+      canOpenInSamebase: true,
+      labelCount: 1,
+      filterLabelKeys: ["research"],
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId: stagingSnapshotId,
+      rowKey: "pull-request:draft",
+      number: 42,
+      headRefName: "draft",
+      sortTime: -100,
+      canOpenInSamebase: true,
+      labelCount: 1,
+      filterLabelKeys: ["ready"],
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId: stagingSnapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-filter-churn",
+      },
+      publication: publication(activeSnapshotId, activeFilterViewId),
+    });
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId: stagingSnapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 2,
+      labelCount: 2,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "completed-crawl",
+      crawlCost: 11,
+    });
+
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      hiddenLabels: ["research"],
+      includeDrafts: false,
+      includeNoLabel: true,
+    });
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      hiddenLabels: ["research"],
+      includeDrafts: true,
+      includeNoLabel: true,
+    });
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      hiddenLabels: ["research"],
+      includeDrafts: true,
+      includeNoLabel: false,
+    });
+
+    const staleViews = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("vaultRepositoryInventoryFilterViews")
+          .withIndex("by_snapshot", (q) => q.eq("snapshotId", stagingSnapshotId))
+          .collect(),
+    );
+    for (const view of staleViews) {
+      if (view.filterRevision < 3) {
+        await t.mutation(
+          internal.repositoryInventory.advanceRepositoryInventoryFilterMaterialization,
+          { viewId: view._id },
+        );
+      }
+    }
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: { state: "materializing", snapshotId: stagingSnapshotId },
+        publication: { snapshotId: activeSnapshotId, filterRevision: 0 },
+      },
+    });
+
+    const latestFilterViewId = await finishFilterMaterialization(t, {
+      snapshotId: stagingSnapshotId,
+      filterRevision: 3,
+    });
+    const publishedState = await readVaultInventory(t, ids.vaultId);
+    expect(publishedState.inventory).toMatchObject({
+      lifecycle: { state: "idle" },
+      publication: {
+        snapshotId: stagingSnapshotId,
+        filterViewId: latestFilterViewId,
+        filterRevision: 3,
+        fingerprint: "completed-crawl",
+      },
+    });
+    expect(publishedState.snapshots).toContainEqual(
+      expect.objectContaining({ _id: stagingSnapshotId, state: "ready" }),
+    );
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId: stagingSnapshotId,
+        viewId: latestFilterViewId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedVisiblePullRequestCount: 1,
+      totalPullRequestCount: 2,
+      page: [{ number: 42 }],
+      isDone: true,
+    });
   });
 });
 
@@ -709,10 +1615,16 @@ describe("repository inventory branch context", () => {
       branchCount: 2,
       pullRequestCount: 3,
     });
+    const filterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId,
+      totalPullRequestCount: 3,
+      visiblePullRequestCount: 2,
+    });
     await insertInventory(t, {
       ...ids,
       lifecycle: { state: "idle" },
-      publication: publication(snapshotId, {
+      publication: publication(snapshotId, filterViewId, {
         repositoryFullName: "Ada/Renamed",
         defaultBranch: "trunk",
       }),

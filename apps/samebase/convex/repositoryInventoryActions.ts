@@ -15,14 +15,17 @@ import {
   REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE,
   REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
+  repositoryInventoryFilterLabelKey,
   type CollectedRepositoryInventoryItem,
   type RepositoryInventoryLabelChunk,
+  type StoredRepositoryInventoryPullRequestLabelFacet,
   type StoredRepositoryInventoryItem,
 } from "./repositoryInventoryModel";
 import type { RepositoryInventoryWorkerInput } from "./repositoryInventory";
 
 const GITHUB_RATE_LEASE_RENEW_INTERVAL_MS = 30_000;
 const GITHUB_IDENTITY_TIMEOUT_MS = 10_000;
+const REPOSITORY_INVENTORY_STAGE_FACET_BATCH_SIZE = 25;
 
 class RepositoryInventoryRateDeferredError extends Error {
   constructor(readonly retryAt: number) {
@@ -102,9 +105,13 @@ function prepareRepositoryInventoryForStorage(args: {
 }): {
   items: StoredRepositoryInventoryItem[];
   labelChunks: RepositoryInventoryLabelChunk[];
+  labelFacets: StoredRepositoryInventoryPullRequestLabelFacet[];
+  noLabelPullRequestCount: number;
 } {
   const storedItems: StoredRepositoryInventoryItem[] = [];
   const labelChunks: RepositoryInventoryLabelChunk[] = [];
+  const labelFacets = new Map<string, { name: string; color?: string; pullRequestCount: number }>();
+  let noLabelPullRequestCount = 0;
   for (const item of args.items) {
     if (item.kind === "branch") {
       storedItems.push({
@@ -115,12 +122,36 @@ function prepareRepositoryInventoryForStorage(args: {
       continue;
     }
     const { labels, ...pullRequest } = item;
+    const labelsByKey = new Map<string, (typeof labels)[number]>();
+    for (const label of labels) {
+      const labelKey = repositoryInventoryFilterLabelKey(label.name);
+      if (labelKey.length > 0 && !labelsByKey.has(labelKey)) {
+        labelsByKey.set(labelKey, label);
+      }
+    }
+    const filterLabelKeys = Array.from(labelsByKey.keys()).sort();
+    if (filterLabelKeys.length === 0) {
+      noLabelPullRequestCount += 1;
+    }
+    for (const [labelKey, label] of labelsByKey) {
+      const facet = labelFacets.get(labelKey);
+      if (facet) {
+        facet.pullRequestCount += 1;
+      } else {
+        labelFacets.set(labelKey, {
+          name: label.name,
+          color: label.color,
+          pullRequestCount: 1,
+        });
+      }
+    }
     const chunks = chunk(labels, REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE);
     storedItems.push({
       ...pullRequest,
       vaultId: args.vaultId,
       snapshotId: args.snapshotId,
       labelChunkCount: chunks.length,
+      filterLabelKeys,
     });
     labelChunks.push(
       ...chunks.map((chunkLabels, chunkIndex) => ({
@@ -132,7 +163,21 @@ function prepareRepositoryInventoryForStorage(args: {
       })),
     );
   }
-  return { items: storedItems, labelChunks };
+  return {
+    items: storedItems,
+    labelChunks,
+    labelFacets: Array.from(labelFacets, ([labelKey, facet]) => ({
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
+      labelKey,
+      sortKey: labelKey,
+      ...facet,
+    })).sort(
+      (left, right) =>
+        left.sortKey.localeCompare(right.sortKey) || left.labelKey.localeCompare(right.labelKey),
+    ),
+    noLabelPullRequestCount,
+  };
 }
 
 export const runRepositoryInventoryRefresh = internalAction({
@@ -285,22 +330,38 @@ export const runRepositoryInventoryRefresh = internalAction({
           labelChunks,
         });
       }
-      await ctx.runMutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
-        vaultId: input.vaultId,
-        snapshotId: input.snapshotId,
-        repositoryNodeId: inventory.repositoryId,
-        repositoryFullName: inventory.repositoryFullName,
-        defaultBranch: inventory.defaultBranch,
-        branchCount: inventory.branchCount,
-        pullRequestCount: inventory.pullRequestCount,
-        labelCount: inventory.items.reduce(
-          (count, item) => count + (item.kind === "pull_request" ? item.labelCount : 0),
-          0,
-        ),
-        labelChunkCount: storedInventory.labelChunks.length,
-        fingerprint: inventory.fingerprint,
-        crawlCost: usage.cost,
-      });
+      for (const facets of chunk(
+        storedInventory.labelFacets,
+        REPOSITORY_INVENTORY_STAGE_FACET_BATCH_SIZE,
+      )) {
+        await ctx.runMutation(internal.repositoryInventory.stageRepositoryInventoryLabelFacets, {
+          vaultId: input.vaultId,
+          snapshotId: input.snapshotId,
+          facets,
+        });
+      }
+
+      await ctx.runMutation(
+        internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot,
+        {
+          vaultId: input.vaultId,
+          snapshotId: input.snapshotId,
+          repositoryNodeId: inventory.repositoryId,
+          repositoryFullName: inventory.repositoryFullName,
+          defaultBranch: inventory.defaultBranch,
+          branchCount: inventory.branchCount,
+          pullRequestCount: inventory.pullRequestCount,
+          labelCount: inventory.items.reduce(
+            (count, item) => count + (item.kind === "pull_request" ? item.labelCount : 0),
+            0,
+          ),
+          labelChunkCount: storedInventory.labelChunks.length,
+          labelFacetCount: storedInventory.labelFacets.length,
+          noLabelPullRequestCount: storedInventory.noLabelPullRequestCount,
+          fingerprint: inventory.fingerprint,
+          crawlCost: usage.cost,
+        },
+      );
       return null;
     } catch (error) {
       if (

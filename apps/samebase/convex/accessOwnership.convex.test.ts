@@ -79,11 +79,28 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       lastTreeRefreshAt: 6,
     });
     const inventorySnapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+      state: "ready",
       vaultId,
       branchCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      repositoryNodeId: "R_owner_secure",
+      repositoryFullName: "owner/secure",
+      defaultBranch: "main",
+      fingerprint: "owner-inventory",
+      crawlCost: 1,
+    });
+    const inventoryFilterViewId = await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
+      state: "complete",
+      vaultId,
+      snapshotId: inventorySnapshotId,
+      filterRevision: 0,
+      totalPullRequestCount: 0,
+      processedPullRequestCount: 0,
+      visiblePullRequestCount: 0,
     });
     await ctx.db.insert("vaultRepositoryInventories", {
       userId: ownerId,
@@ -93,6 +110,8 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       lifecycle: { state: "idle" },
       publication: {
         snapshotId: inventorySnapshotId,
+        filterViewId: inventoryFilterViewId,
+        filterRevision: 0,
         repositoryNodeId: "R_owner_secure",
         repositoryFullName: "owner/secure",
         defaultBranch: "main",
@@ -197,6 +216,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       folderExpansionId,
       layoutId,
       machineRegistrationRequestId,
+      inventoryFilterViewId,
       inventorySnapshotId,
       otherUserId,
       ownerId,
@@ -233,7 +253,22 @@ describe("public Convex route ownership checks", () => {
       }),
     ).resolves.toBeNull();
     await expect(
-      asOther.query(api.repositoryInventory.listRepositoryInventoryPage, {
+      asOther.query(api.repositoryInventory.listRepositoryInventoryBranchPage, {
+        vaultId: ids.vaultId,
+        snapshotId: ids.inventorySnapshotId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toEqual({ state: "unavailable" });
+    await expect(
+      asOther.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId: ids.inventorySnapshotId,
+        viewId: ids.inventoryFilterViewId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toEqual({ state: "unavailable" });
+    await expect(
+      asOther.query(api.repositoryInventory.listRepositoryInventoryLabelFacetPage, {
         vaultId: ids.vaultId,
         snapshotId: ids.inventorySnapshotId,
         paginationOpts: { cursor: null, numItems: 10 },

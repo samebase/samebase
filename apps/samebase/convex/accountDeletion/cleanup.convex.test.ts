@@ -408,11 +408,36 @@ describe("account-local deletion cleanup", () => {
     await t.run(async (ctx) => {
       const rowKey = "pull-request:PR_cleanup";
       const snapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+        state: "ready",
         vaultId,
         branchCount: 0,
         pullRequestCount: 1,
         labelCount: 1,
         labelChunkCount: 1,
+        labelFacetCount: 1,
+        noLabelPullRequestCount: 0,
+        repositoryNodeId: "R_repository",
+        repositoryFullName: "owner/repository",
+        defaultBranch: "main",
+        fingerprint: "inventory-fingerprint",
+        crawlCost: 1,
+      });
+      const filterViewId = await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
+        state: "complete",
+        vaultId,
+        snapshotId,
+        filterRevision: 1,
+        totalPullRequestCount: 1,
+        processedPullRequestCount: 1,
+        visiblePullRequestCount: 1,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryFilters", {
+        userId,
+        vaultId,
+        hiddenLabels: [],
+        includeDrafts: false,
+        includeNoLabel: true,
+        revision: 1,
       });
       await ctx.db.insert("vaultRepositoryInventories", {
         userId,
@@ -422,6 +447,8 @@ describe("account-local deletion cleanup", () => {
         lifecycle: { state: "idle" },
         publication: {
           snapshotId,
+          filterViewId,
+          filterRevision: 1,
           repositoryNodeId: "R_repository",
           repositoryFullName: "owner/repository",
           defaultBranch: "main",
@@ -430,7 +457,7 @@ describe("account-local deletion cleanup", () => {
           fingerprint: "inventory-fingerprint",
         },
       });
-      await ctx.db.insert("vaultRepositoryInventoryItems", {
+      const pullRequestItemId = await ctx.db.insert("vaultRepositoryInventoryItems", {
         kind: "pull_request",
         vaultId,
         snapshotId,
@@ -462,6 +489,24 @@ describe("account-local deletion cleanup", () => {
         labelCount: 1,
         localHeadRefName: "cleanup-inventory",
         labelChunkCount: 1,
+        filterLabelKeys: ["cleanup"],
+      });
+      await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
+        vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        pullRequestItemId,
+        rowKey,
+        sortTime: -1,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryLabelFacets", {
+        vaultId,
+        snapshotId,
+        labelKey: "cleanup",
+        sortKey: "cleanup",
+        name: "cleanup",
+        color: "00ff00",
+        pullRequestCount: 1,
       });
       await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
         vaultId,
@@ -483,6 +528,10 @@ describe("account-local deletion cleanup", () => {
       expect(await ctx.db.query("vaultRepositoryInventorySnapshots").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryItems").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryLabelChunks").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryFilters").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryFilterViews").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryFilterViewRows").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryLabelFacets").collect()).toEqual([]);
     });
   });
 

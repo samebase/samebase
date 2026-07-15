@@ -32,10 +32,13 @@ page does not poll, and becoming visible again requests an inventory immediately
 vault polls.
 
 Ordinary visible demand expires after 135 seconds. Repeated route requests extend that deadline but
-do not schedule a trailing crawl behind one that is already running. A confirmed repository write
-increments a write version and guarantees exactly one immediate trailing crawl when the active crawl
-did not include that write. This distinction prevents abandoned tabs and repeated visibility signals
-from consuming GitHub capacity while preserving read-after-write freshness.
+do not schedule a trailing crawl while GitHub collection is still running. A visibility request that
+arrives after GitHub collection has finished, while the local filter view is materializing,
+schedules one minimum-interval follow-up because the completed provider snapshot cannot contain
+later changes. A confirmed repository write increments a write version and guarantees exactly one
+immediate trailing crawl when the active crawl did not include that write. This distinction prevents
+abandoned tabs and repeated visibility signals from consuming GitHub capacity while preserving
+freshness.
 
 GitHub account rate coordination is keyed by the stable GitHub account ID. Token rotation does not
 split a budget, switching accounts does not inherit another account's cooldown, and two Samebase
@@ -45,10 +48,12 @@ Leases renew only when needed. Primary and secondary cooldowns reported by GitHu
 
 ## Atomic Snapshot Model
 
-Completed inventory snapshots are immutable. The backend stages a new snapshot and publishes its ID
-in the vault's single inventory state row only after the complete GraphQL crawl succeeds and the
-stored item, label, and chunk counts exactly match the collector's counts. The previously published
-snapshot remains authoritative while a crawl runs, waits for rate capacity, or fails.
+Completed inventory snapshots are immutable. The backend stages a new snapshot, verifies that the
+stored item, label, facet, and chunk counts exactly match the complete GraphQL crawl, then derives
+the current user's pull request filter view in bounded mutations. It publishes the snapshot ID and
+filter view ID together in the vault's single inventory state row only after both are complete. The
+previously published pair remains authoritative while a crawl runs, waits for rate capacity,
+materializes, or fails.
 
 If a crawl proves that provider data is unchanged, the backend deletes the empty staging snapshot,
 advances `checkedAt`, and keeps the published snapshot ID. `publishedAt` records when the displayed
@@ -61,9 +66,9 @@ The persistent model is intentionally small:
 - `vaultRepositoryInventorySnapshots`: immutable snapshot counts
 - `vaultRepositoryInventoryItems`: immutable branch and pull request rows
 - `vaultRepositoryInventoryLabelChunks`: bounded, immutable pull request label chunks
-- `vaultRepositoryInventoryFilters`: one saved pull request filter and published view root per vault
+- `vaultRepositoryInventoryFilters`: one saved pull request filter per user and vault
 - `vaultRepositoryInventoryFilterViews`: immutable, snapshot-scoped filter view totals
-- `vaultRepositoryInventoryFilterViewItems`: visible pull request membership for a filter view
+- `vaultRepositoryInventoryFilterViewRows`: visible pull request membership for a filter view
 - `vaultRepositoryInventoryLabelFacets`: complete per-snapshot pull request label counts
 - `githubGraphqlRateBudgets`: high-churn GitHub-account lease and cooldown state
 
@@ -105,6 +110,12 @@ snapshot pull request count. The published view carries the source snapshot ID, 
 exact visible and total pull request counts, and complete label facets. A filter change or a new
 snapshot keeps the prior committed dashboard rows visible until the replacement snapshot and filter
 view pair is complete.
+
+Each materialization batch rechecks the current filter revision and source snapshot before writing.
+Rapid filter changes therefore retire stale work and only the latest revision can publish. A durable
+watchdog resumes missing batches. A corrupt source or invalid total exits the materializing
+lifecycle, retains the prior publication, and allows the next visibility request to start a fresh
+crawl.
 
 Branches paginate directly from the immutable snapshot. Visible pull requests paginate through the
 published filter view. The browser composes the default branch, visible pull requests ordered newest
@@ -176,8 +187,9 @@ runtime.
 - Navigating between the selected dashboard and FileView leaves exactly one active demand loop.
 - A failed or rate-delayed crawl leaves the previous complete snapshot visible and reports the
   current lifecycle accurately.
-- Repeated visibility demand during a crawl creates no trailing crawl. One or more confirmed writes
-  during that crawl create exactly one required trailing snapshot.
+- Repeated visibility demand during GitHub collection creates no trailing crawl. Visibility demand
+  during local materialization creates exactly one minimum-interval follow-up. One or more confirmed
+  writes during either phase create exactly one immediate required snapshot.
 - Deferred ordinary demand is abandoned after its visibility deadline expires.
 - Publication becomes visible in one atomic root change. Readers never combine rows or labels from
   different snapshots.
@@ -192,6 +204,9 @@ runtime.
 - Filter changes persist per user and vault, rebuild only local derived membership, and never
   request GitHub data. A replacement view becomes visible only after every pull request in its
   source snapshot has been evaluated.
+- Rapid filter revisions publish only the latest revision. A missing batch is resumed, and an
+  invalid batch leaves the prior publication usable instead of leaving the vault materializing
+  indefinitely.
 - API-key and OAuth-backed vaults use the same inventory contract.
 - A GitHub account switch receives a new rate budget, while token rotation for the same account
   keeps the existing budget.

@@ -9,9 +9,13 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultResourceLinksState"),
   literal("collaborativeUpdates"),
   literal("folderExpansionState"),
+  literal("vaultRepositoryInventoryFilterViewRows"),
+  literal("vaultRepositoryInventoryFilterViews"),
+  literal("vaultRepositoryInventoryLabelFacets"),
   literal("vaultRepositoryInventoryLabelChunks"),
   literal("vaultRepositoryInventoryItems"),
   literal("vaultRepositoryInventorySnapshots"),
+  literal("vaultRepositoryInventoryFilters"),
   literal("vaultRepositoryInventories"),
   literal("vaultDomains"),
   literal("vaultApps"),
@@ -257,6 +261,18 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("folderExpansionState"),
   },
   {
+    table: "vaultRepositoryInventoryFilterViewRows",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventoryFilterViewRows"),
+  },
+  {
+    table: "vaultRepositoryInventoryFilterViews",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventoryFilterViews"),
+  },
+  {
+    table: "vaultRepositoryInventoryLabelFacets",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventoryLabelFacets"),
+  },
+  {
     table: "vaultRepositoryInventoryLabelChunks",
     cleanup: deleteByVaultBatch("vaultRepositoryInventoryLabelChunks"),
   },
@@ -267,6 +283,10 @@ const vaultLocalCleanupRegistry = [
   {
     table: "vaultRepositoryInventorySnapshots",
     cleanup: deleteByVaultBatch("vaultRepositoryInventorySnapshots"),
+  },
+  {
+    table: "vaultRepositoryInventoryFilters",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventoryFilters"),
   },
   {
     table: "vaultRepositoryInventories",
@@ -342,9 +362,13 @@ const vaultLocalCleanupRegistryByStep = {
   cleanup_source_caches: [
     "vaultResourceLinksState",
     "folderExpansionState",
+    "vaultRepositoryInventoryFilterViewRows",
+    "vaultRepositoryInventoryFilterViews",
+    "vaultRepositoryInventoryLabelFacets",
     "vaultRepositoryInventoryLabelChunks",
     "vaultRepositoryInventoryItems",
     "vaultRepositoryInventorySnapshots",
+    "vaultRepositoryInventoryFilters",
     "vaultRepositoryInventories",
     "vaultBranchTrees",
   ],

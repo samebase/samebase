@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
+import { VaultPullRequestFiltersControl } from "@/components/vault-dashboard/VaultPullRequestFilters";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
@@ -106,6 +107,12 @@ import {
   type VaultRepositoryInventoryRow,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
+  buildPullRequestFilterOptions,
+  normalizeRepositoryInventoryFilters,
+  type PullRequestFilterOption,
+  type RepositoryInventoryFilters,
+} from "@/components/vault-dashboard/repositoryInventoryFilters";
+import {
   buildVaultBranchRowViewModel,
   type VaultBranchHeadCommitViewModel,
 } from "@/components/vault-dashboard/vaultDashboardBranchRowViewModel";
@@ -164,6 +171,13 @@ type VaultDashboardRemoteBranchPage = {
   remoteBranches: readonly VaultRepositoryInventoryRow[];
   status: PaginationStatus;
   loadMore: (numItems: number) => void;
+  pullRequestFilter: {
+    value: RepositoryInventoryFilters;
+    options: readonly PullRequestFilterOption[];
+    totalPullRequestCount: number;
+    visiblePullRequestCount: number;
+    isApplying: boolean;
+  } | null;
 };
 type VaultDashboardRemoteBranchPagesByVaultId = Map<string, VaultDashboardRemoteBranchPage>;
 export type VaultDashboardViewModel = {
@@ -2449,6 +2463,46 @@ function VaultBranchListLoaderRow({ status }: { status: PaginationStatus }) {
   );
 }
 
+export function VaultPullRequestHeaderControls({
+  filters,
+  onChangeFilters,
+  options,
+  totalPullRequestCount,
+  visiblePullRequestCount,
+  isApplying,
+}: {
+  filters: RepositoryInventoryFilters;
+  onChangeFilters: (nextFilters: RepositoryInventoryFilters) => void;
+  options: readonly PullRequestFilterOption[];
+  totalPullRequestCount: number;
+  visiblePullRequestCount: number;
+  isApplying: boolean;
+}) {
+  const pullRequestCountLabel = `${
+    visiblePullRequestCount < totalPullRequestCount
+      ? `${visiblePullRequestCount} of ${totalPullRequestCount}`
+      : totalPullRequestCount
+  } ${totalPullRequestCount === 1 ? "PR" : "PRs"}`;
+
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground/80">{pullRequestCountLabel}</span>
+        {isApplying ? (
+          <span role="status" className="text-xs text-muted-foreground/80">
+            Applying filters
+          </span>
+        ) : null}
+        <VaultPullRequestFiltersControl
+          value={filters}
+          options={options}
+          onChange={onChangeFilters}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function VaultBranchSection({
   convexDeployments,
   loadMore,
@@ -2759,6 +2813,10 @@ type VaultDashboardViewProps = {
   rootRouteSearch: RootRouteSearch;
   onConnectCloudflareGithubRepository: (vaultId: Id<"vaults">, appRoot: string) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
+  onRepositoryInventoryFilterChange: (
+    vaultId: Id<"vaults">,
+    filters: RepositoryInventoryFilters,
+  ) => void;
   onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
   onResourceLinksOpenChange: (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => void;
@@ -2930,6 +2988,7 @@ export function VaultDashboardView({
   rootRouteSearch,
   onConnectCloudflareGithubRepository,
   onOpenDeveloperToolsChange,
+  onRepositoryInventoryFilterChange,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onResourceLinksOpenChange,
@@ -2996,6 +3055,7 @@ export function VaultDashboardView({
         const isReady = vault.state === "ready" && !isDeletingVault;
         const remoteBranchPage = remoteBranchPagesByVaultId.get(vault._id);
         const paginatedRemoteBranches = remoteBranchPage?.remoteBranches ?? [];
+        const pullRequestFilter = remoteBranchPage?.pullRequestFilter ?? null;
         const inventoryState = repositoryInventoryStatesByVaultId.get(vault._id);
         const vaultResourceLinksOpen =
           persistedVaultResourceLinksOpenByVaultId.get(vault._id) ?? false;
@@ -3190,6 +3250,25 @@ export function VaultDashboardView({
                 inventoryState,
                 now,
               })}
+              headerControls={
+                isReady &&
+                pullRequestFilter &&
+                (pullRequestFilter.totalPullRequestCount > 0 ||
+                  pullRequestFilter.value.hiddenLabels.length > 0 ||
+                  pullRequestFilter.value.includeDrafts ||
+                  !pullRequestFilter.value.includeNoLabel) ? (
+                  <VaultPullRequestHeaderControls
+                    filters={pullRequestFilter.value}
+                    onChangeFilters={(filters) => {
+                      onRepositoryInventoryFilterChange(vault._id, filters);
+                    }}
+                    options={pullRequestFilter.options}
+                    totalPullRequestCount={pullRequestFilter.totalPullRequestCount}
+                    visiblePullRequestCount={pullRequestFilter.visiblePullRequestCount}
+                    isApplying={pullRequestFilter.isApplying}
+                  />
+                ) : undefined
+              }
               branchSection={branchSection}
               developerToolsSection={
                 isReady || hasProvisioningLog
@@ -3277,13 +3356,22 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     api.repositoryInventory.getRepositoryInventoryState,
     selectedInventoryVaultId ? { vaultId: selectedInventoryVaultId } : "skip",
   );
+  const selectedVaultRepositoryInventoryFilter = useConvexQuery(
+    api.repositoryInventory.getRepositoryInventoryFilter,
+    selectedInventoryVaultId ? { vaultId: selectedInventoryVaultId } : "skip",
+  );
   const selectedVaultRepositoryInventorySnapshotId =
     selectedVaultRepositoryInventoryState?.state !== "empty"
       ? selectedVaultRepositoryInventoryState?.activeSnapshotId
       : undefined;
+  const selectedVaultRepositoryInventoryFilterViewId =
+    selectedVaultRepositoryInventoryState?.state !== "empty"
+      ? selectedVaultRepositoryInventoryState?.activeFilterViewId
+      : undefined;
   const selectedVaultRepositoryInventoryPage = useRepositoryInventorySnapshot({
     vaultId: selectedInventoryVaultId,
     snapshotId: selectedVaultRepositoryInventorySnapshotId,
+    viewId: selectedVaultRepositoryInventoryFilterViewId,
     inventoryState: selectedVaultRepositoryInventoryState,
   });
   const selectedVaultRepositoryInventoryRows = useMemo(() => {
@@ -3302,6 +3390,36 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   }, [
     selectedVaultRepositoryInventoryPage.inventoryState,
     selectedVaultRepositoryInventoryPage.items,
+  ]);
+  const selectedVaultPullRequestFilter = useMemo(() => {
+    const summary = selectedVaultRepositoryInventoryPage.filterSummary;
+    const inventoryState = selectedVaultRepositoryInventoryPage.inventoryState;
+    if (
+      !selectedVaultRepositoryInventoryFilter ||
+      !summary ||
+      !inventoryState ||
+      inventoryState.state === "empty"
+    ) {
+      return null;
+    }
+    const value = normalizeRepositoryInventoryFilters(selectedVaultRepositoryInventoryFilter);
+    return {
+      value,
+      options: buildPullRequestFilterOptions({
+        labelFacets: summary.labelFacets,
+        hiddenLabels: value.hiddenLabels,
+        includeNoLabel: value.includeNoLabel,
+        noLabelPullRequestCount: summary.noLabelPullRequestCount,
+      }),
+      totalPullRequestCount: summary.totalPullRequestCount,
+      visiblePullRequestCount: summary.visiblePullRequestCount,
+      isApplying:
+        selectedVaultRepositoryInventoryFilter.revision !== inventoryState.activeFilterRevision,
+    };
+  }, [
+    selectedVaultRepositoryInventoryFilter,
+    selectedVaultRepositoryInventoryPage.filterSummary,
+    selectedVaultRepositoryInventoryPage.inventoryState,
   ]);
   const vaultIds = useMemo(() => (selectedVault ? [selectedVault._id] : null), [selectedVault]);
   const stagedBranchSummariesByVault = useQuery(
@@ -3339,6 +3457,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
                         remoteBranches: selectedVaultRepositoryInventoryRows,
                         status: selectedVaultRepositoryInventoryPage.status,
                         loadMore: selectedVaultRepositoryInventoryPage.loadMore,
+                        pullRequestFilter: selectedVaultPullRequestFilter,
                       },
                     ],
                   ])
@@ -3353,6 +3472,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       selectedVaultRepositoryInventoryPage.status,
       selectedVaultRepositoryInventoryPage.inventoryState,
       selectedVaultRepositoryInventoryRows,
+      selectedVaultPullRequestFilter,
       stagedBranchSummariesByVaultId,
       vaults,
     ],
@@ -3379,6 +3499,20 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
     useState<Id<"vaults"> | null>(null);
   const createVaultAppRoot = useMutation(api.vault.dashboard.createVaultAppRoot);
+  const setRepositoryInventoryFilter = useMutation(
+    api.repositoryInventory.setRepositoryInventoryFilter,
+  ).withOptimisticUpdate((localStore, args) => {
+    const queryArgs = { vaultId: args.vaultId };
+    const current = localStore.getQuery(
+      api.repositoryInventory.getRepositoryInventoryFilter,
+      queryArgs,
+    );
+    const filters = normalizeRepositoryInventoryFilters(args);
+    localStore.setQuery(api.repositoryInventory.getRepositoryInventoryFilter, queryArgs, {
+      ...filters,
+      revision: (current?.revision ?? 0) + 1,
+    });
+  });
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
   ).withOptimisticUpdate((localStore, args) => {
@@ -4115,6 +4249,24 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
+  const handleRepositoryInventoryFilterChange = async (
+    vaultId: Id<"vaults">,
+    filters: RepositoryInventoryFilters,
+  ) => {
+    try {
+      await setRepositoryInventoryFilter({
+        vaultId,
+        ...normalizeRepositoryInventoryFilters(filters),
+      });
+    } catch (error) {
+      toast({
+        title: "Could not save pull request filters",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleConnectCloudflareGithubRepository = async (
     vaultId: Id<"vaults">,
     appRoot: string,
@@ -4305,6 +4457,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           void handleConnectCloudflareGithubRepository(vaultId, appRoot);
         }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
+        onRepositoryInventoryFilterChange={(vaultId, filters) => {
+          void handleRepositoryInventoryFilterChange(vaultId, filters);
+        }}
         onRetryInfrastructureProvisioning={(vaultId) => {
           void handleRetryInfrastructureProvisioning(vaultId);
         }}

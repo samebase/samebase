@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildPullRequestFilterOptions,
-  filterRepositoryInventoryItems,
   getDefaultRepositoryInventoryFilters,
   normalizeRepositoryInventoryFilters,
   setRepositoryInventoryFilterLabelIncluded,
@@ -46,64 +45,6 @@ describe("repositoryInventoryFilters", () => {
         included: true,
       }),
     ).toEqual(["research"]);
-  });
-
-  it("filters only pull request rows and always retains independent branch rows", () => {
-    const items = [
-      { kind: "branch" as const, name: "main" },
-      {
-        kind: "branch" as const,
-        name: "feature/research",
-      },
-      {
-        kind: "pull_request" as const,
-        number: 1,
-        pullRequestIsDraft: false,
-        pullRequestLabels: [{ name: "Research", color: "cccccc" }],
-      },
-      {
-        kind: "pull_request" as const,
-        number: 2,
-        pullRequestIsDraft: true,
-        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
-      },
-      {
-        kind: "pull_request" as const,
-        number: 3,
-        pullRequestIsDraft: false,
-        pullRequestLabels: [],
-      },
-    ];
-
-    expect(
-      filterRepositoryInventoryItems(items, {
-        hiddenLabels: ["research"],
-        includeDrafts: false,
-        includeNoLabel: false,
-      }),
-    ).toEqual([
-      { kind: "branch", name: "main" },
-      { kind: "branch", name: "feature/research" },
-    ]);
-  });
-
-  it("includes draft and unlabeled pull requests when enabled", () => {
-    const items = [
-      {
-        kind: "pull_request" as const,
-        number: 1,
-        pullRequestIsDraft: true,
-        pullRequestLabels: [],
-      },
-    ];
-
-    expect(
-      filterRepositoryInventoryItems(items, {
-        hiddenLabels: [],
-        includeDrafts: true,
-        includeNoLabel: true,
-      }),
-    ).toEqual(items);
   });
 
   it("builds stable PR-only options from complete facets and stale hidden labels", () => {

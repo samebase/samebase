@@ -15,6 +15,7 @@ import {
   VaultDashboardVaultPickerPane,
   VaultDashboardView,
   VaultBranchLinkContent,
+  VaultPullRequestHeaderControls,
   VaultProviderSetupSection,
   type VaultDashboardViewModel,
 } from "./VaultDashboard";
@@ -69,6 +70,12 @@ function fakeInventorySnapshotId(): Id<"vaultRepositoryInventorySnapshots"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable snapshot id for component props.
   return "ms7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeInventoryFilterViewId(): Id<"vaultRepositoryInventoryFilterViews"> {
+  // @ts-expect-error Convex ids are strings at runtime; this static render
+  // test only needs a stable filter view id for component props.
+  return "mv7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
 function inventoryChecks() {
@@ -220,6 +227,7 @@ function renderRepositoryInventoryStatus(
         rootRouteSearch={rootRouteSearch}
         onConnectCloudflareGithubRepository={() => {}}
         onOpenDeveloperToolsChange={() => {}}
+        onRepositoryInventoryFilterChange={() => {}}
         onRetryInfrastructureProvisioning={() => {}}
         onRetryVaultDeletion={() => {}}
         onResourceLinksOpenChange={() => {}}
@@ -803,11 +811,34 @@ describe("VaultBranchLinkContent", () => {
 });
 
 describe("VaultDashboardRepositoryCard", () => {
+  it("always renders the exact pull request count", () => {
+    const commonProps = {
+      filters: { hiddenLabels: [], includeDrafts: false, includeNoLabel: true },
+      onChangeFilters: () => {},
+      options: [],
+      totalPullRequestCount: 3,
+      isApplying: false,
+    };
+
+    expect(
+      renderToStaticMarkup(
+        <VaultPullRequestHeaderControls {...commonProps} visiblePullRequestCount={3} />,
+      ),
+    ).toContain("3 PRs");
+    expect(
+      renderToStaticMarkup(
+        <VaultPullRequestHeaderControls {...commonProps} visiblePullRequestCount={2} />,
+      ),
+    ).toContain("2 of 3 PRs");
+  });
+
   it("uses GitHub's canonical repository name after a rename", () => {
     const markup = renderRepositoryInventoryStatus(
       {
         state: "ready",
         activeSnapshotId: fakeInventorySnapshotId(),
+        activeFilterViewId: fakeInventoryFilterViewId(),
+        activeFilterRevision: 0,
         repositoryFullName: "grace/renamed-demo",
         defaultBranch: "main",
         publishedAt: 900_000,
@@ -829,6 +860,8 @@ describe("VaultDashboardRepositoryCard", () => {
         reason: "queue",
         retryAt: now + 20_000,
         activeSnapshotId: fakeInventorySnapshotId(),
+        activeFilterViewId: fakeInventoryFilterViewId(),
+        activeFilterRevision: 0,
         repositoryFullName: "ada/demo",
         defaultBranch: "main",
         publishedAt: now - 45_000,
@@ -851,6 +884,8 @@ describe("VaultDashboardRepositoryCard", () => {
         reason: "rate_limit",
         retryAt,
         activeSnapshotId: fakeInventorySnapshotId(),
+        activeFilterViewId: fakeInventoryFilterViewId(),
+        activeFilterRevision: 0,
         repositoryFullName: "ada/demo",
         defaultBranch: "main",
         publishedAt: now - 45_000,
@@ -892,6 +927,7 @@ describe("VaultDashboardRepositoryCard", () => {
           rootRouteSearch={rootRouteSearch}
           onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
+          onRepositoryInventoryFilterChange={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onResourceLinksOpenChange={() => {}}

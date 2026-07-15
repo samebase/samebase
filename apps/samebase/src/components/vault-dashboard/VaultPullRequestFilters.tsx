@@ -79,6 +79,7 @@ function VaultPullRequestFiltersPanel({
       {options.length > 0 ? (
         <div className="space-y-2">
           <Input
+            aria-label="Filter labels"
             value={labelSearch}
             onChange={(event) => setLabelSearch(event.target.value)}
             placeholder="Filter labels"
@@ -170,8 +171,10 @@ export function VaultPullRequestFiltersControl({
   if (usesTouchSheet) {
     return (
       <Sheet open={isOpen} onOpenChange={setOpen}>
-        <SheetTrigger asChild>{trigger}</SheetTrigger>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-hidden">
+        <SheetTrigger asChild nativeButton>
+          {trigger}
+        </SheetTrigger>
+        <SheetContent side="bottom" className="max-h-[85svh] overflow-y-auto">
           <SheetTitle className="sr-only">Pull request filters</SheetTitle>
           <VaultPullRequestFiltersPanel
             value={value}
@@ -186,7 +189,9 @@ export function VaultPullRequestFiltersControl({
 
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverTrigger asChild nativeButton>
+        {trigger}
+      </PopoverTrigger>
       <PopoverContent align="end" className="w-[22rem] max-w-[calc(100vw-1rem)] p-0">
         <VaultPullRequestFiltersPanel value={value} options={options} onChange={onChange} />
       </PopoverContent>

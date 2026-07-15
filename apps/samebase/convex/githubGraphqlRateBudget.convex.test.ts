@@ -41,18 +41,24 @@ async function createRateBudgetTest() {
       state: "not_connected",
     });
     const firstSnapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+      state: "collecting",
       vaultId: firstVaultId,
       branchCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
     });
     const secondSnapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+      state: "collecting",
       vaultId: secondVaultId,
       branchCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
     });
     return {
       firstSnapshotId,
@@ -127,11 +133,14 @@ describe("GitHub GraphQL account rate budget", () => {
         state: "not_connected",
       });
       const snapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+        state: "collecting",
         vaultId,
         branchCount: 0,
         pullRequestCount: 0,
         labelCount: 0,
         labelChunkCount: 0,
+        labelFacetCount: 0,
+        noLabelPullRequestCount: 0,
       });
       return { snapshotId, vaultId };
     });

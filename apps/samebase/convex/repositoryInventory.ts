@@ -13,21 +13,33 @@ import {
 import { mutation, query } from "./functions";
 import { readOwnedActiveRun } from "./accountDeletion/stepContext";
 import { clearGitHubGraphqlRateBudgetLeaseForVault } from "./githubGraphqlRateBudget";
+import { toErrorMessage } from "./jsonUtils";
 import {
   REPOSITORY_INVENTORY_DEMAND_TTL_MS,
   REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS,
+  DEFAULT_REPOSITORY_INVENTORY_FILTERS,
+  normalizeRepositoryInventoryFilters,
   repositoryInventoryBranchRowKey,
+  repositoryInventoryFilterLabelKey,
+  vRepositoryInventoryBranchPageResult,
   vRepositoryInventoryBranchContext,
+  vRepositoryInventoryFilterState,
+  vRepositoryInventoryFilters,
+  vRepositoryInventoryLabelFacetPageResult,
   vRepositoryInventoryLabelPageResult,
-  vRepositoryInventoryPageResult,
+  vRepositoryInventoryPullRequestPageResult,
   vRepositoryInventoryPublicState,
   vRepositoryInventoryRefreshRequestResult,
   vRepositoryInventoryLabelChunk,
+  vStoredRepositoryInventoryPullRequestLabelFacet,
   vStoredRepositoryInventoryItem,
+  type RepositoryInventoryBranchPageResult,
   type RepositoryInventoryBranchContext,
   type RepositoryInventoryCommit,
+  type RepositoryInventoryFilterState,
+  type RepositoryInventoryLabelFacetPageResult,
   type RepositoryInventoryLabelPageResult,
-  type RepositoryInventoryPageResult,
+  type RepositoryInventoryPullRequestPageResult,
   type RepositoryInventoryPublicState,
   type RepositoryInventoryRefreshRequestResult,
   type RepositoryInventoryScheduledWait,
@@ -38,6 +50,9 @@ const { array, boolean, id, literal, null: vNull, number, object, string, union 
 const REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE = 100;
 const REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE = 10;
 const REPOSITORY_INVENTORY_PUBLIC_LABEL_CHUNK_PAGE_SIZE = 5;
+const REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE = 25;
+const REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE = 100;
+const REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_WATCHDOG_MS = 30_000;
 const ACCOUNT_DELETION_QUIESCE_BATCH_SIZE = 25;
 
 const repositoryInventoryWorkpool = new Workpool(components.repositoryInventoryWorkpool, {
@@ -89,6 +104,60 @@ async function readInventoryState(
     .unique();
 }
 
+async function readRepositoryInventoryFilterState(
+  ctx: Pick<MutationCtx | QueryCtx, "db">,
+  userId: Id<"users">,
+  vaultId: Id<"vaults">,
+): Promise<RepositoryInventoryFilterState> {
+  const filter = await ctx.db
+    .query("vaultRepositoryInventoryFilters")
+    .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", vaultId))
+    .unique();
+  return filter
+    ? {
+        hiddenLabels: filter.hiddenLabels,
+        includeDrafts: filter.includeDrafts,
+        includeNoLabel: filter.includeNoLabel,
+        revision: filter.revision,
+      }
+    : { ...DEFAULT_REPOSITORY_INVENTORY_FILTERS, revision: 0 };
+}
+
+function sameRepositoryInventoryFilters(
+  left: RepositoryInventoryFilterState,
+  right: ReturnType<typeof normalizeRepositoryInventoryFilters>,
+): boolean {
+  return (
+    left.includeDrafts === right.includeDrafts &&
+    left.includeNoLabel === right.includeNoLabel &&
+    left.hiddenLabels.length === right.hiddenLabels.length &&
+    left.hiddenLabels.every(
+      (name, index) =>
+        repositoryInventoryFilterLabelKey(name) ===
+        repositoryInventoryFilterLabelKey(right.hiddenLabels[index] ?? ""),
+    )
+  );
+}
+
+function repositoryInventoryMaterializationSourceId(
+  inventory: RepositoryInventoryStateDoc,
+): Id<"vaultRepositoryInventorySnapshots"> | null {
+  return inventory.lifecycle.state === "materializing"
+    ? inventory.lifecycle.snapshotId
+    : (inventory.publication?.snapshotId ?? null);
+}
+
+export const getRepositoryInventoryFilterForBuild = internalQuery({
+  args: {
+    userId: id("users"),
+    vaultId: id("vaults"),
+  },
+  returns: vRepositoryInventoryFilterState,
+  handler: async (ctx, args): Promise<RepositoryInventoryFilterState> => {
+    return await readRepositoryInventoryFilterState(ctx, args.userId, args.vaultId);
+  },
+});
+
 export async function readActiveRepositoryInventoryBranchSelection(
   ctx: Pick<QueryCtx, "db">,
   args: {
@@ -137,6 +206,89 @@ async function scheduleSnapshotCleanup(
   });
 }
 
+async function scheduleFilterViewCleanup(
+  ctx: MutationCtx,
+  viewId: Id<"vaultRepositoryInventoryFilterViews">,
+): Promise<void> {
+  await ctx.scheduler.runAfter(
+    0,
+    internal.repositoryInventory.cleanupRepositoryInventoryFilterView,
+    { viewId },
+  );
+}
+
+async function failRepositoryInventoryFilterMaterialization(
+  ctx: MutationCtx,
+  args: {
+    inventory: RepositoryInventoryStateDoc;
+    view: Doc<"vaultRepositoryInventoryFilterViews">;
+    message: string;
+  },
+): Promise<void> {
+  const failedAt = Date.now();
+  const activeSnapshotId =
+    args.inventory.lifecycle.state === "scheduled" ||
+    args.inventory.lifecycle.state === "running" ||
+    args.inventory.lifecycle.state === "materializing"
+      ? args.inventory.lifecycle.snapshotId
+      : null;
+  await ctx.db.patch(args.inventory._id, {
+    lifecycle: {
+      state: "failed",
+      failedAt,
+      message: args.message,
+    },
+  });
+  if (activeSnapshotId !== null && activeSnapshotId !== args.inventory.publication?.snapshotId) {
+    await scheduleSnapshotCleanup(ctx, activeSnapshotId);
+  }
+  if (args.view.snapshotId !== activeSnapshotId) {
+    await scheduleFilterViewCleanup(ctx, args.view._id);
+  }
+}
+
+async function ensureRepositoryInventoryFilterMaterialization(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    filterRevision: number;
+    totalPullRequestCount: number;
+  },
+): Promise<void> {
+  const existing = await ctx.db
+    .query("vaultRepositoryInventoryFilterViews")
+    .withIndex("by_snapshot_and_filterRevision", (q) =>
+      q.eq("snapshotId", args.snapshotId).eq("filterRevision", args.filterRevision),
+    )
+    .unique();
+  if (existing) {
+    if (existing.state === "building") {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.repositoryInventory.advanceRepositoryInventoryFilterMaterialization,
+        { viewId: existing._id },
+      );
+    }
+    return;
+  }
+  const viewId = await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
+    state: "building",
+    vaultId: args.vaultId,
+    snapshotId: args.snapshotId,
+    filterRevision: args.filterRevision,
+    totalPullRequestCount: args.totalPullRequestCount,
+    processedPullRequestCount: 0,
+    visiblePullRequestCount: 0,
+    cursor: null,
+  });
+  await ctx.scheduler.runAfter(
+    0,
+    internal.repositoryInventory.advanceRepositoryInventoryFilterMaterialization,
+    { viewId },
+  );
+}
+
 async function scheduleRepositoryInventoryRefresh(
   ctx: MutationCtx,
   inventory: RepositoryInventoryStateDoc,
@@ -152,11 +304,14 @@ async function scheduleRepositoryInventoryRefresh(
   const scheduledAt = Date.now();
   const runAt = wait.kind === "immediate" ? scheduledAt : wait.retryAt;
   const snapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+    state: "collecting",
     vaultId: inventory.vaultId,
     branchCount: 0,
     pullRequestCount: 0,
     labelCount: 0,
     labelChunkCount: 0,
+    labelFacetCount: 0,
+    noLabelPullRequestCount: 0,
   });
   const workpoolJobId = await repositoryInventoryWorkpool.enqueueAction(
     ctx,
@@ -297,6 +452,30 @@ async function requestRepositoryInventoryRefreshForUser(
     case "running":
       await ctx.db.patch(existingInventory._id, { wantedUntil, writeVersion });
       return { kind: "running" };
+    case "materializing": {
+      await ctx.db.patch(existingInventory._id, {
+        wantedUntil,
+        writeVersion,
+        lifecycle: {
+          ...existingInventory.lifecycle,
+          refreshAfterMaterialization:
+            existingInventory.lifecycle.refreshAfterMaterialization || !args.required,
+        },
+      });
+      const [filter, snapshot] = await Promise.all([
+        readRepositoryInventoryFilterState(ctx, args.userId, args.vaultId),
+        ctx.db.get(existingInventory.lifecycle.snapshotId),
+      ]);
+      if (snapshot?.state === "ready" && snapshot.vaultId === args.vaultId) {
+        await ensureRepositoryInventoryFilterMaterialization(ctx, {
+          vaultId: args.vaultId,
+          snapshotId: snapshot._id,
+          filterRevision: filter.revision,
+          totalPullRequestCount: snapshot.pullRequestCount,
+        });
+      }
+      return { kind: "running" };
+    }
     case "idle":
     case "failed": {
       await ctx.db.patch(existingInventory._id, { wantedUntil, writeVersion });
@@ -316,6 +495,79 @@ async function requestRepositoryInventoryRefreshForUser(
     }
   }
 }
+
+export const getRepositoryInventoryFilter = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: vRepositoryInventoryFilterState,
+  handler: async (ctx, args): Promise<RepositoryInventoryFilterState> => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
+      return { ...DEFAULT_REPOSITORY_INVENTORY_FILTERS, revision: 0 };
+    }
+    return await readRepositoryInventoryFilterState(ctx, ctx.viewer.userId, args.vaultId);
+  },
+});
+
+export const setRepositoryInventoryFilter = mutation({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    ...vRepositoryInventoryFilters.fields,
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const normalized = normalizeRepositoryInventoryFilters(args);
+    const current = await readRepositoryInventoryFilterState(ctx, ctx.viewer.userId, args.vaultId);
+    if (sameRepositoryInventoryFilters(current, normalized)) {
+      return null;
+    }
+
+    const revision = current.revision + 1;
+    const existing = await ctx.db
+      .query("vaultRepositoryInventoryFilters")
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
+      )
+      .unique();
+    if (existing) {
+      await ctx.db.replace(existing._id, {
+        userId: ctx.viewer.userId,
+        vaultId: args.vaultId,
+        ...normalized,
+        revision,
+      });
+    } else {
+      await ctx.db.insert("vaultRepositoryInventoryFilters", {
+        userId: ctx.viewer.userId,
+        vaultId: args.vaultId,
+        ...normalized,
+        revision,
+      });
+    }
+
+    const inventory = await readInventoryState(ctx, args.vaultId);
+    if (inventory) {
+      const snapshotId = repositoryInventoryMaterializationSourceId(inventory);
+      const snapshot = snapshotId ? await ctx.db.get(snapshotId) : null;
+      if (snapshotId !== null && snapshot?.state === "ready" && snapshot.vaultId === args.vaultId) {
+        await ensureRepositoryInventoryFilterMaterialization(ctx, {
+          vaultId: args.vaultId,
+          snapshotId,
+          filterRevision: revision,
+          totalPullRequestCount: snapshot.pullRequestCount,
+        });
+      }
+    }
+    return null;
+  },
+});
 
 export const requestRepositoryInventoryRefresh = mutation({
   access: "access_app_refresh",
@@ -377,6 +629,7 @@ export const claimRepositoryInventoryRefresh = internalMutation({
       vault.userId !== inventory.userId ||
       !isLiveConnectedVault(vault) ||
       !snapshot ||
+      snapshot.state !== "collecting" ||
       snapshot.vaultId !== args.vaultId
     ) {
       await ctx.db.patch(inventory._id, {
@@ -440,14 +693,21 @@ export const deferRepositoryInventoryRefresh = internalMutation({
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
     ]);
-    if (!inventory || inventory.lifecycle.state !== "running" || !snapshot) {
+    if (
+      !inventory ||
+      inventory.lifecycle.state !== "running" ||
+      !snapshot ||
+      snapshot.state !== "collecting"
+    ) {
       return null;
     }
     if (
       snapshot.branchCount !== 0 ||
       snapshot.pullRequestCount !== 0 ||
       snapshot.labelCount !== 0 ||
-      snapshot.labelChunkCount !== 0
+      snapshot.labelChunkCount !== 0 ||
+      snapshot.labelFacetCount !== 0 ||
+      snapshot.noLabelPullRequestCount !== 0
     ) {
       throw new Error("Repository inventory cannot wait after staging provider data.");
     }
@@ -484,11 +744,17 @@ export const stageRepositoryInventoryItems = internalMutation({
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
     ]);
-    if (!inventory || !snapshot || snapshot.vaultId !== args.vaultId) {
+    if (
+      !inventory ||
+      !snapshot ||
+      snapshot.state !== "collecting" ||
+      snapshot.vaultId !== args.vaultId
+    ) {
       throw new Error("Repository inventory snapshot is not running.");
     }
     let branchCount = 0;
     let pullRequestCount = 0;
+    let noLabelPullRequestCount = 0;
     for (const item of args.items) {
       if (item.vaultId !== args.vaultId || item.snapshotId !== args.snapshotId) {
         throw new Error("Repository inventory item belongs to another snapshot.");
@@ -497,12 +763,16 @@ export const stageRepositoryInventoryItems = internalMutation({
         branchCount += 1;
       } else {
         pullRequestCount += 1;
+        if (item.filterLabelKeys.length === 0) {
+          noLabelPullRequestCount += 1;
+        }
       }
       await ctx.db.insert("vaultRepositoryInventoryItems", item);
     }
     await ctx.db.patch(snapshot._id, {
       branchCount: snapshot.branchCount + branchCount,
       pullRequestCount: snapshot.pullRequestCount + pullRequestCount,
+      noLabelPullRequestCount: snapshot.noLabelPullRequestCount + noLabelPullRequestCount,
     });
     return null;
   },
@@ -520,7 +790,12 @@ export const stageRepositoryInventoryLabelChunks = internalMutation({
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
     ]);
-    if (!inventory || !snapshot || snapshot.vaultId !== args.vaultId) {
+    if (
+      !inventory ||
+      !snapshot ||
+      snapshot.state !== "collecting" ||
+      snapshot.vaultId !== args.vaultId
+    ) {
       throw new Error("Repository inventory snapshot is not running.");
     }
     for (const labelChunk of args.labelChunks) {
@@ -539,6 +814,39 @@ export const stageRepositoryInventoryLabelChunks = internalMutation({
   },
 });
 
+export const stageRepositoryInventoryLabelFacets = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    facets: array(vStoredRepositoryInventoryPullRequestLabelFacet),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    const [inventory, snapshot] = await Promise.all([
+      readOwnedRunningInventory(ctx, args),
+      ctx.db.get(args.snapshotId),
+    ]);
+    if (
+      !inventory ||
+      !snapshot ||
+      snapshot.state !== "collecting" ||
+      snapshot.vaultId !== args.vaultId
+    ) {
+      throw new Error("Repository inventory snapshot is not running.");
+    }
+    for (const facet of args.facets) {
+      if (facet.vaultId !== args.vaultId || facet.snapshotId !== args.snapshotId) {
+        throw new Error("Repository inventory label facet belongs to another snapshot.");
+      }
+      await ctx.db.insert("vaultRepositoryInventoryLabelFacets", facet);
+    }
+    await ctx.db.patch(snapshot._id, {
+      labelFacetCount: snapshot.labelFacetCount + args.facets.length,
+    });
+    return null;
+  },
+});
+
 async function finishSuccessfulRefresh(
   ctx: MutationCtx,
   inventory: RepositoryInventoryStateDoc,
@@ -546,22 +854,28 @@ async function finishSuccessfulRefresh(
     crawlCost: number;
   },
 ): Promise<void> {
-  if (inventory.lifecycle.state !== "running") {
-    throw new Error("Repository inventory snapshot is not running.");
+  if (inventory.lifecycle.state !== "running" && inventory.lifecycle.state !== "materializing") {
+    throw new Error("Repository inventory refresh is not active.");
   }
   const trailingWrite = inventory.writeVersion > inventory.lifecycle.targetWriteVersion;
+  const refreshAfterMaterialization =
+    inventory.lifecycle.state === "materializing" &&
+    inventory.lifecycle.refreshAfterMaterialization;
   await ctx.db.patch(inventory._id, {
     lifecycle: { state: "idle" },
     estimatedCrawlCost: args.crawlCost,
   });
-  if (!trailingWrite) {
+  if (!trailingWrite && !refreshAfterMaterialization) {
     return;
   }
   const idleInventory = await ctx.db.get(inventory._id);
   if (!idleInventory) {
     throw new Error("Repository inventory disappeared after publication.");
   }
-  await scheduleRepositoryInventoryRefresh(ctx, idleInventory, { required: true });
+  await scheduleRepositoryInventoryRefresh(ctx, idleInventory, {
+    required: trailingWrite,
+    wait: trailingWrite ? { kind: "immediate" } : minimumIntervalWait(idleInventory, Date.now()),
+  });
 }
 
 export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
@@ -577,7 +891,12 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
     ]);
-    if (!inventory || inventory.lifecycle.state !== "running" || !snapshot) {
+    if (
+      !inventory ||
+      inventory.lifecycle.state !== "running" ||
+      !snapshot ||
+      snapshot.state !== "collecting"
+    ) {
       throw new Error("Repository inventory snapshot is not running.");
     }
     if (inventory.publication?.fingerprint !== args.fingerprint) {
@@ -587,7 +906,9 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
       snapshot.branchCount !== 0 ||
       snapshot.pullRequestCount !== 0 ||
       snapshot.labelCount !== 0 ||
-      snapshot.labelChunkCount !== 0
+      snapshot.labelChunkCount !== 0 ||
+      snapshot.labelFacetCount !== 0 ||
+      snapshot.noLabelPullRequestCount !== 0
     ) {
       throw new Error("Repository inventory snapshot was staged before its fingerprint check.");
     }
@@ -611,7 +932,7 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
   },
 });
 
-export const publishRepositoryInventorySnapshot = internalMutation({
+export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
   args: {
     vaultId: id("vaults"),
     snapshotId: id("vaultRepositoryInventorySnapshots"),
@@ -622,6 +943,8 @@ export const publishRepositoryInventorySnapshot = internalMutation({
     pullRequestCount: number(),
     labelCount: number(),
     labelChunkCount: number(),
+    labelFacetCount: number(),
+    noLabelPullRequestCount: number(),
     fingerprint: string(),
     crawlCost: number(),
   },
@@ -631,42 +954,301 @@ export const publishRepositoryInventorySnapshot = internalMutation({
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
     ]);
-    if (!inventory || inventory.lifecycle.state !== "running" || !snapshot) {
+    if (
+      !inventory ||
+      inventory.lifecycle.state !== "running" ||
+      !snapshot ||
+      snapshot.state !== "collecting"
+    ) {
       throw new Error("Repository inventory snapshot is not running.");
     }
     if (
       snapshot.branchCount !== args.branchCount ||
       snapshot.pullRequestCount !== args.pullRequestCount ||
       snapshot.labelCount !== args.labelCount ||
-      snapshot.labelChunkCount !== args.labelChunkCount
+      snapshot.labelChunkCount !== args.labelChunkCount ||
+      snapshot.labelFacetCount !== args.labelFacetCount ||
+      snapshot.noLabelPullRequestCount !== args.noLabelPullRequestCount
     ) {
       throw new Error("Repository inventory snapshot counts are incomplete.");
     }
-
-    const publishedAt = Date.now();
-    const obsoleteSnapshotId = inventory.publication?.snapshotId;
-    await ctx.db.patch(inventory._id, {
-      publication: {
-        snapshotId: args.snapshotId,
-        repositoryNodeId: args.repositoryNodeId,
-        repositoryFullName: args.repositoryFullName,
-        defaultBranch: args.defaultBranch,
-        publishedAt,
-        checkedAt: publishedAt,
-        fingerprint: args.fingerprint,
-      },
-    });
-    if (obsoleteSnapshotId !== undefined && obsoleteSnapshotId !== args.snapshotId) {
-      await scheduleSnapshotCleanup(ctx, obsoleteSnapshotId);
-    }
-    const publishedInventory = await ctx.db.get(inventory._id);
-    if (!publishedInventory) {
-      throw new Error("Repository inventory disappeared after publication.");
-    }
-    await finishSuccessfulRefresh(ctx, publishedInventory, {
+    await ctx.db.replace(snapshot._id, {
+      state: "ready",
+      vaultId: args.vaultId,
+      branchCount: snapshot.branchCount,
+      pullRequestCount: snapshot.pullRequestCount,
+      labelCount: snapshot.labelCount,
+      labelChunkCount: snapshot.labelChunkCount,
+      labelFacetCount: snapshot.labelFacetCount,
+      noLabelPullRequestCount: snapshot.noLabelPullRequestCount,
+      repositoryNodeId: args.repositoryNodeId,
+      repositoryFullName: args.repositoryFullName,
+      defaultBranch: args.defaultBranch,
+      fingerprint: args.fingerprint,
       crawlCost: args.crawlCost,
     });
+    await ctx.db.patch(inventory._id, {
+      lifecycle: {
+        state: "materializing",
+        snapshotId: args.snapshotId,
+        targetWriteVersion: inventory.lifecycle.targetWriteVersion,
+        required: inventory.lifecycle.required,
+        refreshAfterMaterialization: false,
+        startedAt: inventory.lifecycle.startedAt,
+        workpoolJobId: inventory.lifecycle.workpoolJobId,
+      },
+    });
+    const filter = await readRepositoryInventoryFilterState(ctx, inventory.userId, args.vaultId);
+    await ensureRepositoryInventoryFilterMaterialization(ctx, {
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
+      filterRevision: filter.revision,
+      totalPullRequestCount: snapshot.pullRequestCount,
+    });
+    await ctx.scheduler.runAfter(
+      REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_WATCHDOG_MS,
+      internal.repositoryInventory.repairRepositoryInventoryFilterMaterialization,
+      { vaultId: args.vaultId, snapshotId: args.snapshotId },
+    );
     return null;
+  },
+});
+
+export const repairRepositoryInventoryFilterMaterialization = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    const inventory = await readInventoryState(ctx, args.vaultId);
+    if (
+      !inventory ||
+      inventory.lifecycle.state !== "materializing" ||
+      inventory.lifecycle.snapshotId !== args.snapshotId
+    ) {
+      return null;
+    }
+    const [snapshot, filter] = await Promise.all([
+      ctx.db.get(args.snapshotId),
+      readRepositoryInventoryFilterState(ctx, inventory.userId, args.vaultId),
+    ]);
+    if (!snapshot || snapshot.state !== "ready" || snapshot.vaultId !== args.vaultId) {
+      await ctx.db.patch(inventory._id, {
+        lifecycle: {
+          state: "failed",
+          failedAt: Date.now(),
+          message: "Repository inventory filter materialization lost its snapshot.",
+        },
+      });
+      await scheduleSnapshotCleanup(ctx, args.snapshotId);
+      return null;
+    }
+    const view = await ctx.db
+      .query("vaultRepositoryInventoryFilterViews")
+      .withIndex("by_snapshot_and_filterRevision", (q) =>
+        q.eq("snapshotId", args.snapshotId).eq("filterRevision", filter.revision),
+      )
+      .unique();
+    if (view?.state === "complete") {
+      await failRepositoryInventoryFilterMaterialization(ctx, {
+        inventory,
+        view,
+        message: "Repository inventory filter materialization stopped before publication.",
+      });
+      return null;
+    }
+    await ensureRepositoryInventoryFilterMaterialization(ctx, {
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
+      filterRevision: filter.revision,
+      totalPullRequestCount: snapshot.pullRequestCount,
+    });
+    await ctx.scheduler.runAfter(
+      REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_WATCHDOG_MS,
+      internal.repositoryInventory.repairRepositoryInventoryFilterMaterialization,
+      args,
+    );
+    return null;
+  },
+});
+
+function matchesRepositoryInventoryFilters(
+  item: Extract<Doc<"vaultRepositoryInventoryItems">, { kind: "pull_request" }>,
+  filters: RepositoryInventoryFilterState,
+  hiddenLabelKeys: ReadonlySet<string>,
+): boolean {
+  if (!filters.includeDrafts && item.isDraft) {
+    return false;
+  }
+  if (item.filterLabelKeys.length === 0) {
+    return filters.includeNoLabel;
+  }
+  return !item.filterLabelKeys.some((labelKey) => hiddenLabelKeys.has(labelKey));
+}
+
+export const advanceRepositoryInventoryFilterMaterialization = internalMutation({
+  args: {
+    viewId: id("vaultRepositoryInventoryFilterViews"),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    const view = await ctx.db.get(args.viewId);
+    if (!view || view.state !== "building") {
+      return null;
+    }
+    const inventory = await readInventoryState(ctx, view.vaultId);
+    if (!inventory) {
+      await scheduleFilterViewCleanup(ctx, view._id);
+      return null;
+    }
+    const filter = await readRepositoryInventoryFilterState(ctx, inventory.userId, view.vaultId);
+    if (
+      filter.revision !== view.filterRevision ||
+      repositoryInventoryMaterializationSourceId(inventory) !== view.snapshotId
+    ) {
+      await scheduleFilterViewCleanup(ctx, view._id);
+      return null;
+    }
+    const snapshot = await ctx.db.get(view.snapshotId);
+    if (
+      !snapshot ||
+      snapshot.state !== "ready" ||
+      snapshot.vaultId !== view.vaultId ||
+      snapshot.pullRequestCount !== view.totalPullRequestCount
+    ) {
+      await failRepositoryInventoryFilterMaterialization(ctx, {
+        inventory,
+        view,
+        message: "Repository inventory filter materialization has an invalid snapshot.",
+      });
+      return null;
+    }
+
+    try {
+      const page = await ctx.db
+        .query("vaultRepositoryInventoryItems")
+        .withIndex("by_snapshot_and_kind_and_sortGroup_and_sortTime_and_rowKey", (q) =>
+          q.eq("snapshotId", view.snapshotId).eq("kind", "pull_request"),
+        )
+        .paginate({
+          cursor: view.cursor,
+          numItems: REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE,
+        });
+      const hiddenLabelKeys = new Set(filter.hiddenLabels.map(repositoryInventoryFilterLabelKey));
+      let visiblePullRequestCount = view.visiblePullRequestCount;
+      for (const item of page.page) {
+        if (item.kind !== "pull_request") {
+          throw new Error("Repository inventory filter page returned a branch.");
+        }
+        if (!matchesRepositoryInventoryFilters(item, filter, hiddenLabelKeys)) {
+          continue;
+        }
+        await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
+          vaultId: view.vaultId,
+          snapshotId: view.snapshotId,
+          viewId: view._id,
+          pullRequestItemId: item._id,
+          rowKey: item.rowKey,
+          sortTime: item.sortTime,
+        });
+        visiblePullRequestCount += 1;
+      }
+      const processedPullRequestCount = view.processedPullRequestCount + page.page.length;
+      if (
+        processedPullRequestCount > view.totalPullRequestCount ||
+        (page.isDone && processedPullRequestCount !== view.totalPullRequestCount)
+      ) {
+        throw new Error("Repository inventory filter materialization has an invalid total.");
+      }
+      if (!page.isDone) {
+        await ctx.db.replace(view._id, {
+          state: "building",
+          vaultId: view.vaultId,
+          snapshotId: view.snapshotId,
+          filterRevision: view.filterRevision,
+          totalPullRequestCount: view.totalPullRequestCount,
+          processedPullRequestCount,
+          visiblePullRequestCount,
+          cursor: page.continueCursor,
+        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.repositoryInventory.advanceRepositoryInventoryFilterMaterialization,
+          { viewId: view._id },
+        );
+        return null;
+      }
+
+      const priorPublication = inventory.publication;
+      const publishesNewSnapshot =
+        inventory.lifecycle.state === "materializing" &&
+        inventory.lifecycle.snapshotId === view.snapshotId;
+      if (
+        !publishesNewSnapshot &&
+        (!priorPublication || priorPublication.snapshotId !== view.snapshotId)
+      ) {
+        throw new Error("Repository inventory filter view lost its publication source.");
+      }
+      await ctx.db.replace(view._id, {
+        state: "complete",
+        vaultId: view.vaultId,
+        snapshotId: view.snapshotId,
+        filterRevision: view.filterRevision,
+        totalPullRequestCount: view.totalPullRequestCount,
+        processedPullRequestCount,
+        visiblePullRequestCount,
+      });
+      const publishedAt = Date.now();
+      let nextPublication: NonNullable<RepositoryInventoryStateDoc["publication"]>;
+      if (publishesNewSnapshot) {
+        nextPublication = {
+          snapshotId: view.snapshotId,
+          filterViewId: view._id,
+          filterRevision: view.filterRevision,
+          repositoryNodeId: snapshot.repositoryNodeId,
+          repositoryFullName: snapshot.repositoryFullName,
+          defaultBranch: snapshot.defaultBranch,
+          publishedAt,
+          checkedAt: publishedAt,
+          fingerprint: snapshot.fingerprint,
+        };
+      } else {
+        if (!priorPublication) {
+          throw new Error("Repository inventory filter view has no prior publication.");
+        }
+        nextPublication = {
+          ...priorPublication,
+          filterViewId: view._id,
+          filterRevision: view.filterRevision,
+        };
+      }
+      await ctx.db.patch(inventory._id, {
+        publication: nextPublication,
+      });
+      if (publishesNewSnapshot) {
+        if (priorPublication && priorPublication.snapshotId !== view.snapshotId) {
+          await scheduleSnapshotCleanup(ctx, priorPublication.snapshotId);
+        }
+        const publishedInventory = await ctx.db.get(inventory._id);
+        if (!publishedInventory) {
+          throw new Error("Repository inventory disappeared after publication.");
+        }
+        await finishSuccessfulRefresh(ctx, publishedInventory, {
+          crawlCost: snapshot.crawlCost,
+        });
+      } else if (priorPublication && priorPublication.filterViewId !== view._id) {
+        await scheduleFilterViewCleanup(ctx, priorPublication.filterViewId);
+      }
+      return null;
+    } catch (error) {
+      await failRepositoryInventoryFilterMaterialization(ctx, {
+        inventory,
+        view,
+        message: `Repository inventory filter materialization failed: ${toErrorMessage(error)}`,
+      });
+      return null;
+    }
   },
 });
 
@@ -675,7 +1257,11 @@ async function transitionRepositoryInventoryToFailed(
   inventory: RepositoryInventoryStateDoc,
   message: string,
 ): Promise<void> {
-  if (inventory.lifecycle.state !== "scheduled" && inventory.lifecycle.state !== "running") {
+  if (
+    inventory.lifecycle.state !== "scheduled" &&
+    inventory.lifecycle.state !== "running" &&
+    inventory.lifecycle.state !== "materializing"
+  ) {
     return;
   }
   const failedAt = Date.now();
@@ -746,6 +1332,36 @@ export const handleRepositoryInventoryComplete = internalMutation({
   },
 });
 
+export const cleanupRepositoryInventoryFilterView = internalMutation({
+  args: {
+    viewId: id("vaultRepositoryInventoryFilterViews"),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    const view = await ctx.db.get(args.viewId);
+    if (!view) {
+      return null;
+    }
+    const inventory = await readInventoryState(ctx, view.vaultId);
+    if (inventory?.publication?.filterViewId === args.viewId) {
+      return null;
+    }
+    const rows = await ctx.db
+      .query("vaultRepositoryInventoryFilterViewRows")
+      .withIndex("by_view_and_sortTime_and_rowKey", (q) => q.eq("viewId", args.viewId))
+      .take(REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE);
+    for (const row of rows) {
+      await ctx.db.delete(row._id);
+    }
+    if (rows.length > 0) {
+      await scheduleFilterViewCleanup(ctx, args.viewId);
+      return null;
+    }
+    await ctx.db.delete(args.viewId);
+    return null;
+  },
+});
+
 export const cleanupRepositoryInventorySnapshot = internalMutation({
   args: {
     snapshotId: id("vaultRepositoryInventorySnapshots"),
@@ -759,9 +1375,42 @@ export const cleanupRepositoryInventorySnapshot = internalMutation({
     const inventory = await readInventoryState(ctx, snapshot.vaultId);
     if (
       inventory?.publication?.snapshotId === args.snapshotId ||
-      ((inventory?.lifecycle.state === "scheduled" || inventory?.lifecycle.state === "running") &&
+      ((inventory?.lifecycle.state === "scheduled" ||
+        inventory?.lifecycle.state === "running" ||
+        inventory?.lifecycle.state === "materializing") &&
         inventory.lifecycle.snapshotId === args.snapshotId)
     ) {
+      return null;
+    }
+
+    const filterView = await ctx.db
+      .query("vaultRepositoryInventoryFilterViews")
+      .withIndex("by_snapshot", (q) => q.eq("snapshotId", args.snapshotId))
+      .first();
+    if (filterView) {
+      const filterRows = await ctx.db
+        .query("vaultRepositoryInventoryFilterViewRows")
+        .withIndex("by_view_and_sortTime_and_rowKey", (q) => q.eq("viewId", filterView._id))
+        .take(REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE);
+      for (const row of filterRows) {
+        await ctx.db.delete(row._id);
+      }
+      if (filterRows.length === 0) {
+        await ctx.db.delete(filterView._id);
+      }
+      await scheduleSnapshotCleanup(ctx, args.snapshotId);
+      return null;
+    }
+
+    const labelFacets = await ctx.db
+      .query("vaultRepositoryInventoryLabelFacets")
+      .withIndex("by_snapshot_and_sortKey_and_labelKey", (q) => q.eq("snapshotId", args.snapshotId))
+      .take(REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE);
+    for (const facet of labelFacets) {
+      await ctx.db.delete(facet._id);
+    }
+    if (labelFacets.length > 0) {
+      await scheduleSnapshotCleanup(ctx, args.snapshotId);
       return null;
     }
 
@@ -777,9 +1426,7 @@ export const cleanupRepositoryInventorySnapshot = internalMutation({
     if (labelChunks.length === 0) {
       const items = await ctx.db
         .query("vaultRepositoryInventoryItems")
-        .withIndex("by_snapshot_and_sortGroup_and_sortTime_and_rowKey", (q) =>
-          q.eq("snapshotId", args.snapshotId),
-        )
+        .withIndex("by_snapshot_and_rowKey", (q) => q.eq("snapshotId", args.snapshotId))
         .take(REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE);
       for (const item of items) {
         await ctx.db.delete(item._id);
@@ -889,6 +1536,8 @@ function publicPublicationFields(inventory: RepositoryInventoryStateDoc) {
   return publication
     ? {
         activeSnapshotId: publication.snapshotId,
+        activeFilterViewId: publication.filterViewId,
+        activeFilterRevision: publication.filterRevision,
         repositoryFullName: publication.repositoryFullName,
         defaultBranch: publication.defaultBranch,
         publishedAt: publication.publishedAt,
@@ -919,6 +1568,8 @@ export const getRepositoryInventoryState = query({
           ? {
               state: "ready",
               activeSnapshotId: inventory.publication.snapshotId,
+              activeFilterViewId: inventory.publication.filterViewId,
+              activeFilterRevision: inventory.publication.filterRevision,
               repositoryFullName: inventory.publication.repositoryFullName,
               defaultBranch: inventory.publication.defaultBranch,
               publishedAt: inventory.publication.publishedAt,
@@ -939,6 +1590,7 @@ export const getRepositoryInventoryState = query({
               ...publication,
             };
       case "running":
+      case "materializing":
         return {
           state: "refreshing",
           startedAt: inventory.lifecycle.startedAt,
@@ -959,22 +1611,22 @@ export const getRepositoryInventoryState = query({
   },
 });
 
-export const listRepositoryInventoryPage = query({
+export const listRepositoryInventoryBranchPage = query({
   access: "access_files_read",
   args: {
     vaultId: id("vaults"),
     snapshotId: id("vaultRepositoryInventorySnapshots"),
     paginationOpts: paginationOptsValidator,
   },
-  returns: vRepositoryInventoryPageResult,
-  handler: async (ctx, args): Promise<RepositoryInventoryPageResult> => {
+  returns: vRepositoryInventoryBranchPageResult,
+  handler: async (ctx, args): Promise<RepositoryInventoryBranchPageResult> => {
     if (
       !Number.isInteger(args.paginationOpts.numItems) ||
       args.paginationOpts.numItems < 1 ||
       args.paginationOpts.numItems > REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE
     ) {
       throw new Error(
-        `Repository inventory pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE} items.`,
+        `Repository inventory branch pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE} items.`,
       );
     }
     const [vault, snapshot] = await Promise.all([
@@ -986,19 +1638,25 @@ export const listRepositoryInventoryPage = query({
       vault.userId !== ctx.viewer.userId ||
       !isLiveConnectedVault(vault) ||
       !snapshot ||
+      snapshot.state !== "ready" ||
       snapshot.vaultId !== args.vaultId
     ) {
       return { state: "unavailable" };
     }
-
     const page = await ctx.db
       .query("vaultRepositoryInventoryItems")
-      .withIndex("by_snapshot_and_sortGroup_and_sortTime_and_rowKey", (q) =>
-        q.eq("snapshotId", args.snapshotId),
+      .withIndex("by_snapshot_and_kind_and_sortGroup_and_sortTime_and_rowKey", (q) =>
+        q.eq("snapshotId", args.snapshotId).eq("kind", "branch"),
       )
       .paginate(args.paginationOpts);
-    const publicItems = page.page.map((item) => {
-      if (item.kind === "branch") {
+    return {
+      state: "ready",
+      snapshotId: args.snapshotId,
+      expectedBranchCount: snapshot.branchCount,
+      page: page.page.map((item) => {
+        if (item.kind !== "branch") {
+          throw new Error("Repository inventory branch page returned a pull request.");
+        }
         return {
           kind: item.kind,
           rowKey: item.rowKey,
@@ -1007,27 +1665,146 @@ export const listRepositoryInventoryPage = query({
           name: item.name,
           isDefault: item.isDefault,
         };
-      }
-      return {
-        kind: item.kind,
-        rowKey: item.rowKey,
-        previewUrl: item.previewUrl,
-        headCommit: item.headCommit,
-        number: item.number,
-        url: item.url,
-        title: item.title,
-        isDraft: item.isDraft,
-        baseRefName: item.baseRefName,
-        headRepositoryFullName: item.headRepositoryFullName,
-        headRefName: item.headRefName,
-        canOpenInSamebase: item.canOpenInSamebase,
-        labelCount: item.labelCount,
-      };
-    });
+      }),
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+export const listRepositoryInventoryPullRequestPage = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    viewId: id("vaultRepositoryInventoryFilterViews"),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: vRepositoryInventoryPullRequestPageResult,
+  handler: async (ctx, args): Promise<RepositoryInventoryPullRequestPageResult> => {
+    if (
+      !Number.isInteger(args.paginationOpts.numItems) ||
+      args.paginationOpts.numItems < 1 ||
+      args.paginationOpts.numItems > REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE
+    ) {
+      throw new Error(
+        `Repository inventory pull request pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE} items.`,
+      );
+    }
+    const [vault, snapshot, view, inventory] = await Promise.all([
+      ctx.db.get(args.vaultId),
+      ctx.db.get(args.snapshotId),
+      ctx.db.get(args.viewId),
+      readInventoryState(ctx, args.vaultId),
+    ]);
+    if (
+      !vault ||
+      vault.userId !== ctx.viewer.userId ||
+      !isLiveConnectedVault(vault) ||
+      !snapshot ||
+      snapshot.state !== "ready" ||
+      snapshot.vaultId !== args.vaultId ||
+      !view ||
+      view.state !== "complete" ||
+      view.vaultId !== args.vaultId ||
+      view.snapshotId !== args.snapshotId ||
+      inventory?.publication?.snapshotId !== args.snapshotId ||
+      inventory.publication.filterViewId !== args.viewId ||
+      view.totalPullRequestCount !== snapshot.pullRequestCount ||
+      view.processedPullRequestCount !== view.totalPullRequestCount
+    ) {
+      return { state: "unavailable" };
+    }
+    const page = await ctx.db
+      .query("vaultRepositoryInventoryFilterViewRows")
+      .withIndex("by_view_and_sortTime_and_rowKey", (q) => q.eq("viewId", args.viewId))
+      .paginate(args.paginationOpts);
+    const pullRequests = await Promise.all(
+      page.page.map(async (membership) => {
+        const item = await ctx.db.get(membership.pullRequestItemId);
+        if (
+          item?.kind !== "pull_request" ||
+          item.snapshotId !== args.snapshotId ||
+          item.rowKey !== membership.rowKey
+        ) {
+          throw new Error("Repository inventory filter view references an invalid pull request.");
+        }
+        return {
+          kind: item.kind,
+          rowKey: item.rowKey,
+          previewUrl: item.previewUrl,
+          headCommit: item.headCommit,
+          number: item.number,
+          url: item.url,
+          title: item.title,
+          isDraft: item.isDraft,
+          baseRefName: item.baseRefName,
+          headRepositoryFullName: item.headRepositoryFullName,
+          headRefName: item.headRefName,
+          canOpenInSamebase: item.canOpenInSamebase,
+          labelCount: item.labelCount,
+        };
+      }),
+    );
     return {
       state: "ready",
-      expectedItemCount: snapshot.branchCount + snapshot.pullRequestCount,
-      page: publicItems,
+      snapshotId: args.snapshotId,
+      viewId: args.viewId,
+      expectedVisiblePullRequestCount: view.visiblePullRequestCount,
+      totalPullRequestCount: view.totalPullRequestCount,
+      page: pullRequests,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+export const listRepositoryInventoryLabelFacetPage = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: vRepositoryInventoryLabelFacetPageResult,
+  handler: async (ctx, args): Promise<RepositoryInventoryLabelFacetPageResult> => {
+    if (
+      !Number.isInteger(args.paginationOpts.numItems) ||
+      args.paginationOpts.numItems < 1 ||
+      args.paginationOpts.numItems > REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE
+    ) {
+      throw new Error(
+        `Repository inventory label facet pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE} items.`,
+      );
+    }
+    const [vault, snapshot] = await Promise.all([
+      ctx.db.get(args.vaultId),
+      ctx.db.get(args.snapshotId),
+    ]);
+    if (
+      !vault ||
+      vault.userId !== ctx.viewer.userId ||
+      !isLiveConnectedVault(vault) ||
+      !snapshot ||
+      snapshot.state !== "ready" ||
+      snapshot.vaultId !== args.vaultId
+    ) {
+      return { state: "unavailable" };
+    }
+    const page = await ctx.db
+      .query("vaultRepositoryInventoryLabelFacets")
+      .withIndex("by_snapshot_and_sortKey_and_labelKey", (q) => q.eq("snapshotId", args.snapshotId))
+      .paginate(args.paginationOpts);
+    return {
+      state: "ready",
+      snapshotId: args.snapshotId,
+      expectedFacetCount: snapshot.labelFacetCount,
+      noLabelPullRequestCount: snapshot.noLabelPullRequestCount,
+      page: page.page.map((facet) => ({
+        name: facet.name,
+        color: facet.color,
+        pullRequestCount: facet.pullRequestCount,
+      })),
       isDone: page.isDone,
       continueCursor: page.continueCursor,
     };
@@ -1068,6 +1845,7 @@ export const listRepositoryInventoryLabelPage = query({
       vault.userId !== ctx.viewer.userId ||
       !isLiveConnectedVault(vault) ||
       !snapshot ||
+      snapshot.state !== "ready" ||
       snapshot.vaultId !== args.vaultId ||
       item?.kind !== "pull_request"
     ) {
@@ -1112,7 +1890,11 @@ export const quiesceForVaultDeletion = internalMutation({
     if (inventory.userId !== args.userId) {
       throw new Error("Repository inventory owner mismatch.");
     }
-    if (inventory.lifecycle.state === "scheduled" || inventory.lifecycle.state === "running") {
+    if (
+      inventory.lifecycle.state === "scheduled" ||
+      inventory.lifecycle.state === "running" ||
+      inventory.lifecycle.state === "materializing"
+    ) {
       await cancelOwnedInventoryJob(ctx, inventory);
       await transitionRepositoryInventoryToFailed(
         ctx,
@@ -1144,7 +1926,13 @@ export const quiesceForAccountDeletion = internalMutation({
         q.eq("userId", deletionRun.identity.userId).eq("lifecycle.state", "running"),
       )
       .take(ACCOUNT_DELETION_QUIESCE_BATCH_SIZE - scheduled.length);
-    const active = [...scheduled, ...running];
+    const materializing = await ctx.db
+      .query("vaultRepositoryInventories")
+      .withIndex("by_userId_and_lifecycle_state", (q) =>
+        q.eq("userId", deletionRun.identity.userId).eq("lifecycle.state", "materializing"),
+      )
+      .take(ACCOUNT_DELETION_QUIESCE_BATCH_SIZE - scheduled.length - running.length);
+    const active = [...scheduled, ...running, ...materializing];
     for (const inventory of active) {
       await cancelOwnedInventoryJob(ctx, inventory);
       await clearGitHubGraphqlRateBudgetLeaseForVault(ctx, inventory.vaultId);

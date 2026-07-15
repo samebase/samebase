@@ -27,10 +27,14 @@ import {
 } from "./connectedMachineModel";
 import { vGitHubGraphqlRateBudget } from "./githubGraphqlRateBudget";
 import {
+  vRepositoryInventoryFilterView,
+  vRepositoryInventoryFilterViewRow,
   vRepositoryInventoryLabelChunk,
   vRepositoryInventorySnapshot,
   vRepositoryInventoryState,
+  vStoredRepositoryInventoryFilter,
   vStoredRepositoryInventoryItem,
+  vStoredRepositoryInventoryPullRequestLabelFacet,
 } from "./repositoryInventoryModel";
 import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
@@ -501,16 +505,17 @@ export default defineSchema({
   vaultRepositoryInventoryItems: defineTable(vStoredRepositoryInventoryItem)
     .index("by_vault", ["vaultId"])
     .index("by_snapshot_and_rowKey", ["snapshotId", "rowKey"])
+    .index("by_snapshot_and_kind_and_sortGroup_and_sortTime_and_rowKey", [
+      "snapshotId",
+      "kind",
+      "sortGroup",
+      "sortTime",
+      "rowKey",
+    ])
     .index("by_snapshot_kind_localHeadRefName_sortTime_rowKey", [
       "snapshotId",
       "kind",
       "localHeadRefName",
-      "sortTime",
-      "rowKey",
-    ])
-    .index("by_snapshot_and_sortGroup_and_sortTime_and_rowKey", [
-      "snapshotId",
-      "sortGroup",
       "sortTime",
       "rowKey",
     ]),
@@ -521,6 +526,28 @@ export default defineSchema({
   vaultRepositoryInventoryLabelChunks: defineTable(vRepositoryInventoryLabelChunk)
     .index("by_vault", ["vaultId"])
     .index("by_snapshot_and_rowKey_and_chunkIndex", ["snapshotId", "rowKey", "chunkIndex"]),
+
+  /** Complete label counts for one immutable repository inventory snapshot. */
+  vaultRepositoryInventoryLabelFacets: defineTable(vStoredRepositoryInventoryPullRequestLabelFacet)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_sortKey_and_labelKey", ["snapshotId", "sortKey", "labelKey"]),
+
+  /** Saved PR presentation settings for one user and vault. */
+  vaultRepositoryInventoryFilters: defineTable(vStoredRepositoryInventoryFilter)
+    .index("by_user", ["userId"])
+    .index("by_vault", ["vaultId"])
+    .index("by_user_and_vault", ["userId", "vaultId"]),
+
+  /** A complete materialized PR result set for one snapshot and filter revision. */
+  vaultRepositoryInventoryFilterViews: defineTable(vRepositoryInventoryFilterView)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot", ["snapshotId"])
+    .index("by_snapshot_and_filterRevision", ["snapshotId", "filterRevision"]),
+
+  /** Visible PR membership ordered independently from unfiltered branch rows. */
+  vaultRepositoryInventoryFilterViewRows: defineTable(vRepositoryInventoryFilterViewRow)
+    .index("by_vault", ["vaultId"])
+    .index("by_view_and_sortTime_and_rowKey", ["viewId", "sortTime", "rowKey"]),
 
   /**
    * User-selected app root, provider names, and early provider identities for
