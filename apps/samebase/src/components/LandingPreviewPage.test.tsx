@@ -1,11 +1,21 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   DocsDoItYourselfPage,
   DocsPricingPage,
   LandingPreviewPage,
 } from "@/components/LandingPreviewPage";
+
+const appAuthState = vi.hoisted(() => ({ authenticated: false }));
+
+vi.mock("@/lib/appAuthPresentationState", () => ({
+  isAppPresentationAuthenticated: () => appAuthState.authenticated,
+  useAppAuthPresentation: () =>
+    appAuthState.authenticated
+      ? { kind: "confirmedAuthenticated", profile: null }
+      : { kind: "signedOut" },
+}));
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -35,10 +45,15 @@ vi.mock("@tanstack/react-router", () => ({
   }: {
     children: ReactNode;
     className?: string;
-    search?: Record<string, true | null | undefined>;
+    search?:
+      | Record<string, true | null | undefined>
+      | ((
+          currentSearch: Record<string, true | null | undefined>,
+        ) => Record<string, true | null | undefined>);
     to: string;
   }) => {
-    const searchEntries = Object.entries(search ?? {}).filter((entry) => entry[1] === true);
+    const resolvedSearch = typeof search === "function" ? search({}) : search;
+    const searchEntries = Object.entries(resolvedSearch ?? {}).filter((entry) => entry[1] === true);
     const searchSuffix =
       searchEntries.length === 0 ? "" : `?${searchEntries.map((entry) => entry[0]).join("&")}`;
 
@@ -56,6 +71,7 @@ vi.mock("@tanstack/react-router", () => ({
 vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
   useWorkspacePaneActions: () => ({
     setMobilePane: () => {},
+    setRightDesktopOpen: () => {},
   }),
   useWorkspacePaneState: () => ({
     isMobile: false,
@@ -64,18 +80,24 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
 }));
 
 describe("LandingPreviewPage", () => {
+  beforeEach(() => {
+    appAuthState.authenticated = false;
+  });
+
   it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
     // Hero: the category correction plus the one-action pitch.
-    expect(markup).toContain("It&#x27;s not an AI that builds apps.");
-    expect(markup).toContain("It&#x27;s the tool your AI uses");
-    expect(markup).toContain("to ship real ones.");
-    expect(markup).toContain("Your agent writes the app. One Samebase action makes it real");
-    expect(markup).toContain("Create your first app");
+    expect(markup).toContain("Not another AI app builder.");
+    expect(markup).toContain("The tool your AI uses");
+    expect(markup).toContain("to ship real apps.");
+    expect(markup).toContain("provisions the database + backend");
+    expect(markup).toContain("Every connected app stays visible in one inventory.");
+    expect(markup).toContain("Open Samebase");
+    expect(markup.split('href="/?sign-in"').length - 1).toBe(2);
     expect(markup).toContain("Free today; an idle app costs $0/month.");
-    expect(markup).toContain("no chatbot");
-    expect(markup).toContain("$0/month idle");
+    expect(markup).not.toContain("no chatbot");
+    expect(markup).not.toContain("$0/month idle");
 
     // Agent loop placeholder with the concrete provisioning artifacts.
     expect(markup).toContain("build me tic-tac-toe, but 4x4. use samebase");
@@ -135,6 +157,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
     expect(markup).toContain("Samebase runs on Samebase.");
+    expect(markup).not.toContain("If an AI chat box were really the best way");
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 
     // Footnote receipts.
@@ -162,6 +185,15 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("your app is a security risk.");
     expect(markup).not.toContain("misconfigure perfectly");
     expect(markup).not.toContain("no Samebase account needed");
+  });
+
+  it("links authenticated viewers to their app inventory", () => {
+    appAuthState.authenticated = true;
+
+    const markup = renderToStaticMarkup(<LandingPreviewPage />);
+
+    expect(markup.split('href="/vault"').length - 1).toBe(2);
+    expect(markup).not.toContain('href="/?sign-in"');
   });
 
   it("renders the landing preview without the docs sidebar", () => {

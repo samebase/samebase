@@ -1,8 +1,14 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import {
+  isAppPresentationAuthenticated,
+  useAppAuthPresentation,
+} from "@/lib/appAuthPresentationState";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
+import { applySearchPatch } from "@/routing/searchFlags";
 import { Button } from "@/components/ui/button";
 import {
   useWorkspacePaneActions,
@@ -16,6 +22,7 @@ import {
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
@@ -276,9 +283,37 @@ function LandingSectionIntro({
 }
 
 function LandingCreateAppButton() {
+  const authPresentation = useAppAuthPresentation();
+  const { setMobilePane, setRightDesktopOpen } = useWorkspacePaneActions();
+
+  if (isAppPresentationAuthenticated(authPresentation)) {
+    return (
+      <Button asChild className="h-12 px-7 text-base font-semibold no-underline">
+        <Link to={DASHBOARD_ROUTE}>Open Samebase</Link>
+      </Button>
+    );
+  }
+
   return (
     <Button asChild className="h-12 px-7 text-base font-semibold no-underline">
-      <Link to="/">Create your first app</Link>
+      <Link
+        to="/"
+        search={(currentSearch) =>
+          applySearchPatch(currentSearch, {
+            auth: null,
+            "auth-return": null,
+            "create-account": null,
+            signup: null,
+            "sign-in": true,
+          })
+        }
+        onClick={() => {
+          setRightDesktopOpen(true);
+          setMobilePane("right");
+        }}
+      >
+        Open Samebase
+      </Link>
     </Button>
   );
 }
@@ -595,15 +630,15 @@ function LandingPreviewOverview() {
         <section className="mt-10 @5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
           <div>
             <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-              <span className="block">It's not an AI that builds apps.</span>
+              <span className="block">Not another AI app builder.</span>
               <span className="block">
-                <span className="text-muted-foreground">It's the tool your AI uses</span> to ship
-                real ones.
+                <span className="text-muted-foreground">The tool your AI uses</span> to ship real
+                apps.
               </span>
             </h1>
             <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-              Your agent writes the app. One Samebase action makes it real: repo, backend, deploy,
-              on accounts you own.
+              One action creates the repo, provisions the database + backend, and deploys the app on
+              accounts you own. Every connected app stays visible in one inventory.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
               <LandingCreateAppButton />
@@ -616,28 +651,6 @@ function LandingPreviewOverview() {
                 />
               </p>
             </div>
-            <p className="mt-8 flex flex-wrap gap-x-3 gap-y-1.5 font-mono text-[13px] text-primary">
-              <span className="whitespace-nowrap">no chatbot</span>
-              <span aria-hidden className="text-muted-foreground">
-                ·
-              </span>
-              <span className="whitespace-nowrap">no hosting</span>
-              <span aria-hidden className="text-muted-foreground">
-                ·
-              </span>
-              <span className="whitespace-nowrap">no lock-in</span>
-              <span aria-hidden className="text-muted-foreground">
-                ·
-              </span>
-              <span className="whitespace-nowrap font-semibold text-secondary">
-                $0/month idle
-                <LandingFootnoteMark
-                  fragment="landing-note-zero"
-                  label="footnote: zero"
-                  marker="‡"
-                />
-              </span>
-            </p>
           </div>
           <div className="mt-12 @5xl:mt-1.5">
             <LandingAgentLoop />
@@ -650,7 +663,10 @@ function LandingPreviewOverview() {
             kicker="the opinion we're selling"
             sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you never choose again."
           />
-          <div className="mt-8 grid gap-5 @3xl:grid-cols-3 @3xl:gap-8">
+          <div
+            className="mt-8 grid gap-5 @3xl:grid-cols-3 @3xl:gap-8"
+            data-testid={LANDING_PREVIEW_PROVIDER_GRID_TEST_ID}
+          >
             <LandingProviderRow
               logo={
                 <img
@@ -667,7 +683,7 @@ function LandingPreviewOverview() {
               logo={
                 <img
                   alt="Convex"
-                  className="h-[22px] w-auto dark:brightness-0 dark:invert"
+                  className="h-9 w-auto dark:brightness-0 dark:invert"
                   height="26"
                   src="/landing-preview/logos/convex.svg"
                   width="104"
@@ -680,12 +696,14 @@ function LandingPreviewOverview() {
                 <>
                   <img
                     alt=""
-                    className="h-6 w-auto"
+                    className="h-11 w-auto"
                     height="27"
                     src="/landing-preview/logos/cloudflare.svg"
                     width="27"
                   />
-                  <span className="text-[17px] font-bold tracking-[-0.02em]">Cloudflare</span>
+                  <span className="text-xl font-bold leading-none tracking-[-0.02em]">
+                    Cloudflare
+                  </span>
                 </>
               }
               role="deploys + domains + edge"
@@ -880,8 +898,7 @@ function LandingPreviewOverview() {
               />
               <p className="max-w-[44ch] text-[15px] leading-relaxed text-primary">
                 <span className="font-semibold text-foreground">Samebase runs on Samebase.</span>{" "}
-                samebase.com is its own Convex deployment and Cloudflare Workers. If an AI chat box
-                were really the best way to build software, we'd be built in one.
+                samebase.com is its own Convex deployment and Cloudflare Workers.
               </p>
             </div>
           </div>

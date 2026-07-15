@@ -1,13 +1,18 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+
+const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
+  devices["iPhone 13"];
 
 const expectedLandingPreviewSidebarFiles = [
   "Overview",
@@ -81,6 +86,19 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar).not.toContainText("samebase.com");
 }
 
+async function expectExplicitSignInUrl(page: Page) {
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return {
+        auth: url.searchParams.get("auth"),
+        pathname: url.pathname,
+        signIn: url.searchParams.has("sign-in"),
+      };
+    })
+    .toEqual({ auth: null, pathname: "/", signIn: true });
+}
+
 test("landing preview route renders the React overview in workspace chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
 
@@ -103,12 +121,14 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(rightSidebar).toHaveCSS("width", "288px");
   await expect(
     article.getByRole("heading", {
-      name: /It's not an AI that builds apps/,
+      name: /Not another AI app builder/,
     }),
   ).toBeVisible();
   await expect(article).toContainText(
-    "Your agent writes the app. One Samebase action makes it real: repo, backend, deploy, on accounts you own.",
+    "One action creates the repo, provisions the database + backend, and deploys the app on accounts you own. Every connected app stays visible in one inventory.",
   );
+  await expect(article.getByRole("button", { name: "Open Samebase" })).toHaveCount(2);
+  await expect(article).not.toContainText("no chatbot");
   await expect(article).toContainText("build me tic-tac-toe, but 4x4. use samebase");
   await expect(article).toContainText(
     "GitHub + Convex + Cloudflare Workers is the best way we've found to build an app.",
@@ -143,6 +163,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article).toContainText("several roots in one monorepo");
   await expect(article).toContainText("cost follows real usage");
   await expect(article).toContainText("Samebase runs on Samebase.");
+  await expect(article).not.toContainText("If an AI chat box were really the best way");
   await expect(article).toContainText(
     "If your app builder is so good, why is it not building itself?",
   );
@@ -173,6 +194,15 @@ test("landing preview route renders the React overview in workspace chrome", asy
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+  await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
+    "landing-preview-provider-grid-desktop.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("link", { name: "Do it yourself", exact: true })
@@ -236,7 +266,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   await expect(
     article.getByRole("heading", {
-      name: /It's not an AI that builds apps/,
+      name: /Not another AI app builder/,
     }),
   ).toBeVisible();
   // Below the @3xl container width the inventory renders as stacked per-app
@@ -250,6 +280,59 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     mask: [page.getByTestId("public-landing-logo-stage")],
     maxDiffPixelRatio: 0.02,
     scale: "css",
+  });
+});
+
+test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1440 });
+  await page.goto(LANDING_PREVIEW_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "0px");
+
+  await page
+    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+    .getByRole("button", { name: "Open Samebase" })
+    .first()
+    .click();
+
+  await expectExplicitSignInUrl(page);
+  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "288px");
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-pane-right")
+      .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
+      .getByRole("button", { name: "Google" }),
+  ).toBeVisible();
+});
+
+test.describe("mobile landing preview CTA", () => {
+  test.use(landingPreviewMobileDevice);
+
+  test("selects the explicit sign-in sidebar", async ({ page }) => {
+    await page.goto(LANDING_PREVIEW_ROUTE, {
+      waitUntil: "domcontentloaded",
+    });
+
+    const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+
+    await page
+      .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+      .getByRole("button", { name: "Open Samebase" })
+      .first()
+      .click();
+
+    await expectExplicitSignInUrl(page);
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
+    await expect(
+      page
+        .getByTestId("workspace-layout-v2-pane-right")
+        .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
+        .getByRole("button", { name: "Google" }),
+    ).toBeVisible();
   });
 });
 
