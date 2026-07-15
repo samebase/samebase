@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -61,6 +61,40 @@ afterEach(() => {
 });
 
 describe("reauthorizeGithubOAuth", () => {
+  it("persists the stable GitHub account id from an OAuth callback", async () => {
+    const t = makeConvexTest();
+    const { oauthStateId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const oauthStateId = await ctx.db.insert("oauthStates", {
+        provider: "github",
+        userId,
+        state: "oauth-state",
+        createdAt: 1,
+        expiresAt: 2,
+      });
+      return { oauthStateId, userId };
+    });
+
+    await t.mutation(internal.githubOAuth.storeGithubOauthConnection, {
+      userId,
+      accessToken: "github-oauth-token",
+      githubAccountId: 101,
+      username: "ada",
+      oauthStateId,
+    });
+
+    await expect(readGithubConnection(t, userId)).resolves.toMatchObject({
+      kind: "github",
+      githubAccountId: 101,
+      username: "ada",
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(oauthStateId))).resolves.toBeNull();
+  });
+
   it("revokes the GitHub OAuth grant and removes the local connection", async () => {
     const t = makeConvexTest();
     const userId = await seedGithubConnection(t, {

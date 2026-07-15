@@ -16,7 +16,7 @@ export type VaultBranchPullRequestViewModel = {
 export type VaultBranchCommitViewModel = {
   sha: string;
   shortSha: string;
-  url: string;
+  url?: string;
   title?: string;
   authoredAt?: number;
   checks?: VaultBranchCommitChecksSummary;
@@ -25,12 +25,9 @@ export type VaultBranchCommitViewModel = {
 
 export type VaultBranchRowViewModel = {
   name: string;
-  githubUrl: string;
+  githubUrl?: string;
+  canOpenInSamebase: boolean;
   isDefault: boolean;
-  isProtected: boolean;
-  remoteState: VaultRemoteBranchListItem["remoteState"];
-  aheadBy?: number;
-  behindBy?: number;
   previewUrl?: string;
   pullRequest?: VaultBranchPullRequestViewModel;
   commits: readonly VaultBranchCommitViewModel[];
@@ -64,28 +61,29 @@ function buildVaultBranchPullRequestViewModel(
 
 export function buildVaultBranchRowViewModel({
   branch,
-  repositoryFullName,
 }: {
   branch: VaultRemoteBranchListItem;
-  repositoryFullName: string;
 }): VaultBranchRowViewModel {
+  const sourceRepositoryFullName = branch.githubRepositoryFullName;
+
   return {
     name: branch.name,
-    githubUrl: buildGitHubBranchTreeUrl({
-      repositoryFullName,
-      branchName: branch.name,
-    }),
+    githubUrl: sourceRepositoryFullName
+      ? buildGitHubBranchTreeUrl({
+          repositoryFullName: sourceRepositoryFullName,
+          branchName: branch.name,
+        })
+      : undefined,
+    canOpenInSamebase: branch.canOpenInSamebase,
     isDefault: branch.isDefault,
-    isProtected: branch.isProtected,
-    remoteState: branch.remoteState,
-    aheadBy: branch.aheadBy,
-    behindBy: branch.behindBy,
     previewUrl: branch.previewUrl,
     pullRequest: buildVaultBranchPullRequestViewModel(branch),
     commits: branch.commits.map((commit, index) => ({
       sha: commit.sha,
       shortSha: commit.sha.slice(0, 7),
-      url: buildCommitUrl(repositoryFullName, commit.sha),
+      url: sourceRepositoryFullName
+        ? buildCommitUrl(sourceRepositoryFullName, commit.sha)
+        : undefined,
       title: commit.title,
       authoredAt: commit.authoredAt,
       checks: commit.checks,

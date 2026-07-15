@@ -4,23 +4,27 @@
 
 - Status: Proposed
 - Owner: Noter dashboard/frontend + Convex infra
-- Last updated: 2026-05-12
+- Last updated: 2026-07-15
 - Related specs:
-  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+  - `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
-  - `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
+  - `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
 
 ## Summary
+
+The direct branch-preview link is now implemented through the GitHub check data in
+`specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`. Only the possible cached-thumbnail surface remains
+proposed. The runtime snapshot below is retained as historical context for that remaining idea.
 
 This RFC now captures research and future guidance for dashboard preview surfaces beyond the
 accepted direct-link implementation.
 
 The accepted implementation plan for direct branch preview links now lives in:
 
-- `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
+- `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
 
 This RFC remains useful for two related exploratory ideas:
 
@@ -150,13 +154,13 @@ Instead:
 
 ### Best place to sync
 
-Current refresh ownership changed after this RFC was written. The dashboard now reports repository
-refresh demand to Convex, and backend policy chooses GitHub metadata and provider-link work.
+Current refresh ownership changed after this RFC was written. The selected visible vault now
+requests one complete GraphQL inventory, which derives branch preview aliases from GitHub checks.
 
-If this RFC resumes, integrate branch preview syncing behind the backend repository refresh policy
-in `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`.
+If this RFC resumes for cached thumbnails, keep their collection separate from the repository
+inventory contract in `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`.
 
-This keeps branch-sync work in one place instead of inventing a separate dashboard polling loop.
+This avoids adding thumbnail collection to the correctness-critical repository polling loop.
 
 ### Minimal query shape
 

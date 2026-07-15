@@ -8,7 +8,7 @@ import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { notEmpty } from "@samebase/dependent/main";
 import { action } from "./functions";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { GithubTree } from "./schema";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
@@ -25,6 +25,8 @@ import { describeRepositoryTreeRefreshFailure } from "./github";
 import { assertConnectedVault } from "./vault/state";
 import { getRepositoryMediaKind } from "../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
+import type { RepositoryInventoryBranchContext } from "./repositoryInventoryModel";
+import { parseRepositoryFullName } from "./vault/model";
 
 const { boolean, number, object, optional, string } = v;
 
@@ -75,6 +77,26 @@ export async function runPostCommitTreeRefresh<T>(args: {
   } catch (error) {
     args.onWarning(error);
     return null;
+  }
+}
+
+async function requestImmediateRepositoryInventoryRefresh(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite,
+      {
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
+    );
+  } catch (error) {
+    console.warn("Failed to request repository inventory refresh:", error);
   }
 }
 
@@ -273,14 +295,6 @@ export function readOpenPullRequestForBranch(args: {
   };
 }
 
-export function readLatestOpenPullRequestForBranch(args: {
-  branch: string;
-  repositoryFullName: string;
-  pullRequests: OpenPullRequestCandidate[];
-}): { url: string; number: number; baseBranch: string } | null {
-  return readMatchingOpenPullRequestForBranch(args);
-}
-
 async function getOpenPullRequestForBranch(args: {
   octokit: Octokit;
   owner: string;
@@ -304,25 +318,58 @@ async function getOpenPullRequestForBranch(args: {
   });
 }
 
-async function getLatestOpenPullRequestForBranch(args: {
-  octokit: Octokit;
+type PublishedRepositoryCompareIdentity = {
   owner: string;
   repo: string;
   branch: string;
-}): Promise<{ url: string; number: number; baseBranch: string } | null> {
-  const response = await args.octokit.rest.pulls.list({
-    owner: args.owner,
-    repo: args.repo,
-    state: "open",
-    head: `${args.owner}:${args.branch}`,
-    per_page: 100,
-  });
+  baseBranch: string;
+  pullRequest?: {
+    number: number;
+    url: string;
+  };
+};
 
-  return readLatestOpenPullRequestForBranch({
-    branch: args.branch,
-    repositoryFullName: `${args.owner}/${args.repo}`,
-    pullRequests: response.data,
-  });
+export function resolvePublishedRepositoryCompareIdentity(
+  context: RepositoryInventoryBranchContext | null,
+): PublishedRepositoryCompareIdentity {
+  if (context === null) {
+    throw new Error("Repository inventory is unavailable.");
+  }
+  if (context.state === "unpublished") {
+    throw new Error("Repository inventory has not published yet.");
+  }
+  if (context.state === "missing") {
+    throw new Error("Branch is not present in the published repository inventory.");
+  }
+
+  const { owner, name: repo } = parseRepositoryFullName(context.repositoryFullName);
+  return {
+    owner,
+    repo,
+    branch: context.branch.name,
+    baseBranch: context.pullRequest?.baseRefName ?? context.defaultBranch,
+    pullRequest: context.pullRequest
+      ? {
+          number: context.pullRequest.number,
+          url: context.pullRequest.url,
+        }
+      : undefined,
+  };
+}
+
+async function getPublishedRepositoryCompareIdentity(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    branch: string;
+  },
+): Promise<PublishedRepositoryCompareIdentity> {
+  const context: RepositoryInventoryBranchContext | null = await ctx.runQuery(
+    internal.repositoryInventory.getRepositoryInventoryBranchContextForUser,
+    args,
+  );
+  return resolvePublishedRepositoryCompareIdentity(context);
 }
 
 export function buildDraftPullRequestTitle(args: {
@@ -421,6 +468,7 @@ async function getBranchHeadShaOrNull(args: {
 async function cleanupTemporaryDraftBranch(args: {
   ctx: ActionCtx;
   octokit: Octokit;
+  userId: Id<"users">;
   vaultId: Id<"vaults">;
   owner: string;
   repo: string;
@@ -430,7 +478,6 @@ async function cleanupTemporaryDraftBranch(args: {
     await args.ctx.runMutation(api.fileStaging.clearAllStaging, {
       vaultId: args.vaultId,
       branch: args.branch,
-      skipTreeUpdate: true,
     });
   } catch (cleanupError) {
     console.warn(
@@ -444,6 +491,10 @@ async function cleanupTemporaryDraftBranch(args: {
       owner: args.owner,
       repo: args.repo,
       ref: `heads/${args.branch}`,
+    });
+    await requestImmediateRepositoryInventoryRefresh(args.ctx, {
+      userId: args.userId,
+      vaultId: args.vaultId,
     });
   } catch (cleanupError) {
     console.warn("Failed to remove temporary draft branch after draft PR error:", cleanupError);
@@ -2238,20 +2289,10 @@ export const createDraftPullRequest = action({
       baseBranch: defaultBranch,
     });
     if (existingPullRequest) {
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn("Failed to refresh remote branch metadata after opening existing PR:", error);
-      }
+      await requestImmediateRepositoryInventoryRefresh(ctx, {
+        userId,
+        vaultId: vault._id,
+      });
 
       return {
         ...existingPullRequest,
@@ -2286,20 +2327,10 @@ export const createDraftPullRequest = action({
         draft: true,
       });
 
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn("Failed to refresh remote branch metadata after creating draft PR:", error);
-      }
+      await requestImmediateRepositoryInventoryRefresh(ctx, {
+        userId,
+        vaultId: vault._id,
+      });
 
       return {
         url: response.data.html_url,
@@ -2315,23 +2346,10 @@ export const createDraftPullRequest = action({
         baseBranch: defaultBranch,
       });
       if (currentPullRequest) {
-        try {
-          await ctx.runAction(internal.github.updateRepositoryTree, {
-            userId,
-            owner: vault.owner,
-            repo: vault.name,
-            target: { scope: "repository" },
-            includeAheadBehind: true,
-            includePullRequestLinks: true,
-            includeBranchHeadCommitCheckSnapshots: false,
-            branchHeadCommitCheckBranchNames: [],
-          });
-        } catch (refreshError) {
-          console.warn(
-            "Failed to refresh remote branch metadata after discovering existing PR:",
-            refreshError,
-          );
-        }
+        await requestImmediateRepositoryInventoryRefresh(ctx, {
+          userId,
+          vaultId: vault._id,
+        });
         return {
           ...currentPullRequest,
           existing: true,
@@ -2422,6 +2440,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
       await cleanupTemporaryDraftBranch({
         ctx,
         octokit,
+        userId,
         vaultId: vault._id,
         owner: vault.owner,
         repo: vault.name,
@@ -2453,6 +2472,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
         await cleanupTemporaryDraftBranch({
           ctx,
           octokit,
+          userId,
           vaultId: vault._id,
           owner: vault.owner,
           repo: vault.name,
@@ -2502,6 +2522,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
           await cleanupTemporaryDraftBranch({
             ctx,
             octokit,
+            userId,
             vaultId: vault._id,
             owner: vault.owner,
             repo: vault.name,
@@ -2526,23 +2547,10 @@ export const createDraftPullRequestFromDefaultBranch = action({
         stagedFiles,
       });
 
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn(
-          "Failed to refresh remote branch metadata after creating default-branch draft PR:",
-          error,
-        );
-      }
+      await requestImmediateRepositoryInventoryRefresh(ctx, {
+        userId,
+        vaultId: vault._id,
+      });
 
       return {
         branch: targetBranch,
@@ -2651,10 +2659,13 @@ export const pullFromGitHubInternal = internalAction({
     });
 
     // 1. Read all staging records for this vault (including unchanged)
-    const allStaged = await ctx.runQuery(internal.fileStaging.listAllStagedFiles, {
-      vaultId: args.vaultId,
-      includeUnchanged: true,
-    });
+    const allStaged: Doc<"fileStaging">[] = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: args.vaultId,
+        includeUnchanged: true,
+      },
+    );
 
     const treeMapByBranch = new Map<string, Promise<Map<string, string>>>();
     const getTreeMapForBranch = (branch: string): Promise<Map<string, string>> => {
@@ -2847,30 +2858,20 @@ export const pullFromGitHubInternal = internalAction({
     }
 
     // 5. Refresh touched branch caches after reconciliation
-    const touchedBranches = listTouchedBranchesForRefresh(allStaged.map((item) => item.branch));
+    const touchedBranches = listTouchedBranchesForRefresh([
+      connectedVault.defaultBranch,
+      ...allStaged.map((item) => item.branch),
+    ]);
     for (const branch of touchedBranches) {
-      await ctx.runAction(internal.github.updateRepositoryTree, {
+      await ctx.runAction(internal.github.refreshBranchTree, {
         userId: args.userId,
-        owner: connectedVault.owner,
-        repo: connectedVault.name,
-        target: { scope: "branch", branch },
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        branchHeadCommitCheckBranchNames: [],
+        vaultId: args.vaultId,
+        branch,
       });
     }
-
-    // Also refresh repository metadata and the vault's resolved branch.
-    await ctx.runAction(internal.github.updateRepositoryTree, {
+    await requestImmediateRepositoryInventoryRefresh(ctx, {
       userId: args.userId,
-      owner: connectedVault.owner,
-      repo: connectedVault.name,
-      target: { scope: "repository" },
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      branchHeadCommitCheckBranchNames: [],
+      vaultId: args.vaultId,
     });
 
     return null;
@@ -2914,15 +2915,10 @@ export const batchReadFiles = action({
       });
 
       if (!branchTree) {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
+        await ctx.runAction(internal.github.refreshBranchTree, {
           userId,
-          owner: connectedVault.owner,
-          repo: connectedVault.name,
-          target: { scope: "branch", branch: branchToLoad },
-          includeAheadBehind: false,
-          includePullRequestLinks: false,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
+          vaultId: args.vaultId,
+          branch: branchToLoad,
         });
         branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
           vaultId: args.vaultId,
@@ -3111,7 +3107,7 @@ export const getBranchComparePreview = action({
   access: "access_files_read",
   args: {
     repositoryFullName: v.string(),
-    branch: v.optional(v.string()),
+    branch: v.string(),
     includePatch: v.optional(v.boolean()),
   },
   returns: branchComparePreviewResult,
@@ -3143,26 +3139,24 @@ export const getBranchComparePreview = action({
       );
     }
 
+    const requestedBranch = args.branch.trim();
+    if (requestedBranch.length === 0) {
+      throw new Error("Branch is required.");
+    }
+    const identity = await getPublishedRepositoryCompareIdentity(ctx, {
+      userId,
+      vaultId: vault._id,
+      branch: requestedBranch,
+    });
+    const { owner, repo, branch, baseBranch, pullRequest: currentPullRequest } = identity;
+
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const octokit: Octokit = new Octokit({
       auth: githubAccessToken,
     });
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-    });
-    const branch = args.branch?.trim() || stagedBranches.at(0) || defaultBranch;
-    const currentPullRequest = await getLatestOpenPullRequestForBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-      branch,
-    });
-    const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
     const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       basehead: `${baseBranch}...${branch}`,
     });
     const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
@@ -3176,14 +3170,14 @@ export const getBranchComparePreview = action({
 
     const baseShaByPath = await getTreeMapForRef({
       octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       ref: mergeBaseSha,
     });
     const headShaByPath = await getTreeMapForRef({
       octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       ref: branch,
     });
     const blobBufferBySha = new Map<string, Promise<Uint8Array>>();
@@ -3195,8 +3189,8 @@ export const getBranchComparePreview = action({
 
       const loaded = octokit.rest.git
         .getBlob({
-          owner: vault.owner,
-          repo: vault.name,
+          owner,
+          repo,
           file_sha: sha,
         })
         .then((response) => {
@@ -3218,8 +3212,8 @@ export const getBranchComparePreview = action({
     const remoteFileCandidates = currentPullRequest
       ? await getPullRequestCompareFiles({
           octokit,
-          owner: vault.owner,
-          repo: vault.name,
+          owner,
+          repo,
           pullRequestNumber: currentPullRequest.number,
         })
       : (compareResponse.data.files ?? []);
@@ -3271,7 +3265,7 @@ export const restoreComparedDeletedFileToStaging = action({
   access: "access_files_write",
   args: {
     repositoryFullName: v.string(),
-    branch: v.optional(v.string()),
+    branch: v.string(),
     filePath: v.string(),
     previousPath: v.optional(v.string()),
   },
@@ -3286,26 +3280,24 @@ export const restoreComparedDeletedFileToStaging = action({
       throw new Error("Vault not found");
     }
 
+    const requestedBranch = args.branch.trim();
+    if (requestedBranch.length === 0) {
+      throw new Error("Branch is required.");
+    }
+    const identity = await getPublishedRepositoryCompareIdentity(ctx, {
+      userId,
+      vaultId: vault._id,
+      branch: requestedBranch,
+    });
+    const { owner, repo, branch, baseBranch } = identity;
+
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const octokit: Octokit = new Octokit({
       auth: githubAccessToken,
     });
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-    });
-    const branch = args.branch?.trim() || defaultBranch;
-    const currentPullRequest = await getLatestOpenPullRequestForBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-      branch,
-    });
-    const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
     const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       basehead: `${baseBranch}...${branch}`,
     });
     const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
@@ -3318,8 +3310,8 @@ export const restoreComparedDeletedFileToStaging = action({
           : baseBranch;
     const baseShaByPath = await getTreeMapForRef({
       octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       ref: mergeBaseSha,
     });
     const basePath =
@@ -3332,8 +3324,8 @@ export const restoreComparedDeletedFileToStaging = action({
     }
 
     const blobResponse = await octokit.rest.git.getBlob({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       file_sha: baseSha,
     });
     const buffer = new Uint8Array(
@@ -3895,20 +3887,19 @@ export const commitAllStaged = internalAction({
         loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),
         skipRebase: true,
       });
+      await requestImmediateRepositoryInventoryRefresh(ctx, {
+        userId: args.userId,
+        vaultId: args.vaultId,
+      });
 
       // 1. Refresh branch/default tree caches and re-read the updated vault.
       //    This is best-effort: upstream commit already succeeded.
       const updatedVault = await runPostCommitTreeRefresh({
         refreshBranchTree: async () => {
-          await ctx.runAction(internal.github.updateRepositoryTree, {
+          await ctx.runAction(internal.github.refreshBranchTree, {
             userId: args.userId,
-            owner: repoOwner,
-            repo: repoName,
-            target: { scope: "branch", branch: commitBranch },
-            includeAheadBehind: false,
-            includePullRequestLinks: false,
-            includeBranchHeadCommitCheckSnapshots: false,
-            branchHeadCommitCheckBranchNames: [],
+            vaultId: args.vaultId,
+            branch: commitBranch,
           });
         },
         loadUpdatedVault: async () =>
@@ -3978,7 +3969,6 @@ export const commitAllStaged = internalAction({
       await ctx.runMutation(api.fileStaging.clearAllStaging, {
         vaultId: args.vaultId,
         branch: commitBranch,
-        skipTreeUpdate: true,
       });
 
       await updateCommitProposalStatus(true);

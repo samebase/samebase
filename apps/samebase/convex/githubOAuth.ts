@@ -159,17 +159,23 @@ async function exchangeGithubOAuthCode(args: {
   };
 }
 
-async function fetchGithubUser(accessToken: string): Promise<{ username: string }> {
+async function fetchGithubUser(accessToken: string): Promise<{
+  githubAccountId: number;
+  username: string;
+}> {
   try {
     const response = await runGithubOAuthRequestWithTimeout((signal) =>
       createGitHubOctokit(accessToken).rest.users.getAuthenticated({
         request: { signal },
       }),
     );
-    if (!response.data.login) {
+    if (!Number.isSafeInteger(response.data.id) || response.data.id <= 0 || !response.data.login) {
       throw new Error("Failed to fetch GitHub user profile.");
     }
-    return { username: response.data.login };
+    return {
+      githubAccountId: response.data.id,
+      username: response.data.login,
+    };
   } catch (error) {
     if (error instanceof RequestError) {
       throw new Error(`Failed to fetch GitHub user profile (${error.status}).`);
@@ -208,6 +214,7 @@ export const storeGithubOauthConnection = internalMutation({
   args: {
     userId: v.id("users"),
     accessToken: v.string(),
+    githubAccountId: v.number(),
     username: v.string(),
     oauthStateId: v.id("oauthStates"),
   },
@@ -219,6 +226,7 @@ export const storeGithubOauthConnection = internalMutation({
         method: "oauth",
         credential: args.accessToken,
       },
+      githubAccountId: args.githubAccountId,
       username: args.username,
     });
     await ctx.db.delete(args.oauthStateId);
@@ -311,6 +319,7 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.githubOAuth.storeGithubOauthConnection, {
       userId: oauthState.userId,
       accessToken: token.accessToken,
+      githubAccountId: githubUser.githubAccountId,
       username: githubUser.username,
       oauthStateId: oauthState._id,
     });

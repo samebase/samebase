@@ -3,6 +3,55 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
+async function createConnectedVaultForBranchResolution() {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada@example.com",
+      isApproved: true,
+    });
+    const vaultId = await ctx.db.insert("vaults", {
+      userId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    const runId = await ctx.db.insert("appProvisioningRuns", {
+      userId,
+      vaultId,
+      repositoryFullName: "ada/inventory",
+      trigger: "connect_existing_repository",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: 1,
+      updatedAt: 2,
+      completedAt: 3,
+    });
+    await ctx.db.replace(vaultId, {
+      userId,
+      deletion: { state: "not_deleting" },
+      state: "connected",
+      githubMode: "connect_existing_repository",
+      runId,
+      ghRepoId: "123",
+      owner: "ada",
+      name: "inventory",
+      defaultBranch: "main",
+      visibility: "private",
+      connectedAt: 4,
+    });
+    return { userId, vaultId };
+  });
+  return {
+    t,
+    ids,
+    asUser: t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    }),
+  };
+}
+
 describe("vault records Convex contract", () => {
   it("defaults connection resource links open for new vaults", async () => {
     const t = makeConvexTest();
@@ -211,5 +260,134 @@ describe("vault records Convex contract", () => {
         excludeVaultId: ids.firstFailedVaultId,
       }),
     ).resolves.toBe(true);
+  });
+
+  it("keeps a requested branch until the first complete inventory can validate it", async () => {
+    const { asUser } = await createConnectedVaultForBranchResolution();
+
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "ada/inventory",
+        branch: "feature/new",
+      }),
+    ).resolves.toMatchObject({
+      defaultBranch: "main",
+      resolvedBranch: "feature/new",
+      branchNotFound: false,
+    });
+  });
+
+  it("uses the active inventory to resolve exact branches and reject missing branches", async () => {
+    const { asUser, ids, t } = await createConnectedVaultForBranchResolution();
+    const checks = {
+      state: "success" as const,
+      totalCount: 0,
+      checkRunCount: 0,
+      statusContextCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      runningCount: 0,
+      neutralCount: 0,
+      unknownCount: 0,
+      syncedAt: 10,
+    };
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultRepositoryInventoryGenerations", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        generation: 1,
+        itemCount: 2,
+        branchCount: 2,
+        pullRequestCount: 0,
+        labelChunkCount: 0,
+        createdAt: 10,
+      });
+      await ctx.db.insert("vaultRepositoryInventories", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryNodeId: "R_inventory",
+        repositoryFullName: "Ada/Inventory",
+        activeGeneration: 1,
+        publishedAt: 10,
+        itemCount: 2,
+        branchCount: 2,
+        pullRequestCount: 0,
+        fingerprint: "inventory",
+      });
+      await ctx.db.insert("vaultRepositoryInventoryItems", {
+        kind: "branch",
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        generation: 1,
+        kindRank: 0,
+        timeRank: 0,
+        tie: "trunk",
+        rowKey: "branch:trunk",
+        branchLookupKey: "branch:trunk",
+        lastSyncedAt: 10,
+        name: "trunk",
+        repositoryFullName: "Ada/Inventory",
+        headCommitSha: "trunk-sha",
+        lastCommitAt: 9,
+        isDefault: true,
+        headCommit: {
+          sha: "trunk-sha",
+          committedAt: 9,
+          checks,
+        },
+      });
+      await ctx.db.insert("vaultRepositoryInventoryItems", {
+        kind: "branch",
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        generation: 1,
+        kindRank: 2,
+        timeRank: -10,
+        tie: "Feature/Case",
+        rowKey: "branch:Feature/Case",
+        branchLookupKey: "branch:Feature/Case",
+        lastSyncedAt: 10,
+        name: "Feature/Case",
+        repositoryFullName: "Ada/Inventory",
+        headCommitSha: "feature-sha",
+        lastCommitAt: 10,
+        isDefault: false,
+        headCommit: {
+          sha: "feature-sha",
+          committedAt: 10,
+          checks,
+        },
+      });
+    });
+
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "ada/inventory",
+        branch: "Feature/Case",
+      }),
+    ).resolves.toMatchObject({
+      defaultBranch: "trunk",
+      resolvedBranch: "Feature/Case",
+      branchNotFound: false,
+    });
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "ada/inventory",
+      }),
+    ).resolves.toMatchObject({
+      defaultBranch: "trunk",
+      resolvedBranch: "trunk",
+      branchNotFound: false,
+    });
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "ada/inventory",
+        branch: "feature/case",
+      }),
+    ).resolves.toMatchObject({
+      defaultBranch: "trunk",
+      resolvedBranch: "trunk",
+      branchNotFound: true,
+    });
   });
 });

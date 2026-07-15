@@ -4,9 +4,8 @@
 
 - Status: In progress
 - Owner: Samebase dashboard/frontend
-- Last updated: 2026-07-04
+- Last updated: 2026-07-15
 - Related specs:
-  - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
   - `archive/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
 
 ## Summary
@@ -27,7 +26,7 @@ and matches the store pattern introduced for the logo controls.
 
 1. Do not change dashboard vault or branch refresh behavior in this patch.
 2. Do not move refresh scheduling, visibility listeners, or token refresh polling into the store.
-3. Do not change persisted Convex dashboard settings or vault branch filter semantics.
+3. Do not change persisted Convex dashboard settings.
 4. Do not add route/query persistence for local-only UI state.
 
 ## State Migration Plan
@@ -41,9 +40,8 @@ Migrate these state buckets now:
 5. Infrastructure retry pending vault id.
 6. Sign-out pending state.
 7. Global chat busy and autofocus handoff state.
-8. Branch filter control search text and open state.
-9. Visual fixture counters.
-10. Last-updated status text-selection frozen timestamp.
+8. Visual fixture counters.
+9. Last-updated status text-selection frozen timestamp.
 
 Keep these refresh-owned pieces out of scope until the server-side workflow branch lands:
 
@@ -57,8 +55,7 @@ Keep these refresh-owned pieces out of scope until the server-side workflow bran
 
 1. Use `useCreateStore` and `useSelector` from `@tanstack/react-store`, matching the logo preview
    store style.
-2. Prefer feature-owned hooks such as `useVaultDashboardLocalStore` and
-   `useVaultBranchFiltersControlStore` over shared generic wrappers.
+2. Prefer feature-owned hooks such as `useVaultDashboardLocalStore` over shared generic wrappers.
 3. Keep async Convex calls in React handlers; store actions should update local UI state only.
 4. Keep existing refs for popup windows, selection, and scroll anchoring because they are imperative
    DOM or browser handles rather than render state.
@@ -67,7 +64,6 @@ Keep these refresh-owned pieces out of scope until the server-side workflow bran
 
 - [x] Dashboard production components no longer use `useState` for migrated UI state.
 - [x] Refresh scheduling logic is behaviorally unchanged.
-- [x] Branch filter search/open behavior is unchanged on desktop and touch sheet surfaces.
 - [x] Delete dialog defaults and pending/error states match existing behavior.
 - [ ] Existing dashboard tests and targeted visual fixtures pass.
 

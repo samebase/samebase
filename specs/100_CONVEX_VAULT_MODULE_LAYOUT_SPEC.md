@@ -8,6 +8,7 @@
 - Related docs:
   - `specs/095_CONVEX_CODESPACES_MODULE_SPLIT_SPEC.md`
   - `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
+  - `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
 
@@ -68,10 +69,11 @@ The move touches roughly:
 - 54 relative imports such as `./vaultState` or `../vaultState`
 - 32 non-vault files outside the moved cluster
 
-No data migration is required. Convex function references are file-path based, but table names are
-schema names. The existing tables stay named `vaults`, `vaultRemoteBranches`, `vaultBranchTrees`,
-`vaultInfrastructure`, `vaultInfrastructureOwnership`, `vaultDeletionRuns`, `vaultDeletionEvents`,
-and `vaultDomains`.
+The module move itself required no data migration because Convex function references are file-path
+based while table names are schema names. The current repository surfaces use `vaults`,
+`vaultRepositoryInventories`, `vaultRepositoryInventoryRefreshes`,
+`vaultRepositoryInventoryGenerations`, `vaultRepositoryInventoryItems`,
+`vaultRepositoryInventoryLabelChunks`, and `vaultBranchTrees`.
 
 ## Accepted Module Shape
 
@@ -98,14 +100,15 @@ apps/samebase/convex/vault/
 
 The old root `vault.ts` should be split while moving:
 
-- `vault/dashboard.ts` owns dashboard-facing public functions: `getUserVaults`,
-  `getUserVaultBranchFilters`, `setVaultBranchFilters`, and `getVaultInfrastructure`.
+- `vault/dashboard.ts` owns dashboard-facing public functions such as `getUserVaults` and
+  `getVaultInfrastructure`.
 - `vault/actions.ts` owns public actions for connect, create, retry, delete, and repository-owner
   discovery.
 - `vault/records.ts` owns internal vault row creation, lookup, source connection, readiness, and
   failure mutations.
-- `vault/branches.ts` owns remote branch sync, branch-tree cache, tree refresh claims, Cloudflare
-  preview metadata sync, and branch selection helpers.
+- `vault/branches.ts` owns only branch-tree cache reads/writes and tree refresh leases. Complete
+  repository branch, pull request, check, and label discovery lives in the root
+  `repositoryInventory*` modules because it is a separate provider inventory domain.
 - `vault/model.ts` owns vault validators and vault-owned state validators used by schema.
 - `vault/state.ts` owns runtime guards such as `assertConnectedVault` and `isLiveConnectedVault`.
 - `vault/deletion/*` owns deletion models, eligibility, runs, events, local cleanup, workflow
@@ -121,8 +124,6 @@ The accepted public and internal Convex references are named by responsibility:
 
 - `api.vault.dashboard.getUserVaults`
 - `api.vault.dashboard.getVaultInfrastructure`
-- `api.vault.dashboard.getUserVaultBranchFilters`
-- `api.vault.dashboard.setVaultBranchFilters`
 - `api.vault.records.getVaultByRepository`
 - `api.vault.actions.connectRepository`
 - `api.vault.actions.createRepository`
@@ -130,8 +131,9 @@ The accepted public and internal Convex references are named by responsibility:
 - `api.vault.actions.listRepositoryOwners`
 - `api.vault.actions.retryDeleteVault`
 - `api.vault.actions.retryInfrastructureProvisioning`
-- `api.vault.branches.getVaultRemoteBranches`
-- `api.vault.branches.startTreeRefreshOptimistic`
+- `api.repositoryInventory.getRepositoryInventoryState`
+- `api.repositoryInventory.listRepositoryInventoryPage`
+- `api.repositoryInventory.requestRepositoryInventoryRefresh`
 - `internal.vault.records.getById`
 - `internal.vault.records.getByIdForUser`
 - `internal.vault.records.getInfrastructureByVaultId`
@@ -144,13 +146,14 @@ The accepted public and internal Convex references are named by responsibility:
 - `internal.vault.records.markGithubProvisioningFailed`
 - `internal.vault.records.markVaultAsReady`
 - `internal.vault.records.updateVaultDevcontainerConfig`
-- `internal.vault.branches.getVaultRemoteBranch`
 - `internal.vault.branches.getVaultBranchTree`
 - `internal.vault.branches.upsertVaultBranchTree`
-- `internal.vault.branches.syncVaultRemoteBranches`
 - `internal.vault.branches.claimTreeRefresh`
 - `internal.vault.branches.releaseTreeRefresh`
 - `internal.vault.branches.recordTreeRefreshFailure`
+- `internal.repositoryInventory.*`
+- `internal.repositoryInventoryActions.runRepositoryInventoryRefresh`
+- `internal.githubGraphqlRateBudget.*`
 - `internal.vault.deletion.runs.*`
 - `internal.vault.deletion.events.*`
 - `internal.vault.deletion.cleanup.*`
@@ -177,7 +180,8 @@ shape:
 
 ```ts
 vaults: vaultsTable,
-vaultRemoteBranches: vaultRemoteBranchesTable,
+vaultRepositoryInventories: vaultRepositoryInventoriesTable,
+vaultRepositoryInventoryItems: vaultRepositoryInventoryItemsTable,
 vaultBranchTrees: vaultBranchTreesTable,
 vaultDeletionRuns: vaultDeletionRunsTable,
 ```
@@ -195,8 +199,8 @@ Keep these domains outside `vault/`:
 - `appProvisioningWorkflow*.ts` and `appProvisioningRuns.ts`: app creation workflow orchestration
 - `chat/`, `agent/`, and `toolRuntime/`: agent and approval surfaces
 - `codespaces/`: GitHub Codespaces lifecycle
-- `github.ts` and `githubChecks.ts`: GitHub API integration
-- `repositoryRefresh*.ts`: refresh queue ownership
+- `github.ts`: branch-scoped GitHub tree API integration
+- `repositoryInventory*.ts`: selected-vault repository inventory lifecycle and generation ownership
 
 Those modules should update imports and function references to the new vault paths. They should not
 be pulled under `vault/` merely because vault identity is part of their arguments.

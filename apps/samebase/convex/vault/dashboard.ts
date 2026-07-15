@@ -11,7 +11,7 @@ import {
 } from "./state";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
-import { hasBranchStagingChanges } from "./branches";
+import { hasStagedFileChanges } from "../stagingChanges";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import { vVaultResourceLinksState } from "./resourceLinksStateModel";
 import { canAccess } from "../../shared/accessModel";
@@ -29,7 +29,7 @@ import {
 } from "./contracts/getUserVaults";
 import { readVaultProviderUpstreamPresence } from "./model";
 
-const { array, boolean, id, object, optional, string } = v;
+const { array, id, string } = v;
 type SourceSetupVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository" | "connect_existing_repository" }
@@ -539,13 +539,6 @@ async function readCloudflareWorkersForVault(
   return workers.sort(compareCloudflareWorkerSortOrder);
 }
 
-const vVaultBranchFilters = object({
-  vaultId: id("vaults"),
-  hiddenLabels: array(string()),
-  includeDrafts: boolean(),
-  includeNoLabel: optional(boolean()),
-});
-
 /**
  * Dashboard URLs fail closed when provider metadata is partial. Trim before
  * checking presence and encode every segment before handing it to the browser.
@@ -604,25 +597,6 @@ export function buildConvexProjectSettingsDashboardUrl(args: {
 
 // MARK: Public
 
-export const getUserVaultBranchFilters = query({
-  access: "access_dashboard",
-  args: {},
-  returns: array(vVaultBranchFilters),
-  handler: async (ctx) => {
-    return (
-      await ctx.db
-        .query("vaultBranchFilters")
-        .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
-        .collect()
-    ).map((vaultBranchFilter) => ({
-      vaultId: vaultBranchFilter.vaultId,
-      hiddenLabels: vaultBranchFilter.hiddenLabels,
-      includeDrafts: vaultBranchFilter.includeDrafts,
-      includeNoLabel: vaultBranchFilter.includeNoLabel !== false,
-    }));
-  },
-});
-
 export const getUserVaultResourceLinksState = query({
   access: "access_dashboard",
   args: {},
@@ -675,52 +649,6 @@ export const setVaultResourceLinksOpen = mutation({
       vaultId: args.vaultId,
       ...nextState,
     });
-  },
-});
-
-export const setVaultBranchFilters = mutation({
-  access: "access_dashboard",
-  args: vVaultBranchFilters,
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
-      throw new Error("Vault not found");
-    }
-    if (isVaultDeletingOrDeleteFailed(vault)) {
-      throw new Error("Vault deletion is in progress.");
-    }
-
-    const existing = await ctx.db
-      .query("vaultBranchFilters")
-      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
-      .first();
-    const shouldPersist =
-      args.hiddenLabels.length > 0 || args.includeDrafts === true || args.includeNoLabel === false;
-
-    if (!shouldPersist) {
-      if (existing) {
-        await ctx.db.delete(existing._id);
-      }
-      return;
-    }
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        hiddenLabels: args.hiddenLabels,
-        includeDrafts: args.includeDrafts,
-        includeNoLabel: args.includeNoLabel !== false,
-      });
-    } else {
-      await ctx.db.insert("vaultBranchFilters", {
-        userId,
-        vaultId: args.vaultId,
-        hiddenLabels: args.hiddenLabels,
-        includeDrafts: args.includeDrafts,
-        includeNoLabel: args.includeNoLabel !== false,
-      });
-    }
   },
 });
 
@@ -849,12 +777,6 @@ async function readUserVaults(
       commitSHA: undefined,
       fileCount: 0,
       lastEditTime: undefined,
-      lastTreeRefreshAt: vault.lastTreeRefreshAt,
-      treeRefreshStartedAt: vault.treeRefreshStartedAt,
-      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-      treeRefreshFailureKind: vault.treeRefreshFailureKind,
-      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
       state: vault.state === "failed" ? "failed" : "copying_files",
       sourceSetup: await resolveSourceSetupSummary(ctx, {
         hasUsableDefaultBranchTree: false,
@@ -925,12 +847,6 @@ async function readUserVaults(
           commitSHA: undefined,
           fileCount: 0,
           lastEditTime: undefined,
-          lastTreeRefreshAt: vault.lastTreeRefreshAt,
-          treeRefreshStartedAt: vault.treeRefreshStartedAt,
-          lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-          treeRefreshFailureKind: vault.treeRefreshFailureKind,
-          treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-          treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
           state: deletion.state === "delete_failed" ? "failed" : "copying_files",
           sourceSetup: { status: "not_applicable" },
           providerSetup: { status: "not_applicable" },
@@ -961,7 +877,7 @@ async function readUserVaults(
         hasCreatedConvexProjectForVault(ctx, vault._id),
       ]);
 
-      const fileCount = stagingData.filter(hasBranchStagingChanges).length;
+      const fileCount = stagingData.filter(hasStagedFileChanges).length;
 
       const lastEditTime =
         stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
@@ -987,12 +903,6 @@ async function readUserVaults(
         commitSHA: defaultBranchTree?.commitSHA,
         fileCount,
         lastEditTime,
-        lastTreeRefreshAt: vault.lastTreeRefreshAt,
-        treeRefreshStartedAt: vault.treeRefreshStartedAt,
-        lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-        treeRefreshFailureKind: vault.treeRefreshFailureKind,
-        treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-        treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
         sourceSetup,
         providerSetup,

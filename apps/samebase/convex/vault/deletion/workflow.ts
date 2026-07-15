@@ -63,6 +63,14 @@ export const deleteVaultWorkflow = workflow.define({
     await step.runMutation(internal.vault.deletion.runs.claimWorkflowRun, args, {
       name: "lock_vault",
     });
+    await step.runMutation(
+      internal.repositoryInventory.quiesceForVaultDeletion,
+      {
+        vaultId: args.vaultId,
+        userId: args.userId,
+      },
+      { name: "quiesce_repository_inventory" },
+    );
     await step.runAction(internal.vault.deletion.providerActions.deleteConnectedCodespaces, args, {
       name: "delete_codespaces",
       retry: idempotentProviderStepRetry,

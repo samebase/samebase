@@ -68,7 +68,7 @@ async function seedDeletingUserWithConnectedVault() {
         requestedAt: 3,
       },
     });
-    return { userId, vaultId, provisioningRunId };
+    return { provisioningRunId, userId, vaultId };
   });
   return { ids, t };
 }
@@ -132,18 +132,21 @@ describe("account deletion late-write fences", () => {
     });
   });
 
-  it("rejects refresh demand created by in-flight setup work", async () => {
+  it("rejects repository inventory demand created by in-flight work", async () => {
     const { ids, t } = await seedDeletingUserWithConnectedVault();
 
     await expect(
-      t.mutation(internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh, {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        runId: ids.provisioningRunId,
-      }),
-    ).rejects.toThrow("Repository refresh is unavailable during account deletion.");
+      t.mutation(
+        internal.repositoryInventory.completeExistingRepositoryConnectionAndRequestInventory,
+        {
+          userId: ids.userId,
+          runId: ids.provisioningRunId,
+          vaultId: ids.vaultId,
+        },
+      ),
+    ).rejects.toThrow("Repository inventory is unavailable during account deletion.");
     await t.run(async (ctx) => {
-      expect(await ctx.db.query("repositoryRefreshRequests").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryRefreshes").collect()).toEqual([]);
     });
   });
 });

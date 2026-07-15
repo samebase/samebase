@@ -48,6 +48,7 @@ const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vMcpOauthAuth, vApiK
 const vGithubConnectionUpsert = object({
   userId: id("users"),
   auth: vStandardProviderAuth,
+  githubAccountId: number(),
   username: optional(string()),
 });
 const vConvexConnectionUpsert = object({
@@ -71,6 +72,7 @@ const vGithubConnectionResult = object({
   kind: literal("github"),
   userId: id("users"),
   auth: vStandardProviderAuth,
+  githubAccountId: optional(number()),
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
@@ -153,7 +155,40 @@ async function deleteConnectionByUserAndKind(
   if (!existing) {
     return;
   }
-  await db.delete(existing._id);
+  await deleteProviderConnection(db, existing);
+}
+
+async function deleteGitHubGraphqlRateBudgetIfUnreferenced(
+  db: DatabaseWriter,
+  githubAccountId: number,
+): Promise<void> {
+  const connection = await db
+    .query("providerConnections")
+    .withIndex("by_kind_and_githubAccountId", (query) =>
+      query.eq("kind", "github").eq("githubAccountId", githubAccountId),
+    )
+    .first();
+  if (connection) {
+    return;
+  }
+
+  const budget = await db
+    .query("githubGraphqlRateBudgets")
+    .withIndex("by_githubAccountId", (query) => query.eq("githubAccountId", githubAccountId))
+    .unique();
+  if (budget) {
+    await db.delete(budget._id);
+  }
+}
+
+export async function deleteProviderConnection(
+  db: DatabaseWriter,
+  connection: Doc<"providerConnections">,
+): Promise<void> {
+  await db.delete(connection._id);
+  if (connection.kind === "github" && connection.githubAccountId !== undefined) {
+    await deleteGitHubGraphqlRateBudgetIfUnreferenced(db, connection.githubAccountId);
+  }
 }
 
 async function upsertGithubConnection(
@@ -164,17 +199,26 @@ async function upsertGithubConnection(
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "github");
   if (existing) {
+    if (existing.kind !== "github") {
+      throw new Error("GitHub connection lookup returned another provider.");
+    }
+    const previousGithubAccountId = existing.githubAccountId;
     await db.patch(existing._id, {
       auth: args.auth,
+      githubAccountId: args.githubAccountId,
       username: args.username,
-      updatedAt: now,
+      updatedAt: Math.max(now, existing.updatedAt + 1),
     });
+    if (previousGithubAccountId !== undefined && previousGithubAccountId !== args.githubAccountId) {
+      await deleteGitHubGraphqlRateBudgetIfUnreferenced(db, previousGithubAccountId);
+    }
     return;
   }
   await db.insert("providerConnections", {
     kind: "github",
     userId: args.userId,
     auth: args.auth,
+    githubAccountId: args.githubAccountId,
     username: args.username,
     createdAt: now,
     updatedAt: now,
@@ -286,6 +330,33 @@ export const upsertGithub = internalMutation({
   handler: async (ctx, args) => {
     await upsertGithubConnection(ctx.db, args);
     return null;
+  },
+});
+
+export const setGithubIdentityIfUnchanged = internalMutation({
+  args: {
+    providerConnectionId: id("providerConnections"),
+    expectedUpdatedAt: number(),
+    githubAccountId: number(),
+    username: string(),
+  },
+  returns: boolean(),
+  handler: async (ctx, args): Promise<boolean> => {
+    const connection = await ctx.db.get(args.providerConnectionId);
+    if (
+      connection?.kind !== "github" ||
+      connection.updatedAt !== args.expectedUpdatedAt ||
+      connection.githubAccountId !== undefined
+    ) {
+      return false;
+    }
+
+    await ctx.db.patch(connection._id, {
+      githubAccountId: args.githubAccountId,
+      username: args.username,
+      updatedAt: Math.max(Date.now(), connection.updatedAt + 1),
+    });
+    return true;
   },
 });
 

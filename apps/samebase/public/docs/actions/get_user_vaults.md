@@ -63,31 +63,6 @@ JSON Schema for the tool's `structuredContent`:
           "lastEditTime": {
             "type": "number"
           },
-          "lastTreeRefreshAt": {
-            "type": "number"
-          },
-          "treeRefreshStartedAt": {
-            "type": "number"
-          },
-          "lastTreeRefreshFailedAt": {
-            "type": "number"
-          },
-          "treeRefreshFailureKind": {
-            "anyOf": [
-              {
-                "const": "failed"
-              },
-              {
-                "const": "rate_limited"
-              }
-            ]
-          },
-          "treeRefreshFailureMessage": {
-            "type": "string"
-          },
-          "treeRefreshCooldownUntil": {
-            "type": "number"
-          },
           "state": {
             "anyOf": [
               {

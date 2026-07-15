@@ -7,6 +7,7 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import { query } from "../functions";
+import { readActiveRepositoryInventoryBranchSelection } from "../repositoryInventory";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
   parseRepositoryFullName,
@@ -20,8 +21,6 @@ import {
   isSamebaseManagedVault,
 } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
-import { countActiveRemoteBranches, resolveVaultBranchSelection } from "./branches";
-import { getLastRepositoryMetadataRefreshAt } from "../../shared/treeRefresh";
 
 const nullValidator = v.null();
 const { boolean, id, object, optional, string } = v;
@@ -580,15 +579,18 @@ async function getVaultByRepositoryHelper(
       ? args.branch.trim()
       : undefined;
 
-  const remoteBranches = await ctx.db
-    .query("vaultRemoteBranches")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-    .collect();
-  const { defaultBranch, resolvedBranch, branchNotFound } = resolveVaultBranchSelection({
-    requestedBranch,
-    defaultBranch: vault.defaultBranch,
-    remoteBranches,
+  const inventorySelection = await readActiveRepositoryInventoryBranchSelection(ctx, {
+    vaultId: vault._id,
+    branch: requestedBranch ?? vault.defaultBranch,
   });
+  const defaultBranch = inventorySelection?.defaultBranch?.name ?? vault.defaultBranch;
+  const branchNotFound = Boolean(
+    requestedBranch &&
+    inventorySelection &&
+    !inventorySelection.branch &&
+    requestedBranch !== defaultBranch,
+  );
+  const resolvedBranch = branchNotFound ? defaultBranch : (requestedBranch ?? defaultBranch);
 
   const branchTree = await ctx.db
     .query("vaultBranchTrees")
@@ -615,11 +617,6 @@ async function getVaultByRepositoryHelper(
     treeRefreshFailureKind: vault.treeRefreshFailureKind,
     treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-    lastRepositoryMetadataRefreshAt: getLastRepositoryMetadataRefreshAt(remoteBranches),
-    // Budget automatic refreshes from live remote branches only; retained
-    // deleted-upstream rows are local recovery state, not GitHub fan-out.
-    remoteBranchCount: countActiveRemoteBranches(remoteBranches),
-    hasResolvedBranchTree: Boolean(branchTree),
     defaultBranch,
     resolvedBranch,
     branchNotFound,

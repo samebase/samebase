@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Status: Accepted for branch-tip check identity
+- Status: Archived and superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Owner: vault dashboard, GitHub checks, repository refresh
 - Created: 2026-06-24
 - Last updated: 2026-06-24
 - Related RFCs:
-  - `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
+  - `archive/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
 - Related specs:
   - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 

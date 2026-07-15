@@ -355,12 +355,22 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
                   <VaultSyncStatusContent
                     repositoryFullName={FIXTURE_REPOSITORY_FULL_NAME}
                     branch={FIXTURE_BRANCH}
-                    owner={FIXTURE_OWNER}
-                    repoName={FIXTURE_REPOSITORY_NAME}
                     commitSha={FIXTURE_COMMIT_SHA}
+                    checks={{
+                      state: "success",
+                      totalCount: 8,
+                      checkRunCount: 7,
+                      statusContextCount: 1,
+                      successCount: 8,
+                      failureCount: 0,
+                      runningCount: 0,
+                      neutralCount: 0,
+                      unknownCount: 0,
+                      primaryTargetUrl: `https://github.com/${FIXTURE_REPOSITORY_FULL_NAME}/commit/${FIXTURE_COMMIT_SHA}/checks`,
+                      syncedAt: FIXTURE_NOW - 60_000,
+                    }}
                     lastTreeRefreshAt={FIXTURE_NOW - 60_000}
                     now={FIXTURE_NOW}
-                    showChecks={false}
                   />
                   <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
                     Review Changes

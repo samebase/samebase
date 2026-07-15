@@ -1,4 +1,5 @@
 import { v, type Infer } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import {
   internalMutation,
   internalQuery,
@@ -15,7 +16,7 @@ import {
   readStagedFileKind,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
-import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
+import { assertConnectedVault } from "./vault/state";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
@@ -773,8 +774,10 @@ export const clearMatchingStagingSnapshot = internalMutation({
 });
 
 const DELETION_BATCH_SIZE = 500;
+const CLEAR_ALL_STAGING_BATCH_SIZE = 10;
+const CLEAR_ALL_STAGING_BATCH_MAX_BYTES = 8 * 1024 * 1024;
 
-type ClearAllStagingPlan<VaultId extends string = string, UserId extends string = string> = {
+type ClearAllStagingPlan<VaultId extends string = string> = {
   stagingQuery:
     | { indexName: "by_vault"; vaultId: VaultId }
     | {
@@ -787,28 +790,13 @@ type ClearAllStagingPlan<VaultId extends string = string, UserId extends string 
     branch?: string;
     cutoffTimestamp: number;
   };
-  treeRefreshArgs: {
-    userId: UserId;
-    owner: string;
-    repo: string;
-    target: { scope: "repository" } | { scope: "branch"; branch: string };
-    includeAheadBehind: boolean;
-    includePullRequestLinks: boolean;
-    includeBranchHeadCommitCheckSnapshots: boolean;
-    branchHeadCommitCheckBranchNames: string[];
-  } | null;
 };
 
-export function buildClearAllStagingPlan<VaultId extends string, UserId extends string>(args: {
+export function buildClearAllStagingPlan<VaultId extends string>(args: {
   vaultId: VaultId;
   branch?: string;
   cleanupCutoffTimestamp: number;
-  vault: {
-    userId: UserId;
-    owner: string;
-    name: string;
-  } | null;
-}): ClearAllStagingPlan<VaultId, UserId> {
+}): ClearAllStagingPlan<VaultId> {
   return {
     stagingQuery:
       args.branch === undefined
@@ -826,81 +814,102 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
       branch: args.branch,
       cutoffTimestamp: args.cleanupCutoffTimestamp,
     },
-    treeRefreshArgs: args.vault
-      ? {
-          userId: args.vault.userId,
-          owner: args.vault.owner,
-          repo: args.vault.name,
-          target:
-            args.branch === undefined
-              ? { scope: "repository" }
-              : { scope: "branch", branch: args.branch },
-          includeAheadBehind: false,
-          includePullRequestLinks: false,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        }
-      : null,
   };
 }
 
 type ClearAllStagingArgs = {
   vaultId: Infer<typeof vaultIdValidator>;
   branch?: string;
-  skipTreeUpdate?: boolean;
 };
 
-export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagingArgs) {
-  // Get vault info to schedule tree update
-  const vault = await ctx.db.get(args.vaultId);
-  const cleanupCutoffTimestamp = Date.now() + 1;
+const clearAllStagingBatchArgsValidator = object({
+  vaultId: vaultIdValidator,
+  branch: optional(branchValidator),
+  cutoffTimestamp: number(),
+  paginationOpts: paginationOptsValidator,
+});
+type ClearAllStagingBatchArgs = Infer<typeof clearAllStagingBatchArgsValidator>;
+
+export async function clearAllStagingBatchImpl(ctx: MutationCtx, args: ClearAllStagingBatchArgs) {
   const plan = buildClearAllStagingPlan({
     vaultId: args.vaultId,
     branch: args.branch,
-    cleanupCutoffTimestamp,
-    vault:
-      vault && isLiveConnectedVault(vault)
-        ? {
-            userId: vault.userId,
-            owner: vault.owner,
-            name: vault.name,
-          }
-        : null,
+    cleanupCutoffTimestamp: args.cutoffTimestamp,
   });
-
   const stagingFiles =
     plan.stagingQuery.indexName === "by_vault"
       ? await ctx.db
           .query("fileStaging")
-          .withIndex("by_vault", (q) => q.eq("vaultId", plan.stagingQuery.vaultId))
-          .collect()
+          .withIndex("by_vault", (q) =>
+            q.eq("vaultId", plan.stagingQuery.vaultId).lt("_creationTime", args.cutoffTimestamp),
+          )
+          .paginate(args.paginationOpts)
       : await (() => {
           const branchScopedQuery = plan.stagingQuery;
           return ctx.db
             .query("fileStaging")
             .withIndex("by_vault_and_branch", (q) =>
-              q.eq("vaultId", branchScopedQuery.vaultId).eq("branch", branchScopedQuery.branch),
+              q
+                .eq("vaultId", branchScopedQuery.vaultId)
+                .eq("branch", branchScopedQuery.branch)
+                .lt("_creationTime", args.cutoffTimestamp),
             )
-            .collect();
+            .paginate(args.paginationOpts);
         })();
 
-  for (const staging of stagingFiles) {
+  for (const staging of stagingFiles.page) {
+    if (staging.lastEditTime >= args.cutoffTimestamp) {
+      continue;
+    }
+
     await ctx.db.delete(staging._id);
   }
 
-  // Delete collaborative updates in batches to avoid hitting read limits.
-  // Schedule the first batch. It will chain further batches if needed.
+  if (!stagingFiles.isDone) {
+    await ctx.scheduler.runAfter(0, internal.fileStaging.clearAllStagingBatch, {
+      vaultId: args.vaultId,
+      branch: args.branch,
+      cutoffTimestamp: args.cutoffTimestamp,
+      paginationOpts: {
+        ...args.paginationOpts,
+        cursor: stagingFiles.continueCursor,
+      },
+    });
+  }
+
+  return null;
+}
+
+export const clearAllStagingBatch = internalMutation({
+  args: clearAllStagingBatchArgsValidator,
+  returns: nullResultValidator,
+  handler: clearAllStagingBatchImpl,
+});
+
+export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagingArgs) {
+  const cleanupCutoffTimestamp = Date.now() + 1;
+  const plan = buildClearAllStagingPlan({
+    vaultId: args.vaultId,
+    branch: args.branch,
+    cleanupCutoffTimestamp,
+  });
+
   await ctx.scheduler.runAfter(
     0,
     internal.fileStaging.deleteCollaborativeUpdatesBatch,
     plan.deleteCollaborativeUpdatesArgs,
   );
-
-  // Update tree to ensure it's fresh after clearing staging
-  // Skip when called from commitAllStaged (tree is already updated there)
-  if (plan.treeRefreshArgs && !args.skipTreeUpdate) {
-    await ctx.scheduler.runAfter(0, internal.github.updateRepositoryTree, plan.treeRefreshArgs);
-  }
+  await clearAllStagingBatchImpl(ctx, {
+    vaultId: args.vaultId,
+    branch: args.branch,
+    cutoffTimestamp: cleanupCutoffTimestamp,
+    paginationOpts: {
+      numItems: CLEAR_ALL_STAGING_BATCH_SIZE,
+      cursor: null,
+      maximumRowsRead: CLEAR_ALL_STAGING_BATCH_SIZE,
+      maximumBytesRead: CLEAR_ALL_STAGING_BATCH_MAX_BYTES,
+    },
+  });
 
   return null;
 }
@@ -911,7 +920,6 @@ export const clearAllStaging = mutation({
   args: {
     vaultId: vaultIdValidator,
     branch: optional(branchValidator),
-    skipTreeUpdate: optional(boolean()),
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {

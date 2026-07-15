@@ -2,17 +2,17 @@
 
 ## Document Control
 
-- Status: Implemented; hidden-label server-side filtering deferred
+- Status: Superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Owner: Samebase dashboard and Convex vault
-- Last updated: 2026-07-04
+- Last updated: 2026-07-15
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
+  - `archive/067_VAULT_BRANCH_FILTERS_SPEC.md`
   - `specs/100_CONVEX_VAULT_MODULE_LAYOUT_SPEC.md`
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
 - Related RFCs:
-  - `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
-  - `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
+  - `archive/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
+  - `archive/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
 - Related files:
   - `apps/samebase/convex/schema.ts`
   - `apps/samebase/convex/vault/branches.ts`
@@ -27,6 +27,13 @@
   - [Convex React `usePaginatedQuery`](https://docs.convex.dev/api/modules/react#usepaginatedquery)
   - [TanStack Virtual React adapter](https://tanstack.com/virtual/latest/docs/framework/react/react-virtual)
   - [TanStack Virtual infinite scroll example](https://tanstack.com/virtual/v3/docs/framework/react/examples/infinite-scroll)
+
+## Supersession Note
+
+The dashboard no longer reads its repository catalog from `vaultRemoteBranches`. The GraphQL
+repository inventory owns complete branch and open pull request pagination, so the remote-branch
+pagination query, filter metadata query, stored sort ranks, and compound sort index described below
+were deleted.
 
 ## Summary
 

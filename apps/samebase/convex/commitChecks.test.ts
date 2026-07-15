@@ -20,6 +20,19 @@ Script: [noter-worker](https://dash.cloudflare.com/workers/services/view/noter-w
 Version ID: d5b7c5f1-4ddf-4930-a398-3f26f6d00a19`;
 
 describe("normalizeCommitCheckRun", () => {
+  it.each(["queued", "in_progress", "pending", "requested", "waiting"])(
+    "classifies GitHub's %s check status as running",
+    (status) => {
+      expect(
+        normalizeCommitCheckRun({
+          id: status,
+          name: "GitHub Actions",
+          status,
+        }),
+      ).toMatchObject({ state: "running", status });
+    },
+  );
+
   it("stores Cloudflare Workers preview metadata on the normalized check item", () => {
     expect(
       normalizeCommitCheckRun({

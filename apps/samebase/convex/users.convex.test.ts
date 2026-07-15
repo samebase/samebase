@@ -76,6 +76,51 @@ describe("users Convex contract", () => {
     });
   });
 
+  it("persists the stable GitHub account id for a new API key connection", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(JSON.stringify({ id: 101, login: "ada" }), {
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    try {
+      const asUser = t.withIdentity({
+        subject: `${userId}|test-session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+      await expect(
+        asUser.action(api.users.connectGithubWithApiKey, {
+          token: "github-api-key",
+        }),
+      ).resolves.toEqual({ username: "ada" });
+      await expect(
+        t.run(async (ctx) => {
+          return await ctx.db
+            .query("providerConnections")
+            .withIndex("by_user_kind", (query) => query.eq("userId", userId).eq("kind", "github"))
+            .unique();
+        }),
+      ).resolves.toMatchObject({
+        kind: "github",
+        githubAccountId: 101,
+        username: "ada",
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("ignores inactive GitHub sign-in accounts in auth provider presentation", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

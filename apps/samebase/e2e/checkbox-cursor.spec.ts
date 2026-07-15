@@ -7,19 +7,6 @@ test("checkbox controls use interactive cursor affordances", async ({ page }) =>
 
   await expect(page.locator('label[for="remove-convex-provision"]')).toHaveCSS("cursor", "pointer");
 
-  await page.goto("/visual-fixture?mode=vault-branch-filters", {
-    waitUntil: "networkidle",
-  });
-
-  await page.getByRole("button", { name: "Filters" }).click();
-  await expect(page.getByRole("checkbox").first()).toHaveCSS("cursor", "pointer");
-  await expect(
-    page
-      .locator("label")
-      .filter({ has: page.getByRole("checkbox") })
-      .first(),
-  ).toHaveCSS("cursor", "pointer");
-
   await page.goto("/visual-fixture?mode=file-view-compare-sidebar", {
     waitUntil: "networkidle",
   });

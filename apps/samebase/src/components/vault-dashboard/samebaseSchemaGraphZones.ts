@@ -107,6 +107,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   users: "identity",
   providerConnections: "providers",
   oauthStates: "providers",
+  githubGraphqlRateBudgets: "providers",
 
   connectedMachines: "machines",
   machineRegistrationRequests: "machines",
@@ -117,7 +118,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 
   dashboardSettings: "workspace",
   workspaceSidebarState: "workspace",
-  vaultBranchFilters: "workspace",
   vaultResourceLinksState: "workspace",
   folderExpansionState: "workspace",
 
@@ -125,11 +125,12 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   vaultApps: "vault",
   vaultDomains: "vault",
 
-  vaultRemoteBranches: "repository",
-  githubCommitCheckSnapshots: "repository",
-  githubCommitCheckItems: "repository",
+  vaultRepositoryInventories: "repository",
+  vaultRepositoryInventoryRefreshes: "repository",
+  vaultRepositoryInventoryGenerations: "repository",
+  vaultRepositoryInventoryItems: "repository",
+  vaultRepositoryInventoryLabelChunks: "repository",
   vaultBranchTrees: "repository",
-  repositoryRefreshRequests: "repository",
 
   vaultCloudflareWorkers: "infrastructure",
   vaultConvexDeployments: "infrastructure",

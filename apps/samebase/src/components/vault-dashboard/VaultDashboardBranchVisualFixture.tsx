@@ -21,18 +21,19 @@ export function VaultDashboardBranchVisualFixture() {
               <VaultBranchLinkContent
                 repositoryFullName="samebase/samebase"
                 branch={{
+                  rowKey: "pr:999",
                   name: "codex/draft-pr-button",
+                  githubRepositoryFullName: "samebase/samebase",
+                  canOpenInSamebase: true,
                   headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
                   commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
                   isDefault: false,
-                  isProtected: false,
-                  remoteState: "active",
                   lastSyncedAt: 0,
-                  aheadBy: 3,
-                  behindBy: 0,
                   pullRequestUrl: "https://github.com/samebase/samebase/pull/999",
                   pullRequestNumber: 999,
                   pullRequestTitle: "Show PR titles above lighter branch labels",
+                  pullRequestIsDraft: true,
+                  pullRequestLabels: [{ name: "dashboard", color: "1d76db" }],
                 }}
               />
             </TestRouterProvider>

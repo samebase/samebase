@@ -62,8 +62,8 @@ optional peer resolution.
 - import `convexTest` from `convex-test`
 - pass `apps/samebase/convex/schema.ts`
 - pass a filtered `import.meta.glob` module map for Convex source files
-- register `@convex-dev/agent` with component name `agent`
-- register `@convex-dev/workflow` with component name `workflow`
+- register every installed component used by tested functions, including agent, workflow, Workpool,
+  and migrations
 
 Each test should call the helper at the start of the test so state is isolated. Use `t.run` to seed
 database rows, `t.withIdentity` to model authenticated users, `t.query`/`t.mutation`/`t.action` for
@@ -75,7 +75,7 @@ Start with the user-owned public surface. Each user-owned area should include at
 isolation case that proves user B cannot read or mutate user A's rows through public functions:
 
 - users: viewer, approval, provider connection status, disconnect mutations
-- vaults: ownership, listing, branch filter state, branch/tree visibility
+- vaults: ownership, listing, repository inventory publication, and branch-tree visibility
 - chat: thread lifecycle, prod-read approval/rejection/audit state
 - file staging: ownership denial, create/update/delete rows, branch summaries
 - connected machines: registration, approval, heartbeat, control tokens

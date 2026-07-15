@@ -11,8 +11,8 @@ import {
   createCommitWithMultipleFiles,
   getDraftPullRequestCreateErrorMessage,
   inspectStagedFilesAgainstLatestHead,
-  readLatestOpenPullRequestForBranch,
   readOpenPullRequestForBranch,
+  resolvePublishedRepositoryCompareIdentity,
   shouldAdvanceBinaryPullParentCommit,
 } from "./fileStagingActions";
 
@@ -388,46 +388,84 @@ describe("draft pull request helpers", () => {
     ).toBe("This branch has no changes to open as a pull request.");
   });
 
-  it("keeps the latest open pull request for compare mode even when the base branch differs", () => {
+  it("uses the published pull request base and canonical repository for compare mode", () => {
     expect(
-      readLatestOpenPullRequestForBranch({
-        branch: "feature-branch",
-        repositoryFullName: "test-owner/test-repo",
-        pullRequests: [
-          {
-            number: 41,
-            html_url: "https://github.com/test-owner/test-repo/pull/41",
-            updated_at: "2026-03-21T10:00:00Z",
-            base: {
-              ref: "main",
-            },
-            head: {
-              ref: "feature-branch",
-              repo: {
-                full_name: "test-owner/test-repo",
-              },
-            },
-          },
-          {
-            number: 43,
-            html_url: "https://github.com/test-owner/test-repo/pull/43",
-            updated_at: "2026-03-23T10:00:00Z",
-            base: {
-              ref: "release/1.2",
-            },
-            head: {
-              ref: "feature-branch",
-              repo: {
-                full_name: "test-owner/test-repo",
-              },
+      resolvePublishedRepositoryCompareIdentity({
+        state: "ready",
+        repositoryFullName: "renamed-owner/renamed-repo",
+        defaultBranch: "main",
+        branch: {
+          name: "feature-branch",
+          headCommitSha: "feature-sha",
+          isDefault: false,
+          headCommit: {
+            sha: "feature-sha",
+            checks: {
+              state: "running",
+              totalCount: 1,
+              checkRunCount: 1,
+              statusContextCount: 0,
+              successCount: 0,
+              failureCount: 0,
+              runningCount: 1,
+              neutralCount: 0,
+              unknownCount: 0,
+              syncedAt: 1,
             },
           },
-        ],
+        },
+        pullRequest: {
+          number: 43,
+          url: "https://github.com/renamed-owner/renamed-repo/pull/43",
+          isDraft: true,
+          baseRefName: "release/1.2",
+        },
       }),
     ).toEqual({
-      url: "https://github.com/test-owner/test-repo/pull/43",
-      number: 43,
+      owner: "renamed-owner",
+      repo: "renamed-repo",
+      branch: "feature-branch",
       baseBranch: "release/1.2",
+      pullRequest: {
+        url: "https://github.com/renamed-owner/renamed-repo/pull/43",
+        number: 43,
+      },
+    });
+  });
+
+  it("uses the published default branch when the branch has no open pull request", () => {
+    expect(
+      resolvePublishedRepositoryCompareIdentity({
+        state: "ready",
+        repositoryFullName: "test-owner/test-repo",
+        defaultBranch: "trunk",
+        branch: {
+          name: "feature-branch",
+          headCommitSha: "feature-sha",
+          isDefault: false,
+          headCommit: {
+            sha: "feature-sha",
+            checks: {
+              state: "success",
+              totalCount: 0,
+              checkRunCount: 0,
+              statusContextCount: 0,
+              successCount: 0,
+              failureCount: 0,
+              runningCount: 0,
+              neutralCount: 0,
+              unknownCount: 0,
+              syncedAt: 1,
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "feature-branch",
+      baseBranch: "trunk",
+      pullRequest: undefined,
     });
   });
 });

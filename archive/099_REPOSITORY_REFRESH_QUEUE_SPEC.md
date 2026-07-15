@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Accepted current implementation plan
+- Status: Superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Owner: dashboard reload, GitHub sync, branch cache freshness
 - Created: 2026-05-11
 - Related docs:

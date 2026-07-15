@@ -6,7 +6,7 @@ import { Infer, v } from "convex/values";
 import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
-import { getConnectionByUserAndKind } from "./providerConnections";
+import { deleteProviderConnection, getConnectionByUserAndKind } from "./providerConnections";
 import { action, mutation, query } from "./functions";
 import { readOptionalEnv } from "./oauthUtils";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
@@ -510,6 +510,7 @@ function buildCloudflareConnectionStatus(
 }
 
 async function fetchGithubIdentity(token: string): Promise<{
+  githubAccountId: number;
   username: string;
 }> {
   let response: Awaited<ReturnType<Octokit["rest"]["users"]["getAuthenticated"]>>;
@@ -526,11 +527,14 @@ async function fetchGithubIdentity(token: string): Promise<{
     throw error;
   }
 
-  if (!response.data.login) {
+  if (!Number.isSafeInteger(response.data.id) || response.data.id <= 0 || !response.data.login) {
     throw new Error("Invalid GitHub API key");
   }
 
-  return { username: response.data.login };
+  return {
+    githubAccountId: response.data.id,
+    username: response.data.login,
+  };
 }
 
 async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
@@ -917,7 +921,7 @@ export const disconnectGithub = mutation({
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
     if (connection) {
-      await ctx.db.delete(connection._id);
+      await deleteProviderConnection(ctx.db, connection);
     }
   },
 });
@@ -1209,6 +1213,7 @@ export const connectGithubWithApiKey = action({
         method: "api_key",
         credential: token,
       },
+      githubAccountId: identity.githubAccountId,
       username: identity.username,
     });
 

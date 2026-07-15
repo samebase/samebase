@@ -1,5 +1,9 @@
 # Dashboard Vault PR Refresh Investigation
 
+> Superseded on 2026-07-15 by `research/2026-07-15-github-repository-inventory-overhaul.md` and the
+> accepted contract in `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`. This file describes the
+> retired REST catalog.
+
 ## Problem Statement
 
 The dashboard can show stale branch and pull request data for a vault, which makes PR review
@@ -16,10 +20,10 @@ when the repository has changed upstream.
 
 ## Supersession Note
 
-This investigation predates the repository refresh queue. Use
-`specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md` for new refresh-trigger work. The current contract
-collapses route load, Page Visibility resume, and window focus into the same passive source demand;
-do not revive separate `page_load`, `visibility`, or `focus` policy from this research log.
+This investigation and the refresh queue it led to are historical. Use
+`specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md` for current work. The selected visible vault now
+requests one complete repository inventory on mount or visibility resume and every 60 seconds while
+visible. Window focus is not a separate trigger.
 
 ## Initial Hypotheses
 

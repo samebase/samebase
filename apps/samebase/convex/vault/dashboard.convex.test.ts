@@ -2305,18 +2305,6 @@ describe("vault dashboard Convex contract", () => {
       const storageId = await ctx.storage.store(new Blob(["cached"], { type: "text/plain" }));
       const stagedStorageId = await ctx.storage.store(new Blob(["staged"], { type: "text/plain" }));
 
-      await ctx.db.insert("vaultBranchFilters", {
-        userId,
-        vaultId,
-        hiddenLabels: [],
-        includeDrafts: false,
-      });
-      await ctx.db.insert("vaultBranchFilters", {
-        userId: collaboratorId,
-        vaultId,
-        hiddenLabels: ["wip"],
-        includeDrafts: true,
-      });
       await ctx.db.insert("vaultResourceLinksState", {
         userId,
         vaultId,
@@ -2380,18 +2368,6 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         folderPath: "/",
         isExpanded: true,
-      });
-      await ctx.db.insert("vaultRemoteBranches", {
-        vaultId,
-        name: "main",
-        headCommitSha: "commit",
-        isDefault: true,
-        isProtected: false,
-        remoteState: "active",
-        defaultRank: 0,
-        stateRank: 0,
-        commitRank: Number.MAX_SAFE_INTEGER,
-        lastSyncedAt: 6,
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -2473,15 +2449,6 @@ describe("vault dashboard Convex contract", () => {
         payloadJson: "{}",
         createdAt: 12,
       });
-      await ctx.db.insert("repositoryRefreshRequests", {
-        userId,
-        vaultId,
-        dedupeKey: `${vaultId}:main`,
-        demand: { scope: "branch", branch: "main", source: "file_view" },
-        lifecycle: { state: "canceled", canceledAt: 12, reason: "vault_deleting" },
-        createdAt: 12,
-        updatedAt: 12,
-      });
       const requestId = await ctx.db.insert("aiProdAccessRequests", {
         threadId: "thread-1",
         requesterUserId: userId,
@@ -2550,13 +2517,11 @@ describe("vault dashboard Convex contract", () => {
     ).rejects.toThrow("Agent thread context not found.");
     expect(tables).toEqual(
       expect.arrayContaining([
-        "vaultBranchFilters",
         "vaultResourceLinksState",
         "fileStaging",
         "collaborativeUpdates",
         "blobs",
         "folderExpansionState",
-        "vaultRemoteBranches",
         "vaultBranchTrees",
         "vaultDomains",
         "vaultConvexDeployments",
@@ -2565,7 +2530,6 @@ describe("vault dashboard Convex contract", () => {
         "agentGraphNodeLayout",
         "aiProdAccessRequests",
         "agentThreadContext",
-        "repositoryRefreshRequests",
         "appProvisioningEvents",
         "appProvisioningRuns",
       ]),
@@ -2582,10 +2546,6 @@ describe("vault dashboard Convex contract", () => {
         stagedStorage,
         storage,
         vault: await ctx.db.get(ids.vaultId),
-        branchFilters: await ctx.db
-          .query("vaultBranchFilters")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .collect(),
         resourceLinksState: await ctx.db
           .query("vaultResourceLinksState")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
@@ -2598,10 +2558,6 @@ describe("vault dashboard Convex contract", () => {
           .query("aiProdAccessRequests")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
-        refreshRequests: await ctx.db
-          .query("repositoryRefreshRequests")
-          .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", ids.vaultId))
-          .collect(),
         threadMetadata: await ctx.db
           .query("chatMessageMetadata")
           .withIndex("by_threadId", (q) => q.eq("threadId", "thread-1"))
@@ -2610,11 +2566,9 @@ describe("vault dashboard Convex contract", () => {
     });
 
     expect(snapshot.vault).toBeNull();
-    expect(snapshot.branchFilters).toHaveLength(0);
     expect(snapshot.resourceLinksState).toHaveLength(0);
     expect(snapshot.branchTrees).toHaveLength(0);
     expect(snapshot.prodRequestsForVault).toHaveLength(0);
-    expect(snapshot.refreshRequests).toHaveLength(0);
     expect(snapshot.threadMetadata).toHaveLength(0);
     expect(snapshot.storage).toBeNull();
     expect(snapshot.stagedStorage).toBeNull();

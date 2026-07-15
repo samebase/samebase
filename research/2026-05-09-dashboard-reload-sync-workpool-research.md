@@ -7,7 +7,7 @@
 - Created: 2026-05-09
 - Simplified: 2026-05-11
 - Authoritative implementation spec:
-  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+  - `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Related specs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`

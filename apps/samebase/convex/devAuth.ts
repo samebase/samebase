@@ -15,6 +15,7 @@ import type { Id } from "./_generated/dataModel";
 import {
   assertProviderConnectionWriteAllowed,
   buildSeedCloudflareDefaultAccount,
+  deleteProviderConnection,
   getConnectionByUserAndKind,
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
@@ -118,14 +119,10 @@ async function upsertGithubApiKey(
   const existing = await getConnectionByUserAndKind(db, userId, "github");
   const now = Date.now();
   if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      updatedAt: now,
-    });
-    return;
+    if (existing.kind === "github" && existing.auth.credential === credential) {
+      return;
+    }
+    await deleteProviderConnection(db, existing);
   }
   await db.insert("providerConnections", {
     kind: "github",

@@ -2,10 +2,16 @@
 
 ## Document Control
 
-- Status: Implemented
+- Status: Superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Owner: Samebase dashboard/frontend
-- Last updated: 2026-03-24
+- Last updated: 2026-07-15
 - Background research: `rfcs/068_VAULT_BRANCH_PR_FILTERING_RESEARCH.md`
+
+## Supersession Note
+
+The selected-vault inventory now shows every branch and every open pull request. The saved
+branch-filter UI, persistence table, and dashboard endpoints described below were deleted rather
+than carried into the inventory implementation.
 
 ## Summary
 

@@ -1,20 +1,17 @@
-import {
-  buildVaultBranchFilterOptions,
-  filterVaultRemoteBranches,
-  type VaultBranchFilterable,
-  type VaultBranchFilters as VaultBranchFiltersState,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import { api } from "../../../convex/_generated/api";
+
+type RepositoryInventoryItem =
+  (typeof api.repositoryInventory.listRepositoryInventoryPage)["_returnType"]["page"][number];
 
 export interface VaultRemoteBranchListItem {
+  rowKey: string;
   name: string;
+  githubRepositoryFullName?: string;
+  canOpenInSamebase: boolean;
   headCommitSha: string;
   isDefault: boolean;
-  isProtected: boolean;
-  remoteState: "active" | "deleted_upstream";
   lastSyncedAt: number;
   commits: VaultBranchCommitListItem[];
-  aheadBy?: number;
-  behindBy?: number;
   pullRequestUrl?: string;
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
@@ -45,24 +42,44 @@ export interface VaultBranchCommitChecksSummary {
   syncedAt: number;
 }
 
-export function buildVaultBranchSectionState<Branch extends VaultBranchFilterable>({
-  filters,
-  remoteBranches,
-}: {
-  filters: VaultBranchFiltersState;
-  remoteBranches: readonly Branch[];
-}) {
-  const filteredRemoteBranches = filterVaultRemoteBranches(remoteBranches, filters);
-  const hiddenBranchCount = remoteBranches.length - filteredRemoteBranches.length;
-  const filterOptions = buildVaultBranchFilterOptions({
-    branches: remoteBranches,
-    hiddenLabels: filters.hiddenLabels,
-    includeNoLabel: filters.includeNoLabel,
-  });
+export function mapRepositoryInventoryItemToDashboardRow(
+  item: RepositoryInventoryItem,
+): VaultRemoteBranchListItem {
+  const commit = {
+    sha: item.headCommit.sha,
+    title: item.headCommit.title,
+    authoredAt: item.headCommit.authoredAt,
+    checks: item.headCommit.checks,
+  };
+
+  if (item.kind === "branch") {
+    return {
+      rowKey: item.rowKey,
+      name: item.name,
+      githubRepositoryFullName: item.repositoryFullName,
+      canOpenInSamebase: true,
+      headCommitSha: item.headCommitSha,
+      isDefault: item.isDefault,
+      lastSyncedAt: item.lastSyncedAt,
+      commits: [commit],
+      previewUrl: item.previewUrl,
+    };
+  }
 
   return {
-    filteredRemoteBranches,
-    filterOptions,
-    hiddenBranchCount,
+    rowKey: item.rowKey,
+    name: item.headRefName,
+    githubRepositoryFullName: item.headRepositoryFullName,
+    canOpenInSamebase: item.canOpenInSamebase,
+    headCommitSha: item.headCommitSha,
+    isDefault: false,
+    lastSyncedAt: item.lastSyncedAt,
+    commits: [commit],
+    pullRequestUrl: item.url,
+    pullRequestNumber: item.number,
+    pullRequestLabels: item.labels,
+    pullRequestTitle: item.title,
+    pullRequestIsDraft: item.isDraft,
+    previewUrl: item.previewUrl,
   };
 }

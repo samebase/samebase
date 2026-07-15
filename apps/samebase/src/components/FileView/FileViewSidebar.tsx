@@ -28,8 +28,7 @@ type FileViewSidebarContentProps = Pick<
   | "autoExpandedPaths"
   | "forceAutoExpandedPaths"
 > & {
-  owner: string;
-  repoName: string;
+  repositoryFullName: string;
   effectiveSidebarMode: EffectiveSidebarMode;
   isCompareRequested: boolean;
   compareModeSummary: CompareModeSummary | null;
@@ -49,8 +48,7 @@ type FileViewSidebarFooterProps = {
 };
 
 export function FileViewSidebarContent({
-  owner,
-  repoName,
+  repositoryFullName,
   effectiveSidebarMode,
   isCompareRequested,
   compareModeSummary,
@@ -79,11 +77,11 @@ export function FileViewSidebarContent({
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
           <a
             className={`truncate text-xs font-medium text-muted-foreground ${linkStyle}`}
-            href={`https://github.com/${owner}/${repoName}`}
+            href={`https://github.com/${repositoryFullName}`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            {owner}/{repoName}
+            {repositoryFullName}
           </a>
 
           <div className="flex-1" />

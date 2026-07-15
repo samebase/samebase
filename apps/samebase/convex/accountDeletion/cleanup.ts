@@ -24,6 +24,7 @@ type AccountDeletionTablePolicy =
   | "auth_finalization"
   | "receipt"
   | "global"
+  | "migration_only"
   | "action_quiescence"
   | "user_finalization";
 
@@ -43,6 +44,7 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   accountDeletionEvents: "receipt",
   agentActionLeases: "action_quiescence",
   providerConnections: "provider_revocation",
+  githubGraphqlRateBudgets: "global",
   connectedMachines: "account_local",
   machineRegistrationRequests: "account_local",
   machineRegistrationBootstrapRateLimits: "global",
@@ -50,7 +52,7 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   machineControlTokens: "account_local",
   dashboardSettings: "account_local",
   workspaceSidebarState: "account_local",
-  vaultBranchFilters: "vault_local",
+  vaultBranchFilters: "migration_only",
   vaultResourceLinksState: "vault_local",
   vaults: "vault_local",
   vaultApps: "vault_local",
@@ -58,11 +60,17 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   vaultConvexDeployments: "vault_local",
   vaultConvexSchemaSnapshots: "vault_local",
   vaultConvexSchemaGraphLayouts: "vault_local",
-  vaultRemoteBranches: "vault_local",
-  githubCommitCheckSnapshots: "global",
-  githubCommitCheckItems: "global",
+  vaultRemoteBranches: "migration_only",
+  vaultRepositoryInventories: "vault_local",
+  vaultRepositoryInventoryRefreshes: "vault_local",
+  vaultRepositoryInventoryGenerations: "vault_local",
+  vaultRepositoryInventoryItems: "vault_local",
+  vaultRepositoryInventoryLabelChunks: "vault_local",
+  githubCommitCheckSnapshots: "migration_only",
+  githubCommitCheckItems: "migration_only",
   vaultBranchTrees: "vault_local",
-  repositoryRefreshRequests: "vault_local",
+  repositoryRefreshRequests: "migration_only",
+  legacyRepositoryInventoryCleanupState: "migration_only",
   vaultInfrastructureTargets: "vault_local",
   vaultInfrastructureOwnership: "vault_local",
   appProvisioningRuns: "vault_local",
@@ -98,7 +106,6 @@ type AccountLocalTableName = {
 }[TableNames];
 
 const accountLocalCleanupTarget = union(
-  literal("repositoryRefreshRequests"),
   literal("chatMessageMetadata"),
   literal("agentThreadContext"),
   literal("vaults"),
@@ -131,11 +138,6 @@ const accountLocalCleanupBatchResult = union(
     state: literal("blocked"),
     blocker: literal("active_app_provisioning"),
     runId: id("appProvisioningRuns"),
-  }),
-  object({
-    state: literal("blocked"),
-    blocker: literal("active_repository_refresh"),
-    requestId: id("repositoryRefreshRequests"),
   }),
   object({
     state: literal("needs_more"),
@@ -240,27 +242,6 @@ async function findActiveAppProvisioning(
   return null;
 }
 
-async function findActiveRepositoryRefresh(
-  ctx: AccountLocalCleanupCtx,
-  userId: Id<"users">,
-): Promise<Id<"repositoryRefreshRequests"> | null> {
-  for (const state of ["queued", "scheduled", "running"] as const) {
-    const request = await ctx.db
-      .query("repositoryRefreshRequests")
-      .withIndex("by_userId_and_lifecycle_state_and_updatedAt", (q) =>
-        q.eq("userId", userId).eq("lifecycle.state", state),
-      )
-      .order("asc")
-      .first();
-
-    if (request) {
-      return request._id;
-    }
-  }
-
-  return null;
-}
-
 async function findAccountDeletionCleanupBlocker(
   ctx: AccountLocalCleanupCtx,
   userId: Id<"users">,
@@ -285,15 +266,7 @@ async function findAccountDeletionCleanupBlocker(
     };
   }
 
-  const activeRefreshRequestId = await findActiveRepositoryRefresh(ctx, userId);
-
-  return activeRefreshRequestId
-    ? {
-        state: "blocked",
-        blocker: "active_repository_refresh",
-        requestId: activeRefreshRequestId,
-      }
-    : null;
+  return null;
 }
 
 async function assertAccountDeletionCleanupIsQuiescent(
@@ -352,19 +325,6 @@ async function cleanupVaultBatch(
     return { state: "needs_more", currentPhase: "vault_data", rowsChanged: 1 };
   }
 
-  const refreshRequests = await ctx.db
-    .query("repositoryRefreshRequests")
-    .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", vault._id))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-  if (refreshRequests.length > 0) {
-    return {
-      state: "needs_more",
-      currentPhase: "source_data",
-      rowsChanged: await deleteRowsById(ctx, refreshRequests),
-    };
-  }
-
   const result = await deleteVaultLocalDataBatchForUser(ctx, {
     userId,
     vaultId: vault._id,
@@ -387,12 +347,14 @@ function vaultCleanupPhase(
     case "collaborativeUpdates":
     case "blobs":
       return "staged_changes";
-    case "vaultBranchFilters":
     case "vaultResourceLinksState":
     case "folderExpansionState":
-    case "vaultRemoteBranches":
+    case "vaultRepositoryInventories":
+    case "vaultRepositoryInventoryRefreshes":
+    case "vaultRepositoryInventoryGenerations":
+    case "vaultRepositoryInventoryItems":
+    case "vaultRepositoryInventoryLabelChunks":
     case "vaultBranchTrees":
-    case "repositoryRefreshRequests":
       return "source_data";
     case "vaultDomains":
     case "vaultApps":
@@ -791,19 +753,6 @@ export async function cleanupAccountLocalDataBatchForUser(
 
   if (vaultResult.state === "vault_deleted") {
     return { state: "needs_more", target: "vaults", rowsChanged: 1 };
-  }
-
-  const refreshRequests = await ctx.db
-    .query("repositoryRefreshRequests")
-    .withIndex("by_userId_and_updatedAt", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-  if (refreshRequests.length > 0) {
-    return {
-      state: "needs_more",
-      target: "repositoryRefreshRequests",
-      rowsChanged: await deleteRowsById(ctx, refreshRequests),
-    };
   }
 
   for (const cleanup of Object.values(ACCOUNT_LOCAL_CLEANUP_HANDLERS)) {

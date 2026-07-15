@@ -24,10 +24,6 @@ type RgbaPixel = {
   red: number;
 };
 
-async function expectMobileSafeTextEntrySize(locator: Locator) {
-  await expect(locator).toHaveCSS("font-size", "16px");
-}
-
 async function seedAppWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
   await page.addInitScript(
     ({ state, storageKey, version }) => {
@@ -115,26 +111,6 @@ async function readVaultDashboardRightSidebarSeparatorPaint(
   };
 }
 
-async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
-  await expect
-    .poll(async () => {
-      const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
-      if (firstBox === null || secondBox === null) {
-        return false;
-      }
-
-      const horizontalOverlap =
-        Math.min(firstBox.x + firstBox.width, secondBox.x + secondBox.width) -
-        Math.max(firstBox.x, secondBox.x);
-      const verticalOverlap =
-        Math.min(firstBox.y + firstBox.height, secondBox.y + secondBox.height) -
-        Math.max(firstBox.y, secondBox.y);
-
-      return horizontalOverlap <= 0 || verticalOverlap <= 0;
-    })
-    .toBe(true);
-}
-
 async function expectOptionalCheckboxUnchecked(locator: Locator) {
   if ((await locator.count()) === 0) {
     return;
@@ -219,10 +195,13 @@ async function readReactFlowViewportTransform(container: Locator): Promise<strin
 }
 
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
-  await page.setViewportSize({ width: 640, height: 180 });
+  await page.setViewportSize({ width: 640, height: 260 });
   await openVaultDashboardVisualFixture(page, "vault-branch-pr-labels");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("PR #42 Keep every pull request field visible")).toBeVisible();
+  await expect(fixture.getByText("needs review", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("bug", { exact: true })).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-branch-pr-labels.png", {
     animations: "disabled",
     caret: "hide",
@@ -988,15 +967,11 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
   await expect(header.getByText("samebase", { exact: true })).toBeVisible();
-  const branchFilterCount = header.getByText("28 of 32", { exact: true });
-  const branchFiltersButton = header.getByRole("button", {
-    name: "Filters",
-    exact: true,
-  });
-  await expect(branchFilterCount).toBeVisible();
-  await expect(branchFiltersButton).toBeVisible();
-  await expectElementInsideContainer(branchFilterCount, header);
-  await expectElementInsideContainer(branchFiltersButton, header);
+  const updatedStatus = header.getByText("Updated 12s ago", { exact: true });
+  await expect(updatedStatus).toBeVisible();
+  await expectElementInsideContainer(updatedStatus, header);
+  await expect(header.getByRole("button", { name: "Filters", exact: true })).toHaveCount(0);
+  await expect(header.getByText("28 of 32", { exact: true })).toHaveCount(0);
   await expect(page.getByText("codex/sticky-dashboard-branch-05")).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-sticky-header.png", {
     animations: "disabled",
@@ -1024,7 +999,7 @@ test("vault dashboard fixture (large branch virtual list)", async ({ page }) => 
   await expect.poll(async () => branchRows.count()).toBeLessThan(80);
 
   let loadedBranchCount = 25;
-  for (let attempt = 0; attempt < 50 && loadedBranchCount < 1000; attempt += 1) {
+  for (let attempt = 0; attempt < 100 && loadedBranchCount < 1000; attempt += 1) {
     await scrollport.evaluate(async (element) => {
       element.scrollTop = element.scrollHeight;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
@@ -1075,52 +1050,6 @@ test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await expect(page.getByText("codex/dashboard-main-pane-spacing")).toBeVisible();
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-});
-
-test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 560 });
-  await openVaultDashboardVisualFixture(page, "vault-branch-filters");
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
-
-  await expectMobileSafeTextEntrySize(page.getByPlaceholder("Filter labels"));
-  await expect(page).toHaveScreenshot("vault-branch-filters-popover.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-});
-
-test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }, testInfo) => {
-  const baseURL = testInfo.project.use.baseURL;
-  if (typeof baseURL !== "string") {
-    throw new Error("Playwright baseURL is required for mobile fixture tests.");
-  }
-
-  const context = await browser.newContext({
-    ...devices["iPhone 13"],
-    baseURL,
-    reducedMotion: "reduce",
-  });
-  const page = await context.newPage();
-
-  await openVaultDashboardVisualFixture(page, "vault-branch-filters");
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
-
-  const sheet = page.locator("[data-slot='sheet-content']");
-  await expectMobileSafeTextEntrySize(sheet.getByPlaceholder("Filter labels"));
-  await expectElementsDoNotOverlap(
-    sheet.getByRole("button", { name: "Reset all" }),
-    sheet.getByRole("button", { name: "Close" }),
-  );
-  await expect(page).toHaveScreenshot("vault-branch-filters-mobile.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-
-  await context.close();
 });
 
 test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {

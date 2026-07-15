@@ -66,18 +66,6 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       visibility: "private",
       connectedAt: 4,
     });
-    await ctx.db.insert("vaultRemoteBranches", {
-      vaultId,
-      name: "main",
-      headCommitSha: "abc123",
-      isDefault: true,
-      isProtected: false,
-      remoteState: "active",
-      defaultRank: 0,
-      stateRank: 0,
-      commitRank: Number.MAX_SAFE_INTEGER,
-      lastSyncedAt: 5,
-    });
     await ctx.db.insert("vaultBranchTrees", {
       vaultId,
       branch: "main",
@@ -89,6 +77,18 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
         tree: [],
       },
       lastTreeRefreshAt: 6,
+    });
+    await ctx.db.insert("vaultRepositoryInventories", {
+      userId: ownerId,
+      vaultId,
+      repositoryNodeId: "R_owner_secure",
+      repositoryFullName: "owner/secure",
+      activeGeneration: 1,
+      publishedAt: 7,
+      itemCount: 0,
+      branchCount: 0,
+      pullRequestCount: 0,
+      fingerprint: "owner-inventory",
     });
     const stagingId = await ctx.db.insert("fileStaging", {
       ownerId,
@@ -207,25 +207,31 @@ describe("public Convex route ownership checks", () => {
       }),
     ).resolves.toBeNull();
     await expect(
-      asOther.query(api.vault.branches.getVaultRemoteBranches, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([]);
-    await expect(
-      asOther.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual([]);
-    await expect(
-      asOther.query(api.vault.branches.listVaultRemoteBranchesPage, {
-        vaultId: ids.vaultId,
-        paginationOpts: { cursor: null, numItems: 10 },
-      }),
-    ).resolves.toMatchObject({
-      page: [],
-      isDone: true,
-    });
-    await expect(
       asOther.query(api.vault.deletion.events.listForVault, { vaultId: ids.vaultId }),
     ).resolves.toEqual([]);
+    await expect(
+      asOther.query(api.repositoryInventory.getRepositoryInventoryState, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ state: "empty" });
+    await expect(
+      asOther.query(api.repositoryInventory.getRepositoryInventoryBranchContext, {
+        vaultId: ids.vaultId,
+        branch: "main",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      asOther.query(api.repositoryInventory.listRepositoryInventoryPage, {
+        vaultId: ids.vaultId,
+        generation: 1,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({ page: [], isDone: true });
+    await expect(
+      asOther.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Vault not found");
 
     await expect(
       asOwner.query(api.vault.records.getVaultByRepository, {
@@ -235,41 +241,6 @@ describe("public Convex route ownership checks", () => {
       _id: ids.vaultId,
       repositoryFullName: "owner/secure",
       resolvedBranch: "main",
-    });
-    await expect(
-      asOwner.query(api.vault.branches.getVaultRemoteBranches, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        name: "main",
-        headCommitSha: "abc123",
-        isDefault: true,
-      }),
-    ]);
-    await expect(
-      asOwner.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        name: "main",
-        isDefault: true,
-        remoteState: "active",
-      }),
-    ]);
-    await expect(
-      asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
-        vaultId: ids.vaultId,
-        paginationOpts: { cursor: null, numItems: 10 },
-      }),
-    ).resolves.toMatchObject({
-      page: [
-        expect.objectContaining({
-          name: "main",
-          headCommitSha: "abc123",
-          isDefault: true,
-        }),
-      ],
-      isDone: true,
     });
     await expect(
       asOwner.query(api.vault.deletion.events.listForVault, { vaultId: ids.vaultId }),
@@ -284,6 +255,25 @@ describe("public Convex route ownership checks", () => {
         step: "finish",
       },
     ]);
+    await expect(
+      asOwner.query(api.repositoryInventory.getRepositoryInventoryState, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      activeGeneration: 1,
+      repositoryFullName: "owner/secure",
+    });
+    await expect(
+      asOwner.query(api.repositoryInventory.getRepositoryInventoryBranchContext, {
+        vaultId: ids.vaultId,
+        branch: "main",
+      }),
+    ).resolves.toEqual({
+      state: "missing",
+      repositoryFullName: "owner/secure",
+      defaultBranch: "main",
+    });
   });
 
   it("hides owner-scoped graph, folder, and collaborative reads from another member", async () => {
@@ -401,7 +391,6 @@ describe("public Convex route ownership checks", () => {
       asOther.mutation(api.fileStaging.clearAllStaging, {
         vaultId: ids.vaultId,
         branch: "main",
-        skipTreeUpdate: true,
       }),
     ).rejects.toThrow("Unauthorized");
     await expect(

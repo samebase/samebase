@@ -36,10 +36,9 @@ should start as a narrow remote worker/component research track after the hosted
 proves the job contracts, idempotency keys, status model, and observability.
 
 Trigger note: this research was written while the frontend still used separate page-load and
-visibility refresh paths. The accepted queue contract in
-`specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md` now treats route load, Page Visibility resume, and
-window focus as the same passive source demand. Backend policy should not branch on those
-browser-event subtypes.
+visibility refresh paths. The current contract in `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
+requests one complete inventory for the selected visible vault on mount or Page Visibility resume
+and every 60 seconds while visible. Window focus is not a separate trigger.
 
 ## Current Runtime Shape
 

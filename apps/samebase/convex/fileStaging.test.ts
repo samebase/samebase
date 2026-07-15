@@ -6,6 +6,7 @@ import {
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
   canAccessVaultStaging,
+  clearAllStagingBatchImpl,
   clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
   selectRepositoryTreeForBranch,
@@ -23,15 +24,13 @@ const branchTree = [
 ];
 
 function createClearAllStagingTestContext(args: {
-  targetVaultId: string;
-  vault: {
-    userId: string;
-    state: "connected";
-    deletion: { state: "not_deleting" };
-    owner: string;
-    name: string;
-  } | null;
-  stagedFiles: Array<{ _id: string; vaultId: string; branch: string }>;
+  stagedFiles: Array<{
+    _id: string;
+    _creationTime: number;
+    vaultId: string;
+    branch: string;
+    lastEditTime: number;
+  }>;
 }) {
   const deletedIds: string[] = [];
   const scheduledCalls: Array<{
@@ -42,7 +41,17 @@ function createClearAllStagingTestContext(args: {
   const queriedScopes: Array<{
     table: string;
     indexName: string;
-    constraints: Array<{ field: string; value: string }>;
+    constraints: Array<{
+      operator: "eq" | "lt";
+      field: string;
+      value: string | number;
+    }>;
+    paginationOpts: {
+      numItems: number;
+      cursor: string | null;
+      maximumRowsRead?: number;
+      maximumBytesRead?: number;
+    };
   }> = [];
 
   return {
@@ -51,45 +60,84 @@ function createClearAllStagingTestContext(args: {
     scheduledCalls,
     ctx: {
       db: {
-        get: async (id: string) => (id === args.targetVaultId ? args.vault : null),
         query: (table: string) => ({
           withIndex: (
             indexName: string,
             buildIndex: (q: {
-              eq: (
-                field: string,
-                value: string,
-              ) => { eq: (field: string, value: string) => unknown };
+              eq: (field: string, value: string | number) => unknown;
+              lt: (field: string, value: string | number) => unknown;
             }) => unknown,
           ) => {
-            const constraints: Array<{ field: string; value: string }> = [];
+            const constraints: Array<{
+              operator: "eq" | "lt";
+              field: string;
+              value: string | number;
+            }> = [];
             const queryBuilder = {
-              eq: (field: string, value: string) => {
-                constraints.push({ field, value });
+              eq: (field: string, value: string | number) => {
+                constraints.push({ operator: "eq" as const, field, value });
+                return queryBuilder;
+              },
+              lt: (field: string, value: string | number) => {
+                constraints.push({ operator: "lt" as const, field, value });
                 return queryBuilder;
               },
             };
             buildIndex(queryBuilder);
 
             return {
-              collect: async () => {
-                queriedScopes.push({ table, indexName, constraints });
+              paginate: async (paginationOpts: {
+                numItems: number;
+                cursor: string | null;
+                maximumRowsRead?: number;
+                maximumBytesRead?: number;
+              }) => {
+                queriedScopes.push({ table, indexName, constraints, paginationOpts });
                 if (table !== "fileStaging") {
-                  return [];
+                  return { page: [], isDone: true, continueCursor: "" };
                 }
 
                 const vaultIdConstraint = constraints.find(
-                  (constraint) => constraint.field === "vaultId",
+                  (constraint) => constraint.operator === "eq" && constraint.field === "vaultId",
                 )?.value;
                 const branchConstraint = constraints.find(
-                  (constraint) => constraint.field === "branch",
+                  (constraint) => constraint.operator === "eq" && constraint.field === "branch",
                 )?.value;
+                const beforeCreationTime = constraints.find(
+                  (constraint) =>
+                    constraint.operator === "lt" && constraint.field === "_creationTime",
+                )?.value;
+                if (beforeCreationTime !== undefined && typeof beforeCreationTime !== "number") {
+                  throw new Error("Creation-time constraints must be numeric.");
+                }
 
-                return args.stagedFiles.filter(
-                  (file) =>
-                    file.vaultId === vaultIdConstraint &&
-                    (branchConstraint === undefined || file.branch === branchConstraint),
+                const matchingFiles = args.stagedFiles
+                  .filter(
+                    (file) =>
+                      file.vaultId === vaultIdConstraint &&
+                      (branchConstraint === undefined || file.branch === branchConstraint) &&
+                      (beforeCreationTime === undefined || file._creationTime < beforeCreationTime),
+                  )
+                  .sort(
+                    (left, right) =>
+                      left._creationTime - right._creationTime || left._id.localeCompare(right._id),
+                  );
+                const offset = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
+                if (!Number.isInteger(offset) || offset < 0) {
+                  throw new Error("Pagination cursor must contain a non-negative integer.");
+                }
+                const batchSize = Math.min(
+                  paginationOpts.numItems,
+                  paginationOpts.maximumRowsRead ?? paginationOpts.numItems,
                 );
+                const page = matchingFiles.slice(offset, offset + batchSize);
+                const nextOffset = offset + page.length;
+
+                return {
+                  page,
+                  isDone: nextOffset >= matchingFiles.length,
+                  continueCursor: String(nextOffset),
+                };
               },
             };
           },
@@ -359,17 +407,12 @@ describe("buildDeletedFileRestoreCandidate", () => {
 });
 
 describe("buildClearAllStagingPlan", () => {
-  it("uses a branch-scoped query and refresh plan when a branch is provided", () => {
+  it("uses a branch-scoped query when a branch is provided", () => {
     expect(
       buildClearAllStagingPlan({
         vaultId: "vault-1",
         branch: "feature/login",
         cleanupCutoffTimestamp: 123,
-        vault: {
-          userId: "users:owner",
-          owner: "octo",
-          name: "repo",
-        },
       }),
     ).toEqual({
       stagingQuery: {
@@ -382,16 +425,6 @@ describe("buildClearAllStagingPlan", () => {
         branch: "feature/login",
         cutoffTimestamp: 123,
       },
-      treeRefreshArgs: {
-        userId: "users:owner",
-        owner: "octo",
-        repo: "repo",
-        target: { scope: "branch", branch: "feature/login" },
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        branchHeadCommitCheckBranchNames: [],
-      },
     });
   });
 
@@ -400,11 +433,6 @@ describe("buildClearAllStagingPlan", () => {
       buildClearAllStagingPlan({
         vaultId: "vault-1",
         cleanupCutoffTimestamp: 456,
-        vault: {
-          userId: "users:owner",
-          owner: "octo",
-          name: "repo",
-        },
       }),
     ).toEqual({
       stagingQuery: {
@@ -416,59 +444,42 @@ describe("buildClearAllStagingPlan", () => {
         branch: undefined,
         cutoffTimestamp: 456,
       },
-      treeRefreshArgs: {
-        userId: "users:owner",
-        owner: "octo",
-        repo: "repo",
-        target: { scope: "repository" },
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        branchHeadCommitCheckBranchNames: [],
-      },
     });
   });
 
-  it("skips tree refresh when the vault is missing", () => {
-    expect(
-      buildClearAllStagingPlan({
-        vaultId: "vault-1",
-        branch: "feature/login",
-        cleanupCutoffTimestamp: 789,
-        vault: null,
-      }),
-    ).toEqual({
-      stagingQuery: {
-        indexName: "by_vault_and_branch",
-        vaultId: "vault-1",
-        branch: "feature/login",
-      },
-      deleteCollaborativeUpdatesArgs: {
-        vaultId: "vault-1",
-        branch: "feature/login",
-        cutoffTimestamp: 789,
-      },
-      treeRefreshArgs: null,
-    });
-  });
-
-  it("clears only the requested branch and refreshes that branch", async () => {
+  it("clears only the requested branch without scheduling a provider refresh", async () => {
     const targetVaultId = "vault-1";
     const targetBranch = "feature/login";
     const context = createClearAllStagingTestContext({
-      targetVaultId,
-      vault: {
-        userId: "users:owner",
-        state: "connected",
-        deletion: { state: "not_deleting" },
-        owner: "octo",
-        name: "repo",
-      },
       stagedFiles: [
-        { _id: "feature-1", vaultId: targetVaultId, branch: targetBranch },
-        { _id: "feature-2", vaultId: targetVaultId, branch: targetBranch },
-        { _id: "main-1", vaultId: targetVaultId, branch: "main" },
-        { _id: "other-vault", vaultId: "vault-2", branch: targetBranch },
+        {
+          _id: "feature-1",
+          _creationTime: 1,
+          vaultId: targetVaultId,
+          branch: targetBranch,
+          lastEditTime: 1,
+        },
+        {
+          _id: "feature-2",
+          _creationTime: 2,
+          vaultId: targetVaultId,
+          branch: targetBranch,
+          lastEditTime: 2,
+        },
+        {
+          _id: "main-1",
+          _creationTime: 3,
+          vaultId: targetVaultId,
+          branch: "main",
+          lastEditTime: 3,
+        },
+        {
+          _id: "other-vault",
+          _creationTime: 4,
+          vaultId: "vault-2",
+          branch: targetBranch,
+          lastEditTime: 4,
+        },
       ],
     });
 
@@ -483,9 +494,20 @@ describe("buildClearAllStagingPlan", () => {
         table: "fileStaging",
         indexName: "by_vault_and_branch",
         constraints: [
-          { field: "vaultId", value: targetVaultId },
-          { field: "branch", value: targetBranch },
+          { operator: "eq", field: "vaultId", value: targetVaultId },
+          { operator: "eq", field: "branch", value: targetBranch },
+          {
+            operator: "lt",
+            field: "_creationTime",
+            value: expect.any(Number),
+          },
         ],
+        paginationOpts: {
+          numItems: 10,
+          cursor: null,
+          maximumRowsRead: 10,
+          maximumBytesRead: 8_388_608,
+        },
       },
     ]);
     expect(context.deletedIds).toEqual(["feature-1", "feature-2"]);
@@ -499,21 +521,168 @@ describe("buildClearAllStagingPlan", () => {
           cutoffTimestamp: expect.any(Number),
         },
       },
+    ]);
+  });
+
+  it("clears every staged branch without scheduling provider refreshes", async () => {
+    const targetVaultId = "vault-1";
+    const context = createClearAllStagingTestContext({
+      stagedFiles: [
+        {
+          _id: "main-1",
+          _creationTime: 1,
+          vaultId: targetVaultId,
+          branch: "main",
+          lastEditTime: 1,
+        },
+        {
+          _id: "feature-1",
+          _creationTime: 2,
+          vaultId: targetVaultId,
+          branch: "feature/login",
+          lastEditTime: 2,
+        },
+        {
+          _id: "main-2",
+          _creationTime: 3,
+          vaultId: targetVaultId,
+          branch: "main",
+          lastEditTime: 3,
+        },
+        {
+          _id: "other-vault",
+          _creationTime: 4,
+          vaultId: "vault-2",
+          branch: "other",
+          lastEditTime: 4,
+        },
+      ],
+    });
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await clearAllStagingImpl(context.ctx, { vaultId: targetVaultId });
+
+    expect(context.deletedIds).toEqual(["main-1", "feature-1", "main-2"]);
+    expect(context.scheduledCalls).toHaveLength(1);
+    expect(context.scheduledCalls[0]?.fnRef).toEqual(
+      internal.fileStaging.deleteCollaborativeUpdatesBatch,
+    );
+  });
+
+  it("continues vault-wide clearing in bounded batches without deleting newer edits", async () => {
+    const targetVaultId = "vault-1";
+    const cutoffTimestamp = 1_000;
+    const context = createClearAllStagingTestContext({
+      stagedFiles: [
+        ...Array.from({ length: 12 }, (_, index) => ({
+          _id: `staging-${String(index + 1).padStart(2, "0")}`,
+          _creationTime: Math.floor(index / 2) + 1,
+          vaultId: targetVaultId,
+          branch: index % 2 === 0 ? "main" : "feature/login",
+          lastEditTime: index === 4 ? cutoffTimestamp : 100,
+        })),
+        {
+          _id: "created-after-clear",
+          _creationTime: cutoffTimestamp,
+          vaultId: targetVaultId,
+          branch: "main",
+          lastEditTime: cutoffTimestamp,
+        },
+      ],
+    });
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await clearAllStagingBatchImpl(context.ctx, {
+      vaultId: targetVaultId,
+      cutoffTimestamp,
+      paginationOpts: {
+        numItems: 10,
+        cursor: null,
+        maximumRowsRead: 10,
+        maximumBytesRead: 8_388_608,
+      },
+    });
+
+    expect(context.deletedIds).toEqual([
+      "staging-01",
+      "staging-02",
+      "staging-03",
+      "staging-04",
+      "staging-06",
+      "staging-07",
+      "staging-08",
+      "staging-09",
+      "staging-10",
+    ]);
+    expect(context.queriedScopes).toEqual([
       {
-        delayMs: 0,
-        fnRef: internal.github.updateRepositoryTree,
-        args: {
-          userId: "users:owner",
-          owner: "octo",
-          repo: "repo",
-          target: { scope: "branch", branch: targetBranch },
-          includeAheadBehind: false,
-          includePullRequestLinks: false,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
+        table: "fileStaging",
+        indexName: "by_vault",
+        constraints: [
+          { operator: "eq", field: "vaultId", value: targetVaultId },
+          { operator: "lt", field: "_creationTime", value: cutoffTimestamp },
+        ],
+        paginationOpts: {
+          numItems: 10,
+          cursor: null,
+          maximumRowsRead: 10,
+          maximumBytesRead: 8_388_608,
         },
       },
     ]);
+    expect(context.scheduledCalls).toHaveLength(1);
+    expect(context.scheduledCalls.at(-1)?.args).toEqual({
+      vaultId: targetVaultId,
+      branch: undefined,
+      cutoffTimestamp,
+      paginationOpts: {
+        numItems: 10,
+        cursor: "10",
+        maximumRowsRead: 10,
+        maximumBytesRead: 8_388_608,
+      },
+    });
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await clearAllStagingBatchImpl(context.ctx, {
+      vaultId: targetVaultId,
+      cutoffTimestamp,
+      paginationOpts: {
+        numItems: 10,
+        cursor: "10",
+        maximumRowsRead: 10,
+        maximumBytesRead: 8_388_608,
+      },
+    });
+
+    expect(context.deletedIds).toEqual([
+      "staging-01",
+      "staging-02",
+      "staging-03",
+      "staging-04",
+      "staging-06",
+      "staging-07",
+      "staging-08",
+      "staging-09",
+      "staging-10",
+      "staging-11",
+      "staging-12",
+    ]);
+    expect(context.queriedScopes.at(-1)).toEqual({
+      table: "fileStaging",
+      indexName: "by_vault",
+      constraints: [
+        { operator: "eq", field: "vaultId", value: targetVaultId },
+        { operator: "lt", field: "_creationTime", value: cutoffTimestamp },
+      ],
+      paginationOpts: {
+        numItems: 10,
+        cursor: "10",
+        maximumRowsRead: 10,
+        maximumBytesRead: 8_388_608,
+      },
+    });
+    expect(context.scheduledCalls).toHaveLength(1);
   });
 });
 

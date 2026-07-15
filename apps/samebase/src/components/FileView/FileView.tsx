@@ -31,6 +31,7 @@ import {
 } from "@/components/FileView/FileViewSidebar";
 import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
+import { useFileViewInventoryTreeSync } from "@/components/FileView/useFileViewInventoryTreeSync";
 import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
@@ -87,6 +88,7 @@ import {
   useFileViewRouteSearch,
 } from "@/routeSearch/fileView";
 import { encodeGitHubPath } from "@/lib/githubUrls";
+import { useRepositoryInventoryDemand } from "@/hooks/useRepositoryInventoryDemand";
 import {
   type BranchComparePreview,
   BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
@@ -104,11 +106,6 @@ import {
   type StagedFileRecord,
 } from "./fileViewShared";
 
-type FileViewAutoRefreshIntent = Extract<
-  (typeof api.github.refreshRepositoryTree)["_args"]["intent"],
-  "passive"
->;
-
 function FileViewWrapper() {
   const router = useRouter();
   const location = useLocation();
@@ -124,7 +121,7 @@ function FileViewWrapper() {
   } = useMemo(() => parseVaultPathContext(pathname), [pathname]);
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
-  const refreshTree = useAction(api.github.refreshRepositoryTree);
+  const refreshTree = useAction(api.github.refreshBranchTreeForFileView);
   const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
   const repositoryFullName =
@@ -145,6 +142,21 @@ function FileViewWrapper() {
   const branch = routeBranch ?? vault?.resolvedBranch;
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
+  useRepositoryInventoryDemand(vaultId ?? null);
+  const repositoryInventoryBranchContext = useQuery(
+    api.repositoryInventory.getRepositoryInventoryBranchContext,
+    vaultId && branch
+      ? {
+          vaultId,
+          branch,
+        }
+      : "skip",
+  );
+  const githubRepositoryFullName =
+    repositoryInventoryBranchContext?.state === "ready" ||
+    repositoryInventoryBranchContext?.state === "missing"
+      ? repositoryInventoryBranchContext.repositoryFullName
+      : repositoryFullName;
   const selectedTreeEntry = useMemo(
     () =>
       vault?.treeData?.tree.find((item: { path: string }) => item.path === selectedFile) ?? null,
@@ -274,37 +286,26 @@ function FileViewWrapper() {
     navigateByHref,
   ]);
 
-  const refreshTreeIfNeeded = useCallback(
-    (intent: FileViewAutoRefreshIntent = "passive") => {
-      if (
-        !vaultId ||
-        !owner ||
-        !repoName ||
-        !branch ||
-        (typeof vault.treeRefreshCooldownUntil === "number" &&
-          vault.treeRefreshCooldownUntil > Date.now())
-      ) {
-        return;
-      }
-      const key = `${owner}/${repoName}:branch:${branch}`;
-      if (!claimRefreshDebounce("file_view", key)) return;
-      void refreshTree({
-        vaultId,
-        branch,
-        intent,
-      }).catch((error: unknown) => {
-        console.error("Failed to refresh repository tree:", error);
-      });
-    },
-    [vaultId, owner, repoName, branch, refreshTree, vault?.treeRefreshCooldownUntil],
-  );
+  const refreshTreeIfNeeded = useCallback(() => {
+    if (!vaultId || !branch) {
+      return;
+    }
+    const key = `${githubRepositoryFullName ?? repositoryFullName}:branch:${branch}`;
+    if (!claimRefreshDebounce("file_view", key)) return;
+    void refreshTree({
+      vaultId,
+      branch,
+      request: { kind: "routine" },
+    }).catch((error: unknown) => {
+      console.error("Failed to refresh repository tree:", error);
+    });
+  }, [vaultId, githubRepositoryFullName, repositoryFullName, branch, refreshTree]);
 
   /**
-   * Refresh the active branch when the file route becomes active. Route load,
-   * visibility resume, and window focus are the same passive demand.
+   * Refresh the active branch when the file route becomes active or visible again.
    */
   useEffect(() => {
-    if (!vaultId || !owner || !repoName) return;
+    if (!vaultId) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -312,14 +313,7 @@ function FileViewWrapper() {
       }
     };
 
-    const handleFocus = () => {
-      if (document.visibilityState === "visible") {
-        refreshTreeIfNeeded();
-      }
-    };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
 
     // Initial sync when the vault loads while this tab is already active.
     if (document.visibilityState === "visible") {
@@ -328,9 +322,21 @@ function FileViewWrapper() {
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
     };
-  }, [vaultId, owner, repoName, refreshTreeIfNeeded]);
+  }, [vaultId, refreshTreeIfNeeded]);
+
+  const inventoryBranchHeadSha =
+    repositoryInventoryBranchContext?.state === "ready"
+      ? repositoryInventoryBranchContext.branch.headCommitSha
+      : undefined;
+  useFileViewInventoryTreeSync({
+    vaultId,
+    branch,
+    cachedTreeCommitSha: vault?.commitSHA,
+    inventoryHeadCommitSha: inventoryBranchHeadSha,
+    treeRefreshCooldownUntil: vault?.treeRefreshCooldownUntil,
+    refreshTree,
+  });
 
   /**
    * When the tree is loaded and the route does not name a file, pick the best
@@ -461,7 +467,7 @@ function FileViewWrapper() {
       !storageBackedSelection[storageBackedSelectionKey]
     ) {
       void firstDocAction({
-        repositoryFullName: `${owner}/${repoName}`,
+        repositoryFullName: githubRepositoryFullName ?? `${owner}/${repoName}`,
         originalFilePath: selectedFile,
         branch,
       }).catch((error: unknown) => {
@@ -486,6 +492,7 @@ function FileViewWrapper() {
     storageBackedSelection,
     storageBackedSelectionKey,
     firstDocAction,
+    githubRepositoryFullName,
     owner,
     repoName,
   ]);
@@ -497,7 +504,11 @@ function FileViewWrapper() {
     return null;
   }
   if (!hasFileViewVaultTree(vault)) {
-    return <FileViewRepositorySetupState repositoryFullName={`${owner}/${repoName}`} />;
+    return (
+      <FileViewRepositorySetupState
+        repositoryFullName={githubRepositoryFullName ?? `${owner}/${repoName}`}
+      />
+    );
   }
 
   return (
@@ -507,6 +518,8 @@ function FileViewWrapper() {
       branch={branch}
       owner={owner}
       repoName={repoName}
+      repositoryFullName={githubRepositoryFullName ?? `${owner}/${repoName}`}
+      repositoryInventoryBranchContext={repositoryInventoryBranchContext}
       stagedFile={stagedFile ?? null}
     />
   );
@@ -560,6 +573,9 @@ type FileViewVault = NonNullable<(typeof api.vault.records.getVaultByRepository)
   treeSHA: string;
 };
 
+type FileViewRepositoryInventoryBranchContext =
+  (typeof api.repositoryInventory.getRepositoryInventoryBranchContext)["_returnType"];
+
 function hasFileViewVaultTree(
   vault: NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>,
   // eslint-disable-next-line samebase/no-hand-written-type-predicate -- property-presence intersection: the checks narrow property references, not the vault object
@@ -573,6 +589,8 @@ function FileViewInner({
   branch,
   owner,
   repoName,
+  repositoryFullName,
+  repositoryInventoryBranchContext,
   stagedFile,
 }: {
   vault: FileViewVault;
@@ -580,6 +598,8 @@ function FileViewInner({
   selectedFile: string;
   owner: string;
   repoName: string;
+  repositoryFullName: string;
+  repositoryInventoryBranchContext: FileViewRepositoryInventoryBranchContext | undefined;
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
   const { setMobilePane } = useWorkspacePaneActions();
@@ -618,10 +638,7 @@ function FileViewInner({
   );
   const isCompareRequested = routeSearch.compare ?? false;
 
-  const remoteBranches = useQuery(api.vault.branches.getVaultRemoteBranches, {
-    vaultId: vault._id,
-  });
-  const refreshRepositoryTree = useAction(api.github.refreshRepositoryTree);
+  const refreshBranchTree = useAction(api.github.refreshBranchTreeForFileView);
   // Dialog state management
   const {
     fileCreationDialog,
@@ -632,12 +649,14 @@ function FileViewInner({
     closeFolderCreation,
   } = useDialog();
 
-  const repositoryFullName = `${owner}/${repoName}`;
+  const githubRepositoryUrl = `https://github.com/${repositoryFullName
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/")}`;
   const selectedFileIsRenderableMedia = isRenderableRepositoryMediaPath(selectedFile);
-  const commitSha = vault.commitSHA;
   const selectedFileGitHubUrl = selectedFile
-    ? `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`
-    : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/tree/${encodeGitHubPath(branch)}`;
+    ? `${githubRepositoryUrl}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`
+    : `${githubRepositoryUrl}/tree/${encodeGitHubPath(branch)}`;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(api.folderExpansion.getFolderExpansionStates, {
@@ -805,22 +824,24 @@ function FileViewInner({
   const branchComparePreviewRequestedTargetKeyRef = useRef<string | null>(null);
   const branchComparePreviewRequestedStagingKeyRef = useRef<string | null>(null);
   const branchComparePreviewReloadTimeoutRef = useRef<number | null>(null);
-  const currentRemoteBranch = useMemo(
-    () =>
-      remoteBranches?.find(
-        (remoteBranch) => remoteBranch.name === branch && remoteBranch.remoteState === "active",
-      ) ?? null,
-    [branch, remoteBranches],
-  );
-  const currentPullRequestNumber = currentRemoteBranch?.pullRequestNumber;
-  const currentPullRequestUrl = currentRemoteBranch?.pullRequestUrl;
-  const didResolveRemoteBranches = remoteBranches !== undefined;
+  const currentInventoryBranch =
+    repositoryInventoryBranchContext?.state === "ready"
+      ? repositoryInventoryBranchContext.branch
+      : null;
+  const currentPullRequest =
+    repositoryInventoryBranchContext?.state === "ready"
+      ? repositoryInventoryBranchContext.pullRequest
+      : undefined;
+  const didResolveRepositoryInventoryBranch = currentInventoryBranch !== null;
   const isDefaultBranch =
-    currentRemoteBranch?.isDefault ??
-    (typeof vault.defaultBranch === "string" && branch === vault.defaultBranch);
-  const currentBranchPullRequestNumber = isDefaultBranch ? undefined : currentPullRequestNumber;
-  const currentBranchPullRequestUrl = isDefaultBranch ? undefined : currentPullRequestUrl;
+    currentInventoryBranch?.isDefault ??
+    (repositoryInventoryBranchContext?.state === "missing"
+      ? branch === repositoryInventoryBranchContext.defaultBranch
+      : typeof vault.defaultBranch === "string" && branch === vault.defaultBranch);
+  const currentBranchPullRequestNumber = isDefaultBranch ? undefined : currentPullRequest?.number;
+  const currentBranchPullRequestUrl = isDefaultBranch ? undefined : currentPullRequest?.url;
   const hasCurrentBranchPullRequest = currentBranchPullRequestUrl != null;
+  const commitSha = currentInventoryBranch?.headCommitSha ?? vault.commitSHA;
 
   /** Listen for Cmd/Ctrl + P and open the file view command palette. */
   useEffect(() => {
@@ -1482,7 +1503,7 @@ function FileViewInner({
       return;
     }
 
-    if (!isDefaultBranch && !didResolveRemoteBranches) {
+    if (!isDefaultBranch && !didResolveRepositoryInventoryBranch) {
       return;
     }
 
@@ -1490,10 +1511,10 @@ function FileViewInner({
     const handleCreatedPullRequest = async (args: { url: string; nextBranch: string }) => {
       let didHydrateNextBranch = false;
       try {
-        const refreshResult = await refreshRepositoryTree({
+        const refreshResult = await refreshBranchTree({
           vaultId: vault._id,
           branch: args.nextBranch,
-          intent: "manual",
+          request: { kind: "routine" },
         });
         didHydrateNextBranch = refreshResult.refreshed;
         if (!refreshResult.refreshed) {
@@ -1572,11 +1593,11 @@ function FileViewInner({
     createDraftPullRequest,
     createDraftPullRequestFromDefaultBranch,
     currentBranchPullRequestUrl,
-    didResolveRemoteBranches,
+    didResolveRepositoryInventoryBranch,
     handleUpstreamConflictDetected,
     isDefaultBranch,
     navigateByHref,
-    refreshRepositoryTree,
+    refreshBranchTree,
     repositoryFullName,
     selectedFile,
     vault._id,
@@ -1990,9 +2011,7 @@ function FileViewInner({
   const hasChangesToCommit = hasStagedChangesToCommit;
   const canCreateDraftPullRequest = isDefaultBranch
     ? hasChangesToCommit === true
-    : !hasCurrentBranchPullRequest &&
-      didResolveRemoteBranches &&
-      (hasChangesToCommit === true || (currentRemoteBranch?.aheadBy ?? 0) > 0);
+    : !hasCurrentBranchPullRequest && didResolveRepositoryInventoryBranch;
   const draftButtonLabel = isDefaultBranch ? "draft" : "create draft";
   const isCreatingDraftPullRequest =
     draftPullRequestStatus === "loading" || defaultBranchDraftPullRequestStatus === "loading";
@@ -2256,8 +2275,7 @@ function FileViewInner({
   const sidebarContent = useMemo(
     () => (
       <FileViewSidebarContent
-        owner={owner}
-        repoName={repoName}
+        repositoryFullName={repositoryFullName}
         effectiveSidebarMode={effectiveSidebarMode}
         isCompareRequested={isCompareRequested}
         compareModeSummary={compareModeSummary}
@@ -2300,8 +2318,7 @@ function FileViewInner({
       handleRestoreDeletedFile,
       handleSidebarModeChange,
       isCompareRequested,
-      owner,
-      repoName,
+      repositoryFullName,
       restoringDeletedFilePath,
       sidebarSelectedFile,
       visibleTreeData,
@@ -2424,9 +2441,8 @@ function FileViewInner({
               vaultId={vault._id}
               repositoryFullName={repositoryFullName}
               branch={branch}
-              owner={owner}
-              repoName={repoName}
               commitSha={commitSha}
+              checks={currentInventoryBranch?.headCommit.checks}
               treeRefreshStartedAt={vault.treeRefreshStartedAt}
               lastTreeRefreshAt={vault.lastTreeRefreshAt}
               lastTreeRefreshFailedAt={vault.lastTreeRefreshFailedAt}

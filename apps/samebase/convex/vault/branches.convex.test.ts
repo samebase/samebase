@@ -1,534 +1,176 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 
-describe("vault branch mutations", () => {
-  it("returns branch-head commit checks for branches without PRs", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/branch-checks",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 3,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "branch-checks",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 4,
-      });
-      return { userId, vaultId };
+async function seedVault(): Promise<{
+  t: ReturnType<typeof makeConvexTest>;
+  vaultId: Id<"vaults">;
+}> {
+  const t = makeConvexTest();
+  const vaultId = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada@example.com",
+      isApproved: true,
     });
-
-    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
-      vaultId: ids.vaultId,
-      syncedAt: 10,
-      branches: [
-        {
-          name: "main",
-          headCommitSha: "abc123",
-          lastCommitAt: 8,
-          aheadBy: 0,
-          behindBy: 0,
-          aheadBehindState: "resolved",
-          pullRequestState: "resolved",
-          isDefault: true,
-          isProtected: true,
-        },
-        {
-          name: "feature/no-pr",
-          headCommitSha: "abc123",
-          lastCommitAt: 8,
-          aheadBy: 0,
-          behindBy: 0,
-          aheadBehindState: "resolved",
-          pullRequestState: "resolved",
-          isDefault: false,
-          isProtected: false,
-        },
-      ],
-    });
-    await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
-      githubRepositoryId: "123",
-      commitSha: "abc123",
-      syncedAt: 20,
-      items: [
-        {
-          source: "check_run",
-          sourceKey: "101",
-          name: "supply-chain",
-          providerName: "GitHub Actions",
-          state: "success",
-          status: "completed",
-          conclusion: "success",
-          targetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
-          githubUrl: "https://github.com/ada/branch-checks/actions/runs/101",
-          completedAt: 19,
-          updatedAt: 19,
-        },
-      ],
-    });
-    await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
-      githubRepositoryId: "123",
-      commitSha: "stale456",
-      syncedAt: 20,
-      items: [
-        {
-          source: "check_run",
-          sourceKey: "102",
-          name: "old-tip",
-          state: "success",
-          status: "completed",
-        },
-      ],
-    });
-    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
-      vaultId: ids.vaultId,
-      syncedAt: 30,
-      branches: [
-        {
-          name: "main",
-          headCommitSha: "abc123",
-          lastCommitAt: 8,
-          aheadBy: 0,
-          behindBy: 0,
-          aheadBehindState: "resolved",
-          pullRequestState: "resolved",
-          isDefault: true,
-          isProtected: true,
-        },
-        {
-          name: "feature/no-pr",
-          headCommitSha: "abc123",
-          lastCommitAt: 8,
-          aheadBy: 0,
-          behindBy: 0,
-          aheadBehindState: "resolved",
-          pullRequestState: "resolved",
-          isDefault: false,
-          isProtected: false,
-        },
-      ],
-    });
-    await t.mutation(internal.vault.branches.syncVaultBranchPreviewDomainFromCheckSnapshot, {
-      vaultId: ids.vaultId,
-      branchName: "feature/no-pr",
-      previewUrl: "https://feature-no-pr.example.workers.dev",
-      syncedAt: 40,
-    });
-
-    const asOwner = t.withIdentity({
-      subject: `${ids.userId}|owner-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-    const branches = await asOwner.query(api.vault.branches.getVaultRemoteBranches, {
-      vaultId: ids.vaultId,
-    });
-
-    expect(branches).toMatchObject([
-      {
-        name: "main",
-        commits: [
-          {
-            sha: "abc123",
-            authoredAt: 8,
-            checks: {
-              state: "success",
-              totalCount: 1,
-              checkRunCount: 1,
-              statusContextCount: 0,
-              successCount: 1,
-              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
-              primaryLogUrl: "https://github.com/ada/branch-checks/actions/runs/101",
-              syncedAt: 20,
-            },
-          },
-        ],
-      },
-      {
-        name: "feature/no-pr",
-        previewUrl: "https://feature-no-pr.example.workers.dev",
-        commits: [
-          {
-            sha: "abc123",
-            checks: {
-              state: "success",
-              totalCount: 1,
-              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
-            },
-          },
-        ],
-      },
-    ]);
-    expect(branches[0]?.pullRequestNumber).toBeUndefined();
-    expect(branches[1]?.pullRequestNumber).toBeUndefined();
-    const firstBranchPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
-      vaultId: ids.vaultId,
-      paginationOpts: { cursor: null, numItems: 1 },
-    });
-    expect(firstBranchPage.page).toMatchObject([
-      {
-        name: "main",
-        commits: [
-          {
-            sha: "abc123",
-            checks: {
-              state: "success",
-              totalCount: 1,
-              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
-            },
-          },
-        ],
-      },
-    ]);
-    expect(firstBranchPage.isDone).toBe(false);
-    const secondBranchPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
-      vaultId: ids.vaultId,
-      paginationOpts: { cursor: firstBranchPage.continueCursor, numItems: 1 },
-    });
-    expect(secondBranchPage.page).toMatchObject([
-      {
-        name: "feature/no-pr",
-        previewUrl: "https://feature-no-pr.example.workers.dev",
-        commits: [
-          {
-            sha: "abc123",
-            checks: {
-              state: "success",
-              totalCount: 1,
-              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
-            },
-          },
-        ],
-      },
-    ]);
-    expect(secondBranchPage.isDone).toBe(true);
-    await t.mutation(internal.vault.branches.syncVaultBranchPreviewDomainFromCheckSnapshot, {
-      vaultId: ids.vaultId,
-      branchName: "feature/no-pr",
-      syncedAt: 50,
-    });
-    const branchesAfterMissingPreview = await asOwner.query(
-      api.vault.branches.getVaultRemoteBranches,
-      {
-        vaultId: ids.vaultId,
-      },
-    );
-    expect(branchesAfterMissingPreview[1]?.previewUrl).toBeUndefined();
-    await expect(
-      t.run(async (ctx) => {
-        const staleSnapshot = await ctx.db
-          .query("githubCommitCheckSnapshots")
-          .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
-            q.eq("githubRepositoryId", "123").eq("commitSha", "stale456"),
-          )
-          .first();
-        const staleItems = await ctx.db
-          .query("githubCommitCheckItems")
-          .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
-            q.eq("githubRepositoryId", "123").eq("commitSha", "stale456"),
-          )
-          .collect();
-        return {
-          staleSnapshot,
-          staleItemCount: staleItems.length,
-        };
-      }),
-    ).resolves.toEqual({
-      staleSnapshot: null,
-      staleItemCount: 0,
+    return await ctx.db.insert("vaults", {
+      userId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
     });
   });
+  return { t, vaultId };
+}
 
-  it("writes required indexable branch sort fields", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId,
+describe("vault branch trees", () => {
+  it("stores and updates each requested branch independently", async () => {
+    const { t, vaultId } = await seedVault();
+
+    await t.mutation(internal.vault.branches.upsertVaultBranchTree, {
+      vaultId,
+      branch: "main",
+      commitSHA: "main-commit-1",
+      treeData: {
+        sha: "main-tree-1",
+        truncated: false,
+        tree: [
+          {
+            path: "README.md",
+            mode: "100644",
+            type: "blob",
+            sha: "readme-1",
+          },
+        ],
+      },
+    });
+    await t.mutation(internal.vault.branches.upsertVaultBranchTree, {
+      vaultId,
+      branch: "feature/inventory",
+      commitSHA: "feature-commit-1",
+      treeData: {
+        sha: "feature-tree-1",
+        truncated: false,
+        tree: [],
+      },
+    });
+
+    await t.mutation(internal.vault.branches.upsertVaultBranchTree, {
+      vaultId,
+      branch: "main",
+      commitSHA: "main-commit-2",
+      treeData: {
+        sha: "main-tree-2",
+        truncated: false,
+        tree: [],
+      },
+    });
+
+    const main = await t.query(internal.vault.branches.getVaultBranchTree, {
+      vaultId,
+      branch: "main",
+    });
+    const feature = await t.query(internal.vault.branches.getVaultBranchTree, {
+      vaultId,
+      branch: "feature/inventory",
+    });
+
+    expect(main).toMatchObject({
+      branch: "main",
+      treeSHA: "main-tree-2",
+      commitSHA: "main-commit-2",
+      treeData: { sha: "main-tree-2", tree: [] },
+    });
+    expect(feature).toMatchObject({
+      branch: "feature/inventory",
+      treeSHA: "feature-tree-1",
+      commitSHA: "feature-commit-1",
+      treeData: { sha: "feature-tree-1", tree: [] },
+    });
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db.query("vaultBranchTrees").take(3);
+      }),
+    ).resolves.toHaveLength(2);
+  });
+
+  it("keeps a newer refresh claim locked against stale releases", async () => {
+    const { t, vaultId } = await seedVault();
+    const claim = await t.mutation(internal.vault.branches.claimTreeRefresh, {
+      vaultId,
+      force: true,
+    });
+    if (claim.startedAt === undefined) {
+      throw new Error("Expected a refresh claim timestamp");
+    }
+
+    await expect(
+      t.mutation(internal.vault.branches.claimTreeRefresh, { vaultId }),
+    ).resolves.toEqual({ claimed: false, reason: "in_progress" });
+    await expect(
+      t.mutation(internal.vault.branches.releaseTreeRefresh, {
         vaultId,
-        repositoryFullName: "ada/branch-sort-fields",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 3,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId,
-        ghRepoId: "456",
-        owner: "ada",
-        name: "branch-sort-fields",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 4,
-      });
-      return { userId, vaultId };
-    });
+        startedAt: claim.startedAt + 1,
+      }),
+    ).resolves.toEqual({ released: false });
 
-    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
-      vaultId: ids.vaultId,
-      syncedAt: 20,
-      branches: [
-        {
-          name: "legacy",
-          headCommitSha: "legacy-sha",
-          lastCommitAt: 50,
-          aheadBehindState: "preserve",
-          pullRequestState: "preserve",
-          isDefault: false,
-          isProtected: false,
-        },
-        {
-          name: "main",
-          headCommitSha: "main-sha",
-          lastCommitAt: 100,
-          aheadBehindState: "unavailable",
-          pullRequestState: "preserve",
-          isDefault: true,
-          isProtected: true,
-        },
-        {
-          name: "feature/no-commit",
-          headCommitSha: "feature-sha",
-          aheadBehindState: "unavailable",
-          pullRequestState: "preserve",
-          isDefault: false,
-          isProtected: false,
-        },
-      ],
+    const cooldownUntil = Date.now() + 60_000;
+    await expect(
+      t.mutation(internal.vault.branches.releaseTreeRefresh, {
+        vaultId,
+        startedAt: claim.startedAt,
+        markRefreshed: false,
+        failureKind: "rate_limited",
+        failureMessage: "GitHub asked us to wait.",
+        cooldownUntil,
+      }),
+    ).resolves.toEqual({ released: true });
+    const failedVault = await t.run(async (ctx) => await ctx.db.get(vaultId));
+    expect(failedVault).toMatchObject({
+      treeRefreshFailureKind: "rate_limited",
+      treeRefreshFailureMessage: "GitHub asked us to wait.",
+      treeRefreshCooldownUntil: cooldownUntil,
     });
+    expect(failedVault?.treeRefreshStartedAt).toBeUndefined();
+  });
+
+  it("ignores stale fallback failures and preserves the later cooldown", async () => {
+    const { t, vaultId } = await seedVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("fileStaging", {
-        ownerId: ids.userId,
-        vaultId: ids.vaultId,
-        fileDeleted: false,
-        filePath: "README.md",
-        initialFilePath: "README.md",
-        content: "changed",
-        initialContent: "original",
-        parentCommitSha: "feature-sha",
-        lastEditTime: 21,
-        lastEditUserId: ids.userId,
-        branch: "feature/no-commit",
-        version: 1,
+      await ctx.db.patch(vaultId, {
+        treeRefreshStartedAt: 200,
+        treeRefreshCooldownUntil: 500,
       });
     });
-    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
-      vaultId: ids.vaultId,
-      syncedAt: 30,
-      branches: [
-        {
-          name: "legacy",
-          headCommitSha: "legacy-sha",
-          aheadBehindState: "preserve",
-          pullRequestState: "preserve",
-          isDefault: false,
-          isProtected: false,
-        },
-        {
-          name: "main",
-          headCommitSha: "main-sha",
-          aheadBehindState: "unavailable",
-          pullRequestState: "preserve",
-          isDefault: true,
-          isProtected: true,
-        },
-      ],
-    });
 
-    await expect(
-      t.run(async (ctx) => {
-        const branches = await ctx.db
-          .query("vaultRemoteBranches")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .collect();
-        return branches
-          .map((branch) => ({
-            name: branch.name,
-            remoteState: branch.remoteState,
-            defaultRank: branch.defaultRank,
-            stateRank: branch.stateRank,
-            commitRank: branch.commitRank,
-          }))
-          .sort((left, right) => left.name.localeCompare(right.name));
-      }),
-    ).resolves.toEqual([
-      {
-        name: "feature/no-commit",
-        remoteState: "deleted_upstream",
-        defaultRank: 1,
-        stateRank: 1,
-        commitRank: Number.MAX_SAFE_INTEGER,
-      },
-      {
-        name: "legacy",
-        remoteState: "active",
-        defaultRank: 1,
-        stateRank: 0,
-        commitRank: -50,
-      },
-      {
-        name: "main",
-        remoteState: "active",
-        defaultRank: 0,
-        stateRank: 0,
-        commitRank: -100,
-      },
-    ]);
+    await t.mutation(internal.vault.branches.recordTreeRefreshFailure, {
+      vaultId,
+      startedAt: 199,
+      failureKind: "failed",
+      failureMessage: "stale failure",
+      cooldownUntil: 700,
+    });
+    const vaultAfterStaleFailure = await t.run(async (ctx) => await ctx.db.get(vaultId));
+    expect(vaultAfterStaleFailure).toMatchObject({
+      treeRefreshStartedAt: 200,
+      treeRefreshCooldownUntil: 500,
+    });
+    expect(vaultAfterStaleFailure?.lastTreeRefreshFailedAt).toBeUndefined();
 
-    const asOwner = t.withIdentity({
-      subject: `${ids.userId}|owner-session`,
-      tokenIdentifier: `test:${ids.userId}`,
+    await t.mutation(internal.vault.branches.recordTreeRefreshFailure, {
+      vaultId,
+      startedAt: 200,
+      failureKind: "rate_limited",
+      failureMessage: "current failure",
+      cooldownUntil: 400,
     });
-    const firstPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
-      vaultId: ids.vaultId,
-      paginationOpts: { cursor: null, numItems: 1 },
+    await expect(t.run(async (ctx) => await ctx.db.get(vaultId))).resolves.toMatchObject({
+      treeRefreshStartedAt: 200,
+      lastTreeRefreshFailedAt: expect.any(Number),
+      treeRefreshFailureKind: "rate_limited",
+      treeRefreshFailureMessage: "current failure",
+      treeRefreshCooldownUntil: 500,
     });
-    const secondPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
-      vaultId: ids.vaultId,
-      paginationOpts: { cursor: firstPage.continueCursor, numItems: 1 },
-    });
-    const thirdPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
-      vaultId: ids.vaultId,
-      paginationOpts: { cursor: secondPage.continueCursor, numItems: 1 },
-    });
-
-    expect(firstPage.page.map((branch) => branch.name)).toEqual(["main"]);
-    expect(secondPage.page.map((branch) => branch.name)).toEqual(["legacy"]);
-    expect(thirdPage.page.map((branch) => branch.name)).toEqual(["feature/no-commit"]);
-    expect(thirdPage.isDone).toBe(true);
-
-    await expect(
-      asOwner.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual([
-      {
-        name: "main",
-        isDefault: true,
-        remoteState: "active",
-      },
-      {
-        name: "legacy",
-        isDefault: false,
-        remoteState: "active",
-      },
-      {
-        name: "feature/no-commit",
-        isDefault: false,
-        remoteState: "deleted_upstream",
-      },
-    ]);
-  });
-
-  it("requires vault ownership before optimistic tree refresh writes", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const ownerId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const otherUserId = await ctx.db.insert("users", {
-        name: "Grace",
-        email: "grace@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId: ownerId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId: ownerId,
-        vaultId,
-        repositoryFullName: "ada/secure-refresh",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 3,
-      });
-      await ctx.db.replace(vaultId, {
-        userId: ownerId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "secure-refresh",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 4,
-      });
-      return { ownerId, otherUserId, vaultId };
-    });
-
-    const asOtherUser = t.withIdentity({
-      subject: `${ids.otherUserId}|other-session`,
-      tokenIdentifier: `test:${ids.otherUserId}`,
-    });
-    await expect(
-      asOtherUser.mutation(api.vault.branches.startTreeRefreshOptimistic, {
-        vaultId: ids.vaultId,
-      }),
-    ).rejects.toThrow("Vault not found");
-    await expect(
-      t.run(async (ctx) => (await ctx.db.get(ids.vaultId))?.treeRefreshStartedAt),
-    ).resolves.toBeNull();
-
-    const asOwner = t.withIdentity({
-      subject: `${ids.ownerId}|owner-session`,
-      tokenIdentifier: `test:${ids.ownerId}`,
-    });
-    await expect(
-      asOwner.mutation(api.vault.branches.startTreeRefreshOptimistic, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toBeNull();
-    await expect(
-      t.run(async (ctx) => (await ctx.db.get(ids.vaultId))?.treeRefreshStartedAt),
-    ).resolves.toEqual(expect.any(Number));
   });
 });

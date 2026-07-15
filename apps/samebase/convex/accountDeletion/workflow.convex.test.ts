@@ -263,37 +263,104 @@ describe("account deletion workflow ownership and outcomes", () => {
     });
   });
 
-  it("cancels branch refresh demand that would otherwise remain queued", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    const requestId = await t.run(async (ctx) => {
+  it("quiesces scheduled repository inventory work before deleting account data", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "deleting@example.com",
+        isApproved: true,
+      });
       const vaultId = await ctx.db.insert("vaults", {
-        userId: ids.userId,
+        userId,
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      return await ctx.db.insert("repositoryRefreshRequests", {
-        userId: ids.userId,
+      const provisioningRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
         vaultId,
-        dedupeKey: `${vaultId}:main`,
-        demand: { scope: "branch", branch: "main", source: "file_view" },
-        lifecycle: { state: "queued", notBefore: now, queuedAt: now },
+        repositoryFullName: "owner/repository",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
         createdAt: now,
         updatedAt: now,
+        completedAt: now,
       });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: provisioningRunId,
+        ghRepoId: "repository-id",
+        owner: "owner",
+        name: "repository",
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: now,
+      });
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
     });
 
     await expect(
-      t.mutation(internal.repositoryRefresh.quiesceForAccountDeletion, {
-        runId: ids.runId,
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
+
+    const { refreshId, runId } = await t.run(async (ctx) => {
+      const refresh = await ctx.db
+        .query("vaultRepositoryInventoryRefreshes")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (refresh === null || refresh.lifecycle.state !== "scheduled") {
+        throw new Error("Expected a scheduled repository inventory refresh.");
+      }
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId: ids.userId,
+        expirationTime: now + 60_000,
+      });
+      const runId = await ctx.db.insert("accountDeletionRuns", {
+        identity: { state: "active", userId: ids.userId, email: "deleting@example.com" },
+        completionCapability: "workflow-test",
+        state: "running",
+        workflow: { state: "started", workflowId, attempt: 1 },
+        currentStep: "request_accepted",
+        requestedAt: now,
+        updatedAt: now,
+        initiatingSessionId: sessionId,
+        retryCount: 0,
+        outcomes: {
+          billing: { state: "not_started" },
+          providerRevocation: { state: "not_started" },
+          completionEmail: { state: "not_started" },
+        },
+      });
+      await ctx.db.patch(ids.userId, {
+        accountDeletion: { state: "deleting", runId, requestedAt: now },
+      });
+      return { refreshId: refresh._id, runId };
+    });
+
+    await expect(
+      t.mutation(internal.repositoryInventory.quiesceForAccountDeletion, {
+        runId,
         workflowId,
       }),
     ).resolves.toEqual({ state: "needs_more" });
-    await expect(t.run(async (ctx) => await ctx.db.get(requestId))).resolves.toMatchObject({
-      lifecycle: { state: "canceled", reason: "worker_canceled" },
+    await expect(t.run(async (ctx) => await ctx.db.get(refreshId))).resolves.toMatchObject({
+      lifecycle: {
+        state: "failed",
+        message: "Repository inventory stopped for account deletion.",
+      },
     });
     await expect(
-      t.mutation(internal.repositoryRefresh.quiesceForAccountDeletion, {
-        runId: ids.runId,
+      t.mutation(internal.repositoryInventory.quiesceForAccountDeletion, {
+        runId,
         workflowId,
       }),
     ).resolves.toEqual({ state: "done" });
@@ -330,6 +397,7 @@ describe("account deletion workflow ownership and outcomes", () => {
       t.mutation(internal.providerConnections.upsertGithub, {
         userId: ids.userId,
         auth: { method: "oauth", credential: "late-oauth-token" },
+        githubAccountId: 101,
         username: "late-user",
       }),
     ).rejects.toThrow("Provider connections are unavailable during account deletion.");

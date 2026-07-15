@@ -626,13 +626,14 @@ async function resolveGithubConnectionUsername(
   });
   const { data } = await octokit.rest.users.getAuthenticated();
   const username = data.login;
-  if (!username) {
+  if (!Number.isSafeInteger(data.id) || data.id <= 0 || !username) {
     throw new Error("GitHub connection is missing an account login.");
   }
 
   await ctx.runMutation(internal.providerConnections.upsertGithub, {
     userId: args.userId,
     auth: args.connection.auth,
+    githubAccountId: data.id,
     username,
   });
 

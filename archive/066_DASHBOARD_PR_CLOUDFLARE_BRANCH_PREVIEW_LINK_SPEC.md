@@ -2,9 +2,9 @@
 
 ## Document Control
 
-- Status: Superseded by `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
+- Status: Archived and superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Owner: Vault dashboard + GitHub/Cloudflare integration
-- Last updated: 2026-07-04
+- Last updated: 2026-07-15
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -14,14 +14,15 @@
 ## Supersession Note
 
 This behavior is no longer current. The PR-comment parser and branch-level Cloudflare preview row
-were replaced by the GitHub check snapshot model in `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`.
-Runtime code no longer reads or writes the branch-level Cloudflare preview projection, and the old
-`vaultRemoteBranches` schema fields have been removed.
+were replaced first by the archived GitHub check snapshot plan and then by the complete repository
+inventory in `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`. Runtime code no longer reads or writes
+the branch-level Cloudflare preview projection, and the old `vaultRemoteBranches` schema fields have
+been removed.
 
-The historical implementation notes below also predate the selected-vault branch pagination work in
-`rfcs/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md`. Current dashboard branch rows are
-served by `api.vault.branches.listVaultRemoteBranchesPage`, not by
-`api.vault.dashboard.getUserVaults`.
+The historical implementation notes below also predate the repository inventory work in
+`specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`. Current dashboard repository rows are served by
+`api.repositoryInventory.listRepositoryInventoryPage`, not by the remote-branch catalog described
+below.
 
 ## Summary
 
@@ -177,8 +178,8 @@ Important scope rule:
 
 Add the cached Cloudflare preview fields to the dashboard branch row payload so the dashboard can
 render them directly and suppress stale links. At the time this superseded spec was written, that
-payload was `remoteBranches[]` on `vault.getUserVaults()`; current dashboard branch rows are served
-by `api.vault.branches.listVaultRemoteBranchesPage`.
+payload was `remoteBranches[]` on `vault.getUserVaults()`; current dashboard repository rows are
+served by `api.repositoryInventory.listRepositoryInventoryPage`.
 
 Minimal UI requirement:
 

@@ -1,6 +1,10 @@
+// @vitest-environment jsdom
+
+import * as React from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
@@ -14,6 +18,8 @@ import {
   VaultDashboardView,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
+  useVaultDashboardInventoryGenerationDisplay,
+  type VaultDashboardViewModel,
 } from "./VaultDashboard";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
@@ -28,6 +34,21 @@ import {
 } from "./vaultProviderSetup";
 import { buildVaultProductionApps } from "./vaultProductionApps";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
+
+const { act } = React;
+
+let mountedRoot: Root | null = null;
+
+afterEach(() => {
+  if (mountedRoot !== null) {
+    const root = mountedRoot;
+    act(() => {
+      root.unmount();
+    });
+    mountedRoot = null;
+  }
+  document.body.replaceChildren();
+});
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -59,6 +80,38 @@ function fakeRunId(): Id<"appProvisioningRuns"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable run id for component props.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+type InventoryGenerationRowsProps = Parameters<
+  typeof useVaultDashboardInventoryGenerationDisplay
+>[0];
+type InventoryGenerationRow = InventoryGenerationRowsProps["remoteBranches"][number];
+
+function makeInventoryGenerationRow(name: string): InventoryGenerationRow {
+  return {
+    rowKey: `branch:${name}`,
+    name,
+    githubRepositoryFullName: "samebase/samebase",
+    canOpenInSamebase: true,
+    headCommitSha: `${name}-sha`,
+    isDefault: name === "main",
+    lastSyncedAt: 0,
+    commits: [{ sha: `${name}-sha` }],
+  };
+}
+
+function InventoryGenerationRowsHarness(props: InventoryGenerationRowsProps) {
+  const display = useVaultDashboardInventoryGenerationDisplay(props);
+  const activeGeneration =
+    display.inventoryState?.state === "empty"
+      ? undefined
+      : display.inventoryState?.activeGeneration;
+
+  return (
+    <output data-generation={activeGeneration}>
+      {display.remoteBranches.map((row) => row.name).join(",")}
+    </output>
+  );
 }
 
 type CloudflareDialogWorker = Parameters<
@@ -159,12 +212,231 @@ function makeResourceRailBuilderVault(
   return { ...vault, ...overrides };
 }
 
+type RepositoryInventoryState =
+  VaultDashboardViewModel["repositoryInventoryStatesByVaultId"] extends Map<string, infer State>
+    ? State
+    : never;
+
+function renderRepositoryInventoryStatus(
+  inventoryState: RepositoryInventoryState,
+  now: number,
+  resourceLinksOpen = false,
+) {
+  const vault = makeResourceRailBuilderVault({});
+  const rootRouteSearch = validateRootRouteSearch({});
+
+  return renderToStaticMarkup(
+    <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+      <VaultDashboardView
+        deleteModeActive={false}
+        developerToolsVisible={false}
+        cloudflareWorkerRepairActionInFlight={null}
+        isRemovingVault={false}
+        retryingDeletionRunId={null}
+        retryingInfrastructureVaultId={null}
+        now={now}
+        viewModel={{
+          vaults: [vault],
+          repositoryInventoryStatesByVaultId: new Map([[vault._id, inventoryState]]),
+          remoteBranchPagesByVaultId: new Map(),
+          stagedBranchSummariesByVaultId: new Map(),
+        }}
+        logoRouteSearch={rootRouteSearch}
+        replaceLogoRouteSearch={() => {}}
+        openDeveloperToolsByVaultId={{}}
+        persistedVaultResourceLinksOpenByVaultId={new Map([[vault._id, resourceLinksOpen]])}
+        schemaGraphAccessEnabled={false}
+        rootRouteSearch={rootRouteSearch}
+        onConnectCloudflareGithubRepository={() => {}}
+        onOpenDeveloperToolsChange={() => {}}
+        onRetryInfrastructureProvisioning={() => {}}
+        onRetryVaultDeletion={() => {}}
+        onResourceLinksOpenChange={() => {}}
+        onSetCloudflareConvexDeployKeys={() => {}}
+        onVerifyCloudflareInfrastructure={() => {}}
+      />
+    </TestRouterProvider>,
+  );
+}
+
+describe("useVaultDashboardInventoryGenerationDisplay", () => {
+  it("keeps the loaded generation visible until the replacement catches up", () => {
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    mountedRoot = createRoot(rootElement);
+    const loadMore = vi.fn();
+    const oldRows = [
+      makeInventoryGenerationRow("main"),
+      makeInventoryGenerationRow("codex/old-one"),
+      makeInventoryGenerationRow("codex/old-two"),
+    ];
+    const firstNewRows = [makeInventoryGenerationRow("codex/new-inventory")];
+    const caughtUpNewRows = [
+      ...firstNewRows,
+      makeInventoryGenerationRow("codex/new-two"),
+      makeInventoryGenerationRow("codex/new-three"),
+    ];
+
+    const renderRows = (props: InventoryGenerationRowsProps) => {
+      act(() => {
+        mountedRoot?.render(<InventoryGenerationRowsHarness {...props} />);
+      });
+    };
+
+    renderRows({
+      activeGeneration: 7,
+      inventoryState: {
+        state: "ready",
+        activeGeneration: 7,
+        repositoryFullName: "ada/demo",
+        publishedAt: 700,
+        itemCount: 3,
+        branchCount: 3,
+        pullRequestCount: 0,
+      },
+      loadMore,
+      paginationStatus: "Exhausted",
+      remoteBranches: oldRows,
+      vaultId: fakeVaultId(),
+    });
+    expect(rootElement.textContent).toBe("main,codex/old-one,codex/old-two");
+
+    renderRows({
+      activeGeneration: 8,
+      inventoryState: {
+        state: "ready",
+        activeGeneration: 8,
+        repositoryFullName: "ada/renamed-demo",
+        publishedAt: 800,
+        itemCount: 3,
+        branchCount: 3,
+        pullRequestCount: 0,
+      },
+      loadMore,
+      paginationStatus: "LoadingFirstPage",
+      remoteBranches: [],
+      vaultId: fakeVaultId(),
+    });
+    expect(rootElement.textContent).toBe("main,codex/old-one,codex/old-two");
+    expect(rootElement.querySelector("output")?.dataset.generation).toBe("7");
+
+    renderRows({
+      activeGeneration: 8,
+      inventoryState: {
+        state: "ready",
+        activeGeneration: 8,
+        repositoryFullName: "ada/renamed-demo",
+        publishedAt: 800,
+        itemCount: 3,
+        branchCount: 3,
+        pullRequestCount: 0,
+      },
+      loadMore,
+      paginationStatus: "CanLoadMore",
+      remoteBranches: firstNewRows,
+      vaultId: fakeVaultId(),
+    });
+    expect(rootElement.textContent).toBe("main,codex/old-one,codex/old-two");
+    expect(loadMore).toHaveBeenCalledWith(2);
+
+    renderRows({
+      activeGeneration: 8,
+      inventoryState: {
+        state: "ready",
+        activeGeneration: 8,
+        repositoryFullName: "ada/renamed-demo",
+        publishedAt: 800,
+        itemCount: 3,
+        branchCount: 3,
+        pullRequestCount: 0,
+      },
+      loadMore,
+      paginationStatus: "LoadingMore",
+      remoteBranches: firstNewRows,
+      vaultId: fakeVaultId(),
+    });
+    expect(rootElement.textContent).toBe("main,codex/old-one,codex/old-two");
+
+    renderRows({
+      activeGeneration: 8,
+      inventoryState: {
+        state: "ready",
+        activeGeneration: 8,
+        repositoryFullName: "ada/renamed-demo",
+        publishedAt: 800,
+        itemCount: 3,
+        branchCount: 3,
+        pullRequestCount: 0,
+      },
+      loadMore,
+      paginationStatus: "CanLoadMore",
+      remoteBranches: caughtUpNewRows,
+      vaultId: fakeVaultId(),
+    });
+    expect(rootElement.textContent).toBe("codex/new-inventory,codex/new-two,codex/new-three");
+    expect(rootElement.querySelector("output")?.dataset.generation).toBe("8");
+  });
+
+  it("catches up to a published generation in bounded pages", () => {
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    mountedRoot = createRoot(rootElement);
+    const loadMore = vi.fn();
+    const oldRows = Array.from({ length: 60 }, (_, index) =>
+      makeInventoryGenerationRow(`old-${index}`),
+    );
+    const renderRows = (props: InventoryGenerationRowsProps) => {
+      act(() => {
+        mountedRoot?.render(<InventoryGenerationRowsHarness {...props} />);
+      });
+    };
+
+    renderRows({
+      activeGeneration: 7,
+      inventoryState: {
+        state: "ready",
+        activeGeneration: 7,
+        repositoryFullName: "ada/demo",
+        publishedAt: 700,
+        itemCount: 60,
+        branchCount: 60,
+        pullRequestCount: 0,
+      },
+      loadMore,
+      paginationStatus: "Exhausted",
+      remoteBranches: oldRows,
+      vaultId: fakeVaultId(),
+    });
+    renderRows({
+      activeGeneration: 8,
+      inventoryState: {
+        state: "ready",
+        activeGeneration: 8,
+        repositoryFullName: "ada/demo",
+        publishedAt: 800,
+        itemCount: 60,
+        branchCount: 60,
+        pullRequestCount: 0,
+      },
+      loadMore,
+      paginationStatus: "CanLoadMore",
+      remoteBranches: [makeInventoryGenerationRow("new-0")],
+      vaultId: fakeVaultId(),
+    });
+
+    expect(loadMore).toHaveBeenCalledWith(10);
+    expect(rootElement.textContent).toBe(oldRows.map((row) => row.name).join(","));
+  });
+});
+
 describe("VaultBranchLinkContent", () => {
   it("models checks as commit data without requiring a pull request", () => {
     const viewModel = buildVaultBranchRowViewModel({
-      repositoryFullName: "samebase/samebase",
       branch: {
+        rowKey: "branch:main",
         name: "main",
+        githubRepositoryFullName: "samebase/samebase",
+        canOpenInSamebase: true,
         headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
         commits: [
           {
@@ -186,9 +458,7 @@ describe("VaultBranchLinkContent", () => {
           },
         ],
         isDefault: true,
-        isProtected: false,
         lastSyncedAt: 0,
-        remoteState: "active",
       },
     });
 
@@ -212,7 +482,10 @@ describe("VaultBranchLinkContent", () => {
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:main",
             name: "main",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
             commits: [
               {
@@ -235,9 +508,7 @@ describe("VaultBranchLinkContent", () => {
             ],
             previewUrl: "https://preview-branch.example.workers.dev",
             isDefault: true,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -250,21 +521,20 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).not.toContain("Pull request");
   });
 
-  it("keeps a visible commit link when a branch has no checks and no ahead-behind delta", () => {
+  it("keeps a visible commit link when the current head has no checks", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:main",
             name: "main",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
             commits: [{ sha: "abcdef1234567890abcdef1234567890abcdef12" }],
-            aheadBy: 0,
-            behindBy: 0,
             isDefault: true,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -276,17 +546,21 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain(">Head abcdef1<");
   });
 
-  it("shows when the visible branch commits are only a history window", () => {
+  it("renders draft pull request metadata from the current inventory snapshot", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
-            name: "codex/history-window",
+            rowKey: "pr:999",
+            name: "codex/draft-monitoring",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
             commits: [
               {
                 sha: "abcdef1234567890abcdef1234567890abcdef12",
+                title: "Monitor every open pull request",
                 checks: {
                   state: "running",
                   totalCount: 2,
@@ -300,38 +574,59 @@ describe("VaultBranchLinkContent", () => {
                   syncedAt: 1,
                 },
               },
-              {
-                sha: "654321abcdef1234567890abcdef1234567890ab",
-                checks: {
-                  state: "success",
-                  totalCount: 3,
-                  checkRunCount: 3,
-                  statusContextCount: 0,
-                  successCount: 3,
-                  failureCount: 0,
-                  runningCount: 0,
-                  neutralCount: 0,
-                  unknownCount: 0,
-                  syncedAt: 1,
-                },
-              },
             ],
-            aheadBy: 5,
-            behindBy: 2,
             isDefault: false,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
+            pullRequestUrl: "https://github.com/samebase/samebase/pull/999",
+            pullRequestNumber: 999,
+            pullRequestTitle: "Monitor every open pull request",
+            pullRequestIsDraft: true,
+            pullRequestLabels: [{ name: "dashboard", color: "1d76db" }],
           }}
         />
       </TestRouterProvider>,
     );
 
+    expect(markup).toContain('href="https://github.com/samebase/samebase/pull/999"');
+    expect(markup).toContain("PR #999 Monitor every open pull request");
     expect(markup).toContain(">Head abcdef1<");
-    expect(markup).toContain(">654321a<");
-    expect(markup).toContain(">↑5 ↓2<");
-    expect(markup).toContain(">+3 more<");
-    expect(markup).toContain('aria-label="3 more ahead commits not shown"');
+    expect(markup).toContain(">draft<");
+    expect(markup).toContain(">dashboard<");
+    expect(markup).toContain(">View changes<");
+  });
+
+  it("links fork pull request data to the fork without offering a Samebase file route", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          branch={{
+            rowKey: "pr:1000",
+            name: "contributor/fork-monitoring",
+            githubRepositoryFullName: "contributor/samebase-fork",
+            canOpenInSamebase: false,
+            headCommitSha: "654321abcdef1234567890abcdef1234567890ab",
+            commits: [{ sha: "654321abcdef1234567890abcdef1234567890ab" }],
+            isDefault: false,
+            lastSyncedAt: 0,
+            pullRequestUrl: "https://github.com/samebase/samebase/pull/1000",
+            pullRequestNumber: 1000,
+            pullRequestTitle: "Accept monitoring fixes from a fork",
+            pullRequestIsDraft: false,
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="https://github.com/samebase/samebase/pull/1000"');
+    expect(markup).toContain(
+      'href="https://github.com/contributor/samebase-fork/tree/contributor/fork-monitoring"',
+    );
+    expect(markup).toContain(
+      'href="https://github.com/contributor/samebase-fork/commit/654321abcdef1234567890abcdef1234567890ab"',
+    );
+    expect(markup).not.toContain("/vault/samebase/samebase/fs/");
+    expect(markup).not.toContain(">View changes<");
   });
 
   it("labels zero-check summaries as no checks", () => {
@@ -340,7 +635,10 @@ describe("VaultBranchLinkContent", () => {
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:codex/no-checks",
             name: "codex/no-checks",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
             commits: [
               {
@@ -360,9 +658,7 @@ describe("VaultBranchLinkContent", () => {
               },
             ],
             isDefault: false,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -379,13 +675,14 @@ describe("VaultBranchLinkContent", () => {
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:codex/dashboard branch-link",
             name: "codex/dashboard branch-link",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
             commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: false,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -403,13 +700,14 @@ describe("VaultBranchLinkContent", () => {
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:main",
             name: "main",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
             commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -428,13 +726,14 @@ describe("VaultBranchLinkContent", () => {
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:main",
             name: "main",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
             commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
           convexDeployments={[
             {
@@ -467,13 +766,14 @@ describe("VaultBranchLinkContent", () => {
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:main",
             name: "main",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
             commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
           convexDeployments={[
             {
@@ -503,13 +803,14 @@ describe("VaultBranchLinkContent", () => {
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
           branch={{
+            rowKey: "branch:codex/view changes",
             name: "codex/view changes",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
             commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: false,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -541,13 +842,14 @@ describe("VaultBranchLinkContent", () => {
             },
           ]}
           branch={{
+            rowKey: "branch:main",
             name: "main",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
             commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -597,13 +899,14 @@ describe("VaultBranchLinkContent", () => {
             },
           ]}
           branch={{
+            rowKey: "branch:main",
             name: "main",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
             commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
-            isProtected: false,
             lastSyncedAt: 0,
-            remoteState: "active",
           }}
         />
       </TestRouterProvider>,
@@ -625,6 +928,70 @@ describe("VaultBranchLinkContent", () => {
 });
 
 describe("VaultDashboardRepositoryCard", () => {
+  it("uses GitHub's canonical repository name after a rename", () => {
+    const markup = renderRepositoryInventoryStatus(
+      {
+        state: "ready",
+        activeGeneration: 4,
+        repositoryFullName: "grace/renamed-demo",
+        publishedAt: 900_000,
+        itemCount: 104,
+        branchCount: 92,
+        pullRequestCount: 12,
+      },
+      1_000_000,
+      true,
+    );
+
+    expect(markup).toContain('href="https://github.com/grace/renamed-demo"');
+    expect(markup).not.toContain('href="https://github.com/ada/demo"');
+  });
+
+  it("shows a queued update while retaining the last complete inventory", () => {
+    const now = 1_000_000;
+    const markup = renderRepositoryInventoryStatus(
+      {
+        state: "waiting",
+        reason: "queue",
+        retryAt: now + 20_000,
+        activeGeneration: 4,
+        publishedAt: now - 45_000,
+        itemCount: 104,
+        branchCount: 92,
+        pullRequestCount: 12,
+      },
+      now,
+    );
+
+    expect(markup).toContain("Update queued");
+    expect(markup).toContain("Last complete 45s ago");
+    expect(markup).not.toContain("Updating...");
+  });
+
+  it("shows when GitHub will resume a rate-limited update", () => {
+    const now = 1_000_000;
+    const retryAt = now + 60_000;
+    const markup = renderRepositoryInventoryStatus(
+      {
+        state: "waiting",
+        reason: "rate_limit",
+        retryAt,
+        activeGeneration: 4,
+        publishedAt: now - 45_000,
+        itemCount: 104,
+        branchCount: 92,
+        pullRequestCount: 12,
+      },
+      now,
+    );
+
+    expect(markup).toContain(
+      `GitHub paused updates until ${new Date(retryAt).toLocaleTimeString()}`,
+    );
+    expect(markup).toContain("Last complete 45s ago");
+    expect(markup).not.toContain("Update queued");
+  });
+
   it("renders the onboarding empty state when the loaded vault list is empty", () => {
     const rootRouteSearch = validateRootRouteSearch({});
     const markup = renderToStaticMarkup(
@@ -639,23 +1006,20 @@ describe("VaultDashboardRepositoryCard", () => {
           now={0}
           viewModel={{
             vaults: [],
-            remoteBranchCatalogByVaultId: new Map(),
+            repositoryInventoryStatesByVaultId: new Map(),
             remoteBranchPagesByVaultId: new Map(),
             stagedBranchSummariesByVaultId: new Map(),
           }}
           logoRouteSearch={rootRouteSearch}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
-          persistedVaultBranchFiltersByVaultId={new Map()}
           persistedVaultResourceLinksOpenByVaultId={new Map()}
           schemaGraphAccessEnabled={false}
           rootRouteSearch={rootRouteSearch}
           onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
-          onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
-          onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
           onSetCloudflareConvexDeployKeys={() => {}}
           onVerifyCloudflareInfrastructure={() => {}}

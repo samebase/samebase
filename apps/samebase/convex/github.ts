@@ -7,21 +7,14 @@ import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
 import { guessMime, withRetry } from "./gitOperationsActions";
-import { isRecord, toErrorMessage } from "./jsonUtils";
-import {
-  normalizeCommitCheckSnapshot,
-  selectBranchPreviewAliasUrlFromCommitCheckItems,
-  type GitHubCheckRunSnapshotInput,
-  type GitHubCommitStatusSnapshotInput,
-} from "./commitChecks";
+import { isRecord } from "./jsonUtils";
 import {
   getRepositoryMediaKind,
   type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
-import { isRepositoryMetadataStale, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
+import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { readStagedFileKind } from "./stagingChanges";
-import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
 
 const {
   array,
@@ -73,92 +66,33 @@ type TreeRefreshFailureDescriptor = {
   message: string;
   cooldownUntil: number;
 };
-const publicRefreshRepositoryIntent = union(literal("passive"), literal("manual"));
-const refreshRepositoryIntent = union(publicRefreshRepositoryIntent, literal("source_setup"));
-const refreshRepositoryTreeReason = union(
+const refreshBranchTreeReason = union(
   literal("cooldown"),
   literal("recent_success"),
   literal("in_progress"),
   literal("branch_not_found"),
 );
-const refreshRepositoryTreeResult = object({
+const refreshBranchTreeResult = object({
   refreshed: boolean(),
-  reason: optional(refreshRepositoryTreeReason),
+  reason: optional(refreshBranchTreeReason),
 });
-type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
-type RefreshRepositoryIntent = Infer<typeof refreshRepositoryIntent>;
-/**
- * Internal post-write refresh target.
- *
- * repository = refresh repository metadata, then refresh the vault's resolved
- * branch.
- *
- * branch = refresh one concrete branch. Empty branch strings fail instead of
- * becoming repository-scoped work.
- */
-const updateRepositoryTreeTarget = union(
+type RefreshBranchTreeResult = Infer<typeof refreshBranchTreeResult>;
+const fileViewTreeRefreshRequest = union(
   object({
-    scope: literal("repository"),
+    kind: literal("routine"),
   }),
   object({
-    scope: literal("branch"),
-    branch: string(),
+    kind: literal("inventory_mismatch"),
+    expectedHeadCommitSha: string(),
   }),
 );
-
-/**
- * Internal GitHub refresh input.
- *
- * repository = no branch was requested; the planner can reconcile repository
- * metadata and then refresh the default branch when policy wants it.
- *
- * branch = one route/operation requested one concrete branch. Empty branch
- * strings fail before the planner can silently fall back to default-branch work.
- *
- * The include* fields are internal execution policy knobs. They are required so
- * callers must state the cost they are asking for; they are not stored on
- * repositoryRefreshRequests.
- */
-const refreshRepositoryTreeForUserInput = union(
-  object({
-    scope: literal("repository"),
-    userId: id("users"),
-    owner: string(),
-    repo: string(),
-    includeAheadBehind: boolean(),
-    includePullRequestLinks: boolean(),
-    includeBranchHeadCommitCheckSnapshots: boolean(),
-    branchHeadCommitCheckBranchNames: array(string()),
-    intent: refreshRepositoryIntent,
-  }),
-  object({
-    scope: literal("branch"),
-    userId: id("users"),
-    owner: string(),
-    repo: string(),
-    branch: string(),
-    includeAheadBehind: boolean(),
-    includePullRequestLinks: boolean(),
-    includeBranchHeadCommitCheckSnapshots: boolean(),
-    branchHeadCommitCheckBranchNames: array(string()),
-    intent: refreshRepositoryIntent,
-  }),
-);
-type RefreshRepositoryTreeForUserArgs = Infer<typeof refreshRepositoryTreeForUserInput>;
+type FileViewTreeRefreshRequest = Infer<typeof fileViewTreeRefreshRequest>;
 
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member";
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
-const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
-/**
- * Passive refreshes above this cached branch count keep PR lookup and branch
- * commit timestamps, but skip ahead/behind and broad check snapshots. Source
- * setup is a one-time connect/create finish path, so it can hydrate provider
- * links without teaching React about branch batches.
- */
-const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
 /**
  * Missing branch means "use the default branch"; an empty provided branch is a
@@ -186,6 +120,31 @@ function normalizeRequiredRepositoryBranch(branch: string): string {
     throw new Error("Branch is required.");
   }
   return trimmedBranch;
+}
+
+/**
+ * Inventory has an immutable commit target, so a different cached commit is
+ * proven stale even inside the routine recent-success window.
+ */
+export function doesCachedBranchTreeSatisfyFileViewRefresh(args: {
+  cachedBranchTree: {
+    commitSHA?: string;
+    lastTreeRefreshAt: number;
+  } | null;
+  request: FileViewTreeRefreshRequest;
+  now: number;
+}): boolean {
+  if (args.cachedBranchTree === null) {
+    return false;
+  }
+
+  switch (args.request.kind) {
+    case "routine":
+      return args.now - args.cachedBranchTree.lastTreeRefreshAt < TREE_REFRESH_DEBOUNCE_MS;
+    case "inventory_mismatch":
+      return args.cachedBranchTree.commitSHA === args.request.expectedHeadCommitSha;
+  }
+  args.request satisfies never;
 }
 
 function toHeaderMap(value: unknown): HeaderMap | null {
@@ -337,245 +296,6 @@ export function describeRepositoryTreeRefreshFailure(
         ? resetAtSeconds * 1000
         : now + GITHUB_RATE_LIMIT_FALLBACK_MS,
   };
-}
-
-export function shouldBypassRecentSuccessDebounceForBranchRefresh(args: {
-  requestedBranch?: string;
-  defaultBranch?: string;
-  branchNotFound: boolean;
-  hasResolvedBranchTree: boolean;
-  lastRepositoryMetadataRefreshAt?: number;
-  now?: number;
-}): boolean {
-  if (args.requestedBranch === undefined) {
-    return false;
-  }
-
-  if (args.branchNotFound) {
-    // A recent repo-level confirmation that the branch is missing should fall
-    // back to the normal debounce path so typoed URLs do not keep refetching
-    // repo metadata on every retry.
-    const now = args.now ?? Date.now();
-    if (
-      typeof args.lastRepositoryMetadataRefreshAt === "number" &&
-      now - args.lastRepositoryMetadataRefreshAt < MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
-    ) {
-      return false;
-    }
-    return true;
-  }
-
-  return !args.hasResolvedBranchTree && args.defaultBranch !== args.requestedBranch;
-}
-
-export function shouldRefreshRepositoryMetadata(args: {
-  intent: RefreshRepositoryIntent;
-  requestedBranch?: string;
-  branchNotFound: boolean;
-  lastRepositoryMetadataRefreshAt?: number;
-  includeBranchHeadCommitCheckSnapshots: boolean;
-  now?: number;
-}): boolean {
-  if (args.intent === "manual") {
-    return true;
-  }
-
-  // Source setup should reconcile the repo-level branch/PR catalog once, even
-  // when cached metadata still falls inside the long stale window.
-  if (args.intent === "source_setup" && args.requestedBranch === undefined) {
-    return true;
-  }
-
-  if (args.branchNotFound) {
-    return shouldBypassRecentSuccessDebounceForBranchRefresh({
-      requestedBranch: args.requestedBranch,
-      defaultBranch: undefined,
-      branchNotFound: true,
-      hasResolvedBranchTree: false,
-      lastRepositoryMetadataRefreshAt: args.lastRepositoryMetadataRefreshAt,
-      now: args.now,
-    });
-  }
-
-  return isRepositoryMetadataStale({
-    lastRepositoryMetadataRefreshAt: args.lastRepositoryMetadataRefreshAt,
-    now: args.now,
-  });
-}
-
-export function shouldRefreshBranchTree(args: {
-  intent: RefreshRepositoryIntent;
-  requestedBranch?: string;
-  branchNotFound: boolean;
-}): boolean {
-  if (args.branchNotFound) {
-    return false;
-  }
-
-  if (args.intent === "manual") {
-    return true;
-  }
-
-  if (args.requestedBranch !== undefined) {
-    return true;
-  }
-
-  return args.intent === "source_setup";
-}
-
-interface RepositoryRefreshPlan {
-  shouldSyncMetadata: boolean;
-  shouldRefreshTreeData: boolean;
-}
-
-interface RepositoryTreeMetadataSyncPlan {
-  shouldSyncMetadata: boolean;
-  includeAheadBehind: boolean;
-  includePullRequestLinks: boolean;
-  includeBranchHeadCommitCheckSnapshots: boolean;
-  includeLastCommitTimestamps: boolean;
-}
-
-function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
-  intent: RefreshRepositoryIntent;
-  remoteBranchCount?: number;
-}): boolean {
-  return (
-    args.intent !== "manual" &&
-    args.intent !== "source_setup" &&
-    typeof args.remoteBranchCount === "number" &&
-    args.remoteBranchCount > MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES
-  );
-}
-
-function shouldPreserveTargetedBranchHeadCommitCheckSnapshotHydration(args: {
-  includeBranchHeadCommitCheckSnapshots: boolean;
-  branchHeadCommitCheckBranchNames: string[];
-}): boolean {
-  return (
-    args.includeBranchHeadCommitCheckSnapshots &&
-    args.branchHeadCommitCheckBranchNames.some((branchName) => branchName.trim().length > 0)
-  );
-}
-
-function normalizeBranchHeadCommitCheckBranchNames(branchNames: string[]): string[] {
-  const normalizedBranchNames: string[] = [];
-  const seenBranchNames = new Set<string>();
-
-  for (const branchName of branchNames) {
-    const nextBranchName = branchName.trim();
-    if (nextBranchName.length === 0 || seenBranchNames.has(nextBranchName)) {
-      continue;
-    }
-    seenBranchNames.add(nextBranchName);
-    normalizedBranchNames.push(nextBranchName);
-  }
-
-  return normalizedBranchNames;
-}
-
-export function applyRepositoryTreeMetadataSyncBudget(args: {
-  shouldSyncMetadata: boolean;
-  includeAheadBehind: boolean;
-  includePullRequestLinks: boolean;
-  includeBranchHeadCommitCheckSnapshots: boolean;
-  branchHeadCommitCheckBranchNames: string[];
-  includeLastCommitTimestamps: boolean;
-  intent: RefreshRepositoryIntent;
-  remoteBranchCount?: number;
-}): RepositoryTreeMetadataSyncPlan {
-  if (!args.shouldSyncMetadata) {
-    return {
-      shouldSyncMetadata: false,
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      includeLastCommitTimestamps: false,
-    };
-  }
-
-  if (
-    !shouldLimitAutomaticRepositoryMetadataEnrichment({
-      intent: args.intent,
-      remoteBranchCount: args.remoteBranchCount,
-    })
-  ) {
-    return {
-      shouldSyncMetadata: true,
-      includeAheadBehind: args.includeAheadBehind,
-      includePullRequestLinks: args.includePullRequestLinks,
-      includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
-      includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-    };
-  }
-
-  // Preserve the metadata the dashboard depends on for branch ordering and PR
-  // visibility, while still dropping the noisiest repo-wide backfills that are
-  // not needed for the main branch list. Targeted branch-head check hydration
-  // stays on because the caller already narrowed it to concrete branches.
-  return {
-    shouldSyncMetadata: true,
-    includeAheadBehind: false,
-    includePullRequestLinks: args.includePullRequestLinks,
-    includeBranchHeadCommitCheckSnapshots:
-      shouldPreserveTargetedBranchHeadCommitCheckSnapshotHydration(args),
-    includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-  };
-}
-
-/**
- * Recompute the split refresh plan after each repo-level sync so branch views
- * can converge when metadata changes branch existence or default-branch state.
- */
-export function computeRepositoryRefreshPlan(args: {
-  intent: RefreshRepositoryIntent;
-  requestedBranch?: string;
-  branchNotFound: boolean;
-  lastRepositoryMetadataRefreshAt?: number;
-  includeBranchHeadCommitCheckSnapshots: boolean;
-  now?: number;
-}): RepositoryRefreshPlan {
-  return {
-    shouldSyncMetadata: shouldRefreshRepositoryMetadata(args),
-    shouldRefreshTreeData: shouldRefreshBranchTree({
-      intent: args.intent,
-      requestedBranch: args.requestedBranch,
-      branchNotFound: args.branchNotFound,
-    }),
-  };
-}
-
-/**
- * Keep branch-scoped tree refreshes cheap unless the caller explicitly asked for
- * repo metadata enrichment.
- */
-export function computeRepositoryTreeMetadataSyncPlan(args: {
-  targetBranch?: string;
-  includeAheadBehind: boolean;
-  includePullRequestLinks: boolean;
-  includeBranchHeadCommitCheckSnapshots: boolean;
-  branchHeadCommitCheckBranchNames: string[];
-  intent: RefreshRepositoryIntent;
-  remoteBranchCount?: number;
-}): RepositoryTreeMetadataSyncPlan {
-  const isRepoScoped = args.targetBranch === undefined;
-  const includeAheadBehind = args.includeAheadBehind;
-  const shouldSyncMetadata =
-    isRepoScoped ||
-    includeAheadBehind ||
-    args.includePullRequestLinks ||
-    args.includeBranchHeadCommitCheckSnapshots;
-
-  return applyRepositoryTreeMetadataSyncBudget({
-    shouldSyncMetadata,
-    includeAheadBehind,
-    includePullRequestLinks: args.includePullRequestLinks,
-    includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
-    branchHeadCommitCheckBranchNames: args.branchHeadCommitCheckBranchNames,
-    includeLastCommitTimestamps: shouldSyncMetadata,
-    intent: args.intent,
-    remoteBranchCount: args.remoteBranchCount,
-  });
 }
 
 function buildGitHubRepositoryDiscoveryUrl(perPage: number): string {
@@ -837,7 +557,6 @@ type StagedRepositoryMediaAssetCandidate = {
   size?: number;
   content: string;
 };
-const BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY = 5;
 
 /**
  * Mirror GitHub's preview size ceiling for cached blobs so storage-backed media
@@ -886,25 +605,6 @@ function toGitTreeRef(branch: string): string {
   return `heads/${branch}`;
 }
 
-interface RemoteBranchSummary {
-  name: string;
-  headCommitSha: string;
-  lastCommitAt?: number;
-  aheadBy?: number;
-  behindBy?: number;
-  aheadBehindState: "resolved" | "unavailable" | "preserve";
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: PullRequestLabelSummary[];
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
-  pullRequestState: "resolved" | "preserve";
-  isDefault: boolean;
-  isProtected: boolean;
-}
-
-type PullRequestLabelSummary = Extract<StoredPullRequestLabel, { name: string }>;
-
 interface CachedBranchTreeSnapshot {
   treeSHA: string;
   commitSHA?: string;
@@ -928,711 +628,6 @@ export function computeRepositoryTreeUpdatePlan(args: {
   return {
     shouldUpdateBranchTree,
   };
-}
-
-function parseGitTimestamp(value: string | undefined): number | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) {
-    return undefined;
-  }
-  return timestamp;
-}
-
-/**
- * Keep only stable human-visible label metadata from GitHub's PR payload so
- * the cached branch metadata stays small and display-ready.
- */
-export function readPullRequestLabels(labels: unknown): PullRequestLabelSummary[] {
-  if (!Array.isArray(labels)) {
-    return [];
-  }
-
-  const labelNames: PullRequestLabelSummary[] = [];
-  const seenNames = new Set<string>();
-  for (const label of labels) {
-    const name = (() => {
-      if (typeof label === "string") {
-        return label;
-      }
-      if (isRecord(label) && typeof label.name === "string") {
-        return label.name;
-      }
-      return undefined;
-    })();
-    if (typeof name !== "string" || name.length === 0 || seenNames.has(name)) {
-      continue;
-    }
-    seenNames.add(name);
-    labelNames.push({
-      name,
-      color:
-        isRecord(label) && typeof label.color === "string" && label.color.length > 0
-          ? label.color
-          : undefined,
-    });
-  }
-
-  return labelNames;
-}
-
-export function shouldSyncBranchHeadCommitCheckSnapshots(args: {
-  includeBranchHeadCommitCheckSnapshots: boolean;
-  branches: Array<{ name: string; headCommitSha: string }>;
-}): boolean {
-  return args.branches.length > 0 && args.includeBranchHeadCommitCheckSnapshots;
-}
-
-async function readBranchHeadCommitCheckSnapshot(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  branch: RemoteBranchSummary;
-}): Promise<{
-  commitSha: string;
-  items: ReturnType<typeof normalizeCommitCheckSnapshot>;
-}> {
-  const [checksResponse, combinedStatusResponse] = await Promise.all([
-    args.octokit.checks.listForRef({
-      owner: args.owner,
-      repo: args.repo,
-      ref: args.branch.headCommitSha,
-      per_page: 100,
-    }),
-    args.octokit.repos.getCombinedStatusForRef({
-      owner: args.owner,
-      repo: args.repo,
-      ref: args.branch.headCommitSha,
-    }),
-  ]);
-
-  const checkRuns: GitHubCheckRunSnapshotInput[] = checksResponse.data.check_runs.map((run) => ({
-    id: run.id,
-    name: run.name,
-    status: run.status,
-    conclusion: run.conclusion,
-    detailsUrl: run.details_url ?? undefined,
-    htmlUrl: run.html_url ?? undefined,
-    appName: run.app?.name,
-    appSlug: run.app?.slug,
-    outputSummary: run.output.summary ?? undefined,
-    startedAt: run.started_at ?? undefined,
-    completedAt: run.completed_at ?? undefined,
-  }));
-  const statuses: GitHubCommitStatusSnapshotInput[] = combinedStatusResponse.data.statuses.map(
-    (status) => ({
-      id: status.id,
-      state: status.state,
-      context: status.context,
-      description: status.description ?? undefined,
-      targetUrl: status.target_url ?? undefined,
-      updatedAt: status.updated_at,
-    }),
-  );
-
-  return {
-    commitSha: args.branch.headCommitSha,
-    items: normalizeCommitCheckSnapshot({
-      checkRuns,
-      statuses,
-    }),
-  };
-}
-
-async function syncBranchHeadCommitCheckSnapshotsByBranch(
-  ctx: ActionCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    githubRepositoryId: string;
-    octokit: Octokit;
-    owner: string;
-    repo: string;
-    branches: RemoteBranchSummary[];
-    syncedAt: number;
-  },
-): Promise<void> {
-  const branchesByHeadCommitSha = new Map<string, RemoteBranchSummary>();
-  for (const branch of args.branches) {
-    if (!branchesByHeadCommitSha.has(branch.headCommitSha)) {
-      branchesByHeadCommitSha.set(branch.headCommitSha, branch);
-    }
-  }
-  const branches = Array.from(branchesByHeadCommitSha.values());
-
-  for (
-    let index = 0;
-    index < branches.length;
-    index += BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY
-  ) {
-    const batch = branches.slice(index, index + BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY);
-    await Promise.all(
-      batch.map(async (branch) => {
-        try {
-          const snapshot = await readBranchHeadCommitCheckSnapshot({
-            octokit: args.octokit,
-            owner: args.owner,
-            repo: args.repo,
-            branch,
-          });
-          await ctx.runMutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
-            githubRepositoryId: args.githubRepositoryId,
-            commitSha: snapshot.commitSha,
-            syncedAt: args.syncedAt,
-            items: snapshot.items,
-          });
-          await ctx.runMutation(
-            internal.vault.branches.syncVaultBranchPreviewDomainFromCheckSnapshot,
-            {
-              vaultId: args.vaultId,
-              branchName: branch.name,
-              previewUrl: selectBranchPreviewAliasUrlFromCommitCheckItems(snapshot.items),
-              syncedAt: args.syncedAt,
-            },
-          );
-        } catch (error: unknown) {
-          if (getErrorStatus(error) !== 404) {
-            throw error;
-          }
-
-          console.warn(
-            "syncBranchHeadCommitCheckSnapshot failed",
-            JSON.stringify({
-              owner: args.owner,
-              repo: args.repo,
-              branchName: branch.name,
-              headCommitSha: branch.headCommitSha,
-              error: toErrorMessage(error, "unknown"),
-            }),
-          );
-        }
-      }),
-    );
-  }
-}
-
-function readPullRequestHeadRepositoryFullName(pullRequest: unknown): string | undefined {
-  if (!isRecord(pullRequest)) {
-    return undefined;
-  }
-  const head = pullRequest.head;
-  if (!isRecord(head)) {
-    return undefined;
-  }
-  const repo = head.repo;
-  if (!isRecord(repo)) {
-    return undefined;
-  }
-  const fullName = repo.full_name;
-  if (typeof fullName !== "string" || fullName.length === 0) {
-    return undefined;
-  }
-  return fullName;
-}
-
-export function resolveAheadBehindBaseBranch(args: {
-  branchNames: string[];
-  defaultBranch: string;
-}): string | undefined {
-  return args.branchNames.some((branchName) => branchName === args.defaultBranch)
-    ? args.defaultBranch
-    : undefined;
-}
-
-async function getAheadBehindByBranch(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  baseBranch: string | undefined;
-  branchNames: string[];
-}): Promise<
-  Map<
-    string,
-    {
-      state: "resolved" | "unavailable" | "preserve";
-      aheadBy?: number;
-      behindBy?: number;
-    }
-  >
-> {
-  const countsByBranch = new Map<
-    string,
-    {
-      state: "resolved" | "unavailable" | "preserve";
-      aheadBy?: number;
-      behindBy?: number;
-    }
-  >();
-
-  if (!args.baseBranch) {
-    for (const branchName of args.branchNames) {
-      countsByBranch.set(branchName, { state: "unavailable" });
-    }
-    return countsByBranch;
-  }
-
-  for (const branchName of args.branchNames) {
-    if (branchName === args.baseBranch) {
-      countsByBranch.set(branchName, {
-        state: "resolved",
-        aheadBy: 0,
-        behindBy: 0,
-      });
-    }
-  }
-
-  const branchNamesToCompare = args.branchNames.filter(
-    (branchName) => branchName !== args.baseBranch,
-  );
-  const chunkSize = 10;
-  for (let startIndex = 0; startIndex < branchNamesToCompare.length; startIndex += chunkSize) {
-    const chunk = branchNamesToCompare.slice(startIndex, startIndex + chunkSize);
-    const chunkResults = await Promise.all(
-      chunk.map(async (branchName) => {
-        try {
-          const response = await args.octokit.rest.repos.compareCommitsWithBasehead({
-            owner: args.owner,
-            repo: args.repo,
-            basehead: `${args.baseBranch}...${branchName}`,
-          });
-          const aheadBy = response.data.ahead_by;
-          const behindBy = response.data.behind_by;
-          if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
-            return {
-              branchName,
-              state: "preserve" as const,
-              aheadBy: undefined,
-              behindBy: undefined,
-            };
-          }
-          return {
-            branchName,
-            state: "resolved" as const,
-            aheadBy,
-            behindBy,
-          };
-        } catch (error: unknown) {
-          console.warn(
-            "compareCommitsWithBasehead failed",
-            JSON.stringify({
-              owner: args.owner,
-              repo: args.repo,
-              baseBranch: args.baseBranch,
-              branchName,
-              error: error instanceof Error ? error.message : toErrorMessage(error, "unknown"),
-            }),
-          );
-          return {
-            branchName,
-            state: "preserve" as const,
-            aheadBy: undefined,
-            behindBy: undefined,
-          };
-        }
-      }),
-    );
-
-    for (const chunkResult of chunkResults) {
-      countsByBranch.set(chunkResult.branchName, {
-        state: chunkResult.state,
-        aheadBy: chunkResult.aheadBy,
-        behindBy: chunkResult.behindBy,
-      });
-    }
-  }
-
-  return countsByBranch;
-}
-async function getHeadCommitTimestamps(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  shas: string[];
-}): Promise<Map<string, number | undefined>> {
-  const uniqueShas = Array.from(new Set(args.shas));
-  const timestampsBySha = new Map<string, number | undefined>();
-  const chunkSize = 20;
-
-  for (let start = 0; start < uniqueShas.length; start += chunkSize) {
-    const chunk = uniqueShas.slice(start, start + chunkSize);
-    const chunkResults = await Promise.all(
-      chunk.map(async (sha) => {
-        try {
-          const response = await args.octokit.rest.git.getCommit({
-            owner: args.owner,
-            repo: args.repo,
-            commit_sha: sha,
-          });
-          const lastCommitAt =
-            parseGitTimestamp(response.data.committer.date) ??
-            parseGitTimestamp(response.data.author.date);
-          return { sha, lastCommitAt };
-        } catch {
-          return { sha, lastCommitAt: undefined };
-        }
-      }),
-    );
-
-    for (const result of chunkResults) {
-      timestampsBySha.set(result.sha, result.lastCommitAt);
-    }
-  }
-
-  return timestampsBySha;
-}
-
-type OpenPullRequestCandidate = {
-  head: {
-    ref?: string;
-    repo?: {
-      full_name?: string | null;
-    } | null;
-  };
-  base?: {
-    ref?: string;
-  };
-  html_url?: string | null;
-  number?: number;
-  title?: string | null;
-  draft?: boolean | null;
-  labels?: unknown;
-  updated_at?: string;
-  created_at?: string;
-};
-
-export function collectLatestOpenPullRequestsByBranch(args: {
-  branchNames: string[];
-  repositoryFullName: string;
-  pullRequests: OpenPullRequestCandidate[];
-}): Map<
-  string,
-  {
-    url: string;
-    number: number;
-    labels: PullRequestLabelSummary[];
-    title?: string;
-    isDraft: boolean;
-  }
-> {
-  const branchNameSet = new Set(args.branchNames);
-  const normalizedRepositoryFullName = args.repositoryFullName.toLowerCase();
-  const latestByBranch = new Map<
-    string,
-    {
-      url: string;
-      number: number;
-      labels: PullRequestLabelSummary[];
-      title?: string;
-      isDraft: boolean;
-      updatedAt: number;
-    }
-  >();
-
-  for (const pullRequest of args.pullRequests) {
-    const branchName = pullRequest.head.ref;
-    if (
-      typeof branchName !== "string" ||
-      !branchNameSet.has(branchName) ||
-      typeof pullRequest.html_url !== "string" ||
-      pullRequest.html_url.length === 0 ||
-      typeof pullRequest.number !== "number"
-    ) {
-      continue;
-    }
-
-    const pullRequestHeadRepo = readPullRequestHeadRepositoryFullName(pullRequest);
-    if (
-      typeof pullRequestHeadRepo !== "string" ||
-      pullRequestHeadRepo.toLowerCase() !== normalizedRepositoryFullName
-    ) {
-      continue;
-    }
-
-    const updatedAtRaw =
-      typeof pullRequest.updated_at === "string" ? pullRequest.updated_at : pullRequest.created_at;
-    const updatedAtParsed = Date.parse(updatedAtRaw ?? "");
-    const updatedAt = Number.isNaN(updatedAtParsed) ? 0 : updatedAtParsed;
-    const existing = latestByBranch.get(branchName);
-    if (!existing || updatedAt >= existing.updatedAt) {
-      latestByBranch.set(branchName, {
-        url: pullRequest.html_url,
-        number: pullRequest.number,
-        labels: readPullRequestLabels(pullRequest.labels),
-        title:
-          typeof pullRequest.title === "string" && pullRequest.title.length > 0
-            ? pullRequest.title
-            : undefined,
-        isDraft: pullRequest.draft === true,
-        updatedAt,
-      });
-    }
-  }
-
-  return new Map(
-    Array.from(latestByBranch.entries()).map(([branchName, pullRequest]) => [
-      branchName,
-      {
-        url: pullRequest.url,
-        number: pullRequest.number,
-        labels: pullRequest.labels,
-        title: pullRequest.title,
-        isDraft: pullRequest.isDraft,
-      },
-    ]),
-  );
-}
-
-async function getOpenPullRequestsByBranch(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  branchNames: string[];
-}): Promise<{
-  state: "resolved" | "preserve";
-  pullRequestsByBranch: Map<
-    string,
-    | {
-        url?: string;
-        number?: number;
-        labels: PullRequestLabelSummary[];
-        title?: string;
-        isDraft?: boolean;
-      }
-    | undefined
-  >;
-}> {
-  try {
-    const repositoryFullName = `${args.owner}/${args.repo}`.toLowerCase();
-    const openPullRequests: OpenPullRequestCandidate[] = [];
-    const perPage = 100;
-    const maxPages = 50;
-    let hitPageLimit = false;
-
-    for (let page = 1; page <= maxPages; page += 1) {
-      const pageResponse = await args.octokit.rest.pulls.list({
-        owner: args.owner,
-        repo: args.repo,
-        state: "open",
-        per_page: perPage,
-        page,
-      });
-      if (pageResponse.data.length === 0) {
-        break;
-      }
-
-      openPullRequests.push(...pageResponse.data);
-
-      if (pageResponse.data.length < perPage) {
-        break;
-      }
-      if (page === maxPages) {
-        hitPageLimit = true;
-      }
-    }
-
-    if (hitPageLimit) {
-      console.warn(
-        "listOpenPullRequests reached page limit",
-        JSON.stringify({
-          owner: args.owner,
-          repo: args.repo,
-          maxPages,
-          perPage,
-        }),
-      );
-    }
-
-    const pullRequestsByBranch = new Map<
-      string,
-      | {
-          url?: string;
-          number?: number;
-          labels: PullRequestLabelSummary[];
-          title?: string;
-          isDraft?: boolean;
-        }
-      | undefined
-    >();
-    const latestByBranch = collectLatestOpenPullRequestsByBranch({
-      branchNames: args.branchNames,
-      repositoryFullName,
-      pullRequests: openPullRequests,
-    });
-    for (const branchName of args.branchNames) {
-      const pullRequest = latestByBranch.get(branchName);
-      pullRequestsByBranch.set(
-        branchName,
-        pullRequest
-          ? {
-              url: pullRequest.url,
-              number: pullRequest.number,
-              labels: pullRequest.labels,
-              title: pullRequest.title,
-              isDraft: pullRequest.isDraft,
-            }
-          : undefined,
-      );
-    }
-
-    return {
-      state: "resolved",
-      pullRequestsByBranch,
-    };
-  } catch (error: unknown) {
-    console.warn(
-      "listOpenPullRequests failed",
-      JSON.stringify({
-        owner: args.owner,
-        repo: args.repo,
-        error: toErrorMessage(error, "unknown"),
-      }),
-    );
-    return {
-      state: "preserve",
-      pullRequestsByBranch: new Map(),
-    };
-  }
-}
-async function listRemoteBranches(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  includeAheadBehind: boolean;
-  includePullRequestLinks: boolean;
-  includeLastCommitTimestamps: boolean;
-  intent: RefreshRepositoryIntent;
-}): Promise<RemoteBranchSummary[]> {
-  const repoResponse = await args.octokit.rest.repos.get({
-    owner: args.owner,
-    repo: args.repo,
-  });
-  const defaultBranch =
-    typeof repoResponse.data.default_branch === "string"
-      ? repoResponse.data.default_branch
-      : "main";
-
-  const branches: RemoteBranchSummary[] = [];
-  const perPage = 100;
-  for (let page = 1; ; page += 1) {
-    const pageResponse = await args.octokit.rest.repos.listBranches({
-      owner: args.owner,
-      repo: args.repo,
-      per_page: perPage,
-      page,
-    });
-    if (pageResponse.data.length === 0) {
-      break;
-    }
-
-    for (const branch of pageResponse.data) {
-      if (typeof branch.name !== "string") {
-        continue;
-      }
-      const headCommitSha = typeof branch.commit.sha === "string" ? branch.commit.sha : "";
-      if (headCommitSha.length === 0) {
-        continue;
-      }
-
-      branches.push({
-        name: branch.name,
-        headCommitSha,
-        aheadBehindState: "preserve",
-        pullRequestState: "preserve",
-        isDefault: branch.name === defaultBranch,
-        isProtected: branch.protected === true,
-      });
-    }
-
-    if (pageResponse.data.length < perPage) {
-      break;
-    }
-  }
-
-  const branchNames = branches.map((branch) => branch.name);
-  const effectiveSyncPlan = applyRepositoryTreeMetadataSyncBudget({
-    shouldSyncMetadata: true,
-    includeAheadBehind: args.includeAheadBehind,
-    includePullRequestLinks: args.includePullRequestLinks,
-    includeBranchHeadCommitCheckSnapshots: false,
-    branchHeadCommitCheckBranchNames: [],
-    includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-    intent: args.intent,
-    remoteBranchCount: branches.length,
-  });
-  const baseBranch = resolveAheadBehindBaseBranch({
-    branchNames,
-    defaultBranch,
-  });
-  const aheadBehindByBranchPromise = effectiveSyncPlan.includeAheadBehind
-    ? getAheadBehindByBranch({
-        octokit: args.octokit,
-        owner: args.owner,
-        repo: args.repo,
-        baseBranch,
-        branchNames,
-      })
-    : Promise.resolve(
-        new Map(branchNames.map((branchName) => [branchName, { state: "preserve" as const }])),
-      );
-  const pullRequestsByBranchPromise = effectiveSyncPlan.includePullRequestLinks
-    ? getOpenPullRequestsByBranch({
-        octokit: args.octokit,
-        owner: args.owner,
-        repo: args.repo,
-        branchNames,
-      })
-    : Promise.resolve({
-        state: "preserve" as const,
-        pullRequestsByBranch: new Map<
-          string,
-          | {
-              url?: string;
-              number?: number;
-              labels: PullRequestLabelSummary[];
-              title?: string;
-              isDraft?: boolean;
-            }
-          | undefined
-        >(),
-      });
-
-  const [timestampsBySha, aheadBehindByBranch, pullRequestsByBranch] = await Promise.all([
-    effectiveSyncPlan.includeLastCommitTimestamps
-      ? getHeadCommitTimestamps({
-          octokit: args.octokit,
-          owner: args.owner,
-          repo: args.repo,
-          shas: branches.map((branch) => branch.headCommitSha),
-        })
-      : Promise.resolve(new Map<string, number | undefined>()),
-    aheadBehindByBranchPromise,
-    pullRequestsByBranchPromise,
-  ]);
-
-  return branches.map((branch) => {
-    const aheadBehind = aheadBehindByBranch.get(branch.name) ?? {
-      state: "preserve" as const,
-    };
-    const pullRequest =
-      pullRequestsByBranch.state === "resolved"
-        ? pullRequestsByBranch.pullRequestsByBranch.get(branch.name)
-        : undefined;
-
-    return {
-      ...branch,
-      lastCommitAt: timestampsBySha.get(branch.headCommitSha),
-      aheadBy: aheadBehind.state === "resolved" ? aheadBehind.aheadBy : undefined,
-      behindBy: aheadBehind.state === "resolved" ? aheadBehind.behindBy : undefined,
-      aheadBehindState: aheadBehind.state,
-      pullRequestUrl: pullRequest?.url,
-      pullRequestNumber: pullRequest?.number,
-      pullRequestLabels: pullRequest?.labels,
-      pullRequestTitle: pullRequest?.title,
-      pullRequestIsDraft: pullRequest?.isDraft,
-      pullRequestState: pullRequestsByBranch.state,
-    };
-  });
 }
 
 function buildDataUrl(mimeType: string, content: Buffer): string {
@@ -2084,73 +1079,44 @@ export const getRepositoryMediaAsset = action({
 });
 
 /**
- * Shared refresh planner for the direct file-view action and Workpool runner.
+ * Refreshes the one concrete branch requested by the file view.
  *
- * It claims the existing vault refresh lock once, applies metadata budget rules,
- * runs the selected metadata/tree work, then always releases or records failure
- * on that same claim. The queue runner calls it with repository scope; the file
- * route still calls it directly with branch scope.
+ * It claims the vault refresh lock, fetches only that branch's tree, then
+ * releases or records failure on the same claim.
  */
-async function refreshRepositoryTreeForUserHelper(
+async function refreshBranchTreeForUser(
   ctx: ActionCtx,
-  args: RefreshRepositoryTreeForUserArgs,
-): Promise<RefreshRepositoryTreeResult> {
-  const intent = args.intent;
-  const requestedBranch =
-    args.scope === "branch" ? normalizeRequiredRepositoryBranch(args.branch) : undefined;
-  const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
-    args.branchHeadCommitCheckBranchNames,
-  );
-  const includeBranchHeadCommitCheckSnapshots = args.includeBranchHeadCommitCheckSnapshots;
-
-  const repositoryFullName = `${args.owner}/${args.repo}`;
-  const readVault = async (branch: string | undefined) =>
-    ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName,
-      userId: args.userId,
-      branch,
-    });
-
-  let vault = await readVault(requestedBranch);
-  if (!vault) {
-    return { refreshed: false };
-  }
-
-  let refreshPlan = computeRepositoryRefreshPlan({
-    intent,
-    requestedBranch,
-    branchNotFound: vault.branchNotFound,
-    lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-    includeBranchHeadCommitCheckSnapshots,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    branch: string;
+    request: FileViewTreeRefreshRequest;
+  },
+): Promise<RefreshBranchTreeResult> {
+  const requestedBranch = normalizeRequiredRepositoryBranch(args.branch);
+  const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    userId: args.userId,
+    vaultId: args.vaultId,
   });
-
-  if (!refreshPlan.shouldSyncMetadata && !refreshPlan.shouldRefreshTreeData) {
-    return vault.branchNotFound
-      ? {
-          refreshed: false,
-          reason: "branch_not_found",
-        }
-      : { refreshed: false };
+  if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
+    throw new Error("Vault not found.");
   }
-
-  const debounceMs = vault.branchNotFound ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS : undefined;
-  const skipRecentSuccessDebounce =
-    refreshPlan.shouldSyncMetadata ||
-    shouldBypassRecentSuccessDebounceForBranchRefresh({
-      requestedBranch,
-      defaultBranch: vault.defaultBranch,
-      branchNotFound: vault.branchNotFound,
-      hasResolvedBranchTree: vault.hasResolvedBranchTree,
-      lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-    });
-
-  // Atomically claim the refresh lock; skip if debounced or already running
+  const cachedBranchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+    vaultId: args.vaultId,
+    branch: requestedBranch,
+  });
+  if (
+    doesCachedBranchTreeSatisfyFileViewRefresh({
+      cachedBranchTree,
+      request: args.request,
+      now: Date.now(),
+    })
+  ) {
+    return { refreshed: true };
+  }
   const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
-    vaultId: vault._id,
-    debounceMs,
-    // Missing or stale branch metadata still needs a refresh even when the
-    // repo itself synced recently.
-    skipRecentSuccessDebounce,
+    vaultId: args.vaultId,
+    skipRecentSuccessDebounce: true,
   });
   if (!claim.claimed) {
     return {
@@ -2162,55 +1128,18 @@ async function refreshRepositoryTreeForUserHelper(
     throw new Error("Tree refresh claim missing start timestamp");
   }
 
-  let refreshError: unknown = null;
-  let refreshFailure: TreeRefreshFailureDescriptor | null = null;
-  let didSyncMetadata = false;
-  let didRefreshTreeData = false;
-  const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
-    targetBranch: requestedBranch,
-    includeAheadBehind: args.includeAheadBehind,
-    includePullRequestLinks: args.includePullRequestLinks,
-    includeBranchHeadCommitCheckSnapshots,
-    branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
-    intent,
-    remoteBranchCount: vault.remoteBranchCount,
-  });
   try {
-    if (refreshPlan.shouldSyncMetadata) {
-      didSyncMetadata = true;
-      await ctx.runAction(internal.github.syncRepositoryMetadata, {
-        userId: args.userId,
-        owner: args.owner,
-        repo: args.repo,
-        includeAheadBehind: metadataSyncPlan.includeAheadBehind,
-        includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
-        includeBranchHeadCommitCheckSnapshots:
-          metadataSyncPlan.includeBranchHeadCommitCheckSnapshots,
-        branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
-        includeLastCommitTimestamps: metadataSyncPlan.includeLastCommitTimestamps,
-        intent,
-      });
-
-      const refreshedVault = await readVault(requestedBranch);
-      if (!refreshedVault) {
-        throw new Error("Vault not found");
-      }
-      vault = refreshedVault;
-      refreshPlan = computeRepositoryRefreshPlan({
-        intent,
-        requestedBranch,
-        branchNotFound: vault.branchNotFound,
-        lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-        includeBranchHeadCommitCheckSnapshots,
-      });
-    }
-
-    if (vault.branchNotFound) {
+    await ctx.runAction(internal.github.refreshBranchTree, {
+      userId: args.userId,
+      vaultId: args.vaultId,
+      branch: requestedBranch,
+    });
+  } catch (error) {
+    if (getErrorStatus(error) === 404) {
       await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: vault._id,
+        vaultId: args.vaultId,
         startedAt: claim.startedAt,
         markRefreshed: true,
-        updateLastTreeRefreshAt: false,
       });
       return {
         refreshed: false,
@@ -2218,35 +1147,17 @@ async function refreshRepositoryTreeForUserHelper(
       };
     }
 
-    if (refreshPlan.shouldRefreshTreeData) {
-      didRefreshTreeData = true;
-      await ctx.runAction(internal.github.refreshBranchTree, {
-        userId: args.userId,
-        owner: args.owner,
-        repo: args.repo,
-        branch: vault.resolvedBranch,
-      });
-    }
-  } catch (error) {
-    refreshError = error;
-    refreshFailure = describeRepositoryTreeRefreshFailure(error);
-    console.error("Failed to refresh repository tree", {
-      owner: args.owner,
-      repo: args.repo,
+    const refreshFailure = describeRepositoryTreeRefreshFailure(error);
+    console.error("Failed to refresh branch tree", {
+      vaultId: args.vaultId,
       branch: requestedBranch,
-      intent,
-      didSyncMetadata,
-      didRefreshTreeData,
       kind: refreshFailure.kind,
       message: refreshFailure.message,
       error,
     });
-  }
-
-  if (refreshFailure) {
     try {
       const releaseResult = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: vault._id,
+        vaultId: args.vaultId,
         startedAt: claim.startedAt,
         markRefreshed: false,
         failureKind: refreshFailure.kind,
@@ -2255,7 +1166,7 @@ async function refreshRepositoryTreeForUserHelper(
       });
       if (!releaseResult.released) {
         await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
-          vaultId: vault._id,
+          vaultId: args.vaultId,
           startedAt: claim.startedAt,
           failureKind: refreshFailure.kind,
           failureMessage: refreshFailure.message,
@@ -2263,22 +1174,20 @@ async function refreshRepositoryTreeForUserHelper(
         });
       }
     } catch (releaseError) {
-      console.error("Failed to persist repository tree refresh failure", {
-        owner: args.owner,
-        repo: args.repo,
+      console.error("Failed to persist branch tree refresh failure", {
+        vaultId: args.vaultId,
         branch: requestedBranch,
         releaseError,
-        refreshError,
+        refreshError: error,
       });
     }
-    throw refreshError;
+    throw error;
   }
 
   await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-    vaultId: vault._id,
+    vaultId: args.vaultId,
     startedAt: claim.startedAt,
     markRefreshed: true,
-    updateLastTreeRefreshAt: didRefreshTreeData,
   });
   return { refreshed: true };
 }
@@ -2286,162 +1195,24 @@ async function refreshRepositoryTreeForUserHelper(
 /**
  * Public branch refresh used by the file route.
  *
- * The browser identifies the vault, branch, and user-visible intent. The
- * action checks `userId + vaultId`, derives owner/repo from the vault, then
- * applies the current file-view branch refresh policy. URL owner/repo strings
- * and GitHub metadata-depth choices are not trusted from React.
+ * The browser identifies the vault and concrete branch. Repository inventory
+ * remains on its separate GraphQL refresh path.
  */
-export const refreshRepositoryTree = action({
+export const refreshBranchTreeForFileView = action({
   access: "access_app_refresh",
   args: {
     vaultId: id("vaults"),
     branch: string(),
-    intent: publicRefreshRepositoryIntent,
+    request: fileViewTreeRefreshRequest,
   },
-  returns: refreshRepositoryTreeResult,
-  handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
-    const userId = ctx.viewer.userId;
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      userId,
+  returns: refreshBranchTreeResult,
+  handler: async (ctx, args): Promise<RefreshBranchTreeResult> => {
+    return await refreshBranchTreeForUser(ctx, {
+      userId: ctx.viewer.userId,
       vaultId: args.vaultId,
-    });
-    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
-      throw new Error("Vault not found.");
-    }
-
-    return await refreshRepositoryTreeForUserHelper(ctx, {
-      scope: "branch",
-      userId,
-      owner: vault.owner,
-      repo: vault.name,
       branch: args.branch,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: false,
-      branchHeadCommitCheckBranchNames: [],
-      intent: args.intent,
+      request: args.request,
     });
-  },
-});
-
-/**
- * Internal refresh entry point for backend-owned scheduling.
- *
- * The caller supplies the already-authorized user id. Queue rows store demand
- * only; the runner translates demand into these execution flags.
- */
-export const refreshRepositoryTreeForUser = internalAction({
-  args: {
-    input: refreshRepositoryTreeForUserInput,
-  },
-  returns: refreshRepositoryTreeResult,
-  handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
-    return await refreshRepositoryTreeForUserHelper(ctx, args.input);
-  },
-});
-
-/**
- * Syncs repository-level GitHub metadata into vault branch rows.
- *
- * Every enrichment flag is required on purpose. The caller must choose whether
- * this pass pays for ahead/behind counts, pull request metadata, check-snapshot
- * hydration, and commit timestamps instead of inheriting hidden defaults.
- */
-export const syncRepositoryMetadata = internalAction({
-  args: {
-    userId: id("users"),
-    owner: string(),
-    repo: string(),
-    includeAheadBehind: boolean(),
-    includePullRequestLinks: boolean(),
-    includeBranchHeadCommitCheckSnapshots: boolean(),
-    branchHeadCommitCheckBranchNames: array(string()),
-    includeLastCommitTimestamps: boolean(),
-    intent: refreshRepositoryIntent,
-  },
-  returns: nullValidator(),
-  handler: async (ctx, args) => {
-    const currentUser = await ctx.runQuery(internal.users.getById, {
-      userId: args.userId,
-    });
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: args.userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      userId: args.userId,
-    });
-
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-
-    const octokit: Octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-    });
-    const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
-      args.branchHeadCommitCheckBranchNames,
-    );
-
-    const remoteBranches = await listRemoteBranches({
-      octokit,
-      owner: args.owner,
-      repo: args.repo,
-      includeAheadBehind: args.includeAheadBehind,
-      includePullRequestLinks: args.includePullRequestLinks,
-      includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-      intent: args.intent,
-    });
-    const effectiveSyncPlan = applyRepositoryTreeMetadataSyncBudget({
-      shouldSyncMetadata: true,
-      includeAheadBehind: args.includeAheadBehind,
-      includePullRequestLinks: args.includePullRequestLinks,
-      includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
-      branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
-      includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-      intent: args.intent,
-      remoteBranchCount: remoteBranches.length,
-    });
-    const syncedAt = Date.now();
-    await ctx.runMutation(internal.vault.branches.syncVaultRemoteBranches, {
-      vaultId: vault._id,
-      syncedAt,
-      branches: remoteBranches,
-    });
-    const branchHeadCommitCheckTargetBranches =
-      requestedBranchHeadCommitCheckBranchNames.length === 0
-        ? remoteBranches
-        : remoteBranches.filter((branch) =>
-            requestedBranchHeadCommitCheckBranchNames.includes(branch.name),
-          );
-    if (
-      shouldSyncBranchHeadCommitCheckSnapshots({
-        includeBranchHeadCommitCheckSnapshots:
-          effectiveSyncPlan.includeBranchHeadCommitCheckSnapshots,
-        branches: branchHeadCommitCheckTargetBranches,
-      })
-    ) {
-      await syncBranchHeadCommitCheckSnapshotsByBranch(ctx, {
-        vaultId: vault._id,
-        githubRepositoryId: vault.ghRepoId,
-        octokit,
-        owner: args.owner,
-        repo: args.repo,
-        branches: branchHeadCommitCheckTargetBranches,
-        syncedAt,
-      });
-    }
-
-    return null;
   },
 });
 
@@ -2455,18 +1226,17 @@ export const syncRepositoryMetadata = internalAction({
 export const refreshBranchTree = internalAction({
   args: {
     userId: id("users"),
-    owner: string(),
-    repo: string(),
+    vaultId: id("vaults"),
     branch: string(),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
-    const currentUser = await ctx.runQuery(internal.users.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       userId: args.userId,
+      vaultId: args.vaultId,
     });
-
-    if (!currentUser) {
-      throw new Error("User not found");
+    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
+      throw new Error("Vault not found.");
     }
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
       userId: args.userId,
@@ -2477,41 +1247,31 @@ export const refreshBranchTree = internalAction({
     }
 
     const targetBranch = normalizeRequiredRepositoryBranch(args.branch);
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      userId: args.userId,
-      branch: targetBranch,
-    });
-
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
-    const resolvedBranch = targetBranch;
-
-    const tree = await octokit.rest.git.getTree({
-      owner: args.owner,
-      repo: args.repo,
-      tree_sha: toGitTreeRef(resolvedBranch),
-      recursive: "1",
-    });
-    const latestCommits = await octokit.rest.repos.listCommits({
-      owner: args.owner,
-      repo: args.repo,
-      sha: resolvedBranch,
-      per_page: 1,
-    });
-    const latestCommitSha = latestCommits.data[0]?.sha;
+    const branchRef = toGitTreeRef(targetBranch);
+    const [tree, ref] = await Promise.all([
+      octokit.rest.git.getTree({
+        owner: vault.owner,
+        repo: vault.name,
+        tree_sha: branchRef,
+        recursive: "1",
+      }),
+      octokit.rest.git.getRef({
+        owner: vault.owner,
+        repo: vault.name,
+        ref: branchRef,
+      }),
+    ]);
+    const latestCommitSha = ref.data.object.sha;
 
     const cachedBranchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
       vaultId: vault._id,
-      branch: resolvedBranch,
+      branch: targetBranch,
     });
     const { shouldUpdateBranchTree } = computeRepositoryTreeUpdatePlan({
-      resolvedBranch,
+      resolvedBranch: targetBranch,
       fetchedTreeSHA: tree.data.sha,
       fetchedCommitSHA: latestCommitSha,
       cachedBranchTree,
@@ -2523,83 +1283,11 @@ export const refreshBranchTree = internalAction({
 
     await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
       vaultId: vault._id,
-      branch: resolvedBranch,
+      branch: targetBranch,
       treeData: tree.data,
       commitSHA: latestCommitSha,
     });
 
-    return null;
-  },
-});
-
-/**
- * Internal follow-up after a repository write such as commit, pull, or PR open.
- *
- * `target` makes the scope explicit: repository-scoped callers refresh metadata
- * plus the vault's resolved branch; branch-scoped callers refresh one branch.
- */
-export const updateRepositoryTree = internalAction({
-  args: {
-    userId: id("users"),
-    owner: string(),
-    repo: string(),
-    target: updateRepositoryTreeTarget,
-    includeAheadBehind: boolean(),
-    includePullRequestLinks: boolean(),
-    includeBranchHeadCommitCheckSnapshots: boolean(),
-    branchHeadCommitCheckBranchNames: array(string()),
-  },
-  returns: nullValidator(),
-  handler: async (ctx, args) => {
-    const targetBranch =
-      args.target.scope === "branch"
-        ? normalizeRequiredRepositoryBranch(args.target.branch)
-        : undefined;
-    const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
-      args.branchHeadCommitCheckBranchNames,
-    );
-    // This path runs after app-owned repository writes. Use manual debounce
-    // semantics while explicit caller flags choose metadata depth.
-    const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
-      targetBranch,
-      includeAheadBehind: args.includeAheadBehind,
-      includePullRequestLinks: args.includePullRequestLinks,
-      includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
-      branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
-      intent: "manual",
-    });
-
-    if (metadataSyncPlan.shouldSyncMetadata) {
-      await ctx.runAction(internal.github.syncRepositoryMetadata, {
-        userId: args.userId,
-        owner: args.owner,
-        repo: args.repo,
-        includeAheadBehind: metadataSyncPlan.includeAheadBehind,
-        includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
-        includeBranchHeadCommitCheckSnapshots:
-          metadataSyncPlan.includeBranchHeadCommitCheckSnapshots,
-        branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
-        includeLastCommitTimestamps: metadataSyncPlan.includeLastCommitTimestamps,
-        intent: "manual",
-      });
-    }
-    let branchToRefresh = targetBranch;
-    if (!branchToRefresh) {
-      const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-        repositoryFullName: `${args.owner}/${args.repo}`,
-        userId: args.userId,
-      });
-      if (!vault) {
-        throw new Error("Vault not found");
-      }
-      branchToRefresh = normalizeRequiredRepositoryBranch(vault.resolvedBranch);
-    }
-    await ctx.runAction(internal.github.refreshBranchTree, {
-      userId: args.userId,
-      owner: args.owner,
-      repo: args.repo,
-      branch: branchToRefresh,
-    });
     return null;
   },
 });

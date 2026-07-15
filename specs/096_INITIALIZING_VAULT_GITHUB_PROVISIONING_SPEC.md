@@ -593,22 +593,21 @@ operator has confirmed the cleanup scope.
 The reset must include dependent vault-scoped tables, not only `vaults`. Likely affected tables
 include:
 
-1. `vaultBranchFilters`
-2. `vaultRemoteBranches`
-3. `vaultBranchTrees`
-4. `vaultInfrastructure`
-5. `vaultInfrastructureOwnership`
-6. `appProvisioningRuns`
-7. `appProvisioningEvents`
-8. `vaultDomains`
-9. `codespaces`
-10. `fileStaging`
-11. `blobs`
-12. `folderExpansionState`
-13. `agentGraphNodeLayout`
-14. `agentThreadContext`
-15. `aiProdAccessRequests`
-16. `collaborativeUpdates`
+1. repository inventory publication, refresh, generation, item, and label-chunk tables
+2. `vaultBranchTrees`
+3. `vaultInfrastructure`
+4. `vaultInfrastructureOwnership`
+5. `appProvisioningRuns`
+6. `appProvisioningEvents`
+7. `vaultDomains`
+8. `codespaces`
+9. `fileStaging`
+10. `blobs`
+11. `folderExpansionState`
+12. `agentGraphNodeLayout`
+13. `agentThreadContext`
+14. `aiProdAccessRequests`
+15. `collaborativeUpdates`
 
 The cleanup must fail closed: if the cleanup cannot prove it is targeting the intended vault-scoped
 tables and rows, it must abort before deletion and report the failure outside the product flow. The

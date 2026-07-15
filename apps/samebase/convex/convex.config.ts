@@ -1,6 +1,7 @@
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
 import agent from "@convex-dev/agent/convex.config";
+import migrations from "@convex-dev/migrations/convex.config";
 import workflow from "@convex-dev/workflow/convex.config";
 import workpool from "@convex-dev/workpool/convex.config";
 
@@ -15,7 +16,10 @@ const app = defineApp({
 });
 
 app.use(agent);
+app.use(migrations);
 app.use(workflow);
+// Deploy-one only: retain the old component state long enough to cancel retired jobs.
 app.use(workpool, { name: "repositoryRefreshWorkpool" });
+app.use(workpool, { name: "repositoryInventoryWorkpool" });
 
 export default app;

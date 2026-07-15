@@ -14,6 +14,7 @@ import {
   vAccountDeletionStep,
   vCompletedAccountDeletionProviderRevocationOutcome,
 } from "./model";
+import { deleteProviderConnection } from "../providerConnections";
 import { type RevokeProviderAccessResult } from "./providerActions";
 import { readOwnedActiveRun } from "./stepContext";
 
@@ -192,7 +193,7 @@ export const deleteProviderConnections = internalMutation({
       .take(25);
 
     for (const connection of connections) {
-      await ctx.db.delete(connection._id);
+      await deleteProviderConnection(ctx.db, connection);
     }
 
     return connections.length < 25;
@@ -301,6 +302,24 @@ export const deleteAccountWorkflow = workflow.define({
 
     for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
       const result = await step.runMutation(
+        internal.repositoryInventory.quiesceForAccountDeletion,
+        ownedArgs,
+        { name: `quiesce_repository_inventory_${check}` },
+      );
+
+      if (result.state === "done") {
+        break;
+      }
+
+      if (check === MAX_QUIESCE_CHECKS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+
+      await step.sleep(1_000, { name: `wait_for_repository_inventory_${check}` });
+    }
+
+    for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
+      const result = await step.runMutation(
         internal.accountDeletion.cleanup.inspectQuiescence,
         ownedArgs,
         { name: `inspect_quiescence_${check}` },
@@ -319,24 +338,6 @@ export const deleteAccountWorkflow = workflow.define({
           ? Math.max(1, Math.min(result.retryAfterMs, 5_000))
           : 1_000;
       await step.sleep(waitMs, { name: `wait_for_active_work_${check}` });
-    }
-
-    for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
-      const result = await step.runMutation(
-        internal.repositoryRefresh.quiesceForAccountDeletion,
-        ownedArgs,
-        { name: `quiesce_repository_refresh_${check}` },
-      );
-
-      if (result.state === "done") {
-        break;
-      }
-
-      if (check === MAX_QUIESCE_CHECKS - 1) {
-        throw new Error(SAFE_WORKFLOW_ERROR);
-      }
-
-      await step.sleep(1_000, { name: `wait_for_repository_refresh_${check}` });
     }
 
     if (

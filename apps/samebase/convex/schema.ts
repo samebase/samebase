@@ -25,7 +25,15 @@ import {
   vMachineRegistrationBootstrapRateLimitRow,
   vMachineRegistrationRequestRow,
 } from "./connectedMachineModel";
-import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
+import { vGitHubGraphqlRateBudget } from "./githubGraphqlRateBudget";
+import { vLegacyRepositoryRefreshRequest } from "./legacyRepositoryInventoryCleanupModel";
+import {
+  vRepositoryInventoryGeneration,
+  vRepositoryInventoryLabelChunk,
+  vRepositoryInventoryPublication,
+  vRepositoryInventoryRefresh,
+  vStoredRepositoryInventoryItem,
+} from "./repositoryInventoryModel";
 import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 import { vVaultResourceLinksStateRow } from "./vault/resourceLinksStateModel";
@@ -299,6 +307,7 @@ export const vGithubProviderConnection = object({
   kind: literal("github"),
   userId: id("users"),
   auth: vStandardProviderAuth,
+  githubAccountId: optional(number()),
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
@@ -396,7 +405,8 @@ export default defineSchema({
   providerConnections: defineTable(vProviderConnection)
     .index("by_user", ["userId"])
     .index("by_user_kind", ["userId", "kind"])
-    .index("by_kind_method", ["kind", "auth.method"]),
+    .index("by_kind_method", ["kind", "auth.method"])
+    .index("by_kind_and_githubAccountId", ["kind", "githubAccountId"]),
 
   connectedMachines: defineTable(vConnectedMachineRow)
     .index("by_user", ["userId"])
@@ -437,18 +447,14 @@ export default defineSchema({
     "workspaceKey",
   ]),
 
+  /** Temporary deploy-one surface. The retired filter rows are deleted before deploy two. */
   vaultBranchFilters: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     hiddenLabels: array(string()),
     includeDrafts: boolean(),
-    // Keep this optional so rows saved before unlabeled-branch support remain
-    // readable until each user re-saves their filters.
     includeNoLabel: optional(boolean()),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_and_vault", ["userId", "vaultId"])
-    .index("by_vault", ["vaultId"]),
+  }),
 
   vaultResourceLinksState: defineTable(vVaultResourceLinksStateRow)
     .index("by_user", ["userId"])
@@ -513,9 +519,7 @@ export default defineSchema({
     .index("by_user_vault_deployment", ["userId", "vaultId", "deploymentId"])
     .index("by_user_vault_deployment_node", ["userId", "vaultId", "deploymentId", "nodeId"]),
 
-  /**
-   * Remote Git branches mirrored from GitHub for a vault repository.
-   */
+  /** Temporary deploy-one surface. Retired branch catalog rows are deleted before deploy two. */
   vaultRemoteBranches: defineTable({
     vaultId: id("vaults"),
     name: string(),
@@ -531,37 +535,24 @@ export default defineSchema({
     isDefault: boolean(),
     isProtected: boolean(),
     remoteState: vVaultRemoteBranchState,
-    defaultRank: number(),
-    stateRank: number(),
-    commitRank: number(),
+    // Temporary deploy-one fields. Existing rows are deleted before deploy two.
+    defaultRank: optional(number()),
+    stateRank: optional(number()),
+    commitRank: optional(number()),
     deletedUpstreamAt: optional(number()),
     lastSyncedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_name", ["vaultId", "name"])
-    .index("by_vault_and_remote_state", ["vaultId", "remoteState"])
-    .index("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", [
-      "vaultId",
-      "defaultRank",
-      "stateRank",
-      "commitRank",
-      "name",
-    ]),
+    .index("by_vault_and_remote_state", ["vaultId", "remoteState"]),
 
-  /**
-   * Current GitHub check/status summary for one commit in one GitHub repo.
-   *
-   * GitHub attaches checks to commits inside repositories. Branch and PR rows
-   * point at commits; they do not own check state.
-   */
+  /** Temporary deploy-one surface. Retired check snapshots are deleted before deploy two. */
   githubCommitCheckSnapshots: defineTable(vGithubCommitCheckSnapshot).index(
     "by_githubRepositoryId_and_commitSha",
     ["githubRepositoryId", "commitSha"],
   ),
 
-  /**
-   * Current GitHub check/status items for one commit in one GitHub repo.
-   */
+  /** Temporary deploy-one surface. Retired check items are deleted before deploy two. */
   githubCommitCheckItems: defineTable({
     githubRepositoryId: string(),
     commitSha: string(),
@@ -598,28 +589,94 @@ export default defineSchema({
     treeRefreshStartedAt: optional(number()),
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
 
+  /** Temporary deploy-one surface for deleting rows from the retired refresh queue. */
+  repositoryRefreshRequests: defineTable(vLegacyRepositoryRefreshRequest).index(
+    "by_lifecycle_state",
+    ["lifecycle.state"],
+  ),
+
   /**
-   * Durable freshness demand and worker status. Each row is one repository- or
-   * branch-scoped demand; exact refresh steps stay backend execution policy.
+   * Deploy-one only. This records when the retired Workpool was canceled so
+   * cleanup waits out even an old running action whose request row was deleted.
    */
-  repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
-    .index("by_userId_and_vaultId_and_dedupeKey", ["userId", "vaultId", "dedupeKey"])
-    .index("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", [
-      "userId",
-      "vaultId",
-      "dedupeKey",
-      "lifecycle.state",
-    ])
-    .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
+  legacyRepositoryInventoryCleanupState: defineTable({
+    startedAt: number(),
+    completedAt: optional(number()),
+  }),
+
+  /**
+   * One selected-repository polling state row. Provider data is published by
+   * switching activeGeneration only after a complete GraphQL collection.
+   */
+  vaultRepositoryInventories: defineTable(vRepositoryInventoryPublication)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_vaultId", ["userId", "vaultId"]),
+
+  /**
+   * Polling demand and worker ownership. Keeping this separate prevents
+   * lifecycle writes from invalidating active inventory pages.
+   */
+  vaultRepositoryInventoryRefreshes: defineTable(vRepositoryInventoryRefresh)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_vaultId", ["userId", "vaultId"])
     .index("by_userId_and_lifecycle_state_and_updatedAt", [
       "userId",
       "lifecycle.state",
       "updatedAt",
+    ]),
+
+  /**
+   * High-churn GitHub GraphQL budget state. GitHub-account-scoped leases serialize
+   * repository crawls across every connection for the same provider principal.
+   */
+  githubGraphqlRateBudgets: defineTable(vGitHubGraphqlRateBudget)
+    .index("by_githubAccountId", ["githubAccountId"])
+    .index("by_lease_vaultId", ["lease.vaultId"]),
+
+  /**
+   * Bounded counters for one immutable repository inventory generation.
+   */
+  vaultRepositoryInventoryGenerations: defineTable(vRepositoryInventoryGeneration)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_vaultId_and_generation", ["userId", "vaultId", "generation"])
+    .index("by_vault_and_generation", ["vaultId", "generation"]),
+
+  /**
+   * Branch and open pull request rows for one immutable inventory generation.
+   */
+  vaultRepositoryInventoryItems: defineTable(vStoredRepositoryInventoryItem)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_vaultId_and_generation", ["userId", "vaultId", "generation"])
+    .index("by_vault_and_generation", ["vaultId", "generation"])
+    .index("by_vault_and_generation_and_rowKey", ["vaultId", "generation", "rowKey"])
+    .index("by_vaultId_generation_kind_branchLookupKey_timeRank_tie", [
+      "vaultId",
+      "generation",
+      "kind",
+      "branchLookupKey",
+      "timeRank",
+      "tie",
     ])
-    .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
-    .index("by_lifecycle_state_and_lifecycle_notBefore", [
-      "lifecycle.state",
-      "lifecycle.notBefore",
+    .index("by_vault_and_generation_and_kindRank_and_timeRank_and_tie", [
+      "vaultId",
+      "generation",
+      "kindRank",
+      "timeRank",
+      "tie",
+    ]),
+
+  /**
+   * Bounded pull request label chunks for one immutable inventory generation.
+   */
+  vaultRepositoryInventoryLabelChunks: defineTable(vRepositoryInventoryLabelChunk)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_vaultId_and_generation", ["userId", "vaultId", "generation"])
+    .index("by_vault_and_generation", ["vaultId", "generation"])
+    .index("by_vault_and_generation_and_rowKey_and_chunkIndex", [
+      "vaultId",
+      "generation",
+      "rowKey",
+      "chunkIndex",
     ]),
 
   /**

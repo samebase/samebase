@@ -2,14 +2,14 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Archived and superseded by `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
 - Owner: Noter frontend/editor + Convex GitHub/file staging
 - Last updated: 2026-03-25
 - Related specs:
   - `specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md`
   - `rfcs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
+  - `archive/067_VAULT_BRANCH_FILTERS_SPEC.md`
 - External references:
   - [Git Tree Compare README](https://github.com/letmaik/vscode-git-tree-compare)
   - [GitHub REST: compare two commits](https://docs.github.com/en/rest/commits/commits#compare-two-commits)

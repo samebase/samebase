@@ -2,15 +2,15 @@
 
 ## Document Control
 
-- Status: Partially implemented
+- Status: Archived and superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Owner: vault refresh, GitHub PR metadata, dashboard branch rows
 - Created: 2026-06-23
 - Last updated: 2026-06-23
 - Related specs:
-  - `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
+  - `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
   - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 - Follow-up RFC:
-  - `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
+  - `archive/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
 - Related research:
   - `research/2026-04-08-dashboard-vault-pr-refresh.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
@@ -40,7 +40,7 @@ from PR comments.
 ## Follow-Up Direction
 
 This RFC documents the PR-check replacement that removed comment scraping. It is not the final
-dashboard model. Future dashboard work should use `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`:
+dashboard model. Its immediate follow-up was `archive/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`:
 checks belong to `githubRepositoryId + commitSha`, and PRs/default branches/active branches are
 views over those commit snapshots.
 
@@ -320,7 +320,7 @@ Status: implemented.
 5. Production `vaultRemoteBranches` data has been cleared of the old Cloudflare preview fields.
 6. The deprecated schema fields have been removed from `vaultRemoteBranches`.
 7. Pending follow-up: archive or rewrite
-   `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
+   `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
    verified in production.
 
 ## Validation

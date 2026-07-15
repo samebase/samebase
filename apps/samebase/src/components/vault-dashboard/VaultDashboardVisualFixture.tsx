@@ -1,8 +1,5 @@
-import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { useCallback, useState, type ReactNode } from "react";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
-import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   VaultDashboardRepositoryCard,
@@ -16,9 +13,7 @@ import {
   type VaultConvexSchemaGraphState,
 } from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
-import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
-  VaultBranchHeaderControls,
   VaultBranchSection,
   VaultBranchLinkRow,
   VaultDashboardView,
@@ -36,11 +31,6 @@ import {
   VaultSetupProgressSection,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import {
-  filterVaultRemoteBranches,
-  getDefaultVaultBranchFilters,
-  type VaultBranchFilters,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -64,8 +54,6 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-list-spacing"
   | "vault-convex-schema-graph"
   | "vault-convex-schema-route-mobile"
-  | "vault-last-updated-status"
-  | "vault-branch-filters"
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment";
 
@@ -73,25 +61,6 @@ const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
 
 function ignoreFixtureLoadMore(_numItems: number): void {}
-
-type FixtureRefreshCountState = {
-  refreshCount: number;
-};
-
-const FIXTURE_REFRESH_COUNT_INITIAL_STATE: FixtureRefreshCountState = {
-  refreshCount: 0,
-};
-
-function useFixtureRefreshCountStore() {
-  return useCreateStore(FIXTURE_REFRESH_COUNT_INITIAL_STATE, ({ setState }) => ({
-    incrementRefreshCount: () => {
-      setState((state) => ({
-        ...state,
-        refreshCount: state.refreshCount + 1,
-      }));
-    },
-  }));
-}
 
 function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
@@ -179,17 +148,39 @@ interface FixtureVaultBranchRow {
 }
 
 function fixtureVaultBranch(
-  branch: Omit<FixtureVaultBranch, "commits" | "isProtected" | "lastSyncedAt" | "remoteState"> & {
+  branch: Omit<
+    FixtureVaultBranch,
+    "canOpenInSamebase" | "commits" | "githubRepositoryFullName" | "lastSyncedAt" | "rowKey"
+  > & {
+    canOpenInSamebase?: boolean;
     commits?: FixtureVaultBranch["commits"];
-    remoteState?: FixtureVaultBranch["remoteState"];
+    githubRepositoryFullName?: string;
+    rowKey?: string;
   },
 ): FixtureVaultBranch {
   return {
-    commits: branch.commits ?? [{ sha: branch.headCommitSha }],
-    isProtected: false,
-    lastSyncedAt: FIXTURE_NOW,
-    remoteState: "active",
     ...branch,
+    rowKey:
+      branch.rowKey ??
+      (branch.pullRequestNumber === undefined
+        ? `branch:${branch.name}`
+        : `pull-request:${branch.pullRequestNumber}`),
+    githubRepositoryFullName: branch.githubRepositoryFullName ?? "samebase/samebase",
+    canOpenInSamebase: branch.canOpenInSamebase ?? true,
+    commits: branch.commits ?? [{ sha: branch.headCommitSha }],
+    lastSyncedAt: FIXTURE_NOW,
+  };
+}
+
+function fixtureReadyRepositoryInventoryState(items: readonly FixtureVaultBranch[]) {
+  return {
+    state: "ready" as const,
+    activeGeneration: 1,
+    repositoryFullName: "samebase/samebase",
+    publishedAt: FIXTURE_NOW - 12_000,
+    itemCount: items.length,
+    branchCount: items.filter((item) => item.pullRequestNumber === undefined).length,
+    pullRequestCount: items.filter((item) => item.pullRequestNumber !== undefined).length,
   };
 }
 
@@ -240,52 +231,12 @@ const fixtureDeleteDialogTarget = {
   canRemoveCloudflareProvision: true,
 } satisfies VaultDeleteDialogTarget;
 
-function FixtureVaultLastUpdatedStatusCard() {
-  const refreshCountStore = useFixtureRefreshCountStore();
-  const refreshCount = useSelector(refreshCountStore, (state) => state.refreshCount);
-  const { incrementRefreshCount } = refreshCountStore.actions;
-
-  return (
-    <div
-      data-testid="vault-dashboard-visual-fixture"
-      data-mode="vault-last-updated-status"
-      data-refresh-count={refreshCount}
-      className="mx-auto w-full max-w-[360px]"
-    >
-      <div className="relative corner-notch-1 border p-4">
-        <div className="space-y-3">
-          <div className="flex flex-col items-start pr-10">
-            <h3 className="min-w-0 font-semibold">
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="min-w-0 truncate">
-                  <span className="font-normal text-muted-foreground">samebase/</span>
-                  <span>samebase</span>
-                </span>
-              </span>
-            </h3>
-            <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <VaultLastUpdatedStatus
-                lastSyncedAt={FIXTURE_NOW - 12_000}
-                now={FIXTURE_NOW}
-                onRefresh={incrementRefreshCount}
-                repositoryFullName="samebase/samebase"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
   {
     branch: fixtureVaultBranch({
       name: "main",
       headCommitSha: "1234567890abcdef1234567890abcdef12345678",
       isDefault: true,
-      aheadBy: 0,
-      behindBy: 0,
       commits: [
         {
           sha: "1234567890abcdef1234567890abcdef12345678",
@@ -304,23 +255,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
             syncedAt: FIXTURE_NOW - 12_000,
           },
         },
-        {
-          sha: "0fedcba9876543210fedcba9876543210fedcba9",
-          title: "Extract the vault dashboard view model",
-          checks: {
-            state: "neutral",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 2,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 1,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/122",
-            syncedAt: FIXTURE_NOW - 180_000,
-          },
-        },
       ],
     }),
   },
@@ -329,8 +263,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/dashboard-main-pane-spacing",
       headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
       isDefault: false,
-      aheadBy: 2,
-      behindBy: 0,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
       pullRequestNumber: 321,
       pullRequestTitle: "Use the full dashboard main pane",
@@ -352,23 +284,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
             syncedAt: FIXTURE_NOW - 2_000,
           },
         },
-        {
-          sha: "654321abcdef1234567890abcdef1234567890ab",
-          title: "Remove the card shell around branch rows",
-          checks: {
-            state: "success",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 3,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/320",
-            syncedAt: FIXTURE_NOW - 420_000,
-          },
-        },
       ],
     }),
   },
@@ -377,8 +292,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/branch-expansion-state",
       headCommitSha: "456789abcdef1234567890abcdef1234567890ab",
       isDefault: false,
-      aheadBy: 1,
-      behindBy: 0,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/322",
       pullRequestNumber: 322,
       pullRequestTitle: "Persist branch list expansion",
@@ -408,8 +321,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/checks-history-window",
       headCommitSha: "e1234567890abcdef1234567890abcdef12345678",
       isDefault: false,
-      aheadBy: 5,
-      behindBy: 2,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/323",
       pullRequestNumber: 323,
       pullRequestTitle: "Show a bounded checks history",
@@ -431,23 +342,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
             syncedAt: FIXTURE_NOW - 16_000,
           },
         },
-        {
-          sha: "d234567890abcdef1234567890abcdef12345678",
-          title: "Add branch row commit stack",
-          checks: {
-            state: "success",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 3,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/3221",
-            syncedAt: FIXTURE_NOW - 240_000,
-          },
-        },
       ],
     }),
   },
@@ -456,8 +350,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/quiet-mobile-frame",
       headCommitSha: "789abcdef1234567890abcdef1234567890abcd",
       isDefault: false,
-      aheadBy: 1,
-      behindBy: 1,
     }),
   },
   {
@@ -465,8 +357,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/research-branch-collapse",
       headCommitSha: "def1234567890abcdef1234567890abcdef12345",
       isDefault: false,
-      aheadBy: 0,
-      behindBy: 2,
     }),
   },
   {
@@ -474,8 +364,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/mobile-keyboard-lift",
       headCommitSha: "f1234567890abcdef1234567890abcdef1234567",
       isDefault: false,
-      aheadBy: 1,
-      behindBy: 0,
     }),
   },
   {
@@ -483,8 +371,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/preview-status-refresh",
       headCommitSha: "a234567890abcdef1234567890abcdef12345678",
       isDefault: false,
-      aheadBy: 0,
-      behindBy: 1,
     }),
   },
   {
@@ -492,8 +378,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/branch-cleanup-guard",
       headCommitSha: "b34567890abcdef1234567890abcdef123456789",
       isDefault: false,
-      aheadBy: 2,
-      behindBy: 0,
     }),
   },
   {
@@ -501,8 +385,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/archive-doc-taxonomy",
       headCommitSha: "c4567890abcdef1234567890abcdef1234567890",
       isDefault: false,
-      aheadBy: 1,
-      behindBy: 3,
     }),
   },
   {
@@ -510,8 +392,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/vault-filter-polish",
       headCommitSha: "d567890abcdef1234567890abcdef12345678901",
       isDefault: false,
-      aheadBy: 0,
-      behindBy: 2,
     }),
   },
 ];
@@ -525,7 +405,6 @@ const LIST_SPACING_VAULT = {
   repositoryFullName: "samebase/samebase",
   commitSHA: "1234567890abcdef1234567890abcdef12345678",
   fileCount: 18,
-  lastTreeRefreshAt: FIXTURE_NOW - 12_000,
   state: "ready",
   sourceSetup: { status: "ready" },
   providerSetup: { status: "ready" },
@@ -590,7 +469,6 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   repositoryFullName: "nicu-chiciuc/tmp-my-super-app-2",
   commitSHA: "abcdef1234567890abcdef1234567890abcdef12",
   fileCount: 9,
-  lastTreeRefreshAt: FIXTURE_NOW - 3_480_000,
   sourceSetup: { status: "ready" },
   providerSetup: {
     status: "failed",
@@ -665,8 +543,6 @@ const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 
     name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
     headCommitSha: "1234567890abcdef1234567890abcdef12345678",
     isDefault: index === 0,
-    aheadBy: index === 0 ? 0 : index % 4,
-    behindBy: index === 0 ? 0 : index % 3,
     pullRequestLabels:
       index > 0 && index % 7 === 0 ? [{ name: "hidden", color: "#6f42c1" }] : undefined,
   }),
@@ -681,19 +557,12 @@ const LARGE_BRANCHES: FixtureVaultBranch[] = Array.from(
       name: index === 0 ? "main" : `codex/large-branch-${String(index).padStart(4, "0")}`,
       headCommitSha: index.toString(16).padStart(40, "0"),
       isDefault: index === 0,
-      aheadBy: index === 0 ? 0 : index % 5,
-      behindBy: index === 0 ? 0 : index % 3,
     }),
 );
 
 function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisualMode }) {
-  const [vaultBranchFilters, setVaultBranchFilters] = useState(() =>
-    getDefaultVaultBranchFilters(),
-  );
   const [resourceLinksOpen, setResourceLinksOpen] = useState(false);
-  const persistedVaultBranchFiltersByVaultId = new Map<string, VaultBranchFilters>([
-    [LIST_SPACING_VAULT_ID, vaultBranchFilters],
-  ]);
+  const branches = LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch);
   const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>([
     [LIST_SPACING_VAULT_ID, resourceLinksOpen],
   ]);
@@ -715,14 +584,14 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [LIST_SPACING_VAULT],
-            remoteBranchCatalogByVaultId: new Map([
-              [LIST_SPACING_VAULT_ID, LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch)],
+            repositoryInventoryStatesByVaultId: new Map([
+              [LIST_SPACING_VAULT_ID, fixtureReadyRepositoryInventoryState(branches)],
             ]),
             remoteBranchPagesByVaultId: new Map([
               [
                 LIST_SPACING_VAULT_ID,
                 {
-                  remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                  remoteBranches: branches,
                   status: "Exhausted",
                   loadMore: ignoreFixtureLoadMore,
                 },
@@ -733,20 +602,13 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
-          persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           schemaGraphAccessEnabled
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
-          onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
-          onSaveVaultBranchFilters={(vaultId, nextVaultBranchFilters) => {
-            if (vaultId === LIST_SPACING_VAULT_ID) {
-              setVaultBranchFilters(nextVaultBranchFilters);
-            }
-          }}
           onResourceLinksOpenChange={(vaultId, nextOpen) => {
             if (vaultId === LIST_SPACING_VAULT_ID) {
               setResourceLinksOpen(nextOpen);
@@ -778,14 +640,15 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT],
-            remoteBranchCatalogByVaultId: new Map(),
+            repositoryInventoryStatesByVaultId: new Map([
+              [CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID, { state: "empty" as const }],
+            ]),
             remoteBranchPagesByVaultId: new Map(),
             stagedBranchSummariesByVaultId: new Map(),
           }}
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
-          persistedVaultBranchFiltersByVaultId={new Map()}
           persistedVaultResourceLinksOpenByVaultId={
             new Map([[CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID, true]])
           }
@@ -793,10 +656,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
-          onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
-          onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
           onSetCloudflareConvexDeployKeys={() => {}}
           onVerifyCloudflareInfrastructure={() => {}}
@@ -810,6 +671,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
   const selectedVaults = SIDEBAR_LIST_VAULTS.filter(
     (vault) => vault._id === SIDEBAR_LIST_SELECTED_VAULT_ID,
   );
+  const branches = LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch);
 
   return (
     <div
@@ -835,17 +697,14 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             now={FIXTURE_NOW}
             viewModel={{
               vaults: selectedVaults,
-              remoteBranchCatalogByVaultId: new Map([
-                [
-                  SIDEBAR_LIST_SELECTED_VAULT_ID,
-                  LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
-                ],
+              repositoryInventoryStatesByVaultId: new Map([
+                [SIDEBAR_LIST_SELECTED_VAULT_ID, fixtureReadyRepositoryInventoryState(branches)],
               ]),
               remoteBranchPagesByVaultId: new Map([
                 [
                   SIDEBAR_LIST_SELECTED_VAULT_ID,
                   {
-                    remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                    remoteBranches: branches,
                     status: "Exhausted",
                     loadMore: ignoreFixtureLoadMore,
                   },
@@ -856,16 +715,13 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
             replaceLogoRouteSearch={() => {}}
             openDeveloperToolsByVaultId={{}}
-            persistedVaultBranchFiltersByVaultId={new Map()}
             persistedVaultResourceLinksOpenByVaultId={new Map()}
             schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
             onConnectCloudflareGithubRepository={() => {}}
             onOpenDeveloperToolsChange={() => {}}
-            onManualRepositoryRefresh={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
-            onSaveVaultBranchFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
             onSetCloudflareConvexDeployKeys={() => {}}
             onVerifyCloudflareInfrastructure={() => {}}
@@ -1064,10 +920,10 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "vaultRemoteBranches",
-            source: "mixed",
-            documentCount: 96,
-            indexes: [{ name: "by_vault_branch", fields: ["vaultId", "branch"] }],
+            name: "vaultRepositoryInventories",
+            source: "declared",
+            documentCount: 18,
+            indexes: [{ name: "by_vault", fields: ["vaultId"] }],
             fields: [
               {
                 path: "vaultId",
@@ -1077,16 +933,16 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
                 targetTable: "vaults",
               },
               {
-                path: "branch",
-                kind: "string",
+                path: "activeGeneration",
+                kind: "number",
                 optional: false,
                 source: "declared",
               },
               {
-                path: "headCommitSha",
-                kind: "string",
-                optional: true,
-                source: "inferred",
+                path: "publishedAt",
+                kind: "number",
+                optional: false,
+                source: "declared",
               },
             ],
           },
@@ -1257,8 +1113,8 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             source: "declared",
           },
           {
-            id: "declared:vaultRemoteBranches:vaultId:vaults",
-            fromTable: "vaultRemoteBranches",
+            id: "declared:vaultRepositoryInventories:vaultId:vaults",
+            fromTable: "vaultRepositoryInventories",
             fromField: "vaultId",
             toTable: "vaults",
             source: "declared",
@@ -1806,15 +1662,6 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
 function VaultDashboardStickyHeaderFixture() {
   const [resourceLinksOpen, setResourceLinksOpen] = useState(false);
   const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map((branchRow) => branchRow.branch);
-  const stickyHeaderFilters = {
-    hiddenLabels: ["hidden"],
-    includeDrafts: false,
-    includeNoLabel: true,
-  } satisfies VaultBranchFilters;
-  const branchSectionState = buildVaultBranchSectionState({
-    filters: stickyHeaderFilters,
-    remoteBranches: stickyHeaderBranches,
-  });
 
   return (
     <FixtureDashboardShell
@@ -1836,23 +1683,12 @@ function VaultDashboardStickyHeaderFixture() {
               onRepositoryLinksOpenChange={setResourceLinksOpen}
               topRightAction={<FixtureDeleteControl />}
               repositoryStatus={<span data-testid="sticky-header-status">Updated 12s ago</span>}
-              headerControls={
-                <VaultBranchHeaderControls
-                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                  filterOptions={branchSectionState.filterOptions}
-                  filters={stickyHeaderFilters}
-                  hiddenBranchCount={branchSectionState.hiddenBranchCount}
-                  onChangeFilters={() => {}}
-                  remoteBranchCount={stickyHeaderBranches.length}
-                />
-              }
               branchSection={
                 <VaultBranchSection
-                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
                   loadMore={ignoreFixtureLoadMore}
                   paginationStatus="Exhausted"
                   repositoryFullName="samebase/samebase"
-                  remoteBranches={branchSectionState.filteredRemoteBranches}
+                  remoteBranches={stickyHeaderBranches}
                   schemaGraphAccessEnabled={false}
                   stagedSummaries={[]}
                   vaultId={fakeVaultId()}
@@ -1873,16 +1709,7 @@ function VaultDashboardLargeBranchListFixture() {
     setLoadMoreCallCount((currentCount) => currentCount + 1);
     setLoadedBranchCount((currentCount) => Math.min(currentCount + numItems, LARGE_BRANCH_COUNT));
   }, []);
-  const largeBranchFilters = getDefaultVaultBranchFilters();
-  const branchSectionState = buildVaultBranchSectionState({
-    filters: largeBranchFilters,
-    remoteBranches: LARGE_BRANCHES,
-  });
   const loadedLargeBranches = LARGE_BRANCHES.slice(0, loadedBranchCount);
-  const filteredLoadedLargeBranches = filterVaultRemoteBranches(
-    loadedLargeBranches,
-    largeBranchFilters,
-  );
   const paginationStatus = loadedBranchCount < LARGE_BRANCH_COUNT ? "CanLoadMore" : "Exhausted";
 
   return (
@@ -1910,23 +1737,12 @@ function VaultDashboardLargeBranchListFixture() {
                 repositoryLinksOpen={false}
                 onRepositoryLinksOpenChange={() => {}}
                 topRightAction={<FixtureDeleteControl />}
-                headerControls={
-                  <VaultBranchHeaderControls
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                    filterOptions={branchSectionState.filterOptions}
-                    filters={largeBranchFilters}
-                    hiddenBranchCount={branchSectionState.hiddenBranchCount}
-                    onChangeFilters={() => {}}
-                    remoteBranchCount={LARGE_BRANCHES.length}
-                  />
-                }
                 branchSection={
                   <VaultBranchSection
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
                     loadMore={loadMoreLargeBranches}
                     paginationStatus={paginationStatus}
                     repositoryFullName="samebase/samebase"
-                    remoteBranches={filteredLoadedLargeBranches}
+                    remoteBranches={loadedLargeBranches}
                     schemaGraphAccessEnabled={false}
                     stagedSummaries={[]}
                     vaultId={fakeVaultId()}
@@ -2027,14 +1843,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultDashboardProvisioningLogFixture />;
   }
 
-  if (mode === "vault-last-updated-status") {
-    return (
-      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
-        <FixtureVaultLastUpdatedStatusCard />
-      </div>
-    );
-  }
-
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
   }
@@ -2092,8 +1900,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                         name: "main",
                         headCommitSha: "1234567890abcdef1234567890abcdef12345678",
                         isDefault: true,
-                        aheadBy: 0,
-                        behindBy: 0,
                       })}
                       productionApps={[
                         {
@@ -2116,8 +1922,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                         name: "codex/mobile-branch-card-spacing",
                         headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
                         isDefault: false,
-                        aheadBy: 2,
-                        behindBy: 0,
                         pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
                         pullRequestNumber: 321,
                         pullRequestTitle: "Align mobile branch rows with vault cards",
@@ -2128,104 +1932,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
               }
             />
           </TestRouterProvider>
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === "vault-branch-filters") {
-    return (
-      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
-        <div
-          data-testid="vault-dashboard-visual-fixture"
-          data-mode={mode}
-          className="mx-auto w-full max-w-[720px]"
-        >
-          <div className="corner-notch-1 border border-border bg-background p-4">
-            <div className="space-y-3">
-              <div>
-                <div className="text-lg font-semibold">
-                  <span className="font-normal text-muted-foreground">samebase/</span>
-                  <span>samebase</span>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">Updated 12s ago</div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-                    Branches
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground/80">1 of 4</span>
-                    <VaultBranchFiltersControl
-                      value={{
-                        hiddenLabels: ["research"],
-                        includeDrafts: false,
-                        includeNoLabel: false,
-                      }}
-                      options={[
-                        {
-                          key: "customer",
-                          name: "customer",
-                          color: "#1a7f37",
-                          count: 1,
-                          included: true,
-                          isNoLabel: false,
-                        },
-                        {
-                          key: "needs review",
-                          name: "needs review",
-                          color: "#bf8700",
-                          count: 1,
-                          included: true,
-                          isNoLabel: false,
-                        },
-                        {
-                          key: "research",
-                          name: "research",
-                          color: "#0969da",
-                          count: 1,
-                          included: false,
-                          isNoLabel: false,
-                        },
-                        {
-                          key: "\u0000no-label",
-                          name: "No label",
-                          count: 1,
-                          included: false,
-                          isNoLabel: true,
-                        },
-                      ]}
-                      onChange={() => {}}
-                    />
-                  </div>
-                </div>
-                <div className="-mx-4 overflow-hidden border bg-muted">
-                  <TestRouterProvider>
-                    <VaultBranchLinkRow
-                      vaultId={fakeVaultId()}
-                      repositoryFullName="samebase/samebase"
-                      branch={fixtureVaultBranch({
-                        name: "codex/branch-filters",
-                        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-                        isDefault: false,
-                        aheadBy: 1,
-                        behindBy: 0,
-                        pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
-                        pullRequestNumber: 321,
-                        pullRequestTitle: "Ship saved branch filters per vault",
-                        pullRequestLabels: [
-                          { name: "needs review", color: "bf8700" },
-                          { name: "customer", color: "1a7f37" },
-                        ],
-                      })}
-                    />
-                  </TestRouterProvider>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -2246,10 +1952,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
               name: "feature/pr-labels",
               headCommitSha: "1234567890abcdef1234567890abcdef12345678",
               isDefault: false,
-              aheadBy: 3,
-              behindBy: 1,
+              githubRepositoryFullName: "octo/repo",
               pullRequestUrl: "https://github.com/octo/repo/pull/42",
               pullRequestNumber: 42,
+              pullRequestTitle: "Keep every pull request field visible",
               pullRequestLabels: [
                 { name: "needs review", color: "fbca04" },
                 { name: "bug", color: "d73a4a" },

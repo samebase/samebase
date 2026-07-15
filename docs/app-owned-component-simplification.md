@@ -150,8 +150,8 @@ General rule:
 
 Example:
 
-- Dashboard repository refresh status should be rendered by a helper that checks `syncing`,
-  `rate_limited`, `cooldown`, `failed`, then `lastSyncedAt`, rather than by a nested ternary inside
+- Dashboard repository inventory status should be rendered by a helper that checks `refreshing`,
+  `waiting`, `failed`, then the last complete publication, rather than by a nested ternary inside
   the card props.
 
 ## Extract Named Workflows
@@ -176,9 +176,9 @@ General rule:
 
 Example:
 
-- Dashboard repository freshness should live in a named refresh-demand hook that reports page-load,
-  visibility, and manual-click demand to Convex. The dashboard should not inline GitHub action
-  calls, vault loops, branch preview hydration, or debounce policy inside `VaultDashboard`.
+- Selected-repository freshness should live in a named demand hook that reports mount, visibility
+  resume, and steady polling demand to Convex. The dashboard should not inline GitHub action calls,
+  vault loops, or scheduling policy inside `VaultDashboard`.
 
 ## Document Side Effects
 

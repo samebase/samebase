@@ -3,6 +3,20 @@ import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
 export type VaultSyncStatusVisualMode = "vault-sync-status-states";
 
 const FIXTURE_NOW = Date.parse("2026-03-26T18:00:00Z");
+const FIXTURE_CHECKS = {
+  state: "success",
+  totalCount: 12,
+  checkRunCount: 10,
+  statusContextCount: 2,
+  successCount: 12,
+  failureCount: 0,
+  runningCount: 0,
+  neutralCount: 0,
+  unknownCount: 0,
+  primaryTargetUrl:
+    "https://github.com/samebase/samebase/commit/1234567890abcdef1234567890abcdef12345678/checks",
+  syncedAt: FIXTURE_NOW - 18_000,
+} as const;
 
 export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVisualMode }) {
   return (
@@ -19,12 +33,10 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           <VaultSyncStatusContent
             repositoryFullName="samebase/samebase"
             branch="main"
-            owner="samebase"
-            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
+            checks={FIXTURE_CHECKS}
             lastTreeRefreshAt={FIXTURE_NOW - 18_000}
             stagedFiles={[]}
-            showChecks={false}
             now={FIXTURE_NOW}
           />
         </div>
@@ -36,13 +48,11 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           <VaultSyncStatusContent
             repositoryFullName="samebase/samebase"
             branch="main"
-            owner="samebase"
-            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
+            checks={FIXTURE_CHECKS}
             treeRefreshStartedAt={FIXTURE_NOW - 5_000}
             lastTreeRefreshAt={FIXTURE_NOW - 42_000}
             stagedFiles={[]}
-            showChecks={false}
             now={FIXTURE_NOW}
           />
         </div>
@@ -54,16 +64,14 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           <VaultSyncStatusContent
             repositoryFullName="samebase/samebase"
             branch="main"
-            owner="samebase"
-            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
+            checks={FIXTURE_CHECKS}
             lastTreeRefreshAt={FIXTURE_NOW - 51_000}
             lastTreeRefreshFailedAt={FIXTURE_NOW - 8_000}
             treeRefreshFailureKind="rate_limited"
             treeRefreshFailureMessage="GitHub API rate limited. Auto-refresh paused."
             treeRefreshCooldownUntil={FIXTURE_NOW + 4 * 60 * 1000}
             stagedFiles={[]}
-            showChecks={false}
             now={FIXTURE_NOW}
           />
         </div>
@@ -75,15 +83,13 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           <VaultSyncStatusContent
             repositoryFullName="samebase/samebase"
             branch="main"
-            owner="samebase"
-            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
+            checks={FIXTURE_CHECKS}
             lastTreeRefreshAt={FIXTURE_NOW - 2 * 60 * 1000}
             lastTreeRefreshFailedAt={FIXTURE_NOW - 10_000}
             treeRefreshFailureKind="failed"
             treeRefreshFailureMessage="GitHub sync failed. Showing cached state."
             stagedFiles={[]}
-            showChecks={false}
             now={FIXTURE_NOW}
           />
         </div>

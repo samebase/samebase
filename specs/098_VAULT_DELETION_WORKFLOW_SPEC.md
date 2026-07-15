@@ -573,8 +573,8 @@ The deletion Workflow runs:
 5. `delete_github_repo`: delete the recorded Samebase-managed GitHub repository when requested
 6. `cleanup_editor_state`: delete `fileStaging`, `collaborativeUpdates`, `blobs`, and backing
    storage in bounded batches
-7. `cleanup_source_caches`: delete branch filters, folder expansion state, `vaultRemoteBranches`,
-   and `vaultBranchTrees` in bounded batches
+7. `cleanup_source_caches`: delete resource-link state, folder expansion state, repository inventory
+   data, and `vaultBranchTrees` in bounded batches
 8. `cleanup_runtime_state`: delete vault domains, infrastructure, infrastructure ownership,
    Codespaces records, and graph layout in bounded batches
 9. `cleanup_access_state`: expire and detach vault-scoped prod-access requests while preserving
@@ -659,13 +659,14 @@ user's rows.
 
 Delete rows:
 
-1. `vaultBranchFilters` via `by_vault`
-2. `fileStaging` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
+1. `fileStaging` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
    references and delete staged-only storage objects before rows
-3. `collaborativeUpdates` via `by_vault`
-4. `blobs` via `by_vault`, deleting storage objects before rows
+2. `collaborativeUpdates` via `by_vault`
+3. `blobs` via `by_vault`, deleting storage objects before rows
+4. `vaultResourceLinksState` via `by_vault`
 5. `folderExpansionState` via `by_vault`
-6. `vaultRemoteBranches` via `by_vault`
+6. repository inventory publication, refresh, generation, item, and label-chunk tables via
+   `by_vault`
 7. `vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
 8. `vaultDomains` via `by_vault`
 9. `vaultInfrastructure` via `by_vault`, deleting all rows if more than one exists
