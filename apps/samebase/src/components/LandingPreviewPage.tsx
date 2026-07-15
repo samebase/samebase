@@ -356,15 +356,20 @@ function LandingCopyPromptButton() {
     <button
       className="w-full border-t border-border px-5 py-3 text-left font-mono text-xs font-semibold hover:bg-muted @2xl:w-auto @2xl:border-l @2xl:border-t-0 @2xl:text-center"
       onClick={() => {
-        void navigator.clipboard.writeText(LANDING_AGENT_PROMPT).then(() => {
-          setCopied(true);
-          if (resetTimeoutRef.current !== null) {
-            window.clearTimeout(resetTimeoutRef.current);
-          }
-          resetTimeoutRef.current = window.setTimeout(() => {
-            setCopied(false);
-          }, COPY_LABEL_RESET_DELAY_MS);
-        });
+        // The label only flips on a successful write; a denied clipboard
+        // permission leaves the prompt selectable and the button unchanged.
+        void navigator.clipboard
+          .writeText(LANDING_AGENT_PROMPT)
+          .then(() => {
+            setCopied(true);
+            if (resetTimeoutRef.current !== null) {
+              window.clearTimeout(resetTimeoutRef.current);
+            }
+            resetTimeoutRef.current = window.setTimeout(() => {
+              setCopied(false);
+            }, COPY_LABEL_RESET_DELAY_MS);
+          })
+          .catch(() => {});
       }}
       type="button"
     >
