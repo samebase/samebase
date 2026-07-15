@@ -61,24 +61,56 @@ The persistent model is intentionally small:
 - `vaultRepositoryInventorySnapshots`: immutable snapshot counts
 - `vaultRepositoryInventoryItems`: immutable branch and pull request rows
 - `vaultRepositoryInventoryLabelChunks`: bounded, immutable pull request label chunks
+- `vaultRepositoryInventoryFilters`: one saved pull request filter and published view root per vault
+- `vaultRepositoryInventoryFilterViews`: immutable, snapshot-scoped filter view totals
+- `vaultRepositoryInventoryFilterViewItems`: visible pull request membership for a filter view
+- `vaultRepositoryInventoryLabelFacets`: complete per-snapshot pull request label counts
 - `githubGraphqlRateBudgets`: high-churn GitHub-account lease and cooldown state
 
 Snapshot `_id` is the only snapshot identity. There are no numeric generation counters, separate
 publication rows, separate refresh rows, compatibility readers, or duplicated user ownership on
 child rows. Snapshot, item, and label-chunk rows retain `vaultId` only for indexed vault deletion.
 
-The browser keeps exactly one reactive subscription for the inventory root. Snapshot item and label
-pages are point-in-time queries cached under the immutable snapshot ID. They do not subscribe to the
-root and do not create a reactive subscription per page. The browser loads a replacement snapshot
-off-screen, validates stable totals, unique row keys, contiguous label chunks, and exact label
-counts, then swaps the requested leading slice in one state update. A missing or invalid snapshot is
-unavailable, never an authoritative empty list. Until the replacement is complete, the prior rows
-and their matching freshness metadata stay visible.
+The browser keeps one reactive subscription for repository freshness and one for the selected
+vault's saved filter and published view. Snapshot branch, visible pull request, label, and facet
+pages are point-in-time queries cached under immutable snapshot and view IDs. They do not create a
+reactive subscription per page. The browser loads a replacement snapshot and filter view off-screen,
+validates stable totals, unique row keys, contiguous label chunks, and exact label counts, then
+swaps the requested leading slice in one state update. A missing or invalid snapshot or view is
+unavailable, never an authoritative empty list. Until the replacement pair is complete, the prior
+rows and their matching freshness metadata stay visible.
 
 The server orders the default branch first, then open pull requests from newest update time to
 oldest, then remaining branches from newest commit time to oldest. Stable row keys break ties. The
 first bounded page therefore contains the most useful active work without requiring the browser to
 load the entire repository before showing anything.
+
+## Pull Request Filtering
+
+Filtering is a presentation rule over open pull requests, not a repository collection rule. Every
+published snapshot still contains every branch and every open pull request. Branch rows always
+remain visible, including a branch whose corresponding pull request is filtered out.
+
+Each user has one saved filter selection per vault. Draft pull requests are excluded by default,
+unlabeled pull requests are included by default, and every label is included by default. Label
+matching trims names and compares them case-insensitively. A pull request is excluded when it is a
+draft and drafts are disabled, when it has no labels and unlabeled pull requests are disabled, or
+when any of its labels is excluded. A saved excluded label remains removable even when the current
+snapshot no longer contains that label.
+
+The backend derives a snapshot-scoped pull request view from the saved selection without contacting
+GitHub. It evaluates the immutable pull request rows in bounded batches, records only visible pull
+request membership, and publishes the view only after the processed count exactly matches the
+snapshot pull request count. The published view carries the source snapshot ID, filter revision,
+exact visible and total pull request counts, and complete label facets. A filter change or a new
+snapshot keeps the prior committed dashboard rows visible until the replacement snapshot and filter
+view pair is complete.
+
+Branches paginate directly from the immutable snapshot. Visible pull requests paginate through the
+published filter view. The browser composes the default branch, visible pull requests ordered newest
+first, and all remaining branches. It never filters only the rows it has already loaded and never
+scans hidden pull request pages to discover later branches. The dashboard reports visible versus
+total pull request counts whenever the filter excludes anything.
 
 ## Runtime Boundaries
 
@@ -129,6 +161,7 @@ runtime.
 - Use inventory polling to load file contents or full branch trees.
 - Add a webhook, GitHub App installation, or new GitHub authorization flow.
 - Keep a manual reload control as a fallback for an unreliable automatic path.
+- Filter branches or let filtering change which repository data the collector stores.
 
 ## Validation
 
@@ -153,6 +186,12 @@ runtime.
   membership churn cannot publish a mixed crawl.
 - Fork pull requests link to their GitHub source and do not expose a Samebase file route for a head
   repository the vault does not own.
+- Default filters hide draft pull requests but retain every branch. Excluding a label or unlabeled
+  pull requests changes only pull request rows, reports the exact visible and total pull request
+  counts, and can still reach matching pull requests after multiple excluded pages.
+- Filter changes persist per user and vault, rebuild only local derived membership, and never
+  request GitHub data. A replacement view becomes visible only after every pull request in its
+  source snapshot has been evaluated.
 - API-key and OAuth-backed vaults use the same inventory contract.
 - A GitHub account switch receives a new rate budget, while token rotation for the same account
   keeps the existing budget.

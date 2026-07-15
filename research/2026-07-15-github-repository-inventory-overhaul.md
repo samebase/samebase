@@ -102,10 +102,11 @@ request, label, or check.
 
 ## Deliberate Deletions
 
-The target has no manual dashboard reload, focus fan-out, all-vault polling, branch filters,
-repository-wide REST metadata crawl, persistent REST check cache, or legacy refresh queue.
-Post-write follow-up refreshes request the repository inventory and fetch only affected branch
-trees.
+The target has no manual dashboard reload, focus fan-out, all-vault polling, branch-row filters,
+repository-wide REST metadata crawl, persistent REST check cache, or legacy refresh queue. Pull
+request filtering is a local materialized view over a complete published snapshot, so it never
+changes collection and never hides branches. Post-write follow-up refreshes request the repository
+inventory and fetch only affected branch trees.
 
 This is not a compatibility layer over the old implementation. Inventory and refresh rows are
 derived cache and can be deleted before Convex accepts the narrow target schema.

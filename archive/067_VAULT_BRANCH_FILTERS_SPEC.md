@@ -9,9 +9,10 @@
 
 ## Supersession Note
 
-The selected-vault inventory now shows every branch and every open pull request. The saved
-branch-filter UI, persistence table, and dashboard endpoints described below were deleted rather
-than carried into the inventory implementation.
+The branch-coupled implementation described below was deleted during the repository inventory
+cutover. The current contract in `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md` restores filtering
+as a pull-request-only view over complete immutable snapshots. It does not restore this document's
+branch-row filtering or compatibility storage.
 
 ## Summary
 
