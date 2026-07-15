@@ -660,6 +660,134 @@
   .animate-underline-color {
     animation: underline-color-cycle 10s ease-in-out infinite;
   }
+
+  /*
+  Landing hero agent loop: one 10s cycle types the prompt, then reveals the
+  provisioning lines in timeline order. The animations only run under
+  prefers-reduced-motion: no-preference; the reduced-motion default is the
+  completed final frame, so every line stays visible without keyframes.
+  */
+  @keyframes landing-loop-type {
+    0%,
+    8% {
+      width: 0;
+    }
+    38%,
+    100% {
+      width: 43ch;
+    }
+  }
+
+  @keyframes landing-loop-caret {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes landing-loop-reveal-42 {
+    0%,
+    42% {
+      opacity: 0;
+    }
+    45%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes landing-loop-reveal-50 {
+    0%,
+    50% {
+      opacity: 0;
+    }
+    53%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes landing-loop-reveal-57 {
+    0%,
+    57% {
+      opacity: 0;
+    }
+    60%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes landing-loop-reveal-64 {
+    0%,
+    64% {
+      opacity: 0;
+    }
+    67%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes landing-loop-reveal-71 {
+    0%,
+    71% {
+      opacity: 0;
+    }
+    74%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes landing-loop-reveal-80 {
+    0%,
+    80% {
+      opacity: 0;
+    }
+    83%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-landing-loop-type {
+      animation: landing-loop-type 10s steps(43, end) infinite;
+    }
+
+    .animate-landing-loop-caret {
+      animation: landing-loop-caret 1s step-end infinite;
+    }
+
+    .animate-landing-loop-reveal-42 {
+      animation: landing-loop-reveal-42 10s infinite;
+    }
+
+    .animate-landing-loop-reveal-50 {
+      animation: landing-loop-reveal-50 10s infinite;
+    }
+
+    .animate-landing-loop-reveal-57 {
+      animation: landing-loop-reveal-57 10s infinite;
+    }
+
+    .animate-landing-loop-reveal-64 {
+      animation: landing-loop-reveal-64 10s infinite;
+    }
+
+    .animate-landing-loop-reveal-71 {
+      animation: landing-loop-reveal-71 10s infinite;
+    }
+
+    .animate-landing-loop-reveal-80 {
+      animation: landing-loop-reveal-80 10s infinite;
+    }
+  }
 }
 
 @theme inline {

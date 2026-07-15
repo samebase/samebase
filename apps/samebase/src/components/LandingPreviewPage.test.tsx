@@ -64,56 +64,104 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
 }));
 
 describe("LandingPreviewPage", () => {
-  it("renders the React landing overview by default", () => {
+  it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
-    expect(markup).toContain("The");
-    expect(markup).toContain("correct");
-    expect(markup).toContain("way to build");
-    expect(markup).toContain("web apps");
-    expect(markup).toContain("the best stack we&#x27;ve found");
+    // Hero: the category correction plus the one-action pitch.
+    expect(markup).toContain("It&#x27;s not an AI that builds apps.");
+    expect(markup).toContain("It&#x27;s the tool your AI uses");
+    expect(markup).toContain("to ship real ones.");
+    expect(markup).toContain("Your agent writes the app. One Samebase action makes it real");
+    expect(markup).toContain("Create your first app");
+    expect(markup).toContain("Free today; an idle app costs $0/month.");
+    expect(markup).toContain("no chatbot");
+    expect(markup).toContain("$0/month idle");
+
+    // Agent loop placeholder with the concrete provisioning artifacts.
+    expect(markup).toContain("build me tic-tac-toe, but 4x4. use samebase");
+    expect(markup).toContain("samebase.create_app(&quot;tictactoe-4x4&quot;)");
+    expect(markup).toContain("github.com/you/tictactoe-4x4");
+    expect(markup).toContain("Live in 58s.");
+    expect(markup).toContain("placeholder loop · final asset: real screen capture of your agent");
+
+    // The opinion, named, with the trio row under it.
+    expect(markup).toContain("the opinion we&#x27;re selling");
     expect(markup).toContain(
-      "Once you&#x27;ve found the best stack, repeat it through the coding agent you already use",
+      "GitHub + Convex + Cloudflare Workers is the best way we&#x27;ve found to build an app.",
     );
-    expect(markup).toContain("one inventory for every app you connect");
-    expect(markup).toContain("more products, not more systems to maintain");
-    expect(markup).toContain("one view of every app you connect");
-    expect(markup).toContain("including several app roots in a monorepo");
-    expect(markup).toContain("leave it GitHub-only until you attach Convex or Cloudflare");
-    expect(markup).toContain("a dashboard for setup and inventory");
-    expect(markup).toContain("without leaving its own interface");
-    expect(markup).toContain("cheaper and more powerful");
+    expect(markup).toContain("Samebase repeats it, so you never choose again.");
+    expect(markup).toContain("deploys + domains + edge");
+    expect(markup).toContain('href="/docs/the-stack"');
+
+    // Ask your agent.
+    expect(markup).toContain("don&#x27;t trust us");
+    expect(markup).toContain("Ask your agent.");
+    expect(markup).toContain(
+      "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
+    );
+    expect(markup).toContain("Copy</button>");
+
+    // The four claims.
+    expect(markup).toContain("Delete your Samebase account. Your app doesn&#x27;t notice.");
+    expect(markup).toContain(
+      "The &quot;builder left my database open&quot; breach class can&#x27;t be expressed here.",
+    );
+    expect(markup).toContain("no rules you have to configure perfectly, forever");
+    expect(markup).toContain(
+      "Run agents in parallel. Every PR gets its own preview, with its own database.",
+    );
+    expect(markup).toContain("We resell nothing. Not tokens, not hosting.");
+    expect(markup).toContain("adds margin, not capability");
+
+    // Honest onboarding.
+    expect(markup).toContain(
+      "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
+    );
+    expect(markup).toContain("No account? You create one in the same flow.");
+    expect(markup).toContain("watch it before you sign up · nothing is skipped");
+
+    // One base: the inventory facts the positioning probes kept missing.
+    expect(markup).toContain("More products, not more systems to maintain.");
+    expect(markup).toContain("also readable by your agent, over MCP");
+    expect(markup).toContain("github-only");
+    expect(markup).toContain("not attached");
+    expect(markup).toContain("apps/admin");
+    expect(markup).toContain("wire builds");
+    expect(markup).toContain("several roots in one monorepo");
+    // One row set, two renderings: the table and the stacked cards.
+    expect(markup.split("you/birdlog").length - 1).toBe(2);
+
+    // Cost, the self-hosting callout, and the closing argument.
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
-    expect(markup).toContain("account owner");
-    expect(markup).toContain("dash.cloudflare.com");
-    expect(markup).not.toContain("samebase hides");
-    expect(markup).toContain("samebase.com uses the exact same stack it recommends.");
-    expect(markup).toContain("the first customer was me, Nicu.");
-    expect(markup).toContain("personal and idle ideas should cost $0/month.");
+    expect(markup).toContain("Samebase runs on Samebase.");
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
-    expect(markup).toContain("adds margin, not capability");
-    expect(markup).toContain("I built it, then I deleted it.");
-    expect(markup).toContain("your app is a security risk.");
-    expect(markup).toContain("no Samebase account needed");
+
+    // Footnote receipts.
+    expect(markup).toContain("$0/month, receipted.");
+    expect(markup).toContain("Samebase adds no floor of its own.");
+    expect(markup).toContain("Not hypothetical.");
+    expect(markup).toContain("https://nvd.nist.gov/vuln/detail/CVE-2025-48757");
+    expect(markup).toContain("The hosting math.");
+    expect(markup).toContain("First customer: me, Nicu.");
+
+    // The closing band keeps the one interactive logo slot on the page.
+    expect(markup).toContain("Same stack. Your accounts. No magic.");
     expect(markup).toContain("drag it");
     expect(markup).toContain("open the logo lab");
     expect(markup).toContain('href="/logo"');
-    // One interactive logo in the hero, four zone rail marks, one closing band.
-    expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(6);
-    expect(markup).toContain("https://www.youtube.com/watch?v=h6ffyfabfa8");
-    expect(markup).toContain("the leaving test");
-    expect(markup).toContain("Samebase adds no floor of its own.");
-    expect(markup).toContain("GitHub");
-    expect(markup).toContain("Convex");
-    expect(markup).toContain("Cloudflare");
-    expect(markup).toContain("Samebase");
-    expect(markup).not.toContain("The base is a trio.");
-    expect(markup).not.toContain("Parallel by default");
-    expect(markup).not.toContain("Manual setup proves it");
-    expect(markup).not.toContain("Start with Samebase");
-    expect(markup).not.toContain('alt="OpenAI"');
-    expect(markup).not.toContain("Create Github, Convex, Cloudflare");
+    expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
+
+    // Retired copy from the slogan-era overview.
+    expect(markup).not.toContain("The correct");
+    expect(markup).not.toContain("way to build web apps");
+    expect(markup).not.toContain("the leaving test");
+    expect(markup).not.toContain("account owner");
+    expect(markup).not.toContain("dash.cloudflare.com");
+    expect(markup).not.toContain("the first customer was me, Nicu.");
+    expect(markup).not.toContain("your app is a security risk.");
+    expect(markup).not.toContain("misconfigure perfectly");
+    expect(markup).not.toContain("no Samebase account needed");
   });
 
   it("renders the landing preview without the docs sidebar", () => {

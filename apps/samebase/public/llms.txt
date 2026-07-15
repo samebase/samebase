@@ -23,8 +23,8 @@ HTML pages. Action and operate docs are raw markdown only.
 
 ## Docs
 
-- [Overview](https://samebase.com/landing-preview): why the base is GitHub, Convex, and Cloudflare,
-  how it scales across connected apps, and the leaving test
+- [Overview](https://samebase.com/landing-preview): the best-stack opinion, the connected-app
+  inventory, and the four claims: yours, safer, lanes, cheaper
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen
 - [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack by hand, for
