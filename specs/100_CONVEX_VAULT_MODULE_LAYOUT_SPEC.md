@@ -71,8 +71,7 @@ The move touches roughly:
 
 The module move itself required no data migration because Convex function references are file-path
 based while table names are schema names. The current repository surfaces use `vaults`,
-`vaultRepositoryInventories`, `vaultRepositoryInventoryRefreshes`,
-`vaultRepositoryInventoryGenerations`, `vaultRepositoryInventoryItems`,
+`vaultRepositoryInventories`, `vaultRepositoryInventorySnapshots`, `vaultRepositoryInventoryItems`,
 `vaultRepositoryInventoryLabelChunks`, and `vaultBranchTrees`.
 
 ## Accepted Module Shape
@@ -200,7 +199,7 @@ Keep these domains outside `vault/`:
 - `chat/`, `agent/`, and `toolRuntime/`: agent and approval surfaces
 - `codespaces/`: GitHub Codespaces lifecycle
 - `github.ts`: branch-scoped GitHub tree API integration
-- `repositoryInventory*.ts`: selected-vault repository inventory lifecycle and generation ownership
+- `repositoryInventory*.ts`: selected-vault repository inventory lifecycle and snapshot ownership
 
 Those modules should update imports and function references to the new vault paths. They should not
 be pulled under `vault/` merely because vault identity is part of their arguments.

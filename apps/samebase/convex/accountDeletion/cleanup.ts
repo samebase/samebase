@@ -24,7 +24,6 @@ type AccountDeletionTablePolicy =
   | "auth_finalization"
   | "receipt"
   | "global"
-  | "migration_only"
   | "action_quiescence"
   | "user_finalization";
 
@@ -52,7 +51,6 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   machineControlTokens: "account_local",
   dashboardSettings: "account_local",
   workspaceSidebarState: "account_local",
-  vaultBranchFilters: "migration_only",
   vaultResourceLinksState: "vault_local",
   vaults: "vault_local",
   vaultApps: "vault_local",
@@ -60,17 +58,11 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   vaultConvexDeployments: "vault_local",
   vaultConvexSchemaSnapshots: "vault_local",
   vaultConvexSchemaGraphLayouts: "vault_local",
-  vaultRemoteBranches: "migration_only",
   vaultRepositoryInventories: "vault_local",
-  vaultRepositoryInventoryRefreshes: "vault_local",
-  vaultRepositoryInventoryGenerations: "vault_local",
+  vaultRepositoryInventorySnapshots: "vault_local",
   vaultRepositoryInventoryItems: "vault_local",
   vaultRepositoryInventoryLabelChunks: "vault_local",
-  githubCommitCheckSnapshots: "migration_only",
-  githubCommitCheckItems: "migration_only",
   vaultBranchTrees: "vault_local",
-  repositoryRefreshRequests: "migration_only",
-  legacyRepositoryInventoryCleanupState: "migration_only",
   vaultInfrastructureTargets: "vault_local",
   vaultInfrastructureOwnership: "vault_local",
   appProvisioningRuns: "vault_local",
@@ -350,8 +342,7 @@ function vaultCleanupPhase(
     case "vaultResourceLinksState":
     case "folderExpansionState":
     case "vaultRepositoryInventories":
-    case "vaultRepositoryInventoryRefreshes":
-    case "vaultRepositoryInventoryGenerations":
+    case "vaultRepositoryInventorySnapshots":
     case "vaultRepositoryInventoryItems":
     case "vaultRepositoryInventoryLabelChunks":
     case "vaultBranchTrees":

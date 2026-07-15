@@ -2,19 +2,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import type {
+  RepositoryInventoryLifecycle,
+  RepositoryInventoryPublication,
+} from "./repositoryInventoryModel";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
 const now = 1_700_000_000_000;
-const emptyCounts = {
-  itemCount: 0,
-  branchCount: 0,
-  pullRequestCount: 0,
-};
-const emptyGenerationCounts = {
-  ...emptyCounts,
-  labelChunkCount: 0,
+const checks = {
+  state: "success" as const,
+  totalCount: 0,
+  checkRunCount: 0,
+  statusContextCount: 0,
+  successCount: 0,
+  failureCount: 0,
+  runningCount: 0,
+  neutralCount: 0,
+  unknownCount: 0,
 };
 
 async function createConnectedVault() {
@@ -54,146 +60,88 @@ async function createConnectedVault() {
       visibility: "private",
       connectedAt: now,
     });
-
     return { userId, vaultId };
   });
   const asUser = t.withIdentity({
     subject: `${ids.userId}|test-session`,
     tokenIdentifier: `test:${ids.userId}`,
   });
-
   return { asUser, ids, t };
 }
 
-async function insertPublication(
+async function insertSnapshot(
   t: ConvexTest,
   args: {
-    userId: Id<"users">;
     vaultId: Id<"vaults">;
-    generation: number;
-    fingerprint: string;
-    repositoryFullName?: string;
+    branchCount?: number;
+    pullRequestCount?: number;
+    labelCount?: number;
+    labelChunkCount?: number;
   },
 ) {
-  return await t.run(async (ctx) => {
-    await ctx.db.insert("vaultRepositoryInventoryGenerations", {
-      userId: args.userId,
-      vaultId: args.vaultId,
-      generation: args.generation,
-      ...emptyGenerationCounts,
-      createdAt: now - 10,
-    });
-    return await ctx.db.insert("vaultRepositoryInventories", {
-      userId: args.userId,
-      vaultId: args.vaultId,
-      repositoryNodeId: "R_inventory",
-      repositoryFullName: args.repositoryFullName ?? "ada/inventory",
-      activeGeneration: args.generation,
-      publishedAt: now - 5,
-      fingerprint: args.fingerprint,
-      ...emptyCounts,
-    });
-  });
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+        vaultId: args.vaultId,
+        branchCount: args.branchCount ?? 0,
+        pullRequestCount: args.pullRequestCount ?? 0,
+        labelCount: args.labelCount ?? 0,
+        labelChunkCount: args.labelChunkCount ?? 0,
+      }),
+  );
 }
 
-async function insertRunningRefresh(
+function publication(
+  snapshotId: Id<"vaultRepositoryInventorySnapshots">,
+  overrides: Partial<RepositoryInventoryPublication> = {},
+): RepositoryInventoryPublication {
+  return {
+    snapshotId,
+    repositoryNodeId: "R_inventory",
+    repositoryFullName: "ada/inventory",
+    defaultBranch: "main",
+    publishedAt: now - 5_000,
+    checkedAt: now - 5_000,
+    fingerprint: "published-fingerprint",
+    ...overrides,
+  };
+}
+
+async function insertInventory(
   t: ConvexTest,
   args: {
     userId: Id<"users">;
     vaultId: Id<"vaults">;
-    generation: number;
-    demandVersion?: number;
-    targetDemandVersion?: number;
-    workpoolJobId?: string;
-    stagedData?: boolean;
+    lifecycle: RepositoryInventoryLifecycle;
+    publication?: RepositoryInventoryPublication;
+    wantedUntil?: number;
+    writeVersion?: number;
     lastStartedAt?: number;
   },
 ) {
-  return await t.run(async (ctx) => {
-    const stagedCounts = args.stagedData
-      ? {
-          itemCount: 1,
-          branchCount: 1,
-          pullRequestCount: 0,
-          labelChunkCount: 0,
-        }
-      : emptyGenerationCounts;
-    await ctx.db.insert("vaultRepositoryInventoryGenerations", {
-      userId: args.userId,
-      vaultId: args.vaultId,
-      generation: args.generation,
-      ...stagedCounts,
-      createdAt: now,
-    });
-    if (args.stagedData) {
-      await ctx.db.insert("vaultRepositoryInventoryItems", {
-        kind: "branch",
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("vaultRepositoryInventories", {
         userId: args.userId,
         vaultId: args.vaultId,
-        generation: args.generation,
-        kindRank: 2,
-        timeRank: -now,
-        tie: "feature",
-        rowKey: "branch:feature",
-        branchLookupKey: "branch:feature",
-        lastSyncedAt: now,
-        name: "feature",
-        repositoryFullName: "ada/inventory",
-        headCommitSha: "abc123",
-        lastCommitAt: now,
-        isDefault: false,
-        headCommit: {
-          sha: "abc123",
-          title: "Test inventory cleanup",
-          authoredAt: now,
-          committedAt: now,
-          checks: {
-            state: "success",
-            totalCount: 0,
-            checkRunCount: 0,
-            statusContextCount: 0,
-            successCount: 0,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-            syncedAt: now,
-          },
-        },
-      });
-    }
-    return await ctx.db.insert("vaultRepositoryInventoryRefreshes", {
-      userId: args.userId,
-      vaultId: args.vaultId,
-      demandVersion: args.demandVersion ?? 1,
-      nextGeneration: args.generation + 1,
-      lifecycle: {
-        state: "running",
-        generation: args.generation,
-        targetDemandVersion: args.targetDemandVersion ?? 1,
-        startedAt: now,
-        leaseExpiresAt: now + 60_000,
-        workpoolJobId: args.workpoolJobId ?? `job-${args.generation}`,
-      },
-      lastStartedAt: args.lastStartedAt ?? now,
-      updatedAt: now,
-    });
-  });
+        wantedUntil: args.wantedUntil ?? now + 135_000,
+        writeVersion: args.writeVersion ?? 0,
+        lifecycle: args.lifecycle,
+        publication: args.publication,
+        lastStartedAt: args.lastStartedAt,
+      }),
+  );
 }
 
-async function readInventoryState(t: ConvexTest, vaultId: Id<"vaults">) {
+async function readVaultInventory(t: ConvexTest, vaultId: Id<"vaults">) {
   return await t.run(async (ctx) => {
-    const [publication, refresh, generations, items, labelChunks] = await Promise.all([
+    const [inventory, snapshots, items, labelChunks] = await Promise.all([
       ctx.db
         .query("vaultRepositoryInventories")
         .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-        .first(),
+        .unique(),
       ctx.db
-        .query("vaultRepositoryInventoryRefreshes")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-        .first(),
-      ctx.db
-        .query("vaultRepositoryInventoryGenerations")
+        .query("vaultRepositoryInventorySnapshots")
         .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
         .collect(),
       ctx.db
@@ -205,14 +153,83 @@ async function readInventoryState(t: ConvexTest, vaultId: Id<"vaults">) {
         .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
         .collect(),
     ]);
-    return { publication, refresh, generations, items, labelChunks };
+    return { inventory, snapshots, items, labelChunks };
   });
 }
 
-async function cleanupFailedGeneration(t: ConvexTest, vaultId: Id<"vaults">) {
-  for (let pass = 0; pass < 3; pass += 1) {
-    await t.mutation(internal.repositoryInventory.cleanupOldRepositoryInventory, { vaultId });
-  }
+async function insertBranch(
+  t: ConvexTest,
+  args: {
+    vaultId: Id<"vaults">;
+    snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    name: string;
+    isDefault?: boolean;
+    sortTime?: number;
+  },
+) {
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("vaultRepositoryInventoryItems", {
+        kind: "branch",
+        vaultId: args.vaultId,
+        snapshotId: args.snapshotId,
+        sortGroup: args.isDefault ? 0 : 2,
+        sortTime: args.sortTime ?? -now,
+        rowKey: `branch:${args.name}`,
+        name: args.name,
+        isDefault: args.isDefault ?? false,
+        headCommit: {
+          sha: `${args.name}-sha`,
+          title: `${args.name} commit`,
+          authoredAt: now,
+          checks,
+        },
+      }),
+  );
+}
+
+async function insertPullRequest(
+  t: ConvexTest,
+  args: {
+    vaultId: Id<"vaults">;
+    snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    rowKey: string;
+    number: number;
+    headRefName: string;
+    sortTime: number;
+    canOpenInSamebase: boolean;
+    labelCount?: number;
+    labelChunkCount?: number;
+  },
+) {
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("vaultRepositoryInventoryItems", {
+        kind: "pull_request",
+        vaultId: args.vaultId,
+        snapshotId: args.snapshotId,
+        sortGroup: 1,
+        sortTime: args.sortTime,
+        rowKey: args.rowKey,
+        number: args.number,
+        url: `https://github.com/ada/inventory/pull/${args.number}`,
+        title: `Pull request ${args.number}`,
+        isDraft: args.number === 42,
+        baseRefName: args.number === 42 ? "release/1.2" : "main",
+        headRepositoryFullName: args.canOpenInSamebase ? "ada/inventory" : "contributor/fork",
+        headRefName: args.headRefName,
+        canOpenInSamebase: args.canOpenInSamebase,
+        localHeadRefName: args.canOpenInSamebase ? args.headRefName : undefined,
+        labelCount: args.labelCount ?? 0,
+        labelChunkCount: args.labelChunkCount ?? 0,
+        headCommit: {
+          sha: `${args.headRefName}-sha`,
+          title: `Pull request ${args.number}`,
+          authoredAt: now,
+          checks,
+        },
+      }),
+  );
 }
 
 describe("repository inventory refresh state machine", () => {
@@ -221,92 +238,135 @@ describe("repository inventory refresh state machine", () => {
     vi.setSystemTime(now);
   });
 
-  afterEach(async () => {
-    await Promise.resolve();
+  afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
   });
 
-  it("keeps the active generation untouched when the fingerprint is unchanged", async () => {
-    const { ids, t } = await createConnectedVault();
-    const publicationId = await insertPublication(t, {
-      ...ids,
-      generation: 1,
-      fingerprint: "same-fingerprint",
-    });
-    await insertRunningRefresh(t, { ...ids, generation: 2 });
-    const before = await t.run(async (ctx) => await ctx.db.get(publicationId));
-
-    await expect(
-      t.mutation(internal.repositoryInventory.completeUnchangedRepositoryInventoryRefresh, {
-        vaultId: ids.vaultId,
-        generation: 2,
-        fingerprint: "same-fingerprint",
-      }),
-    ).resolves.toBe(true);
-
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.publication).toEqual(before);
-    expect(state.generations.map((generation) => generation.generation)).toEqual([1]);
-    expect(state.refresh).toMatchObject({
-      lastCheckedAt: now,
-      lifecycle: { state: "idle" },
-    });
-  });
-
-  it("coalesces demand received during a run into one trailing generation", async () => {
+  it("coalesces ordinary visible demand without scheduling a trailing crawl", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    await insertRunningRefresh(t, { ...ids, generation: 1 });
-
-    await expect(
-      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual({ kind: "running" });
-    await expect(
-      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual({ kind: "running" });
-
-    await t.mutation(internal.repositoryInventory.publishRepositoryInventoryGeneration, {
-      vaultId: ids.vaultId,
-      generation: 1,
-      repositoryNodeId: "R_inventory",
-      repositoryFullName: "ada/inventory",
-      fingerprint: "generation-one",
-      ...emptyCounts,
-      labelChunkCount: 0,
-    });
-
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.refresh).toMatchObject({
-      demandVersion: 3,
-      nextGeneration: 3,
+    const snapshotId = await insertSnapshot(t, ids);
+    await insertInventory(t, {
+      ...ids,
       lifecycle: {
-        state: "scheduled",
-        generation: 2,
-        targetDemandVersion: 3,
-        wait: { kind: "queue", retryAt: now + 60_000 },
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-visible",
       },
     });
-    expect(state.generations.map((generation) => generation.generation)).toEqual([1]);
-    expect(state.publication?.activeGeneration).toBe(1);
+
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "running" });
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "running" });
+
+    await t.mutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      fingerprint: "first-publication",
+      crawlCost: 12,
+    });
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      writeVersion: 0,
+      lifecycle: { state: "idle" },
+      publication: { snapshotId, fingerprint: "first-publication" },
+    });
+    expect(state.snapshots).toHaveLength(1);
   });
 
-  it("preserves early demand and starts it sixty seconds after the prior crawl began", async () => {
+  it("schedules exactly one immediate trailing snapshot after writes during a crawl", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, ids);
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-write",
+      },
+    });
+
+    await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
+    await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
+    await t.mutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      fingerprint: "after-write",
+      crawlCost: 15,
+    });
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      writeVersion: 2,
+      publication: { snapshotId },
+      lifecycle: {
+        state: "scheduled",
+        targetWriteVersion: 2,
+        required: true,
+        wait: { kind: "immediate" },
+      },
+    });
+    expect(state.snapshots).toHaveLength(2);
+  });
+
+  it("drops an ordinary deferred crawl after visible demand expires", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultRepositoryInventoryRefreshes", {
-        userId: ids.userId,
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
         vaultId: ids.vaultId,
-        demandVersion: 1,
-        nextGeneration: 2,
-        lifecycle: { state: "idle" },
-        lastStartedAt: now,
-        lastCheckedAt: now + 20_000,
-        updatedAt: now + 20_000,
-      });
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
+    const scheduled = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (scheduled?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a scheduled repository inventory refresh.");
+    }
+
+    vi.setSystemTime(now + 135_001);
+    await expect(
+      t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+        snapshotId: scheduled.lifecycle.snapshotId,
+      }),
+    ).resolves.toEqual({ kind: "cancel" });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: { lifecycle: { state: "idle" } },
+    });
+  });
+
+  it("delays repeated ordinary demand from the prior crawl start", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      lastStartedAt: now,
     });
     vi.setSystemTime(now + 59_000);
 
@@ -315,342 +375,325 @@ describe("repository inventory refresh state machine", () => {
         vaultId: ids.vaultId,
       }),
     ).resolves.toEqual({ kind: "scheduled" });
-
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.refresh?.lifecycle).toMatchObject({
-      state: "scheduled",
-      generation: 2,
-      wait: { kind: "queue", retryAt: now + 60_000 },
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: {
+          state: "scheduled",
+          wait: { kind: "queue", retryAt: now + 60_000 },
+        },
+      },
     });
   });
 
-  it("measures the minimum interval from crawl start instead of completion", async () => {
-    const { asUser, ids, t } = await createConnectedVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultRepositoryInventoryRefreshes", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        demandVersion: 1,
-        nextGeneration: 2,
-        lifecycle: { state: "idle" },
-        lastStartedAt: now,
-        lastCheckedAt: now + 20_000,
-        updatedAt: now + 20_000,
-      });
+  it("keeps the published snapshot and advances checkedAt after an unchanged crawl", async () => {
+    const { ids, t } = await createConnectedVault();
+    const activeSnapshotId = await insertSnapshot(t, ids);
+    const stagingSnapshotId = await insertSnapshot(t, ids);
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId: stagingSnapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-unchanged",
+      },
+      publication: publication(activeSnapshotId),
     });
-    vi.setSystemTime(now + 60_000);
 
     await expect(
-      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+      t.mutation(internal.repositoryInventory.completeUnchangedRepositoryInventoryRefresh, {
         vaultId: ids.vaultId,
+        snapshotId: stagingSnapshotId,
+        fingerprint: "published-fingerprint",
+        crawlCost: 18,
       }),
-    ).resolves.toEqual({ kind: "scheduled" });
+    ).resolves.toBe(true);
 
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.refresh?.lifecycle).toMatchObject({
-      state: "scheduled",
-      generation: 2,
-      wait: { kind: "immediate" },
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      lifecycle: { state: "idle" },
+      estimatedCrawlCost: 18,
+      publication: {
+        snapshotId: activeSnapshotId,
+        publishedAt: now - 5_000,
+        checkedAt: now,
+      },
     });
+    expect(state.snapshots.map((snapshot) => snapshot._id)).toEqual([activeSnapshotId]);
   });
 
-  it("starts an immediate inventory refresh after a confirmed GitHub write", async () => {
+  it("rejects incomplete publication without disturbing the active snapshot", async () => {
     const { ids, t } = await createConnectedVault();
-    await insertPublication(t, {
+    const activeSnapshotId = await insertSnapshot(t, ids);
+    const stagingSnapshotId = await insertSnapshot(t, ids);
+    await insertInventory(t, {
       ...ids,
-      generation: 1,
-      fingerprint: "before-write",
-    });
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultRepositoryInventoryRefreshes", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        demandVersion: 1,
-        nextGeneration: 2,
-        lifecycle: { state: "idle" },
-        lastStartedAt: now,
-        lastCheckedAt: now,
-        updatedAt: now,
-      });
+      lifecycle: {
+        state: "running",
+        snapshotId: stagingSnapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-incomplete",
+      },
+      publication: publication(activeSnapshotId),
     });
 
     await expect(
-      t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids),
-    ).resolves.toEqual({ kind: "scheduled" });
-
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.refresh?.lifecycle).toMatchObject({
-      state: "scheduled",
-      generation: 2,
-      wait: { kind: "immediate" },
-    });
-  });
-
-  it("rejects publication from a generation that no longer owns the run", async () => {
-    const { ids, t } = await createConnectedVault();
-    const publicationId = await insertPublication(t, {
-      ...ids,
-      generation: 1,
-      fingerprint: "active",
-    });
-    await insertRunningRefresh(t, { ...ids, generation: 3 });
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultRepositoryInventoryGenerations", {
-        userId: ids.userId,
+      t.mutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
         vaultId: ids.vaultId,
-        generation: 2,
-        ...emptyGenerationCounts,
-        createdAt: now - 1,
-      });
-    });
-    const before = await t.run(async (ctx) => await ctx.db.get(publicationId));
-
-    await expect(
-      t.mutation(internal.repositoryInventory.publishRepositoryInventoryGeneration, {
-        vaultId: ids.vaultId,
-        generation: 2,
+        snapshotId: stagingSnapshotId,
         repositoryNodeId: "R_inventory",
         repositoryFullName: "ada/inventory",
-        fingerprint: "stale",
-        ...emptyCounts,
+        defaultBranch: "main",
+        branchCount: 1,
+        pullRequestCount: 0,
+        labelCount: 0,
         labelChunkCount: 0,
+        fingerprint: "incomplete",
+        crawlCost: 5,
       }),
-    ).rejects.toThrow("Repository inventory generation is not running.");
+    ).rejects.toThrow("Repository inventory snapshot counts are incomplete.");
 
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.publication).toEqual(before);
-    expect(state.refresh?.lifecycle).toMatchObject({ state: "running", generation: 3 });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        publication: { snapshotId: activeSnapshotId },
+        lifecycle: { state: "running", snapshotId: stagingSnapshotId },
+      },
+    });
   });
 
-  it.each([
-    {
-      completion: "failure",
-      result: { kind: "failed", error: "GitHub inventory failed." },
-      message: "GitHub inventory failed.",
-    },
-    {
-      completion: "cancellation",
-      result: { kind: "canceled" },
-      message: "Repository inventory worker was canceled.",
-    },
-  ] as const)("cleans staged data after Workpool $completion", async ({ result, message }) => {
+  it("treats Workpool success without publication as an invariant failure", async () => {
     const { ids, t } = await createConnectedVault();
-    await insertPublication(t, {
+    const snapshotId = await insertSnapshot(t, ids);
+    await insertInventory(t, {
       ...ids,
-      generation: 1,
-      fingerprint: "active",
-    });
-    await insertRunningRefresh(t, {
-      ...ids,
-      generation: 2,
-      stagedData: true,
-      workpoolJobId: "job-2",
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-unpublished",
+      },
     });
 
     await t.mutation(internal.repositoryInventory.handleRepositoryInventoryComplete, {
-      // @ts-expect-error Workpool's WorkId brand is type-only; Convex receives the validated string.
-      workId: "job-2",
-      context: { vaultId: ids.vaultId, generation: 2 },
-      result,
+      // @ts-expect-error Workpool persists its branded WorkId as this validated string.
+      workId: "job-unpublished",
+      context: { vaultId: ids.vaultId, snapshotId },
+      result: { kind: "success", returnValue: null },
     });
-    await cleanupFailedGeneration(t, ids.vaultId);
 
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.refresh?.lifecycle).toEqual({
-      state: "failed",
-      failedAt: now,
-      message,
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: {
+          state: "failed",
+          failedAt: now,
+          message: "Repository inventory worker completed without publishing its snapshot.",
+        },
+      },
     });
-    expect(state.publication?.activeGeneration).toBe(1);
-    expect(state.generations.map((generation) => generation.generation)).toEqual([1]);
-    expect(state.items).toEqual([]);
-    expect(state.labelChunks).toEqual([]);
   });
+});
 
-  it("reconstructs every pull request label across bounded chunks", async () => {
+describe("repository inventory snapshot reads", () => {
+  it("returns point-in-time items and labels without storage-only fields", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    await insertRunningRefresh(t, { ...ids, generation: 1 });
-    const rowKey = "pull-request:PR_inventory";
-    const labels = Array.from({ length: 125 }, (_, index) => ({
-      name: `label-${index}`,
-      color: index % 2 === 0 ? "00ff00" : "ff00ff",
-    }));
-
-    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryItems, {
+    const snapshotId = await insertSnapshot(t, {
       vaultId: ids.vaultId,
-      generation: 1,
-      items: [
-        {
-          kind: "pull_request",
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          generation: 1,
-          kindRank: 1,
-          timeRank: -now,
-          tie: "42",
-          rowKey,
-          branchLookupKey: "pull-request-head:feature/labels",
-          lastSyncedAt: now,
-          nodeId: "PR_inventory",
-          number: 42,
-          url: "https://github.com/ada/inventory/pull/42",
-          title: "Keep every label",
-          isDraft: false,
-          isCrossRepository: false,
-          createdAt: now - 1_000,
-          updatedAt: now,
-          baseRepositoryFullName: "ada/inventory",
-          baseRefName: "main",
-          headRepositoryId: "123",
-          headRepositoryFullName: "ada/inventory",
-          headRefName: "feature/labels",
-          headCommitSha: "abc123",
-          canOpenInSamebase: true,
-          headCommit: {
-            sha: "abc123",
-            title: "Keep every label",
-            authoredAt: now - 1_000,
-            committedAt: now - 500,
-            checks: {
-              state: "success",
-              totalCount: 0,
-              checkRunCount: 0,
-              statusContextCount: 0,
-              successCount: 0,
-              failureCount: 0,
-              runningCount: 0,
-              neutralCount: 0,
-              unknownCount: 0,
-              syncedAt: now,
-            },
-          },
-          labelChunkCount: 2,
-        },
-      ],
-    });
-    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryLabelChunks, {
-      vaultId: ids.vaultId,
-      generation: 1,
-      labelChunks: [
-        {
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          generation: 1,
-          rowKey,
-          chunkIndex: 0,
-          labels: labels.slice(0, 100),
-        },
-        {
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          generation: 1,
-          rowKey,
-          chunkIndex: 1,
-          labels: labels.slice(100),
-        },
-      ],
-    });
-    await t.mutation(internal.repositoryInventory.publishRepositoryInventoryGeneration, {
-      vaultId: ids.vaultId,
-      generation: 1,
-      repositoryNodeId: "R_inventory",
-      repositoryFullName: "ada/inventory",
-      itemCount: 1,
-      branchCount: 0,
+      branchCount: 1,
       pullRequestCount: 1,
+      labelCount: 3,
       labelChunkCount: 2,
-      fingerprint: "labels-across-two-chunks",
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "main",
+      isDefault: true,
+      sortTime: 0,
+    });
+    const rowKey = "pull-request:PR_42";
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey,
+      number: 42,
+      headRefName: "feature/labels",
+      sortTime: -now,
+      canOpenInSamebase: true,
+      labelCount: 3,
+      labelChunkCount: 2,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
+        vaultId: ids.vaultId,
+        snapshotId,
+        rowKey,
+        chunkIndex: 0,
+        labels: [{ name: "bug", color: "ff0000" }, { name: "priority" }],
+      });
+      await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
+        vaultId: ids.vaultId,
+        snapshotId,
+        rowKey,
+        chunkIndex: 1,
+        labels: [{ name: "ready", color: "00ff00" }],
+      });
     });
 
-    const page = await asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
+    const itemPage = await asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
       vaultId: ids.vaultId,
-      generation: 1,
+      snapshotId,
       paginationOpts: { cursor: null, numItems: 10 },
     });
-
-    expect(page.page).toHaveLength(1);
-    expect(page.page[0]).toMatchObject({
-      kind: "pull_request",
-      rowKey,
-      labels,
+    expect(itemPage).toMatchObject({
+      state: "ready",
+      expectedItemCount: 2,
+      isDone: true,
+      page: [
+        { kind: "branch", rowKey: "branch:main", name: "main", isDefault: true },
+        { kind: "pull_request", rowKey, number: 42, labelCount: 3 },
+      ],
     });
-    expect(page.page[0]).not.toHaveProperty("labelChunkCount");
-    expect(page.page[0]).not.toHaveProperty("branchLookupKey");
+    expect(itemPage).not.toHaveProperty("page.1.labelChunkCount");
+    expect(itemPage).not.toHaveProperty("page.1.localHeadRefName");
+
+    const labelPage = await asUser.query(api.repositoryInventory.listRepositoryInventoryLabelPage, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey,
+      paginationOpts: { cursor: null, numItems: 5 },
+    });
+    expect(labelPage).toMatchObject({
+      state: "ready",
+      expectedLabelCount: 3,
+      expectedChunkCount: 2,
+      isDone: true,
+      page: [
+        {
+          chunkIndex: 0,
+          labels: [{ name: "bug", color: "ff0000" }, { name: "priority" }],
+        },
+        { chunkIndex: 1, labels: [{ name: "ready", color: "00ff00" }] },
+      ],
+    });
   });
 
-  it("bounds public repository inventory pages", async () => {
-    const { asUser, ids } = await createConnectedVault();
-
+  it("distinguishes a removed snapshot from a valid empty snapshot", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, ids);
     await expect(
       asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
         vaultId: ids.vaultId,
-        generation: 1,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedItemCount: 0,
+      page: [],
+      isDone: true,
+    });
+    await t.run(async (ctx) => await ctx.db.delete(snapshotId));
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+
+  it("cleans only the exact obsolete snapshot", async () => {
+    const { ids, t } = await createConnectedVault();
+    const activeSnapshotId = await insertSnapshot(t, { vaultId: ids.vaultId, branchCount: 1 });
+    const obsoleteSnapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      branchCount: 1,
+      pullRequestCount: 1,
+      labelCount: 1,
+      labelChunkCount: 1,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      publication: publication(activeSnapshotId),
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId: activeSnapshotId,
+      name: "main",
+      isDefault: true,
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId: obsoleteSnapshotId,
+      name: "old",
+    });
+    const rowKey = "pull-request:obsolete";
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId: obsoleteSnapshotId,
+      rowKey,
+      number: 9,
+      headRefName: "old",
+      sortTime: -1,
+      canOpenInSamebase: true,
+      labelCount: 1,
+      labelChunkCount: 1,
+    });
+    await t.run(
+      async (ctx) =>
+        await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
+          vaultId: ids.vaultId,
+          snapshotId: obsoleteSnapshotId,
+          rowKey,
+          chunkIndex: 0,
+          labels: [{ name: "old" }],
+        }),
+    );
+
+    for (let pass = 0; pass < 3; pass += 1) {
+      await t.mutation(internal.repositoryInventory.cleanupRepositoryInventorySnapshot, {
+        snapshotId: obsoleteSnapshotId,
+      });
+    }
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.snapshots.map((snapshot) => snapshot._id)).toEqual([activeSnapshotId]);
+    expect(state.items).toHaveLength(1);
+    expect(state.items[0]).toMatchObject({ snapshotId: activeSnapshotId, rowKey: "branch:main" });
+    expect(state.labelChunks).toEqual([]);
+  });
+
+  it("bounds public item and label pages", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, ids);
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
         paginationOpts: { cursor: null, numItems: 11 },
       }),
     ).rejects.toThrow("Repository inventory pages must request between 1 and 10 items.");
-  });
-
-  it("quiesces scheduled work before vault deletion can continue", async () => {
-    const { asUser, ids, t } = await createConnectedVault();
     await expect(
-      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+      asUser.query(api.repositoryInventory.listRepositoryInventoryLabelPage, {
         vaultId: ids.vaultId,
+        snapshotId,
+        rowKey: "pull-request:PR_1",
+        paginationOpts: { cursor: null, numItems: 6 },
       }),
-    ).resolves.toEqual({ kind: "scheduled" });
-    const scheduled = (await readInventoryState(t, ids.vaultId)).refresh;
-    if (scheduled?.lifecycle.state !== "scheduled") {
-      throw new Error("Expected a scheduled repository inventory refresh.");
-    }
-
-    await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      options: {
-        removeCodespaces: false,
-        removeGithubRepo: false,
-        removeConvexProvision: false,
-        removeCloudflareProvision: false,
-      },
-    });
-    await t.mutation(internal.repositoryInventory.quiesceForVaultDeletion, ids);
-
-    const state = await readInventoryState(t, ids.vaultId);
-    expect(state.refresh?.lifecycle).toEqual({
-      state: "failed",
-      failedAt: now,
-      message: "Repository inventory stopped for vault deletion.",
-    });
-    await expect(
-      t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
-        vaultId: ids.vaultId,
-        generation: scheduled.lifecycle.generation,
-      }),
-    ).resolves.toEqual({ kind: "cancel" });
-    await expect(
-      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
-        vaultId: ids.vaultId,
-      }),
-    ).rejects.toThrow("Vault not found.");
+    ).rejects.toThrow("Repository inventory label pages must request between 1 and 5 chunks.");
   });
 });
 
 describe("repository inventory branch context", () => {
-  const checks = {
-    state: "success" as const,
-    totalCount: 0,
-    checkRunCount: 0,
-    statusContextCount: 0,
-    successCount: 0,
-    failureCount: 0,
-    runningCount: 0,
-    neutralCount: 0,
-    unknownCount: 0,
-    syncedAt: now,
-  };
-
-  it("does not claim that a branch is missing before the first complete publication", async () => {
+  it("does not claim a branch is missing before the first publication", async () => {
     const { asUser, ids } = await createConnectedVault();
-
     await expect(
       asUser.query(api.repositoryInventory.getRepositoryInventoryBranchContext, {
         vaultId: ids.vaultId,
@@ -659,156 +702,88 @@ describe("repository inventory branch context", () => {
     ).resolves.toEqual({ state: "unpublished" });
   });
 
-  it("returns exact-case branch metadata and the newest same-repository open pull request", async () => {
+  it("returns exact-case branch metadata and the newest eligible open pull request", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    await insertPublication(t, {
-      ...ids,
-      generation: 1,
-      fingerprint: "canonical-branch-context",
-      repositoryFullName: "Ada/Renamed",
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      branchCount: 2,
+      pullRequestCount: 3,
     });
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultRepositoryInventoryItems", {
-        kind: "branch",
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        generation: 1,
-        kindRank: 0,
-        timeRank: 0,
-        tie: "trunk",
-        rowKey: "branch:trunk",
-        branchLookupKey: "branch:trunk",
-        lastSyncedAt: now,
-        name: "trunk",
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      publication: publication(snapshotId, {
         repositoryFullName: "Ada/Renamed",
-        headCommitSha: "default-sha",
-        lastCommitAt: now - 2_000,
-        isDefault: true,
-        headCommit: {
-          sha: "default-sha",
-          committedAt: now - 2_000,
-          checks,
-        },
-      });
-      await ctx.db.insert("vaultRepositoryInventoryItems", {
-        kind: "branch",
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        generation: 1,
-        kindRank: 2,
-        timeRank: -now,
-        tie: "Feature/Case",
-        rowKey: "branch:Feature/Case",
-        branchLookupKey: "branch:Feature/Case",
-        lastSyncedAt: now,
-        name: "Feature/Case",
-        repositoryFullName: "Ada/Renamed",
-        headCommitSha: "feature-sha",
-        lastCommitAt: now,
-        isDefault: false,
-        headCommit: {
-          sha: "feature-sha",
-          committedAt: now,
-          checks,
-        },
-      });
-      for (const pullRequest of [
-        {
-          nodeId: "PR_older",
-          number: 40,
-          updatedAt: now - 1_000,
-          isCrossRepository: false,
-          canOpenInSamebase: true,
-        },
-        {
-          nodeId: "PR_newest_same_repository",
-          number: 42,
-          updatedAt: now,
-          isCrossRepository: false,
-          canOpenInSamebase: true,
-        },
-        {
-          nodeId: "PR_newest_fork",
-          number: 43,
-          updatedAt: now + 1_000,
-          isCrossRepository: true,
-          canOpenInSamebase: false,
-        },
-      ]) {
-        await ctx.db.insert("vaultRepositoryInventoryItems", {
-          kind: "pull_request",
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          generation: 1,
-          kindRank: 1,
-          timeRank: -pullRequest.updatedAt,
-          tie: String(pullRequest.number),
-          rowKey: `pull-request:${pullRequest.nodeId}`,
-          branchLookupKey: pullRequest.canOpenInSamebase
-            ? "pull-request-head:Feature/Case"
-            : `pull-request:${pullRequest.nodeId}`,
-          lastSyncedAt: now,
-          nodeId: pullRequest.nodeId,
-          number: pullRequest.number,
-          url: `https://github.com/Ada/Renamed/pull/${pullRequest.number}`,
-          title: `Pull request ${pullRequest.number}`,
-          isDraft: pullRequest.number === 42,
-          isCrossRepository: pullRequest.isCrossRepository,
-          createdAt: now - 10_000,
-          updatedAt: pullRequest.updatedAt,
-          baseRepositoryFullName: "Ada/Renamed",
-          baseRefName: pullRequest.number === 42 ? "release/1.2" : "trunk",
-          headRepositoryId: pullRequest.isCrossRepository ? "R_fork" : "R_inventory",
-          headRepositoryFullName: pullRequest.isCrossRepository
-            ? "Contributor/Renamed"
-            : "Ada/Renamed",
-          headRefName: "Feature/Case",
-          headCommitSha: "feature-sha",
-          canOpenInSamebase: pullRequest.canOpenInSamebase,
-          headCommit: {
-            sha: "feature-sha",
-            committedAt: now,
-            checks,
-          },
-          labelChunkCount: 0,
-        });
-      }
+        defaultBranch: "trunk",
+      }),
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "trunk",
+      isDefault: true,
+      sortTime: 0,
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "Feature/Case",
+      sortTime: -now,
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:older",
+      number: 40,
+      headRefName: "Feature/Case",
+      sortTime: -(now - 1_000),
+      canOpenInSamebase: true,
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:newest",
+      number: 42,
+      headRefName: "Feature/Case",
+      sortTime: -now,
+      canOpenInSamebase: true,
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:fork",
+      number: 43,
+      headRefName: "Feature/Case",
+      sortTime: -(now + 1_000),
+      canOpenInSamebase: false,
     });
 
-    const expectedContext = {
-      state: "ready",
-      repositoryFullName: "Ada/Renamed",
-      defaultBranch: "trunk",
-      branch: {
-        name: "Feature/Case",
-        headCommitSha: "feature-sha",
-        isDefault: false,
-        headCommit: {
-          sha: "feature-sha",
-          committedAt: now,
-          checks,
-        },
-      },
-      pullRequest: {
-        number: 42,
-        url: "https://github.com/Ada/Renamed/pull/42",
-        isDraft: true,
-        baseRefName: "release/1.2",
-      },
-    } as const;
     await expect(
       asUser.query(api.repositoryInventory.getRepositoryInventoryBranchContext, {
         vaultId: ids.vaultId,
         branch: "Feature/Case",
       }),
-    ).resolves.toEqual(expectedContext);
-    await expect(
-      t.query(internal.repositoryInventory.getRepositoryInventoryBranchContextForUser, {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        branch: "Feature/Case",
-      }),
-    ).resolves.toEqual(expectedContext);
+    ).resolves.toEqual({
+      state: "ready",
+      repositoryFullName: "Ada/Renamed",
+      defaultBranch: "trunk",
+      branch: {
+        name: "Feature/Case",
+        isDefault: false,
+        headCommit: {
+          sha: "Feature/Case-sha",
+          title: "Feature/Case commit",
+          authoredAt: now,
+          checks,
+        },
+      },
+      pullRequest: {
+        number: 42,
+        url: "https://github.com/ada/inventory/pull/42",
+        isDraft: true,
+        baseRefName: "release/1.2",
+      },
+    });
     await expect(
       asUser.query(api.repositoryInventory.getRepositoryInventoryBranchContext, {
         vaultId: ids.vaultId,
@@ -819,13 +794,5 @@ describe("repository inventory branch context", () => {
       repositoryFullName: "Ada/Renamed",
       defaultBranch: "trunk",
     });
-    const page = await asUser.query(api.repositoryInventory.listRepositoryInventoryPage, {
-      vaultId: ids.vaultId,
-      generation: 1,
-      paginationOpts: { cursor: null, numItems: 10 },
-    });
-    expect(page.page).not.toContainEqual(
-      expect.objectContaining({ branchLookupKey: expect.anything() }),
-    );
   });
 });

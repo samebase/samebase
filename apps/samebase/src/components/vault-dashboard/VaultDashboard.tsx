@@ -32,7 +32,6 @@ import { useNow } from "@/hooks/useNow";
 import {
   useAction,
   useMutation,
-  usePaginatedQuery,
   useQuery as useConvexQuery,
   type PaginationStatus,
 } from "convex/react";
@@ -103,12 +102,12 @@ import { applySearchPatch } from "@/routing/searchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   mapRepositoryInventoryItemToDashboardRow,
-  type VaultBranchCommitChecksSummary,
-  type VaultRemoteBranchListItem,
+  type VaultRepositoryInventoryCommitChecksSummary,
+  type VaultRepositoryInventoryRow,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
   buildVaultBranchRowViewModel,
-  type VaultBranchCommitViewModel,
+  type VaultBranchHeadCommitViewModel,
 } from "@/components/vault-dashboard/vaultDashboardBranchRowViewModel";
 import { toast } from "@/components/ui/use-toast";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
@@ -123,6 +122,7 @@ import {
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useRepositoryInventoryDemand } from "@/hooks/useRepositoryInventoryDemand";
+import { useRepositoryInventorySnapshot } from "@/hooks/useRepositoryInventorySnapshot";
 import type {
   CloudflareWorkerOption,
   CloudflareWorkerRepositoryEvidence,
@@ -138,7 +138,6 @@ import {
 } from "@/components/vault-dashboard/vaultProductionApps";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
-const VAULT_BRANCH_INITIAL_PAGE_SIZE = 10;
 const VAULT_BRANCH_LOAD_MORE_PAGE_SIZE = 10;
 const VAULT_BRANCH_ROW_ESTIMATE_PX = 92;
 const VAULT_BRANCH_LOADER_ROW_KEY = "vault-branch-loader";
@@ -162,7 +161,7 @@ type VaultDashboardRepositoryInventoryStatesByVaultId = Map<
   VaultDashboardRepositoryInventoryState
 >;
 type VaultDashboardRemoteBranchPage = {
-  remoteBranches: readonly VaultRemoteBranchListItem[];
+  remoteBranches: readonly VaultRepositoryInventoryRow[];
   status: PaginationStatus;
   loadMore: (numItems: number) => void;
 };
@@ -177,125 +176,9 @@ export type VaultDashboardProps = {
   selectedRepositoryFullName?: string;
 };
 
-type LoadedVaultDashboardRepositoryInventoryGeneration = {
-  activeGeneration: number;
-  inventoryState: Exclude<VaultDashboardRepositoryInventoryState, { state: "empty" }>;
-  remoteBranches: readonly VaultRemoteBranchListItem[];
-  vaultId: Id<"vaults">;
-};
-
-type VaultDashboardRepositoryInventoryGenerationDisplay = {
-  inventoryState: VaultDashboardRepositoryInventoryState | undefined;
-  remoteBranches: readonly VaultRemoteBranchListItem[];
-};
-
 type VaultDashboardLogoComponent = () => ReactNode;
 
 function ignoreVaultBranchLoadMore(_numItems: number): void {}
-
-/**
-Convex resets paginated results while the query switches to a newly published generation. Keep the
-last loaded page visible for that brief handoff so generation publication is visually atomic too.
-*/
-// eslint-disable-next-line react-refresh/only-export-components -- Exported for focused generation-handoff coverage.
-export function useVaultDashboardInventoryGenerationDisplay({
-  activeGeneration,
-  inventoryState,
-  loadMore,
-  paginationStatus,
-  remoteBranches,
-  vaultId,
-}: {
-  activeGeneration: number | undefined;
-  inventoryState: VaultDashboardRepositoryInventoryState | undefined;
-  loadMore: (numItems: number) => void;
-  paginationStatus: PaginationStatus;
-  remoteBranches: readonly VaultRemoteBranchListItem[];
-  vaultId: Id<"vaults"> | null;
-}): VaultDashboardRepositoryInventoryGenerationDisplay {
-  const [lastLoadedGeneration, setLastLoadedGeneration] =
-    useState<LoadedVaultDashboardRepositoryInventoryGeneration | null>(null);
-
-  useEffect(() => {
-    if (
-      activeGeneration === undefined ||
-      lastLoadedGeneration?.vaultId !== vaultId ||
-      lastLoadedGeneration.activeGeneration === activeGeneration ||
-      paginationStatus !== "CanLoadMore" ||
-      remoteBranches.length >= lastLoadedGeneration.remoteBranches.length
-    ) {
-      return;
-    }
-    loadMore(
-      Math.min(
-        VAULT_BRANCH_LOAD_MORE_PAGE_SIZE,
-        lastLoadedGeneration.remoteBranches.length - remoteBranches.length,
-      ),
-    );
-  }, [
-    activeGeneration,
-    lastLoadedGeneration,
-    loadMore,
-    paginationStatus,
-    remoteBranches.length,
-    vaultId,
-  ]);
-
-  useEffect(() => {
-    if (
-      vaultId === null ||
-      activeGeneration === undefined ||
-      inventoryState === undefined ||
-      inventoryState.state === "empty"
-    ) {
-      setLastLoadedGeneration((current) => (current === null ? current : null));
-      return;
-    }
-    if (
-      paginationStatus === "LoadingFirstPage" ||
-      (lastLoadedGeneration?.vaultId === vaultId &&
-        lastLoadedGeneration.activeGeneration !== activeGeneration &&
-        paginationStatus !== "Exhausted" &&
-        remoteBranches.length < lastLoadedGeneration.remoteBranches.length)
-    ) {
-      return;
-    }
-
-    setLastLoadedGeneration((current) => {
-      if (
-        current?.vaultId === vaultId &&
-        current.activeGeneration === activeGeneration &&
-        current.remoteBranches === remoteBranches
-      ) {
-        return current;
-      }
-
-      return { activeGeneration, inventoryState, remoteBranches, vaultId };
-    });
-  }, [
-    activeGeneration,
-    inventoryState,
-    lastLoadedGeneration,
-    paginationStatus,
-    remoteBranches,
-    vaultId,
-  ]);
-
-  const keepPreviousGeneration =
-    activeGeneration !== undefined &&
-    lastLoadedGeneration?.vaultId === vaultId &&
-    lastLoadedGeneration.activeGeneration !== activeGeneration &&
-    (paginationStatus === "LoadingFirstPage" ||
-      (paginationStatus !== "Exhausted" &&
-        remoteBranches.length < lastLoadedGeneration.remoteBranches.length));
-
-  return keepPreviousGeneration
-    ? {
-        inventoryState: lastLoadedGeneration.inventoryState,
-        remoteBranches: lastLoadedGeneration.remoteBranches,
-      }
-    : { inventoryState, remoteBranches };
-}
 
 export type VaultDeleteDialogTarget = {
   repositoryFullName: string;
@@ -886,7 +769,9 @@ function formatChecksCount(count: number): string {
   return `${count} ${count === 1 ? "check" : "checks"}`;
 }
 
-function formatCommitChecksCompactLabel(summary: VaultBranchCommitChecksSummary): string {
+function formatCommitChecksCompactLabel(
+  summary: VaultRepositoryInventoryCommitChecksSummary,
+): string {
   if (summary.totalCount === 0) {
     return "No checks";
   }
@@ -909,7 +794,7 @@ function formatCommitChecksCompactLabel(summary: VaultBranchCommitChecksSummary)
   }
 }
 
-function formatCommitChecksLabel(summary: VaultBranchCommitChecksSummary): string {
+function formatCommitChecksLabel(summary: VaultRepositoryInventoryCommitChecksSummary): string {
   if (summary.totalCount === 0) {
     return "No checks";
   }
@@ -932,7 +817,7 @@ function formatCommitChecksLabel(summary: VaultBranchCommitChecksSummary): strin
   }
 }
 
-function formatCommitChecksTitle(summary: VaultBranchCommitChecksSummary): string {
+function formatCommitChecksTitle(summary: VaultRepositoryInventoryCommitChecksSummary): string {
   const parts = [
     `${formatChecksCount(summary.totalCount)} total`,
     `${summary.successCount} passed`,
@@ -946,7 +831,9 @@ function formatCommitChecksTitle(summary: VaultBranchCommitChecksSummary): strin
   return parts.join(" • ");
 }
 
-function getCommitChecksStateClassName(summary: VaultBranchCommitChecksSummary): string {
+function getCommitChecksStateClassName(
+  summary: VaultRepositoryInventoryCommitChecksSummary,
+): string {
   switch (summary.state) {
     case "success":
       return "text-emerald-600 hover:text-emerald-700";
@@ -964,7 +851,7 @@ function getCommitChecksStateClassName(summary: VaultBranchCommitChecksSummary):
   }
 }
 
-function CommitChecksIcon({ summary }: { summary: VaultBranchCommitChecksSummary }) {
+function CommitChecksIcon({ summary }: { summary: VaultRepositoryInventoryCommitChecksSummary }) {
   if (summary.totalCount === 0) {
     return <CircleDashed className="h-4 w-4" strokeWidth={2} />;
   }
@@ -1823,7 +1710,7 @@ interface StagedSummary {
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
-  branch: VaultRemoteBranchListItem;
+  branch: VaultRepositoryInventoryRow;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
   schemaGraphAccessEnabled?: boolean;
@@ -2005,7 +1892,7 @@ function buildVaultDashboardBranchConvexLinks(args: {
     });
 }
 
-function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewModel }) {
+function CommitChecksSummaryLink({ commit }: { commit: VaultBranchHeadCommitViewModel }) {
   const checks = commit.checks;
   if (!checks) {
     return null;
@@ -2013,19 +1900,27 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewMode
   const title = [commit.shortSha, commit.title, formatCommitChecksTitle(checks)]
     .filter(Boolean)
     .join(" • ");
+  const href = checks.primaryTargetUrl ?? (commit.url ? `${commit.url}/checks` : undefined);
+  const className = clsx(
+    "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums",
+    getCommitChecksStateClassName(checks),
+  );
   const content = (
     <>
       <CommitChecksIcon summary={checks} />
       <span>{formatCommitChecksCompactLabel(checks)}</span>
     </>
   );
-  const href = checks.primaryTargetUrl ?? (commit.url ? `${commit.url}/checks` : undefined);
-  const className = clsx(
-    "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums",
-    getCommitChecksStateClassName(checks),
-  );
 
-  return href ? (
+  if (!href) {
+    return (
+      <span aria-label={formatCommitChecksLabel(checks)} className={className} title={title}>
+        {content}
+      </span>
+    );
+  }
+
+  return (
     <a
       href={href}
       target="_blank"
@@ -2036,10 +1931,6 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewMode
     >
       {content}
     </a>
-  ) : (
-    <span aria-label={formatCommitChecksLabel(checks)} className={className} title={title}>
-      {content}
-    </span>
   );
 }
 
@@ -2066,11 +1957,17 @@ function BranchPreviewLink({ previewUrl }: { previewUrl: string | undefined }) {
   );
 }
 
-function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel }) {
-  const label = commit.isHead ? `Head ${commit.shortSha}` : commit.shortSha;
+function VaultBranchCommitLink({ commit }: { commit: VaultBranchHeadCommitViewModel }) {
+  const className = clsx(
+    "-mx-1 -my-0.5 inline-flex min-h-7 items-center rounded-sm px-1 py-0.5 font-mono text-sm tabular-nums",
+    commit.url &&
+      "underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+    commit.url && linkStyle,
+  );
+  const label = <span>Head {commit.shortSha}</span>;
 
   if (!commit.url) {
-    return <span className="font-mono text-sm tabular-nums">{label}</span>;
+    return <span className={className}>{label}</span>;
   }
 
   return (
@@ -2078,22 +1975,19 @@ function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel 
       href={commit.url}
       target="_blank"
       rel="noreferrer noopener"
-      className={clsx(
-        "-mx-1 -my-0.5 inline-flex min-h-7 items-center rounded-sm px-1 py-0.5 font-mono text-sm tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-        linkStyle,
-      )}
+      className={className}
       title={commit.title ? `Open commit: ${commit.title}` : "Open commit"}
     >
-      <span>{label}</span>
+      {label}
     </a>
   );
 }
 
-function VaultBranchCommitRow({
+function VaultBranchHeadCommit({
   commit,
   previewUrl,
 }: {
-  commit: VaultBranchCommitViewModel;
+  commit: VaultBranchHeadCommitViewModel;
   previewUrl: string | undefined;
 }) {
   return (
@@ -2101,31 +1995,6 @@ function VaultBranchCommitRow({
       <VaultBranchCommitLink commit={commit} />
       <CommitChecksSummaryLink commit={commit} />
       <BranchPreviewLink previewUrl={previewUrl} />
-    </div>
-  );
-}
-
-function VaultBranchCommitStack({
-  commits,
-  previewUrl,
-}: {
-  commits: readonly VaultBranchCommitViewModel[];
-  previewUrl: string | undefined;
-}) {
-  const visibleCommits = commits.filter((commit) => commit.checks || commit.isHead);
-  if (visibleCommits.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="space-y-1">
-      {visibleCommits.map((commit) => (
-        <VaultBranchCommitRow
-          key={commit.sha}
-          commit={commit}
-          previewUrl={commit.isHead ? previewUrl : undefined}
-        />
-      ))}
     </div>
   );
 }
@@ -2179,7 +2048,7 @@ export function VaultBranchLinkContent({
   schemaGraphAccessEnabled = false,
 }: {
   repositoryFullName: string;
-  branch: VaultRemoteBranchListItem;
+  branch: VaultRepositoryInventoryRow;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
   schemaGraphAccessEnabled?: boolean;
@@ -2275,7 +2144,7 @@ export function VaultBranchLinkContent({
           </div>
         )}
         <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
-          <VaultBranchCommitStack commits={branchRow.commits} previewUrl={branchRow.previewUrl} />
+          <VaultBranchHeadCommit commit={branchRow.headCommit} previewUrl={branchRow.previewUrl} />
           {hasPullRequestMetadata ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               {pullRequest?.isDraft ? (
@@ -2384,7 +2253,7 @@ interface VaultBranchListProps {
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   loadMore: (numItems: number) => void;
   paginationStatus: PaginationStatus;
-  remoteBranches: readonly VaultRemoteBranchListItem[];
+  remoteBranches: readonly VaultRepositoryInventoryRow[];
   productionApps?: readonly VaultBranchProductionApp[];
   schemaGraphAccessEnabled?: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
@@ -2599,7 +2468,7 @@ export function VaultBranchSection({
   schemaGraphAccessEnabled: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   vaultId: Id<"vaults">;
-  remoteBranches: readonly VaultRemoteBranchListItem[];
+  remoteBranches: readonly VaultRepositoryInventoryRow[];
 }) {
   return (
     <>
@@ -2643,12 +2512,10 @@ function renderVaultDashboardRepositoryStatus({
   }
 
   const lastComplete =
-    typeof inventoryState.publishedAt === "number" ? (
+    typeof inventoryState.checkedAt === "number" ? (
       <>
         <span>·</span>
-        <span>
-          Last complete {formatRelativeTimeAgoWithSeconds(inventoryState.publishedAt, now)}
-        </span>
+        <span>Last complete {formatRelativeTimeAgoWithSeconds(inventoryState.checkedAt, now)}</span>
       </>
     ) : null;
 
@@ -2686,7 +2553,7 @@ function renderVaultDashboardRepositoryStatus({
     );
   }
 
-  return <span>Updated {formatRelativeTimeAgoWithSeconds(inventoryState.publishedAt, now)}</span>;
+  return <span>Updated {formatRelativeTimeAgoWithSeconds(inventoryState.checkedAt, now)}</span>;
 }
 
 export function VaultSourceSetupSection({
@@ -3406,37 +3273,36 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       ? selectedVault._id
       : null;
   useRepositoryInventoryDemand(selectedInventoryVaultId);
-  const selectedVaultRepositoryInventoryState = useQuery(
+  const selectedVaultRepositoryInventoryState = useConvexQuery(
     api.repositoryInventory.getRepositoryInventoryState,
     selectedInventoryVaultId ? { vaultId: selectedInventoryVaultId } : "skip",
   );
-  const selectedVaultRepositoryInventoryGeneration =
+  const selectedVaultRepositoryInventorySnapshotId =
     selectedVaultRepositoryInventoryState?.state !== "empty"
-      ? selectedVaultRepositoryInventoryState?.activeGeneration
+      ? selectedVaultRepositoryInventoryState?.activeSnapshotId
       : undefined;
-  const selectedVaultRepositoryInventoryPage = usePaginatedQuery(
-    api.repositoryInventory.listRepositoryInventoryPage,
-    selectedInventoryVaultId && typeof selectedVaultRepositoryInventoryGeneration === "number"
-      ? {
-          vaultId: selectedInventoryVaultId,
-          generation: selectedVaultRepositoryInventoryGeneration,
-        }
-      : "skip",
-    { initialNumItems: VAULT_BRANCH_INITIAL_PAGE_SIZE },
-  );
-  const selectedVaultRepositoryInventoryRows = useMemo(
-    () =>
-      selectedVaultRepositoryInventoryPage.results.map(mapRepositoryInventoryItemToDashboardRow),
-    [selectedVaultRepositoryInventoryPage.results],
-  );
-  const displayedVaultRepositoryInventory = useVaultDashboardInventoryGenerationDisplay({
-    activeGeneration: selectedVaultRepositoryInventoryGeneration,
-    inventoryState: selectedVaultRepositoryInventoryState,
-    loadMore: selectedVaultRepositoryInventoryPage.loadMore,
-    paginationStatus: selectedVaultRepositoryInventoryPage.status,
-    remoteBranches: selectedVaultRepositoryInventoryRows,
+  const selectedVaultRepositoryInventoryPage = useRepositoryInventorySnapshot({
     vaultId: selectedInventoryVaultId,
+    snapshotId: selectedVaultRepositoryInventorySnapshotId,
+    inventoryState: selectedVaultRepositoryInventoryState,
   });
+  const selectedVaultRepositoryInventoryRows = useMemo(() => {
+    const inventoryState = selectedVaultRepositoryInventoryPage.inventoryState;
+    const repositoryFullName =
+      inventoryState?.state === "empty" ? undefined : inventoryState?.repositoryFullName;
+    if (selectedVaultRepositoryInventoryPage.items.length > 0 && repositoryFullName === undefined) {
+      throw new Error("Loaded repository inventory is missing its repository identity.");
+    }
+    if (repositoryFullName === undefined) {
+      return [];
+    }
+    return selectedVaultRepositoryInventoryPage.items.map((item) =>
+      mapRepositoryInventoryItemToDashboardRow({ item, repositoryFullName }),
+    );
+  }, [
+    selectedVaultRepositoryInventoryPage.inventoryState,
+    selectedVaultRepositoryInventoryPage.items,
+  ]);
   const vaultIds = useMemo(() => (selectedVault ? [selectedVault._id] : null), [selectedVault]);
   const stagedBranchSummariesByVault = useQuery(
     api.fileStaging.listStagedFilesBranchSummariesByVault,
@@ -3460,15 +3326,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
             viewModel: {
               vaults: selectedVault ? [selectedVault] : [],
               repositoryInventoryStatesByVaultId:
-                selectedVault && displayedVaultRepositoryInventory.inventoryState
-                  ? new Map([[selectedVault._id, displayedVaultRepositoryInventory.inventoryState]])
+                selectedVault && selectedVaultRepositoryInventoryPage.inventoryState
+                  ? new Map([
+                      [selectedVault._id, selectedVaultRepositoryInventoryPage.inventoryState],
+                    ])
                   : new Map(),
               remoteBranchPagesByVaultId: selectedVault
                 ? new Map([
                     [
                       selectedVault._id,
                       {
-                        remoteBranches: displayedVaultRepositoryInventory.remoteBranches,
+                        remoteBranches: selectedVaultRepositoryInventoryRows,
                         status: selectedVaultRepositoryInventoryPage.status,
                         loadMore: selectedVaultRepositoryInventoryPage.loadMore,
                       },
@@ -3483,7 +3351,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       selectedVault,
       selectedVaultRepositoryInventoryPage.loadMore,
       selectedVaultRepositoryInventoryPage.status,
-      displayedVaultRepositoryInventory,
+      selectedVaultRepositoryInventoryPage.inventoryState,
+      selectedVaultRepositoryInventoryRows,
       stagedBranchSummariesByVaultId,
       vaults,
     ],

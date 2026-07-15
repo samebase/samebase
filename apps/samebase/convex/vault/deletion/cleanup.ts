@@ -11,9 +11,8 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("folderExpansionState"),
   literal("vaultRepositoryInventoryLabelChunks"),
   literal("vaultRepositoryInventoryItems"),
-  literal("vaultRepositoryInventoryGenerations"),
+  literal("vaultRepositoryInventorySnapshots"),
   literal("vaultRepositoryInventories"),
-  literal("vaultRepositoryInventoryRefreshes"),
   literal("vaultDomains"),
   literal("vaultApps"),
   literal("vaultConvexDeployments"),
@@ -266,16 +265,12 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultRepositoryInventoryItems"),
   },
   {
-    table: "vaultRepositoryInventoryGenerations",
-    cleanup: deleteByVaultBatch("vaultRepositoryInventoryGenerations"),
+    table: "vaultRepositoryInventorySnapshots",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventorySnapshots"),
   },
   {
     table: "vaultRepositoryInventories",
     cleanup: deleteByVaultBatch("vaultRepositoryInventories"),
-  },
-  {
-    table: "vaultRepositoryInventoryRefreshes",
-    cleanup: deleteByVaultBatch("vaultRepositoryInventoryRefreshes"),
   },
   {
     table: "vaultBranchTrees",
@@ -349,9 +344,8 @@ const vaultLocalCleanupRegistryByStep = {
     "folderExpansionState",
     "vaultRepositoryInventoryLabelChunks",
     "vaultRepositoryInventoryItems",
-    "vaultRepositoryInventoryGenerations",
+    "vaultRepositoryInventorySnapshots",
     "vaultRepositoryInventories",
-    "vaultRepositoryInventoryRefreshes",
     "vaultBranchTrees",
   ],
   cleanup_runtime_state: [

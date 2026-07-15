@@ -1,33 +1,38 @@
-import { api } from "../../../convex/_generated/api";
+import type { LoadedRepositoryInventoryItem } from "@/hooks/useRepositoryInventorySnapshot";
 
-type RepositoryInventoryItem =
-  (typeof api.repositoryInventory.listRepositoryInventoryPage)["_returnType"]["page"][number];
-
-export interface VaultRemoteBranchListItem {
+interface VaultRepositoryInventoryRowFields {
   rowKey: string;
   name: string;
-  githubRepositoryFullName?: string;
   canOpenInSamebase: boolean;
-  headCommitSha: string;
-  isDefault: boolean;
-  lastSyncedAt: number;
-  commits: VaultBranchCommitListItem[];
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: Array<string | { name: string; color?: string }>;
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
+  headCommit: VaultRepositoryInventoryHeadCommit;
   previewUrl?: string;
 }
 
-export interface VaultBranchCommitListItem {
+export type VaultRepositoryInventoryRow =
+  | (VaultRepositoryInventoryRowFields & {
+      kind: "branch";
+      githubRepositoryFullName: string;
+      isDefault: boolean;
+    })
+  | (VaultRepositoryInventoryRowFields & {
+      kind: "pull_request";
+      githubRepositoryFullName?: string;
+      isDefault: false;
+      pullRequestUrl: string;
+      pullRequestNumber: number;
+      pullRequestLabels: Array<string | { name: string; color?: string }>;
+      pullRequestTitle: string;
+      pullRequestIsDraft: boolean;
+    });
+
+export interface VaultRepositoryInventoryHeadCommit {
   sha: string;
   title?: string;
   authoredAt?: number;
-  checks?: VaultBranchCommitChecksSummary;
+  checks?: VaultRepositoryInventoryCommitChecksSummary;
 }
 
-export interface VaultBranchCommitChecksSummary {
+export interface VaultRepositoryInventoryCommitChecksSummary {
   state: "success" | "failure" | "running" | "neutral" | "unknown";
   totalCount: number;
   checkRunCount: number;
@@ -38,13 +43,13 @@ export interface VaultBranchCommitChecksSummary {
   neutralCount: number;
   unknownCount: number;
   primaryTargetUrl?: string;
-  primaryLogUrl?: string;
-  syncedAt: number;
 }
 
-export function mapRepositoryInventoryItemToDashboardRow(
-  item: RepositoryInventoryItem,
-): VaultRemoteBranchListItem {
+export function mapRepositoryInventoryItemToDashboardRow(args: {
+  item: LoadedRepositoryInventoryItem;
+  repositoryFullName: string;
+}): VaultRepositoryInventoryRow {
+  const { item } = args;
   const commit = {
     sha: item.headCommit.sha,
     title: item.headCommit.title,
@@ -54,27 +59,25 @@ export function mapRepositoryInventoryItemToDashboardRow(
 
   if (item.kind === "branch") {
     return {
+      kind: "branch",
       rowKey: item.rowKey,
       name: item.name,
-      githubRepositoryFullName: item.repositoryFullName,
+      githubRepositoryFullName: args.repositoryFullName,
       canOpenInSamebase: true,
-      headCommitSha: item.headCommitSha,
+      headCommit: commit,
       isDefault: item.isDefault,
-      lastSyncedAt: item.lastSyncedAt,
-      commits: [commit],
       previewUrl: item.previewUrl,
     };
   }
 
   return {
+    kind: "pull_request",
     rowKey: item.rowKey,
     name: item.headRefName,
     githubRepositoryFullName: item.headRepositoryFullName,
     canOpenInSamebase: item.canOpenInSamebase,
-    headCommitSha: item.headCommitSha,
+    headCommit: commit,
     isDefault: false,
-    lastSyncedAt: item.lastSyncedAt,
-    commits: [commit],
     pullRequestUrl: item.url,
     pullRequestNumber: item.number,
     pullRequestLabels: item.labels,

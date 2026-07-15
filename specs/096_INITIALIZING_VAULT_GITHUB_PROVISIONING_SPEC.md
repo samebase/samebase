@@ -593,7 +593,8 @@ operator has confirmed the cleanup scope.
 The reset must include dependent vault-scoped tables, not only `vaults`. Likely affected tables
 include:
 
-1. repository inventory publication, refresh, generation, item, and label-chunk tables
+1. repository inventory root, snapshot, item, and label-chunk tables, plus any GitHub account
+   rate-budget lease currently owned by the vault
 2. `vaultBranchTrees`
 3. `vaultInfrastructure`
 4. `vaultInfrastructureOwnership`

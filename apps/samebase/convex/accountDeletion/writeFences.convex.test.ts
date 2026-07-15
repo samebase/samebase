@@ -146,7 +146,10 @@ describe("account deletion late-write fences", () => {
       ),
     ).rejects.toThrow("Repository inventory is unavailable during account deletion.");
     await t.run(async (ctx) => {
-      expect(await ctx.db.query("vaultRepositoryInventoryRefreshes").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventories").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventorySnapshots").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryItems").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryLabelChunks").collect()).toEqual([]);
     });
   });
 });

@@ -13,19 +13,15 @@ import {
 import { toErrorMessage } from "./jsonUtils";
 import {
   REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE,
-  REPOSITORY_INVENTORY_MAX_LABELS_PER_PULL_REQUEST,
   REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
-  repositoryInventoryBranchLookupKey,
-  repositoryInventoryPullRequestBranchLookupKey,
-  repositoryInventoryPullRequestRowKey,
-  type RepositoryInventoryItem,
+  type CollectedRepositoryInventoryItem,
   type RepositoryInventoryLabelChunk,
   type StoredRepositoryInventoryItem,
 } from "./repositoryInventoryModel";
 import type { RepositoryInventoryWorkerInput } from "./repositoryInventory";
 
-const REPOSITORY_INVENTORY_LEASE_REFRESH_INTERVAL_MS = 30_000;
+const GITHUB_RATE_LEASE_RENEW_INTERVAL_MS = 30_000;
 const GITHUB_IDENTITY_TIMEOUT_MS = 10_000;
 
 class RepositoryInventoryRateDeferredError extends Error {
@@ -88,49 +84,48 @@ async function resolveGitHubConnectionWithAccountId(
       return { connection, githubAccountId: identity.githubAccountId };
     }
   }
-
   throw new Error("GitHub connection changed while resolving its account identity.");
 }
 
-function chunk<T>(values: readonly T[], size: number): T[][] {
-  const chunks: T[][] = [];
+function chunk<Value>(values: readonly Value[], size: number): Value[][] {
+  const chunks: Value[][] = [];
   for (let index = 0; index < values.length; index += size) {
     chunks.push(values.slice(index, index + size));
   }
   return chunks;
 }
 
-function prepareRepositoryInventoryForStorage(items: readonly RepositoryInventoryItem[]): {
+function prepareRepositoryInventoryForStorage(args: {
+  items: readonly CollectedRepositoryInventoryItem[];
+  vaultId: Id<"vaults">;
+  snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+}): {
   items: StoredRepositoryInventoryItem[];
   labelChunks: RepositoryInventoryLabelChunk[];
 } {
   const storedItems: StoredRepositoryInventoryItem[] = [];
   const labelChunks: RepositoryInventoryLabelChunk[] = [];
-  for (const item of items) {
+  for (const item of args.items) {
     if (item.kind === "branch") {
       storedItems.push({
         ...item,
-        branchLookupKey: repositoryInventoryBranchLookupKey(item.name),
+        vaultId: args.vaultId,
+        snapshotId: args.snapshotId,
       });
       continue;
     }
     const { labels, ...pullRequest } = item;
-    if (labels.length > REPOSITORY_INVENTORY_MAX_LABELS_PER_PULL_REQUEST) {
-      throw new Error("Repository inventory pull request labels exceed the publication limit.");
-    }
     const chunks = chunk(labels, REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE);
     storedItems.push({
       ...pullRequest,
-      branchLookupKey: item.canOpenInSamebase
-        ? repositoryInventoryPullRequestBranchLookupKey(item.headRefName)
-        : repositoryInventoryPullRequestRowKey(item.nodeId),
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
       labelChunkCount: chunks.length,
     });
     labelChunks.push(
       ...chunks.map((chunkLabels, chunkIndex) => ({
-        userId: item.userId,
-        vaultId: item.vaultId,
-        generation: item.generation,
+        vaultId: args.vaultId,
+        snapshotId: args.snapshotId,
         rowKey: item.rowKey,
         chunkIndex,
         labels: chunkLabels,
@@ -143,7 +138,7 @@ function prepareRepositoryInventoryForStorage(items: readonly RepositoryInventor
 export const runRepositoryInventoryRefresh = internalAction({
   args: {
     vaultId: v.id("vaults"),
-    generation: v.number(),
+    snapshotId: v.id("vaultRepositoryInventorySnapshots"),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
@@ -173,13 +168,14 @@ export const runRepositoryInventoryRefresh = internalAction({
           githubAccountId: claimedGithubAccountId,
           leaseId: claimedRateBudgetLeaseId,
           vaultId: input.vaultId,
-          generation: input.generation,
+          snapshotId: input.snapshotId,
+          estimatedCrawlCost: input.estimatedCrawlCost,
         },
       );
       if (budgetClaim.kind === "wait") {
         await ctx.runMutation(internal.repositoryInventory.deferRepositoryInventoryRefresh, {
           vaultId: input.vaultId,
-          generation: input.generation,
+          snapshotId: input.snapshotId,
           reason: budgetClaim.reason,
           retryAt: budgetClaim.retryAt,
         });
@@ -188,43 +184,31 @@ export const runRepositoryInventoryRefresh = internalAction({
       rateBudgetLeaseOwned = true;
       crawlStartedAt = Date.now();
 
-      let leaseRefreshedAt = Date.now();
-      const refreshLeaseIfNeeded = async (force = false): Promise<void> => {
+      let rateLeaseRenewedAt = Date.now();
+      const renewRateLeaseIfNeeded = async (force = false): Promise<void> => {
         const now = Date.now();
-        const extendLease =
-          force || now - leaseRefreshedAt >= REPOSITORY_INVENTORY_LEASE_REFRESH_INTERVAL_MS;
-        if (extendLease) {
-          const retained = await ctx.runMutation(
-            internal.repositoryInventory.refreshRepositoryInventoryLease,
-            {
-              vaultId: input.vaultId,
-              generation: input.generation,
-            },
-          );
-          if (!retained) {
-            throw new Error("Repository inventory refresh no longer owns its lease.");
-          }
+        if (!force && now - rateLeaseRenewedAt < GITHUB_RATE_LEASE_RENEW_INTERVAL_MS) {
+          return;
         }
-        if (rateBudgetLeaseOwned) {
-          const budgetRenewal = await ctx.runMutation(
-            internal.githubGraphqlRateBudget.renewGitHubGraphqlRateBudgetLease,
-            {
-              githubAccountId: claimedGithubAccountId,
-              leaseId: claimedRateBudgetLeaseId,
-              extendLease,
-            },
-          );
-          if (budgetRenewal.kind === "rate_limited") {
-            throw new RepositoryInventoryRateDeferredError(budgetRenewal.retryAt);
-          }
-          if (budgetRenewal.kind === "lost") {
-            throw new Error("Repository inventory refresh no longer owns its GitHub budget.");
-          }
+        if (!rateBudgetLeaseOwned) {
+          return;
         }
-        if (extendLease) {
-          leaseRefreshedAt = now;
+        const budgetRenewal = await ctx.runMutation(
+          internal.githubGraphqlRateBudget.renewGitHubGraphqlRateBudgetLease,
+          {
+            githubAccountId: claimedGithubAccountId,
+            leaseId: claimedRateBudgetLeaseId,
+          },
+        );
+        if (budgetRenewal.kind === "rate_limited") {
+          throw new RepositoryInventoryRateDeferredError(budgetRenewal.retryAt);
         }
+        if (budgetRenewal.kind === "lost") {
+          throw new Error("Repository inventory no longer owns its GitHub budget.");
+        }
+        rateLeaseRenewedAt = now;
       };
+
       const client = createGitHubGraphqlClient({
         credential: githubConnection.auth.credential,
       });
@@ -235,18 +219,11 @@ export const runRepositoryInventoryRefresh = internalAction({
           credential: githubConnection.auth.credential,
           repositoryDatabaseId: input.githubRepositoryId,
         }));
-
       const inventory = await collectRepositoryInventoryWithRetry({
-        context: {
-          userId: input.userId,
-          vaultId: input.vaultId,
-          generation: input.generation,
-          syncedAt: Date.now(),
-        },
         repositoryNodeId,
         expectedRepositoryDatabaseId: input.githubRepositoryId,
         requestGraphql: async (query, variables) => {
-          await refreshLeaseIfNeeded();
+          await renewRateLeaseIfNeeded();
           return await client.request(query, variables);
         },
       });
@@ -254,7 +231,7 @@ export const runRepositoryInventoryRefresh = internalAction({
         throw new Error("GitHub repository identity does not match the connected vault.");
       }
 
-      await refreshLeaseIfNeeded(true);
+      await renewRateLeaseIfNeeded(true);
       const usage = client.getUsage();
       if (usage === undefined) {
         throw new Error("GitHub GraphQL accounting was not collected.");
@@ -269,26 +246,32 @@ export const runRepositoryInventoryRefresh = internalAction({
         },
       });
       rateBudgetLeaseOwned = false;
-      const storedInventory = prepareRepositoryInventoryForStorage(inventory.items);
+
       const unchanged = await ctx.runMutation(
         internal.repositoryInventory.completeUnchangedRepositoryInventoryRefresh,
         {
           vaultId: input.vaultId,
-          generation: input.generation,
+          snapshotId: input.snapshotId,
           fingerprint: inventory.fingerprint,
+          crawlCost: usage.cost,
         },
       );
       if (unchanged) {
         return null;
       }
+
+      const storedInventory = prepareRepositoryInventoryForStorage({
+        items: inventory.items,
+        vaultId: input.vaultId,
+        snapshotId: input.snapshotId,
+      });
       for (const items of chunk(
         storedInventory.items,
         REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE,
       )) {
-        await refreshLeaseIfNeeded();
         await ctx.runMutation(internal.repositoryInventory.stageRepositoryInventoryItems, {
           vaultId: input.vaultId,
-          generation: input.generation,
+          snapshotId: input.snapshotId,
           items,
         });
       }
@@ -296,24 +279,27 @@ export const runRepositoryInventoryRefresh = internalAction({
         storedInventory.labelChunks,
         REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
       )) {
-        await refreshLeaseIfNeeded();
         await ctx.runMutation(internal.repositoryInventory.stageRepositoryInventoryLabelChunks, {
           vaultId: input.vaultId,
-          generation: input.generation,
+          snapshotId: input.snapshotId,
           labelChunks,
         });
       }
-      await refreshLeaseIfNeeded(true);
-      await ctx.runMutation(internal.repositoryInventory.publishRepositoryInventoryGeneration, {
+      await ctx.runMutation(internal.repositoryInventory.publishRepositoryInventorySnapshot, {
         vaultId: input.vaultId,
-        generation: input.generation,
+        snapshotId: input.snapshotId,
         repositoryNodeId: inventory.repositoryId,
         repositoryFullName: inventory.repositoryFullName,
-        itemCount: inventory.items.length,
+        defaultBranch: inventory.defaultBranch,
         branchCount: inventory.branchCount,
         pullRequestCount: inventory.pullRequestCount,
+        labelCount: inventory.items.reduce(
+          (count, item) => count + (item.kind === "pull_request" ? item.labelCount : 0),
+          0,
+        ),
         labelChunkCount: storedInventory.labelChunks.length,
         fingerprint: inventory.fingerprint,
+        crawlCost: usage.cost,
       });
       return null;
     } catch (error) {
@@ -335,7 +321,7 @@ export const runRepositoryInventoryRefresh = internalAction({
         rateBudgetLeaseOwned = false;
         await ctx.runMutation(internal.repositoryInventory.deferRepositoryInventoryRefresh, {
           vaultId: input.vaultId,
-          generation: input.generation,
+          snapshotId: input.snapshotId,
           reason: "rate_limit",
           retryAt: error.retryAt,
         });
@@ -364,7 +350,7 @@ export const runRepositoryInventoryRefresh = internalAction({
         rateBudgetLeaseOwned = false;
         await ctx.runMutation(internal.repositoryInventory.deferRepositoryInventoryRefresh, {
           vaultId: input.vaultId,
-          generation: input.generation,
+          snapshotId: input.snapshotId,
           reason: "rate_limit",
           retryAt: result.retryAt ?? error.retryAt,
         });
@@ -388,7 +374,7 @@ export const runRepositoryInventoryRefresh = internalAction({
       }
       await ctx.runMutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
         vaultId: input.vaultId,
-        generation: input.generation,
+        snapshotId: input.snapshotId,
         message: toErrorMessage(error),
       });
       throw error;

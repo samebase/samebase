@@ -396,7 +396,6 @@ describe("draft pull request helpers", () => {
         defaultBranch: "main",
         branch: {
           name: "feature-branch",
-          headCommitSha: "feature-sha",
           isDefault: false,
           headCommit: {
             sha: "feature-sha",
@@ -410,7 +409,6 @@ describe("draft pull request helpers", () => {
               runningCount: 1,
               neutralCount: 0,
               unknownCount: 0,
-              syncedAt: 1,
             },
           },
         },
@@ -441,7 +439,6 @@ describe("draft pull request helpers", () => {
         defaultBranch: "trunk",
         branch: {
           name: "feature-branch",
-          headCommitSha: "feature-sha",
           isDefault: false,
           headCommit: {
             sha: "feature-sha",
@@ -455,7 +452,6 @@ describe("draft pull request helpers", () => {
               runningCount: 0,
               neutralCount: 0,
               unknownCount: 0,
-              syncedAt: 1,
             },
           },
         },

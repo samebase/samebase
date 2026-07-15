@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { makeConvexTest } from "./test.setup";
 import {
   collectRepositoryInventory,
-  type RepositoryInventoryCollectionContext,
   type RepositoryInventoryGraphqlRequest,
 } from "./githubRepositoryInventory";
 
@@ -37,14 +35,17 @@ type RepositoryFixture = {
   branches: FixtureBranch[];
   verificationBranches?: FixtureBranch[];
   pullRequests: FixturePullRequest[];
+  verificationPullRequests?: FixturePullRequest[];
   branchPageWidth?: number;
   branchVerificationPageWidth?: number;
   pullRequestPageWidth?: number;
+  pullRequestVerificationPageWidth?: number;
 };
 
 type RequestObservations = {
   branchPageSizes: number[];
   branchVerificationPasses: number;
+  pullRequestVerificationPasses: number;
   requestedRepositoryIds: string[];
 };
 
@@ -204,13 +205,11 @@ function makeBranchNode(fixture: RepositoryFixture, branch: FixtureBranch) {
 }
 
 function makeBranchSignatureNode(branch: FixtureBranch) {
-  return {
-    name: branch.name,
-    target: {
-      __typename: "Commit",
-      oid: branch.sha,
-    },
-  };
+  return { name: branch.name };
+}
+
+function makePullRequestSignatureNode(pullRequest: FixturePullRequest) {
+  return { id: pullRequest.id };
 }
 
 function makePullRequestNode(fixture: RepositoryFixture, pullRequest: FixturePullRequest) {
@@ -273,6 +272,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
   const observations: RequestObservations = {
     branchPageSizes: [],
     branchVerificationPasses: 0,
+    pullRequestVerificationPasses: 0,
     requestedRepositoryIds: [],
   };
   const branchNodes = fixture.branches.map((branch) => makeBranchNode(fixture, branch));
@@ -281,6 +281,9 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
   );
   const pullRequestNodes = fixture.pullRequests.map((pullRequest) =>
     makePullRequestNode(fixture, pullRequest),
+  );
+  const pullRequestSignatureNodes = (fixture.verificationPullRequests ?? fixture.pullRequests).map(
+    makePullRequestSignatureNode,
   );
 
   const requestGraphql: RepositoryInventoryGraphqlRequest = async (query, variables) => {
@@ -336,6 +339,33 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
           defaultBranchRef: fixture.defaultBranch === null ? null : { name: fixture.defaultBranch },
           refs: {
             totalCount: branchNodes.length,
+            ...page,
+          },
+        },
+      };
+    }
+
+    if (query.includes("query RepositoryInventoryPullRequestSignaturePage(")) {
+      if (!query.includes("orderBy: { field: CREATED_AT, direction: ASC }")) {
+        throw new Error("Expected stable pull request verification ordering.");
+      }
+      const start = readCursor(variables, "pull-request-signature");
+      if (start === 0) {
+        observations.pullRequestVerificationPasses += 1;
+      }
+      const page = slicePage({
+        values: pullRequestSignatureNodes,
+        start,
+        width: fixture.pullRequestVerificationPageWidth ?? pullRequestSignatureNodes.length,
+        cursorPrefix: "pull-request-signature",
+      });
+      return {
+        repository: {
+          id: fixture.repositoryId,
+          databaseId: Number(fixture.repositoryDatabaseId),
+          nameWithOwner: fixture.repositoryFullName,
+          pullRequests: {
+            totalCount: pullRequestSignatureNodes.length,
             ...page,
           },
         },
@@ -402,26 +432,6 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
   };
 
   return { requestGraphql, observations };
-}
-
-async function createCollectionContext(
-  generation: number,
-  syncedAt: number,
-): Promise<RepositoryInventoryCollectionContext> {
-  const t = makeConvexTest();
-  return await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
-      name: "Ada",
-      email: "ada@example.com",
-      isApproved: true,
-    });
-    const vaultId = await ctx.db.insert("vaults", {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "not_connected",
-    });
-    return { userId, vaultId, generation, syncedAt };
-  });
 }
 
 function makeBaseFixture(): RepositoryFixture {
@@ -496,7 +506,6 @@ describe("GitHub repository inventory collection", () => {
     const { observations, requestGraphql } = createRepositoryRequest(fixture);
 
     const result = await collectRepositoryInventory({
-      context: await createCollectionContext(7, 1_752_573_600_000),
       repositoryNodeId: "R_base",
       expectedRepositoryDatabaseId: "42",
       pageSize: 50,
@@ -520,10 +529,10 @@ describe("GitHub repository inventory collection", () => {
     });
 
     const sameRepositoryPullRequest = result.items.find(
-      (item) => item.kind === "pull_request" && item.nodeId === "PR_one",
+      (item) => item.kind === "pull_request" && item.rowKey === "pull-request:PR_one",
     );
     const forkPullRequest = result.items.find(
-      (item) => item.kind === "pull_request" && item.nodeId === "PR_two",
+      (item) => item.kind === "pull_request" && item.rowKey === "pull-request:PR_two",
     );
     if (
       !sameRepositoryPullRequest ||
@@ -549,9 +558,10 @@ describe("GitHub repository inventory collection", () => {
     expect(forkPullRequest.isDraft).toBe(true);
     expect(forkPullRequest.labels).toEqual([]);
     expect(observations.branchVerificationPasses).toBe(1);
+    expect(observations.pullRequestVerificationPasses).toBe(1);
   });
 
-  it("fails instead of publishing silently truncated pull request labels", async () => {
+  it("collects labels beyond the former storage chunking limit without truncation", async () => {
     const fixture: RepositoryFixture = {
       ...makeBaseFixture(),
       pullRequests: [
@@ -572,18 +582,18 @@ describe("GitHub repository inventory collection", () => {
       ],
     };
 
-    await expect(
-      collectRepositoryInventory({
-        context: await createCollectionContext(1, 100),
-        repositoryNodeId: "R_base",
-        expectedRepositoryDatabaseId: "42",
-        pageSize: 50,
-        requestGraphql: createRepositoryRequest(fixture).requestGraphql,
-      }),
-    ).rejects.toThrow("more than 5000 labels");
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: "R_base",
+      expectedRepositoryDatabaseId: "42",
+      pageSize: 50,
+      requestGraphql: createRepositoryRequest(fixture).requestGraphql,
+    });
+
+    const pullRequest = result.items.find((item) => item.kind === "pull_request");
+    expect(pullRequest?.labels).toHaveLength(5_001);
   });
 
-  it("keeps the fingerprint stable across generation and synchronization timestamps", async () => {
+  it("keeps the fingerprint stable across identical complete collections", async () => {
     const fixture: RepositoryFixture = {
       ...makeBaseFixture(),
       pullRequests: [
@@ -603,28 +613,20 @@ describe("GitHub repository inventory collection", () => {
         },
       ],
     };
-    const { userId, vaultId } = await createCollectionContext(1, 100);
     const first = await collectRepositoryInventory({
-      context: { userId, vaultId, generation: 1, syncedAt: 100 },
       repositoryNodeId: "R_base",
       expectedRepositoryDatabaseId: "42",
       pageSize: 50,
       requestGraphql: createRepositoryRequest(fixture).requestGraphql,
     });
     const second = await collectRepositoryInventory({
-      context: { userId, vaultId, generation: 99, syncedAt: 900 },
       repositoryNodeId: "R_base",
       expectedRepositoryDatabaseId: "42",
       pageSize: 50,
       requestGraphql: createRepositoryRequest(fixture).requestGraphql,
     });
 
-    expect(first.items[0]?.generation).toBe(1);
-    expect(second.items[0]?.generation).toBe(99);
-    expect(first.items[0]?.lastSyncedAt).toBe(100);
-    expect(second.items[0]?.lastSyncedAt).toBe(900);
-    expect(first.items[0]?.headCommit.checks.syncedAt).toBe(100);
-    expect(second.items[0]?.headCommit.checks.syncedAt).toBe(900);
+    expect(first.items).toEqual(second.items);
     const firstPullRequest = first.items.find((item) => item.kind === "pull_request");
     const secondPullRequest = second.items.find((item) => item.kind === "pull_request");
     expect(firstPullRequest?.labels).toEqual([{ name: "label-0", color: "ff0000" }]);
@@ -638,10 +640,8 @@ describe("GitHub repository inventory collection", () => {
       repositoryFullName: "new-owner/new-name",
     };
     const successfulRequest = createRepositoryRequest(fixture);
-    const context = await createCollectionContext(1, 100);
 
     const result = await collectRepositoryInventory({
-      context,
       repositoryNodeId: "R_base",
       expectedRepositoryDatabaseId: "42",
       pageSize: 50,
@@ -654,7 +654,6 @@ describe("GitHub repository inventory collection", () => {
     const mismatchedRequest = createRepositoryRequest(fixture);
     await expect(
       collectRepositoryInventory({
-        context,
         repositoryNodeId: "R_base",
         expectedRepositoryDatabaseId: "99",
         pageSize: 50,
@@ -670,16 +669,13 @@ describe("GitHub repository inventory collection", () => {
       defaultBranch: null,
       branches: [],
     };
-    const context = await createCollectionContext(1, 100);
     const beforeRename = await collectRepositoryInventory({
-      context,
       repositoryNodeId: "R_base",
       expectedRepositoryDatabaseId: "42",
       pageSize: 50,
       requestGraphql: createRepositoryRequest(fixture).requestGraphql,
     });
     const afterRename = await collectRepositoryInventory({
-      context,
       repositoryNodeId: "R_base",
       expectedRepositoryDatabaseId: "42",
       pageSize: 50,
@@ -726,7 +722,6 @@ describe("GitHub repository inventory collection", () => {
 
     await expect(
       collectRepositoryInventory({
-        context: await createCollectionContext(1, 100),
         repositoryNodeId: "R_base",
         expectedRepositoryDatabaseId: "42",
         pageSize: 50,
@@ -760,13 +755,50 @@ describe("GitHub repository inventory collection", () => {
 
     await expect(
       collectRepositoryInventory({
-        context: await createCollectionContext(1, 100),
         repositoryNodeId: "R_base",
         expectedRepositoryDatabaseId: "42",
         pageSize: 50,
         requestGraphql: createRepositoryRequest(fixture).requestGraphql,
       }),
     ).rejects.toThrow("branch inventory changed");
+  });
+
+  it("rejects equal-count open pull request churn found by the final identity pass", async () => {
+    const collectedPullRequest: FixturePullRequest = {
+      id: "PR_old",
+      number: 1,
+      title: "Collected pull request",
+      headRefName: "main",
+      headRefOid: "main-sha",
+      headRepositoryId: "R_base",
+      headRepositoryFullName: "samebase/samebase",
+      isDraft: false,
+      isCrossRepository: false,
+      labelCount: 0,
+      checkCount: 0,
+      updatedAt: "2026-07-15T10:02:00Z",
+    };
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      pullRequests: [collectedPullRequest],
+      verificationPullRequests: [
+        {
+          ...collectedPullRequest,
+          id: "PR_new",
+          number: 2,
+          title: "New pull request",
+        },
+      ],
+    };
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: "R_base",
+        expectedRepositoryDatabaseId: "42",
+        pageSize: 50,
+        requestGraphql: createRepositoryRequest(fixture).requestGraphql,
+      }),
+    ).rejects.toThrow("pull request inventory changed");
   });
 
   it("treats branch names as exact-case identities", async () => {
@@ -839,7 +871,6 @@ describe("GitHub repository inventory collection", () => {
     };
 
     const result = await collectRepositoryInventory({
-      context: await createCollectionContext(1, 100),
       repositoryNodeId: "R_base",
       expectedRepositoryDatabaseId: "42",
       pageSize: 50,
@@ -854,13 +885,16 @@ describe("GitHub repository inventory collection", () => {
     ).toEqual(["Feature", "feature", "main"]);
     const pullRequests = result.items.filter((item) => item.kind === "pull_request");
     expect(
-      pullRequests.find((pullRequest) => pullRequest.nodeId === "PR_upper")?.canOpenInSamebase,
+      pullRequests.find((pullRequest) => pullRequest.rowKey === "pull-request:PR_upper")
+        ?.canOpenInSamebase,
     ).toBe(true);
     expect(
-      pullRequests.find((pullRequest) => pullRequest.nodeId === "PR_lower")?.canOpenInSamebase,
+      pullRequests.find((pullRequest) => pullRequest.rowKey === "pull-request:PR_lower")
+        ?.canOpenInSamebase,
     ).toBe(true);
     expect(
-      pullRequests.find((pullRequest) => pullRequest.nodeId === "PR_mismatch")?.canOpenInSamebase,
+      pullRequests.find((pullRequest) => pullRequest.rowKey === "pull-request:PR_mismatch")
+        ?.canOpenInSamebase,
     ).toBe(false);
   });
 });

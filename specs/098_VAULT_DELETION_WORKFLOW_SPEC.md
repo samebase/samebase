@@ -665,8 +665,9 @@ Delete rows:
 3. `blobs` via `by_vault`, deleting storage objects before rows
 4. `vaultResourceLinksState` via `by_vault`
 5. `folderExpansionState` via `by_vault`
-6. repository inventory publication, refresh, generation, item, and label-chunk tables via
-   `by_vault`
+6. `vaultRepositoryInventoryLabelChunks`, `vaultRepositoryInventoryItems`,
+   `vaultRepositoryInventorySnapshots`, and `vaultRepositoryInventories` via `by_vault`, in that
+   order; clear the vault's `githubGraphqlRateBudgets` lease before deleting the inventory root
 7. `vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
 8. `vaultDomains` via `by_vault`
 9. `vaultInfrastructure` via `by_vault`, deleting all rows if more than one exists

@@ -327,7 +327,7 @@ function FileViewWrapper() {
 
   const inventoryBranchHeadSha =
     repositoryInventoryBranchContext?.state === "ready"
-      ? repositoryInventoryBranchContext.branch.headCommitSha
+      ? repositoryInventoryBranchContext.branch.headCommit.sha
       : undefined;
   useFileViewInventoryTreeSync({
     vaultId,
@@ -841,7 +841,7 @@ function FileViewInner({
   const currentBranchPullRequestNumber = isDefaultBranch ? undefined : currentPullRequest?.number;
   const currentBranchPullRequestUrl = isDefaultBranch ? undefined : currentPullRequest?.url;
   const hasCurrentBranchPullRequest = currentBranchPullRequestUrl != null;
-  const commitSha = currentInventoryBranch?.headCommitSha ?? vault.commitSHA;
+  const commitSha = currentInventoryBranch?.headCommit.sha ?? vault.commitSHA;
 
   /** Listen for Cmd/Ctrl + P and open the file view command palette. */
   useEffect(() => {

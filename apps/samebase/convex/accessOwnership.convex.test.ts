@@ -78,17 +78,28 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       },
       lastTreeRefreshAt: 6,
     });
+    const inventorySnapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+      vaultId,
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+    });
     await ctx.db.insert("vaultRepositoryInventories", {
       userId: ownerId,
       vaultId,
-      repositoryNodeId: "R_owner_secure",
-      repositoryFullName: "owner/secure",
-      activeGeneration: 1,
-      publishedAt: 7,
-      itemCount: 0,
-      branchCount: 0,
-      pullRequestCount: 0,
-      fingerprint: "owner-inventory",
+      wantedUntil: 7,
+      writeVersion: 1,
+      lifecycle: { state: "idle" },
+      publication: {
+        snapshotId: inventorySnapshotId,
+        repositoryNodeId: "R_owner_secure",
+        repositoryFullName: "owner/secure",
+        defaultBranch: "main",
+        publishedAt: 7,
+        checkedAt: 7,
+        fingerprint: "owner-inventory",
+      },
     });
     const stagingId = await ctx.db.insert("fileStaging", {
       ownerId,
@@ -186,6 +197,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       folderExpansionId,
       layoutId,
       machineRegistrationRequestId,
+      inventorySnapshotId,
       otherUserId,
       ownerId,
       stagingId,
@@ -223,10 +235,10 @@ describe("public Convex route ownership checks", () => {
     await expect(
       asOther.query(api.repositoryInventory.listRepositoryInventoryPage, {
         vaultId: ids.vaultId,
-        generation: 1,
+        snapshotId: ids.inventorySnapshotId,
         paginationOpts: { cursor: null, numItems: 10 },
       }),
-    ).resolves.toMatchObject({ page: [], isDone: true });
+    ).resolves.toEqual({ state: "unavailable" });
     await expect(
       asOther.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
         vaultId: ids.vaultId,
@@ -261,7 +273,7 @@ describe("public Convex route ownership checks", () => {
       }),
     ).resolves.toMatchObject({
       state: "ready",
-      activeGeneration: 1,
+      activeSnapshotId: ids.inventorySnapshotId,
       repositoryFullName: "owner/secure",
     });
     await expect(

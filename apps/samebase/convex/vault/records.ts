@@ -583,7 +583,7 @@ async function getVaultByRepositoryHelper(
     vaultId: vault._id,
     branch: requestedBranch ?? vault.defaultBranch,
   });
-  const defaultBranch = inventorySelection?.defaultBranch?.name ?? vault.defaultBranch;
+  const defaultBranch = inventorySelection?.defaultBranch ?? vault.defaultBranch;
   const branchNotFound = Boolean(
     requestedBranch &&
     inventorySelection &&

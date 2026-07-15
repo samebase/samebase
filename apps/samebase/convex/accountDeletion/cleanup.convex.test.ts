@@ -406,53 +406,37 @@ describe("account-local deletion cleanup", () => {
     const userId = await seedUser(t, "owner@example.com");
     const vaultId = await seedVault(t, userId);
     await t.run(async (ctx) => {
-      const counts = {
-        itemCount: 1,
-        branchCount: 1,
-        pullRequestCount: 0,
-      };
-      await ctx.db.insert("vaultRepositoryInventoryRefreshes", {
-        userId,
+      const rowKey = "pull-request:PR_cleanup";
+      const snapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
         vaultId,
-        demandVersion: 1,
-        nextGeneration: 2,
-        lifecycle: { state: "idle" },
-        updatedAt: 1,
-      });
-      await ctx.db.insert("vaultRepositoryInventoryGenerations", {
-        userId,
-        vaultId,
-        generation: 1,
-        ...counts,
+        branchCount: 0,
+        pullRequestCount: 1,
+        labelCount: 1,
         labelChunkCount: 1,
-        createdAt: 1,
       });
       await ctx.db.insert("vaultRepositoryInventories", {
         userId,
         vaultId,
-        repositoryNodeId: "R_repository",
-        repositoryFullName: "owner/repository",
-        activeGeneration: 1,
-        publishedAt: 1,
-        fingerprint: "inventory-fingerprint",
-        ...counts,
+        wantedUntil: 1,
+        writeVersion: 1,
+        lifecycle: { state: "idle" },
+        publication: {
+          snapshotId,
+          repositoryNodeId: "R_repository",
+          repositoryFullName: "owner/repository",
+          defaultBranch: "main",
+          publishedAt: 1,
+          checkedAt: 1,
+          fingerprint: "inventory-fingerprint",
+        },
       });
       await ctx.db.insert("vaultRepositoryInventoryItems", {
-        kind: "branch",
-        branchLookupKey: "branch:main",
-        userId,
+        kind: "pull_request",
         vaultId,
-        generation: 1,
-        kindRank: 0,
-        timeRank: -1,
-        tie: "main",
-        rowKey: "branch:main",
-        lastSyncedAt: 1,
-        name: "main",
-        repositoryFullName: "owner/repository",
-        headCommitSha: "commit-sha",
-        lastCommitAt: 1,
-        isDefault: true,
+        snapshotId,
+        sortGroup: 1,
+        sortTime: -1,
+        rowKey,
         headCommit: {
           sha: "commit-sha",
           checks: {
@@ -465,15 +449,24 @@ describe("account-local deletion cleanup", () => {
             runningCount: 0,
             neutralCount: 0,
             unknownCount: 0,
-            syncedAt: 1,
           },
         },
+        number: 1,
+        url: "https://github.com/owner/repository/pull/1",
+        title: "Cleanup inventory",
+        isDraft: false,
+        baseRefName: "main",
+        headRepositoryFullName: "owner/repository",
+        headRefName: "cleanup-inventory",
+        canOpenInSamebase: true,
+        labelCount: 1,
+        localHeadRefName: "cleanup-inventory",
+        labelChunkCount: 1,
       });
       await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
-        userId,
         vaultId,
-        generation: 1,
-        rowKey: "branch:main",
+        snapshotId,
+        rowKey,
         chunkIndex: 0,
         labels: [{ name: "cleanup", color: "00ff00" }],
       });
@@ -486,9 +479,8 @@ describe("account-local deletion cleanup", () => {
     expect(result).toEqual({ state: "done" });
     await t.run(async (ctx) => {
       expect(await ctx.db.get(vaultId)).toBeNull();
-      expect(await ctx.db.query("vaultRepositoryInventoryRefreshes").collect()).toEqual([]);
-      expect(await ctx.db.query("vaultRepositoryInventoryGenerations").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventories").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventorySnapshots").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryItems").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryLabelChunks").collect()).toEqual([]);
     });

@@ -84,8 +84,6 @@ import type * as infraRead from "../infraRead.js";
 import type * as infraReadPolicy from "../infraReadPolicy.js";
 import type * as infraReadQueries from "../infraReadQueries.js";
 import type * as jsonUtils from "../jsonUtils.js";
-import type * as legacyRepositoryInventoryCleanup from "../legacyRepositoryInventoryCleanup.js";
-import type * as legacyRepositoryInventoryCleanupModel from "../legacyRepositoryInventoryCleanupModel.js";
 import type * as mcp_contracts_getAuthenticationStatus from "../mcp/contracts/getAuthenticationStatus.js";
 import type * as mcp_grants from "../mcp/grants.js";
 import type * as mcp_http from "../mcp/http.js";
@@ -115,7 +113,6 @@ import type * as usageAttribution from "../usageAttribution.js";
 import type * as userAccess from "../userAccess.js";
 import type * as users from "../users.js";
 import type * as vault_actions from "../vault/actions.js";
-import type * as vault_branchCommitSummary from "../vault/branchCommitSummary.js";
 import type * as vault_branches from "../vault/branches.js";
 import type * as vault_cloudflare from "../vault/cloudflare.js";
 import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js";
@@ -237,8 +234,6 @@ declare const fullApi: ApiFromModules<{
   infraReadPolicy: typeof infraReadPolicy;
   infraReadQueries: typeof infraReadQueries;
   jsonUtils: typeof jsonUtils;
-  legacyRepositoryInventoryCleanup: typeof legacyRepositoryInventoryCleanup;
-  legacyRepositoryInventoryCleanupModel: typeof legacyRepositoryInventoryCleanupModel;
   "mcp/contracts/getAuthenticationStatus": typeof mcp_contracts_getAuthenticationStatus;
   "mcp/grants": typeof mcp_grants;
   "mcp/http": typeof mcp_http;
@@ -268,7 +263,6 @@ declare const fullApi: ApiFromModules<{
   userAccess: typeof userAccess;
   users: typeof users;
   "vault/actions": typeof vault_actions;
-  "vault/branchCommitSummary": typeof vault_branchCommitSummary;
   "vault/branches": typeof vault_branches;
   "vault/cloudflare": typeof vault_cloudflare;
   "vault/cloudflareMutations": typeof vault_cloudflareMutations;
@@ -336,8 +330,6 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
-  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
-  repositoryRefreshWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"repositoryRefreshWorkpool">;
   repositoryInventoryWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"repositoryInventoryWorkpool">;
 };

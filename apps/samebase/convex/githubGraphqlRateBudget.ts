@@ -3,7 +3,7 @@ import { Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 
-const { boolean, id, literal, number, object, optional, string, union } = v;
+const { id, literal, number, object, optional, string, union } = v;
 
 const GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS = 2 * 60_000;
 const GITHUB_GRAPHQL_DEFAULT_CRAWL_RESERVATION = 128;
@@ -36,7 +36,7 @@ const vGitHubGraphqlRateBlock = union(
 const vGitHubGraphqlRateLease = object({
   leaseId: string(),
   vaultId: id("vaults"),
-  generation: number(),
+  snapshotId: id("vaultRepositoryInventorySnapshots"),
   startedAt: number(),
   expiresAt: number(),
   reservedPoints: number(),
@@ -47,13 +47,10 @@ export const vGitHubGraphqlRateBudget = object({
   limit: optional(number()),
   remaining: optional(number()),
   resetAt: optional(number()),
-  nextAllowedAt: optional(number()),
-  maxCompletedCrawlCostInWindow: optional(number()),
   lastCompletedCrawlDurationMs: optional(number()),
   consecutiveSecondaryBlocks: number(),
   block: optional(vGitHubGraphqlRateBlock),
   lease: optional(vGitHubGraphqlRateLease),
-  updatedAt: number(),
 });
 
 const vGitHubGraphqlRateBudgetClaimResult = union(
@@ -119,23 +116,16 @@ function retryAfterActiveLease(budget: GitHubGraphqlRateBudgetDoc, now: number):
 function resetExpiredWindow(
   budget: GitHubGraphqlRateBudgetDoc,
   now: number,
-): Pick<
-  GitHubGraphqlRateBudgetDoc,
-  "remaining" | "resetAt" | "nextAllowedAt" | "maxCompletedCrawlCostInWindow"
-> {
+): Pick<GitHubGraphqlRateBudgetDoc, "remaining" | "resetAt"> {
   if (budget.resetAt === undefined || budget.resetAt > now) {
     return {
       remaining: budget.remaining,
       resetAt: budget.resetAt,
-      nextAllowedAt: budget.nextAllowedAt,
-      maxCompletedCrawlCostInWindow: budget.maxCompletedCrawlCostInWindow,
     };
   }
   return {
     remaining: budget.limit,
     resetAt: undefined,
-    nextAllowedAt: undefined,
-    maxCompletedCrawlCostInWindow: undefined,
   };
 }
 
@@ -144,7 +134,8 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
     githubAccountId: number(),
     leaseId: string(),
     vaultId: id("vaults"),
-    generation: number(),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    estimatedCrawlCost: optional(number()),
   },
   returns: vGitHubGraphqlRateBudgetClaimResult,
   handler: async (ctx, args): Promise<GitHubGraphqlRateBudgetClaimResult> => {
@@ -157,12 +148,11 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
         lease: {
           leaseId: args.leaseId,
           vaultId: args.vaultId,
-          generation: args.generation,
+          snapshotId: args.snapshotId,
           startedAt: now,
           expiresAt: now + GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS,
           reservedPoints: 0,
         },
-        updatedAt: now,
       });
       return { kind: "ready" };
     }
@@ -194,17 +184,10 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
           ? undefined
           : resetWindow.remaining,
     };
-    if (window.nextAllowedAt !== undefined && window.nextAllowedAt > now) {
-      return {
-        kind: "wait",
-        reason: "queue",
-        retryAt: window.nextAllowedAt,
-      };
-    }
     const reservedPoints =
       window.remaining === undefined
         ? 0
-        : (window.maxCompletedCrawlCostInWindow ?? GITHUB_GRAPHQL_DEFAULT_CRAWL_RESERVATION);
+        : (args.estimatedCrawlCost ?? GITHUB_GRAPHQL_DEFAULT_CRAWL_RESERVATION);
     if (
       existing.limit !== undefined &&
       window.remaining !== undefined &&
@@ -218,7 +201,6 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
           kind: "primary",
           until: retryAt,
         },
-        updatedAt: now,
       });
       return {
         kind: "wait",
@@ -234,12 +216,11 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
       lease: {
         leaseId: args.leaseId,
         vaultId: args.vaultId,
-        generation: args.generation,
+        snapshotId: args.snapshotId,
         startedAt: now,
         expiresAt: now + GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS,
         reservedPoints,
       },
-      updatedAt: now,
     });
     return { kind: "ready" };
   },
@@ -249,7 +230,6 @@ export const renewGitHubGraphqlRateBudgetLease = internalMutation({
   args: {
     githubAccountId: number(),
     leaseId: string(),
-    extendLease: boolean(),
   },
   returns: union(
     object({ kind: literal("retained") }),
@@ -264,22 +244,17 @@ export const renewGitHubGraphqlRateBudgetLease = internalMutation({
     const now = Date.now();
     if (budget.block !== undefined && budget.block.until > now) {
       await ctx.db.patch(budget._id, {
-        nextAllowedAt: Math.max(budget.nextAllowedAt ?? 0, budget.block.until),
         remaining: budget.lease.reservedPoints > 0 ? undefined : budget.remaining,
         lease: undefined,
-        updatedAt: now,
       });
       return { kind: "rate_limited", retryAt: budget.block.until } as const;
     }
-    if (args.extendLease) {
-      await ctx.db.patch(budget._id, {
-        lease: {
-          ...budget.lease,
-          expiresAt: now + GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS,
-        },
-        updatedAt: now,
-      });
-    }
+    await ctx.db.patch(budget._id, {
+      lease: {
+        ...budget.lease,
+        expiresAt: now + GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS,
+      },
+    });
     return { kind: "retained" } as const;
   },
 });
@@ -293,29 +268,13 @@ function applyRateUsage(
       limit: budget.limit,
       remaining: budget.remaining,
       resetAt: budget.resetAt,
-      maxCompletedCrawlCostInWindow: budget.maxCompletedCrawlCostInWindow,
     };
   }
-  const sameWindow = budget.resetAt === undefined || budget.resetAt === usage.resetAt;
   return {
     limit: usage.limit,
     remaining: usage.remaining,
     resetAt: usage.resetAt,
-    maxCompletedCrawlCostInWindow: sameWindow ? budget.maxCompletedCrawlCostInWindow : undefined,
   };
-}
-
-function nextAllowedAt(args: {
-  now: number;
-  usage: GitHubGraphqlRateUsage;
-  maxCompletedCrawlCostInWindow: number;
-}): number {
-  const available = args.usage.remaining - safetyFloor(args.usage.limit);
-  const crawlsRemaining = Math.floor(available / args.maxCompletedCrawlCostInWindow);
-  if (crawlsRemaining <= 0) {
-    return args.usage.resetAt + 1_000;
-  }
-  return args.now + Math.ceil(Math.max(0, args.usage.resetAt - args.now) / crawlsRemaining);
 }
 
 export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
@@ -339,11 +298,9 @@ export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
     if (budget.lease?.leaseId !== args.leaseId) {
       const patch: {
         remaining?: number;
-        nextAllowedAt?: number;
         block?:
           | { kind: "primary"; until: number }
           | { kind: "secondary"; until: number; attempt: number };
-        updatedAt?: number;
       } = {};
       if (
         usage !== undefined &&
@@ -370,13 +327,11 @@ export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
           budget.block !== undefined && budget.block.until >= candidateBlock.until
             ? budget.block
             : candidateBlock;
-        patch.nextAllowedAt = Math.max(budget.nextAllowedAt ?? 0, block.until);
         patch.block = block;
       }
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(budget._id, {
           ...patch,
-          updatedAt: now,
         });
       }
       return {};
@@ -384,30 +339,17 @@ export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
 
     switch (args.outcome.kind) {
       case "success": {
-        const maxCompletedCrawlCostInWindow = Math.max(
-          observed.maxCompletedCrawlCostInWindow ?? 0,
-          args.outcome.usage.cost,
-          1,
-        );
-        const scheduledAt = nextAllowedAt({
-          now,
-          usage: args.outcome.usage,
-          maxCompletedCrawlCostInWindow,
-        });
         const activeBlock =
           budget.block !== undefined && budget.block.until > now ? budget.block : undefined;
         await ctx.db.patch(budget._id, {
           ...observed,
-          maxCompletedCrawlCostInWindow,
           lastCompletedCrawlDurationMs: args.durationMs,
-          nextAllowedAt: Math.max(scheduledAt, activeBlock?.until ?? 0),
           consecutiveSecondaryBlocks:
             activeBlock?.kind === "secondary" ? budget.consecutiveSecondaryBlocks : 0,
           block: activeBlock,
           lease: undefined,
-          updatedAt: now,
         });
-        return { retryAt: scheduledAt };
+        return {};
       }
       case "failed": {
         const remaining =
@@ -421,7 +363,6 @@ export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
           ...observed,
           remaining,
           lease: undefined,
-          updatedAt: now,
         });
         return {};
       }
@@ -456,9 +397,7 @@ export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
               ? Math.max(budget.consecutiveSecondaryBlocks, block.attempt)
               : 0,
           block,
-          nextAllowedAt: block.until,
           lease: undefined,
-          updatedAt: now,
         });
         return { retryAt: block.until };
       }
@@ -485,7 +424,6 @@ export async function clearGitHubGraphqlRateBudgetLeaseForVault(
           ? undefined
           : budget.remaining,
       lease: undefined,
-      updatedAt: Date.now(),
     });
   }
 }

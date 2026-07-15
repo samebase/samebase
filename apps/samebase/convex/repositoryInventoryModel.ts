@@ -1,7 +1,7 @@
 import { paginationResultValidator } from "convex/server";
 import { Infer, v } from "convex/values";
 
-const { array, boolean, id, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 export const vRepositoryInventoryCheckState = union(
   literal("success"),
@@ -23,8 +23,6 @@ export const vRepositoryInventoryCheckSummary = object({
   neutralCount: number(),
   unknownCount: number(),
   primaryTargetUrl: optional(string()),
-  primaryLogUrl: optional(string()),
-  syncedAt: number(),
 });
 export type RepositoryInventoryCheckSummary = Infer<typeof vRepositoryInventoryCheckSummary>;
 
@@ -32,7 +30,6 @@ export const vRepositoryInventoryCommit = object({
   sha: string(),
   title: optional(string()),
   authoredAt: optional(number()),
-  committedAt: optional(number()),
   checks: vRepositoryInventoryCheckSummary,
 });
 export type RepositoryInventoryCommit = Infer<typeof vRepositoryInventoryCommit>;
@@ -45,26 +42,16 @@ export type RepositoryInventoryPullRequestLabel = Infer<
   typeof vRepositoryInventoryPullRequestLabel
 >;
 
-const repositoryInventoryItemSortFields = {
-  userId: id("users"),
-  vaultId: id("vaults"),
-  generation: number(),
-  kindRank: number(),
-  timeRank: number(),
-  tie: string(),
+const repositoryInventoryPublicItemFields = {
   rowKey: string(),
-  lastSyncedAt: number(),
+  previewUrl: optional(string()),
+  headCommit: vRepositoryInventoryCommit,
 };
 
 const repositoryInventoryBranchFields = {
-  ...repositoryInventoryItemSortFields,
+  ...repositoryInventoryPublicItemFields,
   name: string(),
-  repositoryFullName: string(),
-  headCommitSha: string(),
-  lastCommitAt: optional(number()),
   isDefault: boolean(),
-  previewUrl: optional(string()),
-  headCommit: vRepositoryInventoryCommit,
 };
 
 export const vRepositoryInventoryBranchItem = object({
@@ -73,58 +60,24 @@ export const vRepositoryInventoryBranchItem = object({
 });
 export type RepositoryInventoryBranchItem = Infer<typeof vRepositoryInventoryBranchItem>;
 
-export const vStoredRepositoryInventoryBranchItem = object({
-  kind: literal("branch"),
-  ...repositoryInventoryBranchFields,
-  branchLookupKey: string(),
-});
-export type StoredRepositoryInventoryBranchItem = Infer<
-  typeof vStoredRepositoryInventoryBranchItem
->;
-
 const repositoryInventoryPullRequestFields = {
-  ...repositoryInventoryItemSortFields,
-  nodeId: string(),
+  ...repositoryInventoryPublicItemFields,
   number: number(),
   url: string(),
   title: string(),
   isDraft: boolean(),
-  isCrossRepository: boolean(),
-  createdAt: number(),
-  updatedAt: number(),
-  baseRepositoryFullName: string(),
   baseRefName: string(),
-  headRepositoryId: optional(string()),
   headRepositoryFullName: optional(string()),
   headRefName: string(),
-  headCommitSha: string(),
   canOpenInSamebase: boolean(),
-  previewUrl: optional(string()),
-  headCommit: vRepositoryInventoryCommit,
+  labelCount: number(),
 };
-
-export const vStoredRepositoryInventoryPullRequestItem = object({
-  kind: literal("pull_request"),
-  ...repositoryInventoryPullRequestFields,
-  branchLookupKey: string(),
-  labelChunkCount: number(),
-});
-export type StoredRepositoryInventoryPullRequestItem = Infer<
-  typeof vStoredRepositoryInventoryPullRequestItem
->;
 
 export const vRepositoryInventoryPullRequestItem = object({
   kind: literal("pull_request"),
   ...repositoryInventoryPullRequestFields,
-  labels: array(vRepositoryInventoryPullRequestLabel),
 });
 export type RepositoryInventoryPullRequestItem = Infer<typeof vRepositoryInventoryPullRequestItem>;
-
-export const vStoredRepositoryInventoryItem = union(
-  vStoredRepositoryInventoryBranchItem,
-  vStoredRepositoryInventoryPullRequestItem,
-);
-export type StoredRepositoryInventoryItem = Infer<typeof vStoredRepositoryInventoryItem>;
 
 export const vRepositoryInventoryItem = union(
   vRepositoryInventoryBranchItem,
@@ -132,16 +85,111 @@ export const vRepositoryInventoryItem = union(
 );
 export type RepositoryInventoryItem = Infer<typeof vRepositoryInventoryItem>;
 export const vRepositoryInventoryItemPage = paginationResultValidator(vRepositoryInventoryItem);
+export const vRepositoryInventoryPageResult = union(
+  object({
+    state: literal("unavailable"),
+  }),
+  object({
+    state: literal("ready"),
+    expectedItemCount: number(),
+    page: vRepositoryInventoryItemPage.fields.page,
+    isDone: boolean(),
+    continueCursor: string(),
+  }),
+);
+export type RepositoryInventoryPageResult = Infer<typeof vRepositoryInventoryPageResult>;
+
+const repositoryInventoryStoredFields = {
+  vaultId: id("vaults"),
+  snapshotId: id("vaultRepositoryInventorySnapshots"),
+  sortGroup: number(),
+  sortTime: number(),
+};
+
+export const vCollectedRepositoryInventoryBranchItem = object({
+  kind: literal("branch"),
+  ...repositoryInventoryBranchFields,
+  sortGroup: number(),
+  sortTime: number(),
+});
+export type CollectedRepositoryInventoryBranchItem = Infer<
+  typeof vCollectedRepositoryInventoryBranchItem
+>;
+
+export const vCollectedRepositoryInventoryPullRequestItem = object({
+  kind: literal("pull_request"),
+  ...repositoryInventoryPullRequestFields,
+  labels: array(vRepositoryInventoryPullRequestLabel),
+  sortGroup: number(),
+  sortTime: number(),
+  localHeadRefName: optional(string()),
+});
+export type CollectedRepositoryInventoryPullRequestItem = Infer<
+  typeof vCollectedRepositoryInventoryPullRequestItem
+>;
+
+export const vCollectedRepositoryInventoryItem = union(
+  vCollectedRepositoryInventoryBranchItem,
+  vCollectedRepositoryInventoryPullRequestItem,
+);
+export type CollectedRepositoryInventoryItem = Infer<typeof vCollectedRepositoryInventoryItem>;
+
+export const vStoredRepositoryInventoryBranchItem = object({
+  kind: literal("branch"),
+  ...repositoryInventoryBranchFields,
+  ...repositoryInventoryStoredFields,
+});
+export type StoredRepositoryInventoryBranchItem = Infer<
+  typeof vStoredRepositoryInventoryBranchItem
+>;
+
+export const vStoredRepositoryInventoryPullRequestItem = object({
+  kind: literal("pull_request"),
+  ...repositoryInventoryPullRequestFields,
+  ...repositoryInventoryStoredFields,
+  localHeadRefName: optional(string()),
+  labelChunkCount: number(),
+});
+export type StoredRepositoryInventoryPullRequestItem = Infer<
+  typeof vStoredRepositoryInventoryPullRequestItem
+>;
+
+export const vStoredRepositoryInventoryItem = union(
+  vStoredRepositoryInventoryBranchItem,
+  vStoredRepositoryInventoryPullRequestItem,
+);
+export type StoredRepositoryInventoryItem = Infer<typeof vStoredRepositoryInventoryItem>;
 
 export const vRepositoryInventoryLabelChunk = object({
-  userId: id("users"),
   vaultId: id("vaults"),
-  generation: number(),
+  snapshotId: id("vaultRepositoryInventorySnapshots"),
   rowKey: string(),
   chunkIndex: number(),
   labels: array(vRepositoryInventoryPullRequestLabel),
 });
 export type RepositoryInventoryLabelChunk = Infer<typeof vRepositoryInventoryLabelChunk>;
+
+const vRepositoryInventoryPublicLabelChunk = object({
+  chunkIndex: number(),
+  labels: array(vRepositoryInventoryPullRequestLabel),
+});
+const vRepositoryInventoryPublicLabelChunkPage = paginationResultValidator(
+  vRepositoryInventoryPublicLabelChunk,
+);
+export const vRepositoryInventoryLabelPageResult = union(
+  object({
+    state: literal("unavailable"),
+  }),
+  object({
+    state: literal("ready"),
+    expectedLabelCount: number(),
+    expectedChunkCount: number(),
+    page: vRepositoryInventoryPublicLabelChunkPage.fields.page,
+    isDone: boolean(),
+    continueCursor: string(),
+  }),
+);
+export type RepositoryInventoryLabelPageResult = Infer<typeof vRepositoryInventoryLabelPageResult>;
 
 export const vRepositoryInventoryScheduledWait = union(
   object({
@@ -158,24 +206,25 @@ export const vRepositoryInventoryScheduledWait = union(
 );
 export type RepositoryInventoryScheduledWait = Infer<typeof vRepositoryInventoryScheduledWait>;
 
-export const vRepositoryInventoryRefreshLifecycle = union(
+export const vRepositoryInventoryLifecycle = union(
   object({
     state: literal("idle"),
   }),
   object({
     state: literal("scheduled"),
-    generation: number(),
-    targetDemandVersion: number(),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    targetWriteVersion: number(),
+    required: boolean(),
     scheduledAt: number(),
     workpoolJobId: string(),
     wait: vRepositoryInventoryScheduledWait,
   }),
   object({
     state: literal("running"),
-    generation: number(),
-    targetDemandVersion: number(),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    targetWriteVersion: number(),
+    required: boolean(),
     startedAt: number(),
-    leaseExpiresAt: number(),
     workpoolJobId: string(),
   }),
   object({
@@ -184,49 +233,44 @@ export const vRepositoryInventoryRefreshLifecycle = union(
     message: string(),
   }),
 );
-export type RepositoryInventoryRefreshLifecycle = Infer<
-  typeof vRepositoryInventoryRefreshLifecycle
->;
+export type RepositoryInventoryLifecycle = Infer<typeof vRepositoryInventoryLifecycle>;
 
 export const vRepositoryInventoryPublication = object({
-  userId: id("users"),
-  vaultId: id("vaults"),
+  snapshotId: id("vaultRepositoryInventorySnapshots"),
   repositoryNodeId: string(),
   repositoryFullName: string(),
-  activeGeneration: number(),
+  defaultBranch: union(string(), vNull()),
   publishedAt: number(),
-  itemCount: number(),
-  branchCount: number(),
-  pullRequestCount: number(),
+  checkedAt: number(),
   fingerprint: string(),
 });
+export type RepositoryInventoryPublication = Infer<typeof vRepositoryInventoryPublication>;
 
-export const vRepositoryInventoryRefresh = object({
+export const vRepositoryInventoryState = object({
   userId: id("users"),
   vaultId: id("vaults"),
-  demandVersion: number(),
-  nextGeneration: number(),
-  lifecycle: vRepositoryInventoryRefreshLifecycle,
+  wantedUntil: number(),
+  writeVersion: number(),
+  lifecycle: vRepositoryInventoryLifecycle,
+  publication: optional(vRepositoryInventoryPublication),
   lastStartedAt: optional(number()),
-  lastCheckedAt: optional(number()),
-  updatedAt: number(),
+  estimatedCrawlCost: optional(number()),
 });
 
-export const vRepositoryInventoryGeneration = object({
-  userId: id("users"),
+export const vRepositoryInventorySnapshot = object({
   vaultId: id("vaults"),
-  generation: number(),
-  itemCount: number(),
   branchCount: number(),
   pullRequestCount: number(),
+  labelCount: number(),
   labelChunkCount: number(),
-  createdAt: number(),
 });
 
-const repositoryInventoryPublicCounts = {
-  itemCount: number(),
-  branchCount: number(),
-  pullRequestCount: number(),
+const repositoryInventoryPublicPublicationFields = {
+  activeSnapshotId: optional(id("vaultRepositoryInventorySnapshots")),
+  repositoryFullName: optional(string()),
+  defaultBranch: optional(union(string(), vNull())),
+  publishedAt: optional(number()),
+  checkedAt: optional(number()),
 };
 
 export const vRepositoryInventoryPublicState = union(
@@ -236,35 +280,27 @@ export const vRepositoryInventoryPublicState = union(
   object({
     state: literal("refreshing"),
     startedAt: number(),
-    activeGeneration: optional(number()),
-    repositoryFullName: optional(string()),
-    publishedAt: optional(number()),
-    ...repositoryInventoryPublicCounts,
+    ...repositoryInventoryPublicPublicationFields,
   }),
   object({
     state: literal("waiting"),
     reason: union(literal("queue"), literal("rate_limit")),
     retryAt: number(),
-    activeGeneration: optional(number()),
-    repositoryFullName: optional(string()),
-    publishedAt: optional(number()),
-    ...repositoryInventoryPublicCounts,
+    ...repositoryInventoryPublicPublicationFields,
   }),
   object({
     state: literal("ready"),
-    activeGeneration: number(),
+    activeSnapshotId: id("vaultRepositoryInventorySnapshots"),
     repositoryFullName: string(),
+    defaultBranch: union(string(), vNull()),
     publishedAt: number(),
-    ...repositoryInventoryPublicCounts,
+    checkedAt: number(),
   }),
   object({
     state: literal("failed"),
     failedAt: number(),
     message: string(),
-    activeGeneration: optional(number()),
-    repositoryFullName: optional(string()),
-    publishedAt: optional(number()),
-    ...repositoryInventoryPublicCounts,
+    ...repositoryInventoryPublicPublicationFields,
   }),
 );
 export type RepositoryInventoryPublicState = Infer<typeof vRepositoryInventoryPublicState>;
@@ -287,7 +323,6 @@ export const vRepositoryInventoryBranchContext = union(
     ...repositoryInventoryBranchContextFields,
     branch: object({
       name: string(),
-      headCommitSha: string(),
       isDefault: boolean(),
       headCommit: vRepositoryInventoryCommit,
     }),
@@ -313,23 +348,14 @@ export type RepositoryInventoryRefreshRequestResult = Infer<
 
 export const REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE = 100;
-export const REPOSITORY_INVENTORY_MAX_LABELS_PER_PULL_REQUEST = 5_000;
 export const REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS = 60_000;
-export const REPOSITORY_INVENTORY_REFRESH_LEASE_MS = 2 * 60_000;
+export const REPOSITORY_INVENTORY_DEMAND_TTL_MS = 135_000;
 
 export function repositoryInventoryBranchRowKey(name: string): string {
   return `branch:${name}`;
 }
 
-export function repositoryInventoryBranchLookupKey(name: string): string {
-  return repositoryInventoryBranchRowKey(name);
-}
-
 export function repositoryInventoryPullRequestRowKey(nodeId: string): string {
   return `pull-request:${nodeId}`;
-}
-
-export function repositoryInventoryPullRequestBranchLookupKey(headRefName: string): string {
-  return `pull-request-head:${headRefName}`;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  buildGitHubCommitCheckSnapshot,
+  buildRepositoryInventoryCheckSummary,
   normalizeCommitCheckRun,
   normalizeCommitCheckSnapshot,
   normalizeCommitStatus,
@@ -142,7 +142,7 @@ describe("normalizeCommitStatus", () => {
   });
 });
 
-describe("buildGitHubCommitCheckSnapshot", () => {
+describe("buildRepositoryInventoryCheckSummary", () => {
   it("summarizes check runs and commit statuses for the branch row", () => {
     const items = normalizeCommitCheckSnapshot({
       checkRuns: [
@@ -172,16 +172,7 @@ describe("buildGitHubCommitCheckSnapshot", () => {
       ],
     });
 
-    expect(
-      buildGitHubCommitCheckSnapshot({
-        githubRepositoryId: "123",
-        commitSha: "abc123",
-        syncedAt: 1000,
-        items,
-      }),
-    ).toEqual({
-      githubRepositoryId: "123",
-      commitSha: "abc123",
+    expect(buildRepositoryInventoryCheckSummary({ items })).toEqual({
       state: "failure",
       totalCount: 3,
       checkRunCount: 2,
@@ -192,8 +183,6 @@ describe("buildGitHubCommitCheckSnapshot", () => {
       neutralCount: 0,
       unknownCount: 0,
       primaryTargetUrl: "https://app.netlify.com/sites/example/deploys/3",
-      primaryLogUrl: "https://app.netlify.com/sites/example/deploys/3",
-      syncedAt: 1000,
     });
   });
 

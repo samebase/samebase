@@ -126,8 +126,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   vaultDomains: "vault",
 
   vaultRepositoryInventories: "repository",
-  vaultRepositoryInventoryRefreshes: "repository",
-  vaultRepositoryInventoryGenerations: "repository",
+  vaultRepositoryInventorySnapshots: "repository",
   vaultRepositoryInventoryItems: "repository",
   vaultRepositoryInventoryLabelChunks: "repository",
   vaultBranchTrees: "repository",

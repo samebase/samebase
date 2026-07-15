@@ -1,13 +1,18 @@
 import { Infer, v } from "convex/values";
 
-import {
-  vCommitCheckSource,
-  vCommitCheckState,
-  type CommitCheckState,
-  type GitHubCommitCheckSnapshot,
-} from "./schema";
+import type { RepositoryInventoryCheckSummary } from "./repositoryInventoryModel";
 
-const { number, object, optional, string } = v;
+const { literal, number, object, optional, string, union } = v;
+
+const vCommitCheckSource = union(literal("check_run"), literal("commit_status"));
+const vCommitCheckState = union(
+  literal("success"),
+  literal("failure"),
+  literal("running"),
+  literal("neutral"),
+  literal("unknown"),
+);
+type CommitCheckState = Infer<typeof vCommitCheckState>;
 
 const commitCheckItemInputValidator = object({
   source: vCommitCheckSource,
@@ -314,25 +319,15 @@ function selectPrimaryTargetUrl(items: CommitCheckItemInput[]): string | undefin
   return items.find((item) => item.targetUrl)?.targetUrl;
 }
 
-function selectPrimaryLogUrl(items: CommitCheckItemInput[]): string | undefined {
-  const item = items.find(
-    (candidate) => candidate.logUrl ?? candidate.detailsUrl ?? candidate.targetUrl,
-  );
-  return item?.logUrl ?? item?.detailsUrl ?? item?.targetUrl;
-}
-
 export function selectBranchPreviewAliasUrlFromCommitCheckItems(
   items: readonly Pick<CommitCheckItemInput, "previewAliasUrl">[],
 ): string | undefined {
   return items.find((candidate) => candidate.previewAliasUrl)?.previewAliasUrl;
 }
 
-export function buildGitHubCommitCheckSnapshot(args: {
-  githubRepositoryId: string;
-  commitSha: string;
+export function buildRepositoryInventoryCheckSummary(args: {
   items: CommitCheckItemInput[];
-  syncedAt: number;
-}): GitHubCommitCheckSnapshot {
+}): RepositoryInventoryCheckSummary {
   let checkRunCount = 0;
   let statusContextCount = 0;
   let successCount = 0;
@@ -391,8 +386,6 @@ export function buildGitHubCommitCheckSnapshot(args: {
   })();
 
   return {
-    githubRepositoryId: args.githubRepositoryId,
-    commitSha: args.commitSha,
     state,
     totalCount,
     checkRunCount,
@@ -403,7 +396,5 @@ export function buildGitHubCommitCheckSnapshot(args: {
     neutralCount,
     unknownCount,
     primaryTargetUrl: selectPrimaryTargetUrl(args.items),
-    primaryLogUrl: selectPrimaryLogUrl(args.items),
-    syncedAt: args.syncedAt,
   };
 }

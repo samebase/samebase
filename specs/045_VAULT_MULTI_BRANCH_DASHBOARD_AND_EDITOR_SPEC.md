@@ -18,7 +18,7 @@ dashboard and FileView share one published repository inventory for branch and o
 identity, while file contents and trees remain branch-scoped caches.
 
 The dashboard lists every GitHub branch and every open pull request from the immutable active
-inventory generation. A branch remains visible when an open pull request points at it. Branch names
+inventory snapshot. A branch remains visible when an open pull request points at it. Branch names
 are exact-case values and can contain slashes. Pull requests from forks are visible but link to
 GitHub because their head repository is outside the connected vault.
 
@@ -26,8 +26,8 @@ GitHub because their head repository is outside the connected vault.
 
 ### Repository identity and branch membership
 
-`vaultRepositoryInventories` selects the complete active generation. `vaultRepositoryInventoryItems`
-contains the generation's branches and open pull requests. The inventory owns:
+`vaultRepositoryInventories` selects the complete active snapshot. `vaultRepositoryInventoryItems`
+contains the snapshot's branches and open pull requests. The inventory owns:
 
 - GitHub's stable repository node id and canonical current full name
 - current default branch
@@ -35,8 +35,8 @@ contains the generation's branches and open pull requests. The inventory owns:
 - current open pull request identity, head/base branches, labels, and latest head checks
 
 The stable Samebase vault route can retain the full name used when the vault was connected. GitHub
-links and displayed repository identity use the canonical name from the active generation, so a
-rename or transfer is not presented as the old repository.
+links and displayed repository identity use the canonical name from the active snapshot, so a rename
+or transfer is not presented as the old repository.
 
 ### File tree and editing state
 
@@ -59,7 +59,7 @@ FileView requests the active inventory context for its exact route branch.
    same-repository open pull request for that branch.
 3. After publication, a requested branch absent from the complete inventory resolves to the active
    default branch.
-4. The lookup is bounded by active-generation indexes. It does not scan the repository inventory.
+4. The lookup is bounded by active-snapshot indexes. It does not scan the repository inventory.
 
 ## Refresh Behavior
 
@@ -95,7 +95,7 @@ builders and parsers rather than splitting wildcard paths or interpolating branc
 ## Dashboard and FileView Behavior
 
 - Clicking a branch row opens that exact branch.
-- The default branch is identified from the active inventory generation.
+- The default branch is identified from the active inventory snapshot.
 - A nondefault branch can create a draft pull request when it exists in the active inventory and no
   open same-repository pull request already targets that head branch.
 - The create-draft decision does not depend on a cached ahead/behind comparison.
@@ -115,8 +115,8 @@ tombstones, the repository-wide REST metadata sync, or the persistent REST commi
 does not keep a fallback branch catalog, FileView checks monitor, or REST identity discovery path
 for compatibility.
 
-The old tables can exist only as a temporary deploy-one schema surface while their production rows
-are deleted. They are not product state and are removed in the follow-up narrow deploy.
+The old tables are derived cache. Their production rows are cleared under the old schema before the
+narrow snapshot schema is deployed. No compatibility reader or temporary schema ships.
 
 ## Validation
 

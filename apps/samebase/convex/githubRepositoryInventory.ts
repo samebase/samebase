@@ -1,8 +1,7 @@
 import { z } from "zod";
 
-import type { Id } from "./_generated/dataModel";
 import {
-  buildGitHubCommitCheckSnapshot,
+  buildRepositoryInventoryCheckSummary,
   normalizeCommitCheckSnapshot,
   selectBranchPreviewAliasUrlFromCommitCheckItems,
   type CommitCheckItemInput,
@@ -10,11 +9,10 @@ import {
   type GitHubCommitStatusSnapshotInput,
 } from "./commitChecks";
 import {
-  REPOSITORY_INVENTORY_MAX_LABELS_PER_PULL_REQUEST,
   repositoryInventoryBranchRowKey,
   repositoryInventoryPullRequestRowKey,
+  type CollectedRepositoryInventoryItem,
   type RepositoryInventoryCheckSummary,
-  type RepositoryInventoryItem,
 } from "./repositoryInventoryModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { GitHubGraphqlRateUsage } from "./githubGraphqlRateBudget";
@@ -187,12 +185,23 @@ const branchSignaturePageSchema = z.object({
         nodes: z.array(
           z.object({
             name: z.string(),
-            target: z.object({
-              __typename: z.literal("Commit"),
-              oid: z.string(),
-            }),
           }),
         ),
+      }),
+    })
+    .nullable(),
+});
+
+const pullRequestSignaturePageSchema = z.object({
+  repository: z
+    .object({
+      id: z.string(),
+      databaseId: z.number().int().positive(),
+      nameWithOwner: z.string(),
+      pullRequests: z.object({
+        totalCount: z.number().int().nonnegative(),
+        pageInfo: pageInfoSchema,
+        nodes: z.array(z.object({ id: z.string() })),
       }),
     })
     .nullable(),
@@ -420,13 +429,30 @@ const REPOSITORY_BRANCH_SIGNATURE_PAGE_QUERY = `
         ) {
           totalCount
           pageInfo { hasNextPage endCursor }
-          nodes {
-            name
-            target {
-              __typename
-              ... on Commit { oid }
-            }
-          }
+          nodes { name }
+        }
+      }
+    }
+    rateLimit { cost limit remaining resetAt }
+  }
+`;
+
+const REPOSITORY_PULL_REQUEST_SIGNATURE_PAGE_QUERY = `
+  query RepositoryInventoryPullRequestSignaturePage($repositoryId: ID!, $after: String) {
+    repository: node(id: $repositoryId) {
+      ... on Repository {
+        id
+        databaseId
+        nameWithOwner
+        pullRequests(
+          first: 100
+          after: $after
+          states: [OPEN]
+          orderBy: { field: CREATED_AT, direction: ASC }
+        ) {
+          totalCount
+          pageInfo { hasNextPage endCursor }
+          nodes { id }
         }
       }
     }
@@ -509,7 +535,7 @@ export type CollectedRepositoryInventory = {
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
-  items: RepositoryInventoryItem[];
+  items: CollectedRepositoryInventoryItem[];
   fingerprint: string;
   branchCount: number;
   pullRequestCount: number;
@@ -537,15 +563,8 @@ async function fetchGitHubJson(
   }
 }
 
-export type RepositoryInventoryCollectionContext = {
-  userId: Id<"users">;
-  vaultId: Id<"vaults">;
-  generation: number;
-  syncedAt: number;
-};
-
 type CollectedCommit = {
-  commit: RepositoryInventoryItem["headCommit"];
+  commit: CollectedRepositoryInventoryItem["headCommit"];
   checkItems: CommitCheckItemInput[];
 };
 
@@ -731,22 +750,9 @@ function normalizeCheckContexts(
 }
 
 function toCheckSummary(args: {
-  repositoryId: string;
-  commitSha: string;
   checkItems: CommitCheckItemInput[];
-  syncedAt: number;
 }): RepositoryInventoryCheckSummary {
-  const {
-    githubRepositoryId: _repositoryId,
-    commitSha: _commitSha,
-    ...summary
-  } = buildGitHubCommitCheckSnapshot({
-    githubRepositoryId: args.repositoryId,
-    commitSha: args.commitSha,
-    items: args.checkItems,
-    syncedAt: args.syncedAt,
-  });
-  return summary;
+  return buildRepositoryInventoryCheckSummary({ items: args.checkItems });
 }
 
 async function readCompleteCheckContexts(args: {
@@ -835,7 +841,6 @@ async function readCompleteCheckContexts(args: {
 async function collectCommit(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
   value: z.infer<typeof commitSchema>;
-  syncedAt: number;
 }): Promise<CollectedCommit> {
   const contexts = await readCompleteCheckContexts({
     requestGraphql: args.requestGraphql,
@@ -850,12 +855,8 @@ async function collectCommit(args: {
       sha: args.value.oid,
       title: optionalString(args.value.messageHeadline),
       authoredAt: parseTimestamp(args.value.authoredDate),
-      committedAt: parseTimestamp(args.value.committedDate),
       checks: toCheckSummary({
-        repositoryId: args.value.repository.id,
-        commitSha: args.value.oid,
         checkItems,
-        syncedAt: args.syncedAt,
       }),
     },
   };
@@ -867,12 +868,6 @@ async function readCompleteLabels(args: {
   initial: z.infer<typeof labelsSchema>;
 }): Promise<z.infer<typeof labelSchema>[]> {
   const expectedTotalCount = args.initial.totalCount;
-  if (expectedTotalCount > REPOSITORY_INVENTORY_MAX_LABELS_PER_PULL_REQUEST) {
-    throw new GitHubGraphqlRequestError(
-      `A pull request has more than ${REPOSITORY_INVENTORY_MAX_LABELS_PER_PULL_REQUEST} labels, which cannot be published without truncation.`,
-      false,
-    );
-  }
   const labels = [...args.initial.nodes];
   const seenNames = new Set<string>();
   for (const label of labels) {
@@ -934,7 +929,6 @@ async function readCompleteLabels(args: {
 }
 
 async function collectBranches(args: {
-  context: RepositoryInventoryCollectionContext;
   repositoryNodeId: string;
   expectedRepositoryDatabaseId: string;
   pageSize: number;
@@ -944,11 +938,11 @@ async function collectBranches(args: {
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
-  items: RepositoryInventoryItem[];
+  items: CollectedRepositoryInventoryItem[];
 }> {
   const seenCursors = new Set<string>();
   const seenBranchNames = new Set<string>();
-  const items: RepositoryInventoryItem[] = [];
+  const items: CollectedRepositoryInventoryItem[] = [];
   let repositoryId: string | null = args.repositoryNodeId;
   let repositoryDatabaseId: string | null = null;
   let repositoryFullName: string | null = null;
@@ -1009,24 +1003,15 @@ async function collectBranches(args: {
       const collectedCommit = await collectCommit({
         requestGraphql: args.requestGraphql,
         value: ref.target,
-        syncedAt: args.context.syncedAt,
       });
       const isDefault = ref.name === defaultBranch;
-      const lastCommitAt = collectedCommit.commit.committedAt;
+      const lastCommitAt = parseTimestamp(ref.target.committedDate);
       items.push({
         kind: "branch",
-        userId: args.context.userId,
-        vaultId: args.context.vaultId,
-        generation: args.context.generation,
-        kindRank: isDefault ? 0 : 2,
-        timeRank: isDefault ? 0 : -(lastCommitAt ?? 0),
-        tie: `${ref.name.toLowerCase()}\n${ref.name}`,
+        sortGroup: isDefault ? 0 : 2,
+        sortTime: isDefault ? 0 : -lastCommitAt,
         rowKey,
-        lastSyncedAt: args.context.syncedAt,
         name: ref.name,
-        repositoryFullName,
-        headCommitSha: ref.target.oid,
-        lastCommitAt,
         isDefault,
         previewUrl: selectBranchPreviewAliasUrlFromCommitCheckItems(collectedCommit.checkItems),
         headCommit: collectedCommit.commit,
@@ -1058,17 +1043,16 @@ async function collectBranches(args: {
 }
 
 async function collectPullRequests(args: {
-  context: RepositoryInventoryCollectionContext;
   pageSize: number;
   requestGraphql: RepositoryInventoryGraphqlRequest;
   repositoryId: string;
   repositoryDatabaseId: string;
   repositoryFullName: string;
   branchHeadShaByName: ReadonlyMap<string, string>;
-}): Promise<RepositoryInventoryItem[]> {
+}): Promise<CollectedRepositoryInventoryItem[]> {
   const seenCursors = new Set<string>();
   const seenPullRequestIds = new Set<string>();
-  const items: RepositoryInventoryItem[] = [];
+  const items: CollectedRepositoryInventoryItem[] = [];
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
@@ -1125,7 +1109,6 @@ async function collectPullRequests(args: {
       const collectedCommit = await collectCommit({
         requestGraphql: args.requestGraphql,
         value: latestCommit,
-        syncedAt: args.context.syncedAt,
       });
       const rowKey = repositoryInventoryPullRequestRowKey(pullRequest.id);
       const pullRequestLabels = await readCompleteLabels({
@@ -1151,29 +1134,19 @@ async function collectPullRequests(args: {
         isBaseRepositoryHead && collectedBranchHeadSha === pullRequest.headRefOid;
       items.push({
         kind: "pull_request",
-        userId: args.context.userId,
-        vaultId: args.context.vaultId,
-        generation: args.context.generation,
-        kindRank: 1,
-        timeRank: -parseTimestamp(pullRequest.updatedAt),
-        tie: String(pullRequest.number).padStart(12, "0"),
+        sortGroup: 1,
+        sortTime: -parseTimestamp(pullRequest.updatedAt),
         rowKey,
-        lastSyncedAt: args.context.syncedAt,
-        nodeId: pullRequest.id,
         number: pullRequest.number,
         url: pullRequest.url,
         title: pullRequest.title,
         isDraft: pullRequest.isDraft,
-        isCrossRepository: pullRequest.isCrossRepository,
-        createdAt: parseTimestamp(pullRequest.createdAt),
-        updatedAt: parseTimestamp(pullRequest.updatedAt),
-        baseRepositoryFullName: args.repositoryFullName,
         baseRefName: pullRequest.baseRefName,
-        headRepositoryId: pullRequest.headRepository?.id,
         headRepositoryFullName,
         headRefName: pullRequest.headRefName,
-        headCommitSha: pullRequest.headRefOid,
         canOpenInSamebase,
+        localHeadRefName: canOpenInSamebase ? pullRequest.headRefName : undefined,
+        labelCount: pullRequestLabels.length,
         labels: pullRequestLabels.map((label) => ({
           name: label.name,
           color: optionalString(label.color),
@@ -1200,16 +1173,34 @@ async function collectPullRequests(args: {
   return items;
 }
 
-async function verifyCollectedBranchHeads(args: {
+function assertSameIdentitySet(args: {
+  collected: ReadonlySet<string>;
+  verified: ReadonlySet<string>;
+  expectedTotalCount: number | null;
+  kind: "branch" | "pull request";
+}): void {
+  if (
+    args.expectedTotalCount !== args.verified.size ||
+    args.verified.size !== args.collected.size ||
+    [...args.collected].some((identity) => !args.verified.has(identity))
+  ) {
+    throw new GitHubGraphqlRequestError(
+      `GitHub ${args.kind} inventory changed while it was being collected.`,
+      true,
+    );
+  }
+}
+
+async function verifyCollectedBranchNames(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
   repositoryId: string;
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
-  branchHeadShaByName: ReadonlyMap<string, string>;
+  branchNames: ReadonlySet<string>;
 }): Promise<void> {
   const seenCursors = new Set<string>();
-  const verifiedBranchHeadShaByName = new Map<string, string>();
+  const verifiedBranchNames = new Set<string>();
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
@@ -1251,13 +1242,13 @@ async function verifyCollectedBranchHeads(args: {
     }
 
     for (const ref of repository.refs.nodes) {
-      if (verifiedBranchHeadShaByName.has(ref.name)) {
+      if (verifiedBranchNames.has(ref.name)) {
         throw new GitHubGraphqlRequestError(
           "GitHub returned a duplicate branch during verification.",
           true,
         );
       }
-      verifiedBranchHeadShaByName.set(ref.name, ref.target.oid);
+      verifiedBranchNames.add(ref.name);
     }
 
     const nextCursor = requireNextCursor(repository.refs.pageInfo);
@@ -1268,23 +1259,80 @@ async function verifyCollectedBranchHeads(args: {
     page += 1;
   } while (cursor !== null);
 
-  if (
-    expectedTotalCount !== verifiedBranchHeadShaByName.size ||
-    verifiedBranchHeadShaByName.size !== args.branchHeadShaByName.size
-  ) {
-    throw new GitHubGraphqlRequestError(
-      "GitHub branch inventory changed while it was being collected.",
-      true,
+  assertSameIdentitySet({
+    collected: args.branchNames,
+    verified: verifiedBranchNames,
+    expectedTotalCount,
+    kind: "branch",
+  });
+}
+
+async function verifyCollectedPullRequestIds(args: {
+  requestGraphql: RepositoryInventoryGraphqlRequest;
+  repositoryId: string;
+  repositoryDatabaseId: string;
+  repositoryFullName: string;
+  pullRequestRowKeys: ReadonlySet<string>;
+}): Promise<void> {
+  const seenCursors = new Set<string>();
+  const verifiedPullRequestRowKeys = new Set<string>();
+  let expectedTotalCount: number | null = null;
+  let cursor: string | null = null;
+  let page = 1;
+
+  do {
+    assertPageLimit(page);
+    const response = pullRequestSignaturePageSchema.parse(
+      await args.requestGraphql(REPOSITORY_PULL_REQUEST_SIGNATURE_PAGE_QUERY, {
+        repositoryId: args.repositoryId,
+        after: cursor,
+      }),
     );
-  }
-  for (const [name, headSha] of args.branchHeadShaByName) {
-    if (verifiedBranchHeadShaByName.get(name) !== headSha) {
+    const repository = requireRepository(response.repository);
+    assertRepositoryIdentity({
+      expectedId: args.repositoryId,
+      expectedFullName: args.repositoryFullName,
+      actualId: repository.id,
+      actualFullName: repository.nameWithOwner,
+    });
+    if (String(repository.databaseId) !== args.repositoryDatabaseId) {
       throw new GitHubGraphqlRequestError(
-        "GitHub branch inventory changed while it was being collected.",
+        "GitHub repository database identity changed during pull request verification.",
         true,
       );
     }
-  }
+    if (page === 1) {
+      expectedTotalCount = repository.pullRequests.totalCount;
+    } else if (expectedTotalCount !== repository.pullRequests.totalCount) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub pull request count changed during verification.",
+        true,
+      );
+    }
+    for (const pullRequest of repository.pullRequests.nodes) {
+      const rowKey = repositoryInventoryPullRequestRowKey(pullRequest.id);
+      if (verifiedPullRequestRowKeys.has(rowKey)) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub returned a duplicate pull request during verification.",
+          true,
+        );
+      }
+      verifiedPullRequestRowKeys.add(rowKey);
+    }
+    const nextCursor = requireNextCursor(repository.pullRequests.pageInfo);
+    if (nextCursor !== null) {
+      assertNewCursor(seenCursors, nextCursor);
+    }
+    cursor = nextCursor;
+    page += 1;
+  } while (cursor !== null);
+
+  assertSameIdentitySet({
+    collected: args.pullRequestRowKeys,
+    verified: verifiedPullRequestRowKeys,
+    expectedTotalCount,
+    kind: "pull request",
+  });
 }
 
 async function repositoryInventoryFingerprint(args: {
@@ -1292,29 +1340,11 @@ async function repositoryInventoryFingerprint(args: {
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
-  items: readonly RepositoryInventoryItem[];
+  items: readonly CollectedRepositoryInventoryItem[];
 }): Promise<string> {
-  const providerItems = [...args.items]
-    .sort((left, right) => left.rowKey.localeCompare(right.rowKey))
-    .map((item) => {
-      const {
-        userId: _userId,
-        vaultId: _vaultId,
-        generation: _generation,
-        lastSyncedAt: _lastSyncedAt,
-        headCommit,
-        ...providerItem
-      } = item;
-      const { checks, ...providerCommit } = headCommit;
-      const { syncedAt: _checksSyncedAt, ...providerChecks } = checks;
-      return {
-        ...providerItem,
-        headCommit: {
-          ...providerCommit,
-          checks: providerChecks,
-        },
-      };
-    });
+  const providerItems = [...args.items].sort((left, right) =>
+    left.rowKey.localeCompare(right.rowKey),
+  );
   const bytes = new TextEncoder().encode(
     JSON.stringify({
       repositoryId: args.repositoryId,
@@ -1329,7 +1359,6 @@ async function repositoryInventoryFingerprint(args: {
 }
 
 export async function collectRepositoryInventory(args: {
-  context: RepositoryInventoryCollectionContext;
   repositoryNodeId: string;
   expectedRepositoryDatabaseId: string;
   pageSize: number;
@@ -1341,7 +1370,7 @@ export async function collectRepositoryInventory(args: {
       if (item.kind !== "branch") {
         throw new Error("Branch collection returned another item kind.");
       }
-      return [item.name, item.headCommitSha];
+      return [item.name, item.headCommit.sha];
     }),
   );
   const pullRequestItems = await collectPullRequests({
@@ -1351,13 +1380,20 @@ export async function collectRepositoryInventory(args: {
     repositoryFullName: branches.repositoryFullName,
     branchHeadShaByName,
   });
-  await verifyCollectedBranchHeads({
+  await verifyCollectedBranchNames({
     requestGraphql: args.requestGraphql,
     repositoryId: branches.repositoryId,
     repositoryDatabaseId: branches.repositoryDatabaseId,
     repositoryFullName: branches.repositoryFullName,
     defaultBranch: branches.defaultBranch,
-    branchHeadShaByName,
+    branchNames: new Set(branchHeadShaByName.keys()),
+  });
+  await verifyCollectedPullRequestIds({
+    requestGraphql: args.requestGraphql,
+    repositoryId: branches.repositoryId,
+    repositoryDatabaseId: branches.repositoryDatabaseId,
+    repositoryFullName: branches.repositoryFullName,
+    pullRequestRowKeys: new Set(pullRequestItems.map((item) => item.rowKey)),
   });
 
   const items = [...branches.items, ...pullRequestItems];
@@ -1582,7 +1618,6 @@ export function createGitHubGraphqlClient(args: {
 }
 
 export async function collectRepositoryInventoryWithRetry(args: {
-  context: RepositoryInventoryCollectionContext;
   repositoryNodeId: string;
   expectedRepositoryDatabaseId: string;
   requestGraphql: RepositoryInventoryGraphqlRequest;

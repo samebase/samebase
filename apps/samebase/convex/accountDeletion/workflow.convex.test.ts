@@ -312,13 +312,13 @@ describe("account deletion workflow ownership and outcomes", () => {
       }),
     ).resolves.toEqual({ kind: "scheduled" });
 
-    const { refreshId, runId } = await t.run(async (ctx) => {
-      const refresh = await ctx.db
-        .query("vaultRepositoryInventoryRefreshes")
+    const { inventoryId, runId } = await t.run(async (ctx) => {
+      const inventory = await ctx.db
+        .query("vaultRepositoryInventories")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .unique();
-      if (refresh === null || refresh.lifecycle.state !== "scheduled") {
-        throw new Error("Expected a scheduled repository inventory refresh.");
+      if (inventory === null || inventory.lifecycle.state !== "scheduled") {
+        throw new Error("Expected scheduled repository inventory work.");
       }
       const sessionId = await ctx.db.insert("authSessions", {
         userId: ids.userId,
@@ -343,7 +343,7 @@ describe("account deletion workflow ownership and outcomes", () => {
       await ctx.db.patch(ids.userId, {
         accountDeletion: { state: "deleting", runId, requestedAt: now },
       });
-      return { refreshId: refresh._id, runId };
+      return { inventoryId: inventory._id, runId };
     });
 
     await expect(
@@ -352,7 +352,7 @@ describe("account deletion workflow ownership and outcomes", () => {
         workflowId,
       }),
     ).resolves.toEqual({ state: "needs_more" });
-    await expect(t.run(async (ctx) => await ctx.db.get(refreshId))).resolves.toMatchObject({
+    await expect(t.run(async (ctx) => await ctx.db.get(inventoryId))).resolves.toMatchObject({
       lifecycle: {
         state: "failed",
         message: "Repository inventory stopped for account deletion.",

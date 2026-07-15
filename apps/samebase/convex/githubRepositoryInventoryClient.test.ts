@@ -6,7 +6,6 @@ import {
   GitHubGraphqlRateLimitError,
   resolveGitHubRepositoryNodeId,
 } from "./githubRepositoryInventory";
-import { makeConvexTest } from "./test.setup";
 
 const now = 1_700_000_000_000;
 
@@ -179,24 +178,9 @@ describe("GitHub GraphQL client rate accounting", () => {
       }),
     ]);
     const client = createGitHubGraphqlClient({ credential: "github-token", fetchImpl });
-    const t = makeConvexTest();
-    const context = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      return { userId, vaultId, generation: 1, syncedAt: now };
-    });
 
     const error = await rejectionOf(
       collectRepositoryInventoryWithRetry({
-        context,
         repositoryNodeId: "R_base",
         expectedRepositoryDatabaseId: "123",
         requestGraphql: client.request,
@@ -406,38 +390,39 @@ describe("GitHub GraphQL client rate accounting", () => {
           rateLimit: graphqlRateLimit({ cost: 1 }),
         },
       }),
+      jsonResponse({
+        data: {
+          repository: {
+            id: "R_base",
+            databaseId: 42,
+            nameWithOwner: "samebase/samebase",
+            pullRequests: {
+              totalCount: 0,
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [],
+            },
+          },
+          rateLimit: graphqlRateLimit({ cost: 1 }),
+        },
+      }),
     ]);
     const client = createGitHubGraphqlClient({ credential: "github-token", fetchImpl });
-    const t = makeConvexTest();
-    const context = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      return { userId, vaultId, generation: 1, syncedAt: now };
-    });
 
     await expect(
       collectRepositoryInventoryWithRetry({
-        context,
         repositoryNodeId: "R_base",
         expectedRepositoryDatabaseId: "42",
         requestGraphql: client.request,
       }),
     ).resolves.toMatchObject({ branchCount: 0, pullRequestCount: 0 });
 
-    expect(getCallCount()).toBe(4);
+    expect(getCallCount()).toBe(5);
     const requestBodies = getRequestBodies();
     expect(requestBodies[0]).toContain('"pageSize":50');
     expect(requestBodies[1]).toContain('"pageSize":25');
     expect(requestBodies[2]).toContain('"pageSize":25');
     expect(requestBodies[3]).toContain("RepositoryInventoryBranchSignaturePage");
+    expect(requestBodies[4]).toContain("RepositoryInventoryPullRequestSignaturePage");
   });
 });
 

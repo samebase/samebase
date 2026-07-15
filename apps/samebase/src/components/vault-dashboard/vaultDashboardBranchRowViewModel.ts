@@ -1,8 +1,8 @@
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { normalizePullRequestLabels, type PullRequestLabelDisplay } from "@/lib/pullRequestLabels";
 import type {
-  VaultBranchCommitChecksSummary,
-  VaultRemoteBranchListItem,
+  VaultRepositoryInventoryCommitChecksSummary,
+  VaultRepositoryInventoryRow,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 
 export type VaultBranchPullRequestViewModel = {
@@ -13,14 +13,13 @@ export type VaultBranchPullRequestViewModel = {
   labels: readonly PullRequestLabelDisplay[];
 };
 
-export type VaultBranchCommitViewModel = {
+export type VaultBranchHeadCommitViewModel = {
   sha: string;
   shortSha: string;
   url?: string;
   title?: string;
   authoredAt?: number;
-  checks?: VaultBranchCommitChecksSummary;
-  isHead: boolean;
+  checks?: VaultRepositoryInventoryCommitChecksSummary;
 };
 
 export type VaultBranchRowViewModel = {
@@ -30,39 +29,17 @@ export type VaultBranchRowViewModel = {
   isDefault: boolean;
   previewUrl?: string;
   pullRequest?: VaultBranchPullRequestViewModel;
-  commits: readonly VaultBranchCommitViewModel[];
+  headCommit: VaultBranchHeadCommitViewModel;
 };
 
 function buildCommitUrl(repositoryFullName: string, sha: string): string {
   return `https://github.com/${repositoryFullName}/commit/${sha}`;
 }
 
-function buildVaultBranchPullRequestViewModel(
-  branch: VaultRemoteBranchListItem,
-): VaultBranchPullRequestViewModel | undefined {
-  if (
-    typeof branch.pullRequestNumber !== "number" ||
-    typeof branch.pullRequestTitle !== "string" ||
-    branch.pullRequestTitle.length === 0 ||
-    typeof branch.pullRequestUrl !== "string" ||
-    branch.pullRequestUrl.length === 0
-  ) {
-    return undefined;
-  }
-
-  return {
-    number: branch.pullRequestNumber,
-    title: branch.pullRequestTitle,
-    url: branch.pullRequestUrl,
-    isDraft: branch.pullRequestIsDraft === true,
-    labels: normalizePullRequestLabels(branch.pullRequestLabels),
-  };
-}
-
 export function buildVaultBranchRowViewModel({
   branch,
 }: {
-  branch: VaultRemoteBranchListItem;
+  branch: VaultRepositoryInventoryRow;
 }): VaultBranchRowViewModel {
   const sourceRepositoryFullName = branch.githubRepositoryFullName;
 
@@ -77,17 +54,25 @@ export function buildVaultBranchRowViewModel({
     canOpenInSamebase: branch.canOpenInSamebase,
     isDefault: branch.isDefault,
     previewUrl: branch.previewUrl,
-    pullRequest: buildVaultBranchPullRequestViewModel(branch),
-    commits: branch.commits.map((commit, index) => ({
-      sha: commit.sha,
-      shortSha: commit.sha.slice(0, 7),
+    pullRequest:
+      branch.kind === "branch"
+        ? undefined
+        : {
+            number: branch.pullRequestNumber,
+            title: branch.pullRequestTitle,
+            url: branch.pullRequestUrl,
+            isDraft: branch.pullRequestIsDraft,
+            labels: normalizePullRequestLabels(branch.pullRequestLabels),
+          },
+    headCommit: {
+      sha: branch.headCommit.sha,
+      shortSha: branch.headCommit.sha.slice(0, 7),
       url: sourceRepositoryFullName
-        ? buildCommitUrl(sourceRepositoryFullName, commit.sha)
+        ? buildCommitUrl(sourceRepositoryFullName, branch.headCommit.sha)
         : undefined,
-      title: commit.title,
-      authoredAt: commit.authoredAt,
-      checks: commit.checks,
-      isHead: commit.sha === branch.headCommitSha || index === 0,
-    })),
+      title: branch.headCommit.title,
+      authoredAt: branch.headCommit.authoredAt,
+      checks: branch.headCommit.checks,
+    },
   };
 }

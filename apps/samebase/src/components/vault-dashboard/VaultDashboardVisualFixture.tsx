@@ -68,6 +68,12 @@ function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   return value;
 }
 
+function fakeRepositoryInventorySnapshotId(): Id<"vaultRepositoryInventorySnapshots"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return "rx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
 function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -147,40 +153,53 @@ interface FixtureVaultBranchRow {
   branch: FixtureVaultBranch;
 }
 
-function fixtureVaultBranch(
-  branch: Omit<
-    FixtureVaultBranch,
-    "canOpenInSamebase" | "commits" | "githubRepositoryFullName" | "lastSyncedAt" | "rowKey"
-  > & {
-    canOpenInSamebase?: boolean;
-    commits?: FixtureVaultBranch["commits"];
-    githubRepositoryFullName?: string;
-    rowKey?: string;
-  },
-): FixtureVaultBranch {
-  return {
-    ...branch,
+type FixtureVaultBranchDefaults = "canOpenInSamebase" | "githubRepositoryFullName" | "rowKey";
+
+type FixtureVaultBranchInput =
+  | (Omit<Extract<FixtureVaultBranch, { kind: "branch" }>, FixtureVaultBranchDefaults> & {
+      canOpenInSamebase?: boolean;
+      githubRepositoryFullName?: string;
+      rowKey?: string;
+    })
+  | (Omit<
+      Extract<FixtureVaultBranch, { kind: "pull_request" }>,
+      FixtureVaultBranchDefaults | "pullRequestIsDraft" | "pullRequestLabels"
+    > & {
+      canOpenInSamebase?: boolean;
+      githubRepositoryFullName?: string;
+      pullRequestIsDraft?: boolean;
+      pullRequestLabels?: Array<string | { name: string; color?: string }>;
+      rowKey?: string;
+    });
+
+function fixtureVaultBranch(branch: FixtureVaultBranchInput): FixtureVaultBranch {
+  const sharedFields = {
     rowKey:
       branch.rowKey ??
-      (branch.pullRequestNumber === undefined
+      (branch.kind === "branch"
         ? `branch:${branch.name}`
         : `pull-request:${branch.pullRequestNumber}`),
     githubRepositoryFullName: branch.githubRepositoryFullName ?? "samebase/samebase",
     canOpenInSamebase: branch.canOpenInSamebase ?? true,
-    commits: branch.commits ?? [{ sha: branch.headCommitSha }],
-    lastSyncedAt: FIXTURE_NOW,
   };
+  return branch.kind === "branch"
+    ? { ...branch, ...sharedFields }
+    : {
+        ...branch,
+        ...sharedFields,
+        pullRequestIsDraft: branch.pullRequestIsDraft ?? false,
+        pullRequestLabels: branch.pullRequestLabels ?? [],
+      };
 }
 
-function fixtureReadyRepositoryInventoryState(items: readonly FixtureVaultBranch[]) {
+function fixtureReadyRepositoryInventoryState() {
   return {
     state: "ready" as const,
-    activeGeneration: 1,
+    activeSnapshotId: fakeRepositoryInventorySnapshotId(),
     repositoryFullName: "samebase/samebase",
+    defaultBranch: "main",
     publishedAt: FIXTURE_NOW - 12_000,
-    itemCount: items.length,
-    branchCount: items.filter((item) => item.pullRequestNumber === undefined).length,
-    pullRequestCount: items.filter((item) => item.pullRequestNumber !== undefined).length,
+    checkedAt: FIXTURE_NOW - 12_000,
   };
 }
 
@@ -234,163 +253,158 @@ const fixtureDeleteDialogTarget = {
 const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "main",
-      headCommitSha: "1234567890abcdef1234567890abcdef12345678",
       isDefault: true,
-      commits: [
-        {
-          sha: "1234567890abcdef1234567890abcdef12345678",
-          title: "Track branch checks in the dashboard model",
-          checks: {
-            state: "success",
-            totalCount: 4,
-            checkRunCount: 4,
-            statusContextCount: 0,
-            successCount: 4,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
-            syncedAt: FIXTURE_NOW - 12_000,
-          },
+      headCommit: {
+        sha: "1234567890abcdef1234567890abcdef12345678",
+        title: "Track branch checks in the dashboard model",
+        checks: {
+          state: "success",
+          totalCount: 4,
+          checkRunCount: 4,
+          statusContextCount: 0,
+          successCount: 4,
+          failureCount: 0,
+          runningCount: 0,
+          neutralCount: 0,
+          unknownCount: 0,
+          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
         },
-      ],
+      },
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "pull_request",
       name: "codex/dashboard-main-pane-spacing",
-      headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
       isDefault: false,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
       pullRequestNumber: 321,
       pullRequestTitle: "Use the full dashboard main pane",
-      commits: [
-        {
-          sha: "abcdef1234567890abcdef1234567890abcdef12",
-          title: "Use the full dashboard main pane",
-          checks: {
-            state: "running",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 1,
-            failureCount: 0,
-            runningCount: 2,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/321",
-            syncedAt: FIXTURE_NOW - 2_000,
-          },
+      headCommit: {
+        sha: "abcdef1234567890abcdef1234567890abcdef12",
+        title: "Use the full dashboard main pane",
+        checks: {
+          state: "running",
+          totalCount: 3,
+          checkRunCount: 3,
+          statusContextCount: 0,
+          successCount: 1,
+          failureCount: 0,
+          runningCount: 2,
+          neutralCount: 0,
+          unknownCount: 0,
+          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/321",
         },
-      ],
+      },
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "pull_request",
       name: "codex/branch-expansion-state",
-      headCommitSha: "456789abcdef1234567890abcdef1234567890ab",
       isDefault: false,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/322",
       pullRequestNumber: 322,
       pullRequestTitle: "Persist branch list expansion",
-      commits: [
-        {
-          sha: "456789abcdef1234567890abcdef1234567890ab",
-          title: "Persist branch list expansion",
-          checks: {
-            state: "failure",
-            totalCount: 5,
-            checkRunCount: 5,
-            statusContextCount: 0,
-            successCount: 3,
-            failureCount: 1,
-            runningCount: 0,
-            neutralCount: 1,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/322",
-            syncedAt: FIXTURE_NOW - 64_000,
-          },
+      headCommit: {
+        sha: "456789abcdef1234567890abcdef1234567890ab",
+        title: "Persist branch list expansion",
+        checks: {
+          state: "failure",
+          totalCount: 5,
+          checkRunCount: 5,
+          statusContextCount: 0,
+          successCount: 3,
+          failureCount: 1,
+          runningCount: 0,
+          neutralCount: 1,
+          unknownCount: 0,
+          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/322",
         },
-      ],
+      },
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "pull_request",
       name: "codex/checks-history-window",
-      headCommitSha: "e1234567890abcdef1234567890abcdef12345678",
       isDefault: false,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/323",
       pullRequestNumber: 323,
       pullRequestTitle: "Show a bounded checks history",
-      commits: [
-        {
-          sha: "e1234567890abcdef1234567890abcdef12345678",
-          title: "Show a bounded checks history",
-          checks: {
-            state: "running",
-            totalCount: 4,
-            checkRunCount: 4,
-            statusContextCount: 0,
-            successCount: 2,
-            failureCount: 0,
-            runningCount: 1,
-            neutralCount: 1,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/323",
-            syncedAt: FIXTURE_NOW - 16_000,
-          },
+      headCommit: {
+        sha: "e1234567890abcdef1234567890abcdef12345678",
+        title: "Show a bounded checks history",
+        checks: {
+          state: "running",
+          totalCount: 4,
+          checkRunCount: 4,
+          statusContextCount: 0,
+          successCount: 2,
+          failureCount: 0,
+          runningCount: 1,
+          neutralCount: 1,
+          unknownCount: 0,
+          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/323",
         },
-      ],
+      },
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "codex/quiet-mobile-frame",
-      headCommitSha: "789abcdef1234567890abcdef1234567890abcd",
+      headCommit: { sha: "789abcdef1234567890abcdef1234567890abcd" },
       isDefault: false,
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "codex/research-branch-collapse",
-      headCommitSha: "def1234567890abcdef1234567890abcdef12345",
+      headCommit: { sha: "def1234567890abcdef1234567890abcdef12345" },
       isDefault: false,
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "codex/mobile-keyboard-lift",
-      headCommitSha: "f1234567890abcdef1234567890abcdef1234567",
+      headCommit: { sha: "f1234567890abcdef1234567890abcdef1234567" },
       isDefault: false,
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "codex/preview-status-refresh",
-      headCommitSha: "a234567890abcdef1234567890abcdef12345678",
+      headCommit: { sha: "a234567890abcdef1234567890abcdef12345678" },
       isDefault: false,
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "codex/branch-cleanup-guard",
-      headCommitSha: "b34567890abcdef1234567890abcdef123456789",
+      headCommit: { sha: "b34567890abcdef1234567890abcdef123456789" },
       isDefault: false,
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "codex/archive-doc-taxonomy",
-      headCommitSha: "c4567890abcdef1234567890abcdef1234567890",
+      headCommit: { sha: "c4567890abcdef1234567890abcdef1234567890" },
       isDefault: false,
     }),
   },
   {
     branch: fixtureVaultBranch({
+      kind: "branch",
       name: "codex/vault-filter-polish",
-      headCommitSha: "d567890abcdef1234567890abcdef12345678901",
+      headCommit: { sha: "d567890abcdef1234567890abcdef12345678901" },
       isDefault: false,
     }),
   },
@@ -540,11 +554,10 @@ const SIDEBAR_LIST_VAULTS = [
 
 const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
   branch: fixtureVaultBranch({
+    kind: "branch",
     name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
-    headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+    headCommit: { sha: "1234567890abcdef1234567890abcdef12345678" },
     isDefault: index === 0,
-    pullRequestLabels:
-      index > 0 && index % 7 === 0 ? [{ name: "hidden", color: "#6f42c1" }] : undefined,
   }),
 }));
 
@@ -554,8 +567,9 @@ const LARGE_BRANCHES: FixtureVaultBranch[] = Array.from(
   { length: LARGE_BRANCH_COUNT },
   (_, index) =>
     fixtureVaultBranch({
+      kind: "branch",
       name: index === 0 ? "main" : `codex/large-branch-${String(index).padStart(4, "0")}`,
-      headCommitSha: index.toString(16).padStart(40, "0"),
+      headCommit: { sha: index.toString(16).padStart(40, "0") },
       isDefault: index === 0,
     }),
 );
@@ -585,7 +599,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           viewModel={{
             vaults: [LIST_SPACING_VAULT],
             repositoryInventoryStatesByVaultId: new Map([
-              [LIST_SPACING_VAULT_ID, fixtureReadyRepositoryInventoryState(branches)],
+              [LIST_SPACING_VAULT_ID, fixtureReadyRepositoryInventoryState()],
             ]),
             remoteBranchPagesByVaultId: new Map([
               [
@@ -698,7 +712,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             viewModel={{
               vaults: selectedVaults,
               repositoryInventoryStatesByVaultId: new Map([
-                [SIDEBAR_LIST_SELECTED_VAULT_ID, fixtureReadyRepositoryInventoryState(branches)],
+                [SIDEBAR_LIST_SELECTED_VAULT_ID, fixtureReadyRepositoryInventoryState()],
               ]),
               remoteBranchPagesByVaultId: new Map([
                 [
@@ -933,15 +947,21 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
                 targetTable: "vaults",
               },
               {
-                path: "activeGeneration",
-                kind: "number",
-                optional: false,
+                path: "publication.snapshotId",
+                kind: "Id<vaultRepositoryInventorySnapshots>",
+                optional: true,
                 source: "declared",
               },
               {
-                path: "publishedAt",
+                path: "publication.defaultBranch",
+                kind: "union",
+                optional: true,
+                source: "declared",
+              },
+              {
+                path: "publication.checkedAt",
                 kind: "number",
-                optional: false,
+                optional: true,
                 source: "declared",
               },
             ],
@@ -1897,8 +1917,9 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                       vaultId={fakeVaultId()}
                       repositoryFullName="samebase/samebase"
                       branch={fixtureVaultBranch({
+                        kind: "branch",
                         name: "main",
-                        headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+                        headCommit: { sha: "1234567890abcdef1234567890abcdef12345678" },
                         isDefault: true,
                       })}
                       productionApps={[
@@ -1919,8 +1940,9 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                       vaultId={fakeVaultId()}
                       repositoryFullName="samebase/samebase"
                       branch={fixtureVaultBranch({
+                        kind: "pull_request",
                         name: "codex/mobile-branch-card-spacing",
-                        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+                        headCommit: { sha: "abcdef1234567890abcdef1234567890abcdef12" },
                         isDefault: false,
                         pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
                         pullRequestNumber: 321,
@@ -1949,8 +1971,9 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
             vaultId={fakeVaultId()}
             repositoryFullName="octo/repo"
             branch={fixtureVaultBranch({
+              kind: "pull_request",
               name: "feature/pr-labels",
-              headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+              headCommit: { sha: "1234567890abcdef1234567890abcdef12345678" },
               isDefault: false,
               githubRepositoryFullName: "octo/repo",
               pullRequestUrl: "https://github.com/octo/repo/pull/42",
