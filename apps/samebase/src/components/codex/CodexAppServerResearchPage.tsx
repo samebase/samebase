@@ -671,6 +671,7 @@ export function CodexAppServerResearchPage() {
 
     void navigate({
       replace: true,
+      resetScroll: false,
       search: nextSearch,
     });
   }, [navigate, routeSearch.threadId, selectedThreadId]);

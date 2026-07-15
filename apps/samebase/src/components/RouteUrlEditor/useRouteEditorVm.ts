@@ -980,7 +980,9 @@ function readRouteEditorNavigationOptions(args: {
         nextRouteAddress: args.nextRouteAddress,
         origin: args.origin,
       }),
-    ...(currentUrl.pathname === nextUrl.pathname ? { resetScroll: false } : {}),
+    ...(currentUrl.pathname === nextUrl.pathname && currentUrl.hash === nextUrl.hash
+      ? { resetScroll: false }
+      : {}),
     to: nextUrl.pathname,
   };
 }
@@ -1181,9 +1183,17 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
         window.history.replaceState(window.history.state, "", baseRouteAddress);
       }
 
+      // This push bypasses router.navigate so suggestion previews can become a
+      // new entry; carry the same-path scroll decision into the router first.
+      router.resetNextScroll =
+        readRouteEditorNavigationOptions({
+          currentRouteAddress: baseRouteAddress,
+          nextRouteAddress: routeAddress,
+          origin,
+        }).resetScroll ?? true;
       router.history.push(routeAddress);
     },
-    [router],
+    [origin, router],
   );
 
   /**

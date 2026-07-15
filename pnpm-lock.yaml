@@ -206,6 +206,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.14.4
         version: 3.14.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@tanstack/router-core':
+        specifier: 1.169.2
+        version: 1.169.2
       '@typescript/ata':
         specifier: ^0.9.8
         version: 0.9.8(typescript@5.9.2)

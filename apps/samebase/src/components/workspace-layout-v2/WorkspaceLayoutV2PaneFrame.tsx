@@ -6,6 +6,7 @@ export type WorkspaceLayoutV2PaneFrameProps = {
   footer?: ReactNode;
   headerTestId?: string;
   headerVisibility?: "all" | "desktop";
+  scrollRestorationId?: string;
 };
 
 /**
@@ -21,6 +22,7 @@ export function WorkspaceLayoutV2PaneFrame({
   footer,
   headerTestId,
   headerVisibility = "all",
+  scrollRestorationId,
 }: WorkspaceLayoutV2PaneFrameProps) {
   const headerClassName =
     headerVisibility === "desktop"
@@ -35,7 +37,10 @@ export function WorkspaceLayoutV2PaneFrame({
         </div>
       )}
 
-      <div className="@container flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+      <div
+        className="@container flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden"
+        data-scroll-restoration-id={scrollRestorationId}
+      >
         <div className="min-h-0 flex-1">{content}</div>
       </div>
 

@@ -22,6 +22,7 @@ function LogoIsoRouteComponent() {
         replaceRouteSearch={(nextSearch) => {
           void navigate({
             replace: true,
+            resetScroll: false,
             search: nextSearch,
           });
         }}

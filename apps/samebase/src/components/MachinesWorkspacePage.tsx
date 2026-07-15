@@ -374,6 +374,7 @@ export function MachinesWorkspacePage() {
 
     void navigate({
       replace: true,
+      resetScroll: false,
       search: nextSearch,
     });
   }, [navigate, routeSearch.machineId, routeSearch.threadId, selectedMachineId, selectedThreadId]);

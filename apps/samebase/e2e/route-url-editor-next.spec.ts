@@ -777,6 +777,22 @@ test("route URL editor keeps the cursor before a preserved hash after path selec
   await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
 });
 
+test("route URL editor scrolls same-page hash destinations into view", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/landing-preview");
+
+  await input.fill(`${prefix}landing-preview#landing-note-tokens`);
+
+  await expect(page).toHaveURL(/\/landing-preview#landing-note-tokens$/);
+  await expect(page.locator("#landing-note-tokens")).toBeInViewport();
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]')
+        .evaluate((element) => element.scrollTop),
+    )
+    .toBeGreaterThan(0);
+});
+
 test("route URL editor puts the cursor in the selected value slot for middle query tokens", async ({
   page,
 }) => {

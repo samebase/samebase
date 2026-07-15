@@ -22,6 +22,7 @@ function LogoRasterRouteComponent() {
         replaceRouteSearch={(nextSearch) => {
           void navigate({
             replace: true,
+            resetScroll: false,
             search: nextSearch,
           });
         }}

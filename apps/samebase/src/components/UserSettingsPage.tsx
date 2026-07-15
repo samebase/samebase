@@ -162,6 +162,7 @@ export function UserSettingsPage() {
 
   const openDeleteDialog = () => {
     void navigate({
+      resetScroll: false,
       search: (currentSearch) =>
         applySearchPatch(currentSearch, { [DELETE_ACCOUNT_QUERY_PARAM]: true }),
       state: (currentState) => ({
@@ -180,6 +181,7 @@ export function UserSettingsPage() {
 
     void navigate({
       replace: true,
+      resetScroll: false,
       search: (currentSearch) =>
         applySearchPatch(currentSearch, { [DELETE_ACCOUNT_QUERY_PARAM]: null }),
       state: (currentState) => ({

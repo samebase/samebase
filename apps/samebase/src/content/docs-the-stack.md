@@ -40,6 +40,13 @@ performs.
 
 Tailwind and shadcn/ui by default. Neither is load-bearing; both are replaceable.
 
+## One base, more than one shape
+
+The production repo is deliberately less uniform than the starter: one monorepo ships the product, a
+first-party analytics proxy, and domain routing as three separate Cloudflare Workers. Its Convex
+backend also sends transactional email through Cloudflare Email Sending. The starter stays small;
+the platform does not force every root into the same shape.
+
 ## The proof
 
 The template lives in the samebase/app repo, private today and public at release. The early commits

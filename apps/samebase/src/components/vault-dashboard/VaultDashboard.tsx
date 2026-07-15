@@ -898,6 +898,7 @@ export function VaultDashboardDeleteControl({
     <span className="absolute right-4 top-4">
       <Link
         to="."
+        resetScroll={false}
         search={(currentSearch) => ({
           ...currentSearch,
           delete: true,
@@ -2990,6 +2991,7 @@ export function VaultDashboardVaultList({
             return (
               <li key={vault._id}>
                 <Link
+                  resetScroll={isSelected ? false : undefined}
                   to={buildVaultDashboardRoute({
                     owner: vault.ghRepoOwner,
                     repoName: vault.ghRepoName,
@@ -3084,6 +3086,7 @@ export function VaultDashboardView({
   const openProviderAddDialog = useCallback(
     ({ appRoot, provider }: { appRoot: string; provider: "cloudflare" | "convex" }) => {
       void navigate({
+        resetScroll: false,
         to: ".",
         search: (currentSearch) =>
           applyVaultDashboardProviderAddSearch({
@@ -3101,6 +3104,7 @@ export function VaultDashboardView({
   );
   const openAppRootAddDialog = useCallback(() => {
     void navigate({
+      resetScroll: false,
       to: ".",
       search: applyVaultDashboardAddAppRootSearch,
       state: (currentState) => ({
@@ -3768,6 +3772,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     (dialog: VaultDashboardQueryDialog) => {
       void navigate({
         replace: true,
+        resetScroll: false,
         search: (currentSearch) => clearVaultDashboardQueryDialogSearch(currentSearch, dialog),
         state: (currentState) => ({
           ...currentState,
@@ -4494,6 +4499,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         replaceLogoRouteSearch={(nextSearch) => {
           void navigate({
             replace: true,
+            resetScroll: false,
             search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
             state: true,
             to: ".",

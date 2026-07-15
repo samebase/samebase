@@ -604,12 +604,13 @@ function FileViewInner({
     [location.hash, location.pathname, location.search, routeSearch.mobileLineNumbers],
   );
   const navigateByHref = useCallback(
-    (href: string, options?: { replace?: boolean }) => {
+    (href: string, options?: { replace?: boolean; resetScroll?: boolean }) => {
       // Preserve current user history state while the `/vault/$` route still
       // depends on the intentionally encoded raw file path boundary.
       void router.navigate({
         href,
         replace: options?.replace,
+        resetScroll: options?.resetScroll,
         state: true,
       });
     },
@@ -1082,7 +1083,7 @@ function FileViewInner({
             compare: options?.compare ?? routeSearch.compare,
           }),
         ),
-        { replace: options?.replace },
+        { replace: options?.replace, resetScroll: false },
       );
     },
     [buildCurrentFileViewHref, navigateByHref, routeSearch.compare],
@@ -1101,7 +1102,7 @@ function FileViewInner({
             diff: routeSearch.diff,
           }),
         ),
-        { replace: options?.replace },
+        { replace: options?.replace, resetScroll: false },
       );
     },
     [buildCurrentFileViewHref, navigateByHref, routeSearch.diff],
