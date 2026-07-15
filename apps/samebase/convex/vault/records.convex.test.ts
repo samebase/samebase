@@ -342,6 +342,7 @@ describe("vault records Convex contract", () => {
         rowKey: "branch:trunk",
         name: "trunk",
         isDefault: true,
+        comparison: { state: "ready", aheadBy: 0, behindBy: 0 },
         headCommit: {
           sha: "trunk-sha",
           checks,
@@ -356,6 +357,7 @@ describe("vault records Convex contract", () => {
         rowKey: "branch:Feature/Case",
         name: "Feature/Case",
         isDefault: false,
+        comparison: { state: "ready", aheadBy: 4, behindBy: 2 },
         headCommit: {
           sha: "feature-sha",
           checks,

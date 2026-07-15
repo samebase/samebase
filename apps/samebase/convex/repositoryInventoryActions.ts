@@ -271,6 +271,10 @@ export const runRepositoryInventoryRefresh = internalAction({
           await renewRateLeaseIfNeeded();
           return await client.request(query, variables);
         },
+        requestGraphqlPartial: async (query, variables) => {
+          await renewRateLeaseIfNeeded();
+          return await client.requestPartial(query, variables);
+        },
       });
       if (inventory.repositoryDatabaseId !== input.githubRepositoryId) {
         throw new Error("GitHub repository identity does not match the connected vault.");

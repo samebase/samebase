@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase vault dashboard repository freshness
-- Last updated: 2026-07-15
+- Last updated: 2026-07-16
 - Supersedes: `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 - Related docs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
@@ -18,12 +18,34 @@ open pull request, including drafts and pull requests from forks. Each row inclu
 commit, checks, and commit statuses. Pull requests include every label. The dashboard does not hide
 a branch merely because that branch also has a pull request.
 
+Every nondefault branch and pull request carries an exact comparison against the ref it actually
+targets. A pull request also carries GitHub's additions, deletions, changed-file count, and
+cross-repository classification. The compact pull request row reads
+`↑6 ↓2 vs main · +1,240 −318 · 17 files`. A fork is identified explicitly, and a pull request
+targeting another base says `vs <actual-base>`. An unavailable comparison has an explicit reason; it
+is never presented as zero.
+
 The collector uses GitHub GraphQL with the vault's existing GitHub connection credential. It
 paginates until it has read every branch, open pull request, check context, status context, and
 label. It validates repository identity, total counts, cursors, duplicates, required nested data,
 and a final identity-only pass over branch names and open pull request node IDs. A repository rename
 or transfer is accepted only when the stable repository identity still matches. GitHub's canonical
 repository name is used for links.
+
+Branch comparisons are collected inline against the repository default branch and add no GraphQL
+request. GitHub reports that comparison in the receiver ref's direction, so the collector validates
+both target SHAs and deliberately maps the raw `behindBy` to product `aheadBy` and raw `aheadBy` to
+product `behindBy`. Pull request comparisons use the pull request's actual base and qualified head,
+validate both target SHAs, and use GitHub's counts directly. They are collected sequentially in
+batches of at most 50 aliases, adding `ceil(open pull requests / 50)` requests and normally the same
+number of GraphQL points. Actual cost remains part of the account budget and becomes the next
+crawl's reservation.
+
+The GraphQL client rejects partial responses by default. Comparison batches accept only alias-local
+`NOT_FOUND` errors at the exact generated comparison path. A missing base or head ref, or unrelated
+history, becomes the matching item-level unavailable state while ready sibling aliases remain
+usable. Permission, rate-limit, schema, repository, mixed, and unclassified errors fail the
+generation and leave the prior snapshot visible.
 
 Opening a selected vault route while the page is visible requests an inventory immediately. The
 selected dashboard and FileView are mutually exclusive owners of the same demand hook. While that
@@ -197,6 +219,13 @@ runtime.
   membership churn cannot publish a mixed crawl.
 - Fork pull requests link to their GitHub source and do not expose a Samebase file route for a head
   repository the vault does not own.
+- A known branch comparison maps raw GitHub `aheadBy: 2, behindBy: 4` to `↑4 ↓2`. Pull request
+  comparisons preserve GitHub's direction, including forks and nondefault bases.
+- Fifty-one open pull requests require exactly two bounded comparison requests. A comparison target
+  mismatch fails the generation, while one exact alias-local missing-ref error does not discard
+  valid sibling comparisons.
+- Comparison-only changes alter the snapshot fingerprint. Unavailable comparisons retain their
+  reason through storage and the browser and never render fabricated zero counts.
 - Default filters hide draft pull requests but retain every branch. Excluding a label or unlabeled
   pull requests changes only pull request rows, reports the exact visible and total pull request
   counts, and can still reach matching pull requests after multiple excluded pages.

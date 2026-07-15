@@ -103,7 +103,9 @@ import { applySearchPatch } from "@/routing/searchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   mapRepositoryInventoryItemToDashboardRow,
+  type VaultRepositoryInventoryBranchComparison,
   type VaultRepositoryInventoryCommitChecksSummary,
+  type VaultRepositoryInventoryPullRequestComparison,
   type VaultRepositoryInventoryRow,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
@@ -787,6 +789,47 @@ const repositoryInventoryCountFormatter = new Intl.NumberFormat("en-US");
 
 function formatRepositoryInventoryCount(count: number): string {
   return repositoryInventoryCountFormatter.format(count);
+}
+
+function formatRepositoryComparisonUnavailableReason(
+  reason:
+    | Extract<VaultRepositoryInventoryBranchComparison, { state: "unavailable" }>["reason"]
+    | Extract<VaultRepositoryInventoryPullRequestComparison, { state: "unavailable" }>["reason"],
+): string {
+  switch (reason) {
+    case "default_branch_unavailable":
+      return "Default branch unavailable";
+    case "base_ref_unavailable":
+      return "Base unavailable";
+    case "head_ref_unavailable":
+      return "Head unavailable";
+    case "not_comparable":
+      return "Comparison unavailable";
+    default:
+      return reason satisfies never;
+  }
+}
+
+function formatRepositoryComparisonMetadata(args: {
+  comparison:
+    | VaultRepositoryInventoryBranchComparison
+    | VaultRepositoryInventoryPullRequestComparison;
+  baseRefName: string | null;
+}): { visual: string; accessible: string } {
+  if (args.comparison.state === "unavailable") {
+    const unavailableReason = formatRepositoryComparisonUnavailableReason(args.comparison.reason);
+    return { visual: unavailableReason, accessible: unavailableReason };
+  }
+  if (args.baseRefName === null) {
+    return {
+      visual: "Default branch unavailable",
+      accessible: "Default branch unavailable",
+    };
+  }
+  return {
+    visual: `↑${formatRepositoryInventoryCount(args.comparison.aheadBy)} ↓${formatRepositoryInventoryCount(args.comparison.behindBy)} vs ${args.baseRefName}`,
+    accessible: `${formatRepositoryInventoryCount(args.comparison.aheadBy)} commits ahead and ${formatRepositoryInventoryCount(args.comparison.behindBy)} commits behind ${args.baseRefName}`,
+  };
 }
 
 function formatCommitChecksCompactLabel(
@@ -1730,6 +1773,7 @@ interface StagedSummary {
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
+  defaultBranchName: string | null;
   branch: VaultRepositoryInventoryRow;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
@@ -2062,12 +2106,14 @@ export function VaultDashboardRepositoryExternalLinks({
 
 export function VaultBranchLinkContent({
   repositoryFullName,
+  defaultBranchName,
   branch,
   convexDeployments = [],
   productionApps = [],
   schemaGraphAccessEnabled = false,
 }: {
   repositoryFullName: string;
+  defaultBranchName: string | null;
   branch: VaultRepositoryInventoryRow;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
@@ -2076,11 +2122,25 @@ export function VaultBranchLinkContent({
   const branchRow = buildVaultBranchRowViewModel({
     branch,
   });
-  const pullRequest = branchRow.pullRequest;
+  const pullRequest = branchRow.kind === "pull_request" ? branchRow.pullRequest : null;
   const normalizedPullRequestLabels = pullRequest?.labels ?? [];
   const pullRequestLabel = pullRequest ? `PR #${pullRequest.number}` : "Pull request";
   const hasPullRequestMetadata =
-    pullRequest?.isDraft === true || normalizedPullRequestLabels.length > 0;
+    pullRequest?.isDraft === true ||
+    pullRequest?.isCrossRepository === true ||
+    normalizedPullRequestLabels.length > 0;
+  const comparisonMetadata = branchRow.isDefault
+    ? null
+    : formatRepositoryComparisonMetadata({
+        comparison: branchRow.comparison,
+        baseRefName: pullRequest ? pullRequest.baseRefName : defaultBranchName,
+      });
+  const rowMetadata = pullRequest
+    ? {
+        visual: `${comparisonMetadata?.visual ?? "Comparison unavailable"} · +${formatRepositoryInventoryCount(pullRequest.additions)} −${formatRepositoryInventoryCount(pullRequest.deletions)} · ${formatRepositoryInventoryCount(pullRequest.changedFiles)} ${pullRequest.changedFiles === 1 ? "file" : "files"}`,
+        accessible: `${comparisonMetadata?.accessible ?? "Comparison unavailable"}. ${formatRepositoryInventoryCount(pullRequest.additions)} lines added, ${formatRepositoryInventoryCount(pullRequest.deletions)} lines removed, ${formatRepositoryInventoryCount(pullRequest.changedFiles)} ${pullRequest.changedFiles === 1 ? "file" : "files"} changed`,
+      }
+    : comparisonMetadata;
   const metadataLinkClassName = clsx(
     "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
     "font-mono",
@@ -2165,14 +2225,10 @@ export function VaultBranchLinkContent({
         )}
         <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
           <VaultBranchHeadCommit commit={branchRow.headCommit} previewUrl={branchRow.previewUrl} />
-          {pullRequest ? (
-            <div className="flex flex-wrap items-center gap-x-2 font-mono text-sm">
-              <span>+{formatRepositoryInventoryCount(pullRequest.additions)}</span>
-              <span>−{formatRepositoryInventoryCount(pullRequest.deletions)}</span>
-              <span>
-                · {formatRepositoryInventoryCount(pullRequest.changedFiles)}{" "}
-                {pullRequest.changedFiles === 1 ? "file" : "files"}
-              </span>
+          {rowMetadata ? (
+            <div className="font-mono text-sm">
+              <span aria-hidden="true">{rowMetadata.visual}</span>
+              <span className="sr-only">{rowMetadata.accessible}</span>
             </div>
           ) : null}
           {hasPullRequestMetadata ? (
@@ -2183,6 +2239,14 @@ export function VaultBranchLinkContent({
                   className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"
                 >
                   draft
+                </Badge>
+              ) : null}
+              {pullRequest?.isCrossRepository ? (
+                <Badge
+                  variant="outline"
+                  className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"
+                >
+                  fork
                 </Badge>
               ) : null}
               {normalizedPullRequestLabels.length > 0
@@ -2236,6 +2300,7 @@ export function VaultBranchLinkContent({
 export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
+  defaultBranchName,
   branch,
   convexDeployments,
   productionApps,
@@ -2254,6 +2319,7 @@ export function VaultBranchLinkRow({
     >
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
+        defaultBranchName={defaultBranchName}
         branch={branch}
         convexDeployments={convexDeployments}
         productionApps={productionApps}
@@ -2280,6 +2346,7 @@ export function VaultBranchLinkRow({
 interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
+  defaultBranchName: string | null;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   loadMore: (numItems: number) => void;
   paginationStatus: PaginationStatus;
@@ -2292,6 +2359,7 @@ interface VaultBranchListProps {
 function VaultBranchList({
   vaultId,
   repositoryFullName,
+  defaultBranchName,
   convexDeployments,
   loadMore,
   paginationStatus,
@@ -2447,6 +2515,7 @@ function VaultBranchList({
                   branch={branch}
                   vaultId={vaultId}
                   repositoryFullName={repositoryFullName}
+                  defaultBranchName={defaultBranchName}
                   stagedSummary={
                     branch.canOpenInSamebase ? summaryByBranch.get(branch.name) : undefined
                   }
@@ -2521,6 +2590,7 @@ export function VaultPullRequestHeaderControls({
 
 export function VaultBranchSection({
   convexDeployments,
+  defaultBranchName,
   loadMore,
   paginationStatus,
   productionApps,
@@ -2531,6 +2601,7 @@ export function VaultBranchSection({
   remoteBranches,
 }: {
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
+  defaultBranchName: string | null;
   loadMore: (numItems: number) => void;
   paginationStatus: PaginationStatus;
   productionApps?: readonly VaultBranchProductionApp[];
@@ -2546,6 +2617,7 @@ export function VaultBranchSection({
         <VaultBranchList
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
+          defaultBranchName={defaultBranchName}
           remoteBranches={remoteBranches}
           loadMore={loadMore}
           paginationStatus={paginationStatus}
@@ -3075,8 +3147,14 @@ export function VaultDashboardView({
         const inventoryState = repositoryInventoryStatesByVaultId.get(vault._id);
         const vaultResourceLinksOpen =
           persistedVaultResourceLinksOpenByVaultId.get(vault._id) ?? false;
-        const defaultBranch = paginatedRemoteBranches.find((branch) => branch.isDefault)?.name;
-        const primaryBranch = defaultBranch || paginatedRemoteBranches[0]?.name;
+        const snapshotDefaultBranch =
+          inventoryState !== undefined && inventoryState.state !== "empty"
+            ? (inventoryState.defaultBranch ?? null)
+            : null;
+        const primaryBranch =
+          snapshotDefaultBranch ??
+          paginatedRemoteBranches.find((branch) => branch.isDefault)?.name ??
+          paginatedRemoteBranches[0]?.name;
         const chatRoute =
           primaryBranch && !isDeletingVault
             ? buildVaultCodespaceChatRoute({
@@ -3205,6 +3283,7 @@ export function VaultDashboardView({
             remoteBranchPage?.status === "LoadingFirstPage") ? (
             <VaultBranchSection
               convexDeployments={vault.convexDeployments}
+              defaultBranchName={snapshotDefaultBranch}
               loadMore={remoteBranchPage?.loadMore ?? ignoreVaultBranchLoadMore}
               paginationStatus={remoteBranchPage?.status ?? "LoadingFirstPage"}
               schemaGraphAccessEnabled={schemaGraphAccessEnabled}

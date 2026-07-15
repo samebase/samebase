@@ -20,6 +20,7 @@ export function VaultDashboardBranchVisualFixture() {
             <TestRouterProvider>
               <VaultBranchLinkContent
                 repositoryFullName="samebase/samebase"
+                defaultBranchName="main"
                 branch={{
                   kind: "pull_request",
                   rowKey: "pr:999",
@@ -28,8 +29,11 @@ export function VaultDashboardBranchVisualFixture() {
                   canOpenInSamebase: true,
                   headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
                   isDefault: false,
+                  comparison: { state: "ready", aheadBy: 6, behindBy: 2 },
                   pullRequestUrl: "https://github.com/samebase/samebase/pull/999",
                   pullRequestNumber: 999,
+                  pullRequestBaseRefName: "main",
+                  pullRequestIsCrossRepository: false,
                   pullRequestTitle: "Show PR titles above lighter branch labels",
                   pullRequestAdditions: 1_240,
                   pullRequestDeletions: 318,

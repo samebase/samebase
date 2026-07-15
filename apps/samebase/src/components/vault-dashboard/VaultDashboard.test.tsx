@@ -239,6 +239,9 @@ function renderRepositoryInventoryStatus(
 }
 
 describe("VaultBranchLinkContent", () => {
+  const readyComparison = { state: "ready", aheadBy: 6, behindBy: 2 } as const;
+  const defaultBranchComparison = { state: "ready", aheadBy: 0, behindBy: 0 } as const;
+
   it("pairs branch rows with the committed repository identity", () => {
     const row = mapRepositoryInventoryItemToDashboardRow({
       repositoryFullName: "samebase/renamed-repository",
@@ -247,6 +250,7 @@ describe("VaultBranchLinkContent", () => {
         rowKey: "branch:main",
         name: "main",
         isDefault: true,
+        comparison: defaultBranchComparison,
         headCommit: {
           sha: "abcdef1234567890abcdef1234567890abcdef12",
           checks: inventoryChecks(),
@@ -274,6 +278,8 @@ describe("VaultBranchLinkContent", () => {
         deletions: 318,
         changedFiles: 17,
         baseRefName: "main",
+        isCrossRepository: true,
+        comparison: readyComparison,
         headRepositoryFullName: "contributor/samebase-fork",
         headRefName: "contributor/fork-monitoring",
         canOpenInSamebase: false,
@@ -289,6 +295,8 @@ describe("VaultBranchLinkContent", () => {
       kind: "pull_request",
       githubRepositoryFullName: "contributor/samebase-fork",
       pullRequestNumber: 1000,
+      pullRequestBaseRefName: "main",
+      pullRequestIsCrossRepository: true,
       pullRequestAdditions: 1_240,
       pullRequestDeletions: 318,
       pullRequestChangedFiles: 17,
@@ -309,6 +317,8 @@ describe("VaultBranchLinkContent", () => {
         deletions: 2,
         changedFiles: 3,
         baseRefName: "main",
+        isCrossRepository: true,
+        comparison: { state: "unavailable", reason: "head_ref_unavailable" },
         headRefName: "contributor/deleted-fork",
         canOpenInSamebase: false,
         labels: [],
@@ -336,7 +346,11 @@ describe("VaultBranchLinkContent", () => {
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
-        <VaultBranchLinkContent repositoryFullName="samebase/samebase" branch={row} />
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
+          branch={row}
+        />
       </TestRouterProvider>,
     );
     expect(markup).toContain('href="https://github.com/samebase/samebase/pull/1001"');
@@ -347,6 +361,8 @@ describe("VaultBranchLinkContent", () => {
       'href="https://github.com/samebase/samebase/commit/123456abcdef1234567890abcdef1234567890ab"',
     );
     expect(markup).toContain("Head 123456a");
+    expect(markup).toContain("Head unavailable · +7 −2 · 3 files");
+    expect(markup).not.toContain("↑0 ↓0");
   });
 
   it("models checks as commit data without requiring a pull request", () => {
@@ -374,6 +390,7 @@ describe("VaultBranchLinkContent", () => {
           },
         },
         isDefault: true,
+        comparison: defaultBranchComparison,
       },
     });
 
@@ -393,6 +410,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:main",
@@ -417,6 +435,7 @@ describe("VaultBranchLinkContent", () => {
             },
             previewUrl: "https://preview-branch.example.workers.dev",
             isDefault: true,
+            comparison: defaultBranchComparison,
           }}
         />
       </TestRouterProvider>,
@@ -434,6 +453,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:main",
@@ -442,6 +462,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "abcdef1234567890abcdef1234567890abcdef12" },
             isDefault: true,
+            comparison: defaultBranchComparison,
           }}
         />
       </TestRouterProvider>,
@@ -458,6 +479,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "pull_request",
             rowKey: "pr:999",
@@ -480,8 +502,11 @@ describe("VaultBranchLinkContent", () => {
               },
             },
             isDefault: false,
+            comparison: readyComparison,
             pullRequestUrl: "https://github.com/samebase/samebase/pull/999",
             pullRequestNumber: 999,
+            pullRequestBaseRefName: "main",
+            pullRequestIsCrossRepository: false,
             pullRequestTitle: "Monitor every open pull request",
             pullRequestAdditions: 1_240,
             pullRequestDeletions: 318,
@@ -496,9 +521,10 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('href="https://github.com/samebase/samebase/pull/999"');
     expect(markup).toContain("PR #999 Monitor every open pull request");
     expect(markup).toContain(">Head abcdef1<");
-    expect(markup).toContain(">+1,240<");
-    expect(markup).toContain(">−318<");
-    expect(markup).toContain("· 17 files");
+    expect(markup).toContain("↑6 ↓2 vs main · +1,240 −318 · 17 files");
+    expect(markup).toContain(
+      "6 commits ahead and 2 commits behind main. 1,240 lines added, 318 lines removed, 17 files changed",
+    );
     expect(markup).toContain(">draft<");
     expect(markup).toContain(">dashboard<");
     expect(markup).toContain(">View changes<");
@@ -509,6 +535,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "pull_request",
             rowKey: "pr:1000",
@@ -517,8 +544,11 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: false,
             headCommit: { sha: "654321abcdef1234567890abcdef1234567890ab" },
             isDefault: false,
+            comparison: readyComparison,
             pullRequestUrl: "https://github.com/samebase/samebase/pull/1000",
             pullRequestNumber: 1000,
+            pullRequestBaseRefName: "release",
+            pullRequestIsCrossRepository: true,
             pullRequestTitle: "Accept monitoring fixes from a fork",
             pullRequestAdditions: 7,
             pullRequestDeletions: 2,
@@ -539,6 +569,8 @@ describe("VaultBranchLinkContent", () => {
     );
     expect(markup).not.toContain("/vault/samebase/samebase/fs/");
     expect(markup).not.toContain(">View changes<");
+    expect(markup).toContain("↑6 ↓2 vs release · +7 −2 · 3 files");
+    expect(markup).toContain(">fork<");
   });
 
   it("labels zero-check summaries as no checks", () => {
@@ -546,6 +578,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:codex/no-checks",
@@ -567,6 +600,7 @@ describe("VaultBranchLinkContent", () => {
               },
             },
             isDefault: false,
+            comparison: readyComparison,
           }}
         />
       </TestRouterProvider>,
@@ -582,6 +616,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:codex/dashboard branch-link",
@@ -590,6 +625,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
             isDefault: false,
+            comparison: readyComparison,
           }}
         />
       </TestRouterProvider>,
@@ -599,6 +635,8 @@ describe("VaultBranchLinkContent", () => {
       'href="https://github.com/samebase/samebase/tree/codex/dashboard%20branch-link"',
     );
     expect(markup).toContain('title="Open branch on GitHub"');
+    expect(markup).toContain("↑6 ↓2 vs main");
+    expect(markup).toContain("6 commits ahead and 2 commits behind main");
   });
 
   it("keeps the default branch Samebase link pointed at the branch editor", () => {
@@ -606,6 +644,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:main",
@@ -614,6 +653,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
             isDefault: true,
+            comparison: defaultBranchComparison,
           }}
         />
       </TestRouterProvider>,
@@ -631,6 +671,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:main",
@@ -639,6 +680,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
             isDefault: true,
+            comparison: defaultBranchComparison,
           }}
           convexDeployments={[
             {
@@ -670,6 +712,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:main",
@@ -678,6 +721,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
             isDefault: true,
+            comparison: defaultBranchComparison,
           }}
           convexDeployments={[
             {
@@ -706,6 +750,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           branch={{
             kind: "branch",
             rowKey: "branch:codex/view changes",
@@ -714,6 +759,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
             isDefault: false,
+            comparison: readyComparison,
           }}
         />
       </TestRouterProvider>,
@@ -731,6 +777,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           productionApps={[
             {
               appRoot: ".",
@@ -752,6 +799,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
             isDefault: true,
+            comparison: defaultBranchComparison,
           }}
         />
       </TestRouterProvider>,
@@ -770,6 +818,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
           productionApps={[
             {
               appRoot: "apps/api",
@@ -808,6 +857,7 @@ describe("VaultBranchLinkContent", () => {
             canOpenInSamebase: true,
             headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
             isDefault: true,
+            comparison: defaultBranchComparison,
           }}
         />
       </TestRouterProvider>,

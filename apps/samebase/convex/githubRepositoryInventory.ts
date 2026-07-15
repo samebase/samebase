@@ -93,6 +93,13 @@ const commitSchema = z.object({
   statusCheckRollup: statusCheckRollupSchema,
 });
 
+const comparisonSchema = z.object({
+  aheadBy: z.number().int().nonnegative(),
+  behindBy: z.number().int().nonnegative(),
+  baseTarget: z.object({ oid: z.string() }),
+  headTarget: z.object({ oid: z.string() }),
+});
+
 const branchRefSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -100,6 +107,7 @@ const branchRefSchema = z.object({
     __typename: z.literal("Commit"),
     ...commitSchema.shape,
   }),
+  comparison: comparisonSchema.nullable(),
 });
 
 const branchPageSchema = z.object({
@@ -108,7 +116,12 @@ const branchPageSchema = z.object({
       id: z.string(),
       databaseId: z.number().int().positive(),
       nameWithOwner: z.string(),
-      defaultBranchRef: z.object({ name: z.string() }).nullable(),
+      defaultBranchRef: z
+        .object({
+          name: z.string(),
+          target: z.object({ oid: z.string() }),
+        })
+        .nullable(),
       refs: z.object({
         totalCount: z.number().int().nonnegative(),
         pageInfo: pageInfoSchema,
@@ -148,6 +161,7 @@ const pullRequestSchema = z.object({
     .object({
       id: z.string(),
       nameWithOwner: z.string(),
+      owner: z.object({ login: z.string() }),
     })
     .nullable(),
   labels: labelsSchema,
@@ -172,6 +186,45 @@ const pullRequestPageSchema = z.object({
         nodes: z.array(pullRequestSchema),
       }),
     })
+    .nullable(),
+});
+
+const pullRequestComparisonNodeSchema = z.object({
+  id: z.string(),
+  number: z.number().int().positive(),
+  baseRefName: z.string(),
+  headRefName: z.string(),
+  headRefOid: z.string(),
+  headRepository: z
+    .object({
+      id: z.string(),
+      nameWithOwner: z.string(),
+      owner: z.object({ login: z.string() }),
+    })
+    .nullable(),
+  baseRef: z
+    .object({
+      name: z.string(),
+      target: z.object({ oid: z.string() }),
+      comparison: comparisonSchema.nullable().optional(),
+    })
+    .nullable(),
+  headRef: z
+    .object({
+      name: z.string(),
+      target: z.object({ oid: z.string() }),
+    })
+    .nullable(),
+});
+
+const pullRequestComparisonBatchSchema = z.object({
+  repository: z
+    .object({
+      id: z.string(),
+      databaseId: z.number().int().positive(),
+      nameWithOwner: z.string(),
+    })
+    .passthrough()
     .nullable(),
 });
 
@@ -229,17 +282,16 @@ const checkContinuationSchema = z.object({
     .nullable(),
 });
 
+const graphqlErrorSchema = z.object({
+  message: z.string(),
+  type: z.string().optional(),
+  path: z.array(z.union([z.string(), z.number()])).optional(),
+});
+
 const graphqlEnvelopeSchema = z.object({
   data: z.unknown().optional(),
   message: z.string().optional(),
-  errors: z
-    .array(
-      z.object({
-        message: z.string(),
-        type: z.string().optional(),
-      }),
-    )
-    .optional(),
+  errors: z.array(graphqlErrorSchema).optional(),
 });
 
 const graphqlRateLimitSchema = z.object({
@@ -266,7 +318,7 @@ const REPOSITORY_BRANCH_PAGE_QUERY = `
         id
         databaseId
         nameWithOwner
-        defaultBranchRef { name }
+        defaultBranchRef { name target { oid } }
         refs(
           refPrefix: "refs/heads/"
           first: $pageSize
@@ -320,6 +372,12 @@ const REPOSITORY_BRANCH_PAGE_QUERY = `
                 }
               }
             }
+            comparison: compare(headRef: "HEAD") {
+              aheadBy
+              behindBy
+              baseTarget { oid }
+              headTarget { oid }
+            }
           }
         }
       }
@@ -362,7 +420,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
             baseRefName
             headRefName
             headRefOid
-            headRepository { id nameWithOwner }
+            headRepository { id nameWithOwner owner { login } }
             labels(first: 100) {
               totalCount
               pageInfo { hasNextPage endCursor }
@@ -418,6 +476,64 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
     rateLimit { cost limit remaining resetAt }
   }
 `;
+
+function pullRequestComparisonBatchQuery(
+  pullRequests: readonly z.infer<typeof pullRequestSchema>[],
+): string {
+  if (pullRequests.length === 0 || pullRequests.length > GITHUB_GRAPHQL_PAGE_SIZE) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub pull request comparison batch exceeded its safety limit.",
+      false,
+    );
+  }
+  const variableDefinitions = pullRequests.flatMap((pullRequest, index) => [
+    `$pr${index}Number: Int!`,
+    ...(pullRequest.headRepository === null ? [] : [`$pr${index}HeadRef: String!`]),
+  ]);
+  const aliases = pullRequests.map(
+    (pullRequest, index) => `
+    pr${index}: pullRequest(number: $pr${index}Number) {
+      id
+      number
+      baseRefName
+      headRefName
+      headRefOid
+      headRepository { id nameWithOwner owner { login } }
+      headRef { name target { oid } }
+      baseRef {
+        name
+        target { oid }
+        ${
+          pullRequest.headRepository === null
+            ? ""
+            : `comparison: compare(headRef: $pr${index}HeadRef) {
+          aheadBy
+          behindBy
+          baseTarget { oid }
+          headTarget { oid }
+        }`
+        }
+      }
+    }
+  `,
+  );
+  return `
+    query RepositoryInventoryPullRequestComparisonBatch(
+      $repositoryId: ID!
+      ${variableDefinitions.join("\n      ")}
+    ) {
+      repository: node(id: $repositoryId) {
+        ... on Repository {
+          id
+          databaseId
+          nameWithOwner
+          ${aliases.join("\n")}
+        }
+      }
+      rateLimit { cost limit remaining resetAt }
+    }
+  `;
+}
 
 const REPOSITORY_BRANCH_SIGNATURE_PAGE_QUERY = `
   query RepositoryInventoryBranchSignaturePage($repositoryId: ID!, $after: String) {
@@ -531,8 +647,21 @@ export type RepositoryInventoryGraphqlRequest = (
   variables: GraphqlVariables,
 ) => Promise<unknown>;
 
+export type RepositoryInventoryGraphqlError = z.infer<typeof graphqlErrorSchema>;
+
+export type RepositoryInventoryGraphqlPartialResponse = {
+  data: unknown;
+  errors: RepositoryInventoryGraphqlError[];
+};
+
+export type RepositoryInventoryGraphqlPartialRequest = (
+  query: string,
+  variables: GraphqlVariables,
+) => Promise<RepositoryInventoryGraphqlPartialResponse>;
+
 export type GitHubGraphqlClient = {
   request: RepositoryInventoryGraphqlRequest;
+  requestPartial: RepositoryInventoryGraphqlPartialRequest;
   getUsage: () => GitHubGraphqlRateUsage | undefined;
 };
 
@@ -546,6 +675,52 @@ export type CollectedRepositoryInventory = {
   branchCount: number;
   pullRequestCount: number;
 };
+
+function sameGraphqlPath(
+  left: readonly (string | number)[] | undefined,
+  right: readonly (string | number)[],
+): boolean {
+  return left?.length === right.length && left.every((part, index) => part === right[index]);
+}
+
+function rejectErrorsThatCannotBeItemComparisons(
+  errors: readonly RepositoryInventoryGraphqlError[],
+): void {
+  const unexpected = errors.filter(
+    (error) => error.type?.toUpperCase() !== "NOT_FOUND" || error.path === undefined,
+  );
+  if (unexpected.length > 0) {
+    throw new GitHubGraphqlRequestError(
+      `GitHub GraphQL request failed: ${unexpected.map((error) => error.message).join("; ")}`,
+      unexpected.some(isRetryableGraphqlError),
+    );
+  }
+}
+
+function acceptOnlyExpectedComparisonErrors(args: {
+  errors: readonly RepositoryInventoryGraphqlError[];
+  expectedPathByKey: ReadonlyMap<string, readonly (string | number)[]>;
+}): ReadonlySet<string> {
+  const keys = new Set<string>();
+  const unexpected: RepositoryInventoryGraphqlError[] = [];
+  for (const error of args.errors) {
+    const entry = [...args.expectedPathByKey].find(
+      ([, path]) => error.type?.toUpperCase() === "NOT_FOUND" && sameGraphqlPath(error.path, path),
+    );
+    if (entry === undefined || keys.has(entry[0])) {
+      unexpected.push(error);
+      continue;
+    }
+    keys.add(entry[0]);
+  }
+  if (unexpected.length > 0) {
+    throw new GitHubGraphqlRequestError(
+      `GitHub GraphQL request failed: ${unexpected.map((error) => error.message).join("; ")}`,
+      unexpected.some(isRetryableGraphqlError),
+    );
+  }
+  return keys;
+}
 
 async function fetchGitHubJson(
   fetchImpl: typeof fetch,
@@ -939,6 +1114,7 @@ async function collectBranches(args: {
   expectedRepositoryDatabaseId: string;
   pageSize: number;
   requestGraphql: RepositoryInventoryGraphqlRequest;
+  requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest;
 }): Promise<{
   repositoryId: string;
   repositoryDatabaseId: string;
@@ -953,20 +1129,30 @@ async function collectBranches(args: {
   let repositoryDatabaseId: string | null = null;
   let repositoryFullName: string | null = null;
   let defaultBranch: string | null = null;
+  let defaultBranchSha: string | null = null;
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
 
   do {
     assertPageLimit(page);
-    const response = branchPageSchema.parse(
-      await args.requestGraphql(REPOSITORY_BRANCH_PAGE_QUERY, {
-        repositoryId: args.repositoryNodeId,
-        pageSize: args.pageSize,
-        after: cursor,
-      }),
-    );
+    const envelope = await args.requestGraphqlPartial(REPOSITORY_BRANCH_PAGE_QUERY, {
+      repositoryId: args.repositoryNodeId,
+      pageSize: args.pageSize,
+      after: cursor,
+    });
+    rejectErrorsThatCannotBeItemComparisons(envelope.errors);
+    const response = branchPageSchema.parse(envelope.data);
     const repository = requireRepository(response.repository);
+    const comparisonErrorIndexes = acceptOnlyExpectedComparisonErrors({
+      errors: envelope.errors,
+      expectedPathByKey: new Map(
+        repository.refs.nodes.map((_, index) => [
+          String(index),
+          ["repository", "refs", "nodes", index, "comparison"],
+        ]),
+      ),
+    });
     const pageRepositoryDatabaseId = String(repository.databaseId);
     if (pageRepositoryDatabaseId !== args.expectedRepositoryDatabaseId) {
       throw new GitHubGraphqlRequestError("GitHub returned another repository.", false);
@@ -986,11 +1172,14 @@ async function collectBranches(args: {
     repositoryDatabaseId = pageRepositoryDatabaseId;
     repositoryFullName = repository.nameWithOwner;
     const pageDefaultBranch = repository.defaultBranchRef?.name ?? null;
+    const pageDefaultBranchSha = repository.defaultBranchRef?.target.oid ?? null;
     if (page === 1) {
       defaultBranch = pageDefaultBranch;
+      defaultBranchSha = pageDefaultBranchSha;
       expectedTotalCount = repository.refs.totalCount;
     } else if (
       defaultBranch !== pageDefaultBranch ||
+      defaultBranchSha !== pageDefaultBranchSha ||
       expectedTotalCount !== repository.refs.totalCount
     ) {
       throw new GitHubGraphqlRequestError(
@@ -999,7 +1188,7 @@ async function collectBranches(args: {
       );
     }
 
-    for (const ref of repository.refs.nodes) {
+    for (const [index, ref] of repository.refs.nodes.entries()) {
       const branchKey = ref.name;
       if (seenBranchNames.has(branchKey)) {
         throw new GitHubGraphqlRequestError("GitHub returned a duplicate branch.", true);
@@ -1012,6 +1201,34 @@ async function collectBranches(args: {
       });
       const isDefault = ref.name === defaultBranch;
       const lastCommitAt = parseTimestamp(ref.target.committedDate);
+      const comparisonError = comparisonErrorIndexes.has(String(index));
+      if (comparisonError && ref.comparison !== null) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub returned both a branch comparison and an error for it.",
+          true,
+        );
+      }
+      let comparison: Extract<CollectedRepositoryInventoryItem, { kind: "branch" }>["comparison"];
+      if (defaultBranchSha === null) {
+        comparison = { state: "unavailable", reason: "default_branch_unavailable" };
+      } else if (ref.comparison === null) {
+        comparison = { state: "unavailable", reason: "not_comparable" };
+      } else {
+        if (
+          ref.comparison.baseTarget.oid !== ref.target.oid ||
+          ref.comparison.headTarget.oid !== defaultBranchSha
+        ) {
+          throw new GitHubGraphqlRequestError(
+            "GitHub branch comparison targets changed while they were being collected.",
+            true,
+          );
+        }
+        comparison = {
+          state: "ready",
+          aheadBy: ref.comparison.behindBy,
+          behindBy: ref.comparison.aheadBy,
+        };
+      }
       items.push({
         kind: "branch",
         sortGroup: isDefault ? 0 : 2,
@@ -1019,6 +1236,7 @@ async function collectBranches(args: {
         rowKey,
         name: ref.name,
         isDefault,
+        comparison,
         previewUrl: selectBranchPreviewAliasUrlFromCommitCheckItems(collectedCommit.checkItems),
         headCommit: collectedCommit.commit,
       });
@@ -1048,9 +1266,176 @@ async function collectBranches(args: {
   };
 }
 
+type PullRequestComparison = Extract<
+  CollectedRepositoryInventoryItem,
+  { kind: "pull_request" }
+>["comparison"];
+
+async function collectPullRequestComparisons(args: {
+  requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest;
+  repositoryId: string;
+  repositoryDatabaseId: string;
+  repositoryFullName: string;
+  branchHeadShaByName: ReadonlyMap<string, string>;
+  pullRequests: readonly z.infer<typeof pullRequestSchema>[];
+}): Promise<ReadonlyMap<string, PullRequestComparison>> {
+  if (args.pullRequests.length === 0) {
+    return new Map();
+  }
+  const variables: GraphqlVariables = { repositoryId: args.repositoryId };
+  for (const [index, pullRequest] of args.pullRequests.entries()) {
+    variables[`pr${index}Number`] = pullRequest.number;
+    if (pullRequest.headRepository !== null) {
+      variables[`pr${index}HeadRef`] =
+        `${pullRequest.headRepository.owner.login}:${pullRequest.headRefName}`;
+    }
+  }
+  const envelope = await args.requestGraphqlPartial(
+    pullRequestComparisonBatchQuery(args.pullRequests),
+    variables,
+  );
+  rejectErrorsThatCannotBeItemComparisons(envelope.errors);
+  const response = pullRequestComparisonBatchSchema.parse(envelope.data);
+  const repository = requireRepository(response.repository);
+  assertRepositoryIdentity({
+    expectedId: args.repositoryId,
+    expectedFullName: args.repositoryFullName,
+    actualId: repository.id,
+    actualFullName: repository.nameWithOwner,
+  });
+  if (String(repository.databaseId) !== args.repositoryDatabaseId) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub repository database identity changed during comparison collection.",
+      true,
+    );
+  }
+  const comparisonErrorPullRequestIds = acceptOnlyExpectedComparisonErrors({
+    errors: envelope.errors,
+    expectedPathByKey: new Map(
+      args.pullRequests.flatMap((pullRequest, index) =>
+        pullRequest.headRepository === null
+          ? []
+          : [[pullRequest.id, ["repository", `pr${index}`, "baseRef", "comparison"]] as const],
+      ),
+    ),
+  });
+  const comparisons = new Map<string, PullRequestComparison>();
+  for (const [index, pullRequest] of args.pullRequests.entries()) {
+    const node = pullRequestComparisonNodeSchema.nullable().parse(repository[`pr${index}`]);
+    if (node === null) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub pull request changed during comparison collection.",
+        true,
+      );
+    }
+    if (
+      node.id !== pullRequest.id ||
+      node.number !== pullRequest.number ||
+      node.baseRefName !== pullRequest.baseRefName ||
+      node.headRefName !== pullRequest.headRefName ||
+      node.headRefOid !== pullRequest.headRefOid
+    ) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub pull request identity changed during comparison collection.",
+        true,
+      );
+    }
+    if (node.baseRef === null) {
+      comparisons.set(pullRequest.id, {
+        state: "unavailable",
+        reason: "base_ref_unavailable",
+      });
+      continue;
+    }
+    const expectedBaseSha = args.branchHeadShaByName.get(pullRequest.baseRefName);
+    if (
+      expectedBaseSha === undefined ||
+      node.baseRef.name !== pullRequest.baseRefName ||
+      node.baseRef.target.oid !== expectedBaseSha
+    ) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub pull request base changed during comparison collection.",
+        true,
+      );
+    }
+    const expectedHeadRepository = pullRequest.headRepository;
+    if (expectedHeadRepository === null) {
+      if (node.headRepository !== null || node.headRef !== null) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub pull request head became available during comparison collection.",
+          true,
+        );
+      }
+      comparisons.set(pullRequest.id, {
+        state: "unavailable",
+        reason: "head_ref_unavailable",
+      });
+      continue;
+    }
+    if (node.headRepository === null || node.headRef === null) {
+      comparisons.set(pullRequest.id, {
+        state: "unavailable",
+        reason: "head_ref_unavailable",
+      });
+      continue;
+    }
+    if (
+      node.headRepository.id !== expectedHeadRepository.id ||
+      node.headRepository.nameWithOwner.toLowerCase() !==
+        expectedHeadRepository.nameWithOwner.toLowerCase() ||
+      node.headRepository.owner.login.toLowerCase() !==
+        expectedHeadRepository.owner.login.toLowerCase() ||
+      node.headRef.name !== pullRequest.headRefName ||
+      node.headRef.target.oid !== pullRequest.headRefOid
+    ) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub pull request head changed during comparison collection.",
+        true,
+      );
+    }
+    const comparison = node.baseRef.comparison;
+    const comparisonError = comparisonErrorPullRequestIds.has(pullRequest.id);
+    if (comparisonError && comparison !== null && comparison !== undefined) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub returned both a pull request comparison and an error for it.",
+        true,
+      );
+    }
+    if (comparison === null) {
+      comparisons.set(pullRequest.id, {
+        state: "unavailable",
+        reason: "not_comparable",
+      });
+      continue;
+    }
+    if (comparison === undefined) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub did not return a pull request comparison.",
+        false,
+      );
+    }
+    if (
+      comparison.baseTarget.oid !== node.baseRef.target.oid ||
+      comparison.headTarget.oid !== node.headRef.target.oid
+    ) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub pull request comparison targets changed while they were being collected.",
+        true,
+      );
+    }
+    comparisons.set(pullRequest.id, {
+      state: "ready",
+      aheadBy: comparison.aheadBy,
+      behindBy: comparison.behindBy,
+    });
+  }
+  return comparisons;
+}
+
 async function collectPullRequests(args: {
   pageSize: number;
   requestGraphql: RepositoryInventoryGraphqlRequest;
+  requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest;
   repositoryId: string;
   repositoryDatabaseId: string;
   repositoryFullName: string;
@@ -1094,6 +1479,15 @@ async function collectPullRequests(args: {
       );
     }
 
+    const comparisons = await collectPullRequestComparisons({
+      requestGraphqlPartial: args.requestGraphqlPartial,
+      repositoryId: args.repositoryId,
+      repositoryDatabaseId: args.repositoryDatabaseId,
+      repositoryFullName: args.repositoryFullName,
+      branchHeadShaByName: args.branchHeadShaByName,
+      pullRequests: repository.pullRequests.nodes,
+    });
+
     for (const pullRequest of repository.pullRequests.nodes) {
       if (seenPullRequestIds.has(pullRequest.id)) {
         throw new GitHubGraphqlRequestError("GitHub returned a duplicate pull request.", true);
@@ -1123,8 +1517,16 @@ async function collectPullRequests(args: {
         initial: pullRequest.labels,
       });
       const headRepositoryFullName = pullRequest.headRepository?.nameWithOwner;
-      const isBaseRepositoryHead =
-        headRepositoryFullName?.toLowerCase() === args.repositoryFullName.toLowerCase();
+      if (
+        pullRequest.headRepository !== null &&
+        pullRequest.isCrossRepository !== (pullRequest.headRepository.id !== args.repositoryId)
+      ) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub returned inconsistent pull request repository identities.",
+          true,
+        );
+      }
+      const isBaseRepositoryHead = pullRequest.headRepository?.id === args.repositoryId;
       const collectedBranchHeadSha = args.branchHeadShaByName.get(pullRequest.headRefName);
       if (
         isBaseRepositoryHead &&
@@ -1138,6 +1540,10 @@ async function collectPullRequests(args: {
       }
       const canOpenInSamebase =
         isBaseRepositoryHead && collectedBranchHeadSha === pullRequest.headRefOid;
+      const comparison = comparisons.get(pullRequest.id);
+      if (comparison === undefined) {
+        throw new Error("Pull request comparison collection omitted a pull request.");
+      }
       items.push({
         kind: "pull_request",
         sortGroup: 1,
@@ -1147,6 +1553,8 @@ async function collectPullRequests(args: {
         url: pullRequest.url,
         title: pullRequest.title,
         isDraft: pullRequest.isDraft,
+        isCrossRepository: pullRequest.isCrossRepository,
+        comparison,
         additions: pullRequest.additions,
         deletions: pullRequest.deletions,
         changedFiles: pullRequest.changedFiles,
@@ -1372,6 +1780,7 @@ export async function collectRepositoryInventory(args: {
   expectedRepositoryDatabaseId: string;
   pageSize: number;
   requestGraphql: RepositoryInventoryGraphqlRequest;
+  requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest;
 }): Promise<CollectedRepositoryInventory> {
   const branches = await collectBranches(args);
   const branchHeadShaByName = new Map(
@@ -1532,7 +1941,7 @@ export function createGitHubGraphqlClient(args: {
 }): GitHubGraphqlClient {
   const fetchImpl = args.fetchImpl ?? fetch;
   let usage: GitHubGraphqlRateUsage | undefined;
-  const request: RepositoryInventoryGraphqlRequest = async (query, variables) => {
+  const requestPartial: RepositoryInventoryGraphqlPartialRequest = async (query, variables) => {
     let response: Response;
     let rawPayload: unknown;
     try {
@@ -1586,7 +1995,6 @@ export function createGitHubGraphqlClient(args: {
       usage = observedUsage;
     }
     const errors = envelope.data.errors ?? [];
-    const messages = errors.map((error) => error.message);
     if (
       isRateLimitFailure({
         response,
@@ -1604,24 +2012,40 @@ export function createGitHubGraphqlClient(args: {
         usage,
       );
     }
-    if (observedUsage === undefined && response.ok && messages.length === 0) {
-      throw new GitHubGraphqlRequestError(
-        "GitHub GraphQL did not return rate-limit accounting.",
-        false,
-      );
-    }
-    if (!response.ok || messages.length > 0 || envelope.data.data === undefined) {
-      const details = [...messages, ...(envelope.data.message ? [envelope.data.message] : [])];
+    if (!response.ok || envelope.data.message !== undefined || envelope.data.data === undefined) {
+      const details = [
+        ...errors.map((error) => error.message),
+        ...(envelope.data.message ? [envelope.data.message] : []),
+      ];
       const detail = details.length > 0 ? `: ${details.join("; ")}` : "";
       throw new GitHubGraphqlRequestError(
         `GitHub GraphQL request failed (${response.status})${detail}`,
         response.status >= 500 || errors.some(isRetryableGraphqlError),
       );
     }
-    return envelope.data.data;
+    if (observedUsage === undefined) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub GraphQL did not return rate-limit accounting.",
+        false,
+      );
+    }
+    return { data: envelope.data.data, errors };
+  };
+  const request: RepositoryInventoryGraphqlRequest = async (query, variables) => {
+    const response = await requestPartial(query, variables);
+    if (response.errors.length > 0) {
+      throw new GitHubGraphqlRequestError(
+        `GitHub GraphQL request failed (200): ${response.errors
+          .map((error) => error.message)
+          .join("; ")}`,
+        response.errors.some(isRetryableGraphqlError),
+      );
+    }
+    return response.data;
   };
   return {
     request,
+    requestPartial,
     getUsage: () => usage,
   };
 }
@@ -1630,6 +2054,7 @@ export async function collectRepositoryInventoryWithRetry(args: {
   repositoryNodeId: string;
   expectedRepositoryDatabaseId: string;
   requestGraphql: RepositoryInventoryGraphqlRequest;
+  requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest;
 }): Promise<CollectedRepositoryInventory> {
   try {
     return await collectRepositoryInventory({

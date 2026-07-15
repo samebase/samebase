@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type {
+  RepositoryInventoryBranchComparison,
   RepositoryInventoryLifecycle,
   RepositoryInventoryPublication,
+  RepositoryInventoryPullRequestComparison,
 } from "./repositoryInventoryModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -299,6 +301,7 @@ async function insertBranch(
     name: string;
     isDefault?: boolean;
     sortTime?: number;
+    comparison?: RepositoryInventoryBranchComparison;
   },
 ) {
   return await t.run(
@@ -312,6 +315,11 @@ async function insertBranch(
         rowKey: `branch:${args.name}`,
         name: args.name,
         isDefault: args.isDefault ?? false,
+        comparison:
+          args.comparison ??
+          (args.isDefault
+            ? { state: "ready", aheadBy: 0, behindBy: 0 }
+            : { state: "ready", aheadBy: 6, behindBy: 2 }),
         headCommit: {
           sha: `${args.name}-sha`,
           title: `${args.name} commit`,
@@ -332,6 +340,8 @@ async function insertPullRequest(
     headRefName: string;
     sortTime: number;
     canOpenInSamebase: boolean;
+    isCrossRepository?: boolean;
+    comparison?: RepositoryInventoryPullRequestComparison;
     labelCount?: number;
     labelChunkCount?: number;
     filterLabelKeys?: string[];
@@ -354,8 +364,10 @@ async function insertPullRequest(
         deletions: args.number,
         changedFiles: Math.max(1, args.number % 10),
         baseRefName: args.number === 42 ? "release/1.2" : "main",
+        isCrossRepository: args.isCrossRepository ?? !args.canOpenInSamebase,
         headRepositoryFullName: args.canOpenInSamebase ? "ada/inventory" : "contributor/fork",
         headRefName: args.headRefName,
+        comparison: args.comparison ?? { state: "ready", aheadBy: 6, behindBy: 2 },
         canOpenInSamebase: args.canOpenInSamebase,
         localHeadRefName: args.canOpenInSamebase ? args.headRefName : undefined,
         labelCount: args.labelCount ?? 0,
@@ -938,8 +950,8 @@ describe("repository inventory snapshot reads", () => {
     const { asUser, ids, t } = await createConnectedVault();
     const snapshotId = await insertSnapshot(t, {
       vaultId: ids.vaultId,
-      branchCount: 1,
-      pullRequestCount: 1,
+      branchCount: 2,
+      pullRequestCount: 2,
       labelCount: 3,
       labelChunkCount: 2,
       labelFacetCount: 3,
@@ -950,6 +962,13 @@ describe("repository inventory snapshot reads", () => {
       name: "main",
       isDefault: true,
       sortTime: 0,
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "feature/unrelated-history",
+      sortTime: -now,
+      comparison: { state: "unavailable", reason: "not_comparable" },
     });
     const rowKey = "pull-request:PR_42";
     const pullRequestItemId = await insertPullRequest(t, {
@@ -964,11 +983,22 @@ describe("repository inventory snapshot reads", () => {
       labelChunkCount: 2,
       filterLabelKeys: ["bug", "priority", "ready"],
     });
+    const forkRowKey = "pull-request:PR_43";
+    const forkPullRequestItemId = await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: forkRowKey,
+      number: 43,
+      headRefName: "feature/from-fork",
+      sortTime: -(now - 1_000),
+      canOpenInSamebase: false,
+      comparison: { state: "unavailable", reason: "head_ref_unavailable" },
+    });
     const filterViewId = await insertFilterView(t, {
       ...ids,
       snapshotId,
-      totalPullRequestCount: 1,
-      visiblePullRequestCount: 1,
+      totalPullRequestCount: 2,
+      visiblePullRequestCount: 2,
     });
     await insertInventory(t, {
       ...ids,
@@ -983,6 +1013,14 @@ describe("repository inventory snapshot reads", () => {
         pullRequestItemId,
         rowKey,
         sortTime: -now,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        pullRequestItemId: forkPullRequestItemId,
+        rowKey: forkRowKey,
+        sortTime: -(now - 1_000),
       });
       await ctx.db.insert("vaultRepositoryInventoryLabelFacets", {
         vaultId: ids.vaultId,
@@ -1037,9 +1075,24 @@ describe("repository inventory snapshot reads", () => {
     expect(branchPage).toMatchObject({
       state: "ready",
       snapshotId,
-      expectedBranchCount: 1,
+      expectedBranchCount: 2,
       isDone: true,
-      page: [{ kind: "branch", rowKey: "branch:main", name: "main", isDefault: true }],
+      page: [
+        {
+          kind: "branch",
+          rowKey: "branch:main",
+          name: "main",
+          isDefault: true,
+          comparison: { state: "ready", aheadBy: 0, behindBy: 0 },
+        },
+        {
+          kind: "branch",
+          rowKey: "branch:feature/unrelated-history",
+          name: "feature/unrelated-history",
+          isDefault: false,
+          comparison: { state: "unavailable", reason: "not_comparable" },
+        },
+      ],
     });
 
     const pullRequestPage = await asUser.query(
@@ -1055,8 +1108,8 @@ describe("repository inventory snapshot reads", () => {
       state: "ready",
       snapshotId,
       viewId: filterViewId,
-      expectedVisiblePullRequestCount: 1,
-      totalPullRequestCount: 1,
+      expectedVisiblePullRequestCount: 2,
+      totalPullRequestCount: 2,
       isDone: true,
       page: [
         {
@@ -1066,7 +1119,21 @@ describe("repository inventory snapshot reads", () => {
           additions: 420,
           deletions: 42,
           changedFiles: 2,
+          baseRefName: "release/1.2",
+          isCrossRepository: false,
+          headRepositoryFullName: "ada/inventory",
+          comparison: { state: "ready", aheadBy: 6, behindBy: 2 },
           labelCount: 3,
+        },
+        {
+          kind: "pull_request",
+          rowKey: forkRowKey,
+          number: 43,
+          baseRefName: "main",
+          isCrossRepository: true,
+          headRepositoryFullName: "contributor/fork",
+          comparison: { state: "unavailable", reason: "head_ref_unavailable" },
+          labelCount: 0,
         },
       ],
     });

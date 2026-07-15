@@ -42,6 +42,40 @@ export type RepositoryInventoryPullRequestLabel = Infer<
   typeof vRepositoryInventoryPullRequestLabel
 >;
 
+export const vRepositoryInventoryBranchComparison = union(
+  object({
+    state: literal("ready"),
+    aheadBy: number(),
+    behindBy: number(),
+  }),
+  object({
+    state: literal("unavailable"),
+    reason: union(literal("default_branch_unavailable"), literal("not_comparable")),
+  }),
+);
+export type RepositoryInventoryBranchComparison = Infer<
+  typeof vRepositoryInventoryBranchComparison
+>;
+
+export const vRepositoryInventoryPullRequestComparison = union(
+  object({
+    state: literal("ready"),
+    aheadBy: number(),
+    behindBy: number(),
+  }),
+  object({
+    state: literal("unavailable"),
+    reason: union(
+      literal("base_ref_unavailable"),
+      literal("head_ref_unavailable"),
+      literal("not_comparable"),
+    ),
+  }),
+);
+export type RepositoryInventoryPullRequestComparison = Infer<
+  typeof vRepositoryInventoryPullRequestComparison
+>;
+
 export const vRepositoryInventoryFilters = object({
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
@@ -102,6 +136,7 @@ const repositoryInventoryBranchFields = {
   ...repositoryInventoryPublicItemFields,
   name: string(),
   isDefault: boolean(),
+  comparison: vRepositoryInventoryBranchComparison,
 };
 
 export const vRepositoryInventoryBranchItem = object({
@@ -120,8 +155,10 @@ const repositoryInventoryPullRequestFields = {
   deletions: number(),
   changedFiles: number(),
   baseRefName: string(),
+  isCrossRepository: boolean(),
   headRepositoryFullName: optional(string()),
   headRefName: string(),
+  comparison: vRepositoryInventoryPullRequestComparison,
   canOpenInSamebase: boolean(),
   labelCount: number(),
 };

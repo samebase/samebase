@@ -184,6 +184,7 @@ describe("GitHub GraphQL client rate accounting", () => {
         repositoryNodeId: "R_base",
         expectedRepositoryDatabaseId: "123",
         requestGraphql: client.request,
+        requestGraphqlPartial: client.requestPartial,
       }),
     );
 
@@ -331,6 +332,42 @@ describe("GitHub GraphQL client rate accounting", () => {
     });
   });
 
+  it("exposes accounted partial data only through the explicit partial request", async () => {
+    const { fetchImpl } = responseQueue([
+      jsonResponse({
+        data: {
+          repository: { ready: { id: "PR_ready" }, missing: null },
+          rateLimit: graphqlRateLimit({ cost: 1 }),
+        },
+        errors: [
+          {
+            message: "Could not resolve head ref.",
+            type: "NOT_FOUND",
+            path: ["repository", "missing", "baseRef", "comparison"],
+          },
+        ],
+      }),
+    ]);
+    const client = createGitHubGraphqlClient({ credential: "github-token", fetchImpl });
+
+    await expect(
+      client.requestPartial("query PartialComparison { repository { id } }", {}),
+    ).resolves.toEqual({
+      data: {
+        repository: { ready: { id: "PR_ready" }, missing: null },
+        rateLimit: graphqlRateLimit({ cost: 1 }),
+      },
+      errors: [
+        {
+          message: "Could not resolve head ref.",
+          type: "NOT_FOUND",
+          path: ["repository", "missing", "baseRef", "comparison"],
+        },
+      ],
+    });
+    expect(client.getUsage()?.cost).toBe(1);
+  });
+
   it.each([
     ["RESOURCE_LIMIT", "Query exceeded a resource limit"],
     ["TIMEOUT", "Query timed out"],
@@ -413,6 +450,7 @@ describe("GitHub GraphQL client rate accounting", () => {
         repositoryNodeId: "R_base",
         expectedRepositoryDatabaseId: "42",
         requestGraphql: client.request,
+        requestGraphqlPartial: client.requestPartial,
       }),
     ).resolves.toMatchObject({ branchCount: 0, pullRequestCount: 0 });
 

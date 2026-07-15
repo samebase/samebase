@@ -165,11 +165,16 @@ interface FixtureVaultBranchRow {
   branch: FixtureVaultBranch;
 }
 
-type FixtureVaultBranchDefaults = "canOpenInSamebase" | "githubRepositoryFullName" | "rowKey";
+type FixtureVaultBranchDefaults =
+  | "canOpenInSamebase"
+  | "comparison"
+  | "githubRepositoryFullName"
+  | "rowKey";
 
 type FixtureVaultBranchInput =
   | (Omit<Extract<FixtureVaultBranch, { kind: "branch" }>, FixtureVaultBranchDefaults> & {
       canOpenInSamebase?: boolean;
+      comparison?: Extract<FixtureVaultBranch, { kind: "branch" }>["comparison"];
       githubRepositoryFullName?: string;
       rowKey?: string;
     })
@@ -177,16 +182,21 @@ type FixtureVaultBranchInput =
       Extract<FixtureVaultBranch, { kind: "pull_request" }>,
       | FixtureVaultBranchDefaults
       | "pullRequestAdditions"
+      | "pullRequestBaseRefName"
       | "pullRequestChangedFiles"
       | "pullRequestDeletions"
+      | "pullRequestIsCrossRepository"
       | "pullRequestIsDraft"
       | "pullRequestLabels"
     > & {
       canOpenInSamebase?: boolean;
+      comparison?: Extract<FixtureVaultBranch, { kind: "pull_request" }>["comparison"];
       githubRepositoryFullName?: string;
       pullRequestAdditions?: number;
+      pullRequestBaseRefName?: string;
       pullRequestChangedFiles?: number;
       pullRequestDeletions?: number;
+      pullRequestIsCrossRepository?: boolean;
       pullRequestIsDraft?: boolean;
       pullRequestLabels?: Array<string | { name: string; color?: string }>;
       rowKey?: string;
@@ -203,13 +213,24 @@ function fixtureVaultBranch(branch: FixtureVaultBranchInput): FixtureVaultBranch
     canOpenInSamebase: branch.canOpenInSamebase ?? true,
   };
   return branch.kind === "branch"
-    ? { ...branch, ...sharedFields }
+    ? {
+        ...branch,
+        ...sharedFields,
+        comparison: branch.comparison ?? {
+          state: "ready",
+          aheadBy: branch.isDefault ? 0 : 6,
+          behindBy: branch.isDefault ? 0 : 2,
+        },
+      }
     : {
         ...branch,
         ...sharedFields,
+        comparison: branch.comparison ?? { state: "ready", aheadBy: 6, behindBy: 2 },
         pullRequestAdditions: branch.pullRequestAdditions ?? 1_240,
+        pullRequestBaseRefName: branch.pullRequestBaseRefName ?? "main",
         pullRequestDeletions: branch.pullRequestDeletions ?? 318,
         pullRequestChangedFiles: branch.pullRequestChangedFiles ?? 17,
+        pullRequestIsCrossRepository: branch.pullRequestIsCrossRepository ?? false,
         pullRequestIsDraft: branch.pullRequestIsDraft ?? false,
         pullRequestLabels: branch.pullRequestLabels ?? [],
       };
@@ -1809,6 +1830,7 @@ function VaultDashboardStickyHeaderFixture() {
               repositoryStatus={<span data-testid="sticky-header-status">Updated 12s ago</span>}
               branchSection={
                 <VaultBranchSection
+                  defaultBranchName="main"
                   loadMore={ignoreFixtureLoadMore}
                   paginationStatus="Exhausted"
                   repositoryFullName="samebase/samebase"
@@ -1863,6 +1885,7 @@ function VaultDashboardLargeBranchListFixture() {
                 topRightAction={<FixtureDeleteControl />}
                 branchSection={
                   <VaultBranchSection
+                    defaultBranchName="main"
                     loadMore={loadMoreLargeBranches}
                     paginationStatus={paginationStatus}
                     repositoryFullName="samebase/samebase"
@@ -1947,6 +1970,7 @@ function VaultPullRequestFiltersFixture({ mode }: { mode: VaultDashboardVisualMo
                       key={row.rowKey}
                       vaultId={fakeVaultId()}
                       repositoryFullName="samebase/samebase"
+                      defaultBranchName="main"
                       branch={row}
                     />
                   ))}
@@ -2103,6 +2127,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="samebase/samebase"
+                      defaultBranchName="main"
                       branch={fixtureVaultBranch({
                         kind: "branch",
                         name: "main",
@@ -2126,6 +2151,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="samebase/samebase"
+                      defaultBranchName="main"
                       branch={fixtureVaultBranch({
                         kind: "pull_request",
                         name: "codex/mobile-branch-card-spacing",
@@ -2157,6 +2183,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
           <VaultBranchLinkRow
             vaultId={fakeVaultId()}
             repositoryFullName="octo/repo"
+            defaultBranchName="main"
             branch={fixtureVaultBranch({
               kind: "pull_request",
               name: "feature/pr-labels",
@@ -2170,6 +2197,46 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                 { name: "needs review", color: "fbca04" },
                 { name: "bug", color: "d73a4a" },
               ],
+            })}
+          />
+          <VaultBranchLinkRow
+            vaultId={fakeVaultId()}
+            repositoryFullName="octo/repo"
+            defaultBranchName="main"
+            branch={fixtureVaultBranch({
+              kind: "pull_request",
+              name: "contributor/fork-fix",
+              headCommit: { sha: "234567890abcdef1234567890abcdef123456789" },
+              isDefault: false,
+              githubRepositoryFullName: "contributor/octo-fork",
+              canOpenInSamebase: false,
+              pullRequestUrl: "https://github.com/octo/repo/pull/43",
+              pullRequestNumber: 43,
+              pullRequestTitle: "Ship the release fix from a fork",
+              pullRequestBaseRefName: "release",
+              pullRequestIsCrossRepository: true,
+              pullRequestAdditions: 48,
+              pullRequestDeletions: 9,
+              pullRequestChangedFiles: 5,
+            })}
+          />
+          <VaultBranchLinkRow
+            vaultId={fakeVaultId()}
+            repositoryFullName="octo/repo"
+            defaultBranchName="main"
+            branch={fixtureVaultBranch({
+              kind: "pull_request",
+              name: "feature/unavailable-comparison",
+              headCommit: { sha: "34567890abcdef1234567890abcdef1234567890" },
+              isDefault: false,
+              githubRepositoryFullName: "octo/repo",
+              comparison: { state: "unavailable", reason: "not_comparable" },
+              pullRequestUrl: "https://github.com/octo/repo/pull/44",
+              pullRequestNumber: 44,
+              pullRequestTitle: "Keep missing comparisons explicit",
+              pullRequestAdditions: 3,
+              pullRequestDeletions: 1,
+              pullRequestChangedFiles: 1,
             })}
           />
         </TestRouterProvider>

@@ -219,16 +219,26 @@ async function readReactFlowViewportTransform(container: Locator): Promise<strin
 }
 
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
-  await page.setViewportSize({ width: 640, height: 260 });
+  await page.setViewportSize({ width: 640, height: 680 });
   await openVaultDashboardVisualFixture(page, "vault-branch-pr-labels");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture.getByText("PR #42 Keep every pull request field visible")).toBeVisible();
-  await expect(fixture.getByText("+1,240", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("−318", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("· 17 files", { exact: true })).toBeVisible();
+  await expect(
+    fixture.getByText("↑6 ↓2 vs main · +1,240 −318 · 17 files", { exact: true }),
+  ).toBeVisible();
   await expect(fixture.getByText("needs review", { exact: true })).toBeVisible();
   await expect(fixture.getByText("bug", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("PR #43 Ship the release fix from a fork")).toBeVisible();
+  await expect(
+    fixture.getByText("↑6 ↓2 vs release · +48 −9 · 5 files", { exact: true }),
+  ).toBeVisible();
+  await expect(fixture.getByText("fork", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("PR #44 Keep missing comparisons explicit")).toBeVisible();
+  await expect(
+    fixture.getByText("Comparison unavailable · +3 −1 · 1 file", { exact: true }),
+  ).toBeVisible();
+  await expect(fixture.getByText(/↑0 ↓0/)).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("vault-branch-pr-labels.png", {
     animations: "disabled",
     caret: "hide",

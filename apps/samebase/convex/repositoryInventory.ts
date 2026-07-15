@@ -1652,6 +1652,7 @@ export const listRepositoryInventoryBranchPage = query({
           headCommit: item.headCommit,
           name: item.name,
           isDefault: item.isDefault,
+          comparison: item.comparison,
         };
       }),
       isDone: page.isDone,
@@ -1730,8 +1731,10 @@ export const listRepositoryInventoryPullRequestPage = query({
           deletions: item.deletions,
           changedFiles: item.changedFiles,
           baseRefName: item.baseRefName,
+          isCrossRepository: item.isCrossRepository,
           headRepositoryFullName: item.headRepositoryFullName,
           headRefName: item.headRefName,
+          comparison: item.comparison,
           canOpenInSamebase: item.canOpenInSamebase,
           labelCount: item.labelCount,
         };

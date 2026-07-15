@@ -8,18 +8,32 @@ interface VaultRepositoryInventoryRowFields {
   previewUrl?: string;
 }
 
+export type VaultRepositoryInventoryBranchComparison = Extract<
+  LoadedRepositoryInventoryItem,
+  { kind: "branch" }
+>["comparison"];
+
+export type VaultRepositoryInventoryPullRequestComparison = Extract<
+  LoadedRepositoryInventoryItem,
+  { kind: "pull_request" }
+>["comparison"];
+
 export type VaultRepositoryInventoryRow =
   | (VaultRepositoryInventoryRowFields & {
       kind: "branch";
       githubRepositoryFullName: string;
       isDefault: boolean;
+      comparison: VaultRepositoryInventoryBranchComparison;
     })
   | (VaultRepositoryInventoryRowFields & {
       kind: "pull_request";
       githubRepositoryFullName?: string;
       isDefault: false;
+      comparison: VaultRepositoryInventoryPullRequestComparison;
       pullRequestUrl: string;
       pullRequestNumber: number;
+      pullRequestBaseRefName: string;
+      pullRequestIsCrossRepository: boolean;
       pullRequestLabels: Array<string | { name: string; color?: string }>;
       pullRequestTitle: string;
       pullRequestIsDraft: boolean;
@@ -69,6 +83,7 @@ export function mapRepositoryInventoryItemToDashboardRow(args: {
       canOpenInSamebase: true,
       headCommit: commit,
       isDefault: item.isDefault,
+      comparison: item.comparison,
       previewUrl: item.previewUrl,
     };
   }
@@ -81,8 +96,11 @@ export function mapRepositoryInventoryItemToDashboardRow(args: {
     canOpenInSamebase: item.canOpenInSamebase,
     headCommit: commit,
     isDefault: false,
+    comparison: item.comparison,
     pullRequestUrl: item.url,
     pullRequestNumber: item.number,
+    pullRequestBaseRefName: item.baseRefName,
+    pullRequestIsCrossRepository: item.isCrossRepository,
     pullRequestLabels: item.labels,
     pullRequestTitle: item.title,
     pullRequestIsDraft: item.isDraft,

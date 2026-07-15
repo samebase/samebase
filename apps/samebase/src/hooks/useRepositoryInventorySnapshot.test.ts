@@ -99,6 +99,9 @@ function branch(rowKey: string, name: string, isDefault = name === "main"): Bran
     rowKey,
     name,
     isDefault,
+    comparison: isDefault
+      ? { state: "ready", aheadBy: 0, behindBy: 0 }
+      : { state: "ready", aheadBy: 6, behindBy: 2 },
     headCommit: { sha: `${name}-sha`, checks },
   };
 }
@@ -115,8 +118,10 @@ function pullRequest(rowKey: string, labelCount: number, number = 42): PullReque
     deletions: 318,
     changedFiles: 17,
     baseRefName: "main",
+    isCrossRepository: false,
     headRepositoryFullName: "ada/inventory",
     headRefName: `feature/${number}`,
+    comparison: { state: "ready", aheadBy: 6, behindBy: 2 },
     canOpenInSamebase: true,
     labelCount,
     headCommit: { sha: `feature-${number}-sha`, checks },
@@ -343,8 +348,10 @@ describe("loadRepositoryInventorySnapshot", () => {
           deletions: 318,
           changedFiles: 17,
           baseRefName: "main",
+          isCrossRepository: false,
           headRepositoryFullName: "ada/inventory",
           headRefName: "feature/42",
+          comparison: { state: "ready", aheadBy: 6, behindBy: 2 },
           canOpenInSamebase: true,
           headCommit: { sha: "feature-42-sha", checks },
           labels: [
