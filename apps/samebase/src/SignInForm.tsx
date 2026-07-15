@@ -38,6 +38,7 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
               void navigate({
                 hash: true,
                 replace: true,
+                resetScroll: false,
                 search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
                 state: true,
                 to: ".",

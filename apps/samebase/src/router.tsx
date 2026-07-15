@@ -1,9 +1,16 @@
 import { createRouter as createTanStackRouter, type RouterHistory } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
+import {
+  defaultGetScrollRestorationKey,
+  scrollRestorationCache,
+  type ScrollRestorationEntry,
+} from "@tanstack/router-core";
 import { routeTree } from "./routeTree.gen";
 import { createAppQueryClients } from "@/lib/appQueryClient";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import type { VaultDashboardQueryDialog } from "@/routeSearch/root";
+
+const workspaceMainScrollSelector = '[data-scroll-restoration-id="workspace-layout-v2-main"]';
 
 export function getRouter() {
   return createAppRouter();
@@ -18,7 +25,57 @@ export function createAppRouter(history?: RouterHistory) {
     notFoundMode: "root",
     parseSearch: parseTanStackSearch,
     routeTree,
+    scrollRestoration: true,
+    scrollToTopSelectors: [workspaceMainScrollSelector],
     stringifySearch: stringifyTanStackSearch,
+  });
+
+  router.subscribe("onRendered", (event) => {
+    if (scrollRestorationCache === null || typeof document === "undefined") {
+      return;
+    }
+
+    const destinationKey = defaultGetScrollRestorationKey(event.toLocation);
+    // TanStack deliberately skips caching a destination when resetScroll is false.
+    // Give that new history entry its own copy so a later Back restores this position.
+    if (destinationKey in scrollRestorationCache.state) {
+      return;
+    }
+
+    const sourceKey = event.fromLocation
+      ? defaultGetScrollRestorationKey(event.fromLocation)
+      : undefined;
+    const sourceWasReplaced =
+      event.fromLocation !== undefined &&
+      event.fromLocation.state.__TSR_index === event.toLocation.state.__TSR_index;
+    const sourceEntries = sourceKey ? scrollRestorationCache.state[sourceKey] : undefined;
+    const destinationEntries: Record<string, ScrollRestorationEntry> = {};
+    for (const [selector, entry] of Object.entries(sourceEntries ?? {})) {
+      destinationEntries[selector] = {
+        scrollX: entry.scrollX,
+        scrollY: entry.scrollY,
+      };
+    }
+
+    const mainPane = document.querySelector<HTMLElement>(workspaceMainScrollSelector);
+    if (mainPane) {
+      destinationEntries[workspaceMainScrollSelector] = {
+        scrollX: mainPane.scrollLeft,
+        scrollY: mainPane.scrollTop,
+      };
+    }
+    destinationEntries.window = {
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    };
+
+    scrollRestorationCache.set((state) => {
+      state[destinationKey] = destinationEntries;
+      if (sourceWasReplaced && sourceKey !== undefined && sourceKey !== destinationKey) {
+        delete state[sourceKey];
+      }
+      return state;
+    });
   });
 
   setupRouterSsrQueryIntegration({

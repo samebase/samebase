@@ -78,8 +78,15 @@ function PublicAccountRouteLink({
   children: ReactNode;
   mode: Exclude<PublicLandingAccountMode, "links">;
 }) {
+  const pathname = useLocation({ select: (location) => location.pathname });
+
   return (
-    <Link className={ACCOUNT_LINK_CLASS_NAME} to="/" search={publicAccountModeLink(mode)}>
+    <Link
+      className={ACCOUNT_LINK_CLASS_NAME}
+      resetScroll={pathname === "/" ? false : undefined}
+      to="/"
+      search={publicAccountModeLink(mode)}
+    >
       {children}
     </Link>
   );
@@ -138,6 +145,7 @@ function PublicLandingLoggedOutAccountSection() {
         if (!isOpen && (mode === "sign-in" || mode === "create-account")) {
           void navigate({
             replace: true,
+            resetScroll: location.pathname === "/" ? false : undefined,
             search: clearPublicAccountModeSearch,
             state: true,
             to: "/",

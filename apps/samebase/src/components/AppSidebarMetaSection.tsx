@@ -123,6 +123,7 @@ export function AppSidebarMetaSection({
       {showSearchResetLink ? (
         <Link
           id="public-landing-search-reset"
+          resetScroll={false}
           to={location.pathname}
           hash={location.hash}
           search={() => ({
@@ -141,6 +142,7 @@ export function AppSidebarMetaSection({
           id="public-landing-theme-light-toggle"
           className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
           aria-label={formatRouteSearchPresenceFlagLinkLabel("light", themeMode !== "light")}
+          resetScroll={false}
           to={location.pathname}
           hash={location.hash}
           search={() =>
@@ -162,6 +164,7 @@ export function AppSidebarMetaSection({
           id="public-landing-theme-dark-toggle"
           className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
           aria-label={formatRouteSearchPresenceFlagLinkLabel("dark", themeMode !== "dark")}
+          resetScroll={false}
           to={location.pathname}
           hash={location.hash}
           search={() =>
@@ -186,6 +189,7 @@ export function AppSidebarMetaSection({
             LANDING_DEV_MODE_QUERY_PARAM,
             !landingDevEnabled,
           )}
+          resetScroll={false}
           to={location.pathname}
           hash={location.hash}
           search={() =>

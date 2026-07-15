@@ -4,6 +4,7 @@ import {
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
+  DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
@@ -97,6 +98,12 @@ async function expectExplicitSignInUrl(page: Page) {
       };
     })
     .toEqual({ auth: null, pathname: "/", signIn: true });
+}
+
+async function readMainPaneScrollTop(page: Page) {
+  return page
+    .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]')
+    .evaluate((element) => element.scrollTop);
 }
 
 test("landing preview route renders the React overview in workspace chrome", async ({ page }) => {
@@ -296,6 +303,66 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   );
 });
 
+test("landing document navigation resets new articles and restores history positions", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(LANDING_PREVIEW_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
+  await doItYourselfLink.scrollIntoViewIfNeeded();
+  await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
+  const overviewScrollTop = await readMainPaneScrollTop(page);
+
+  await doItYourselfLink.click();
+
+  await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
+  await expect(
+    article.getByRole("heading", {
+      name: "Do it yourself: deploy the Samebase stack for $0/month",
+    }),
+  ).toBeInViewport();
+
+  await article.locator('[id="deleting-samebase"]').scrollIntoViewIfNeeded();
+  await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
+  const doItYourselfScrollTop = await readMainPaneScrollTop(page);
+
+  await page
+    .getByTestId(DOCS_SIDEBAR_TEST_ID)
+    .getByRole("link", { exact: true, name: "The stack" })
+    .click();
+
+  await expect(page).toHaveURL(new RegExp(`${DOCS_THE_STACK_ROUTE}$`));
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
+  await expect(article.getByRole("heading", { exact: true, name: "The stack" })).toBeInViewport();
+
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(doItYourselfScrollTop);
+
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
+
+  await page.locator("#public-landing-theme-dark-toggle").click();
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
+
+  await page.getByRole("link", { exact: true, name: "/terms" }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/terms");
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
+  await expect(
+    page.getByRole("heading", { exact: true, name: "Terms of Service" }),
+  ).toBeInViewport();
+
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).pathname).toBe(LANDING_PREVIEW_ROUTE);
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
+});
+
 test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1440 });
   await page.goto(LANDING_PREVIEW_ROUTE, {
@@ -321,7 +388,7 @@ test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page })
   ).toBeVisible();
 });
 
-test.describe("mobile landing preview CTA", () => {
+test.describe("mobile landing preview", () => {
   test.use(landingPreviewMobileDevice);
 
   test("selects the explicit sign-in sidebar", async ({ page }) => {
@@ -357,6 +424,29 @@ test.describe("mobile landing preview CTA", () => {
         .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
         .getByRole("button", { name: "Google" }),
     ).toBeVisible();
+  });
+
+  test("opens linked documents at the top of the main pane", async ({ page }) => {
+    await page.goto(LANDING_PREVIEW_ROUTE, {
+      waitUntil: "domcontentloaded",
+    });
+
+    const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
+    const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+    const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
+    await doItYourselfLink.scrollIntoViewIfNeeded();
+    await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
+
+    await doItYourselfLink.click();
+
+    await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+    await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
+    await expect(
+      article.getByRole("heading", {
+        name: "Do it yourself: deploy the Samebase stack for $0/month",
+      }),
+    ).toBeInViewport();
   });
 });
 

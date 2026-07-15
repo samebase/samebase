@@ -51,6 +51,7 @@ function AuthenticatedRouteAccessOutlet({
     void router.navigate({
       href: canonicalRouteAddress,
       replace: true,
+      resetScroll: false,
     });
   }, [canonicalRouteAddress, router]);
 

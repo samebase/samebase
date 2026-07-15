@@ -115,6 +115,7 @@ export function WorkspaceLayoutV2FullPage({
           {...main}
           headerTestId={main.headerTestId ?? WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID}
           headerVisibility={main.headerVisibility ?? mainHeaderVisibility}
+          scrollRestorationId="workspace-layout-v2-main"
           header={
             shouldRenderMainHeader ? (
               <WorkspaceLayoutV2MainPaneHeader
