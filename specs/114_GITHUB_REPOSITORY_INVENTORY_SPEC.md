@@ -32,13 +32,12 @@ page does not poll, and becoming visible again requests an inventory immediately
 vault polls.
 
 Ordinary visible demand expires after 135 seconds. Repeated route requests extend that deadline but
-do not schedule a trailing crawl while GitHub collection is still running. A visibility request that
-arrives after GitHub collection has finished, while the local filter view is materializing,
-schedules one minimum-interval follow-up because the completed provider snapshot cannot contain
-later changes. A confirmed repository write increments a write version and guarantees exactly one
-immediate trailing crawl when the active crawl did not include that write. This distinction prevents
-abandoned tabs and repeated visibility signals from consuming GitHub capacity while preserving
-freshness.
+do not schedule a trailing crawl while GitHub collection or local filter materialization is active.
+The active generation satisfies ordinary route demand even if its provider collection finished a few
+seconds before that signal. A confirmed repository write increments a write version and guarantees
+exactly one immediate trailing crawl when the active crawl did not include that write. This
+distinction prevents duplicate full crawls from focus and polling signals while preserving
+write-after-refresh correctness.
 
 GitHub account rate coordination is keyed by the stable GitHub account ID. Token rotation does not
 split a budget, switching accounts does not inherit another account's cooldown, and two Samebase
@@ -187,9 +186,9 @@ runtime.
 - Navigating between the selected dashboard and FileView leaves exactly one active demand loop.
 - A failed or rate-delayed crawl leaves the previous complete snapshot visible and reports the
   current lifecycle accurately.
-- Repeated visibility demand during GitHub collection creates no trailing crawl. Visibility demand
-  during local materialization creates exactly one minimum-interval follow-up. One or more confirmed
-  writes during either phase create exactly one immediate required snapshot.
+- Repeated visibility demand during GitHub collection or local materialization creates no trailing
+  crawl. One or more confirmed writes during either phase create exactly one immediate required
+  snapshot.
 - Deferred ordinary demand is abandoned after its visibility deadline expires.
 - Publication becomes visible in one atomic root change. Readers never combine rows or labels from
   different snapshots.

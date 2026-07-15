@@ -23,6 +23,9 @@ export type VaultRepositoryInventoryRow =
       pullRequestLabels: Array<string | { name: string; color?: string }>;
       pullRequestTitle: string;
       pullRequestIsDraft: boolean;
+      pullRequestAdditions: number;
+      pullRequestDeletions: number;
+      pullRequestChangedFiles: number;
     });
 
 export interface VaultRepositoryInventoryHeadCommit {
@@ -83,6 +86,9 @@ export function mapRepositoryInventoryItemToDashboardRow(args: {
     pullRequestLabels: item.labels,
     pullRequestTitle: item.title,
     pullRequestIsDraft: item.isDraft,
+    pullRequestAdditions: item.additions,
+    pullRequestDeletions: item.deletions,
+    pullRequestChangedFiles: item.changedFiles,
     previewUrl: item.previewUrl,
   };
 }

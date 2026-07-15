@@ -31,6 +31,9 @@ export function VaultDashboardBranchVisualFixture() {
                   pullRequestUrl: "https://github.com/samebase/samebase/pull/999",
                   pullRequestNumber: 999,
                   pullRequestTitle: "Show PR titles above lighter branch labels",
+                  pullRequestAdditions: 1_240,
+                  pullRequestDeletions: 318,
+                  pullRequestChangedFiles: 17,
                   pullRequestIsDraft: true,
                   pullRequestLabels: [{ name: "dashboard", color: "1d76db" }],
                 }}

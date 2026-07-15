@@ -224,6 +224,9 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture.getByText("PR #42 Keep every pull request field visible")).toBeVisible();
+  await expect(fixture.getByText("+1,240", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("−318", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("· 17 files", { exact: true })).toBeVisible();
   await expect(fixture.getByText("needs review", { exact: true })).toBeVisible();
   await expect(fixture.getByText("bug", { exact: true })).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-branch-pr-labels.png", {

@@ -783,6 +783,12 @@ function formatChecksCount(count: number): string {
   return `${count} ${count === 1 ? "check" : "checks"}`;
 }
 
+const repositoryInventoryCountFormatter = new Intl.NumberFormat("en-US");
+
+function formatRepositoryInventoryCount(count: number): string {
+  return repositoryInventoryCountFormatter.format(count);
+}
+
 function formatCommitChecksCompactLabel(
   summary: VaultRepositoryInventoryCommitChecksSummary,
 ): string {
@@ -2159,6 +2165,16 @@ export function VaultBranchLinkContent({
         )}
         <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
           <VaultBranchHeadCommit commit={branchRow.headCommit} previewUrl={branchRow.previewUrl} />
+          {pullRequest ? (
+            <div className="flex flex-wrap items-center gap-x-2 font-mono text-sm">
+              <span>+{formatRepositoryInventoryCount(pullRequest.additions)}</span>
+              <span>−{formatRepositoryInventoryCount(pullRequest.deletions)}</span>
+              <span>
+                · {formatRepositoryInventoryCount(pullRequest.changedFiles)}{" "}
+                {pullRequest.changedFiles === 1 ? "file" : "files"}
+              </span>
+            </div>
+          ) : null}
           {hasPullRequestMetadata ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               {pullRequest?.isDraft ? (

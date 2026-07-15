@@ -10,6 +10,9 @@ export type VaultBranchPullRequestViewModel = {
   title: string;
   url: string;
   isDraft: boolean;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
   labels: readonly PullRequestLabelDisplay[];
 };
 
@@ -62,6 +65,9 @@ export function buildVaultBranchRowViewModel({
             title: branch.pullRequestTitle,
             url: branch.pullRequestUrl,
             isDraft: branch.pullRequestIsDraft,
+            additions: branch.pullRequestAdditions,
+            deletions: branch.pullRequestDeletions,
+            changedFiles: branch.pullRequestChangedFiles,
             labels: normalizePullRequestLabels(branch.pullRequestLabels),
           },
     headCommit: {

@@ -175,10 +175,18 @@ type FixtureVaultBranchInput =
     })
   | (Omit<
       Extract<FixtureVaultBranch, { kind: "pull_request" }>,
-      FixtureVaultBranchDefaults | "pullRequestIsDraft" | "pullRequestLabels"
+      | FixtureVaultBranchDefaults
+      | "pullRequestAdditions"
+      | "pullRequestChangedFiles"
+      | "pullRequestDeletions"
+      | "pullRequestIsDraft"
+      | "pullRequestLabels"
     > & {
       canOpenInSamebase?: boolean;
       githubRepositoryFullName?: string;
+      pullRequestAdditions?: number;
+      pullRequestChangedFiles?: number;
+      pullRequestDeletions?: number;
       pullRequestIsDraft?: boolean;
       pullRequestLabels?: Array<string | { name: string; color?: string }>;
       rowKey?: string;
@@ -199,6 +207,9 @@ function fixtureVaultBranch(branch: FixtureVaultBranchInput): FixtureVaultBranch
     : {
         ...branch,
         ...sharedFields,
+        pullRequestAdditions: branch.pullRequestAdditions ?? 1_240,
+        pullRequestDeletions: branch.pullRequestDeletions ?? 318,
+        pullRequestChangedFiles: branch.pullRequestChangedFiles ?? 17,
         pullRequestIsDraft: branch.pullRequestIsDraft ?? false,
         pullRequestLabels: branch.pullRequestLabels ?? [],
       };

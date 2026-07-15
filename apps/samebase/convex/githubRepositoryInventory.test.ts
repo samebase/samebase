@@ -22,6 +22,9 @@ type FixturePullRequest = {
   headRepositoryFullName: string;
   isDraft: boolean;
   isCrossRepository: boolean;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
   labelCount: number;
   checkCount: number;
   updatedAt: string;
@@ -220,6 +223,9 @@ function makePullRequestNode(fixture: RepositoryFixture, pullRequest: FixturePul
     url: `https://github.com/${fixture.repositoryFullName}/pull/${pullRequest.number}`,
     isDraft: pullRequest.isDraft,
     isCrossRepository: pullRequest.isCrossRepository,
+    additions: pullRequest.additions,
+    deletions: pullRequest.deletions,
+    changedFiles: pullRequest.changedFiles,
     createdAt: "2026-07-14T10:00:00Z",
     updatedAt: pullRequest.updatedAt,
     baseRefName: fixture.defaultBranch,
@@ -376,6 +382,11 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       if (!query.includes("orderBy: { field: CREATED_AT, direction: ASC }")) {
         throw new Error("Expected stable pull request creation ordering.");
       }
+      for (const field of ["additions", "deletions", "changedFiles"]) {
+        if (!query.includes(field)) {
+          throw new Error(`Expected pull request ${field}.`);
+        }
+      }
       const start = readCursor(variables, "pull-request");
       const page = slicePage({
         values: pullRequestNodes,
@@ -483,6 +494,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "samebase/samebase",
           isDraft: false,
           isCrossRepository: false,
+          additions: 1_240,
+          deletions: 318,
+          changedFiles: 17,
           labelCount: 101,
           checkCount: 0,
           updatedAt: "2026-07-15T10:02:00Z",
@@ -497,6 +511,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "contributor/samebase",
           isDraft: true,
           isCrossRepository: true,
+          additions: 7,
+          deletions: 2,
+          changedFiles: 3,
           labelCount: 0,
           checkCount: 0,
           updatedAt: "2026-07-15T10:03:00Z",
@@ -543,6 +560,11 @@ describe("GitHub repository inventory collection", () => {
       throw new Error("Expected both pull requests.");
     }
     expect(sameRepositoryPullRequest.canOpenInSamebase).toBe(true);
+    expect(sameRepositoryPullRequest).toMatchObject({
+      additions: 1_240,
+      deletions: 318,
+      changedFiles: 17,
+    });
     expect(sameRepositoryPullRequest.labels).toHaveLength(101);
     expect(sameRepositoryPullRequest.labels.slice(0, 4).map((label) => label.name)).toEqual([
       "label-0",
@@ -575,6 +597,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "samebase/samebase",
           isDraft: false,
           isCrossRepository: false,
+          additions: 5_001,
+          deletions: 0,
+          changedFiles: 1,
           labelCount: 5_001,
           checkCount: 0,
           updatedAt: "2026-07-15T10:02:00Z",
@@ -607,6 +632,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "samebase/samebase",
           isDraft: false,
           isCrossRepository: false,
+          additions: 4,
+          deletions: 2,
+          changedFiles: 2,
           labelCount: 1,
           checkCount: 1,
           updatedAt: "2026-07-15T10:02:00Z",
@@ -713,6 +741,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "samebase/samebase",
           isDraft: false,
           isCrossRepository: false,
+          additions: 1,
+          deletions: 1,
+          changedFiles: 1,
           labelCount: 0,
           checkCount: 0,
           updatedAt: "2026-07-15T10:02:00Z",
@@ -774,6 +805,9 @@ describe("GitHub repository inventory collection", () => {
       headRepositoryFullName: "samebase/samebase",
       isDraft: false,
       isCrossRepository: false,
+      additions: 2,
+      deletions: 1,
+      changedFiles: 1,
       labelCount: 0,
       checkCount: 0,
       updatedAt: "2026-07-15T10:02:00Z",
@@ -835,6 +869,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "samebase/samebase",
           isDraft: false,
           isCrossRepository: false,
+          additions: 3,
+          deletions: 1,
+          changedFiles: 1,
           labelCount: 0,
           checkCount: 0,
           updatedAt: "2026-07-15T10:02:00Z",
@@ -849,6 +886,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "samebase/samebase",
           isDraft: false,
           isCrossRepository: false,
+          additions: 4,
+          deletions: 1,
+          changedFiles: 1,
           labelCount: 0,
           checkCount: 0,
           updatedAt: "2026-07-15T10:03:00Z",
@@ -863,6 +903,9 @@ describe("GitHub repository inventory collection", () => {
           headRepositoryFullName: "samebase/samebase",
           isDraft: false,
           isCrossRepository: false,
+          additions: 5,
+          deletions: 1,
+          changedFiles: 1,
           labelCount: 0,
           checkCount: 0,
           updatedAt: "2026-07-15T10:04:00Z",

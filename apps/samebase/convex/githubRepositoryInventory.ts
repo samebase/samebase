@@ -136,6 +136,9 @@ const pullRequestSchema = z.object({
   url: z.string(),
   isDraft: z.boolean(),
   isCrossRepository: z.boolean(),
+  additions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  changedFiles: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
   baseRefName: z.string(),
@@ -351,6 +354,9 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
             url
             isDraft
             isCrossRepository
+            additions
+            deletions
+            changedFiles
             createdAt
             updatedAt
             baseRefName
@@ -1141,6 +1147,9 @@ async function collectPullRequests(args: {
         url: pullRequest.url,
         title: pullRequest.title,
         isDraft: pullRequest.isDraft,
+        additions: pullRequest.additions,
+        deletions: pullRequest.deletions,
+        changedFiles: pullRequest.changedFiles,
         baseRefName: pullRequest.baseRefName,
         headRepositoryFullName,
         headRefName: pullRequest.headRefName,

@@ -453,15 +453,7 @@ async function requestRepositoryInventoryRefreshForUser(
       await ctx.db.patch(existingInventory._id, { wantedUntil, writeVersion });
       return { kind: "running" };
     case "materializing": {
-      await ctx.db.patch(existingInventory._id, {
-        wantedUntil,
-        writeVersion,
-        lifecycle: {
-          ...existingInventory.lifecycle,
-          refreshAfterMaterialization:
-            existingInventory.lifecycle.refreshAfterMaterialization || !args.required,
-        },
-      });
+      await ctx.db.patch(existingInventory._id, { wantedUntil, writeVersion });
       const [filter, snapshot] = await Promise.all([
         readRepositoryInventoryFilterState(ctx, args.userId, args.vaultId),
         ctx.db.get(existingInventory.lifecycle.snapshotId),
@@ -858,14 +850,11 @@ async function finishSuccessfulRefresh(
     throw new Error("Repository inventory refresh is not active.");
   }
   const trailingWrite = inventory.writeVersion > inventory.lifecycle.targetWriteVersion;
-  const refreshAfterMaterialization =
-    inventory.lifecycle.state === "materializing" &&
-    inventory.lifecycle.refreshAfterMaterialization;
   await ctx.db.patch(inventory._id, {
     lifecycle: { state: "idle" },
     estimatedCrawlCost: args.crawlCost,
   });
-  if (!trailingWrite && !refreshAfterMaterialization) {
+  if (!trailingWrite) {
     return;
   }
   const idleInventory = await ctx.db.get(inventory._id);
@@ -873,8 +862,8 @@ async function finishSuccessfulRefresh(
     throw new Error("Repository inventory disappeared after publication.");
   }
   await scheduleRepositoryInventoryRefresh(ctx, idleInventory, {
-    required: trailingWrite,
-    wait: trailingWrite ? { kind: "immediate" } : minimumIntervalWait(idleInventory, Date.now()),
+    required: true,
+    wait: { kind: "immediate" },
   });
 }
 
@@ -993,7 +982,6 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
         snapshotId: args.snapshotId,
         targetWriteVersion: inventory.lifecycle.targetWriteVersion,
         required: inventory.lifecycle.required,
-        refreshAfterMaterialization: false,
         startedAt: inventory.lifecycle.startedAt,
         workpoolJobId: inventory.lifecycle.workpoolJobId,
       },
@@ -1738,6 +1726,9 @@ export const listRepositoryInventoryPullRequestPage = query({
           url: item.url,
           title: item.title,
           isDraft: item.isDraft,
+          additions: item.additions,
+          deletions: item.deletions,
+          changedFiles: item.changedFiles,
           baseRefName: item.baseRefName,
           headRepositoryFullName: item.headRepositoryFullName,
           headRefName: item.headRefName,

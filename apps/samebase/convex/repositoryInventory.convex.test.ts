@@ -350,6 +350,9 @@ async function insertPullRequest(
         url: `https://github.com/ada/inventory/pull/${args.number}`,
         title: `Pull request ${args.number}`,
         isDraft: args.number === 42,
+        additions: args.number * 10,
+        deletions: args.number,
+        changedFiles: Math.max(1, args.number % 10),
         baseRefName: args.number === 42 ? "release/1.2" : "main",
         headRepositoryFullName: args.canOpenInSamebase ? "ada/inventory" : "contributor/fork",
         headRefName: args.headRefName,
@@ -490,7 +493,7 @@ describe("repository inventory refresh state machine", () => {
     });
   });
 
-  it("schedules one trailing refresh for focus demand received after collection", async () => {
+  it("coalesces ordinary focus demand received during materialization", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
     await insertInventory(t, {
@@ -535,12 +538,59 @@ describe("repository inventory refresh state machine", () => {
 
     const state = await readVaultInventory(t, ids.vaultId);
     expect(state.inventory).toMatchObject({
+      lifecycle: { state: "idle" },
+      publication: { snapshotId, fingerprint: "before-focus" },
+    });
+    expect(state.snapshots).toHaveLength(1);
+  });
+
+  it("schedules one required trailing crawl for writes during materialization", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-materializing-write",
+      },
+    });
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "before-materializing-write",
+      crawlCost: 8,
+    });
+
+    await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
+    await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
+    await asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+    });
+    await finishFilterMaterialization(t, { snapshotId, filterRevision: 0 });
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      writeVersion: 2,
+      publication: { snapshotId, fingerprint: "before-materializing-write" },
       lifecycle: {
         state: "scheduled",
-        required: false,
-        wait: { kind: "queue", retryAt: now + 60_000 },
+        targetWriteVersion: 2,
+        required: true,
+        wait: { kind: "immediate" },
       },
-      publication: { snapshotId, fingerprint: "before-focus" },
     });
     expect(state.snapshots).toHaveLength(2);
   });
@@ -1008,7 +1058,17 @@ describe("repository inventory snapshot reads", () => {
       expectedVisiblePullRequestCount: 1,
       totalPullRequestCount: 1,
       isDone: true,
-      page: [{ kind: "pull_request", rowKey, number: 42, labelCount: 3 }],
+      page: [
+        {
+          kind: "pull_request",
+          rowKey,
+          number: 42,
+          additions: 420,
+          deletions: 42,
+          changedFiles: 2,
+          labelCount: 3,
+        },
+      ],
     });
     expect(pullRequestPage).not.toHaveProperty("page.0.labelChunkCount");
     expect(pullRequestPage).not.toHaveProperty("page.0.localHeadRefName");

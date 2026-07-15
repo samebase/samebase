@@ -1598,6 +1598,7 @@ export const trackedFilePaths = [
   "research/2026-07-14-agent-native-positioning-and-competitor-eval.md",
   "research/2026-07-14-pane-responsiveness-audit.md",
   "research/2026-07-15-github-repository-inventory-overhaul.md",
+  "research/2026-07-16-repository-observation-operator-brief.md",
   "research/2026-07-16-sites-plugin-lessons-for-samebase.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",

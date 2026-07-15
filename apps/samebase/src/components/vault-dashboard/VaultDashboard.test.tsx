@@ -270,6 +270,9 @@ describe("VaultBranchLinkContent", () => {
         url: "https://github.com/samebase/samebase/pull/1000",
         title: "Accept monitoring fixes from a fork",
         isDraft: false,
+        additions: 1_240,
+        deletions: 318,
+        changedFiles: 17,
         baseRefName: "main",
         headRepositoryFullName: "contributor/samebase-fork",
         headRefName: "contributor/fork-monitoring",
@@ -286,6 +289,9 @@ describe("VaultBranchLinkContent", () => {
       kind: "pull_request",
       githubRepositoryFullName: "contributor/samebase-fork",
       pullRequestNumber: 1000,
+      pullRequestAdditions: 1_240,
+      pullRequestDeletions: 318,
+      pullRequestChangedFiles: 17,
     });
   });
 
@@ -299,6 +305,9 @@ describe("VaultBranchLinkContent", () => {
         url: "https://github.com/samebase/samebase/pull/1001",
         title: "Preserve a pull request from a deleted fork",
         isDraft: false,
+        additions: 7,
+        deletions: 2,
+        changedFiles: 3,
         baseRefName: "main",
         headRefName: "contributor/deleted-fork",
         canOpenInSamebase: false,
@@ -474,6 +483,9 @@ describe("VaultBranchLinkContent", () => {
             pullRequestUrl: "https://github.com/samebase/samebase/pull/999",
             pullRequestNumber: 999,
             pullRequestTitle: "Monitor every open pull request",
+            pullRequestAdditions: 1_240,
+            pullRequestDeletions: 318,
+            pullRequestChangedFiles: 17,
             pullRequestIsDraft: true,
             pullRequestLabels: [{ name: "dashboard", color: "1d76db" }],
           }}
@@ -484,6 +496,9 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('href="https://github.com/samebase/samebase/pull/999"');
     expect(markup).toContain("PR #999 Monitor every open pull request");
     expect(markup).toContain(">Head abcdef1<");
+    expect(markup).toContain(">+1,240<");
+    expect(markup).toContain(">−318<");
+    expect(markup).toContain("· 17 files");
     expect(markup).toContain(">draft<");
     expect(markup).toContain(">dashboard<");
     expect(markup).toContain(">View changes<");
@@ -505,6 +520,9 @@ describe("VaultBranchLinkContent", () => {
             pullRequestUrl: "https://github.com/samebase/samebase/pull/1000",
             pullRequestNumber: 1000,
             pullRequestTitle: "Accept monitoring fixes from a fork",
+            pullRequestAdditions: 7,
+            pullRequestDeletions: 2,
+            pullRequestChangedFiles: 3,
             pullRequestIsDraft: false,
             pullRequestLabels: [],
           }}
