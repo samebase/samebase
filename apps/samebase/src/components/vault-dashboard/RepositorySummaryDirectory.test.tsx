@@ -16,12 +16,18 @@ function vaultId(value: string): Id<"vaults"> {
 function connectedEntry(args: {
   id: string;
   repositoryFullName: string;
-  state: Extract<RepositorySummaryDirectoryEntry["state"], { state: "connected" }>;
+  state: Omit<
+    Extract<RepositorySummaryDirectoryEntry["state"], { state: "connected" }>,
+    "githubRepositoryFullName"
+  >;
 }): RepositorySummaryDirectoryEntry {
   return {
     vaultId: vaultId(args.id),
-    repositoryFullName: args.repositoryFullName,
-    state: args.state,
+    routeRepositoryFullName: args.repositoryFullName,
+    state: {
+      ...args.state,
+      githubRepositoryFullName: args.repositoryFullName,
+    },
   };
 }
 
@@ -36,6 +42,7 @@ describe("RepositorySummaryDirectoryPane", () => {
           lifecycle: { state: "idle" },
           publication: {
             state: "complete",
+            repositoryFullName: "ada/demo",
             defaultBranch: {
               state: "ready",
               name: "main",
@@ -75,6 +82,7 @@ describe("RepositorySummaryDirectoryPane", () => {
   it("keeps complete data visible while exposing update and failure states", () => {
     const completePublication = {
       state: "complete" as const,
+      repositoryFullName: "ada/canonical",
       defaultBranch: {
         state: "ready" as const,
         name: "trunk",
@@ -164,22 +172,22 @@ describe("RepositorySummaryDirectoryPane", () => {
       }),
       {
         vaultId: vaultId("vault-provisioning"),
-        repositoryFullName: "ada/provisioning",
+        routeRepositoryFullName: "ada/provisioning",
         state: { state: "provisioning", startedAt: now },
       },
       {
         vaultId: vaultId("vault-setup-failed"),
-        repositoryFullName: "ada/setup-failed",
+        routeRepositoryFullName: "ada/setup-failed",
         state: { state: "setup_failed", failedAt: now },
       },
       {
         vaultId: vaultId("vault-deleting"),
-        repositoryFullName: "ada/deleting",
+        routeRepositoryFullName: "ada/deleting",
         state: { state: "deleting", requestedAt: now },
       },
       {
         vaultId: vaultId("vault-delete-failed"),
-        repositoryFullName: "ada/delete-failed",
+        routeRepositoryFullName: "ada/delete-failed",
         state: { state: "delete_failed", failedAt: now },
       },
     ];

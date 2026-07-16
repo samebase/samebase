@@ -8,13 +8,14 @@ import type { Id } from "../../convex/_generated/dataModel";
 const REPOSITORY_SUMMARY_DIRECTORY_PAGE_SIZE = 25;
 const REPOSITORY_SUMMARY_DIRECTORY_RETRY_MS = 5_000;
 
-type RepositorySummaryDirectoryPage =
+type RepositorySummaryDirectoryPageResult =
   (typeof api.repositorySummary.listRepositorySummaryDirectoryPage)["_returnType"];
+type RepositorySummaryDirectoryPage = NonNullable<RepositorySummaryDirectoryPageResult>;
 type RepositorySummaryDirectoryPageArgs =
   (typeof api.repositorySummary.listRepositorySummaryDirectoryPage)["_args"];
 type RepositorySummaryDirectoryPageQuery = (
   args: RepositorySummaryDirectoryPageArgs,
-) => Promise<RepositorySummaryDirectoryPage>;
+) => Promise<RepositorySummaryDirectoryPageResult>;
 
 export type RepositorySummaryDirectoryEntry = RepositorySummaryDirectoryPage["page"][number];
 
@@ -23,6 +24,7 @@ type LoadedRepositorySummaryDirectory = {
   revision: number;
   entries: RepositorySummaryDirectoryEntry[];
   continueCursor: string | null;
+  seenCursors: string[];
   isDone: boolean;
 };
 
@@ -41,7 +43,7 @@ async function queryDirectoryPage(args: {
   revision: number;
   cursor: string | null;
   signal: AbortSignal;
-}): Promise<RepositorySummaryDirectoryPage> {
+}): Promise<RepositorySummaryDirectoryPageResult> {
   return await args.queryClient.fetchQuery({
     queryKey: directoryPageQueryKey(args),
     queryFn: async ({ signal }) => {
@@ -70,10 +72,11 @@ async function loadRepositorySummaryDirectory(args: {
   requestedItemCount: number;
   prior?: LoadedRepositorySummaryDirectory;
   signal: AbortSignal;
-}): Promise<LoadedRepositorySummaryDirectory> {
+}): Promise<LoadedRepositorySummaryDirectory | null> {
   const entries = args.prior?.entries.slice() ?? [];
   let continueCursor = args.prior?.continueCursor ?? null;
   let isDone = args.prior?.isDone ?? false;
+  const seenCursors = new Set(args.prior?.seenCursors);
 
   while (!isDone && entries.length < args.requestedItemCount) {
     args.signal.throwIfAborted();
@@ -85,9 +88,24 @@ async function loadRepositorySummaryDirectory(args: {
       cursor: continueCursor,
       signal: args.signal,
     });
+    if (page === null) {
+      return null;
+    }
+    if (page.page.length > REPOSITORY_SUMMARY_DIRECTORY_PAGE_SIZE) {
+      throw new Error("Repository summary directory page exceeded its read bound.");
+    }
+    if (
+      !page.isDone &&
+      (page.continueCursor.length === 0 || seenCursors.has(page.continueCursor))
+    ) {
+      throw new Error("Repository summary directory pagination did not advance.");
+    }
     entries.push(...page.page);
     continueCursor = page.continueCursor;
     isDone = page.isDone;
+    if (!isDone) {
+      seenCursors.add(continueCursor);
+    }
   }
 
   const vaultIds = new Set(entries.map((entry) => entry.vaultId));
@@ -100,6 +118,7 @@ async function loadRepositorySummaryDirectory(args: {
     revision: args.revision,
     entries,
     continueCursor,
+    seenCursors: [...seenCursors],
     isDone,
   };
 }
@@ -161,9 +180,24 @@ export function useRepositorySummaryDirectory(): {
       signal: controller.signal,
     })
       .then((directory) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (directory === null) {
+          queryClient.removeQueries({
+            queryKey: ["repository-summary-directory-page", ownerId, revision],
+          });
+          setError(null);
+          setActiveRevision((current) => (current === revision ? null : current));
+          retryTimeoutId = setTimeout(() => {
+            if (!controller.signal.aborted) {
+              setRetry((value) => value + 1);
+            }
+          }, REPOSITORY_SUMMARY_DIRECTORY_RETRY_MS);
+          return;
+        }
         const currentGeneration = currentGenerationRef.current;
         if (
-          controller.signal.aborted ||
           currentGeneration?.ownerId !== directory.ownerId ||
           currentGeneration.revision !== directory.revision
         ) {

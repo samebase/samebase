@@ -244,7 +244,13 @@ export function RepositorySummaryDirectoryList({
         <ul className="space-y-1">
           {entries.map((entry) => {
             const isSelected = entry.vaultId === selectedVaultId;
-            const { owner, name: repoName } = parseRepositoryFullName(entry.repositoryFullName);
+            const displayRepositoryFullName =
+              entry.state.state === "connected"
+                ? entry.state.githubRepositoryFullName
+                : entry.routeRepositoryFullName;
+            const { owner, name: repoName } = parseRepositoryFullName(
+              entry.routeRepositoryFullName,
+            );
 
             return (
               <li key={entry.vaultId} data-testid="repository-summary-directory-row">
@@ -260,13 +266,13 @@ export function RepositorySummaryDirectoryList({
                       delete: null,
                     })
                   }
-                  title={entry.repositoryFullName}
+                  title={displayRepositoryFullName}
                   className={clsx(
                     "flex min-h-12 min-w-0 flex-col justify-center px-2 py-1.5 text-sm leading-5 no-underline transition-colors hover:no-underline",
                     isSelected ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/60",
                   )}
                 >
-                  <span className="truncate font-medium">{entry.repositoryFullName}</span>
+                  <span className="truncate font-medium">{displayRepositoryFullName}</span>
                   <span className="min-w-0 text-xs leading-4 text-muted-foreground">
                     <RepositoryDirectoryEntryStatus entry={entry} now={now} />
                   </span>

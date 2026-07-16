@@ -374,11 +374,13 @@ describe("loadRepositoryInventorySnapshot", () => {
         items: [branch("branch:main", "main")],
         isDone: true,
         continueCursor: null,
+        seenCursors: [],
       },
       pullRequestProgress: {
         items: [pullRequest(rowKey, 3)],
         isDone: true,
         continueCursor: null,
+        seenCursors: [],
       },
     });
   });
@@ -684,6 +686,166 @@ describe("loadRepositoryInventorySnapshot", () => {
         requestedItemCount: 3,
       }),
     ).rejects.toThrow("Repository inventory filter view contains a duplicate pull request.");
+  });
+
+  it("rejects an empty nonterminal branch cursor", async () => {
+    const snapshotId = fakeSnapshotId();
+    const viewId = fakeViewId();
+
+    await expect(
+      loadSnapshot({
+        queryClient: queryClient(),
+        queryBranchPage: async () =>
+          readyBranchPage({
+            snapshotId,
+            expectedBranchCount: 1,
+            page: [],
+            isDone: false,
+          }),
+        queryPullRequestPage: async () =>
+          readyPullRequestPage({
+            snapshotId,
+            viewId,
+            expectedVisiblePullRequestCount: 0,
+            totalPullRequestCount: 0,
+            page: [],
+            isDone: true,
+          }),
+        queryLabelPage: async () => emptyLabelPage(),
+        queryLabelFacetPage: async () => emptyLabelFacetPage(snapshotId),
+        vaultId: fakeVaultId(),
+        snapshotId,
+        viewId,
+        expectedDefaultBranch: null,
+        requestedItemCount: 1,
+      }),
+    ).rejects.toThrow("Repository inventory branches returned a nonadvancing cursor.");
+  });
+
+  it("rejects a repeated nonterminal pull request cursor", async () => {
+    const snapshotId = fakeSnapshotId();
+    const viewId = fakeViewId();
+
+    await expect(
+      loadSnapshot({
+        queryClient: queryClient(),
+        queryBranchPage: async () =>
+          readyBranchPage({
+            snapshotId,
+            expectedBranchCount: 0,
+            page: [],
+            isDone: true,
+          }),
+        queryPullRequestPage: async (args) =>
+          readyPullRequestPage({
+            snapshotId,
+            viewId,
+            expectedVisiblePullRequestCount: 3,
+            totalPullRequestCount: 3,
+            page: [
+              args.paginationOpts.cursor === null
+                ? pullRequest("pull-request:first", 0, 1)
+                : pullRequest("pull-request:second", 0, 2),
+            ],
+            isDone: false,
+            continueCursor: "next",
+          }),
+        queryLabelPage: async () => emptyLabelPage(),
+        queryLabelFacetPage: async () => emptyLabelFacetPage(snapshotId),
+        vaultId: fakeVaultId(),
+        snapshotId,
+        viewId,
+        expectedDefaultBranch: null,
+        requestedItemCount: 3,
+      }),
+    ).rejects.toThrow("Repository inventory pull requests returned a nonadvancing cursor.");
+  });
+
+  it("rejects an empty nonterminal label cursor", async () => {
+    const snapshotId = fakeSnapshotId();
+    const viewId = fakeViewId();
+
+    await expect(
+      loadSnapshot({
+        queryClient: queryClient(),
+        queryBranchPage: async () =>
+          readyBranchPage({
+            snapshotId,
+            expectedBranchCount: 0,
+            page: [],
+            isDone: true,
+          }),
+        queryPullRequestPage: async () =>
+          readyPullRequestPage({
+            snapshotId,
+            viewId,
+            expectedVisiblePullRequestCount: 1,
+            totalPullRequestCount: 1,
+            page: [pullRequest("pull-request:labels", 1)],
+            isDone: true,
+          }),
+        queryLabelPage: async () =>
+          readyLabelPage({
+            expectedLabelCount: 1,
+            expectedChunkCount: 1,
+            page: [],
+            isDone: false,
+          }),
+        queryLabelFacetPage: async () => emptyLabelFacetPage(snapshotId),
+        vaultId: fakeVaultId(),
+        snapshotId,
+        viewId,
+        expectedDefaultBranch: null,
+        requestedItemCount: 1,
+      }),
+    ).rejects.toThrow("Repository inventory labels returned a nonadvancing cursor.");
+  });
+
+  it("rejects a repeated nonterminal label facet cursor", async () => {
+    const snapshotId = fakeSnapshotId();
+    const viewId = fakeViewId();
+
+    await expect(
+      loadSnapshot({
+        queryClient: queryClient(),
+        queryBranchPage: async () =>
+          readyBranchPage({
+            snapshotId,
+            expectedBranchCount: 0,
+            page: [],
+            isDone: true,
+          }),
+        queryPullRequestPage: async () =>
+          readyPullRequestPage({
+            snapshotId,
+            viewId,
+            expectedVisiblePullRequestCount: 0,
+            totalPullRequestCount: 0,
+            page: [],
+            isDone: true,
+          }),
+        queryLabelPage: async () => emptyLabelPage(),
+        queryLabelFacetPage: async (args) =>
+          readyLabelFacetPage({
+            snapshotId,
+            expectedFacetCount: 3,
+            noLabelPullRequestCount: 0,
+            page: [
+              {
+                name: args.paginationOpts.cursor === null ? "first" : "second",
+                pullRequestCount: 1,
+              },
+            ],
+            isDone: false,
+            continueCursor: "next",
+          }),
+        vaultId: fakeVaultId(),
+        snapshotId,
+        viewId,
+        expectedDefaultBranch: null,
+        requestedItemCount: 1,
+      }),
+    ).rejects.toThrow("Repository inventory label facets returned a nonadvancing cursor.");
   });
 
   it("rejects an early terminal pull request page", async () => {

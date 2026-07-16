@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildRepositoryInventoryFilterChange,
   buildPullRequestFilterOptions,
   getDefaultRepositoryInventoryFilters,
   normalizeRepositoryInventoryFilters,
@@ -45,6 +46,64 @@ describe("repositoryInventoryFilters", () => {
         included: true,
       }),
     ).toEqual(["research"]);
+  });
+
+  it("translates one control change into one persisted filter intent", () => {
+    const defaults = getDefaultRepositoryInventoryFilters();
+    expect(
+      buildRepositoryInventoryFilterChange({
+        current: defaults,
+        next: { ...defaults, includeDrafts: true },
+      }),
+    ).toEqual({ kind: "set_include_drafts", included: true });
+    expect(
+      buildRepositoryInventoryFilterChange({
+        current: defaults,
+        next: { ...defaults, includeNoLabel: false },
+      }),
+    ).toEqual({ kind: "set_include_no_label", included: false });
+    expect(
+      buildRepositoryInventoryFilterChange({
+        current: defaults,
+        next: { ...defaults, hiddenLabels: [" Research "] },
+      }),
+    ).toEqual({ kind: "set_label_included", name: "Research", included: false });
+    expect(
+      buildRepositoryInventoryFilterChange({
+        current: { ...defaults, hiddenLabels: ["Research"] },
+        next: defaults,
+      }),
+    ).toEqual({ kind: "set_label_included", name: "Research", included: true });
+  });
+
+  it("uses one reset intent for a complete multi-control reset", () => {
+    const defaults = getDefaultRepositoryInventoryFilters();
+    expect(
+      buildRepositoryInventoryFilterChange({
+        current: {
+          hiddenLabels: ["research", "WIP"],
+          includeDrafts: true,
+          includeNoLabel: false,
+        },
+        next: defaults,
+      }),
+    ).toEqual({ kind: "reset" });
+    expect(
+      buildRepositoryInventoryFilterChange({
+        current: { ...defaults, hiddenLabels: ["Research"] },
+        next: { ...defaults, hiddenLabels: ["research"] },
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a non-reset value that changes multiple controls", () => {
+    const defaults = getDefaultRepositoryInventoryFilters();
+    expect(() =>
+      buildRepositoryInventoryFilterChange({
+        current: defaults,
+        next: { ...defaults, hiddenLabels: ["research"], includeDrafts: true },
+      }),
+    ).toThrow("Pull request filters changed through more than one control.");
   });
 
   it("builds stable PR-only options from complete facets and stale hidden labels", () => {

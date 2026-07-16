@@ -165,9 +165,10 @@ function makeResourceRailBuilderVault(
   const vault: ResourceRailBuilderVault = {
     _id: fakeVaultId(),
     _creationTime: 0,
-    ghRepoOwner: "ada",
-    ghRepoName: "demo",
-    repositoryFullName: "ada/demo",
+    githubOwner: "ada",
+    githubName: "demo",
+    routeRepositoryFullName: "ada/demo",
+    githubRepositoryFullName: "ada/demo",
     fileCount: 0,
     state: "ready",
     sourceSetup: { status: "ready" },

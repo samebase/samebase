@@ -75,6 +75,7 @@ type RepositoryInventoryPageProgress<Item> = {
   items: Item[];
   isDone: boolean;
   continueCursor: string | null;
+  seenCursors: string[];
 };
 
 export type LoadedRepositoryInventoryFilterSummary = {
@@ -107,6 +108,23 @@ type RepositoryInventorySnapshotLoad = Omit<
   LoadedRepositoryInventorySnapshot,
   "inventoryState" | "vaultId"
 >;
+
+function nextRepositoryInventoryCursor(args: {
+  kind: "branches" | "pull requests" | "labels" | "label facets";
+  currentCursor: string | null;
+  nextCursor: string;
+  seenCursors: Set<string>;
+}): string {
+  if (
+    args.nextCursor.length === 0 ||
+    args.nextCursor === args.currentCursor ||
+    args.seenCursors.has(args.nextCursor)
+  ) {
+    throw new Error(`Repository inventory ${args.kind} returned a nonadvancing cursor.`);
+  }
+  args.seenCursors.add(args.nextCursor);
+  return args.nextCursor;
+}
 
 function branchPageQueryKey(args: {
   vaultId: Id<"vaults">;
@@ -232,6 +250,7 @@ async function loadPullRequestLabels(args: {
   signal: AbortSignal;
 }): Promise<LoadedRepositoryInventoryItem> {
   const chunks: RepositoryInventoryLabelPage["page"] = [];
+  const seenCursors = new Set<string>();
   let cursor: string | null = null;
   let expectedChunkCount: number | null = null;
   let isDone = false;
@@ -281,7 +300,12 @@ async function loadPullRequestLabels(args: {
     }
     isDone = page.isDone;
     if (!isDone) {
-      cursor = page.continueCursor;
+      cursor = nextRepositoryInventoryCursor({
+        kind: "labels",
+        currentCursor: cursor,
+        nextCursor: page.continueCursor,
+        seenCursors,
+      });
     }
   } while (!isDone);
 
@@ -305,6 +329,7 @@ async function loadLabelFacets(args: {
 }> {
   const labelFacets: RepositoryInventoryLabelFacet[] = [];
   const labelKeys = new Set<string>();
+  const seenCursors = new Set<string>();
   let cursor: string | null = null;
   let expectedFacetCount = -1;
   let noLabelPullRequestCount = -1;
@@ -356,7 +381,12 @@ async function loadLabelFacets(args: {
     }
     isDone = page.isDone;
     if (!isDone) {
-      cursor = page.continueCursor;
+      cursor = nextRepositoryInventoryCursor({
+        kind: "label facets",
+        currentCursor: cursor,
+        nextCursor: page.continueCursor,
+        seenCursors,
+      });
     }
   } while (!isDone);
 
@@ -384,6 +414,7 @@ async function loadBranchPrefix(args: {
   let page: RepositoryInventoryBranchPage | null = args.prior === undefined ? args.firstPage : null;
   let isDone = args.prior?.isDone ?? false;
   let continueCursor = args.prior?.continueCursor ?? null;
+  const seenCursors = new Set(args.prior?.seenCursors ?? []);
 
   for (;;) {
     if (page !== null) {
@@ -401,7 +432,14 @@ async function loadBranchPrefix(args: {
         branches.push(branch);
       }
       isDone = page.isDone;
-      continueCursor = isDone ? null : page.continueCursor;
+      continueCursor = isDone
+        ? null
+        : nextRepositoryInventoryCursor({
+            kind: "branches",
+            currentCursor: continueCursor,
+            nextCursor: page.continueCursor,
+            seenCursors,
+          });
     }
     if (
       branches.length > args.firstPage.expectedBranchCount ||
@@ -410,7 +448,7 @@ async function loadBranchPrefix(args: {
       throw new Error("Repository inventory branches ended with an invalid total.");
     }
     if (isDone || branches.length >= args.requestedBranchCount) {
-      return { items: branches, isDone, continueCursor };
+      return { items: branches, isDone, continueCursor, seenCursors: [...seenCursors] };
     }
     if (continueCursor === null) {
       throw new Error("Repository inventory branches ended before every branch was loaded.");
@@ -447,6 +485,7 @@ async function loadPullRequestPrefix(args: {
     args.prior === undefined ? args.firstPage : null;
   let isDone = args.prior?.isDone ?? false;
   let continueCursor = args.prior?.continueCursor ?? null;
+  const seenCursors = new Set(args.prior?.seenCursors ?? []);
 
   for (;;) {
     if (page !== null) {
@@ -466,7 +505,14 @@ async function loadPullRequestPrefix(args: {
         pullRequests.push(pullRequest);
       }
       isDone = page.isDone;
-      continueCursor = isDone ? null : page.continueCursor;
+      continueCursor = isDone
+        ? null
+        : nextRepositoryInventoryCursor({
+            kind: "pull requests",
+            currentCursor: continueCursor,
+            nextCursor: page.continueCursor,
+            seenCursors,
+          });
     }
     if (
       pullRequests.length > args.firstPage.expectedVisiblePullRequestCount ||
@@ -475,7 +521,7 @@ async function loadPullRequestPrefix(args: {
       throw new Error("Repository inventory pull requests ended with an invalid total.");
     }
     if (isDone || pullRequests.length >= args.requestedPullRequestCount) {
-      return { items: pullRequests, isDone, continueCursor };
+      return { items: pullRequests, isDone, continueCursor, seenCursors: [...seenCursors] };
     }
     if (continueCursor === null) {
       throw new Error("Repository inventory pull requests ended before every pull request loaded.");

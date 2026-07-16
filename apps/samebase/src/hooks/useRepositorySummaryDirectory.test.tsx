@@ -7,14 +7,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { Id } from "../../convex/_generated/dataModel";
 
-const mocks = vi.hoisted(() => ({
-  convexQuery: vi.fn(),
-  ownerId: { value: "user-1" },
-  revision: { value: 1 },
-}));
+const mocks = vi.hoisted(() => {
+  const convexQuery = vi.fn();
+  return {
+    convexClient: { query: convexQuery },
+    convexQuery,
+    ownerId: { value: "user-1" },
+    revision: { value: 1 },
+  };
+});
 
 vi.mock("convex/react", () => ({
-  useConvex: () => ({ query: mocks.convexQuery }),
+  useConvex: () => mocks.convexClient,
   useQuery: () => ({ ownerId: mocks.ownerId.value, revision: mocks.revision.value }),
 }));
 
@@ -30,12 +34,17 @@ function vaultId(value: string): Id<"vaults"> {
   return value;
 }
 
-function entry(revision: number, index: number): RepositorySummaryDirectoryEntry {
+function entry(
+  revision: number,
+  index: number,
+  githubRepositoryFullName = `ada/revision-${revision}-vault-${index}`,
+): RepositorySummaryDirectoryEntry {
   return {
     vaultId: vaultId(`revision-${revision}-vault-${index}`),
-    repositoryFullName: `ada/revision-${revision}-vault-${index}`,
+    routeRepositoryFullName: `ada/revision-${revision}-vault-${index}`,
     state: {
       state: "connected",
+      githubRepositoryFullName,
       summary: {
         lifecycle: { state: "idle" },
         publication: { state: "unobserved" },
@@ -92,6 +101,9 @@ describe("useRepositorySummaryDirectory", () => {
     rootElement?.remove();
     rootElement = null;
     queryClient.clear();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("loads bounded pages and atomically replaces the requested depth on revision change", async () => {
@@ -154,7 +166,9 @@ describe("useRepositorySummaryDirectory", () => {
       renderProbe();
       await Promise.resolve();
     });
-    expect(latest?.entries[0]?.repositoryFullName).toBe("ada/revision-1-vault-0");
+    expect(latest?.entries[0]).toMatchObject({
+      state: { githubRepositoryFullName: "ada/revision-1-vault-0" },
+    });
     expect(latest?.entries).toHaveLength(30);
     expect(latest?.status).toBe("LoadingMore");
 
@@ -164,7 +178,9 @@ describe("useRepositorySummaryDirectory", () => {
       page: Array.from({ length: 25 }, (_, index) => entry(2, index)),
     });
     await vi.waitFor(() => {
-      expect(latest?.entries[0]?.repositoryFullName).toBe("ada/revision-2-vault-0");
+      expect(latest?.entries[0]).toMatchObject({
+        state: { githubRepositoryFullName: "ada/revision-2-vault-0" },
+      });
       expect(latest?.entries).toHaveLength(30);
       expect(latest?.status).toBe("Exhausted");
     });
@@ -192,7 +208,7 @@ describe("useRepositorySummaryDirectory", () => {
       return {
         continueCursor: "done",
         isDone: true,
-        page: [{ ...entry(args.directoryRevision, 0), repositoryFullName: "user-1/repository" }],
+        page: [entry(args.directoryRevision, 0, "user-1/repository")],
       };
     });
     rootElement = document.createElement("div");
@@ -215,7 +231,9 @@ describe("useRepositorySummaryDirectory", () => {
       await Promise.resolve();
     });
     await vi.waitFor(() => {
-      expect(latest?.entries[0]?.repositoryFullName).toBe("user-1/repository");
+      expect(latest?.entries[0]).toMatchObject({
+        state: { githubRepositoryFullName: "user-1/repository" },
+      });
     });
 
     mocks.ownerId.value = "user-2";
@@ -228,11 +246,82 @@ describe("useRepositorySummaryDirectory", () => {
     secondUserPage.resolve({
       continueCursor: "done",
       isDone: true,
-      page: [{ ...entry(1, 0), repositoryFullName: "user-2/repository" }],
+      page: [entry(1, 0, "user-2/repository")],
     });
     await vi.waitFor(() => {
-      expect(latest?.entries[0]?.repositoryFullName).toBe("user-2/repository");
+      expect(latest?.entries[0]).toMatchObject({
+        state: { githubRepositoryFullName: "user-2/repository" },
+      });
     });
     expect(mocks.convexQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { cursor: "", expectedRequests: 1, name: "empty" },
+    { cursor: "repeated", expectedRequests: 2, name: "repeated" },
+  ])("rejects a $name nonterminal cursor", async ({ cursor, expectedRequests }) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.convexQuery.mockImplementation(async () => ({
+      continueCursor: cursor,
+      isDone: false,
+      page: [entry(1, mocks.convexQuery.mock.calls.length)],
+    }));
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    await act(async () => {
+      mountedRoot.render(
+        <QueryClientProvider client={queryClient}>
+          <RepositorySummaryDirectoryProbe
+            onRender={(result) => {
+              latest = result;
+            }}
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(latest?.error).toBe("Repository summary directory pagination did not advance.");
+    });
+    expect(mocks.convexQuery).toHaveBeenCalledTimes(expectedRequests);
+  });
+
+  it("silently retries a stale directory revision", async () => {
+    vi.useFakeTimers();
+    mocks.convexQuery.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      continueCursor: "done",
+      isDone: true,
+      page: [entry(1, 0)],
+    });
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    await act(async () => {
+      mountedRoot.render(
+        <QueryClientProvider client={queryClient}>
+          <RepositorySummaryDirectoryProbe
+            onRender={(result) => {
+              latest = result;
+            }}
+          />
+        </QueryClientProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.convexQuery).toHaveBeenCalledTimes(1);
+    expect(latest?.entries).toEqual([]);
+    expect(latest?.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(mocks.convexQuery).toHaveBeenCalledTimes(2);
+    expect(latest?.entries).toEqual([entry(1, 0)]);
+    expect(latest?.error).toBeNull();
   });
 });

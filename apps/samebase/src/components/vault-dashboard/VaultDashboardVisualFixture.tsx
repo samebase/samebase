@@ -463,9 +463,10 @@ const LIST_SPACING_VAULT_ID = fakeVaultId();
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
   _creationTime: FIXTURE_NOW - 900_000,
-  ghRepoOwner: "samebase",
-  ghRepoName: "samebase",
-  repositoryFullName: "samebase/samebase",
+  githubOwner: "samebase",
+  githubName: "samebase",
+  routeRepositoryFullName: "samebase/samebase",
+  githubRepositoryFullName: "samebase/samebase",
   commitSHA: "1234567890abcdef1234567890abcdef12345678",
   fileCount: 18,
   state: "ready",
@@ -527,9 +528,10 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   ...LIST_SPACING_VAULT,
   _id: CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID,
   _creationTime: FIXTURE_NOW - 3_600_000,
-  ghRepoOwner: "nicu-chiciuc",
-  ghRepoName: "tmp-my-super-app-2",
-  repositoryFullName: "nicu-chiciuc/tmp-my-super-app-2",
+  githubOwner: "nicu-chiciuc",
+  githubName: "tmp-my-super-app-2",
+  routeRepositoryFullName: "nicu-chiciuc/tmp-my-super-app-2",
+  githubRepositoryFullName: "nicu-chiciuc/tmp-my-super-app-2",
   commitSHA: "abcdef1234567890abcdef1234567890abcdef12",
   fileCount: 9,
   sourceSetup: { status: "ready" },
@@ -581,36 +583,41 @@ const SIDEBAR_LIST_VAULTS = [
   {
     ...LIST_SPACING_VAULT,
     _id: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8b"),
-    ghRepoOwner: "samebase",
-    ghRepoName: "samebase",
-    repositoryFullName: "samebase/samebase",
+    githubOwner: "samebase",
+    githubName: "samebase",
+    routeRepositoryFullName: "samebase/samebase",
+    githubRepositoryFullName: "samebase/samebase",
   },
   {
     ...LIST_SPACING_VAULT,
     _id: SIDEBAR_LIST_SELECTED_VAULT_ID,
-    ghRepoOwner: "samebase",
-    ghRepoName: "marketing-site",
-    repositoryFullName: "samebase/marketing-site",
+    githubOwner: "samebase",
+    githubName: "marketing-site",
+    routeRepositoryFullName: "samebase/marketing-site",
+    githubRepositoryFullName: "samebase/marketing-site",
   },
   {
     ...LIST_SPACING_VAULT,
     _id: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8d"),
-    ghRepoOwner: "noter",
-    ghRepoName: "guestbook",
-    repositoryFullName: "noter/guestbook",
+    githubOwner: "noter",
+    githubName: "guestbook",
+    routeRepositoryFullName: "noter/guestbook",
+    githubRepositoryFullName: "noter/guestbook",
   },
 ] satisfies VaultDashboardVault[];
 
 const SIDEBAR_LIST_DIRECTORY_ENTRIES = [
   {
     vaultId: SIDEBAR_LIST_VAULTS[0]._id,
-    repositoryFullName: "samebase/samebase",
+    routeRepositoryFullName: "samebase/samebase",
     state: {
       state: "connected",
+      githubRepositoryFullName: "samebase/samebase",
       summary: {
         lifecycle: { state: "idle" },
         publication: {
           state: "complete",
+          repositoryFullName: "samebase/samebase",
           defaultBranch: {
             state: "ready",
             name: "main",
@@ -626,13 +633,15 @@ const SIDEBAR_LIST_DIRECTORY_ENTRIES = [
   },
   {
     vaultId: SIDEBAR_LIST_SELECTED_VAULT_ID,
-    repositoryFullName: "samebase/marketing-site",
+    routeRepositoryFullName: "samebase/marketing-site",
     state: {
       state: "connected",
+      githubRepositoryFullName: "samebase/marketing-site",
       summary: {
         lifecycle: { state: "updating" },
         publication: {
           state: "complete",
+          repositoryFullName: "samebase/marketing-site",
           defaultBranch: {
             state: "ready",
             name: "main",
@@ -648,13 +657,15 @@ const SIDEBAR_LIST_DIRECTORY_ENTRIES = [
   },
   {
     vaultId: SIDEBAR_LIST_VAULTS[2]._id,
-    repositoryFullName: "noter/guestbook",
+    routeRepositoryFullName: "noter/guestbook",
     state: {
       state: "connected",
+      githubRepositoryFullName: "noter/guestbook",
       summary: {
         lifecycle: { state: "idle" },
         publication: {
           state: "complete",
+          repositoryFullName: "noter/guestbook",
           defaultBranch: {
             state: "ready",
             name: "main",
@@ -670,9 +681,10 @@ const SIDEBAR_LIST_DIRECTORY_ENTRIES = [
   },
   {
     vaultId: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8f"),
-    repositoryFullName: "nicu-chiciuc/notes",
+    routeRepositoryFullName: "nicu-chiciuc/notes",
     state: {
       state: "connected",
+      githubRepositoryFullName: "nicu-chiciuc/notes",
       summary: {
         lifecycle: { state: "updating" },
         publication: { state: "unobserved" },
@@ -681,7 +693,7 @@ const SIDEBAR_LIST_DIRECTORY_ENTRIES = [
   },
   {
     vaultId: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8g"),
-    repositoryFullName: "nicu-chiciuc/tmp-broken",
+    routeRepositoryFullName: "nicu-chiciuc/tmp-broken",
     state: { state: "setup_failed", failedAt: FIXTURE_NOW - 30_000 },
   },
 ] satisfies RepositorySummaryDirectoryEntry[];

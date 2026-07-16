@@ -112,6 +112,7 @@ import {
   type VaultRepositoryInventoryRow,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
+  buildRepositoryInventoryFilterChange,
   buildPullRequestFilterOptions,
   normalizeRepositoryInventoryFilters,
   type PullRequestFilterOption,
@@ -134,6 +135,7 @@ import {
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useRepositoryObservationDemand } from "@/hooks/useRepositoryObservationDemand";
+import { useRepositoryInventoryFilter } from "@/hooks/useRepositoryInventoryFilter";
 import { useRepositoryInventorySnapshot } from "@/hooks/useRepositoryInventorySnapshot";
 import { useRepositorySummaryDirectory } from "@/hooks/useRepositorySummaryDirectory";
 import type {
@@ -761,7 +763,7 @@ function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
 
   return {
     id: vault._id,
-    repositoryFullName: vault.repositoryFullName,
+    repositoryFullName: vault.routeRepositoryFullName,
     isSamebaseManaged: vault.isSamebaseManaged,
     canRemoveGithubRepo: vault.isSamebaseManaged && vault.hasConnectedGitHubRepository,
     hasConvexProvision: vault.hasConvexProvision,
@@ -3095,15 +3097,15 @@ export function VaultDashboardView({
         const chatRoute =
           primaryBranch && !isDeletingVault
             ? buildVaultCodespaceChatRoute({
-                repositoryFullName: vault.repositoryFullName,
+                repositoryFullName: vault.routeRepositoryFullName,
                 branch: primaryBranch,
               })
             : null;
         const githubRepositoryFullName =
           inventoryState !== undefined && "repositoryFullName" in inventoryState
-            ? (inventoryState.repositoryFullName ?? vault.repositoryFullName)
-            : vault.repositoryFullName;
-        const githubRepositoryName = githubRepositoryFullName.split("/").at(-1) ?? vault.ghRepoName;
+            ? (inventoryState.repositoryFullName ?? vault.githubRepositoryFullName)
+            : vault.githubRepositoryFullName;
+        const githubRepositoryName = githubRepositoryFullName.split("/").at(-1) ?? vault.githubName;
         const githubRepositoryUrl = `https://github.com/${githubRepositoryFullName}`;
         const developerToolsOpen =
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
@@ -3197,7 +3199,7 @@ export function VaultDashboardView({
           providerSetupStatus && activeProviderSetup ? (
             <VaultProviderSetupSection
               providerSetup={activeProviderSetup}
-              repositoryFullName={vault.repositoryFullName}
+              repositoryFullName={vault.routeRepositoryFullName}
             />
           ) : undefined;
         const deleteBlockedSection =
@@ -3225,7 +3227,7 @@ export function VaultDashboardView({
               paginationStatus={remoteBranchPage?.status ?? "LoadingFirstPage"}
               schemaGraphAccessEnabled={schemaGraphAccessEnabled}
               vaultId={vault._id}
-              repositoryFullName={vault.repositoryFullName}
+              repositoryFullName={vault.routeRepositoryFullName}
               remoteBranches={paginatedRemoteBranches}
               productionApps={productionApps}
               stagedSummaries={stagedBranchSummaries}
@@ -3271,7 +3273,7 @@ export function VaultDashboardView({
               topRightAction={
                 deletion.state === "not_deleting" ? (
                   <VaultDashboardDeleteControl
-                    repositoryFullName={vault.repositoryFullName}
+                    repositoryFullName={vault.routeRepositoryFullName}
                     deleteAction={deletion.deleteAction}
                     isRemovingVault={isRemovingVault}
                   />
@@ -3315,7 +3317,7 @@ export function VaultDashboardView({
                           {isReady && CODESPACES_ENABLED ? (
                             <CodespaceStatus
                               vaultId={vault._id}
-                              repositoryFullName={vault.repositoryFullName}
+                              repositoryFullName={vault.routeRepositoryFullName}
                             />
                           ) : null}
                           {hasProvisioningLog ? (
@@ -3326,7 +3328,7 @@ export function VaultDashboardView({
                                 </div>
                               ) : null}
                               <VaultProvisioningLog
-                                repositoryFullName={vault.repositoryFullName}
+                                repositoryFullName={vault.routeRepositoryFullName}
                                 vaultId={vault._id}
                               />
                             </div>
@@ -3374,31 +3376,32 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     api.vault.dashboard.getUserVaultByRepository,
     selectedRepositoryFullName ? { repositoryFullName: selectedRepositoryFullName } : "skip",
   );
+  const selectedObservationTargetResult = useQuery(
+    api.vault.dashboard.getRepositoryObservationTargetByRepository,
+    selectedRepositoryFullName ? { repositoryFullName: selectedRepositoryFullName } : "skip",
+  );
   const selectedVault = selectedVaultResult ?? null;
   const selectedVaultLoaded =
     selectedRepositoryFullName === undefined || selectedVaultResult !== undefined;
-  const selectedInventoryVaultId =
-    selectedVault?.state === "ready" && selectedVault.deletion.state === "not_deleting"
-      ? selectedVault._id
-      : null;
+  const selectedObservationTargetLoaded =
+    selectedRepositoryFullName === undefined || selectedObservationTargetResult !== undefined;
+  const selectedInventoryVaultId = selectedObservationTargetResult?.vaultId ?? null;
   const visibleSummaryVaultIds = useMemo(
     () => repositoryDirectory.entries.slice(0, 25).map((entry) => entry.vaultId),
     [repositoryDirectory.entries],
   );
   useRepositoryObservationDemand({
-    enabled: selectedVaultLoaded,
+    enabled: selectedObservationTargetLoaded,
     selectedInventoryVaultId,
-    selectedSummaryVaultId: selectedVault?._id ?? null,
+    selectedSummaryVaultId: selectedObservationTargetResult?.vaultId ?? null,
     visibleSummaryVaultIds,
   });
   const selectedVaultRepositoryInventoryState = useConvexQuery(
     api.repositoryInventory.getRepositoryInventoryState,
     selectedInventoryVaultId ? { vaultId: selectedInventoryVaultId } : "skip",
   );
-  const selectedVaultRepositoryInventoryFilter = useConvexQuery(
-    api.repositoryInventory.getRepositoryInventoryFilter,
-    selectedInventoryVaultId ? { vaultId: selectedInventoryVaultId } : "skip",
-  );
+  const selectedVaultRepositoryInventoryFilter =
+    useRepositoryInventoryFilter(selectedInventoryVaultId);
   const selectedVaultRepositoryInventorySnapshotId =
     selectedVaultRepositoryInventoryState?.state !== "empty"
       ? selectedVaultRepositoryInventoryState?.activeSnapshotId
@@ -3539,18 +3542,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const createVaultAppRoot = useMutation(api.vault.dashboard.createVaultAppRoot);
   const setRepositoryInventoryFilter = useMutation(
     api.repositoryInventory.setRepositoryInventoryFilter,
-  ).withOptimisticUpdate((localStore, args) => {
-    const queryArgs = { vaultId: args.vaultId };
-    const current = localStore.getQuery(
-      api.repositoryInventory.getRepositoryInventoryFilter,
-      queryArgs,
-    );
-    const filters = normalizeRepositoryInventoryFilters(args);
-    localStore.setQuery(api.repositoryInventory.getRepositoryInventoryFilter, queryArgs, {
-      ...filters,
-      revision: (current?.revision ?? 0) + 1,
-    });
-  });
+  );
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3715,7 +3707,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
               (app) => app.appRoot === ROOT_VAULT_APP_ROOT,
             ),
             id: addAppRootDialogVault._id,
-            repositoryFullName: addAppRootDialogVault.repositoryFullName,
+            repositoryFullName: addAppRootDialogVault.routeRepositoryFullName,
           }
         : null,
     [addAppRootDialogVault],
@@ -3737,8 +3729,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     return {
       fixedAppRoot: providerAddAppRoot,
       id: addConvexDialogVault._id,
-      repositoryFullName: addConvexDialogVault.repositoryFullName,
-      repositoryName: addConvexDialogVault.ghRepoName,
+      repositoryFullName: addConvexDialogVault.routeRepositoryFullName,
+      repositoryName: addConvexDialogVault.githubName,
     };
   }, [addConvexDialogVault, canOpenConnectConvexDialog, providerAddAppRoot]);
   const addCloudflareWorkerDialogVault = addCloudflareWorkerModeActive ? selectedVault : null;
@@ -3753,8 +3745,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     return {
       fixedAppRoot: providerAddAppRoot,
       id: addCloudflareWorkerDialogVault._id,
-      repositoryFullName: addCloudflareWorkerDialogVault.repositoryFullName,
-      repositoryName: addCloudflareWorkerDialogVault.ghRepoName,
+      repositoryFullName: addCloudflareWorkerDialogVault.routeRepositoryFullName,
+      repositoryName: addCloudflareWorkerDialogVault.githubName,
     };
   }, [addCloudflareWorkerDialogVault, canOpenScopedCloudflareDialog, providerAddAppRoot]);
   const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
@@ -4292,9 +4284,20 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     filters: RepositoryInventoryFilters,
   ) => {
     try {
+      const currentFilters = selectedVaultPullRequestFilter?.value;
+      if (!currentFilters || selectedVault?._id !== vaultId) {
+        throw new Error("Pull request filters are not ready.");
+      }
+      const change = buildRepositoryInventoryFilterChange({
+        current: currentFilters,
+        next: filters,
+      });
+      if (change === null) {
+        return;
+      }
       await setRepositoryInventoryFilter({
         vaultId,
-        ...normalizeRepositoryInventoryFilters(filters),
+        change,
       });
     } catch (error) {
       toast({

@@ -220,20 +220,20 @@ export function buildVaultDashboardResourceRailState({
     githubRow = {
       provider: "github",
       status: "failed",
-      value: vault.repositoryFullName,
+      value: vault.routeRepositoryFullName,
       actions: [{ kind: "retry", label: "Retry" }],
     };
   } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "github") {
     githubRow = {
       provider: "github",
       status: "running",
-      value: vault.repositoryFullName,
+      value: vault.routeRepositoryFullName,
     };
   } else if (vault.hasConnectedGitHubRepository) {
     githubRow = {
       provider: "github",
       status: "ready",
-      value: vault.repositoryFullName,
+      value: vault.githubRepositoryFullName,
       href: githubRepositoryUrl,
       actions:
         canConfigureMissingResources && (buildAddAppRootHref || addAppRootOnClick)
@@ -252,7 +252,7 @@ export function buildVaultDashboardResourceRailState({
     githubRow = {
       provider: "github",
       status: "pending",
-      value: vault.repositoryFullName,
+      value: vault.routeRepositoryFullName,
     };
   }
 
@@ -326,14 +326,14 @@ export function buildVaultDashboardResourceRailState({
     convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "failed",
-      value: vault.ghRepoName,
+      value: vault.githubName,
       actions: [buildRetryInfrastructureAction()],
     });
   } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "convex") {
     convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "running",
-      value: vault.ghRepoName,
+      value: vault.githubName,
     });
   } else if (
     vault.providerSetup.status === "failed" &&
@@ -346,7 +346,7 @@ export function buildVaultDashboardResourceRailState({
     convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "failed",
-      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
+      value: rootConvexDeployment?.projectSlug ?? vault.githubName,
       scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
       actions:
         vault.providerSetup.source === "manual" && canConfigureRootAppRoot
@@ -364,7 +364,7 @@ export function buildVaultDashboardResourceRailState({
     convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "running",
-      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
+      value: rootConvexDeployment?.projectSlug ?? vault.githubName,
       scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
     });
   } else {
@@ -404,14 +404,14 @@ export function buildVaultDashboardResourceRailState({
     cloudflareRowsByAppRoot.set(".", {
       provider: "cloudflare",
       status: "failed",
-      value: vault.ghRepoName,
+      value: vault.githubName,
       actions: [buildRetryInfrastructureAction()],
     });
   } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "cloudflare") {
     cloudflareRowsByAppRoot.set(".", {
       provider: "cloudflare",
       status: "running",
-      value: vault.ghRepoName,
+      value: vault.githubName,
     });
   } else if (
     vault.providerSetup.status === "failed" &&
@@ -422,7 +422,7 @@ export function buildVaultDashboardResourceRailState({
     cloudflareRowsByAppRoot.set(".", {
       provider: "cloudflare",
       status: "failed",
-      value: vault.ghRepoName,
+      value: vault.githubName,
       actions:
         vault.providerSetup.source === "manual" && canConfigureRootAppRoot
           ? [buildAddCloudflareWorkerAction(".")]
@@ -436,7 +436,7 @@ export function buildVaultDashboardResourceRailState({
     cloudflareRowsByAppRoot.set(".", {
       provider: "cloudflare",
       status: "running",
-      value: vault.ghRepoName,
+      value: vault.githubName,
     });
   } else {
     const sortedCloudflareWorkers = [...vault.cloudflareWorkers].sort(
@@ -514,7 +514,7 @@ export function buildVaultDashboardResourceRailState({
         cloudflareRowsByAppRoot.set(".", {
           provider: "cloudflare",
           status: "pending",
-          value: vault.ghRepoName,
+          value: vault.githubName,
         });
       } else {
         cloudflareRowsByAppRoot.set(".", {
@@ -542,7 +542,7 @@ export function buildVaultDashboardResourceRailState({
       rows.push({
         provider: "convex",
         status: "pending",
-        value: appRoot === "." ? vault.ghRepoName : appRoot,
+        value: appRoot === "." ? vault.githubName : appRoot,
       });
     }
 
@@ -559,7 +559,7 @@ export function buildVaultDashboardResourceRailState({
       rows.push({
         provider: "cloudflare",
         status: "pending",
-        value: appRoot === "." ? vault.ghRepoName : appRoot,
+        value: appRoot === "." ? vault.githubName : appRoot,
       });
     }
 

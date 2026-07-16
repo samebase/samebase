@@ -149,22 +149,22 @@ const runSteps = [
   },
   {
     title: "4. Resolve GitHub and Cloudflare identities",
-    why: "ensureCloudflareBuildsWiring reads the saved provider connections, verifies the GitHub repo with Octokit, and gets the GitHub owner id Cloudflare needs as provider_account_id.",
+    why: "ensureCloudflareBuildsWiring resolves the stable GitHub repository id immediately before provider work. One request returns the current canonical owner and name plus the owner id Cloudflare needs as provider_account_id.",
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 688,
+        line: 1165,
         symbol: "ensureCloudflareBuildsWiring",
       },
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 706,
-        symbol: "fetchGitHubRepoIdentity",
+        line: 1192,
+        symbol: "resolveGitHubRepositoryIdentity",
       },
       {
-        file: "apps/samebase/convex/githubRepoApi.ts",
-        line: 26,
-        symbol: "octokit.rest.repos.get",
+        file: "apps/samebase/convex/githubRepositoryInventory.ts",
+        line: 814,
+        symbol: "resolveGitHubRepositoryIdentity",
       },
     ],
   },
@@ -174,12 +174,12 @@ const runSteps = [
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 711,
+        line: 1196,
         symbol: "wireCloudflareWorkerBuilds(...)",
       },
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 716,
+        line: 1202,
         symbol: "triggerInitialBuild: !active.hasConvexDeployment",
       },
       {
