@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("app provisioning workflow composition", () => {
-  it("reads the target app root and attached provider block state", async () => {
+  it("reads the target app and explicit provider dependency state", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -44,61 +44,50 @@ describe("app provisioning workflow composition", () => {
         defaultBranch: "main",
         connectedAt: 12,
       });
-      await ctx.db.insert("vaultApps", {
+      const appId = await ctx.db.insert("vaultApps", {
         vaultId,
         userId,
-        appRoot: ".",
+        rootDirectory: "/",
         createdAt: 25,
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        appRoot: ".",
+        appId,
         convex: {
-          state: "planned",
           projectName: "composed-app",
         },
         cloudflare: {
-          state: "planned",
           accountId: "cloudflare-account",
           workerName: "composed-app",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
         },
         createdAt: 30,
-        updatedAt: 30,
       });
-      return { userId, vaultId };
+      return { appId, userId, vaultId };
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
     ).resolves.toEqual({
-      appRoot: ".",
+      appId: ids.appId,
       convex: {
+        state: "not_attached",
         projectName: "composed-app",
-        attached: false,
       },
       cloudflare: {
+        state: "not_attached",
         accountId: "cloudflare-account",
         workerName: "composed-app",
-        attached: false,
-        buildsConnected: false,
-        convexBuildAccessWired: false,
-        workersDevUrl: null,
       },
     });
 
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexDeployments", {
+    const providerIds = await t.run(async (ctx) => {
+      const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        appRoot: ".",
+        appId: ids.appId,
         projectId: "convex-project",
         teamSlug: "ada-team",
         projectSlug: "composed-app",
@@ -111,60 +100,81 @@ describe("app provisioning workflow composition", () => {
           deploymentName: "composed-app-dev",
           cloudUrl: "https://composed-app-dev.convex.cloud",
         },
-        deployKeys: {
-          production: { state: "created", id: "prod-key" },
-          preview: { state: "created", id: "preview-key" },
-        },
         origin: "provisioned",
         connectedAt: 40,
         lastObservedAt: 40,
       });
-      await ctx.db.insert("vaultCloudflareWorkers", {
+      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        appRoot: ".",
+        appId: ids.appId,
         accountId: "cloudflare-account",
         workerName: "composed-app",
         workerTag: "composed-worker-tag",
         workersDevUrl: "https://composed-app.ada.workers.dev",
         origin: "provisioned",
-        deployment: {
-          builds: {
-            state: "connected",
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-            production: {
-              triggerUuid: "production-trigger",
-              buildTokenUuid: "build-token",
-            },
-            preview: {
-              triggerUuid: "preview-trigger",
-              buildTokenUuid: "build-token",
-            },
+        builds: {
+          state: "connected",
+          buildCommand: "pnpm run build",
+          deployCommand: "pnpm run deploy",
+          previewDeployCommand: "pnpm run deploy:preview",
+          pathIncludes: ["*"],
+          pathExcludes: [],
+          production: {
+            triggerUuid: "production-trigger",
+            buildTokenUuid: "build-token",
           },
-          convexBuildAccess: { state: "wired" },
+          preview: {
+            triggerUuid: "preview-trigger",
+            buildTokenUuid: "build-token",
+          },
         },
         connectedAt: 50,
         lastObservedAt: 50,
       });
+      await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        workerId,
+        convexDeploymentId,
+        wiring: {
+          state: "wired",
+          deployKeys: {
+            production: {
+              state: "created",
+              name: "prod-key",
+              deploymentName: "convex-prod",
+            },
+            preview: {
+              state: "created",
+              name: "preview-key",
+              projectId: "convex-project-id",
+            },
+          },
+        },
+        createdAt: 50,
+        updatedAt: 50,
+      });
+      return { convexDeploymentId, workerId };
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
     ).resolves.toEqual({
-      appRoot: ".",
+      appId: ids.appId,
       convex: {
+        state: "attached",
         projectName: "composed-app",
-        attached: true,
+        deploymentId: providerIds.convexDeploymentId,
       },
       cloudflare: {
+        state: "attached",
         accountId: "cloudflare-account",
         workerName: "composed-app",
-        attached: true,
+        workerId: providerIds.workerId,
         buildsConnected: true,
         convexBuildAccessWired: true,
         workersDevUrl: "https://composed-app.ada.workers.dev",
@@ -172,10 +182,7 @@ describe("app provisioning workflow composition", () => {
     });
 
     await t.run(async (ctx) => {
-      const convexDeployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault_and_appRoot", (q) => q.eq("vaultId", ids.vaultId).eq("appRoot", "."))
-        .first();
+      const convexDeployment = await ctx.db.get(providerIds.convexDeploymentId);
       if (!convexDeployment) {
         throw new Error("Expected Convex deployment.");
       }
@@ -185,17 +192,21 @@ describe("app provisioning workflow composition", () => {
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
     ).resolves.toEqual({
-      appRoot: ".",
+      appId: ids.appId,
       convex: {
+        state: "not_attached",
         projectName: "composed-app",
-        attached: false,
       },
       cloudflare: {
+        state: "attached",
         accountId: "cloudflare-account",
         workerName: "composed-app",
-        attached: true,
+        workerId: providerIds.workerId,
         buildsConnected: true,
         convexBuildAccessWired: false,
         workersDevUrl: "https://composed-app.ada.workers.dev",
@@ -203,10 +214,7 @@ describe("app provisioning workflow composition", () => {
     });
 
     await t.run(async (ctx) => {
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) => q.eq("vaultId", ids.vaultId).eq("appRoot", "."))
-        .first();
+      const worker = await ctx.db.get(providerIds.workerId);
       if (!worker) {
         throw new Error("Expected Cloudflare Worker.");
       }
@@ -216,20 +224,20 @@ describe("app provisioning workflow composition", () => {
     });
 
     await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
+      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
     ).resolves.toEqual({
-      appRoot: ".",
+      appId: ids.appId,
       convex: {
+        state: "not_attached",
         projectName: "composed-app",
-        attached: false,
       },
       cloudflare: {
+        state: "not_attached",
         accountId: "cloudflare-account",
         workerName: "composed-app",
-        attached: false,
-        buildsConnected: false,
-        convexBuildAccessWired: false,
-        workersDevUrl: null,
       },
     });
   });

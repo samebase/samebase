@@ -16,7 +16,7 @@ axes name exactly that). Progress and failure are readable through `get_user_vau
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app to attach the Worker to.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `appId` (string, required): Stable Samebase app id that will own the Worker.
 - `accountId` (string, required): Cloudflare account id from list_cloudflare_accounts.
 - `workerName` (string, required): Worker name from list_cloudflare_workers (recommended or
   available only).

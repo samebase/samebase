@@ -194,7 +194,7 @@ describe("useRepositoryObservationDemand", () => {
     expect(mocks.requestSummaryRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it("does not let summary demand overtake a rejected selected inventory request", async () => {
+  it("still refreshes vault summaries when selected inventory refresh fails", async () => {
     const selectedVaultId = vaultId("selected-vault");
     mocks.requestInventoryRefresh.mockRejectedValueOnce(new Error("inventory unavailable"));
     rootElement = document.createElement("div");
@@ -215,7 +215,12 @@ describe("useRepositoryObservationDemand", () => {
     });
 
     expect(mocks.requestInventoryRefresh).toHaveBeenCalledWith({ vaultId: selectedVaultId });
-    expect(mocks.requestSummaryRefresh).not.toHaveBeenCalled();
+    expect(mocks.requestSummaryRefresh).toHaveBeenCalledWith({
+      visibleVaultIds: [selectedVaultId],
+    });
+    expect(mocks.requestInventoryRefresh.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.requestSummaryRefresh.mock.invocationCallOrder[0],
+    );
   });
 
   it("requests fair background summary work before any directory rows load", async () => {

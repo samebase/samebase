@@ -95,10 +95,30 @@ function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-function fakeConvexDeploymentId(): Id<"vaultConvexDeployments"> {
+function fakeVaultAppId(value: string): Id<"vaultApps"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs stable values for static rendering.
+  return value;
+}
+
+function fakeCloudflareWorkerId(value: string): Id<"vaultCloudflareWorkers"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs stable values for static rendering.
+  return value;
+}
+
+function fakeWorkerDeploymentDependencyId(value: string): Id<"vaultWorkerDeploymentDependencies"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs stable values for static rendering.
+  return value;
+}
+
+function fakeConvexDeploymentId(
+  value = "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a",
+): Id<"vaultConvexDeployments"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
-  return "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+  return value;
 }
 
 function fakeConvexSchemaSnapshotId(): Id<"vaultConvexSchemaSnapshots"> {
@@ -461,6 +481,14 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
 ];
 
 const LIST_SPACING_VAULT_ID = fakeVaultId();
+const DOMAIN_ROUTER_APP_ID = fakeVaultAppId("app-domain-router");
+const SAMEBASE_APP_ID = fakeVaultAppId("app-samebase");
+const SHARED_BACKEND_APP_ID = fakeVaultAppId("app-shared-backend");
+const MOBILE_APP_ID = fakeVaultAppId("app-mobile");
+const DOMAIN_ROUTER_WORKER_ID = fakeCloudflareWorkerId("worker-domain-router");
+const SAMEBASE_WORKER_ID = fakeCloudflareWorkerId("worker-samebase");
+const SAMEBASE_PROXY_WORKER_ID = fakeCloudflareWorkerId("worker-samebase-proxy");
+const SHARED_BACKEND_DEPLOYMENT_ID = fakeConvexDeploymentId("deployment-shared-backend");
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
   _creationTime: FIXTURE_NOW - 900_000,
@@ -483,11 +511,16 @@ const LIST_SPACING_VAULT = {
   hasCloudflareProvision: true,
   canRemoveConvexProvision: true,
   canRemoveCloudflareProvision: true,
-  appRoots: [{ appRoot: "apps/domain-router" }, { appRoot: "apps/samebase" }],
+  apps: [
+    { appId: DOMAIN_ROUTER_APP_ID, rootDirectory: "apps/domain-router" },
+    { appId: MOBILE_APP_ID, rootDirectory: "apps/mobile" },
+    { appId: SAMEBASE_APP_ID, rootDirectory: "apps/samebase" },
+    { appId: SHARED_BACKEND_APP_ID, rootDirectory: "packages/backend" },
+  ],
   cloudflareWorkers: [
     {
-      appRoot: "apps/domain-router",
-      convexDeployKeys: { state: "not_applicable" },
+      workerId: DOMAIN_ROUTER_WORKER_ID,
+      appId: DOMAIN_ROUTER_APP_ID,
       githubRepositoryConnection: { state: "connected" },
       upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 12_000,
@@ -497,8 +530,8 @@ const LIST_SPACING_VAULT = {
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/deployments",
     },
     {
-      appRoot: "apps/samebase",
-      convexDeployKeys: { state: "set" },
+      workerId: SAMEBASE_WORKER_ID,
+      appId: SAMEBASE_APP_ID,
       githubRepositoryConnection: { state: "connected" },
       upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 12_000,
@@ -507,10 +540,22 @@ const LIST_SPACING_VAULT = {
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/deployments",
     },
+    {
+      workerId: SAMEBASE_PROXY_WORKER_ID,
+      appId: SAMEBASE_APP_ID,
+      githubRepositoryConnection: { state: "connected" },
+      upstream: { state: "present" },
+      lastObservedAt: FIXTURE_NOW - 12_000,
+      workerName: "samebase-posthog-proxy",
+      workersDevUrl: "https://samebase-posthog-proxy.nicu.workers.dev",
+      projectDashboardUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-posthog-proxy/production/deployments",
+    },
   ],
   convexDeployments: [
     {
-      appRoot: "apps/samebase",
+      convexDeploymentId: SHARED_BACKEND_DEPLOYMENT_ID,
+      appId: SHARED_BACKEND_APP_ID,
       projectId: "samebase",
       projectSlug: "samebase",
       teamSlug: "nicu",
@@ -522,9 +567,31 @@ const LIST_SPACING_VAULT = {
       deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
     },
   ],
+  workerDeploymentDependencies: [
+    {
+      dependencyId: fakeWorkerDeploymentDependencyId("dependency-samebase-backend"),
+      workerId: SAMEBASE_WORKER_ID,
+      convexDeploymentId: SHARED_BACKEND_DEPLOYMENT_ID,
+      wiring: { state: "wired" },
+    },
+    {
+      dependencyId: fakeWorkerDeploymentDependencyId("dependency-proxy-backend"),
+      workerId: SAMEBASE_PROXY_WORKER_ID,
+      convexDeploymentId: SHARED_BACKEND_DEPLOYMENT_ID,
+      wiring: { state: "wired" },
+    },
+  ],
 } satisfies VaultDashboardVault;
 
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8e");
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_APP_ID = fakeVaultAppId("app-trigger-missing");
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_BACKEND_APP_ID = fakeVaultAppId(
+  "app-trigger-missing-backend",
+);
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_WORKER_ID = fakeCloudflareWorkerId("worker-trigger-missing");
+const CLOUDFLARE_BUILD_TRIGGER_MISSING_DEPLOYMENT_ID = fakeConvexDeploymentId(
+  "deployment-trigger-missing",
+);
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   ...LIST_SPACING_VAULT,
   _id: CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID,
@@ -547,11 +614,17 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
     updatedAt: FIXTURE_NOW - 1_000,
     nextAction: "wire_convex_build_access",
   },
-  appRoots: [{ appRoot: "." }],
+  apps: [
+    { appId: CLOUDFLARE_BUILD_TRIGGER_MISSING_APP_ID, rootDirectory: "/" },
+    {
+      appId: CLOUDFLARE_BUILD_TRIGGER_MISSING_BACKEND_APP_ID,
+      rootDirectory: "convex",
+    },
+  ],
   cloudflareWorkers: [
     {
-      appRoot: ".",
-      convexDeployKeys: { state: "not_applicable" },
+      workerId: CLOUDFLARE_BUILD_TRIGGER_MISSING_WORKER_ID,
+      appId: CLOUDFLARE_BUILD_TRIGGER_MISSING_APP_ID,
       githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
       upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 2_000,
@@ -563,7 +636,8 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   ],
   convexDeployments: [
     {
-      appRoot: ".",
+      convexDeploymentId: CLOUDFLARE_BUILD_TRIGGER_MISSING_DEPLOYMENT_ID,
+      appId: CLOUDFLARE_BUILD_TRIGGER_MISSING_BACKEND_APP_ID,
       projectId: "tmp-my-super-app-2",
       projectSlug: "tmp-my-super-app-2",
       teamSlug: "nicu",
@@ -575,6 +649,17 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
         "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/settings",
       deploymentDashboardUrl:
         "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/valiant-panda-123",
+    },
+  ],
+  workerDeploymentDependencies: [
+    {
+      dependencyId: fakeWorkerDeploymentDependencyId("dependency-trigger-missing"),
+      workerId: CLOUDFLARE_BUILD_TRIGGER_MISSING_WORKER_ID,
+      convexDeploymentId: CLOUDFLARE_BUILD_TRIGGER_MISSING_DEPLOYMENT_ID,
+      wiring: {
+        state: "not_wired",
+        nextAction: "wire_convex_build_access",
+      },
     },
   ],
 } satisfies VaultDashboardVault;
@@ -1044,7 +1129,8 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
     deployments: [
       {
         _id: deploymentId,
-        appRoot: ".",
+        appId: SHARED_BACKEND_APP_ID,
+        rootDirectory: "packages/backend",
         deploymentName: "samebase-prod",
         projectSlug: "samebase",
         teamSlug: "samebase",
@@ -1476,8 +1562,8 @@ function VaultConvexSchemaRouteMobileFixture() {
     }));
   }, []);
   const context = {
-    appRoot: ".",
     branch: "main",
+    deploymentId: fakeConvexDeploymentId(),
     repositoryFullName: "samebase/samebase",
   } satisfies VaultConvexSchemaGraphRouteContext;
 
@@ -1564,10 +1650,11 @@ function FixtureCloudflareConnectDialog() {
       selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
       selectedWorkerName="app-start-workers"
       vault={{
-        fixedAppRoot: "apps/atelier",
+        appId: fakeVaultAppId("app-atelier"),
         id: fakeVaultId(),
         repositoryFullName: "samebase/atelier",
         repositoryName: "atelier",
+        rootDirectory: "apps/atelier",
       }}
       workers={FIXTURE_CLOUDFLARE_WORKERS}
     />
@@ -1600,7 +1687,7 @@ function VaultDashboardConnectCloudflareOpenFixture() {
 }
 
 function VaultDashboardAddAppRootConvertOpenFixture() {
-  const [appRoot, setAppRoot] = useState("");
+  const [rootDirectory, setRootDirectory] = useState("");
 
   return (
     <div
@@ -1621,19 +1708,18 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardAppRootDialog
-          appRoot={appRoot}
+          appRoot={rootDirectory}
           error={null}
           folderSuggestions={["apps/domain-router", "apps/samebase", "packages/sync"]}
           isSubmitting={false}
           mode="monorepo"
-          onAppRootChange={setAppRoot}
+          onAppRootChange={setRootDirectory}
           onModeChange={() => {}}
           onOpenChange={() => {}}
           onSubmit={() => {}}
           open={true}
           vault={{
-            hasAppRoots: true,
-            hasRootAppRoot: true,
+            hasApps: true,
             id: fakeVaultId(),
             repositoryFullName: "samebase/samebase",
           }}
@@ -1663,7 +1749,7 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardAppRootDialog
-          appRoot="."
+          appRoot="/"
           error={null}
           folderSuggestions={[]}
           isSubmitting={false}
@@ -1674,8 +1760,7 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
           onSubmit={() => {}}
           open={true}
           vault={{
-            hasAppRoots: false,
-            hasRootAppRoot: false,
+            hasApps: false,
             id: fakeVaultId(),
             repositoryFullName: "samebase/atelier",
           }}
@@ -1729,7 +1814,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
-          appRoot="."
+          appRoot="/"
           appRootReadOnly={false}
           createProjectName="samebase-app"
           projects={[
@@ -1753,10 +1838,11 @@ function VaultDashboardConnectConvexOpenFixture() {
           open={true}
           selectedProjectId="jaded-heron-123"
           vault={{
-            fixedAppRoot: ".",
+            appId: fakeVaultAppId("app-samebase-root"),
             id: fakeVaultId(),
             repositoryFullName: "samebase/app",
             repositoryName: "samebase-app",
+            rootDirectory: "/",
           }}
         />
       </TestRouterProvider>
@@ -2248,7 +2334,8 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                       })}
                       productionApps={[
                         {
-                          appRoot: ".",
+                          appId: SHARED_BACKEND_APP_ID,
+                          rootDirectory: "packages/backend",
                           links: [
                             {
                               href: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",

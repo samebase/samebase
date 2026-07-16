@@ -1,111 +1,45 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import type { AppProvisioningRunTrigger } from "../schema";
 import { makeConvexTest } from "../test.setup";
+import type { VaultCloudflareConnectedBuilds, VaultWorkerDeploymentWiring } from "./model";
 
-const appRoot = ".";
-const verificationCloudflareAccountId = "0123456789abcdef0123456789abcdef";
+const WEB_ROOT_DIRECTORY = "apps/web";
+const CONVEX_ROOT_DIRECTORY = "packages/backend";
+const MOBILE_ROOT_DIRECTORY = "apps/mobile";
+const CLOUDFLARE_ACCOUNT_ID = "cloudflare-account";
 
-function cloudflareApiSuccessResponse(result: unknown): Response {
-  return new Response(JSON.stringify({ success: true, errors: [], messages: [], result }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+const WEB_ONLY_BUILDS: VaultCloudflareConnectedBuilds = {
+  state: "connected",
+  buildCommand: "pnpm run build",
+  deployCommand: "pnpm run deploy",
+  previewDeployCommand: "pnpm run deploy:preview",
+  pathIncludes: [
+    "apps/web/*",
+    ".node-version",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+  ],
+  pathExcludes: [],
+  production: {
+    triggerUuid: "production-trigger",
+    buildTokenUuid: "production-token",
+  },
+  preview: {
+    triggerUuid: "preview-trigger",
+    buildTokenUuid: "preview-token",
+  },
+};
 
-function stubCloudflareInfrastructureVerificationFetch(args?: {
-  convexProjectStatus?: number;
-}): void {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: string | URL | Request) => {
-      const url = input instanceof Request ? input.url : String(input);
-      const endpoint = new URL(url).pathname;
-      switch (endpoint) {
-        case "/client/v4/accounts":
-          return cloudflareApiSuccessResponse([
-            {
-              id: verificationCloudflareAccountId,
-              name: "Ada Cloudflare",
-              type: "standard",
-            },
-          ]);
-        case `/client/v4/accounts/${verificationCloudflareAccountId}/builds/workers/manual-cloudflare-worker-tag/triggers`:
-          return cloudflareApiSuccessResponse([]);
-        case "/v1/projects/123":
-          return new Response("provider failure", { status: args?.convexProjectStatus ?? 500 });
-      }
-      return new Response(`Unexpected endpoint ${endpoint}`, { status: 500 });
-    }),
-  );
-}
+const DEPENDENCY_AWARE_BUILDS: VaultCloudflareConnectedBuilds = {
+  ...WEB_ONLY_BUILDS,
+  pathIncludes: [...WEB_ONLY_BUILDS.pathIncludes, "packages/backend/*"],
+};
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-async function createAttachableVaultWithOwnership(args: { ownershipState: "active" | "failed" }) {
-  const t = makeConvexTest();
-  const ids = await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
-      name: "Ada",
-      email: "ada@example.com",
-      isApproved: true,
-    });
-    const vaultId = await ctx.db.insert("vaults", {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "not_connected",
-    });
-    const runState = args.ownershipState === "active" ? "running" : "failed";
-    const runId = await ctx.db.insert("appProvisioningRuns", {
-      userId,
-      vaultId,
-      repositoryFullName: "ada/manual-cloudflare",
-      trigger: "retry",
-      state: runState,
-      currentStep: "attach_worker",
-      createdAt: 10,
-      updatedAt: 20,
-      ...(runState === "failed" ? { lastError: "Cloudflare provisioning failed." } : {}),
-    });
-    await ctx.db.replace(vaultId, {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "connected",
-      githubMode: "create_repository",
-      runId,
-      ghRepoId: "123",
-      ghRepoNodeId: "R_123",
-      githubOwner: "ada",
-      githubName: "manual-cloudflare",
-      routeRepositoryKey: "ada/manual-cloudflare",
-      routeOwner: "ada",
-      routeName: "manual-cloudflare",
-      visibility: "private",
-      defaultBranch: "main",
-      connectedAt: 12,
-    });
-    await ctx.db.insert("vaultApps", {
-      vaultId,
-      userId,
-      appRoot,
-      createdAt: 25,
-    });
-    await ctx.db.insert("vaultInfrastructureOwnership", {
-      vaultId,
-      runId,
-      state: args.ownershipState,
-      updatedAt: 20,
-    });
-
-    return { userId, vaultId };
-  });
-
-  return { ids, t };
-}
-
-async function createCloudflareConnectionVault() {
+async function createVaultFixture() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -121,7 +55,7 @@ async function createCloudflareConnectionVault() {
     const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
       userId,
       vaultId,
-      repositoryFullName: "ada/manual-cloudflare",
+      repositoryFullName: "ada/monorepo",
       trigger: "connect_existing_repository",
       state: "succeeded",
       currentStep: "finish",
@@ -138,2226 +72,775 @@ async function createCloudflareConnectionVault() {
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
       githubOwner: "ada",
-      githubName: "manual-cloudflare",
-      routeRepositoryKey: "ada/manual-cloudflare",
+      githubName: "monorepo",
+      routeRepositoryKey: "ada/monorepo",
       routeOwner: "ada",
-      routeName: "manual-cloudflare",
+      routeName: "monorepo",
       visibility: "private",
       defaultBranch: "main",
-      connectedAt: 12,
+      connectedAt: 20,
     });
-    await ctx.db.insert("vaultApps", {
+    const webAppId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot,
-      createdAt: 25,
-    });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
-      userId,
-      vaultId,
-      repositoryFullName: "ada/manual-cloudflare",
-      trigger: "connect_cloudflare_worker",
-      state: "queued",
-      currentStep: "run_created",
+      rootDirectory: WEB_ROOT_DIRECTORY,
       createdAt: 30,
-      updatedAt: 30,
+    });
+    const convexAppId = await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      rootDirectory: CONVEX_ROOT_DIRECTORY,
+      createdAt: 31,
+    });
+    const mobileAppId = await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      rootDirectory: MOBILE_ROOT_DIRECTORY,
+      createdAt: 32,
     });
 
-    return { runId, userId, vaultId };
+    return { convexAppId, mobileAppId, userId, vaultId, webAppId };
   });
 
   return { ids, t };
 }
 
-async function createClaimedInfrastructureVerification(args: { includeConvexConnection: boolean }) {
-  const { ids, t } = await createCloudflareConnectionVault();
-  const runId = await t.run(async (ctx) => {
-    await ctx.db.insert("providerConnections", {
-      kind: "cloudflare",
-      userId: ids.userId,
-      auth: {
-        method: "oauth",
-        credential: "cloudflare-token",
-        refreshCredential: "cloudflare-refresh-token",
-        credentialExpiresAt: 4_102_444_800_000,
-      },
-      defaultAccount: {
-        state: "selected",
-        accountId: verificationCloudflareAccountId,
-        accountName: "Ada Cloudflare",
-      },
-      createdAt: 1,
-      updatedAt: 1,
-    });
-    if (args.includeConvexConnection) {
-      await ctx.db.insert("providerConnections", {
-        kind: "convex",
+type TestBackend = ReturnType<typeof makeConvexTest>;
+type VaultFixtureIds = Awaited<ReturnType<typeof createVaultFixture>>["ids"];
+
+async function createRun(
+  t: TestBackend,
+  ids: VaultFixtureIds,
+  trigger: AppProvisioningRunTrigger,
+): Promise<Id<"appProvisioningRuns">> {
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("appProvisioningRuns", {
         userId: ids.userId,
-        auth: {
-          method: "api_key",
-          credential: "convex-token",
-        },
-        teamId: "convex-team",
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/monorepo",
+        trigger,
+        state: "queued",
+        currentStep: "run_created",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+  );
+}
+
+async function attachWorker(
+  t: TestBackend,
+  ids: VaultFixtureIds,
+  workerName: string,
+  appId: Id<"vaultApps"> = ids.webAppId,
+): Promise<Id<"vaultCloudflareWorkers">> {
+  return await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
+    vaultId: ids.vaultId,
+    userId: ids.userId,
+    appId,
+    accountId: CLOUDFLARE_ACCOUNT_ID,
+    workerName,
+    workerTag: `${workerName}-tag`,
+    origin: "selected_existing",
+  });
+}
+
+async function insertConvexDeployment(
+  t: TestBackend,
+  ids: VaultFixtureIds,
+): Promise<Id<"vaultConvexDeployments">> {
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: ids.convexAppId,
+        projectId: "convex-project",
         teamSlug: "ada-team",
-        createdAt: 1,
-        updatedAt: 1,
-      });
-    }
-    await ctx.db.insert("vaultConvexDeployments", {
+        projectSlug: "monorepo",
+        deploymentName: "monorepo-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://monorepo.convex.cloud",
+        siteUrl: "https://monorepo.convex.site",
+        previewDeployment: { state: "not_ensured" },
+        origin: "selected_existing",
+        upstream: { state: "present" },
+        connectedAt: 40,
+        lastObservedAt: 40,
+      }),
+  );
+}
+
+async function setWorkerBuilds(
+  t: TestBackend,
+  workerId: Id<"vaultCloudflareWorkers">,
+  builds: VaultCloudflareConnectedBuilds,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    await ctx.db.patch(workerId, { builds });
+  });
+}
+
+async function insertDependency(
+  t: TestBackend,
+  ids: VaultFixtureIds,
+  workerId: Id<"vaultCloudflareWorkers">,
+  convexDeploymentId: Id<"vaultConvexDeployments">,
+  wiring: VaultWorkerDeploymentWiring,
+): Promise<Id<"vaultWorkerDeploymentDependencies">> {
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        workerId,
+        convexDeploymentId,
+        wiring,
+        createdAt: 50,
+        updatedAt: 50,
+      }),
+  );
+}
+
+describe("Cloudflare Worker persistence", () => {
+  it("attaches provider resources by stable app id and allows multiple Workers on one app", async () => {
+    const { ids, t } = await createVaultFixture();
+    const runId = await createRun(t, ids, "connect_cloudflare_worker");
+
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readCloudflareWorkerDiscoveryContext, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: ids.webAppId,
+      }),
+    ).resolves.toEqual({
+      ghRepoId: "123",
+      repositoryFullName: "ada/monorepo",
+      expectedRootDirectory: WEB_ROOT_DIRECTORY,
+    });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
+        vaultId: ids.vaultId,
+        runId,
+        userId: ids.userId,
+        appId: ids.webAppId,
+        accountId: CLOUDFLARE_ACCOUNT_ID,
+        workerName: "web-worker",
+        origin: "selected_existing",
+      }),
+    ).resolves.toEqual({ claimed: true });
+    const attachment = await t.mutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
       vaultId: ids.vaultId,
+      runId,
       userId: ids.userId,
-      appRoot,
-      projectId: "123",
-      teamSlug: "ada-team",
-      projectSlug: "manual-cloudflare",
-      deploymentName: "manual-cloudflare-prod",
-      deploymentType: "prod",
-      cloudUrl: "https://manual-cloudflare.convex.cloud",
-      siteUrl: "https://manual-cloudflare.convex.site",
-      previewDeployment: { state: "not_ensured" },
+      appId: ids.webAppId,
+      accountId: CLOUDFLARE_ACCOUNT_ID,
+      workerName: "web-worker",
+      workerTag: "web-worker-tag",
+      origin: "selected_existing",
+    });
+    if (attachment.state !== "attached") {
+      throw new Error("Expected Worker attachment.");
+    }
+    await t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, {
+      vaultId: ids.vaultId,
+      runId,
+      userId: ids.userId,
+      workerId: attachment.workerId,
+    });
+
+    const secondWorkerId = await attachWorker(t, ids, "web-worker-secondary");
+    const workers = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_app", (q) => q.eq("appId", ids.webAppId))
+          .collect(),
+    );
+    const mobileWorkers = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_app", (q) => q.eq("appId", ids.mobileAppId))
+          .collect(),
+    );
+
+    expect(workers.map((worker) => worker._id)).toEqual(
+      expect.arrayContaining([attachment.workerId, secondWorkerId]),
+    );
+    expect(workers).toHaveLength(2);
+    expect(workers.every((worker) => worker.appId === ids.webAppId)).toBe(true);
+    expect(workers.every((worker) => worker.builds.state === "not_connected")).toBe(true);
+    expect(workers[0]).not.toHaveProperty("rootDirectory");
+    expect(mobileWorkers).toEqual([]);
+
+    await expect(attachWorker(t, ids, "web-worker", ids.convexAppId)).rejects.toThrow(
+      "Cloudflare Worker is already attached to this vault.",
+    );
+  });
+
+  it("builds from the Worker root and every explicit Convex dependency root", async () => {
+    const { ids, t } = await createVaultFixture();
+    const workerId = await attachWorker(t, ids, "web-worker");
+    const convexDeploymentId = await insertConvexDeployment(t, ids);
+    await insertDependency(t, ids, workerId, convexDeploymentId, {
+      state: "not_wired",
       deployKeys: {
         production: { state: "not_created" },
         preview: { state: "not_created" },
       },
-      origin: "selected_existing",
-      connectedAt: 35,
-      lastObservedAt: 35,
     });
-    await ctx.db.insert("vaultCloudflareWorkers", {
+    const runId = await createRun(t, ids, "wire_builds");
+    const runArgs = {
       vaultId: ids.vaultId,
+      runId,
       userId: ids.userId,
-      appRoot,
-      accountId: verificationCloudflareAccountId,
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-      deployment: {
-        builds: { state: "not_connected" },
-        convexBuildAccess: { state: "not_wired" },
-      },
-      connectedAt: 40,
-      lastObservedAt: 40,
-    });
-    return await ctx.db.insert("appProvisioningRuns", {
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      repositoryFullName: "ada/manual-cloudflare",
-      trigger: "verify_infrastructure",
-      state: "queued",
-      currentStep: "run_created",
-      createdAt: 50,
-      updatedAt: 50,
-    });
-  });
-  const verifyIds = { ...ids, runId };
-
-  await t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
-    ...verifyIds,
-    appRoot,
-  });
-
-  return { ids: verifyIds, t };
-}
-
-describe("vault Cloudflare attachment mutations", () => {
-  it("claims, attaches, and finishes a durable Cloudflare Worker connection run", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        origin: "selected_existing",
-      }),
-    ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-      }),
-    ).resolves.toEqual({ attached: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
-        .collect();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { events, ownership, run, worker };
-    });
-
-    expect(result.ownership).toMatchObject({
-      runId: ids.runId,
-      state: "succeeded",
-    });
-    expect(result.run).toMatchObject({
-      state: "succeeded",
-      currentStep: "finish",
-    });
-    expect(result.worker).toMatchObject({
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-      deployment: {
-        builds: { state: "not_connected" },
-        convexBuildAccess: { state: "not_wired" },
-      },
-    });
-    expect(result.events.map((event) => event.step)).toEqual([
-      "claim_infra",
-      "attach_worker",
-      "finish",
-    ]);
-  });
-
-  it("replaces a missing-upstream Worker row during a Cloudflare Worker connection run", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "old-account",
-        workerName: "old-worker",
-        workerTag: "old-worker-tag",
-        origin: "selected_existing",
-        upstream: { state: "missing_upstream" },
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
-        connectedAt: 20,
-        lastObservedAt: 20,
-      });
-    });
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        origin: "selected_existing",
-      }),
-    ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readActiveCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toEqual({ active: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-      }),
-    ).resolves.toEqual({ attached: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-
-    const workers = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
-    });
-
-    expect(workers).toHaveLength(1);
-    expect(workers[0]).toMatchObject({
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      upstream: { state: "present" },
-    });
-  });
-
-  it("rejects reconnecting a missing-upstream Worker row to a target held by a present row", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultApps", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot: "apps/admin",
-        createdAt: 26,
-      });
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "old-account",
-        workerName: "old-worker",
-        workerTag: "old-worker-tag",
-        origin: "selected_existing",
-        upstream: { state: "missing_upstream" },
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
-        connectedAt: 20,
-        lastObservedAt: 20,
-      });
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot: "apps/admin",
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        upstream: { state: "present" },
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
-        connectedAt: 25,
-        lastObservedAt: 25,
-      });
-    });
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        origin: "selected_existing",
-      }),
-    ).resolves.toEqual({ claimed: false });
-
-    const events = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
-        .collect();
-    });
-    expect(events.at(-1)).toMatchObject({
-      level: "warn",
-      message: "Cloudflare Worker is already attached to this vault.",
-    });
-  });
-
-  it("keeps composed create runs active while finishing Cloudflare provider blocks", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
-      },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
+      workerId,
     };
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.runId, {
-        trigger: "create",
-        state: "running",
-        currentStep: "attach_worker",
-        updatedAt: 40,
-      });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        state: "active",
-        updatedAt: 40,
-      });
-      await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "manual-cloudflare",
-        deploymentName: "manual-cloudflare-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-        siteUrl: "https://manual-cloudflare.convex.site",
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "not_created" },
-          preview: { state: "not_created" },
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, runArgs),
+    ).resolves.toEqual({ claimed: true });
+    const active = await t.query(
+      internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring,
+      runArgs,
+    );
+    expect(active).toMatchObject({
+      active: true,
+      hasConvexDeployment: true,
+      app: {
+        appId: ids.webAppId,
+        rootDirectory: WEB_ROOT_DIRECTORY,
+      },
+      worker: { workerId },
+      buildConfig: {
+        rootDirectory: WEB_ROOT_DIRECTORY,
+        pathIncludes: DEPENDENCY_AWARE_BUILDS.pathIncludes,
+      },
+    });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
+        ...runArgs,
+        builds: DEPENDENCY_AWARE_BUILDS,
+      }),
+    ).resolves.toEqual({ applied: true });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.finishCloudflareBuildsWiring, runArgs),
+    ).resolves.toBeNull();
+
+    await expect(t.run(async (ctx) => await ctx.db.get(workerId))).resolves.toMatchObject({
+      appId: ids.webAppId,
+      builds: DEPENDENCY_AWARE_BUILDS,
+    });
+  });
+});
+
+describe("Worker to Convex deployment dependencies", () => {
+  it("stores partial and wired deploy-key state on the explicit cross-root relation", async () => {
+    const { ids, t } = await createVaultFixture();
+    const workerId = await attachWorker(t, ids, "web-worker");
+    await setWorkerBuilds(t, workerId, WEB_ONLY_BUILDS);
+    const convexDeploymentId = await insertConvexDeployment(t, ids);
+    const runId = await createRun(t, ids, "wire_convex_build_access");
+    const runArgs = {
+      vaultId: ids.vaultId,
+      runId,
+      userId: ids.userId,
+      workerId,
+      convexDeploymentId,
+    };
+
+    await expect(
+      t.mutation(
+        internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring,
+        runArgs,
+      ),
+    ).resolves.toEqual({ claimed: true });
+    const active = await t.query(
+      internal.vault.cloudflareMutations.readActiveCloudflareConvexBuildAccessWiring,
+      runArgs,
+    );
+    expect(active).toMatchObject({
+      active: true,
+      workerApp: {
+        appId: ids.webAppId,
+        rootDirectory: WEB_ROOT_DIRECTORY,
+      },
+      convexApp: {
+        appId: ids.convexAppId,
+        rootDirectory: CONVEX_ROOT_DIRECTORY,
+      },
+      worker: {
+        workerId,
+        builds: { pathIncludes: DEPENDENCY_AWARE_BUILDS.pathIncludes },
+      },
+      convex: { convexDeploymentId },
+      dependency: {
+        wiring: {
+          state: "not_wired",
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: { state: "not_created" },
+          },
         },
-        origin: "provisioned",
-        connectedAt: 35,
-        lastObservedAt: 35,
-      });
+      },
     });
 
-    await t.mutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
-      ...ids,
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "provisioned",
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-    await t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
-      ...ids,
-      appRoot,
-      builds,
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareBuildsWiring, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toEqual({ convexBuildAccessRunId: null });
     await t.mutation(
       internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
       {
-        ...ids,
-        appRoot,
+        ...runArgs,
         deployment: "production",
-        convexDeployKeyId: "prod:key-id",
+        convexDeployKeyName: "production-key-name",
       },
     );
+    const partialDependency = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("vaultWorkerDeploymentDependencies")
+          .withIndex("by_worker", (q) => q.eq("workerId", workerId))
+          .unique(),
+    );
+    expect(partialDependency).toMatchObject({
+      workerId,
+      convexDeploymentId,
+      wiring: {
+        state: "not_wired",
+        deployKeys: {
+          production: { state: "created", name: "production-key-name" },
+          preview: { state: "not_created" },
+        },
+      },
+    });
+
     await t.mutation(
       internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
       {
-        ...ids,
-        appRoot,
+        ...runArgs,
         deployment: "preview",
-        convexDeployKeyId: "preview:key-id",
+        convexDeployKeyName: "preview-key-name",
       },
     );
     await t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
-      ...ids,
-      appRoot,
+      ...runArgs,
+      builds: DEPENDENCY_AWARE_BUILDS,
       previewDeployment: {
         state: "ready",
-        deploymentName: "manual-cloudflare-dev",
-        cloudUrl: "https://manual-cloudflare-dev.convex.cloud",
+        deploymentName: "monorepo-preview",
+        cloudUrl: "https://monorepo-preview.convex.cloud",
       },
     });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
+    await t.mutation(
+      internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
+      runArgs,
+    );
 
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
-        .collect();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { events, ownership, run, worker };
+    const persisted = await t.run(async (ctx) => {
+      const dependency = await ctx.db
+        .query("vaultWorkerDeploymentDependencies")
+        .withIndex("by_worker", (q) => q.eq("workerId", workerId))
+        .unique();
+      return {
+        convexDeployment: await ctx.db.get(convexDeploymentId),
+        dependency,
+        worker: await ctx.db.get(workerId),
+      };
     });
-
-    expect(result.ownership).toMatchObject({
-      runId: ids.runId,
-      state: "active",
-    });
-    expect(result.run).toMatchObject({
-      state: "running",
-      currentStep: "wire_convex_build_access",
-    });
-    expect(result.worker).toMatchObject({
-      deployment: {
-        builds,
-        convexBuildAccess: { state: "wired" },
-      },
-    });
-    expect(result.events.map((event) => event.step)).toEqual([
-      "attach_worker",
-      "attach_worker",
-      "wire_builds",
-      "wire_builds",
-      "wire_convex_build_access",
-      "wire_convex_build_access",
-      "wire_convex_build_access",
-      "wire_convex_build_access",
-    ]);
-  });
-
-  it.each([
-    {
-      behavior: "preserves",
-      productionTriggerUuid: "old-production-trigger",
-      previewTriggerUuid: "old-preview-trigger",
-      expectedConvexBuildAccess: "wired" as const,
-    },
-    {
-      behavior: "invalidates",
-      productionTriggerUuid: "new-production-trigger",
-      previewTriggerUuid: "new-preview-trigger",
-      expectedConvexBuildAccess: "not_wired" as const,
-    },
-  ])("$behavior Convex build access based on Builds trigger identity", async (testCase) => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const runId = await t.run(async (ctx) => {
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds: {
-            state: "connected",
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-            production: {
-              triggerUuid: "old-production-trigger",
-              buildTokenUuid: "build-token",
-            },
-            preview: {
-              triggerUuid: "old-preview-trigger",
-              buildTokenUuid: "build-token",
-            },
-          },
-          convexBuildAccess: { state: "wired" },
+    expect(persisted.dependency).toMatchObject({
+      wiring: {
+        state: "wired",
+        deployKeys: {
+          production: { state: "created", name: "production-key-name" },
+          preview: { state: "created", name: "preview-key-name" },
         },
-        connectedAt: 30,
-        lastObservedAt: 30,
-      });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "wire_builds",
-        state: "running",
-        currentStep: "wire_builds",
-        createdAt: 40,
-        updatedAt: 40,
-      });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: ids.vaultId,
-        runId,
-        state: "active",
-        updatedAt: 40,
-      });
-      return runId;
+      },
     });
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: testCase.productionTriggerUuid,
-        buildTokenUuid: "build-token",
+    expect(persisted.convexDeployment).toMatchObject({
+      appId: ids.convexAppId,
+      previewDeployment: {
+        state: "ready",
+        deploymentName: "monorepo-preview",
       },
-      preview: {
-        triggerUuid: testCase.previewTriggerUuid,
-        buildTokenUuid: "build-token",
-      },
-    };
+    });
+    expect(persisted.convexDeployment).not.toHaveProperty("deployKeys");
+    expect(persisted.worker).toMatchObject({
+      appId: ids.webAppId,
+      builds: { pathIncludes: DEPENDENCY_AWARE_BUILDS.pathIncludes },
+    });
+    expect(persisted.worker).not.toHaveProperty("convexBuildAccess");
 
+    const rotationRunId = await createRun(t, ids, "wire_convex_build_access");
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
-        ...ids,
-        runId,
-        appRoot,
-        builds,
-      }),
-    ).resolves.toEqual({ applied: true });
-
-    await expect(
-      t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("vaultCloudflareWorkers")
-            .withIndex("by_vault_and_appRoot", (q) =>
-              q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-            )
-            .first(),
-      ),
-    ).resolves.toMatchObject({
-      deployment: {
-        builds,
-        convexBuildAccess: { state: testCase.expectedConvexBuildAccess },
-      },
-    });
-  });
-
-  it("claims, records, and finishes Workers Builds wiring for an attached Worker", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-      vaultId: ids.vaultId,
-      userId: ids.userId,
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "wire_builds",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 40,
-        updatedAt: 40,
-      });
-    });
-    const buildIds = { ...ids, runId };
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
-      },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
-    };
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, {
-        ...buildIds,
-        appRoot,
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring, {
+        ...runArgs,
+        runId: rotationRunId,
       }),
     ).resolves.toEqual({ claimed: true });
-    const activeBuildsWiring = await t.query(
-      internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring,
+    const dependencies = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("vaultWorkerDeploymentDependencies")
+          .withIndex("by_convex_deployment", (q) => q.eq("convexDeploymentId", convexDeploymentId))
+          .collect(),
+    );
+    expect(dependencies).toHaveLength(1);
+    expect(dependencies[0]?.wiring).toEqual({
+      state: "not_wired",
+      deployKeys: {
+        production: {
+          state: "created",
+          name: "production-key-name",
+          deploymentName: "monorepo-prod",
+        },
+        preview: {
+          state: "created",
+          name: "preview-key-name",
+          projectId: "convex-project",
+        },
+      },
+    });
+    await t.mutation(
+      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
       {
-        ...buildIds,
-        appRoot,
+        ...runArgs,
+        runId: rotationRunId,
+        deployment: "production",
+        convexDeployKeyName: "rotated-production-key-name",
       },
     );
-    expect(activeBuildsWiring).toMatchObject({
-      active: true,
-      ghRepoId: "123",
-      hasConvexDeployment: false,
-      worker: {
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
+    await t.mutation(
+      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
+      {
+        ...runArgs,
+        runId: rotationRunId,
+        deployment: "preview",
+        convexDeployKeyName: "rotated-preview-key-name",
+      },
+    );
+    await t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
+      ...runArgs,
+      runId: rotationRunId,
+      builds: DEPENDENCY_AWARE_BUILDS,
+      previewDeployment: {
+        state: "ready",
+        deploymentName: "monorepo-preview",
+        cloudUrl: "https://monorepo-preview.convex.cloud",
       },
     });
-    expect(activeBuildsWiring).not.toHaveProperty("owner");
-    expect(activeBuildsWiring).not.toHaveProperty("repo");
+    await t.mutation(internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring, {
+      ...runArgs,
+      runId: rotationRunId,
+    });
+
+    const secondWorkerId = await attachWorker(t, ids, "second-web-worker");
+    await setWorkerBuilds(t, secondWorkerId, WEB_ONLY_BUILDS);
+    const secondRunId = await createRun(t, ids, "wire_convex_build_access");
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
-        ...buildIds,
-        appRoot,
-        builds,
-      }),
-    ).resolves.toEqual({ applied: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareBuildsWiring, {
-        ...buildIds,
-        appRoot,
-      }),
-    ).resolves.toEqual({ convexBuildAccessRunId: null });
-
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
-        .collect();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { events, ownership, run, worker };
-    });
-
-    expect(result.ownership).toMatchObject({
-      runId,
-      state: "succeeded",
-    });
-    expect(result.run).toMatchObject({
-      state: "succeeded",
-      currentStep: "finish",
-    });
-    expect(result.worker).toMatchObject({
-      deployment: {
-        builds,
-        convexBuildAccess: { state: "not_wired" },
-      },
-    });
-    expect(result.events.map((event) => event.step)).toEqual([
-      "claim_infra",
-      "wire_builds",
-      "finish",
-    ]);
-  });
-
-  it("reports an attached Convex deployment before wiring Workers Builds", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "manual-cloudflare",
-        deploymentName: "manual-cloudflare-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-        siteUrl: "https://manual-cloudflare.convex.site",
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "not_created" },
-          preview: { state: "not_created" },
-        },
-        origin: "selected_existing",
-        connectedAt: 35,
-        lastObservedAt: 35,
-      });
-    });
-    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-      vaultId: ids.vaultId,
-      userId: ids.userId,
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "wire_builds",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 40,
-        updatedAt: 40,
-      });
-    });
-    const buildIds = { ...ids, runId };
-
-    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, {
-      ...buildIds,
-      appRoot,
-    });
-
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring, {
-        ...buildIds,
-        appRoot,
-      }),
-    ).resolves.toMatchObject({
-      active: true,
-      hasConvexDeployment: true,
-    });
-  });
-
-  it("does not queue Convex build access for a missing-upstream Convex deployment", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
-      },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
-    };
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "manual-cloudflare",
-        deploymentName: "manual-cloudflare-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-        siteUrl: "https://manual-cloudflare.convex.site",
-        upstream: { state: "missing_upstream" },
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "not_created" },
-          preview: { state: "not_created" },
-        },
-        origin: "selected_existing",
-        connectedAt: 35,
-        lastObservedAt: 35,
-      });
-    });
-    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-      vaultId: ids.vaultId,
-      userId: ids.userId,
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "wire_builds",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 40,
-        updatedAt: 40,
-      });
-    });
-    const buildIds = { ...ids, runId };
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, {
-        ...buildIds,
-        appRoot,
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring, {
+        ...runArgs,
+        runId: secondRunId,
+        workerId: secondWorkerId,
       }),
     ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring, {
-        ...buildIds,
-        appRoot,
-      }),
-    ).resolves.toMatchObject({
-      active: true,
-      hasConvexDeployment: false,
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
-        ...buildIds,
-        appRoot,
-        builds,
-      }),
-    ).resolves.toEqual({ applied: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareBuildsWiring, {
-        ...buildIds,
-        appRoot,
-      }),
-    ).resolves.toEqual({ convexBuildAccessRunId: null });
-
-    const run = await t.run(async (ctx) => await ctx.db.get(runId));
-    expect(run).toMatchObject({
-      state: "succeeded",
-      currentStep: "finish",
-    });
+    const sharedDeploymentDependencies = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("vaultWorkerDeploymentDependencies")
+          .withIndex("by_convex_deployment", (q) => q.eq("convexDeploymentId", convexDeploymentId))
+          .collect(),
+    );
+    expect(sharedDeploymentDependencies.map((dependency) => dependency.workerId)).toEqual(
+      expect.arrayContaining([workerId, secondWorkerId]),
+    );
   });
 
-  it("claims, records, and finishes Convex build access wiring for connected Workers Builds", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "manual-cloudflare",
-        deploymentName: "manual-cloudflare-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-        siteUrl: "https://manual-cloudflare.convex.site",
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "not_created" },
-          preview: { state: "not_created" },
+  it("retargets one Worker while preserving old key targets for revocation", async () => {
+    const { ids, t } = await createVaultFixture();
+    const workerId = await attachWorker(t, ids, "web-worker");
+    await setWorkerBuilds(t, workerId, DEPENDENCY_AWARE_BUILDS);
+    const firstDeploymentId = await insertConvexDeployment(t, ids);
+    const dependencyId = await insertDependency(t, ids, workerId, firstDeploymentId, {
+      state: "wired",
+      deployKeys: {
+        production: {
+          state: "created",
+          name: "first-production-key",
+          deploymentName: "monorepo-prod",
         },
-        origin: "selected_existing",
-        connectedAt: 35,
-        lastObservedAt: 35,
-      });
-    });
-    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-      vaultId: ids.vaultId,
-      userId: ids.userId,
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-    });
-    const wireBuildsRunId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "wire_builds",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 40,
-        updatedAt: 40,
-      });
-    });
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
+        preview: {
+          state: "created",
+          name: "first-preview-key",
+          projectId: "convex-project",
+        },
       },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
-    };
-    const buildIds = { ...ids, runId: wireBuildsRunId };
-
-    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, {
-      ...buildIds,
-      appRoot,
     });
-    await t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
-      ...buildIds,
-      appRoot,
-      builds,
-    });
-    const { convexBuildAccessRunId } = await t.mutation(
-      internal.vault.cloudflareMutations.finishCloudflareBuildsWiring,
-      {
-        ...buildIds,
-        appRoot,
-      },
+    const replacementAppId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("vaultApps", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          rootDirectory: "packages/replacement-backend",
+          createdAt: 60,
+        }),
     );
-    if (!convexBuildAccessRunId) {
-      throw new Error("Expected Convex build access run to be queued.");
-    }
-    const accessIds = { ...ids, runId: convexBuildAccessRunId };
+    const replacementDeploymentId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("vaultConvexDeployments", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          appId: replacementAppId,
+          projectId: "replacement-project",
+          teamSlug: "ada-team",
+          projectSlug: "replacement",
+          deploymentName: "replacement-prod",
+          deploymentType: "prod",
+          cloudUrl: "https://replacement.convex.cloud",
+          siteUrl: "https://replacement.convex.site",
+          previewDeployment: { state: "not_ensured" },
+          origin: "selected_existing",
+          upstream: { state: "present" },
+          connectedAt: 60,
+          lastObservedAt: 60,
+        }),
+    );
+    const runId = await createRun(t, ids, "wire_convex_build_access");
 
     await expect(
       t.mutation(internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring, {
-        ...accessIds,
-        appRoot,
+        vaultId: ids.vaultId,
+        runId,
+        userId: ids.userId,
+        workerId,
+        convexDeploymentId: replacementDeploymentId,
       }),
     ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readActiveCloudflareConvexBuildAccessWiring, {
-        ...accessIds,
-        appRoot,
-      }),
-    ).resolves.toMatchObject({
-      active: true,
-      defaultBranch: "main",
-      worker: {
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        build: builds,
-      },
-      convex: {
-        projectId: "convex-project",
-        deploymentName: "manual-cloudflare-prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-      },
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey, {
-        ...accessIds,
-        appRoot,
-        deployment: "production",
-        convexDeployKeyId: "prod:key-id",
-      }),
-    ).resolves.toEqual({ applied: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey, {
-        ...accessIds,
-        appRoot,
-        deployment: "preview",
-        convexDeployKeyId: "preview:key-id",
-      }),
-    ).resolves.toEqual({ applied: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
-        ...accessIds,
-        appRoot,
-        previewDeployment: {
-          state: "ready",
-          deploymentName: "manual-cloudflare-dev",
-          cloudUrl: "https://manual-cloudflare-dev.convex.cloud",
+
+    await expect(t.run(async (ctx) => await ctx.db.get(dependencyId))).resolves.toMatchObject({
+      convexDeploymentId: replacementDeploymentId,
+      wiring: {
+        state: "not_wired",
+        deployKeys: {
+          production: {
+            state: "created",
+            name: "first-production-key",
+            deploymentName: "monorepo-prod",
+          },
+          preview: {
+            state: "created",
+            name: "first-preview-key",
+            projectId: "convex-project",
+          },
         },
-      }),
-    ).resolves.toEqual({ applied: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring, {
-        ...accessIds,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const convexDeployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      const run = await ctx.db.get(convexBuildAccessRunId);
-      return { convexDeployment, run, worker };
-    });
-
-    expect(result.run).toMatchObject({
-      state: "succeeded",
-      currentStep: "finish",
-    });
-    expect(result.convexDeployment).toMatchObject({
-      deployKeys: {
-        production: { state: "created", id: "prod:key-id" },
-        preview: { state: "created", id: "preview:key-id" },
-      },
-      previewDeployment: {
-        state: "ready",
-        deploymentName: "manual-cloudflare-dev",
-        cloudUrl: "https://manual-cloudflare-dev.convex.cloud",
-      },
-    });
-    expect(result.worker).toMatchObject({
-      deployment: {
-        builds,
-        convexBuildAccess: { state: "wired" },
       },
     });
   });
+});
 
-  it("claims, records, and finishes Cloudflare infrastructure verification", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
+describe("Cloudflare infrastructure verification", () => {
+  it("moves build and dependency state back to repairable when provider triggers drift", async () => {
+    const { ids, t } = await createVaultFixture();
+    const workerId = await attachWorker(t, ids, "web-worker");
+    await setWorkerBuilds(t, workerId, DEPENDENCY_AWARE_BUILDS);
+    const convexDeploymentId = await insertConvexDeployment(t, ids);
+    const dependencyId = await insertDependency(t, ids, workerId, convexDeploymentId, {
+      state: "wired",
+      deployKeys: {
+        production: {
+          state: "created",
+          name: "production-key-name",
+          deploymentName: "convex-prod",
+        },
+        preview: {
+          state: "created",
+          name: "preview-key-name",
+          projectId: "convex-project-id",
+        },
       },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
+    });
+    const runId = await createRun(t, ids, "verify_infrastructure");
+    const runArgs = {
+      vaultId: ids.vaultId,
+      runId,
+      userId: ids.userId,
+      workerId,
     };
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "manual-cloudflare",
-        deploymentName: "manual-cloudflare-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-        siteUrl: "https://manual-cloudflare.convex.site",
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "created", id: "prod:key-id" },
-          preview: { state: "created", id: "preview:key-id" },
-        },
-        origin: "selected_existing",
-        connectedAt: 35,
-        lastObservedAt: 35,
-      });
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds,
-          convexBuildAccess: { state: "wired" },
-        },
-        connectedAt: 40,
-        lastObservedAt: 40,
-      });
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "verify_infrastructure",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 50,
-        updatedAt: 50,
-      });
-    });
-    const verifyIds = { ...ids, runId };
 
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-      }),
+      t.mutation(
+        internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification,
+        runArgs,
+      ),
     ).resolves.toEqual({ claimed: true });
     await expect(
-      t.query(internal.vault.cloudflareMutations.readActiveCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-      }),
+      t.query(
+        internal.vault.cloudflareMutations.readActiveCloudflareInfrastructureVerification,
+        runArgs,
+      ),
     ).resolves.toMatchObject({
       active: true,
-      hasConvexDeployment: true,
-      worker: {
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
+      worker: { workerId, builds: DEPENDENCY_AWARE_BUILDS },
+      workerApp: {
+        appId: ids.webAppId,
+        rootDirectory: WEB_ROOT_DIRECTORY,
+      },
+      buildConfig: {
+        rootDirectory: WEB_ROOT_DIRECTORY,
+        pathIncludes: DEPENDENCY_AWARE_BUILDS.pathIncludes,
+      },
+      dependency: {
+        dependencyId,
+        convexApp: {
+          appId: ids.convexAppId,
+          rootDirectory: CONVEX_ROOT_DIRECTORY,
+        },
+        convexDeployment: { convexDeploymentId },
       },
     });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
+        ...runArgs,
+        providerResult: {
+          worker: "confirmed",
+          builds: "contradicted",
+          convexDeployment: "confirmed",
+          convexBuildAccess: "not_checked",
+        },
+      }),
+    ).resolves.toEqual({ applied: true });
+    await t.mutation(
+      internal.vault.cloudflareMutations.finishCloudflareInfrastructureVerification,
+      runArgs,
+    );
+
+    const persisted = await t.run(async (ctx) => ({
+      dependency: await ctx.db.get(dependencyId),
+      run: await ctx.db.get(runId),
+      worker: await ctx.db.get(workerId),
+    }));
+    expect(persisted.worker).toMatchObject({
+      upstream: { state: "present" },
+      builds: { state: "not_connected" },
+    });
+    expect(persisted.dependency).toMatchObject({
+      wiring: {
+        state: "not_wired",
+        deployKeys: {
+          production: { state: "created", name: "production-key-name" },
+          preview: { state: "created", name: "preview-key-name" },
+        },
+      },
+    });
+    expect(persisted.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+  });
+
+  it("marks every Worker repairable when a shared Convex deployment is missing", async () => {
+    const { ids, t } = await createVaultFixture();
+    const convexDeploymentId = await insertConvexDeployment(t, ids);
+    const firstWorkerId = await attachWorker(t, ids, "first-worker");
+    const secondWorkerId = await attachWorker(t, ids, "second-worker");
+    await Promise.all([
+      setWorkerBuilds(t, firstWorkerId, DEPENDENCY_AWARE_BUILDS),
+      setWorkerBuilds(t, secondWorkerId, DEPENDENCY_AWARE_BUILDS),
+    ]);
+    const wired = {
+      state: "wired",
+      deployKeys: {
+        production: {
+          state: "created",
+          name: "production-key",
+          deploymentName: "monorepo-prod",
+        },
+        preview: {
+          state: "created",
+          name: "preview-key",
+          projectId: "convex-project",
+        },
+      },
+    } as const;
+    const [firstDependencyId, secondDependencyId] = await Promise.all([
+      insertDependency(t, ids, firstWorkerId, convexDeploymentId, wired),
+      insertDependency(t, ids, secondWorkerId, convexDeploymentId, wired),
+    ]);
+    const runId = await createRun(t, ids, "verify_infrastructure");
+    const runArgs = {
+      vaultId: ids.vaultId,
+      runId,
+      userId: ids.userId,
+      workerId: firstWorkerId,
+    };
+    await t.mutation(
+      internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification,
+      runArgs,
+    );
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification, {
+        ...runArgs,
         providerResult: {
           worker: "confirmed",
           builds: "confirmed",
-          convexDeployment: "confirmed",
-          convexBuildAccess: "confirmed",
-        },
-      }),
-    ).resolves.toEqual({ applied: true });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.finishCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
-        .collect();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { events, ownership, run, worker };
-    });
-
-    expect(result.ownership).toMatchObject({
-      runId,
-      state: "succeeded",
-    });
-    expect(result.run).toMatchObject({
-      state: "succeeded",
-      currentStep: "finish",
-    });
-    expect(result.worker).toMatchObject({
-      deployment: {
-        builds,
-        convexBuildAccess: { state: "wired" },
-      },
-    });
-    expect(result.worker?.lastObservedAt).toBeGreaterThan(40);
-    expect(result.events.map((event) => event.step)).toEqual([
-      "claim_infra",
-      "verify_infrastructure",
-      "finish",
-    ]);
-  });
-
-  it("marks Worker and Convex deployment rows missing upstream during verification", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "manual-cloudflare",
-        deploymentName: "manual-cloudflare-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-        siteUrl: "https://manual-cloudflare.convex.site",
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "created", id: "prod:key-id" },
-          preview: { state: "created", id: "preview:key-id" },
-        },
-        origin: "selected_existing",
-        connectedAt: 35,
-        lastObservedAt: 35,
-      });
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds: {
-            state: "connected",
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-            production: {
-              triggerUuid: "production-trigger",
-              buildTokenUuid: "build-token",
-            },
-            preview: {
-              triggerUuid: "preview-trigger",
-              buildTokenUuid: "build-token",
-            },
-          },
-          convexBuildAccess: { state: "wired" },
-        },
-        connectedAt: 40,
-        lastObservedAt: 40,
-      });
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot: "apps/admin",
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-admin",
-        workerTag: "manual-cloudflare-admin-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
-        connectedAt: 40,
-        lastObservedAt: 40,
-      });
-      await ctx.db.insert("vaultDomains", {
-        vaultId: ids.vaultId,
-        branch: "feature/admin",
-        kind: "branch_preview",
-        url: "https://feature-admin.example.com",
-        source: "cloudflare_workers_preview",
-        active: true,
-        lastSyncedAt: 40,
-      });
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "verify_infrastructure",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 50,
-        updatedAt: 50,
-      });
-    });
-    const verifyIds = { ...ids, runId };
-
-    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
-      ...verifyIds,
-      appRoot,
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-        providerResult: {
-          worker: "missing_upstream",
-          builds: "not_checked",
           convexDeployment: "missing_upstream",
           convexBuildAccess: "not_checked",
         },
       }),
     ).resolves.toEqual({ applied: true });
 
-    const result = await t.run(async (ctx) => {
-      const convexDeployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
-        .collect();
-      const domains = await ctx.db
-        .query("vaultDomains")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
-      return { convexDeployment, domains, events, worker };
-    });
-
-    expect(result.convexDeployment).toMatchObject({
-      upstream: { state: "missing_upstream" },
-    });
-    expect(result.worker).toMatchObject({
-      upstream: { state: "missing_upstream" },
-      deployment: {
-        builds: { state: "not_connected" },
-        convexBuildAccess: { state: "not_wired" },
-      },
-    });
-    expect(result.domains).toMatchObject([{ active: true }]);
-    expect(result.events.at(-1)?.message).toContain("Worker is missing upstream");
-    expect(result.events.at(-1)?.message).toContain("Convex deployment is missing upstream");
+    const persisted = await t.run(async (ctx) => ({
+      convexDeployment: await ctx.db.get(convexDeploymentId),
+      firstDependency: await ctx.db.get(firstDependencyId),
+      secondDependency: await ctx.db.get(secondDependencyId),
+    }));
+    expect(persisted.convexDeployment).toMatchObject({ upstream: { state: "missing_upstream" } });
+    expect(persisted.firstDependency).toMatchObject({ wiring: { state: "not_wired" } });
+    expect(persisted.secondDependency).toMatchObject({ wiring: { state: "not_wired" } });
   });
+});
 
-  it("records infrastructure verification as unverifiable when the Convex connection is missing", async () => {
-    const { ids, t } = await createClaimedInfrastructureVerification({
-      includeConvexConnection: false,
-    });
-    stubCloudflareInfrastructureVerificationFetch();
-
-    await expect(
-      t.action(internal.vault.cloudflare.ensureCloudflareInfrastructureVerification, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
-        .collect();
-      const convexDeployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { convexDeployment, events };
-    });
-
-    expect(result.events.at(-1)).toMatchObject({
-      level: "warn",
-      message: "Convex deployment could not be verified because the Convex connection is missing.",
-      step: "verify_infrastructure",
-    });
-    expect(result.convexDeployment?.upstream).toBeUndefined();
-  });
-
-  it("records infrastructure verification as unverifiable when Convex returns a provider error", async () => {
-    const { ids, t } = await createClaimedInfrastructureVerification({
-      includeConvexConnection: true,
-    });
-    stubCloudflareInfrastructureVerificationFetch({ convexProjectStatus: 500 });
-
-    await expect(
-      t.action(internal.vault.cloudflare.ensureCloudflareInfrastructureVerification, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
-        .collect();
-      const convexDeployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { convexDeployment, events };
-    });
-
-    expect(result.events.at(-1)).toMatchObject({
-      level: "warn",
-      message:
-        "Convex deployment could not be verified because Convex did not return a verifiable response.",
-      step: "verify_infrastructure",
-    });
-    expect(result.convexDeployment?.upstream).toBeUndefined();
-  });
-
-  it.each([
-    {
-      description: "clears adopted build access without a confirmed Convex deployment",
-      convexDeployment: "not_checked" as const,
-      expectedConvexBuildAccess: "not_wired" as const,
-      expectedMessage:
-        "Cloudflare Workers Builds already match .; recorded Builds connected and marked deploy keys missing.",
-    },
-    {
-      description: "keeps adopted build access with a confirmed Convex deployment",
-      convexDeployment: "confirmed" as const,
-      expectedConvexBuildAccess: "wired" as const,
-      expectedMessage: "Cloudflare Workers Builds already match .; recorded Builds connected.",
-    },
-  ])("$description", async (testCase) => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const connectedBuilds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "production-build-token",
-      },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "preview-build-token",
-      },
-    };
-    await t.run(async (ctx) => {
-      if (testCase.convexDeployment === "confirmed") {
-        await ctx.db.insert("vaultConvexDeployments", {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-          appRoot,
-          projectId: "convex-project",
-          teamSlug: "ada-team",
-          projectSlug: "manual-cloudflare",
-          deploymentName: "manual-cloudflare-prod",
-          deploymentType: "prod",
-          cloudUrl: "https://manual-cloudflare.convex.cloud",
-          siteUrl: "https://manual-cloudflare.convex.site",
-          previewDeployment: { state: "not_ensured" },
-          deployKeys: {
-            production: { state: "created", id: "prod:key-id" },
-            preview: { state: "created", id: "preview:key-id" },
-          },
-          origin: "selected_existing",
-          connectedAt: 35,
-          lastObservedAt: 35,
-        });
-      }
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "wired" },
-        },
-        connectedAt: 40,
-        lastObservedAt: 40,
-      });
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "verify_infrastructure",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 50,
-        updatedAt: 50,
-      });
-    });
-    const verifyIds = { ...ids, runId };
-
-    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
-      ...verifyIds,
-      appRoot,
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-        providerResult: {
-          worker: "confirmed",
-          builds: "adopted",
-          connectedBuilds,
-          convexDeployment: testCase.convexDeployment,
-          convexBuildAccess: "confirmed",
-        },
-      }),
-    ).resolves.toEqual({ applied: true });
-
-    const result = await t.run(async (ctx) => {
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
-        .collect();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { events, worker };
-    });
-
-    expect(result.worker).toMatchObject({
-      deployment: {
-        builds: connectedBuilds,
-        convexBuildAccess: { state: testCase.expectedConvexBuildAccess },
-      },
-    });
-    expect(result.worker?.lastObservedAt).toBeGreaterThan(40);
-    expect(result.events.map((event) => event.message)).toContain(testCase.expectedMessage);
-  });
-
-  it("normalizes wired build access when Builds are not connected", async () => {
-    const { ids, t } = await createClaimedInfrastructureVerification({
-      includeConvexConnection: true,
-    });
-    await t.run(async (ctx) => {
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .unique();
-      if (!worker) {
-        throw new Error("Expected Cloudflare Worker.");
-      }
-      await ctx.db.patch(worker._id, {
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "wired" },
-        },
-      });
-    });
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification, {
-        ...ids,
-        appRoot,
-        providerResult: {
-          worker: "confirmed",
-          builds: "not_checked",
-          convexDeployment: "confirmed",
-          convexBuildAccess: "not_checked",
-        },
-      }),
-    ).resolves.toEqual({ applied: true });
-
-    await expect(
-      t.run(async (ctx) =>
-        ctx.db
-          .query("vaultCloudflareWorkers")
-          .withIndex("by_vault_and_appRoot", (q) =>
-            q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-          )
-          .unique(),
-      ),
-    ).resolves.toMatchObject({
-      deployment: {
-        builds: { state: "not_connected" },
-        convexBuildAccess: { state: "not_wired" },
-      },
-    });
-  });
-
-  it("resets Builds and Convex build access when verification contradicts trigger records", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds: {
-            state: "connected",
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-            production: {
-              triggerUuid: "production-trigger",
-              buildTokenUuid: "build-token",
-            },
-            preview: {
-              triggerUuid: "preview-trigger",
-              buildTokenUuid: "build-token",
-            },
-          },
-          convexBuildAccess: { state: "wired" },
-        },
-        connectedAt: 40,
-        lastObservedAt: 40,
-      });
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "verify_infrastructure",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 50,
-        updatedAt: 50,
-      });
-    });
-    const verifyIds = { ...ids, runId };
-
-    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
-      ...verifyIds,
-      appRoot,
-    });
-    await t.mutation(
-      internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification,
-      {
-        ...verifyIds,
-        appRoot,
-        providerResult: {
-          worker: "confirmed",
-          builds: "contradicted",
-          convexDeployment: "not_checked",
-          convexBuildAccess: "not_checked",
-        },
-      },
-    );
-
-    const worker = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-    });
-
-    expect(worker).toMatchObject({
-      deployment: {
-        builds: { state: "not_connected" },
-        convexBuildAccess: { state: "not_wired" },
-      },
-    });
-    expect(worker?.lastObservedAt).toBeGreaterThan(40);
-  });
-
-  it("resets Convex build access when a wired Worker has no Convex deployment row", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
-      },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
-    };
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds,
-          convexBuildAccess: { state: "wired" },
-        },
-        connectedAt: 40,
-        lastObservedAt: 40,
-      });
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "verify_infrastructure",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 50,
-        updatedAt: 50,
-      });
-    });
-    const verifyIds = { ...ids, runId };
-
-    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
-      ...verifyIds,
-      appRoot,
-    });
-    await t.mutation(
-      internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification,
-      {
-        ...verifyIds,
-        appRoot,
-        providerResult: {
-          worker: "confirmed",
-          builds: "confirmed",
-          convexDeployment: "not_checked",
-          convexBuildAccess: "not_checked",
-        },
-      },
-    );
-
-    const worker = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-    });
-
-    expect(worker).toMatchObject({
-      deployment: {
-        builds,
-        convexBuildAccess: { state: "not_wired" },
-      },
-    });
-    expect(worker?.lastObservedAt).toBeGreaterThan(40);
-  });
-
-  it("confirms a missing-upstream Convex row while clearing contradicted deploy-key state", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const builds = {
-      state: "connected" as const,
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
-      },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
-    };
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "manual-cloudflare",
-        deploymentName: "manual-cloudflare-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://manual-cloudflare.convex.cloud",
-        siteUrl: "https://manual-cloudflare.convex.site",
-        upstream: { state: "missing_upstream" },
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "created", id: "prod:key-id" },
-          preview: { state: "created", id: "preview:key-id" },
-        },
-        origin: "selected_existing",
-        connectedAt: 35,
-        lastObservedAt: 35,
-      });
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-        deployment: {
-          builds,
-          convexBuildAccess: { state: "wired" },
-        },
-        connectedAt: 40,
-        lastObservedAt: 40,
-      });
-    });
-    const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "verify_infrastructure",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 50,
-        updatedAt: 50,
-      });
-    });
-    const verifyIds = { ...ids, runId };
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-      }),
-    ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readActiveCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-      }),
-    ).resolves.toMatchObject({
-      active: true,
-      hasConvexDeployment: false,
-      convexDeployment: {
-        projectId: "convex-project",
-        deploymentName: "manual-cloudflare-prod",
-      },
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification, {
-        ...verifyIds,
-        appRoot,
-        providerResult: {
-          worker: "confirmed",
-          builds: "confirmed",
-          convexDeployment: "confirmed",
-          convexBuildAccess: "contradicted",
-        },
-      }),
-    ).resolves.toEqual({ applied: true });
-
-    const result = await t.run(async (ctx) => {
-      const convexDeployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-      return { convexDeployment, worker };
-    });
-
-    expect(result.convexDeployment).toMatchObject({
-      upstream: { state: "present" },
-    });
-    expect(result.worker).toMatchObject({
-      upstream: { state: "present" },
-      deployment: {
-        builds,
-        convexBuildAccess: { state: "not_wired" },
-      },
-    });
-  });
-
-  it("attaches multiple Cloudflare Workers to one vault by app root", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultApps", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot: "apps/admin",
-        createdAt: 26,
-      });
-    });
-
-    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
+describe("Cloudflare run ownership", () => {
+  it("fences a superseded Builds run before it can persist provider results", async () => {
+    const { ids, t } = await createVaultFixture();
+    const workerId = await attachWorker(t, ids, "web-worker");
+    const runId = await createRun(t, ids, "wire_builds");
+    const runArgs = {
       vaultId: ids.vaultId,
+      runId,
       userId: ids.userId,
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-    });
-    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-      vaultId: ids.vaultId,
-      userId: ids.userId,
-      appRoot: "apps/admin",
-      accountId: "cloudflare-account",
-      workerName: "admin-cloudflare-worker",
-      workerTag: "admin-cloudflare-worker-tag",
-      origin: "selected_existing",
-    });
+      workerId,
+    };
+    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, runArgs);
 
-    const workers = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
-    });
-
-    expect(
-      workers
-        .map((worker) => ({
-          appRoot: worker.appRoot,
-          workerName: worker.workerName,
-          vaultId: worker.vaultId,
-        }))
-        .sort((left, right) => left.appRoot.localeCompare(right.appRoot)),
-    ).toEqual([
-      {
-        appRoot,
-        workerName: "manual-cloudflare-worker",
-        vaultId: ids.vaultId,
-      },
-      {
-        appRoot: "apps/admin",
-        workerName: "admin-cloudflare-worker",
-        vaultId: ids.vaultId,
-      },
-    ]);
-  });
-
-  it("requires an app root before a Cloudflare Worker can attach", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-
-    await expect(
-      t.query(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot: "apps/missing",
-      }),
-    ).rejects.toThrow("Vault app root not found.");
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot: "apps/missing",
-        accountId: "cloudflare-account",
-        workerName: "missing-cloudflare-worker",
-        workerTag: "missing-cloudflare-worker-tag",
-        origin: "selected_existing",
-      }),
-    ).rejects.toThrow("Vault app root not found.");
-  });
-
-  it("lets the durable claim supersede stale active ownership", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-    const staleRunId = await t.run(async (ctx) => {
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "connect_cloudflare_worker",
-        state: "running",
-        currentStep: "attach_worker",
-        createdAt: 10,
-        updatedAt: 20,
-      });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
-        vaultId: ids.vaultId,
-        runId,
-        state: "active",
-        updatedAt: 1,
-      });
-
-      return runId;
-    });
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        origin: "selected_existing",
-      }),
-    ).resolves.toEqual({ claimed: true });
-
-    const result = await t.run(async (ctx) => {
-      const [staleRun, ownership] = await Promise.all([
-        ctx.db.get(staleRunId),
-        ctx.db
-          .query("vaultInfrastructureOwnership")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .first(),
-      ]);
-
-      return { ownership, staleRun };
-    });
-
-    expect(result.ownership).toMatchObject({
-      runId: ids.runId,
-      state: "active",
-    });
-    expect(result.staleRun).toMatchObject({
-      state: "canceled",
-      currentStep: "claim_infra",
-    });
-  });
-
-  it("reports an unattached run so created Workers can be rolled back", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-
-    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
-      ...ids,
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      origin: "provisioned",
-    });
+    const supersedingRunId = await createRun(t, ids, "wire_builds");
     await t.run(async (ctx) => {
-      const otherRunId = await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-cloudflare",
-        trigger: "connect_cloudflare_worker",
-        state: "running",
-        currentStep: "attach_worker",
-        createdAt: 40,
-        updatedAt: 40,
-      });
       const ownership = await ctx.db
         .query("vaultInfrastructureOwnership")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
+        .unique();
       if (!ownership) {
-        throw new Error("Expected active ownership.");
+        throw new Error("Expected infrastructure ownership.");
       }
+      await ctx.db.patch(supersedingRunId, {
+        state: "running",
+        currentStep: "wire_builds",
+        updatedAt: Date.now(),
+      });
       await ctx.db.patch(ownership._id, {
-        runId: otherRunId,
-        updatedAt: 40,
+        runId: supersedingRunId,
+        state: "active",
+        updatedAt: Date.now(),
       });
     });
 
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "provisioned",
+      t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
+        ...runArgs,
+        builds: WEB_ONLY_BUILDS,
       }),
-    ).resolves.toEqual({ attached: false });
-
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-
-      return { run };
-    });
-
-    expect(result.run).toMatchObject({
-      state: "canceled",
-      currentStep: "claim_infra",
-    });
-    expect(result.run).toBeTruthy();
-  });
-
-  it("keeps rollback from deleting a Worker that became the connected resource", async () => {
-    const { ids, t } = await createCloudflareConnectionVault();
-
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "provisioned",
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
-        connectedAt: 50,
-        lastObservedAt: 50,
-      });
-    });
-
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readCreatedWorkerRollbackSafety, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-      }),
-    ).resolves.toEqual({ shouldDelete: false });
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readCreatedWorkerRollbackSafety, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "different-worker",
-      }),
-    ).resolves.toEqual({ shouldDelete: true });
-  });
-
-  it("rejects manual attachment while infrastructure ownership is active", async () => {
-    const { ids, t } = await createAttachableVaultWithOwnership({
-      ownershipState: "active",
-    });
-
-    await expect(
-      t.query(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-    await expect(
-      t.query(internal.vault.cloudflareMutations.requireAttachableVault, {
-        ...ids,
-        appRoot,
-      }),
-    ).rejects.toThrow("Cloudflare provisioning is already running.");
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-      }),
-    ).rejects.toThrow("Cloudflare provisioning is already running.");
-  });
-
-  it("allows manual recovery after failed infrastructure ownership", async () => {
-    const { ids, t } = await createAttachableVaultWithOwnership({
-      ownershipState: "failed",
-    });
-
-    await expect(
-      t.query(internal.vault.cloudflareMutations.requireAttachableVault, {
-        ...ids,
-        appRoot,
-      }),
-    ).resolves.toBeNull();
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorker, {
-        ...ids,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
-        origin: "selected_existing",
-      }),
-    ).resolves.toBeNull();
-
-    const worker = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
-        )
-        .first();
-    });
-
-    expect(worker).toMatchObject({
-      appRoot,
-      accountId: "cloudflare-account",
-      workerName: "manual-cloudflare-worker",
-      workerTag: "manual-cloudflare-worker-tag",
-      origin: "selected_existing",
-    });
+    ).resolves.toEqual({ applied: false });
+    const persisted = await t.run(async (ctx) => ({
+      run: await ctx.db.get(runId),
+      worker: await ctx.db.get(workerId),
+    }));
+    expect(persisted.worker).toMatchObject({ builds: { state: "not_connected" } });
+    expect(persisted.run).toMatchObject({ state: "canceled", currentStep: "claim_infra" });
   });
 });

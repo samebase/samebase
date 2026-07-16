@@ -419,6 +419,33 @@ describe("repository summary state machine", () => {
     });
   });
 
+  it("reserves background progress when 25 visible vaults are eligible", async () => {
+    const fixture = await createUserFixture();
+    const vaultIds: Id<"vaults">[] = [];
+    for (let index = 0; index < 26; index += 1) {
+      const connected = await connectRepository(fixture, {
+        name: `fair-repository-${String(index).padStart(2, "0")}`,
+      });
+      vaultIds.push(connected.vaultId);
+    }
+
+    await expect(
+      fixture.asUser.mutation(api.repositorySummary.requestRepositorySummaryRefresh, {
+        visibleVaultIds: vaultIds.slice(0, 25),
+      }),
+    ).resolves.toEqual({ state: "scheduled", repositoryCount: 25 });
+
+    await expect(readSummary(fixture.t, vaultIds[25])).resolves.toMatchObject({
+      lifecycle: { state: "scheduled", source: "summary_batch" },
+    });
+    const summaries = await readSummariesForUser(fixture.t, fixture.userId);
+    const scheduledVisibleCount = summaries.filter(
+      (summary) =>
+        vaultIds.slice(0, 25).includes(summary.vaultId) && summary.lifecycle.state === "scheduled",
+    ).length;
+    expect(scheduledVisibleCount).toBe(24);
+  });
+
   it("applies the visible priority limit after deduplicating vault ids", async () => {
     const fixture = await createUserFixture();
     const connected = await connectRepository(fixture, { name: "repeated-visible" });

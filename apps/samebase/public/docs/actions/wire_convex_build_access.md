@@ -4,21 +4,24 @@
 
 MCP tool `vault_cloudflare_wireConvexBuildAccess` · scope `access_app_create` · write
 
-The repair for builds that cannot deploy the backend: mints production and preview deploy keys on
-the app's Convex deployment and writes both keys into each Workers Builds trigger as
-`CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`. This is the remedy behind
-`nextAction: "wire_convex_build_access"` on the Worker's `convexDeployKeys` axis and the dashboard's
-"Set Convex deploy keys" button. It is the same operation.
+The repair for builds that cannot deploy the backend: mints production and preview deploy keys for
+one explicit Worker-to-Convex deployment dependency. It writes `CONVEX_DEPLOY_KEY` only to the
+production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` only to the preview trigger. This is the remedy
+behind `nextAction: "wire_convex_build_access"` on the Worker's `convexDeployKeys` axis and the
+dashboard's "Set Convex deploy keys" button. It is the same operation.
 
 Requires the Worker's Builds connection to exist first (`wire_builds` otherwise). This is a key
-rotation: previously recorded deploy keys are deleted once replacements are installed (and its own
-new keys are cleaned up if the run fails). Writes deploy keys on Convex and trigger variables on
+rotation for this dependency only: its previously recorded deploy keys are deleted once replacements
+are installed, and its own new keys are cleaned up if the run fails. Another Worker using the same
+Convex deployment retains its own key pair. Writes deploy keys on Convex and trigger variables on
 Cloudflare, both in the caller's own accounts; no user data is touched.
 
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app whose builds need Convex deploy keys.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `workerId` (string, required): Stable Samebase id of the Worker build pipeline.
+- `convexDeploymentId` (string, required): Stable Samebase id of the Convex deployment that this
+  Worker pipeline deploys.
 
 ## Returns
 

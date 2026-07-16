@@ -10,6 +10,7 @@ import { mutation, query } from "./functions";
 import { githubObservationWorkpool } from "./githubObservationWorkpool";
 import {
   REPOSITORY_SUMMARY_FAILURE_RETRY_MS,
+  REPOSITORY_SUMMARY_HARD_PAGE_SIZE,
   REPOSITORY_SUMMARY_PAGE_SIZE,
   REPOSITORY_SUMMARY_REFRESH_INTERVAL_MS,
   REPOSITORY_SUMMARY_UNAVAILABLE_RETRY_MS,
@@ -418,6 +419,7 @@ export const requestRepositorySummaryRefresh = mutation({
       throw new Error("Repository summaries are unavailable during account deletion.");
     }
     const uniqueVisibleVaultIds = [...new Set(args.visibleVaultIds)];
+    const visibleVaultIdSet = new Set(uniqueVisibleVaultIds);
     if (uniqueVisibleVaultIds.length > REPOSITORY_SUMMARY_PAGE_SIZE) {
       throw new Error(
         `Repository summary refresh demand accepts at most ${REPOSITORY_SUMMARY_PAGE_SIZE} visible vaults.`,
@@ -431,6 +433,7 @@ export const requestRepositorySummaryRefresh = mutation({
     const selectedVaultIds = new Set<Id<"vaults">>();
     for (const summary of visibleSummaries) {
       if (
+        selected.length < REPOSITORY_SUMMARY_PAGE_SIZE - 1 &&
         summary !== null &&
         summary.userId === ctx.viewer.userId &&
         canScheduleRepositorySummary(summary, now)
@@ -451,7 +454,7 @@ export const requestRepositorySummaryRefresh = mutation({
                   .eq("lifecycle.state", state)
                   .lte("refreshEligibleAt", now),
               )
-              .take(REPOSITORY_SUMMARY_PAGE_SIZE),
+              .take(REPOSITORY_SUMMARY_HARD_PAGE_SIZE),
         ),
       );
       const oldestEligible = eligibleByState
@@ -460,8 +463,17 @@ export const requestRepositorySummaryRefresh = mutation({
           (left, right) =>
             left.refreshEligibleAt - right.refreshEligibleAt ||
             left.vaultId.localeCompare(right.vaultId),
-        )
-        .slice(0, REPOSITORY_SUMMARY_PAGE_SIZE);
+        );
+      const backgroundSummary = oldestEligible.find(
+        (summary) =>
+          !visibleVaultIdSet.has(summary.vaultId) &&
+          !selectedVaultIds.has(summary.vaultId) &&
+          canScheduleRepositorySummary(summary, now),
+      );
+      if (backgroundSummary) {
+        selected.push(backgroundSummary);
+        selectedVaultIds.add(backgroundSummary.vaultId);
+      }
       for (const summary of oldestEligible) {
         if (
           selected.length >= REPOSITORY_SUMMARY_PAGE_SIZE ||

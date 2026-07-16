@@ -13,12 +13,11 @@ import {
   createRepositorySummaryForConnectedVault,
 } from "../repositorySummary";
 import {
-  buildVaultCloudflareBuildConfigForAppRoot,
   normalizeRepositoryRouteKey,
   VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH,
   vGitHubRepositoryVisibility,
 } from "./model";
-import { ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
+import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import {
   assertConnectedVault,
   isConnectedVault,
@@ -405,28 +404,20 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       message: "Created the initializing Samebase vault.",
       createdAt: now,
     });
-    await ctx.db.insert("vaultInfrastructureTargets", {
-      vaultId,
-      appRoot: ROOT_VAULT_APP_ROOT,
-      convex: {
-        state: "planned",
-        projectName: args.convexProjectName,
-      },
-      cloudflare: {
-        state: "planned",
-        accountId: args.cloudflareAccountId,
-        workerName: args.cloudflareWorkerName,
-        build: buildVaultCloudflareBuildConfigForAppRoot({
-          appRoot: ROOT_VAULT_APP_ROOT,
-        }),
-      },
-      createdAt: now,
-      updatedAt: now,
-    });
-    await ctx.db.insert("vaultApps", {
+    const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId: args.userId,
-      appRoot: ROOT_VAULT_APP_ROOT,
+      rootDirectory: VAULT_ROOT_DIRECTORY,
+      createdAt: now,
+    });
+    await ctx.db.insert("vaultInfrastructureTargets", {
+      vaultId,
+      appId,
+      convex: { projectName: args.convexProjectName },
+      cloudflare: {
+        accountId: args.cloudflareAccountId,
+        workerName: args.cloudflareWorkerName,
+      },
       createdAt: now,
     });
     await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);

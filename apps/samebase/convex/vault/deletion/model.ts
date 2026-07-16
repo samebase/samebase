@@ -1,4 +1,5 @@
 import { Infer, v } from "convex/values";
+import { vConvexDeployKeys } from "../deployKeyModel";
 
 const { array, id, literal, number, object, string, union } = v;
 
@@ -108,6 +109,21 @@ const providerCleanupPlan = {
       deploymentName: string(),
     }),
   ),
+  convexDependencyDeployKeys: union(
+    object({
+      action: literal("skip"),
+      reason: literal("not_recorded"),
+    }),
+    object({
+      action: literal("revoke"),
+      dependencies: array(
+        object({
+          dependencyId: string(),
+          deployKeys: vConvexDeployKeys,
+        }),
+      ),
+    }),
+  ),
   cloudflare: union(
     object({
       action: literal("skip"),
@@ -130,6 +146,21 @@ const providerCleanupPlan = {
         object({
           accountId: string(),
           workerName: string(),
+          workerTag: string(),
+        }),
+      ),
+    }),
+  ),
+  cloudflareBuildTriggers: union(
+    object({
+      action: literal("skip"),
+      reason: literal("not_recorded"),
+    }),
+    object({
+      action: literal("detach"),
+      workers: array(
+        object({
+          accountId: string(),
           workerTag: string(),
         }),
       ),

@@ -10,7 +10,7 @@ export const cloudflareConnectExistingWorkerContract = {
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     accountId: string(),
     workerName: string(),
   },
@@ -28,7 +28,7 @@ export const cloudflareConnectExistingWorkerContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app to attach the Worker to.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      appId: "Stable Samebase app id that will own the Worker.",
       accountId: "Cloudflare account id from list_cloudflare_accounts.",
       workerName: "Worker name from list_cloudflare_workers (recommended or available only).",
     },

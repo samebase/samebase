@@ -73,7 +73,7 @@ export const cloudflareListWorkersContract = {
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     accountId: string(),
   },
   returns: array(vCloudflareWorkerResult),
@@ -91,7 +91,7 @@ export const cloudflareListWorkersContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app the Worker would attach to.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      appId: "Stable Samebase app id that will own the Worker.",
       accountId: "Cloudflare account id from list_cloudflare_accounts.",
     },
   } satisfies AppFunctionMcpMetadata,

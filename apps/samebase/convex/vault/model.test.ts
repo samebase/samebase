@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
-import { buildVaultCloudflareBuildConfigForAppRoot } from "./model";
+import { buildVaultCloudflareBuildConfig } from "./model";
 
-describe("buildVaultCloudflareBuildConfigForAppRoot", () => {
-  it("watches the complete repository for a root app", () => {
-    expect(buildVaultCloudflareBuildConfigForAppRoot({ appRoot: "." })).toEqual({
+describe("buildVaultCloudflareBuildConfig", () => {
+  it("watches the complete repository when the Worker or a dependency is rooted there", () => {
+    expect(
+      buildVaultCloudflareBuildConfig({
+        rootDirectory: "/",
+        dependencyRootDirectories: ["packages/backend"],
+      }),
+    ).toEqual({
       rootDirectory: "/",
       buildCommand: "pnpm run build",
       deployCommand: "pnpm run deploy",
@@ -11,20 +16,34 @@ describe("buildVaultCloudflareBuildConfigForAppRoot", () => {
       pathIncludes: ["*"],
       pathExcludes: [],
     });
+
+    expect(
+      buildVaultCloudflareBuildConfig({
+        rootDirectory: "apps/web",
+        dependencyRootDirectories: ["/"],
+      }).pathIncludes,
+    ).toEqual(["*"]);
   });
 
-  it("watches one monorepo app and the shared workspace build files", () => {
-    expect(buildVaultCloudflareBuildConfigForAppRoot({ appRoot: "apps/alpha" })).toEqual({
-      rootDirectory: "apps/alpha",
+  it("watches the Worker, every dependency, and shared workspace build files", () => {
+    expect(
+      buildVaultCloudflareBuildConfig({
+        rootDirectory: "apps/web",
+        dependencyRootDirectories: ["packages/backend", "apps/mobile", "packages/backend"],
+      }),
+    ).toEqual({
+      rootDirectory: "apps/web",
       buildCommand: "pnpm run build",
       deployCommand: "pnpm run deploy",
       previewDeployCommand: "pnpm run deploy:preview",
       pathIncludes: [
-        "apps/alpha/*",
+        "apps/web/*",
         ".node-version",
         "package.json",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
+        "apps/mobile/*",
+        "packages/backend/*",
       ],
       pathExcludes: [],
     });

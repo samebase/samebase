@@ -69,7 +69,6 @@ export function useRepositoryObservationDemand(args: {
             await requestInventoryRefresh({ vaultId: args.selectedInventoryVaultId });
           } catch (error) {
             console.error("Failed to request repository inventory:", error);
-            return;
           }
         }
         try {

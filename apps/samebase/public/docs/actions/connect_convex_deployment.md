@@ -16,7 +16,7 @@ step, message, and `nextAction`).
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app to attach the Convex project to.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `appId` (string, required): Stable Samebase app id that will own the Convex deployment.
 - `projectId` (string, required): Convex project id from list_convex_projects.
 
 ## Returns

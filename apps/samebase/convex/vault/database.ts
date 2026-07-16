@@ -4,7 +4,6 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import type { AuthenticatedAppViewer } from "../functions";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
   createConvexDeploymentDeployKey,
   deleteConvexDeploymentDeployKey,
@@ -88,10 +87,9 @@ async function readVaultDatabaseDeploymentContext(
     owner: string;
     repoName: string;
     branch: string;
-    appRoot: string;
+    deploymentId: string;
   },
 ): Promise<VaultDatabaseDeploymentContext> {
-  const appRoot = normalizeVaultAppRoot(args.appRoot);
   const vault: VaultDatabaseLookup = await ctx.runQuery(
     internal.vault.records.getByRepositoryFullName,
     {
@@ -124,7 +122,7 @@ async function readVaultDatabaseDeploymentContext(
     },
   );
   const deployment = vaultContext.convexDeployments.find(
-    (candidate) => candidate.appRoot === appRoot,
+    (candidate) => candidate._id === args.deploymentId,
   );
 
   if (!deployment) {
@@ -149,7 +147,7 @@ export const createEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    appRoot: string(),
+    deploymentId: string(),
   },
   returns: embeddedDashboardCredentialsResult,
   handler: async (ctx, args): Promise<EmbeddedDashboardCredentialsResult> => {
@@ -188,7 +186,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    appRoot: string(),
+    deploymentId: string(),
     deployKeyName: string(),
   },
   returns: nullValue(),

@@ -18,7 +18,8 @@ missing afterwards.
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app whose Worker needs Builds wiring.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `workerId` (string, required): Stable Samebase id of the Worker whose Builds triggers should be
+  wired.
 
 ## Returns
 

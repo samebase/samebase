@@ -56,50 +56,28 @@ describe("buildVaultFileRoute", () => {
 });
 
 describe("buildVaultDatabaseRoute", () => {
-  it("builds root app database routes", () => {
+  it("builds deployment-specific database routes", () => {
     expect(
       buildVaultDatabaseRoute({
         owner: "octo",
         repoName: "repo",
         branch: "feature/login-flow",
-        appRoot: ".",
+        deploymentId: "deployment 123",
       }),
-    ).toBe("/vault/octo/repo/db/feature%2Flogin-flow/root");
-  });
-
-  it("builds monorepo app database routes", () => {
-    expect(
-      buildVaultDatabaseRoute({
-        owner: "octo",
-        repoName: "repo",
-        branch: "main",
-        appRoot: "apps/web app",
-      }),
-    ).toBe("/vault/octo/repo/db/main/mono/apps/web%20app");
+    ).toBe("/vault/octo/repo/db/feature%2Flogin-flow/deployment%20123");
   });
 });
 
 describe("buildVaultSchemaRoute", () => {
-  it("builds root app schema routes", () => {
+  it("builds deployment-specific schema routes", () => {
     expect(
       buildVaultSchemaRoute({
         owner: "octo",
         repoName: "repo",
         branch: "feature/login-flow",
-        appRoot: ".",
+        deploymentId: "deployment 123",
       }),
-    ).toBe("/vault/octo/repo/schema/feature%2Flogin-flow/root");
-  });
-
-  it("builds monorepo app schema routes", () => {
-    expect(
-      buildVaultSchemaRoute({
-        owner: "octo",
-        repoName: "repo",
-        branch: "main",
-        appRoot: "apps/web app",
-      }),
-    ).toBe("/vault/octo/repo/schema/main/mono/apps/web%20app");
+    ).toBe("/vault/octo/repo/schema/feature%2Flogin-flow/deployment%20123");
   });
 });
 

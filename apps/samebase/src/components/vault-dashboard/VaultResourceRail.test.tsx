@@ -5,11 +5,27 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import type { Id } from "../../../convex/_generated/dataModel";
 import { VaultResourceRail, type VaultResourceRailState } from "./VaultResourceRail";
 
 const { act } = React;
 type VaultResourceRailGithubRow = VaultResourceRailState["githubRow"];
 type VaultResourceRailAppRow = VaultResourceRailState["apps"][number]["rows"][number];
+type WithoutRowId<TRow> = TRow extends { rowId: string } ? Omit<TRow, "rowId"> : never;
+type TestVaultResourceRailGithubRow = WithoutRowId<VaultResourceRailGithubRow>;
+type TestVaultResourceRailAppRow = WithoutRowId<VaultResourceRailAppRow>;
+
+function fakeAppId(): Id<"vaultApps"> {
+  // @ts-expect-error Convex ids are strings at runtime; this render test only
+  // needs a stable app id.
+  return "a17f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeNestedAppId(): Id<"vaultApps"> {
+  // @ts-expect-error Convex ids are strings at runtime; this render test only
+  // needs a second stable app id.
+  return "a27f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
 
 let rootElement: HTMLDivElement | null = null;
 let root: Root | null = null;
@@ -18,12 +34,18 @@ function buildRootResourceRailState({
   appRows,
   githubRow,
 }: {
-  appRows: readonly VaultResourceRailAppRow[];
-  githubRow: VaultResourceRailGithubRow;
+  appRows: readonly TestVaultResourceRailAppRow[];
+  githubRow: TestVaultResourceRailGithubRow;
 }): VaultResourceRailState {
   return {
-    githubRow,
-    apps: [{ appRoot: ".", rows: appRows }],
+    githubRow: { ...githubRow, rowId: "github" },
+    apps: [
+      {
+        appId: fakeAppId(),
+        rootDirectory: "/",
+        rows: appRows.map((row, index) => ({ ...row, rowId: `${row.provider}:${index}` })),
+      },
+    ],
   };
 }
 
@@ -305,16 +327,19 @@ describe("VaultResourceRail", () => {
     const state = {
       githubRow: {
         provider: "github",
+        rowId: "github",
         status: "ready",
         value: "nicu-chiciuc/weight_tsx",
         href: "https://github.com/nicu-chiciuc/weight_tsx",
       },
       apps: [
         {
-          appRoot: ".",
+          appId: fakeAppId(),
+          rootDirectory: "/",
           rows: [
             {
               provider: "convex",
+              rowId: "convex:add",
               status: "action_required",
               actions: [
                 {
@@ -326,16 +351,19 @@ describe("VaultResourceRail", () => {
             },
             {
               provider: "cloudflare",
+              rowId: "cloudflare:root",
               status: "ready",
               value: "worker-root",
             },
           ],
         },
         {
-          appRoot: "apps/api",
+          appId: fakeNestedAppId(),
+          rootDirectory: "apps/api",
           rows: [
             {
               provider: "cloudflare",
+              rowId: "cloudflare:api",
               status: "ready",
               value: "worker-api",
             },

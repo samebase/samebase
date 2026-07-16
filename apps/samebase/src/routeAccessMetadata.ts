@@ -120,16 +120,11 @@ const routeAccessMetadataByPath = {
     access: "access_machines",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/vault/$owner/$repo/db/$branch/root": {
+  "/vault/$owner/$repo/db/$branch/$deploymentId": {
     access: "access_files_read",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/vault/$owner/$repo/db/$branch/mono/$": {
-    access: "access_files_read",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
-  "/vault/$owner/$repo/schema/$branch/root": { access: "access_schema_graph" },
-  "/vault/$owner/$repo/schema/$branch/mono/$": { access: "access_schema_graph" },
+  "/vault/$owner/$repo/schema/$branch/$deploymentId": { access: "access_schema_graph" },
   "/visual-fixture": {
     access: "access_public",
     appWorkspaceRouteChrome: {

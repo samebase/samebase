@@ -20,7 +20,6 @@ import {
   type VaultConvexConnectionTarget,
   type VaultConvexOrigin,
 } from "./model";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
 import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
 
@@ -344,7 +343,7 @@ async function isConvexDeploymentConnectionRunActive(
     vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
-    appRoot: string;
+    appId: Id<"vaultApps">;
   },
 ): Promise<boolean> {
   const result = await ctx.runQuery(
@@ -353,7 +352,7 @@ async function isConvexDeploymentConnectionRunActive(
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
-      appRoot: args.appRoot,
+      appId: args.appId,
     },
   );
   return result.active;
@@ -365,29 +364,26 @@ async function recordConvexDeployment(
     vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
-    appRoot: string;
+    appId: Id<"vaultApps">;
     teamId: string;
     convex: ConvexInfrastructureRecord;
     origin: VaultConvexOrigin;
   },
-): Promise<boolean> {
+): Promise<Id<"vaultConvexDeployments"> | null> {
   await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
     userId: args.userId,
     teamId: args.teamId,
     teamSlug: args.convex.convexTeamSlug,
   });
-  const { attached } = await ctx.runMutation(
-    internal.vault.convexMutations.attachDeploymentForRun,
-    {
-      vaultId: args.vaultId,
-      runId: args.runId,
-      userId: args.userId,
-      appRoot: args.appRoot,
-      convex: args.convex,
-      origin: args.origin,
-    },
-  );
-  return attached;
+  const result = await ctx.runMutation(internal.vault.convexMutations.attachDeploymentForRun, {
+    vaultId: args.vaultId,
+    runId: args.runId,
+    userId: args.userId,
+    appId: args.appId,
+    convex: args.convex,
+    origin: args.origin,
+  });
+  return result.state === "attached" ? result.deploymentId : null;
 }
 
 export async function listConvexProjectsForUser(
@@ -410,10 +406,14 @@ export const listProjects = action({
 
 export async function connectExistingConvexProjectForUser(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  args: { userId: Id<"users">; vaultId: Id<"vaults">; appRoot: string; projectId: string },
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    appId: Id<"vaultApps">;
+    projectId: string;
+  },
 ): Promise<null> {
   const userId = args.userId;
-  const appRoot = normalizeVaultAppRoot(args.appRoot);
   const projectId = args.projectId.trim();
   if (!projectId) {
     throw new Error("Convex project is required.");
@@ -421,7 +421,7 @@ export async function connectExistingConvexProjectForUser(
   await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
     vaultId: args.vaultId,
     userId,
-    appRoot,
+    appId: args.appId,
   });
   const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
     userId,
@@ -434,7 +434,7 @@ export async function connectExistingConvexProjectForUser(
     userId,
     target: {
       mode: "connect_existing_project",
-      appRoot,
+      appId: args.appId,
       projectId,
     },
   });
@@ -459,7 +459,7 @@ export const createProject = action({
   access: "access_app_create",
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     projectName: string(),
   },
   returns: nullValue(),
@@ -470,11 +470,10 @@ export const createProject = action({
     }
 
     const userId = ctx.viewer.userId;
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
       vaultId: args.vaultId,
       userId,
-      appRoot,
+      appId: args.appId,
     });
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
@@ -487,7 +486,7 @@ export const createProject = action({
       userId,
       target: {
         mode: "create_project",
-        appRoot,
+        appId: args.appId,
         projectName: validation.value,
       },
     });
@@ -503,14 +502,14 @@ export const ensureConvexDeploymentConnection = internalAction({
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
   },
-  returns: nullValue(),
+  returns: v.union(id("vaultConvexDeployments"), nullValue()),
   handler: async (ctx, args) => {
     if (
       !(await isConvexDeploymentConnectionRunActive(ctx, {
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        appRoot: args.target.appRoot,
+        appId: args.target.appId,
       }))
     ) {
       return null;
@@ -523,19 +522,16 @@ export const ensureConvexDeploymentConnection = internalAction({
           connection,
           projectId: args.target.projectId,
         });
-        const attached = await recordConvexDeployment(ctx, {
+        const deploymentId = await recordConvexDeployment(ctx, {
           vaultId: args.vaultId,
           runId: args.runId,
           userId: args.userId,
-          appRoot: args.target.appRoot,
+          appId: args.target.appId,
           teamId: connection.teamId,
           convex,
           origin: "selected_existing",
         });
-        if (!attached) {
-          return null;
-        }
-        return null;
+        return deploymentId;
       }
       case "create_project": {
         const validation = validateAppResourceName(args.target.projectName, "convex");
@@ -547,7 +543,7 @@ export const ensureConvexDeploymentConnection = internalAction({
             vaultId: args.vaultId,
             runId: args.runId,
             userId: args.userId,
-            appRoot: args.target.appRoot,
+            appId: args.target.appId,
           }))
         ) {
           return null;
@@ -565,24 +561,21 @@ export const ensureConvexDeploymentConnection = internalAction({
             vaultId: args.vaultId,
             runId: args.runId,
             userId: args.userId,
-            appRoot: args.target.appRoot,
+            appId: args.target.appId,
           }))
         ) {
           return null;
         }
-        const attached = await recordConvexDeployment(ctx, {
+        const deploymentId = await recordConvexDeployment(ctx, {
           vaultId: args.vaultId,
           runId: args.runId,
           userId: args.userId,
-          appRoot: args.target.appRoot,
+          appId: args.target.appId,
           teamId: connection.teamId,
           convex,
           origin: "provisioned",
         });
-        if (!attached) {
-          return null;
-        }
-        return null;
+        return deploymentId;
       }
     }
 

@@ -153,6 +153,8 @@ import type * as vault_deletion_providerActions from "../vault/deletion/provider
 import type * as vault_deletion_runs from "../vault/deletion/runs.js";
 import type * as vault_deletion_state from "../vault/deletion/state.js";
 import type * as vault_deletion_workflow from "../vault/deletion/workflow.js";
+import type * as vault_deployKeyModel from "../vault/deployKeyModel.js";
+import type * as vault_deploymentDependencies from "../vault/deploymentDependencies.js";
 import type * as vault_model from "../vault/model.js";
 import type * as vault_records from "../vault/records.js";
 import type * as vault_resourceLinksStateModel from "../vault/resourceLinksStateModel.js";
@@ -313,6 +315,8 @@ declare const fullApi: ApiFromModules<{
   "vault/deletion/runs": typeof vault_deletion_runs;
   "vault/deletion/state": typeof vault_deletion_state;
   "vault/deletion/workflow": typeof vault_deletion_workflow;
+  "vault/deployKeyModel": typeof vault_deployKeyModel;
+  "vault/deploymentDependencies": typeof vault_deploymentDependencies;
   "vault/model": typeof vault_model;
   "vault/records": typeof vault_records;
   "vault/resourceLinksStateModel": typeof vault_resourceLinksStateModel;

@@ -26,6 +26,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultRepositoryInventories"),
   literal("vaultRepositorySummaries"),
   literal("vaultDomains"),
+  literal("vaultWorkerDeploymentDependencies"),
   literal("vaultApps"),
   literal("vaultConvexDeployments"),
   literal("vaultConvexSchemaSnapshots"),
@@ -354,8 +355,8 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultDomains"),
   },
   {
-    table: "vaultApps",
-    cleanup: deleteByVaultBatch("vaultApps"),
+    table: "vaultWorkerDeploymentDependencies",
+    cleanup: deleteByVaultBatch("vaultWorkerDeploymentDependencies"),
   },
   {
     table: "vaultConvexDeployments",
@@ -380,6 +381,10 @@ const vaultLocalCleanupRegistry = [
   {
     table: "vaultInfrastructureOwnership",
     cleanup: deleteByVaultBatch("vaultInfrastructureOwnership"),
+  },
+  {
+    table: "vaultApps",
+    cleanup: deleteByVaultBatch("vaultApps"),
   },
   {
     table: "codespaces",
@@ -431,13 +436,14 @@ const vaultLocalCleanupRegistryByStep = {
   ],
   cleanup_runtime_state: [
     "vaultDomains",
-    "vaultApps",
+    "vaultWorkerDeploymentDependencies",
     "vaultConvexDeployments",
     "vaultConvexSchemaSnapshots",
     "vaultConvexSchemaGraphLayouts",
     "vaultCloudflareWorkers",
     "vaultInfrastructureTargets",
     "vaultInfrastructureOwnership",
+    "vaultApps",
     "codespaces",
     "agentGraphNodeLayout",
   ],

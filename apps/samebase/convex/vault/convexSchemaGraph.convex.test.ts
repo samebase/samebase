@@ -137,10 +137,16 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       defaultBranch: "main",
       connectedAt: 20,
     });
+    const appId = await ctx.db.insert("vaultApps", {
+      userId,
+      vaultId,
+      rootDirectory: "/",
+      createdAt: 25,
+    });
     const deploymentId = await ctx.db.insert("vaultConvexDeployments", {
       vaultId,
       userId,
-      appRoot: ".",
+      appId,
       projectId: "convex-project-id",
       teamSlug: "ada-team",
       projectSlug: "demo",
@@ -149,10 +155,6 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       cloudUrl: "https://demo.convex.cloud",
       siteUrl: "https://demo.convex.site",
       previewDeployment: { state: "not_ensured" },
-      deployKeys: {
-        production: { state: "not_created" },
-        preview: { state: "not_created" },
-      },
       origin: "selected_existing",
       connectedAt: 25,
       lastObservedAt: 25,
@@ -263,7 +265,7 @@ describe("vault Convex schema graph", () => {
 
     const state = await user.query(api.vault.convexSchemaGraph.get, {
       vaultId: ids.vaultId,
-      appRoot: ".",
+      deploymentId: ids.deploymentId,
     });
     if (!state?.snapshot) {
       throw new Error("Expected schema graph snapshot.");
@@ -321,7 +323,7 @@ describe("vault Convex schema graph", () => {
     expect(deleteRequest?.body).toEqual({ id: deployKeyName });
   });
 
-  it("returns deployment options when the route app root no longer matches", async () => {
+  it("returns deployment options when the route deployment no longer exists", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphVault(t, {
       method: "oauth",
@@ -330,7 +332,7 @@ describe("vault Convex schema graph", () => {
 
     const state = await user.query(api.vault.convexSchemaGraph.get, {
       vaultId: ids.vaultId,
-      appRoot: "apps/missing",
+      deploymentId: "missing-deployment",
     });
 
     expect(state).toMatchObject({
@@ -340,7 +342,7 @@ describe("vault Convex schema graph", () => {
       deployments: [
         {
           _id: ids.deploymentId,
-          appRoot: ".",
+          rootDirectory: "/",
           deploymentName: "demo-prod",
         },
       ],
@@ -362,7 +364,6 @@ describe("vault Convex schema graph", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       deploymentId: ids.deploymentId,
-      appRoot: ".",
       deploymentName: "demo-prod",
       schemaHash: "same",
       graph,
@@ -372,7 +373,6 @@ describe("vault Convex schema graph", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       deploymentId: ids.deploymentId,
-      appRoot: ".",
       deploymentName: "demo-prod",
       schemaHash: "same",
       graph,
@@ -386,7 +386,6 @@ describe("vault Convex schema graph", () => {
         userId: ids.userId,
         vaultId: ids.vaultId,
         deploymentId: ids.deploymentId,
-        appRoot: ".",
         deploymentName: "demo-prod",
         schemaHash: `changed-${index}`,
         graph,

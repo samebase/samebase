@@ -5,15 +5,13 @@
 MCP tool `vault_cloudflare_verifyInfrastructure` · scope `access_app_create` · write
 
 Checks Samebase's recorded Cloudflare Worker infrastructure against the caller's own Cloudflare
-account: recorded Workers Builds production and preview trigger ids must still exist on the Worker,
-and a Worker marked as having Convex build access must still expose both `CONVEX_DEPLOY_KEY` and
-`PREVIEW_CONVEX_DEPLOY_KEY` on each trigger.
+account: recorded Workers Builds production and preview trigger ids must still exist on the Worker.
+When that Worker has a Convex deployment dependency, its production trigger must expose
+`CONVEX_DEPLOY_KEY` and its preview trigger must expose `PREVIEW_CONVEX_DEPLOY_KEY`.
 
-Convex build-access verification is all-or-nothing and name-only: production and preview trigger
-variable tables must each contain both deploy-key names. A split layout, such as `CONVEX_DEPLOY_KEY`
-only on production and `PREVIEW_CONVEX_DEPLOY_KEY` only on preview, is treated as missing.
-Cloudflare does not return secret values, so verification cannot prove that a present secret
-contains the current key; the repair action rotates and rewrites fresh values.
+Convex build-access verification checks both name and secret classification. Cloudflare does not
+return secret values, so verification cannot prove that a present secret contains the current key;
+the repair action rotates and rewrites fresh values for this dependency only.
 
 Provider access is read-only. Samebase only writes registry corrections: missing recorded triggers
 make the Worker repairable through `wire_builds`; missing deploy-key variables make it repairable
@@ -26,7 +24,8 @@ Worker row.
 
 - `vaultId` (string, required): Samebase vault id of the app whose Cloudflare infrastructure should
   be verified.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `workerId` (string, required): Stable Samebase id of the Worker whose infrastructure should be
+  verified.
 
 ## Returns
 

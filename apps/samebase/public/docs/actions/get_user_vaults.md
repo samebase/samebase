@@ -4,10 +4,13 @@
 
 MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · read_only
 
-Returns every app the authenticated account can see, with enough state to act on: source setup,
-provider setup, per-worker Workers Builds connection and Convex deploy-key state, deletion state,
-and the provider coordinates for going direct (Convex `deploymentName`, `teamSlug`, `projectSlug`,
-`cloudUrl`; Cloudflare `workerName`, `workersDevUrl`, dashboard URLs).
+Returns every repository the authenticated account can see, including durable app ids and root
+directories, provider-resource ids, explicit Worker-to-Convex deployment dependencies, source and
+provider setup, deletion state, and provider-direct coordinates.
+
+Provider resources belong to apps through `appId`. A dependency connects one `workerId` to one
+`convexDeploymentId`; its `wiring` state reports whether that build access is ready or names
+`wire_convex_build_access` as the required action.
 
 Degraded provider and connection states name their own remedy in a `nextAction` field; the value is
 the snake_case name of the repairing action. Current vocabulary: `retry_infrastructure_provisioning`
@@ -21,6 +24,10 @@ does not carry `nextAction` yet. Treat `sourceSetup.status: "failed"` as degrade
 Read this before any repair or day-2 operation: the coordinates it returns are the inputs for
 provider-direct work (see the operate guides), and the `nextAction` values are the exact Samebase
 actions to call when the record itself is degraded.
+
+This legacy aggregate is not the Samebase dashboard directory. It fails explicitly above 25 vaults
+or above 1,000 staged-file rows in one vault; use the paginated repository summary directory for the
+multi-vault UI.
 
 ## Arguments
 
@@ -45,13 +52,16 @@ JSON Schema for the tool's `structuredContent`:
           "_creationTime": {
             "type": "number"
           },
-          "ghRepoOwner": {
+          "routeRepositoryFullName": {
             "type": "string"
           },
-          "ghRepoName": {
+          "githubRepositoryFullName": {
             "type": "string"
           },
-          "repositoryFullName": {
+          "githubOwner": {
+            "type": "string"
+          },
+          "githubName": {
             "type": "string"
           },
           "commitSHA": {
@@ -698,16 +708,19 @@ JSON Schema for the tool's `structuredContent`:
           "canRemoveCloudflareProvision": {
             "type": "boolean"
           },
-          "appRoots": {
+          "apps": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "appRoot": {
+                "appId": {
+                  "type": "string"
+                },
+                "rootDirectory": {
                   "type": "string"
                 }
               },
-              "required": ["appRoot"],
+              "required": ["appId", "rootDirectory"],
               "additionalProperties": false
             }
           },
@@ -716,45 +729,11 @@ JSON Schema for the tool's `structuredContent`:
             "items": {
               "type": "object",
               "properties": {
-                "appRoot": {
+                "workerId": {
                   "type": "string"
                 },
-                "convexDeployKeys": {
-                  "anyOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "missing"
-                        },
-                        "nextAction": {
-                          "const": "wire_convex_build_access"
-                        }
-                      },
-                      "required": ["state", "nextAction"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "not_applicable"
-                        }
-                      },
-                      "required": ["state"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "set"
-                        }
-                      },
-                      "required": ["state"],
-                      "additionalProperties": false
-                    }
-                  ]
+                "appId": {
+                  "type": "string"
                 },
                 "githubRepositoryConnection": {
                   "anyOf": [
@@ -834,8 +813,8 @@ JSON Schema for the tool's `structuredContent`:
                 }
               },
               "required": [
-                "appRoot",
-                "convexDeployKeys",
+                "workerId",
+                "appId",
                 "githubRepositoryConnection",
                 "upstream",
                 "lastObservedAt",
@@ -849,7 +828,10 @@ JSON Schema for the tool's `structuredContent`:
             "items": {
               "type": "object",
               "properties": {
-                "appRoot": {
+                "convexDeploymentId": {
+                  "type": "string"
+                },
+                "appId": {
                   "type": "string"
                 },
                 "projectId": {
@@ -915,7 +897,8 @@ JSON Schema for the tool's `structuredContent`:
                 }
               },
               "required": [
-                "appRoot",
+                "convexDeploymentId",
+                "appId",
                 "projectId",
                 "projectSlug",
                 "teamSlug",
@@ -926,14 +909,61 @@ JSON Schema for the tool's `structuredContent`:
               ],
               "additionalProperties": false
             }
+          },
+          "workerDeploymentDependencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dependencyId": {
+                  "type": "string"
+                },
+                "workerId": {
+                  "type": "string"
+                },
+                "convexDeploymentId": {
+                  "type": "string"
+                },
+                "wiring": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "const": "not_wired"
+                        },
+                        "nextAction": {
+                          "const": "wire_convex_build_access"
+                        }
+                      },
+                      "required": ["state", "nextAction"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "const": "wired"
+                        }
+                      },
+                      "required": ["state"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "required": ["dependencyId", "workerId", "convexDeploymentId", "wiring"],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
           "_id",
           "_creationTime",
-          "ghRepoOwner",
-          "ghRepoName",
-          "repositoryFullName",
+          "routeRepositoryFullName",
+          "githubRepositoryFullName",
+          "githubOwner",
+          "githubName",
           "fileCount",
           "state",
           "sourceSetup",
@@ -945,9 +975,10 @@ JSON Schema for the tool's `structuredContent`:
           "hasCloudflareProvision",
           "canRemoveConvexProvision",
           "canRemoveCloudflareProvision",
-          "appRoots",
+          "apps",
           "cloudflareWorkers",
-          "convexDeployments"
+          "convexDeployments",
+          "workerDeploymentDependencies"
         ],
         "additionalProperties": false
       }

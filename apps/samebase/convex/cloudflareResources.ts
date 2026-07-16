@@ -144,20 +144,30 @@ function requireCloudflareString(value: string | null | undefined, message: stri
   throw new Error(message);
 }
 
-export function buildCloudflareWorkersEnvVars(vars: {
-  productionConvexDeployKey: string;
-  previewConvexDeployKey: string;
-}): CloudflareBuildEnvVars {
-  return {
-    [CONVEX_DEPLOY_KEY]: {
-      value: vars.productionConvexDeployKey,
-      is_secret: true,
-    },
-    [PREVIEW_CONVEX_DEPLOY_KEY]: {
-      value: vars.previewConvexDeployKey,
-      is_secret: true,
-    },
-  };
+export function buildCloudflareWorkerDeploymentEnvVars(
+  args:
+    | { deployment: "production"; deployKey: string }
+    | { deployment: "preview"; deployKey: string },
+): CloudflareBuildEnvVars {
+  switch (args.deployment) {
+    case "production":
+      return {
+        [CONVEX_DEPLOY_KEY]: {
+          value: args.deployKey,
+          is_secret: true,
+        },
+      };
+    case "preview":
+      return {
+        [PREVIEW_CONVEX_DEPLOY_KEY]: {
+          value: args.deployKey,
+          is_secret: true,
+        },
+      };
+    default:
+      args satisfies never;
+      return {};
+  }
 }
 
 type CloudflareWorkerIdentity = {
@@ -1566,6 +1576,46 @@ async function setTriggerEnvironmentVariables(
   });
 }
 
+async function deleteTriggerEnvironmentVariable(
+  args: {
+    token: string;
+    accountId: string;
+    triggerUuid: string;
+    key: string;
+  } & CloudflareApiCallOptions,
+): Promise<void> {
+  await requestCloudflareApi({
+    token: args.token,
+    method: "DELETE",
+    path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables/{environment_variable_key}",
+    transport: args.transport,
+    params: {
+      path: {
+        account_id: args.accountId,
+        trigger_uuid: args.triggerUuid,
+        environment_variable_key: args.key,
+      },
+    },
+    recordApiCall: args.recordApiCall,
+  });
+}
+
+async function deleteTriggerEnvironmentVariableIfPresent(
+  args: {
+    token: string;
+    accountId: string;
+    triggerUuid: string;
+    key: string;
+    envVars: CloudflareBuildEnvVarsResponse;
+  } & CloudflareApiCallOptions,
+): Promise<boolean> {
+  if (!Object.prototype.hasOwnProperty.call(args.envVars, args.key)) {
+    return false;
+  }
+  await deleteTriggerEnvironmentVariable(args);
+  return true;
+}
+
 async function listTriggerEnvironmentVariables(
   args: {
     token: string;
@@ -1594,6 +1644,7 @@ function assertTriggerEnvironmentVariables(args: {
   triggerUuid: string;
   envVars: CloudflareBuildEnvVarsResponse;
   expected: CloudflareBuildEnvVars;
+  forbiddenKey: string;
 }): void {
   const missingKeys = Object.keys(args.expected).filter(
     (key) => !Object.prototype.hasOwnProperty.call(args.envVars, key),
@@ -1601,6 +1652,12 @@ function assertTriggerEnvironmentVariables(args: {
   if (missingKeys.length > 0) {
     throw new Error(
       `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} is missing build environment variable ${missingKeys.join(", ")} after wiring.`,
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(args.envVars, args.forbiddenKey)) {
+    throw new Error(
+      `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} must not contain build environment variable ${args.forbiddenKey}.`,
     );
   }
 
@@ -1722,14 +1779,13 @@ type WireCloudflareWorkerConvexBuildAccessArgs = {
   defaultBranch: string;
   expectedRepoId: string;
   repositoryFullName: string;
-  rootDirectory: string;
   vaultId: string;
   workerName: string;
   workerTag: string;
   cloudflareToken: string;
   cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
-  build: Pick<CloudflareWorkersBuilds, "production" | "preview">;
+  build: CloudflareConnectedWorkersBuilds;
   convex: CloudflareProvisionConvexState;
   recordApiCall?: ProviderApiCallRecorder;
 };
@@ -1791,6 +1847,8 @@ function assertExpectedBuildTriggerStillExists(args: {
   triggerUuid: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
+  buildTokenUuid: string;
+  buildConfig: CloudflareBuildConfig;
   repositoryFullName: string;
   workerTag: string;
 }): void {
@@ -1823,6 +1881,20 @@ function assertExpectedBuildTriggerStillExists(args: {
     repositoryFullName: args.repositoryFullName,
     workerTag: args.workerTag,
   });
+  if (
+    trigger.build_token_uuid !== args.buildTokenUuid ||
+    trigger.build_command !== args.buildConfig.buildCommand ||
+    trigger.deploy_command !==
+      (args.kind === "production"
+        ? args.buildConfig.deployCommand
+        : args.buildConfig.previewDeployCommand) ||
+    !hasSameCloudflareStringList(trigger.path_includes ?? [], args.buildConfig.pathIncludes) ||
+    !hasSameCloudflareStringList(trigger.path_excludes ?? [], args.buildConfig.pathExcludes)
+  ) {
+    throw new Error(
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: its existing ${triggerName} Workers Builds trigger no longer matches the expected build configuration. Retry Workers Builds wiring or choose another Worker.`,
+    );
+  }
 }
 
 function hasConfirmedRecordedBuildTrigger(args: {
@@ -1832,6 +1904,8 @@ function hasConfirmedRecordedBuildTrigger(args: {
   triggerUuid: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
+  buildTokenUuid: string;
+  buildConfig: CloudflareBuildConfig;
 }): boolean {
   const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
     args.expectedRootDirectory,
@@ -1850,7 +1924,15 @@ function hasConfirmedRecordedBuildTrigger(args: {
       defaultBranch: args.defaultBranch,
     }) &&
     readTriggerRepositoryId(trigger) === args.expectedRepoId &&
-    normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory
+    normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory &&
+    trigger.build_token_uuid === args.buildTokenUuid &&
+    trigger.build_command === args.buildConfig.buildCommand &&
+    trigger.deploy_command ===
+      (args.kind === "production"
+        ? args.buildConfig.deployCommand
+        : args.buildConfig.previewDeployCommand) &&
+    hasSameCloudflareStringList(trigger.path_includes ?? [], args.buildConfig.pathIncludes) &&
+    hasSameCloudflareStringList(trigger.path_excludes ?? [], args.buildConfig.pathExcludes)
   );
 }
 
@@ -1858,9 +1940,7 @@ function hasCloudflareBuildEnvironmentVariable(args: {
   envVars: CloudflareBuildEnvVarsResponse;
   key: string;
 }): boolean {
-  // Build variable values are write-only in Cloudflare, so the verifier uses
-  // variable names as the authoritative repair signal.
-  return Object.prototype.hasOwnProperty.call(args.envVars, args.key);
+  return args.key in args.envVars && args.envVars[args.key].is_secret === true;
 }
 
 function matchesAdoptableTriggerKind(args: {
@@ -1966,16 +2046,14 @@ function readMatchingCloudflareWorkerBuilds(args: {
   const previewPathIncludes = preview.trigger.path_includes;
   const previewPathExcludes = preview.trigger.path_excludes;
   if (
-    buildCommand === undefined ||
+    buildCommand !== args.buildConfig.buildCommand ||
     buildCommand !== preview.trigger.build_command ||
-    deployCommand === undefined ||
-    previewDeployCommand === undefined ||
-    pathIncludes === undefined ||
-    previewPathIncludes === undefined ||
-    pathExcludes === undefined ||
-    previewPathExcludes === undefined ||
-    !hasSameCloudflareStringList(pathIncludes, previewPathIncludes) ||
-    !hasSameCloudflareStringList(pathExcludes, previewPathExcludes)
+    deployCommand !== args.buildConfig.deployCommand ||
+    previewDeployCommand !== args.buildConfig.previewDeployCommand ||
+    !hasSameCloudflareStringList(pathIncludes ?? [], args.buildConfig.pathIncludes) ||
+    !hasSameCloudflareStringList(previewPathIncludes ?? [], args.buildConfig.pathIncludes) ||
+    !hasSameCloudflareStringList(pathExcludes ?? [], args.buildConfig.pathExcludes) ||
+    !hasSameCloudflareStringList(previewPathExcludes ?? [], args.buildConfig.pathExcludes)
   ) {
     return null;
   }
@@ -1986,8 +2064,8 @@ function readMatchingCloudflareWorkerBuilds(args: {
     buildCommand,
     deployCommand,
     previewDeployCommand,
-    pathIncludes,
-    pathExcludes,
+    pathIncludes: args.buildConfig.pathIncludes,
+    pathExcludes: args.buildConfig.pathExcludes,
     production: {
       triggerUuid: production.triggerUuid,
       buildTokenUuid: production.buildTokenUuid,
@@ -2030,6 +2108,8 @@ function verifyConnectedBuilds(args: {
     triggerUuid: args.build.production.triggerUuid,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
+    buildTokenUuid: args.build.production.buildTokenUuid,
+    buildConfig: args.buildConfig,
   });
   const previewTriggerConfirmed = hasConfirmedRecordedBuildTrigger({
     triggers: args.triggers,
@@ -2038,6 +2118,8 @@ function verifyConnectedBuilds(args: {
     triggerUuid: args.build.preview.triggerUuid,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.buildConfig.rootDir,
+    buildTokenUuid: args.build.preview.buildTokenUuid,
+    buildConfig: args.buildConfig,
   });
   return productionTriggerConfirmed && previewTriggerConfirmed
     ? {
@@ -2057,20 +2139,12 @@ function verifyConvexBuildAccess(args: {
     hasCloudflareBuildEnvironmentVariable({
       envVars: args.productionEnvVars,
       key: CONVEX_DEPLOY_KEY,
-    }) &&
-    hasCloudflareBuildEnvironmentVariable({
-      envVars: args.productionEnvVars,
-      key: PREVIEW_CONVEX_DEPLOY_KEY,
-    });
+    }) && !Object.prototype.hasOwnProperty.call(args.productionEnvVars, PREVIEW_CONVEX_DEPLOY_KEY);
   const previewDeployKeysPresent =
     hasCloudflareBuildEnvironmentVariable({
       envVars: args.previewEnvVars,
-      key: CONVEX_DEPLOY_KEY,
-    }) &&
-    hasCloudflareBuildEnvironmentVariable({
-      envVars: args.previewEnvVars,
       key: PREVIEW_CONVEX_DEPLOY_KEY,
-    });
+    }) && !Object.prototype.hasOwnProperty.call(args.previewEnvVars, CONVEX_DEPLOY_KEY);
   return productionDeployKeysPresent && previewDeployKeysPresent ? "confirmed" : "contradicted";
 }
 
@@ -2441,8 +2515,16 @@ export async function wireCloudflareWorkerConvexBuildAccess(
   const transport = resolveCloudflareApiTransport(args.cloudflareAuthMethod);
   let step = "verify_build_triggers";
   try {
+    const buildConfig: CloudflareBuildConfig = {
+      rootDir: args.build.rootDirectory,
+      buildCommand: args.build.buildCommand,
+      deployCommand: args.build.deployCommand,
+      previewDeployCommand: args.build.previewDeployCommand,
+      pathIncludes: args.build.pathIncludes,
+      pathExcludes: args.build.pathExcludes,
+    };
     const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
-      args.rootDirectory,
+      buildConfig.rootDir,
       "Expected app root",
     );
     const triggers = await listBuildTriggers({
@@ -2459,6 +2541,8 @@ export async function wireCloudflareWorkerConvexBuildAccess(
       triggerUuid: args.build.production.triggerUuid,
       expectedRepoId: args.expectedRepoId,
       expectedRootDirectory,
+      buildTokenUuid: args.build.production.buildTokenUuid,
+      buildConfig,
       repositoryFullName: args.repositoryFullName,
       workerTag: args.workerTag,
     });
@@ -2469,21 +2553,27 @@ export async function wireCloudflareWorkerConvexBuildAccess(
       triggerUuid: args.build.preview.triggerUuid,
       expectedRepoId: args.expectedRepoId,
       expectedRootDirectory,
+      buildTokenUuid: args.build.preview.buildTokenUuid,
+      buildConfig,
       repositoryFullName: args.repositoryFullName,
       workerTag: args.workerTag,
     });
 
     step = "set_environment_variables";
-    const convexEnvVars = buildCloudflareWorkersEnvVars({
-      productionConvexDeployKey: args.convex.production.deployKey,
-      previewConvexDeployKey: args.convex.preview.deployKey,
+    const productionEnvVars = buildCloudflareWorkerDeploymentEnvVars({
+      deployment: "production",
+      deployKey: args.convex.production.deployKey,
+    });
+    const previewEnvVars = buildCloudflareWorkerDeploymentEnvVars({
+      deployment: "preview",
+      deployKey: args.convex.preview.deployKey,
     });
     await Promise.all([
       setTriggerEnvironmentVariables({
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.production.triggerUuid,
-        envVars: convexEnvVars,
+        envVars: productionEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
       }),
@@ -2491,14 +2581,14 @@ export async function wireCloudflareWorkerConvexBuildAccess(
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.preview.triggerUuid,
-        envVars: convexEnvVars,
+        envVars: previewEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
       }),
     ]);
 
     step = "verify_environment_variables";
-    const [productionVerifiedEnvVars, previewVerifiedEnvVars] = await Promise.all([
+    let [productionVerifiedEnvVars, previewVerifiedEnvVars] = await Promise.all([
       listTriggerEnvironmentVariables({
         token: args.cloudflareToken,
         accountId: args.accountId,
@@ -2514,17 +2604,57 @@ export async function wireCloudflareWorkerConvexBuildAccess(
         recordApiCall: args.recordApiCall,
       }),
     ]);
+    const [removedPreviewKeyFromProduction, removedProductionKeyFromPreview] = await Promise.all([
+      deleteTriggerEnvironmentVariableIfPresent({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.production.triggerUuid,
+        key: PREVIEW_CONVEX_DEPLOY_KEY,
+        envVars: productionVerifiedEnvVars,
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+      deleteTriggerEnvironmentVariableIfPresent({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.preview.triggerUuid,
+        key: CONVEX_DEPLOY_KEY,
+        envVars: previewVerifiedEnvVars,
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+    ]);
+    if (removedPreviewKeyFromProduction) {
+      productionVerifiedEnvVars = await listTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.production.triggerUuid,
+        transport,
+        recordApiCall: args.recordApiCall,
+      });
+    }
+    if (removedProductionKeyFromPreview) {
+      previewVerifiedEnvVars = await listTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.preview.triggerUuid,
+        transport,
+        recordApiCall: args.recordApiCall,
+      });
+    }
     assertTriggerEnvironmentVariables({
       triggerKind: "production",
       triggerUuid: args.build.production.triggerUuid,
       envVars: productionVerifiedEnvVars,
-      expected: convexEnvVars,
+      expected: productionEnvVars,
+      forbiddenKey: PREVIEW_CONVEX_DEPLOY_KEY,
     });
     assertTriggerEnvironmentVariables({
       triggerKind: "preview",
       triggerUuid: args.build.preview.triggerUuid,
       envVars: previewVerifiedEnvVars,
-      expected: convexEnvVars,
+      expected: previewEnvVars,
+      forbiddenKey: CONVEX_DEPLOY_KEY,
     });
 
     step = "trigger_initial_build";
@@ -2700,6 +2830,13 @@ type DeleteCloudflareResourcesArgs = {
   transport: CloudflareApiTransport;
 };
 
+type DeleteCloudflareWorkerBuildTriggersArgs = {
+  accountId: string;
+  workerTag: string;
+  cloudflareToken: string;
+  transport: CloudflareApiTransport;
+};
+
 async function deleteCloudflareBuildTrigger(args: {
   accountId: string;
   triggerUuid: string;
@@ -2729,6 +2866,24 @@ async function deleteCloudflareBuildTrigger(args: {
 export async function deleteCloudflareResources(
   args: DeleteCloudflareResourcesArgs,
 ): Promise<void> {
+  await deleteCloudflareWorkerBuildTriggers(args);
+  await requestCloudflareApi({
+    token: args.cloudflareToken,
+    transport: args.transport,
+    method: "DELETE",
+    path: "/accounts/{account_id}/workers/workers/{worker_id}",
+    params: {
+      path: {
+        account_id: args.accountId,
+        worker_id: args.workerName,
+      },
+    },
+  });
+}
+
+export async function deleteCloudflareWorkerBuildTriggers(
+  args: DeleteCloudflareWorkerBuildTriggersArgs,
+): Promise<void> {
   const triggers = await listBuildTriggers({
     token: args.cloudflareToken,
     accountId: args.accountId,
@@ -2754,16 +2909,4 @@ export async function deleteCloudflareResources(
       });
     }),
   );
-  await requestCloudflareApi({
-    token: args.cloudflareToken,
-    transport: args.transport,
-    method: "DELETE",
-    path: "/accounts/{account_id}/workers/workers/{worker_id}",
-    params: {
-      path: {
-        account_id: args.accountId,
-        worker_id: args.workerName,
-      },
-    },
-  });
 }

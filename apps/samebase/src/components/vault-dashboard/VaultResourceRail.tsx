@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { type ComponentType, type MouseEvent } from "react";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 type VaultResourceRailActionKind = "add" | "connect" | "retry" | "set" | "verify";
 
@@ -38,6 +39,7 @@ export type VaultResourceRailProvider = "cloudflare" | "convex" | "github";
 
 type VaultResourceRailPendingRow<TProvider extends VaultResourceRailProvider> = {
   provider: TProvider;
+  rowId: string;
   scope?: string;
   status: "pending";
   value: string;
@@ -45,6 +47,7 @@ type VaultResourceRailPendingRow<TProvider extends VaultResourceRailProvider> = 
 
 type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> = {
   provider: TProvider;
+  rowId: string;
   scope?: string;
   status: "running";
   value: string;
@@ -55,6 +58,7 @@ type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
   description?: string;
   href?: string;
   provider: TProvider;
+  rowId: string;
   scope?: string;
   status: "ready";
   value: string;
@@ -63,12 +67,14 @@ type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
 type VaultResourceRailActionRequiredRow<TProvider extends VaultResourceRailProvider> = {
   actions: VaultResourceRailActionList;
   provider: TProvider;
+  rowId: string;
   status: "action_required";
 };
 
 type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
   actions: VaultResourceRailActionList;
   provider: TProvider;
+  rowId: string;
   scope?: string;
   status: "failed";
   value: string;
@@ -84,7 +90,8 @@ export type VaultResourceRailRowState<
   | VaultResourceRailRunningRow<TProvider>;
 
 export type VaultResourceRailAppState = {
-  appRoot: string;
+  appId: Id<"vaultApps">;
+  rootDirectory: string;
   rows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
 };
 
@@ -434,23 +441,23 @@ export function VaultResourceRail({ state }: { state: VaultResourceRailState }) 
       <div className="grid min-w-0 gap-0.5">
         <VaultResourceRailItem row={state.githubRow} />
         {state.apps.map((app) =>
-          app.appRoot === "." ? (
-            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+          app.rootDirectory === "/" ? (
+            <div key={app.appId} className="grid min-w-0 gap-0.5">
               {app.rows.map((row) => (
-                <VaultResourceRailItem key={row.provider} row={row} />
+                <VaultResourceRailItem key={row.rowId} row={row} />
               ))}
             </div>
           ) : (
-            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+            <div key={app.appId} className="grid min-w-0 gap-0.5">
               <div className={APP_ROOT_CLASS_NAME}>
                 <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
                   <ChevronDown className={APP_ROOT_ICON_CLASS_NAME} aria-hidden="true" />
                 </span>
-                <span className={APP_ROOT_VALUE_CLASS_NAME}>{app.appRoot}</span>
+                <span className={APP_ROOT_VALUE_CLASS_NAME}>{app.rootDirectory}</span>
               </div>
               <div className={APP_PROVIDER_ROWS_CLASS_NAME}>
                 {app.rows.map((row) => (
-                  <VaultResourceRailItem key={row.provider} row={row} />
+                  <VaultResourceRailItem key={row.rowId} row={row} />
                 ))}
               </div>
             </div>
