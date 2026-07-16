@@ -18,6 +18,7 @@ import {
   type ProviderApiCall,
   type ProviderApiCallRecorder,
 } from "./providerApiLog";
+import { resolveGitHubRepositoryIdentity } from "./githubRepositoryInventory";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -87,10 +88,10 @@ async function getProvisioningRun(
   return run;
 }
 
-async function resolveGitHubOctokit(
+async function resolveGitHubCredential(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
-): Promise<Octokit> {
+): Promise<string> {
   const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
     userId,
     kind: "github",
@@ -99,8 +100,15 @@ async function resolveGitHubOctokit(
     throw new Error("GitHub is not connected.");
   }
 
+  return githubConnection.auth.credential;
+}
+
+async function resolveGitHubOctokit(
+  ctx: Pick<ActionCtx, "runQuery">,
+  userId: Id<"users">,
+): Promise<Octokit> {
   return new Octokit({
-    auth: githubConnection.auth.credential,
+    auth: await resolveGitHubCredential(ctx, userId),
   });
 }
 
@@ -511,8 +519,8 @@ export const seedStarterRepository = internalAction({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
-    ownerName: string(),
-    repoName: string(),
+    ghRepoId: string(),
+    ghRepoNodeId: string(),
     defaultBranch: string(),
   },
   returns: v.null(),
@@ -527,23 +535,28 @@ export const seedStarterRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const credential = await resolveGitHubCredential(ctx, args.userId);
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "seed_starter",
     });
     try {
+      const repositoryIdentity = await resolveGitHubRepositoryIdentity({
+        credential,
+        repositoryNodeId: args.ghRepoNodeId,
+        expectedRepositoryDatabaseId: args.ghRepoId,
+      });
       await seedRepositoryWithStarter({
-        client: createStarterSeedGitClient(octokit, { recordApiCall }),
-        owner: args.ownerName,
-        repo: args.repoName,
+        client: createStarterSeedGitClient(new Octokit({ auth: credential }), { recordApiCall }),
+        owner: repositoryIdentity.owner,
+        repo: repositoryIdentity.name,
         defaultBranch: args.defaultBranch,
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);
 
       console.error("seed:failed", {
-        repo: `${args.ownerName}/${args.repoName}`,
+        repositoryId: args.ghRepoId,
         message: seedErrorMessage,
       });
 

@@ -9,11 +9,12 @@ import {
   GitHubGraphqlRateLimitError,
 } from "./githubRepositoryInventory";
 import { toErrorMessage } from "./jsonUtils";
+import { repositoryInventoryFilterLabelKey } from "../shared/repositoryInventoryFilters";
 import {
   REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE,
   REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
-  repositoryInventoryFilterLabelKey,
+  REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE,
   type CollectedRepositoryInventoryItem,
   type RepositoryInventoryLabelChunk,
   type StoredRepositoryInventoryPullRequestLabelFacet,
@@ -23,7 +24,9 @@ import type { RepositoryInventoryWorkerInput } from "./repositoryInventory";
 import type { RepositorySummaryDefaultBranch } from "./repositorySummaryModel";
 
 const GITHUB_RATE_LEASE_RENEW_INTERVAL_MS = 30_000;
-const REPOSITORY_INVENTORY_STAGE_FACET_BATCH_SIZE = 25;
+const GITHUB_REPOSITORY_INVENTORY_DEADLINE_MS = 8 * 60_000;
+const GITHUB_REPOSITORY_INVENTORY_MAXIMUM_COST = 500;
+const GITHUB_REPOSITORY_INVENTORY_MAXIMUM_REQUEST_COUNT = 250;
 
 class RepositoryInventoryRateDeferredError extends Error {
   constructor(readonly retryAt: number) {
@@ -71,8 +74,7 @@ function prepareRepositoryInventoryForStorage(args: {
         labelsByKey.set(labelKey, label);
       }
     }
-    const filterLabelKeys = Array.from(labelsByKey.keys()).sort();
-    if (filterLabelKeys.length === 0) {
+    if (labelsByKey.size === 0) {
       noLabelPullRequestCount += 1;
     }
     for (const [labelKey, label] of labelsByKey) {
@@ -93,7 +95,6 @@ function prepareRepositoryInventoryForStorage(args: {
       vaultId: args.vaultId,
       snapshotId: args.snapshotId,
       labelChunkCount: chunks.length,
-      filterLabelKeys,
     });
     labelChunks.push(
       ...chunks.map((chunkLabels, chunkIndex) => ({
@@ -251,8 +252,14 @@ export const runRepositoryInventoryRefresh = internalAction({
 
       const client = createGitHubGraphqlClient({
         credential: githubConnection.auth.credential,
+        limits: {
+          deadlineAt: Date.now() + GITHUB_REPOSITORY_INVENTORY_DEADLINE_MS,
+          maximumCost: GITHUB_REPOSITORY_INVENTORY_MAXIMUM_COST,
+          maximumRequestCount: GITHUB_REPOSITORY_INVENTORY_MAXIMUM_REQUEST_COUNT,
+        },
       });
       graphqlClient = client;
+      const providerCollectionStartedAt = Date.now();
       const inventory = await collectRepositoryInventoryWithRetry({
         repositoryNodeId: input.repositoryNodeId,
         expectedRepositoryDatabaseId: input.githubRepositoryId,
@@ -265,6 +272,8 @@ export const runRepositoryInventoryRefresh = internalAction({
           return await client.requestPartial(query, variables);
         },
       });
+      const observedAt = Date.now();
+      const crawlDurationMs = observedAt - providerCollectionStartedAt;
       if (inventory.repositoryDatabaseId !== input.githubRepositoryId) {
         throw new Error("GitHub repository identity does not match the connected vault.");
       }
@@ -291,8 +300,11 @@ export const runRepositoryInventoryRefresh = internalAction({
         {
           vaultId: input.vaultId,
           snapshotId: input.snapshotId,
+          observedAt,
           fingerprint: inventory.fingerprint,
           crawlCost: usage.cost,
+          crawlRequestCount: client.getRequestCount(),
+          crawlDurationMs,
           summaryDefaultBranch,
           summaryOpenPullRequestCount: inventory.pullRequestCount,
         },
@@ -328,7 +340,7 @@ export const runRepositoryInventoryRefresh = internalAction({
       }
       for (const facets of chunk(
         storedInventory.labelFacets,
-        REPOSITORY_INVENTORY_STAGE_FACET_BATCH_SIZE,
+        REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE,
       )) {
         await ctx.runMutation(internal.repositoryInventory.stageRepositoryInventoryLabelFacets, {
           vaultId: input.vaultId,
@@ -342,6 +354,7 @@ export const runRepositoryInventoryRefresh = internalAction({
         {
           vaultId: input.vaultId,
           snapshotId: input.snapshotId,
+          observedAt,
           repositoryNodeId: inventory.repositoryId,
           repositoryFullName: inventory.repositoryFullName,
           defaultBranch: inventory.defaultBranch,

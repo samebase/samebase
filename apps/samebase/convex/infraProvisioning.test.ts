@@ -48,9 +48,11 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: `ada/${args.repoName.toLowerCase()}`,
-        owner: "ada",
-        name: args.repoName,
+        githubOwner: "ada",
+        githubName: args.repoName,
+        routeRepositoryKey: `ada/${args.repoName.toLowerCase()}`,
+        routeOwner: "ada",
+        routeName: args.repoName,
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -350,11 +352,11 @@ describe("markWorkflowProvisioningFailed", () => {
       runId: ids.runId,
       workflowId: "workflow-github",
       message:
-        "Error: Uncaught Error: GitHub repository response did not match the vault repo.\n    at fetchGitHubRepoIdentity",
+        "Error: Uncaught Error: GitHub returned another repository.\n    at resolveGitHubRepositoryIdentity",
     });
 
     const result = await readRunAndFirstEvent(t, ids.runId);
-    const expectedMessage = "GitHub repository response did not match the vault repo.";
+    const expectedMessage = "GitHub returned another repository.";
 
     expect(result.run).toMatchObject({
       state: "failed",

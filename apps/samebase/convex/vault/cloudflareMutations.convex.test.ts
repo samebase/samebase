@@ -77,9 +77,11 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
-      repositoryKey: "ada/manual-cloudflare",
-      owner: "ada",
-      name: "manual-cloudflare",
+      githubOwner: "ada",
+      githubName: "manual-cloudflare",
+      routeRepositoryKey: "ada/manual-cloudflare",
+      routeOwner: "ada",
+      routeName: "manual-cloudflare",
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
@@ -135,9 +137,11 @@ async function createCloudflareConnectionVault() {
       runId: sourceRunId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
-      repositoryKey: "ada/manual-cloudflare",
-      owner: "ada",
-      name: "manual-cloudflare",
+      githubOwner: "ada",
+      githubName: "manual-cloudflare",
+      routeRepositoryKey: "ada/manual-cloudflare",
+      routeOwner: "ada",
+      routeName: "manual-cloudflare",
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
@@ -780,15 +784,15 @@ describe("vault Cloudflare attachment mutations", () => {
         appRoot,
       }),
     ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.query(internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring, {
+    const activeBuildsWiring = await t.query(
+      internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring,
+      {
         ...buildIds,
         appRoot,
-      }),
-    ).resolves.toMatchObject({
+      },
+    );
+    expect(activeBuildsWiring).toMatchObject({
       active: true,
-      owner: "ada",
-      repo: "manual-cloudflare",
       ghRepoId: "123",
       hasConvexDeployment: false,
       worker: {
@@ -797,6 +801,8 @@ describe("vault Cloudflare attachment mutations", () => {
         workerTag: "manual-cloudflare-worker-tag",
       },
     });
+    expect(activeBuildsWiring).not.toHaveProperty("owner");
+    expect(activeBuildsWiring).not.toHaveProperty("repo");
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
         ...buildIds,

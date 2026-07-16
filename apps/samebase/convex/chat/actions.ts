@@ -114,8 +114,8 @@ export const generateResponse = internalAction({
       }
 
       const systemPrompt = buildSystemPrompt({
-        owner: vault?.owner,
-        repo: vault?.name,
+        owner: vault?.githubOwner,
+        repo: vault?.githubName,
         branch: threadContext.branch,
         filePath: threadContext.filePath,
         repoTree,

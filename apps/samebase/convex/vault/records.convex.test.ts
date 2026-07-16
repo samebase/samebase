@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import { VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH } from "./model";
 
 async function createConnectedVaultForBranchResolution() {
   const t = makeConvexTest();
@@ -35,9 +36,11 @@ async function createConnectedVaultForBranchResolution() {
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
-      repositoryKey: "ada/inventory",
-      owner: "ada",
-      name: "inventory",
+      githubOwner: "ada",
+      githubName: "inventory",
+      routeRepositoryKey: "ada/inventory",
+      routeOwner: "ada",
+      routeName: "inventory",
       defaultBranch: "main",
       visibility: "private",
       connectedAt: 4,
@@ -55,6 +58,19 @@ async function createConnectedVaultForBranchResolution() {
 }
 
 describe("vault records Convex contract", () => {
+  it("rejects a devcontainer payload that would amplify directory reads", async () => {
+    const fixture = await createConnectedVaultForBranchResolution();
+
+    await expect(
+      fixture.t.mutation(internal.vault.records.updateVaultDevcontainerConfig, {
+        vaultId: fixture.ids.vaultId,
+        devcontainerConfig: "x".repeat(VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH + 1),
+      }),
+    ).rejects.toThrow(
+      `Devcontainer configuration may contain at most ${VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH} characters.`,
+    );
+  });
+
   it("defaults connection resource links open for new vaults", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -154,6 +170,147 @@ describe("vault records Convex contract", () => {
       refreshEligibleAt: 0,
       lifecycle: { state: "idle" },
       publication: { state: "unobserved" },
+    });
+  });
+
+  it("keeps Samebase routes stable when GitHub coordinates change before connection completes", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("users", {
+          name: "Ada",
+          email: "ada@example.com",
+          isApproved: true,
+        }),
+    );
+    const existing = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoId: "existing-database-id",
+        ghRepoOwner: "Old-Owner",
+        ghRepoName: "Existing-App",
+      },
+    );
+    const managed = await t.mutation(
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "Old-Owner",
+        ghRepoName: "Created-App",
+        visibility: "private",
+        convexProjectName: "created-app",
+        cloudflareAccountId: "cloudflare-account",
+        cloudflareWorkerName: "created-app",
+      },
+    );
+
+    await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      vaultId: existing.vaultId,
+      runId: existing.runId,
+      userId,
+      ghRepoId: "existing-database-id",
+      ghRepoNodeId: "existing-node-id",
+      ghRepoOwner: "New-Owner",
+      ghRepoName: "Existing-Renamed",
+      defaultBranch: "main",
+      visibility: "public",
+    });
+    await t.mutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {
+      vaultId: managed.vaultId,
+      runId: managed.runId,
+      userId,
+      ghRepoId: "managed-database-id",
+      ghRepoNodeId: "managed-node-id",
+      ghRepoOwner: "New-Owner",
+      ghRepoName: "Created-Renamed",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+
+    await expect(
+      t.run(async (ctx) => ({
+        existing: await ctx.db.get(existing.vaultId),
+        managed: await ctx.db.get(managed.vaultId),
+      })),
+    ).resolves.toMatchObject({
+      existing: {
+        routeRepositoryKey: "old-owner/existing-app",
+        routeOwner: "Old-Owner",
+        routeName: "Existing-App",
+        githubOwner: "New-Owner",
+        githubName: "Existing-Renamed",
+      },
+      managed: {
+        routeRepositoryKey: "old-owner/created-app",
+        routeOwner: "Old-Owner",
+        routeName: "Created-App",
+        githubOwner: "New-Owner",
+        githubName: "Created-Renamed",
+      },
+    });
+  });
+
+  it("rejects a Samebase-managed vault when the user already has the GitHub repository id", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("users", {
+          name: "Ada",
+          email: "ada@example.com",
+          isApproved: true,
+        }),
+    );
+    const existing = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoId: "shared-database-id",
+        ghRepoOwner: "Ada",
+        ghRepoName: "Existing-App",
+      },
+    );
+    await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      vaultId: existing.vaultId,
+      runId: existing.runId,
+      userId,
+      ghRepoId: "shared-database-id",
+      ghRepoNodeId: "existing-node-id",
+      ghRepoOwner: "Ada",
+      ghRepoName: "Existing-App",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+    const managed = await t.mutation(
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Created-App",
+        visibility: "private",
+        convexProjectName: "created-app",
+        cloudflareAccountId: "cloudflare-account",
+        cloudflareWorkerName: "created-app",
+      },
+    );
+
+    await expect(
+      t.mutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {
+        vaultId: managed.vaultId,
+        runId: managed.runId,
+        userId,
+        ghRepoId: "shared-database-id",
+        ghRepoNodeId: "created-node-id",
+        ghRepoOwner: "Ada",
+        ghRepoName: "Created-App",
+        defaultBranch: "main",
+        visibility: "private",
+      }),
+    ).rejects.toThrow("Vault already exists for this GitHub repository.");
+    await expect(t.run(async (ctx) => await ctx.db.get(managed.vaultId))).resolves.toMatchObject({
+      state: "provisioning",
+      githubMode: "create_repository",
+      routeRepositoryKey: "ada/created-app",
     });
   });
 
@@ -270,6 +427,7 @@ describe("vault records Convex contract", () => {
     await t.run(async (ctx) => {
       const snapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
         state: "ready",
+        observedAt: 1,
         vaultId: ids.vaultId,
         branchCount: 2,
         pullRequestCount: 0,
@@ -303,6 +461,8 @@ describe("vault records Convex contract", () => {
         vaultId: ids.vaultId,
         wantedUntil: 10,
         writeVersion: 1,
+        observedWriteVersion: 1,
+        requiredFailureCount: 0,
         lifecycle: { state: "idle" },
         publication: {
           snapshotId,

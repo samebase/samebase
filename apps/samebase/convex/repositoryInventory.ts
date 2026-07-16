@@ -22,17 +22,22 @@ import {
   scheduleRepositorySummaryForInventory,
 } from "./repositorySummary";
 import { toErrorMessage } from "./jsonUtils";
+import { repositoryInventoryFilterLabelKey } from "../shared/repositoryInventoryFilters";
 import {
   REPOSITORY_INVENTORY_DEMAND_TTL_MS,
-  DEFAULT_REPOSITORY_INVENTORY_FILTERS,
-  normalizeRepositoryInventoryFilters,
+  REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH,
+  REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE,
+  REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE,
+  REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
+  REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE,
+  DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE,
   repositoryInventoryMinimumRefreshIntervalMs,
   repositoryInventoryBranchRowKey,
-  repositoryInventoryFilterLabelKey,
   vRepositoryInventoryBranchPageResult,
   vRepositoryInventoryBranchContext,
   vRepositoryInventoryFilterState,
-  vRepositoryInventoryFilters,
+  vRepositoryInventoryFilterChange,
+  vRepositoryInventoryExcludedLabelPageResult,
   vRepositoryInventoryLabelFacetPageResult,
   vRepositoryInventoryLabelPageResult,
   vRepositoryInventoryPullRequestPageResult,
@@ -45,6 +50,7 @@ import {
   type RepositoryInventoryBranchContext,
   type RepositoryInventoryCommit,
   type RepositoryInventoryFilterState,
+  type RepositoryInventoryFilterLabelCandidate,
   type RepositoryInventoryLabelFacetPageResult,
   type RepositoryInventoryLabelPageResult,
   type RepositoryInventoryPullRequestPageResult,
@@ -61,8 +67,25 @@ const REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE = 10;
 const REPOSITORY_INVENTORY_PUBLIC_LABEL_CHUNK_PAGE_SIZE = 5;
 const REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE = 25;
 const REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE = 100;
+const REPOSITORY_INVENTORY_FILTER_LABEL_BATCH_SIZE = 5;
+const REPOSITORY_INVENTORY_EXCLUDED_LABEL_PAGE_SIZE = 25;
 const REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_WATCHDOG_MS = 30_000;
 const ACCOUNT_DELETION_QUIESCE_BATCH_SIZE = 25;
+const REPOSITORY_INVENTORY_REQUIRED_RETRY_DELAYS_MS = [5_000, 15_000, 45_000] as const;
+
+function boundedMaximumRowsRead(
+  requested: number | undefined,
+  maximum: number,
+  errorMessage: string,
+): number {
+  if (
+    requested !== undefined &&
+    (!Number.isInteger(requested) || requested < 1 || requested > maximum)
+  ) {
+    throw new Error(errorMessage);
+  }
+  return requested ?? maximum;
+}
 
 const repositoryInventoryWorkpoolContext = object({
   vaultId: id("vaults"),
@@ -86,6 +109,37 @@ const vRepositoryInventoryWorkerInput = union(
 export type RepositoryInventoryWorkerInput = Infer<typeof vRepositoryInventoryWorkerInput>;
 
 type RepositoryInventoryStateDoc = Doc<"vaultRepositoryInventories">;
+type RepositoryInventoryFilterBuildState = RepositoryInventoryFilterState & {
+  filterId: Id<"vaultRepositoryInventoryFilters"> | null;
+  excludedLabelGeneration: number;
+};
+
+async function readStoredRepositoryInventoryFilter(
+  ctx: Pick<MutationCtx | QueryCtx, "db">,
+  userId: Id<"users">,
+  vaultId: Id<"vaults">,
+): Promise<Doc<"vaultRepositoryInventoryFilters"> | null> {
+  return await ctx.db
+    .query("vaultRepositoryInventoryFilters")
+    .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", vaultId))
+    .unique();
+}
+
+function assertValidRepositoryInventoryFilter(
+  filter: Doc<"vaultRepositoryInventoryFilters"> | null,
+): void {
+  if (
+    filter !== null &&
+    (!Number.isSafeInteger(filter.revision) ||
+      filter.revision < 0 ||
+      !Number.isSafeInteger(filter.excludedLabelCount) ||
+      filter.excludedLabelCount < 0 ||
+      !Number.isSafeInteger(filter.excludedLabelGeneration) ||
+      filter.excludedLabelGeneration < 0)
+  ) {
+    throw new Error("Repository inventory filter state is invalid.");
+  }
+}
 
 export type ActiveRepositoryInventoryBranchSelection = {
   repositoryFullName: string;
@@ -112,35 +166,23 @@ async function readRepositoryInventoryFilterState(
   ctx: Pick<MutationCtx | QueryCtx, "db">,
   userId: Id<"users">,
   vaultId: Id<"vaults">,
-): Promise<RepositoryInventoryFilterState> {
-  const filter = await ctx.db
-    .query("vaultRepositoryInventoryFilters")
-    .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", vaultId))
-    .unique();
+): Promise<RepositoryInventoryFilterBuildState> {
+  const filter = await readStoredRepositoryInventoryFilter(ctx, userId, vaultId);
+  assertValidRepositoryInventoryFilter(filter);
   return filter
     ? {
-        hiddenLabels: filter.hiddenLabels,
+        filterId: filter._id,
+        excludedLabelGeneration: filter.excludedLabelGeneration,
         includeDrafts: filter.includeDrafts,
         includeNoLabel: filter.includeNoLabel,
         revision: filter.revision,
+        excludedLabelCount: filter.excludedLabelCount,
       }
-    : { ...DEFAULT_REPOSITORY_INVENTORY_FILTERS, revision: 0 };
-}
-
-function sameRepositoryInventoryFilters(
-  left: RepositoryInventoryFilterState,
-  right: ReturnType<typeof normalizeRepositoryInventoryFilters>,
-): boolean {
-  return (
-    left.includeDrafts === right.includeDrafts &&
-    left.includeNoLabel === right.includeNoLabel &&
-    left.hiddenLabels.length === right.hiddenLabels.length &&
-    left.hiddenLabels.every(
-      (name, index) =>
-        repositoryInventoryFilterLabelKey(name) ===
-        repositoryInventoryFilterLabelKey(right.hiddenLabels[index] ?? ""),
-    )
-  );
+    : {
+        ...DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE,
+        filterId: null,
+        excludedLabelGeneration: 0,
+      };
 }
 
 function repositoryInventoryMaterializationSourceId(
@@ -150,17 +192,6 @@ function repositoryInventoryMaterializationSourceId(
     ? inventory.lifecycle.snapshotId
     : (inventory.publication?.snapshotId ?? null);
 }
-
-export const getRepositoryInventoryFilterForBuild = internalQuery({
-  args: {
-    userId: id("users"),
-    vaultId: id("vaults"),
-  },
-  returns: vRepositoryInventoryFilterState,
-  handler: async (ctx, args): Promise<RepositoryInventoryFilterState> => {
-    return await readRepositoryInventoryFilterState(ctx, args.userId, args.vaultId);
-  },
-});
 
 export async function readActiveRepositoryInventoryBranchSelection(
   ctx: Pick<QueryCtx, "db">,
@@ -230,30 +261,39 @@ async function failRepositoryInventoryFilterMaterialization(
   },
 ): Promise<void> {
   const failedAt = Date.now();
+  const message = args.message.slice(0, REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH);
   const activeSnapshotId =
     args.inventory.lifecycle.state === "scheduled" ||
     args.inventory.lifecycle.state === "running" ||
     args.inventory.lifecycle.state === "materializing"
       ? args.inventory.lifecycle.snapshotId
       : null;
+  const required =
+    args.inventory.lifecycle.state === "scheduled" ||
+    args.inventory.lifecycle.state === "running" ||
+    args.inventory.lifecycle.state === "materializing"
+      ? args.inventory.lifecycle.required
+      : false;
   await ctx.db.patch(args.inventory._id, {
     lifecycle: {
       state: "failed",
+      required,
       failedAt,
-      message: args.message,
+      message,
     },
   });
   if (activeSnapshotId !== null && activeSnapshotId !== args.inventory.publication?.snapshotId) {
     await failRepositorySummaryInventoryObservation(ctx, {
       vaultId: args.inventory.vaultId,
       snapshotId: activeSnapshotId,
-      message: args.message,
+      message,
     });
     await scheduleSnapshotCleanup(ctx, activeSnapshotId);
   }
   if (args.view.snapshotId !== activeSnapshotId) {
     await scheduleFilterViewCleanup(ctx, args.view._id);
   }
+  await scheduleRequiredObservationRetry(ctx, args.inventory._id);
 }
 
 async function ensureRepositoryInventoryFilterMaterialization(
@@ -290,6 +330,7 @@ async function ensureRepositoryInventoryFilterMaterialization(
     processedPullRequestCount: 0,
     visiblePullRequestCount: 0,
     cursor: null,
+    labelBatch: { state: "none" },
   });
   await ctx.scheduler.runAfter(
     0,
@@ -360,6 +401,47 @@ async function scheduleRepositoryInventoryRefresh(
   return snapshotId;
 }
 
+async function scheduleRequiredObservationRetry(
+  ctx: MutationCtx,
+  inventoryId: Id<"vaultRepositoryInventories">,
+): Promise<void> {
+  const inventory = await ctx.db.get(inventoryId);
+  if (!inventory || inventory.lifecycle.state !== "failed" || !inventory.lifecycle.required) {
+    return;
+  }
+  const [user, vault] = await Promise.all([
+    ctx.db.get(inventory.userId),
+    ctx.db.get(inventory.vaultId),
+  ]);
+  if (
+    !user ||
+    user.accountDeletion !== undefined ||
+    !vault ||
+    vault.userId !== inventory.userId ||
+    !isLiveConnectedVault(vault)
+  ) {
+    return;
+  }
+  const delayMs = REPOSITORY_INVENTORY_REQUIRED_RETRY_DELAYS_MS.at(inventory.requiredFailureCount);
+  if (delayMs === undefined) {
+    return;
+  }
+  await ctx.db.patch(inventory._id, {
+    requiredFailureCount: inventory.requiredFailureCount + 1,
+  });
+  const failedInventory = await ctx.db.get(inventory._id);
+  if (!failedInventory) {
+    throw new Error("Repository inventory disappeared before its required retry.");
+  }
+  const snapshotId = await scheduleRepositoryInventoryRefresh(ctx, failedInventory, {
+    required: true,
+    wait: { kind: "queue", retryAt: Date.now() + delayMs },
+  });
+  if (snapshotId === null) {
+    throw new Error("Repository inventory could not schedule its required retry.");
+  }
+}
+
 function minimumIntervalWait(
   inventory: RepositoryInventoryStateDoc,
   now: number,
@@ -407,7 +489,7 @@ async function requestRepositoryInventoryRefreshForUser(
   args: {
     userId: Id<"users">;
     vaultId: Id<"vaults">;
-    required: boolean;
+    intent: "after_write" | "demand" | "initial_connection";
   },
 ): Promise<RepositoryInventoryRefreshRequestResult> {
   const [user, vault, existingInventory] = await Promise.all([
@@ -427,40 +509,64 @@ async function requestRepositoryInventoryRefreshForUser(
     existingInventory?.wantedUntil ?? 0,
     now + REPOSITORY_INVENTORY_DEMAND_TTL_MS,
   );
+  const intentRequiresCompletion = args.intent !== "demand";
+  const crossesWriteBoundary = args.intent === "after_write";
   if (existingInventory === null) {
     const inventoryId = await ctx.db.insert("vaultRepositoryInventories", {
       userId: args.userId,
       vaultId: args.vaultId,
       wantedUntil,
-      writeVersion: args.required ? 1 : 0,
+      writeVersion: crossesWriteBoundary ? 1 : 0,
+      observedWriteVersion: 0,
+      requiredFailureCount: 0,
       lifecycle: { state: "idle" },
     });
     const inventory = await ctx.db.get(inventoryId);
     if (!inventory) {
       throw new Error("Repository inventory was not created.");
     }
-    await scheduleRepositoryInventoryRefresh(ctx, inventory, { required: args.required });
+    await scheduleRepositoryInventoryRefresh(ctx, inventory, {
+      required: intentRequiresCompletion,
+    });
     return { kind: "scheduled" };
   }
   if (existingInventory.userId !== args.userId) {
     throw new Error("Repository inventory owner mismatch.");
   }
 
-  const writeVersion = existingInventory.writeVersion + (args.required ? 1 : 0);
+  const hasUnobservedWrite =
+    existingInventory.writeVersion > existingInventory.observedWriteVersion;
+  const hasRequiredObservationDebt =
+    existingInventory.lifecycle.state === "failed" && existingInventory.lifecycle.required;
+  const required = intentRequiresCompletion || hasUnobservedWrite || hasRequiredObservationDebt;
+  if (
+    args.intent === "initial_connection" &&
+    existingInventory.publication !== undefined &&
+    !hasUnobservedWrite
+  ) {
+    await ctx.db.patch(existingInventory._id, { wantedUntil });
+    return { kind: "satisfied" };
+  }
+
+  const writeVersion = existingInventory.writeVersion + (crossesWriteBoundary ? 1 : 0);
+  const requiredFailureCount = crossesWriteBoundary ? 0 : existingInventory.requiredFailureCount;
   switch (existingInventory.lifecycle.state) {
     case "scheduled":
       await ctx.db.patch(existingInventory._id, {
         wantedUntil,
         writeVersion,
-        lifecycle: args.required
+        requiredFailureCount,
+        lifecycle: required
           ? {
               ...existingInventory.lifecycle,
-              targetWriteVersion: writeVersion,
+              targetWriteVersion: crossesWriteBoundary
+                ? writeVersion
+                : existingInventory.lifecycle.targetWriteVersion,
               required: true,
             }
           : existingInventory.lifecycle,
       });
-      if (args.required && existingInventory.lifecycle.wait.kind !== "immediate") {
+      if (required && existingInventory.lifecycle.wait.kind !== "immediate") {
         const patchedInventory = await ctx.db.get(existingInventory._id);
         if (!patchedInventory) {
           throw new Error("Repository inventory disappeared while requesting a refresh.");
@@ -469,10 +575,24 @@ async function requestRepositoryInventoryRefreshForUser(
       }
       return { kind: "running" };
     case "running":
-      await ctx.db.patch(existingInventory._id, { wantedUntil, writeVersion });
+      await ctx.db.patch(existingInventory._id, {
+        wantedUntil,
+        writeVersion,
+        requiredFailureCount,
+        lifecycle: required
+          ? { ...existingInventory.lifecycle, required: true }
+          : existingInventory.lifecycle,
+      });
       return { kind: "running" };
     case "materializing": {
-      await ctx.db.patch(existingInventory._id, { wantedUntil, writeVersion });
+      await ctx.db.patch(existingInventory._id, {
+        wantedUntil,
+        writeVersion,
+        requiredFailureCount,
+        lifecycle: required
+          ? { ...existingInventory.lifecycle, required: true }
+          : existingInventory.lifecycle,
+      });
       const [filter, snapshot] = await Promise.all([
         readRepositoryInventoryFilterState(ctx, args.userId, args.vaultId),
         ctx.db.get(existingInventory.lifecycle.snapshotId),
@@ -489,19 +609,21 @@ async function requestRepositoryInventoryRefreshForUser(
     }
     case "idle":
     case "failed": {
-      await ctx.db.patch(existingInventory._id, { wantedUntil, writeVersion });
+      await ctx.db.patch(existingInventory._id, {
+        wantedUntil,
+        writeVersion,
+        requiredFailureCount,
+      });
       const inventory = await ctx.db.get(existingInventory._id);
       if (!inventory) {
         throw new Error("Repository inventory disappeared while requesting a refresh.");
       }
-      const wait = args.required
-        ? { kind: "immediate" as const }
-        : minimumIntervalWait(inventory, now);
+      const wait = required ? { kind: "immediate" as const } : minimumIntervalWait(inventory, now);
       if (wait.kind !== "immediate") {
         return { kind: "deferred", retryAt: wait.retryAt };
       }
       await scheduleRepositoryInventoryRefresh(ctx, inventory, {
-        required: args.required,
+        required,
         wait,
       });
       return { kind: "scheduled" };
@@ -522,9 +644,89 @@ export const getRepositoryInventoryFilter = query({
   handler: async (ctx, args): Promise<RepositoryInventoryFilterState> => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
-      return { ...DEFAULT_REPOSITORY_INVENTORY_FILTERS, revision: 0 };
+      return DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE;
     }
-    return await readRepositoryInventoryFilterState(ctx, ctx.viewer.userId, args.vaultId);
+    const {
+      filterId: _filterId,
+      excludedLabelGeneration: _generation,
+      ...filter
+    } = await readRepositoryInventoryFilterState(ctx, ctx.viewer.userId, args.vaultId);
+    return filter;
+  },
+});
+
+export const listRepositoryInventoryExcludedLabelPage = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    filterRevision: number(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: vRepositoryInventoryExcludedLabelPageResult,
+  handler: async (ctx, args) => {
+    if (!Number.isSafeInteger(args.filterRevision) || args.filterRevision < 0) {
+      throw new Error("Repository inventory filter revision must be a non-negative integer.");
+    }
+    if (
+      !Number.isInteger(args.paginationOpts.numItems) ||
+      args.paginationOpts.numItems < 1 ||
+      args.paginationOpts.numItems > REPOSITORY_INVENTORY_EXCLUDED_LABEL_PAGE_SIZE
+    ) {
+      throw new Error(
+        `Repository inventory excluded-label pages must request between 1 and ${REPOSITORY_INVENTORY_EXCLUDED_LABEL_PAGE_SIZE} items.`,
+      );
+    }
+    const maximumRowsRead = args.paginationOpts.maximumRowsRead;
+    if (
+      maximumRowsRead !== undefined &&
+      (!Number.isInteger(maximumRowsRead) ||
+        maximumRowsRead < 1 ||
+        maximumRowsRead > REPOSITORY_INVENTORY_EXCLUDED_LABEL_PAGE_SIZE)
+    ) {
+      throw new Error(
+        `Repository inventory excluded-label pages may read at most ${REPOSITORY_INVENTORY_EXCLUDED_LABEL_PAGE_SIZE} rows.`,
+      );
+    }
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const filter = await readStoredRepositoryInventoryFilter(ctx, ctx.viewer.userId, args.vaultId);
+    assertValidRepositoryInventoryFilter(filter);
+    if (filter === null) {
+      if (args.filterRevision !== 0) {
+        return null;
+      }
+      if (args.paginationOpts.cursor !== null) {
+        throw new Error("Default repository inventory filters have no continuation page.");
+      }
+      return {
+        filterRevision: 0,
+        expectedExcludedLabelCount: 0,
+        page: [],
+        isDone: true,
+        continueCursor: "",
+      };
+    }
+    if (filter.revision !== args.filterRevision) {
+      return null;
+    }
+    const page = await ctx.db
+      .query("vaultRepositoryInventoryExcludedLabels")
+      .withIndex("by_filter_and_generation_and_labelKey", (q) =>
+        q.eq("filterId", filter._id).eq("generation", filter.excludedLabelGeneration),
+      )
+      .paginate({
+        ...args.paginationOpts,
+        maximumRowsRead: maximumRowsRead ?? REPOSITORY_INVENTORY_EXCLUDED_LABEL_PAGE_SIZE,
+      });
+    return {
+      filterRevision: filter.revision,
+      expectedExcludedLabelCount: filter.excludedLabelCount,
+      page: page.page.map(({ labelKey, name }) => ({ labelKey, name })),
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
   },
 });
 
@@ -532,7 +734,7 @@ export const setRepositoryInventoryFilter = mutation({
   access: "access_files_read",
   args: {
     vaultId: id("vaults"),
-    ...vRepositoryInventoryFilters.fields,
+    change: vRepositoryInventoryFilterChange,
   },
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
@@ -540,33 +742,138 @@ export const setRepositoryInventoryFilter = mutation({
     if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const normalized = normalizeRepositoryInventoryFilters(args);
-    const current = await readRepositoryInventoryFilterState(ctx, ctx.viewer.userId, args.vaultId);
-    if (sameRepositoryInventoryFilters(current, normalized)) {
-      return null;
-    }
-
+    let filter = await readStoredRepositoryInventoryFilter(ctx, ctx.viewer.userId, args.vaultId);
+    assertValidRepositoryInventoryFilter(filter);
+    const current = filter ?? {
+      ...DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE,
+      excludedLabelGeneration: 0,
+    };
     const revision = current.revision + 1;
-    const existing = await ctx.db
-      .query("vaultRepositoryInventoryFilters")
-      .withIndex("by_user_and_vault", (q) =>
-        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
-      )
-      .unique();
-    if (existing) {
-      await ctx.db.replace(existing._id, {
-        userId: ctx.viewer.userId,
-        vaultId: args.vaultId,
-        ...normalized,
-        revision,
-      });
+
+    if (args.change.kind === "set_include_drafts") {
+      if (current.includeDrafts === args.change.included) {
+        return null;
+      }
+      if (filter) {
+        await ctx.db.patch(filter._id, { includeDrafts: args.change.included, revision });
+      } else {
+        const filterId = await ctx.db.insert("vaultRepositoryInventoryFilters", {
+          userId: ctx.viewer.userId,
+          vaultId: args.vaultId,
+          ...DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE,
+          includeDrafts: args.change.included,
+          revision,
+          excludedLabelGeneration: 0,
+        });
+        filter = await ctx.db.get(filterId);
+      }
+    } else if (args.change.kind === "set_include_no_label") {
+      if (current.includeNoLabel === args.change.included) {
+        return null;
+      }
+      if (filter) {
+        await ctx.db.patch(filter._id, { includeNoLabel: args.change.included, revision });
+      } else {
+        const filterId = await ctx.db.insert("vaultRepositoryInventoryFilters", {
+          userId: ctx.viewer.userId,
+          vaultId: args.vaultId,
+          ...DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE,
+          includeNoLabel: args.change.included,
+          revision,
+          excludedLabelGeneration: 0,
+        });
+        filter = await ctx.db.get(filterId);
+      }
+    } else if (args.change.kind === "set_label_included") {
+      const name = args.change.name.trim();
+      const labelKey = repositoryInventoryFilterLabelKey(name);
+      if (labelKey.length === 0) {
+        throw new Error("Repository inventory filter label cannot be empty.");
+      }
+      const activeFilter = filter;
+      const excludedLabel = activeFilter
+        ? await ctx.db
+            .query("vaultRepositoryInventoryExcludedLabels")
+            .withIndex("by_filter_and_generation_and_labelKey", (q) =>
+              q
+                .eq("filterId", activeFilter._id)
+                .eq("generation", activeFilter.excludedLabelGeneration)
+                .eq("labelKey", labelKey),
+            )
+            .unique()
+        : null;
+      if (args.change.included) {
+        if (excludedLabel === null || filter === null) {
+          return null;
+        }
+        if (filter.excludedLabelCount < 1) {
+          throw new Error("Repository inventory excluded-label count is invalid.");
+        }
+        await ctx.db.delete(excludedLabel._id);
+        await ctx.db.patch(filter._id, {
+          excludedLabelCount: filter.excludedLabelCount - 1,
+          revision,
+        });
+      } else {
+        if (excludedLabel !== null) {
+          return null;
+        }
+        if (filter === null) {
+          const filterId = await ctx.db.insert("vaultRepositoryInventoryFilters", {
+            userId: ctx.viewer.userId,
+            vaultId: args.vaultId,
+            ...DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE,
+            excludedLabelCount: 1,
+            revision,
+            excludedLabelGeneration: 0,
+          });
+          await ctx.db.insert("vaultRepositoryInventoryExcludedLabels", {
+            vaultId: args.vaultId,
+            filterId,
+            generation: 0,
+            labelKey,
+            name,
+          });
+          filter = await ctx.db.get(filterId);
+        } else {
+          await ctx.db.insert("vaultRepositoryInventoryExcludedLabels", {
+            vaultId: args.vaultId,
+            filterId: filter._id,
+            generation: filter.excludedLabelGeneration,
+            labelKey,
+            name,
+          });
+          await ctx.db.patch(filter._id, {
+            excludedLabelCount: filter.excludedLabelCount + 1,
+            revision,
+          });
+        }
+      }
     } else {
-      await ctx.db.insert("vaultRepositoryInventoryFilters", {
-        userId: ctx.viewer.userId,
-        vaultId: args.vaultId,
-        ...normalized,
+      args.change.kind satisfies "reset";
+      if (
+        filter === null ||
+        (filter.includeDrafts === DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE.includeDrafts &&
+          filter.includeNoLabel === DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE.includeNoLabel &&
+          filter.excludedLabelCount === 0)
+      ) {
+        return null;
+      }
+      const retiredGeneration = filter.excludedLabelGeneration;
+      await ctx.db.patch(filter._id, {
+        includeDrafts: DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE.includeDrafts,
+        includeNoLabel: DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE.includeNoLabel,
         revision,
+        excludedLabelCount: 0,
+        excludedLabelGeneration: retiredGeneration + 1,
       });
+      if (filter.excludedLabelCount > 0) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.repositoryInventory.cleanupRepositoryInventoryExcludedLabelGeneration,
+          { filterId: filter._id, generation: retiredGeneration },
+        );
+      }
     }
 
     const inventory = await readInventoryState(ctx, args.vaultId);
@@ -586,6 +893,33 @@ export const setRepositoryInventoryFilter = mutation({
   },
 });
 
+export const cleanupRepositoryInventoryExcludedLabelGeneration = internalMutation({
+  args: {
+    filterId: id("vaultRepositoryInventoryFilters"),
+    generation: number(),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    const labels = await ctx.db
+      .query("vaultRepositoryInventoryExcludedLabels")
+      .withIndex("by_filter_and_generation_and_labelKey", (q) =>
+        q.eq("filterId", args.filterId).eq("generation", args.generation),
+      )
+      .take(REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE);
+    for (const label of labels) {
+      await ctx.db.delete(label._id);
+    }
+    if (labels.length === REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.repositoryInventory.cleanupRepositoryInventoryExcludedLabelGeneration,
+        args,
+      );
+    }
+    return null;
+  },
+});
+
 export const requestRepositoryInventoryRefresh = mutation({
   access: "access_app_refresh",
   args: {
@@ -596,7 +930,7 @@ export const requestRepositoryInventoryRefresh = mutation({
     return await requestRepositoryInventoryRefreshForUser(ctx, {
       userId: ctx.viewer.userId,
       vaultId: args.vaultId,
-      required: false,
+      intent: "demand",
     });
   },
 });
@@ -610,7 +944,21 @@ export const requestRepositoryInventoryRefreshAfterWrite = internalMutation({
   handler: async (ctx, args): Promise<RepositoryInventoryRefreshRequestResult> => {
     return await requestRepositoryInventoryRefreshForUser(ctx, {
       ...args,
-      required: true,
+      intent: "after_write",
+    });
+  },
+});
+
+export const requestRepositoryInventoryRefreshForActionDemand = internalMutation({
+  args: {
+    userId: id("users"),
+    vaultId: id("vaults"),
+  },
+  returns: vRepositoryInventoryRefreshRequestResult,
+  handler: async (ctx, args): Promise<RepositoryInventoryRefreshRequestResult> => {
+    return await requestRepositoryInventoryRefreshForUser(ctx, {
+      ...args,
+      intent: "demand",
     });
   },
 });
@@ -654,6 +1002,7 @@ export const claimRepositoryInventoryRefresh = internalMutation({
         ctx,
         inventory,
         "Repository inventory vault is no longer connected.",
+        true,
       );
       return { kind: "cancel" };
     }
@@ -765,6 +1114,9 @@ export const stageRepositoryInventoryItems = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
+    if (args.items.length < 1 || args.items.length > REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE) {
+      throw new Error("Repository inventory item staging batch has an invalid size.");
+    }
     const [inventory, snapshot] = await Promise.all([
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
@@ -788,7 +1140,7 @@ export const stageRepositoryInventoryItems = internalMutation({
         branchCount += 1;
       } else {
         pullRequestCount += 1;
-        if (item.filterLabelKeys.length === 0) {
+        if (item.labelCount === 0) {
           noLabelPullRequestCount += 1;
         }
       }
@@ -811,6 +1163,12 @@ export const stageRepositoryInventoryLabelChunks = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
+    if (
+      args.labelChunks.length < 1 ||
+      args.labelChunks.length > REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE
+    ) {
+      throw new Error("Repository inventory label staging batch has an invalid size.");
+    }
     const [inventory, snapshot] = await Promise.all([
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
@@ -826,6 +1184,12 @@ export const stageRepositoryInventoryLabelChunks = internalMutation({
     for (const labelChunk of args.labelChunks) {
       if (labelChunk.vaultId !== args.vaultId || labelChunk.snapshotId !== args.snapshotId) {
         throw new Error("Repository inventory labels belong to another snapshot.");
+      }
+      if (
+        labelChunk.labels.length < 1 ||
+        labelChunk.labels.length > REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE
+      ) {
+        throw new Error("Repository inventory label chunk has an invalid size.");
       }
       await ctx.db.insert("vaultRepositoryInventoryLabelChunks", labelChunk);
     }
@@ -847,6 +1211,12 @@ export const stageRepositoryInventoryLabelFacets = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
+    if (
+      args.facets.length < 1 ||
+      args.facets.length > REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE
+    ) {
+      throw new Error("Repository inventory label facet staging batch has an invalid size.");
+    }
     const [inventory, snapshot] = await Promise.all([
       readOwnedRunningInventory(ctx, args),
       ctx.db.get(args.snapshotId),
@@ -882,10 +1252,18 @@ async function finishSuccessfulRefresh(
   if (inventory.lifecycle.state !== "running" && inventory.lifecycle.state !== "materializing") {
     throw new Error("Repository inventory refresh is not active.");
   }
+  if (
+    inventory.lifecycle.targetWriteVersion < inventory.observedWriteVersion ||
+    inventory.lifecycle.targetWriteVersion > inventory.writeVersion
+  ) {
+    throw new Error("Repository inventory write observation versions are inconsistent.");
+  }
   const trailingWrite = inventory.writeVersion > inventory.lifecycle.targetWriteVersion;
   await ctx.db.patch(inventory._id, {
     lifecycle: { state: "idle" },
     estimatedCrawlCost: args.crawlCost,
+    observedWriteVersion: inventory.lifecycle.targetWriteVersion,
+    requiredFailureCount: 0,
   });
   if (!trailingWrite) {
     return;
@@ -904,8 +1282,11 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
   args: {
     vaultId: id("vaults"),
     snapshotId: id("vaultRepositoryInventorySnapshots"),
+    observedAt: number(),
     fingerprint: string(),
     crawlCost: number(),
+    crawlRequestCount: number(),
+    crawlDurationMs: number(),
     summaryDefaultBranch: vRepositorySummaryDefaultBranch,
     summaryOpenPullRequestCount: number(),
   },
@@ -923,7 +1304,11 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
     ) {
       throw new Error("Repository inventory snapshot is not running.");
     }
-    await ctx.db.patch(inventory._id, { estimatedCrawlCost: args.crawlCost });
+    await ctx.db.patch(inventory._id, {
+      estimatedCrawlCost: args.crawlCost,
+      lastCrawlRequestCount: args.crawlRequestCount,
+      lastCrawlDurationMs: args.crawlDurationMs,
+    });
     if (inventory.publication?.fingerprint !== args.fingerprint) {
       return false;
     }
@@ -938,21 +1323,22 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
       throw new Error("Repository inventory snapshot was staged before its fingerprint check.");
     }
 
-    const checkedAt = Date.now();
     await ctx.db.delete(snapshot._id);
     await ctx.db.patch(inventory._id, {
       publication: {
         ...inventory.publication,
-        checkedAt,
+        checkedAt: args.observedAt,
       },
     });
     await completeRepositorySummaryInventoryObservation(ctx, {
       userId: inventory.userId,
       vaultId: args.vaultId,
       snapshotId: args.snapshotId,
+      repositoryNodeId: inventory.publication.repositoryNodeId,
       repositoryFullName: inventory.publication.repositoryFullName,
       defaultBranch: args.summaryDefaultBranch,
       openPullRequestCount: args.summaryOpenPullRequestCount,
+      observedAt: args.observedAt,
     });
     const patchedInventory = await ctx.db.get(inventory._id);
     if (!patchedInventory) {
@@ -960,6 +1346,36 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
     }
     await finishSuccessfulRefresh(ctx, patchedInventory, {
       crawlCost: args.crawlCost,
+    });
+    const idleInventory = await ctx.db.get(inventory._id);
+    if (
+      !idleInventory ||
+      idleInventory.lifecycle.state !== "idle" ||
+      idleInventory.publication === undefined
+    ) {
+      return true;
+    }
+    const filter = await readRepositoryInventoryFilterState(
+      ctx,
+      idleInventory.userId,
+      args.vaultId,
+    );
+    if (filter.revision === idleInventory.publication.filterRevision) {
+      return true;
+    }
+    const publishedSnapshot = await ctx.db.get(idleInventory.publication.snapshotId);
+    if (
+      !publishedSnapshot ||
+      publishedSnapshot.state !== "ready" ||
+      publishedSnapshot.vaultId !== args.vaultId
+    ) {
+      throw new Error("Repository inventory publication lost its ready snapshot.");
+    }
+    await ensureRepositoryInventoryFilterMaterialization(ctx, {
+      vaultId: args.vaultId,
+      snapshotId: publishedSnapshot._id,
+      filterRevision: filter.revision,
+      totalPullRequestCount: publishedSnapshot.pullRequestCount,
     });
     return true;
   },
@@ -969,6 +1385,7 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
   args: {
     vaultId: id("vaults"),
     snapshotId: id("vaultRepositoryInventorySnapshots"),
+    observedAt: number(),
     repositoryNodeId: string(),
     repositoryFullName: string(),
     defaultBranch: union(string(), vNull()),
@@ -1009,6 +1426,7 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
     await ctx.db.replace(snapshot._id, {
       state: "ready",
       vaultId: args.vaultId,
+      observedAt: args.observedAt,
       branchCount: snapshot.branchCount,
       pullRequestCount: snapshot.pullRequestCount,
       labelCount: snapshot.labelCount,
@@ -1068,20 +1486,12 @@ export const repairRepositoryInventoryFilterMaterialization = internalMutation({
       readRepositoryInventoryFilterState(ctx, inventory.userId, args.vaultId),
     ]);
     if (!snapshot || snapshot.state !== "ready" || snapshot.vaultId !== args.vaultId) {
-      const message = "Repository inventory filter materialization lost its snapshot.";
-      await failRepositorySummaryInventoryObservation(ctx, {
-        vaultId: args.vaultId,
-        snapshotId: args.snapshotId,
-        message,
-      });
-      await ctx.db.patch(inventory._id, {
-        lifecycle: {
-          state: "failed",
-          failedAt: Date.now(),
-          message,
-        },
-      });
-      await scheduleSnapshotCleanup(ctx, args.snapshotId);
+      await transitionRepositoryInventoryToFailed(
+        ctx,
+        inventory,
+        "Repository inventory filter materialization lost its snapshot.",
+        true,
+      );
       return null;
     }
     const view = await ctx.db
@@ -1113,18 +1523,97 @@ export const repairRepositoryInventoryFilterMaterialization = internalMutation({
   },
 });
 
-function matchesRepositoryInventoryFilters(
-  item: Extract<Doc<"vaultRepositoryInventoryItems">, { kind: "pull_request" }>,
-  filters: RepositoryInventoryFilterState,
-  hiddenLabelKeys: ReadonlySet<string>,
-): boolean {
-  if (!filters.includeDrafts && item.isDraft) {
-    return false;
+async function insertRepositoryInventoryFilterViewRow(
+  ctx: MutationCtx,
+  args: {
+    view: Extract<Doc<"vaultRepositoryInventoryFilterViews">, { state: "building" }>;
+    pullRequestItemId: Id<"vaultRepositoryInventoryItems">;
+    rowKey: string;
+    sortTime: number;
+  },
+): Promise<void> {
+  await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
+    vaultId: args.view.vaultId,
+    snapshotId: args.view.snapshotId,
+    viewId: args.view._id,
+    pullRequestItemId: args.pullRequestItemId,
+    rowKey: args.rowKey,
+    sortTime: args.sortTime,
+  });
+}
+
+async function advanceRepositoryInventoryFilterLabelCandidate(
+  ctx: MutationCtx,
+  args: {
+    view: Extract<Doc<"vaultRepositoryInventoryFilterViews">, { state: "building" }>;
+    filterId: Id<"vaultRepositoryInventoryFilters">;
+    excludedLabelGeneration: number;
+    candidate: RepositoryInventoryFilterLabelCandidate;
+  },
+): Promise<
+  | { state: "complete"; visible: boolean }
+  | { state: "pending"; candidate: RepositoryInventoryFilterLabelCandidate }
+> {
+  const item = await ctx.db.get(args.candidate.pullRequestItemId);
+  if (
+    !item ||
+    item.kind !== "pull_request" ||
+    item.snapshotId !== args.view.snapshotId ||
+    item.rowKey !== args.candidate.rowKey ||
+    item.sortTime !== args.candidate.sortTime ||
+    args.candidate.nextLabelChunkIndex < 0 ||
+    args.candidate.nextLabelChunkIndex >= item.labelChunkCount
+  ) {
+    throw new Error("Repository inventory filter label candidate is invalid.");
   }
-  if (item.filterLabelKeys.length === 0) {
-    return filters.includeNoLabel;
+  const labelChunk = await ctx.db
+    .query("vaultRepositoryInventoryLabelChunks")
+    .withIndex("by_snapshot_and_rowKey_and_chunkIndex", (q) =>
+      q
+        .eq("snapshotId", args.view.snapshotId)
+        .eq("rowKey", item.rowKey)
+        .eq("chunkIndex", args.candidate.nextLabelChunkIndex),
+    )
+    .unique();
+  if (!labelChunk || labelChunk.vaultId !== args.view.vaultId) {
+    throw new Error("Repository inventory filter label chunk is missing.");
   }
-  return !item.filterLabelKeys.some((labelKey) => hiddenLabelKeys.has(labelKey));
+  const processedLabelCount = args.candidate.processedLabelCount + labelChunk.labels.length;
+  if (processedLabelCount > item.labelCount) {
+    throw new Error("Repository inventory filter label count is invalid.");
+  }
+  const labelKeys = new Set(
+    labelChunk.labels.map((label) => repositoryInventoryFilterLabelKey(label.name)).filter(Boolean),
+  );
+  for (const labelKey of labelKeys) {
+    const excluded = await ctx.db
+      .query("vaultRepositoryInventoryExcludedLabels")
+      .withIndex("by_filter_and_generation_and_labelKey", (q) =>
+        q
+          .eq("filterId", args.filterId)
+          .eq("generation", args.excludedLabelGeneration)
+          .eq("labelKey", labelKey),
+      )
+      .unique();
+    if (excluded) {
+      return { state: "complete", visible: false };
+    }
+  }
+  const nextLabelChunkIndex = args.candidate.nextLabelChunkIndex + 1;
+  if (nextLabelChunkIndex < item.labelChunkCount) {
+    return {
+      state: "pending",
+      candidate: {
+        ...args.candidate,
+        nextLabelChunkIndex,
+        processedLabelCount,
+      },
+    };
+  }
+  if (processedLabelCount !== item.labelCount) {
+    throw new Error("Repository inventory filter label chunks are incomplete.");
+  }
+  return { state: "complete", visible: true };
 }
 
 export const advanceRepositoryInventoryFilterMaterialization = internalMutation({
@@ -1166,42 +1655,133 @@ export const advanceRepositoryInventoryFilterMaterialization = internalMutation(
     }
 
     try {
-      const page = await ctx.db
-        .query("vaultRepositoryInventoryItems")
-        .withIndex("by_snapshot_and_kind_and_sortGroup_and_sortTime_and_rowKey", (q) =>
-          q.eq("snapshotId", view.snapshotId).eq("kind", "pull_request"),
-        )
-        .paginate({
-          cursor: view.cursor,
-          numItems: REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE,
-        });
-      const hiddenLabelKeys = new Set(filter.hiddenLabels.map(repositoryInventoryFilterLabelKey));
       let visiblePullRequestCount = view.visiblePullRequestCount;
-      for (const item of page.page) {
-        if (item.kind !== "pull_request") {
-          throw new Error("Repository inventory filter page returned a branch.");
+      let processedPullRequestCount = view.processedPullRequestCount;
+      let pageIsDone: boolean;
+      let continueCursor: string;
+      let pendingCandidates: RepositoryInventoryFilterLabelCandidate[] = [];
+
+      if (view.labelBatch.state === "pending") {
+        if (
+          view.labelBatch.candidates.length < 1 ||
+          view.labelBatch.candidates.length > REPOSITORY_INVENTORY_FILTER_LABEL_BATCH_SIZE
+        ) {
+          throw new Error("Repository inventory filter label batch has an invalid size.");
         }
-        if (!matchesRepositoryInventoryFilters(item, filter, hiddenLabelKeys)) {
-          continue;
+        if (filter.filterId === null || filter.excludedLabelCount === 0) {
+          throw new Error("Repository inventory filter lost its excluded labels.");
         }
-        await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
-          vaultId: view.vaultId,
-          snapshotId: view.snapshotId,
-          viewId: view._id,
-          pullRequestItemId: item._id,
-          rowKey: item.rowKey,
-          sortTime: item.sortTime,
-        });
-        visiblePullRequestCount += 1;
+        pageIsDone = view.labelBatch.isDone;
+        continueCursor = view.labelBatch.continueCursor;
+        for (const candidate of view.labelBatch.candidates) {
+          const result = await advanceRepositoryInventoryFilterLabelCandidate(ctx, {
+            view,
+            filterId: filter.filterId,
+            excludedLabelGeneration: filter.excludedLabelGeneration,
+            candidate,
+          });
+          if (result.state === "pending") {
+            pendingCandidates.push(result.candidate);
+            continue;
+          }
+          processedPullRequestCount += 1;
+          if (result.visible) {
+            await insertRepositoryInventoryFilterViewRow(ctx, {
+              view,
+              ...candidate,
+            });
+            visiblePullRequestCount += 1;
+          }
+        }
+      } else {
+        const labelAware = filter.excludedLabelCount > 0;
+        if (labelAware && filter.filterId === null) {
+          throw new Error("Repository inventory filter has no excluded-label owner.");
+        }
+        const page = await ctx.db
+          .query("vaultRepositoryInventoryItems")
+          .withIndex("by_snapshot_and_kind_and_sortGroup_and_sortTime_and_rowKey", (q) =>
+            q.eq("snapshotId", view.snapshotId).eq("kind", "pull_request"),
+          )
+          .paginate({
+            cursor: view.cursor,
+            numItems: labelAware
+              ? REPOSITORY_INVENTORY_FILTER_LABEL_BATCH_SIZE
+              : REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE,
+            maximumRowsRead: labelAware
+              ? REPOSITORY_INVENTORY_FILTER_LABEL_BATCH_SIZE
+              : REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE,
+          });
+        pageIsDone = page.isDone;
+        continueCursor = page.continueCursor;
+        for (const item of page.page) {
+          if (item.kind !== "pull_request") {
+            throw new Error("Repository inventory filter page returned a branch.");
+          }
+          if (!filter.includeDrafts && item.isDraft) {
+            processedPullRequestCount += 1;
+            continue;
+          }
+          if (item.labelCount === 0) {
+            processedPullRequestCount += 1;
+            if (filter.includeNoLabel) {
+              await insertRepositoryInventoryFilterViewRow(ctx, {
+                view,
+                pullRequestItemId: item._id,
+                rowKey: item.rowKey,
+                sortTime: item.sortTime,
+              });
+              visiblePullRequestCount += 1;
+            }
+            continue;
+          }
+          if (!labelAware || filter.filterId === null) {
+            processedPullRequestCount += 1;
+            await insertRepositoryInventoryFilterViewRow(ctx, {
+              view,
+              pullRequestItemId: item._id,
+              rowKey: item.rowKey,
+              sortTime: item.sortTime,
+            });
+            visiblePullRequestCount += 1;
+            continue;
+          }
+          if (item.labelChunkCount < 1) {
+            throw new Error("Repository inventory filter pull request has no label chunks.");
+          }
+          const candidate = {
+            pullRequestItemId: item._id,
+            rowKey: item.rowKey,
+            sortTime: item.sortTime,
+            nextLabelChunkIndex: 0,
+            processedLabelCount: 0,
+          };
+          const result = await advanceRepositoryInventoryFilterLabelCandidate(ctx, {
+            view,
+            filterId: filter.filterId,
+            excludedLabelGeneration: filter.excludedLabelGeneration,
+            candidate,
+          });
+          if (result.state === "pending") {
+            pendingCandidates.push(result.candidate);
+            continue;
+          }
+          processedPullRequestCount += 1;
+          if (result.visible) {
+            await insertRepositoryInventoryFilterViewRow(ctx, { view, ...candidate });
+            visiblePullRequestCount += 1;
+          }
+        }
       }
-      const processedPullRequestCount = view.processedPullRequestCount + page.page.length;
       if (
         processedPullRequestCount > view.totalPullRequestCount ||
-        (page.isDone && processedPullRequestCount !== view.totalPullRequestCount)
+        (pageIsDone &&
+          pendingCandidates.length === 0 &&
+          processedPullRequestCount !== view.totalPullRequestCount)
       ) {
         throw new Error("Repository inventory filter materialization has an invalid total.");
       }
-      if (!page.isDone) {
+      if (pendingCandidates.length > 0 || !pageIsDone) {
         await ctx.db.replace(view._id, {
           state: "building",
           vaultId: view.vaultId,
@@ -1210,7 +1790,16 @@ export const advanceRepositoryInventoryFilterMaterialization = internalMutation(
           totalPullRequestCount: view.totalPullRequestCount,
           processedPullRequestCount,
           visiblePullRequestCount,
-          cursor: page.continueCursor,
+          cursor: pendingCandidates.length > 0 ? view.cursor : continueCursor,
+          labelBatch:
+            pendingCandidates.length > 0
+              ? {
+                  state: "pending",
+                  continueCursor,
+                  isDone: pageIsDone,
+                  candidates: pendingCandidates,
+                }
+              : { state: "none" },
         });
         await ctx.scheduler.runAfter(
           0,
@@ -1250,7 +1839,7 @@ export const advanceRepositoryInventoryFilterMaterialization = internalMutation(
           repositoryFullName: snapshot.repositoryFullName,
           defaultBranch: snapshot.defaultBranch,
           publishedAt,
-          checkedAt: publishedAt,
+          checkedAt: snapshot.observedAt,
           fingerprint: snapshot.fingerprint,
         };
       } else {
@@ -1271,9 +1860,11 @@ export const advanceRepositoryInventoryFilterMaterialization = internalMutation(
           userId: inventory.userId,
           vaultId: inventory.vaultId,
           snapshotId: snapshot._id,
+          repositoryNodeId: snapshot.repositoryNodeId,
           repositoryFullName: snapshot.repositoryFullName,
           defaultBranch: snapshot.summaryDefaultBranch,
           openPullRequestCount: snapshot.pullRequestCount,
+          observedAt: snapshot.observedAt,
         });
         if (priorPublication && priorPublication.snapshotId !== view.snapshotId) {
           await scheduleSnapshotCleanup(ctx, priorPublication.snapshotId);
@@ -1304,6 +1895,7 @@ async function transitionRepositoryInventoryToFailed(
   ctx: MutationCtx,
   inventory: RepositoryInventoryStateDoc,
   message: string,
+  retryRequired: boolean,
 ): Promise<void> {
   if (
     inventory.lifecycle.state !== "scheduled" &&
@@ -1313,20 +1905,25 @@ async function transitionRepositoryInventoryToFailed(
     return;
   }
   const failedAt = Date.now();
+  const boundedMessage = message.slice(0, REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH);
   const obsoleteSnapshotId = inventory.lifecycle.snapshotId;
   await failRepositorySummaryInventoryObservation(ctx, {
     vaultId: inventory.vaultId,
     snapshotId: obsoleteSnapshotId,
-    message,
+    message: boundedMessage,
   });
   await ctx.db.patch(inventory._id, {
     lifecycle: {
       state: "failed",
+      required: inventory.lifecycle.required,
       failedAt,
-      message,
+      message: boundedMessage,
     },
   });
   await scheduleSnapshotCleanup(ctx, obsoleteSnapshotId);
+  if (retryRequired) {
+    await scheduleRequiredObservationRetry(ctx, inventory._id);
+  }
 }
 
 export const failRepositoryInventoryRefresh = internalMutation({
@@ -1341,7 +1938,7 @@ export const failRepositoryInventoryRefresh = internalMutation({
     if (!inventory) {
       return null;
     }
-    await transitionRepositoryInventoryToFailed(ctx, inventory, args.message);
+    await transitionRepositoryInventoryToFailed(ctx, inventory, args.message, true);
     return null;
   },
 });
@@ -1365,16 +1962,18 @@ export const handleRepositoryInventoryComplete = internalMutation({
           ctx,
           inventory,
           "Repository inventory worker completed without publishing its snapshot.",
+          true,
         );
         return null;
       case "failed":
-        await transitionRepositoryInventoryToFailed(ctx, inventory, args.result.error);
+        await transitionRepositoryInventoryToFailed(ctx, inventory, args.result.error, true);
         return null;
       case "canceled":
         await transitionRepositoryInventoryToFailed(
           ctx,
           inventory,
           "Repository inventory worker was canceled.",
+          true,
         );
         return null;
       default: {
@@ -1682,6 +2281,11 @@ export const listRepositoryInventoryBranchPage = query({
         `Repository inventory branch pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE} items.`,
       );
     }
+    const maximumRowsRead = boundedMaximumRowsRead(
+      args.paginationOpts.maximumRowsRead,
+      REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE,
+      `Repository inventory branch pages may read at most ${REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE} rows.`,
+    );
     const [vault, snapshot] = await Promise.all([
       ctx.db.get(args.vaultId),
       ctx.db.get(args.snapshotId),
@@ -1701,7 +2305,7 @@ export const listRepositoryInventoryBranchPage = query({
       .withIndex("by_snapshot_and_kind_and_sortGroup_and_sortTime_and_rowKey", (q) =>
         q.eq("snapshotId", args.snapshotId).eq("kind", "branch"),
       )
-      .paginate(args.paginationOpts);
+      .paginate({ ...args.paginationOpts, maximumRowsRead });
     return {
       state: "ready",
       snapshotId: args.snapshotId,
@@ -1745,6 +2349,11 @@ export const listRepositoryInventoryPullRequestPage = query({
         `Repository inventory pull request pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE} items.`,
       );
     }
+    const maximumRowsRead = boundedMaximumRowsRead(
+      args.paginationOpts.maximumRowsRead,
+      REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE,
+      `Repository inventory pull request pages may read at most ${REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE} rows.`,
+    );
     const [vault, snapshot, view, inventory] = await Promise.all([
       ctx.db.get(args.vaultId),
       ctx.db.get(args.snapshotId),
@@ -1772,7 +2381,7 @@ export const listRepositoryInventoryPullRequestPage = query({
     const page = await ctx.db
       .query("vaultRepositoryInventoryFilterViewRows")
       .withIndex("by_view_and_sortTime_and_rowKey", (q) => q.eq("viewId", args.viewId))
-      .paginate(args.paginationOpts);
+      .paginate({ ...args.paginationOpts, maximumRowsRead });
     const pullRequests = await Promise.all(
       page.page.map(async (membership) => {
         const item = await ctx.db.get(membership.pullRequestItemId);
@@ -1836,6 +2445,11 @@ export const listRepositoryInventoryLabelFacetPage = query({
         `Repository inventory label facet pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE} items.`,
       );
     }
+    const maximumRowsRead = boundedMaximumRowsRead(
+      args.paginationOpts.maximumRowsRead,
+      REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE,
+      `Repository inventory label facet pages may read at most ${REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE} rows.`,
+    );
     const [vault, snapshot] = await Promise.all([
       ctx.db.get(args.vaultId),
       ctx.db.get(args.snapshotId),
@@ -1853,7 +2467,7 @@ export const listRepositoryInventoryLabelFacetPage = query({
     const page = await ctx.db
       .query("vaultRepositoryInventoryLabelFacets")
       .withIndex("by_snapshot_and_sortKey_and_labelKey", (q) => q.eq("snapshotId", args.snapshotId))
-      .paginate(args.paginationOpts);
+      .paginate({ ...args.paginationOpts, maximumRowsRead });
     return {
       state: "ready",
       snapshotId: args.snapshotId,
@@ -1889,6 +2503,11 @@ export const listRepositoryInventoryLabelPage = query({
         `Repository inventory label pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_LABEL_CHUNK_PAGE_SIZE} chunks.`,
       );
     }
+    const maximumRowsRead = boundedMaximumRowsRead(
+      args.paginationOpts.maximumRowsRead,
+      REPOSITORY_INVENTORY_PUBLIC_LABEL_CHUNK_PAGE_SIZE,
+      `Repository inventory label pages may read at most ${REPOSITORY_INVENTORY_PUBLIC_LABEL_CHUNK_PAGE_SIZE} rows.`,
+    );
     const [vault, snapshot, item] = await Promise.all([
       ctx.db.get(args.vaultId),
       ctx.db.get(args.snapshotId),
@@ -1915,7 +2534,7 @@ export const listRepositoryInventoryLabelPage = query({
       .withIndex("by_snapshot_and_rowKey_and_chunkIndex", (q) =>
         q.eq("snapshotId", args.snapshotId).eq("rowKey", args.rowKey),
       )
-      .paginate(args.paginationOpts);
+      .paginate({ ...args.paginationOpts, maximumRowsRead });
     return {
       state: "ready",
       expectedLabelCount: item.labelCount,
@@ -1959,6 +2578,7 @@ export const quiesceForVaultDeletion = internalMutation({
         ctx,
         inventory,
         "Repository inventory stopped for vault deletion.",
+        false,
       );
     }
     return null;
@@ -1999,6 +2619,7 @@ export const quiesceForAccountDeletion = internalMutation({
         ctx,
         inventory,
         "Repository inventory stopped for account deletion.",
+        false,
       );
     }
     return active.length === 0 ? { state: "done" } : { state: "needs_more" };
@@ -2054,7 +2675,7 @@ export const completeExistingRepositoryConnectionAndRequestInventory = internalM
     return await requestRepositoryInventoryRefreshForUser(ctx, {
       userId: args.userId,
       vaultId: args.vaultId,
-      required: true,
+      intent: "initial_connection",
     });
   },
 });

@@ -6,6 +6,9 @@ export { parseRepositoryFullName };
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
+export const VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH = 32_000;
+export const VAULT_TREE_REFRESH_FAILURE_MESSAGE_MAX_LENGTH = 4_000;
+
 export const vGithubTree = object({
   path: string(),
   mode: string(),
@@ -34,18 +37,18 @@ export type GitHubRepositoryVisibility = Infer<typeof vGitHubRepositoryVisibilit
 export const vTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 
-const githubRepositoryCoordinatesFields = {
-  repositoryKey: string(),
-  owner: string(),
-  name: string(),
+const samebaseRepositoryRouteFields = {
+  routeRepositoryKey: string(),
+  routeOwner: string(),
+  routeName: string(),
 } as const;
 
 /**
- * Repository keys are the case-insensitive database identity for canonical
- * GitHub owner/name coordinates. Stable GitHub ids remain the primary identity
- * once GitHub has returned one.
+ * Repository keys are the case-insensitive Samebase route identity captured at
+ * connection time. Stable GitHub ids are the provider identity. Connected
+ * vaults store the latest verified GitHub owner/name separately.
  */
-export function normalizeGitHubRepositoryKey(repositoryFullName: string): string {
+export function normalizeRepositoryRouteKey(repositoryFullName: string): string {
   const { owner, name } = parseRepositoryFullName(repositoryFullName);
   return `${owner.toLowerCase()}/${name.toLowerCase()}`;
 }
@@ -56,8 +59,8 @@ export function normalizeGitHubRepositoryKey(repositoryFullName: string): string
  * as requested intent; connected states use it as the latest GitHub metadata
  * observed by Samebase.
  */
-const githubRepositoryWithVisibilityFields = {
-  ...githubRepositoryCoordinatesFields,
+const samebaseRepositoryRouteWithVisibilityFields = {
+  ...samebaseRepositoryRouteFields,
   visibility: vGitHubRepositoryVisibility,
 } as const;
 
@@ -315,6 +318,8 @@ const githubRepositoryDatabaseIdentityFields = {
 const connectedRepositoryIdentityFields = {
   ...githubRepositoryDatabaseIdentityFields,
   ghRepoNodeId: string(),
+  githubOwner: string(),
+  githubName: string(),
   defaultBranch: string(),
 } as const;
 
@@ -330,7 +335,7 @@ export const vVaultRow = union(
     runId: id("appProvisioningRuns"),
     startedAt: number(),
 
-    ...githubRepositoryWithVisibilityFields,
+    ...samebaseRepositoryRouteWithVisibilityFields,
   }),
   object({
     ...vaultOperationalFields,
@@ -340,7 +345,7 @@ export const vVaultRow = union(
     startedAt: number(),
 
     ...githubRepositoryDatabaseIdentityFields,
-    ...githubRepositoryCoordinatesFields,
+    ...samebaseRepositoryRouteFields,
   }),
   object({
     ...vaultOperationalFields,
@@ -350,7 +355,7 @@ export const vVaultRow = union(
     ...connectedRepositoryIdentityFields,
     connectedAt: number(),
 
-    ...githubRepositoryWithVisibilityFields,
+    ...samebaseRepositoryRouteWithVisibilityFields,
   }),
   object({
     ...vaultOperationalFields,
@@ -361,7 +366,7 @@ export const vVaultRow = union(
     ...connectedRepositoryIdentityFields,
     connectedAt: number(),
 
-    ...githubRepositoryWithVisibilityFields,
+    ...samebaseRepositoryRouteWithVisibilityFields,
   }),
   object({
     ...vaultOperationalFields,
@@ -370,7 +375,7 @@ export const vVaultRow = union(
     runId: id("appProvisioningRuns"),
     failedAt: number(),
 
-    ...githubRepositoryWithVisibilityFields,
+    ...samebaseRepositoryRouteWithVisibilityFields,
   }),
   object({
     ...vaultOperationalFields,
@@ -380,7 +385,7 @@ export const vVaultRow = union(
     failedAt: number(),
 
     ...githubRepositoryDatabaseIdentityFields,
-    ...githubRepositoryCoordinatesFields,
+    ...samebaseRepositoryRouteFields,
   }),
 );
 export type VaultRow = Infer<typeof vVaultRow>;

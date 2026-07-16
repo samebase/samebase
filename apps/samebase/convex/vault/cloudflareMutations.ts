@@ -34,9 +34,8 @@ const cloudflareBuildsWiringState = union(
   }),
   object({
     active: literal(true),
-    owner: string(),
-    repo: string(),
     ghRepoId: string(),
+    ghRepoNodeId: string(),
     defaultBranch: string(),
     hasConvexDeployment: boolean(),
     buildConfig: vVaultCloudflareBuildConfig,
@@ -518,7 +517,7 @@ export const readCloudflareWorkerDiscoveryContext = internalQuery({
 
     return {
       ghRepoId: vault.ghRepoId,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
+      repositoryFullName: `${vault.routeOwner}/${vault.routeName}`,
       expectedRootDirectory: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }).rootDirectory,
     };
   },
@@ -1050,9 +1049,8 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
 
     return {
       active: true as const,
-      owner: vault.owner,
-      repo: vault.name,
       ghRepoId: vault.ghRepoId,
+      ghRepoNodeId: vault.ghRepoNodeId,
       defaultBranch: vault.defaultBranch,
       hasConvexDeployment:
         convexDeployment !== null && isVaultProviderUpstreamPresent(convexDeployment),
@@ -1361,7 +1359,7 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
     return {
       active: true as const,
       ghRepoId: vault.ghRepoId,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
+      repositoryFullName: `${vault.routeOwner}/${vault.routeName}`,
       defaultBranch: vault.defaultBranch,
       worker: {
         accountId: worker.accountId,

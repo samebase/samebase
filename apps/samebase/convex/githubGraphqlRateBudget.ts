@@ -106,7 +106,7 @@ async function readRateBudget(
     .unique();
 }
 
-function safetyFloor(limit: number): number {
+export function githubGraphqlRateSafetyFloor(limit: number): number {
   return Math.max(
     GITHUB_GRAPHQL_MINIMUM_SAFETY_FLOOR,
     Math.ceil(limit * GITHUB_GRAPHQL_SAFETY_FLOOR_RATIO),
@@ -201,7 +201,7 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
     if (
       existing.limit !== undefined &&
       window.remaining !== undefined &&
-      window.remaining - reservedPoints < safetyFloor(existing.limit)
+      window.remaining - reservedPoints < githubGraphqlRateSafetyFloor(existing.limit)
     ) {
       const retryAt = window.resetAt ?? now + GITHUB_GRAPHQL_SECONDARY_BACKOFF_MS;
       await ctx.db.patch(existing._id, {
@@ -361,16 +361,8 @@ export const finishGitHubGraphqlRateBudgetLease = internalMutation({
         return {};
       }
       case "failed": {
-        const remaining =
-          usage === undefined && budget.remaining !== undefined
-            ? Math.min(
-                budget.limit ?? Number.POSITIVE_INFINITY,
-                budget.remaining + budget.lease.reservedPoints,
-              )
-            : observed.remaining;
         await ctx.db.patch(budget._id, {
           ...observed,
-          remaining,
           lease: undefined,
         });
         return {};

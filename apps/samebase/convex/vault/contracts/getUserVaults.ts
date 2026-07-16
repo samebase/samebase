@@ -145,9 +145,10 @@ export const vVaultDeletionSummary = union(
 export const vUserVaultResult = object({
   _id: id("vaults"),
   _creationTime: number(),
-  ghRepoOwner: string(),
-  ghRepoName: string(),
-  repositoryFullName: string(),
+  routeRepositoryFullName: string(),
+  githubRepositoryFullName: string(),
+  githubOwner: string(),
+  githubName: string(),
   commitSHA: optional(string()),
   fileCount: number(),
   lastEditTime: optional(number()),
@@ -232,7 +233,11 @@ applicable.
 
 Read this before any repair or day-2 operation: the coordinates it returns are the inputs for
 provider-direct work (see the operate guides), and the \`nextAction\` values are the exact
-Samebase actions to call when the record itself is degraded.`,
+Samebase actions to call when the record itself is degraded.
+
+This legacy aggregate is not the Samebase dashboard directory. It fails explicitly above 25 vaults
+or above 1,000 staged-file rows in one vault; use the paginated repository summary directory for
+the multi-vault UI.`,
 } as const;
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;

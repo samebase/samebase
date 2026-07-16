@@ -73,8 +73,8 @@ function readDefaultBranch(repoData: unknown): string {
 
 async function resolveFallbackBranch(args: {
   vault: {
-    owner: string;
-    name: string;
+    githubOwner: string;
+    githubName: string;
   };
   githubAccessToken?: string;
 }): Promise<string> {
@@ -84,8 +84,8 @@ async function resolveFallbackBranch(args: {
 
   const octokit = new Octokit({ auth: args.githubAccessToken });
   const repo = await octokit.rest.repos.get({
-    owner: args.vault.owner,
-    repo: args.vault.name,
+    owner: args.vault.githubOwner,
+    repo: args.vault.githubName,
   });
   return readDefaultBranch(repo.data);
 }
@@ -114,8 +114,8 @@ async function loadAgentPrompt(args: {
 
   const octokit = new Octokit({ auth: githubAccessToken });
   const file = await octokit.rest.repos.getContent({
-    owner: vault.owner,
-    repo: vault.name,
+    owner: vault.githubOwner,
+    repo: vault.githubName,
     path: agentPath,
     ref: branch,
   });

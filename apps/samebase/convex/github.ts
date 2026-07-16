@@ -756,8 +756,8 @@ export const getRepositoryFileContent = action({
 
     try {
       const file = await octokit.rest.repos.getContent({
-        owner: vault.owner,
-        repo: vault.name,
+        owner: vault.githubOwner,
+        repo: vault.githubName,
         path: args.filePath,
         ref: requestedBranch,
       });
@@ -890,8 +890,8 @@ export const getRepositoryMediaAsset = action({
       if (requestedBranch) {
         targetFileSha = await getRepositoryBlobShaForBranchPath({
           octokit,
-          owner: vault.owner,
-          repo: vault.name,
+          owner: vault.githubOwner,
+          repo: vault.githubName,
           branch: requestedBranch,
           filePath: args.filePath,
         });
@@ -918,8 +918,8 @@ export const getRepositoryMediaAsset = action({
       }
 
       const blob = await octokit.rest.git.getBlob({
-        owner: vault.owner,
-        repo: vault.name,
+        owner: vault.githubOwner,
+        repo: vault.githubName,
         file_sha: targetFileSha,
       });
       if (typeof blob.data.content !== "string" || blob.data.content.length === 0) {
@@ -1148,14 +1148,14 @@ export const refreshBranchTree = internalAction({
     const branchRef = toGitTreeRef(targetBranch);
     const [tree, ref] = await Promise.all([
       octokit.rest.git.getTree({
-        owner: vault.owner,
-        repo: vault.name,
+        owner: vault.githubOwner,
+        repo: vault.githubName,
         tree_sha: branchRef,
         recursive: "1",
       }),
       octokit.rest.git.getRef({
-        owner: vault.owner,
-        repo: vault.name,
+        owner: vault.githubOwner,
+        repo: vault.githubName,
         ref: branchRef,
       }),
     ]);

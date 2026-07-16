@@ -22,10 +22,11 @@ import {
   type RepositorySummaryScheduledWait,
   type RepositorySummaryWorkerInput,
 } from "./repositorySummaryModel";
-import { normalizeGitHubRepositoryKey, parseRepositoryFullName } from "./vault/model";
+import { parseRepositoryFullName } from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
 
 const { array, id, literal, null: vNull, number, object, string, union } = v;
+const REPOSITORY_SUMMARY_FAILURE_MESSAGE_MAX_LENGTH = 4_000;
 
 const repositorySummaryBatchContext = object({
   userId: id("users"),
@@ -259,13 +260,15 @@ export const getRepositorySummaryDirectoryState = query({
   },
 });
 
+const vRepositorySummaryDirectoryPage = paginationResultValidator(vRepositorySummaryDirectoryEntry);
+
 export const listRepositorySummaryDirectoryPage = query({
   access: "access_dashboard",
   args: {
     directoryRevision: number(),
     paginationOpts: paginationOptsValidator,
   },
-  returns: paginationResultValidator(vRepositorySummaryDirectoryEntry),
+  returns: union(vNull(), vRepositorySummaryDirectoryPage),
   handler: async (ctx, args) => {
     if (!Number.isSafeInteger(args.directoryRevision) || args.directoryRevision < 0) {
       throw new Error("Repository summary directory revision must be a non-negative integer.");
@@ -292,7 +295,7 @@ export const listRepositorySummaryDirectoryPage = query({
     }
     const currentRevision = await readRepositorySummaryDirectoryRevision(ctx, ctx.viewer.userId);
     if (currentRevision !== args.directoryRevision) {
-      throw new Error("Repository summary directory revision changed while loading pages.");
+      return null;
     }
     const page = await ctx.db
       .query("vaults")
@@ -308,32 +311,32 @@ export const listRepositorySummaryDirectoryPage = query({
           if (vault.state === "not_connected") {
             throw new Error("Repository directory found an uninitialized vault.");
           }
-          const repositoryFullName = `${vault.owner}/${vault.name}`;
+          const routeRepositoryFullName = `${vault.routeOwner}/${vault.routeName}`;
           if (vault.deletion.state === "deleting") {
             return {
               vaultId: vault._id,
-              repositoryFullName,
+              routeRepositoryFullName,
               state: { state: "deleting" as const, requestedAt: vault.deletion.requestedAt },
             };
           }
           if (vault.deletion.state === "delete_failed") {
             return {
               vaultId: vault._id,
-              repositoryFullName,
+              routeRepositoryFullName,
               state: { state: "delete_failed" as const, failedAt: vault.deletion.failedAt },
             };
           }
           if (vault.state === "provisioning") {
             return {
               vaultId: vault._id,
-              repositoryFullName,
+              routeRepositoryFullName,
               state: { state: "provisioning" as const, startedAt: vault.startedAt },
             };
           }
           if (vault.state === "failed") {
             return {
               vaultId: vault._id,
-              repositoryFullName,
+              routeRepositoryFullName,
               state: { state: "setup_failed" as const, failedAt: vault.failedAt },
             };
           }
@@ -343,8 +346,12 @@ export const listRepositorySummaryDirectoryPage = query({
           }
           return {
             vaultId: vault._id,
-            repositoryFullName,
-            state: { state: "connected" as const, summary: publicRepositorySummaryState(summary) },
+            routeRepositoryFullName,
+            state: {
+              state: "connected" as const,
+              githubRepositoryFullName: `${vault.githubOwner}/${vault.githubName}`,
+              summary: publicRepositorySummaryState(summary),
+            },
           };
         }),
       ),
@@ -646,7 +653,7 @@ export async function failRepositorySummaryInventoryObservation(
     lifecycle: {
       state: "failed",
       failedAt,
-      message: args.message,
+      message: args.message.slice(0, REPOSITORY_SUMMARY_FAILURE_MESSAGE_MAX_LENGTH),
     },
   });
   await bumpRepositorySummaryDirectoryRevision(ctx, summary.userId);
@@ -683,7 +690,7 @@ async function failRepositorySummaryObservation(
     lifecycle: {
       state: "failed",
       failedAt: args.failedAt,
-      message: args.message,
+      message: args.message.slice(0, REPOSITORY_SUMMARY_FAILURE_MESSAGE_MAX_LENGTH),
     },
   });
 }
@@ -711,6 +718,7 @@ async function publishRepositorySummaryObservation(
     summary: RepositorySummaryDoc;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
+    repositoryNodeId: string;
     repositoryFullName: string;
     defaultBranch: RepositorySummaryDefaultBranch;
     openPullRequestCount: number;
@@ -726,43 +734,32 @@ async function publishRepositorySummaryObservation(
     });
     return;
   }
-  const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-  const repositoryKey = normalizeGitHubRepositoryKey(args.repositoryFullName);
-  const conflictingVault = await ctx.db
-    .query("vaults")
-    .withIndex("by_userId_and_repositoryKey", (q) =>
-      q.eq("userId", args.userId).eq("repositoryKey", repositoryKey),
-    )
-    .unique();
-  if (conflictingVault !== null && conflictingVault._id !== vault._id) {
-    await failRepositorySummaryObservation(ctx, {
-      summary: args.summary,
-      failedAt: args.checkedAt,
-      message: "Canonical GitHub repository name conflicts with another vault.",
-    });
-    return;
+  if (vault.ghRepoNodeId !== args.repositoryNodeId) {
+    throw new Error("Repository summary observation belongs to another GitHub repository.");
   }
+  const { owner: githubOwner, name: githubName } = parseRepositoryFullName(args.repositoryFullName);
   const defaultBranch =
     args.defaultBranch.state === "ready" ? args.defaultBranch.name : vault.defaultBranch;
   if (
-    vault.repositoryKey !== repositoryKey ||
-    vault.owner !== owner ||
-    vault.name !== name ||
+    vault.githubOwner !== githubOwner ||
+    vault.githubName !== githubName ||
     vault.defaultBranch !== defaultBranch
   ) {
-    await ctx.db.patch(vault._id, { repositoryKey, owner, name, defaultBranch });
+    await ctx.db.patch(vault._id, { githubOwner, githubName, defaultBranch });
   }
   const publishedAt =
     args.summary.publication.state === "complete" &&
+    args.summary.publication.repositoryFullName === args.repositoryFullName &&
     sameDefaultBranch(args.summary.publication.defaultBranch, args.defaultBranch) &&
     args.summary.publication.openPullRequestCount === args.openPullRequestCount
       ? args.summary.publication.publishedAt
-      : args.checkedAt;
+      : Date.now();
   await ctx.db.patch(args.summary._id, {
     refreshEligibleAt: args.checkedAt + REPOSITORY_SUMMARY_REFRESH_INTERVAL_MS,
     lifecycle: { state: "idle" },
     publication: {
       state: "complete",
+      repositoryFullName: args.repositoryFullName,
       defaultBranch: args.defaultBranch,
       openPullRequestCount: args.openPullRequestCount,
       publishedAt,
@@ -777,9 +774,11 @@ export async function completeRepositorySummaryInventoryObservation(
     userId: Id<"users">;
     vaultId: Id<"vaults">;
     snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    repositoryNodeId: string;
     repositoryFullName: string;
     defaultBranch: RepositorySummaryDefaultBranch;
     openPullRequestCount: number;
+    observedAt: number;
   },
 ): Promise<void> {
   const summary = await readRepositorySummary(ctx, args.vaultId);
@@ -795,7 +794,7 @@ export async function completeRepositorySummaryInventoryObservation(
   await publishRepositorySummaryObservation(ctx, {
     ...args,
     summary,
-    checkedAt: Date.now(),
+    checkedAt: args.observedAt,
   });
   await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
 }
@@ -812,6 +811,7 @@ export const completeRepositorySummaryBatch = internalMutation({
   args: {
     userId: id("users"),
     batchId: string(),
+    observedAt: number(),
     results: array(vRepositorySummaryObservationResult),
   },
   returns: vNull(),
@@ -819,7 +819,6 @@ export const completeRepositorySummaryBatch = internalMutation({
     if (args.results.length < 1 || args.results.length > REPOSITORY_SUMMARY_PAGE_SIZE) {
       throw new Error("Repository summary result batch has an invalid size.");
     }
-    const checkedAt = Date.now();
     const seenVaultIds = new Set<Id<"vaults">>();
     let changed = false;
     for (const result of args.results) {
@@ -838,7 +837,7 @@ export const completeRepositorySummaryBatch = internalMutation({
       if (result.state === "unavailable") {
         await markRepositorySummaryUnavailable(ctx, {
           summary,
-          observedAt: checkedAt,
+          observedAt: args.observedAt,
         });
         changed = true;
         continue;
@@ -847,10 +846,11 @@ export const completeRepositorySummaryBatch = internalMutation({
         summary,
         userId: args.userId,
         vaultId: result.vaultId,
+        repositoryNodeId: result.repositoryNodeId,
         repositoryFullName: result.repositoryFullName,
         defaultBranch: result.defaultBranch,
         openPullRequestCount: result.openPullRequestCount,
-        checkedAt,
+        checkedAt: args.observedAt,
       });
       changed = true;
     }
@@ -890,7 +890,7 @@ async function transitionRepositorySummaryBatchToFailed(
       lifecycle: {
         state: "failed",
         failedAt,
-        message: args.message,
+        message: args.message.slice(0, REPOSITORY_SUMMARY_FAILURE_MESSAGE_MAX_LENGTH),
       },
     });
     changed = true;

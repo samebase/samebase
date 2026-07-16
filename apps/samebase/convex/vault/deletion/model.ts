@@ -64,17 +64,14 @@ const skipNotRequested = object({
   reason: literal("not_requested"),
 });
 
-const githubRepositoryCoordinates = {
+const githubRepositoryTarget = {
   ghRepoId: string(),
-  owner: string(),
-  name: string(),
-  repositoryFullName: string(),
+  ghRepoNodeId: string(),
+  routeRepositoryFullName: string(),
 } as const;
 
-const repositorySetupCoordinates = {
-  owner: string(),
-  name: string(),
-  repositoryFullName: string(),
+const repositorySetupTarget = {
+  routeRepositoryFullName: string(),
 } as const;
 
 const providerCleanupPlan = {
@@ -145,15 +142,13 @@ export const vVaultDeletionPlan = union(
     ...providerCleanupPlan,
     target: object({
       kind: literal("samebase_managed_repository"),
-      ...githubRepositoryCoordinates,
+      ...githubRepositoryTarget,
     }),
     githubRepository: union(
       skipNotRequested,
       object({
         action: literal("delete_repository"),
-        ghRepoId: string(),
-        owner: string(),
-        name: string(),
+        deletionRepositoryName: string(),
       }),
     ),
   }),
@@ -161,7 +156,7 @@ export const vVaultDeletionPlan = union(
     ...providerCleanupPlan,
     target: object({
       kind: literal("existing_repository"),
-      ...githubRepositoryCoordinates,
+      ...githubRepositoryTarget,
     }),
     githubRepository: object({
       action: literal("skip"),
@@ -173,7 +168,7 @@ export const vVaultDeletionPlan = union(
     target: object({
       kind: literal("failed_repository_setup"),
       githubMode: union(literal("create_repository"), literal("connect_existing_repository")),
-      ...repositorySetupCoordinates,
+      ...repositorySetupTarget,
     }),
     githubRepository: object({
       action: literal("skip"),

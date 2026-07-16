@@ -24,7 +24,7 @@ import {
   vUserVaultResult,
 } from "./contracts/getUserVaults";
 import { getRepositoryConnectionMembershipsContract } from "./contracts/getRepositoryConnectionMemberships";
-import { normalizeGitHubRepositoryKey, readVaultProviderUpstreamPresence } from "./model";
+import { normalizeRepositoryRouteKey, readVaultProviderUpstreamPresence } from "./model";
 
 const { array, id, string } = v;
 type SourceSetupVault = Extract<
@@ -38,6 +38,8 @@ type ConnectedConvexDeployment = Doc<"vaultConvexDeployments">;
 type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 const MAX_REPOSITORY_CONNECTION_MEMBERSHIP_INPUTS = 25;
+const LEGACY_USER_VAULT_LIMIT = 25;
+const LEGACY_VAULT_STAGING_ROW_LIMIT = 1_000;
 
 function canRemoveConvexProvisionForDeployment(deployment: ConnectedConvexDeployment): boolean {
   return deployment.origin === "provisioned";
@@ -758,9 +760,10 @@ async function readUserVault(
     return {
       _id: vault._id,
       _creationTime: vault._creationTime,
-      ghRepoOwner: vault.owner,
-      ghRepoName: vault.name,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
+      routeRepositoryFullName: `${vault.routeOwner}/${vault.routeName}`,
+      githubRepositoryFullName: `${vault.routeOwner}/${vault.routeName}`,
+      githubOwner: vault.routeOwner,
+      githubName: vault.routeName,
       commitSHA: undefined,
       fileCount: 0,
       lastEditTime: undefined,
@@ -826,9 +829,10 @@ async function readUserVault(
     return {
       _id: vault._id,
       _creationTime: vault._creationTime,
-      ghRepoOwner: vault.owner,
-      ghRepoName: vault.name,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
+      routeRepositoryFullName: `${vault.routeOwner}/${vault.routeName}`,
+      githubRepositoryFullName: `${vault.githubOwner}/${vault.githubName}`,
+      githubOwner: vault.githubOwner,
+      githubName: vault.githubName,
       commitSHA: undefined,
       fileCount: 0,
       lastEditTime: undefined,
@@ -852,7 +856,7 @@ async function readUserVault(
     ctx.db
       .query("fileStaging")
       .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-      .collect(),
+      .take(LEGACY_VAULT_STAGING_ROW_LIMIT + 1),
     ctx.db
       .query("vaultBranchTrees")
       .withIndex("by_vault_and_branch", (q) =>
@@ -861,6 +865,11 @@ async function readUserVault(
       .first(),
     hasCreatedConvexProjectForVault(ctx, vault._id),
   ]);
+  if (stagingData.length > LEGACY_VAULT_STAGING_ROW_LIMIT) {
+    throw new Error(
+      `The legacy vault detail supports at most ${LEGACY_VAULT_STAGING_ROW_LIMIT} staged files.`,
+    );
+  }
 
   const fileCount = stagingData.filter(hasStagedFileChanges).length;
   const lastEditTime =
@@ -880,9 +889,10 @@ async function readUserVault(
   return {
     _id: vault._id,
     _creationTime: vault._creationTime,
-    ghRepoOwner: vault.owner,
-    ghRepoName: vault.name,
-    repositoryFullName: `${vault.owner}/${vault.name}`,
+    routeRepositoryFullName: `${vault.routeOwner}/${vault.routeName}`,
+    githubRepositoryFullName: `${vault.githubOwner}/${vault.githubName}`,
+    githubOwner: vault.githubOwner,
+    githubName: vault.githubName,
     commitSHA: defaultBranchTree?.commitSHA,
     fileCount,
     lastEditTime,
@@ -911,7 +921,12 @@ async function readUserVaults(
   const vaults = await ctx.db
     .query("vaults")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect();
+    .take(LEGACY_USER_VAULT_LIMIT + 1);
+  if (vaults.length > LEGACY_USER_VAULT_LIMIT) {
+    throw new Error(
+      `The legacy vault aggregate supports at most ${LEGACY_USER_VAULT_LIMIT} vaults.`,
+    );
+  }
   const repositoryVaults = vaults.filter((vault) => vault.state !== "not_connected");
   const vaultResults = await Promise.all(
     repositoryVaults.map(async (vault) => await readUserVault(ctx, vault)),
@@ -923,7 +938,7 @@ async function readUserVaults(
     const bTime = b.lastEditTime ?? b._creationTime;
     return (
       bTime - aTime ||
-      a.repositoryFullName.localeCompare(b.repositoryFullName) ||
+      a.routeRepositoryFullName.localeCompare(b.routeRepositoryFullName) ||
       a._id.localeCompare(b._id)
     );
   });
@@ -936,11 +951,11 @@ export const getUserVaultByRepository = query({
   },
   returns: v.union(v.null(), vUserVaultResult),
   handler: async (ctx, args): Promise<UserVaultResult | null> => {
-    const repositoryKey = normalizeGitHubRepositoryKey(args.repositoryFullName);
+    const routeRepositoryKey = normalizeRepositoryRouteKey(args.repositoryFullName);
     const vault = await ctx.db
       .query("vaults")
-      .withIndex("by_userId_and_repositoryKey", (q) =>
-        q.eq("userId", ctx.viewer.userId).eq("repositoryKey", repositoryKey),
+      .withIndex("by_userId_and_routeRepositoryKey", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("routeRepositoryKey", routeRepositoryKey),
       )
       .unique();
     if (!vault || vault.state === "not_connected") {
@@ -948,6 +963,31 @@ export const getUserVaultByRepository = query({
     }
 
     return await readUserVault(ctx, vault);
+  },
+});
+
+export const getRepositoryObservationTargetByRepository = query({
+  access: getUserVaultsContract.access,
+  args: {
+    repositoryFullName: string(),
+  },
+  returns: v.union(v.null(), v.object({ vaultId: v.id("vaults") })),
+  handler: async (ctx, args) => {
+    const routeRepositoryKey = normalizeRepositoryRouteKey(args.repositoryFullName);
+    const vault = await ctx.db
+      .query("vaults")
+      .withIndex("by_userId_and_routeRepositoryKey", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("routeRepositoryKey", routeRepositoryKey),
+      )
+      .unique();
+    if (
+      !isLiveConnectedVault(vault) ||
+      vault.userId !== ctx.viewer.userId ||
+      isVaultDeletingOrDeleteFailed(vault)
+    ) {
+      return null;
+    }
+    return { vaultId: vault._id };
   },
 });
 
@@ -971,15 +1011,15 @@ export const getRepositoryConnectionMemberships = query({
       ) {
         throw new Error("GitHub repository id must be a positive safe integer.");
       }
-      const repositoryKey = normalizeGitHubRepositoryKey(repository.repositoryFullName);
+      const routeRepositoryKey = normalizeRepositoryRouteKey(repository.repositoryFullName);
       if (
-        seenRepositoryFullNames.has(repositoryKey) ||
+        seenRepositoryFullNames.has(routeRepositoryKey) ||
         (repository.githubRepositoryId !== null &&
           seenGitHubRepositoryIds.has(repository.githubRepositoryId))
       ) {
         throw new Error("Repository membership inputs must be unique.");
       }
-      seenRepositoryFullNames.add(repositoryKey);
+      seenRepositoryFullNames.add(routeRepositoryKey);
       if (repository.githubRepositoryId !== null) {
         seenGitHubRepositoryIds.add(repository.githubRepositoryId);
       }
@@ -1001,11 +1041,11 @@ export const getRepositoryConnectionMemberships = query({
       let connected = repositoryById !== null;
 
       if (!connected) {
-        const repositoryKey = normalizeGitHubRepositoryKey(repository.repositoryFullName);
+        const routeRepositoryKey = normalizeRepositoryRouteKey(repository.repositoryFullName);
         const repositoryByCoordinates = await ctx.db
           .query("vaults")
-          .withIndex("by_userId_and_repositoryKey", (q) =>
-            q.eq("userId", ctx.viewer.userId).eq("repositoryKey", repositoryKey),
+          .withIndex("by_userId_and_routeRepositoryKey", (q) =>
+            q.eq("userId", ctx.viewer.userId).eq("routeRepositoryKey", routeRepositoryKey),
           )
           .unique();
         connected = repositoryByCoordinates !== null;

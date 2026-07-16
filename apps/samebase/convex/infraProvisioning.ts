@@ -593,7 +593,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers Builds are required before wiring Convex build access.",
   "Convex deployment is required before wiring Convex build access.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
-  "GitHub repository response did not match the vault repo.",
+  "GitHub returned another repository.",
 ];
 
 function extractUserFacingProvisioningError(args: {

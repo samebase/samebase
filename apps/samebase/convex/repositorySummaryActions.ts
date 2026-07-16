@@ -97,6 +97,7 @@ export const runRepositorySummaryBatch = internalAction({
         repositories: input.repositories,
         requestGraphqlPartial: client.requestPartial,
       });
+      const observedAt = Date.now();
       const usage = client.getUsage();
       if (usage === undefined) {
         throw new Error("GitHub GraphQL accounting was not collected.");
@@ -119,6 +120,7 @@ export const runRepositorySummaryBatch = internalAction({
           : {
               state: "ready",
               vaultId: repository.vaultId,
+              repositoryNodeId: repository.repositoryNodeId,
               repositoryFullName: summary.repositoryFullName,
               defaultBranch: summary.defaultBranch,
               openPullRequestCount: summary.openPullRequestCount,
@@ -127,6 +129,7 @@ export const runRepositorySummaryBatch = internalAction({
       await ctx.runMutation(internal.repositorySummary.completeRepositorySummaryBatch, {
         userId: input.userId,
         batchId: input.batchId,
+        observedAt,
         results,
       });
       return null;

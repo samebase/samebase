@@ -294,9 +294,11 @@ describe("account deletion workflow ownership and outcomes", () => {
         runId: provisioningRunId,
         ghRepoId: "repository-id",
         ghRepoNodeId: "R_repository",
-        repositoryKey: "owner/repository",
-        owner: "owner",
-        name: "repository",
+        githubOwner: "owner",
+        githubName: "repository",
+        routeRepositoryKey: "owner/repository",
+        routeOwner: "owner",
+        routeName: "repository",
         defaultBranch: "main",
         visibility: "private",
         connectedAt: now,
@@ -314,15 +316,8 @@ describe("account deletion workflow ownership and outcomes", () => {
       });
       return { userId, vaultId };
     });
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
     await expect(
-      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
-        vaultId: ids.vaultId,
-      }),
+      t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids),
     ).resolves.toEqual({ kind: "scheduled" });
 
     const { inventoryId, runId } = await t.run(async (ctx) => {
@@ -366,8 +361,12 @@ describe("account deletion workflow ownership and outcomes", () => {
       }),
     ).resolves.toEqual({ state: "needs_more" });
     await expect(t.run(async (ctx) => await ctx.db.get(inventoryId))).resolves.toMatchObject({
+      writeVersion: 1,
+      observedWriteVersion: 0,
+      requiredFailureCount: 0,
       lifecycle: {
         state: "failed",
+        required: true,
         message: "Repository inventory stopped for account deletion.",
       },
     });

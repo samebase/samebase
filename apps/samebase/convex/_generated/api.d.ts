@@ -79,7 +79,6 @@ import type * as githubOAuth from "../githubOAuth.js";
 import type * as githubObservationActionLease from "../githubObservationActionLease.js";
 import type * as githubObservationActionLeaseModel from "../githubObservationActionLeaseModel.js";
 import type * as githubObservationWorkpool from "../githubObservationWorkpool.js";
-import type * as githubRepoApi from "../githubRepoApi.js";
 import type * as githubRepositoryCheckState from "../githubRepositoryCheckState.js";
 import type * as githubRepositoryInventory from "../githubRepositoryInventory.js";
 import type * as githubRepositorySummary from "../githubRepositorySummary.js";
@@ -238,7 +237,6 @@ declare const fullApi: ApiFromModules<{
   githubObservationActionLease: typeof githubObservationActionLease;
   githubObservationActionLeaseModel: typeof githubObservationActionLeaseModel;
   githubObservationWorkpool: typeof githubObservationWorkpool;
-  githubRepoApi: typeof githubRepoApi;
   githubRepositoryCheckState: typeof githubRepositoryCheckState;
   githubRepositoryInventory: typeof githubRepositoryInventory;
   githubRepositorySummary: typeof githubRepositorySummary;

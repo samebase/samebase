@@ -32,6 +32,7 @@ export type RepositorySummaryDefaultBranch = Infer<typeof vRepositorySummaryDefa
 
 export const vRepositorySummaryCompletePublication = object({
   state: literal("complete"),
+  repositoryFullName: string(),
   defaultBranch: vRepositorySummaryDefaultBranch,
   openPullRequestCount: number(),
   publishedAt: number(),
@@ -140,13 +141,17 @@ export type RepositorySummaryPublicState = Infer<typeof vRepositorySummaryPublic
 
 export const vRepositorySummaryDirectoryEntry = object({
   vaultId: id("vaults"),
-  repositoryFullName: string(),
+  routeRepositoryFullName: string(),
   state: union(
     object({ state: literal("provisioning"), startedAt: number() }),
     object({ state: literal("setup_failed"), failedAt: number() }),
     object({ state: literal("deleting"), requestedAt: number() }),
     object({ state: literal("delete_failed"), failedAt: number() }),
-    object({ state: literal("connected"), summary: vRepositorySummaryPublicState }),
+    object({
+      state: literal("connected"),
+      githubRepositoryFullName: string(),
+      summary: vRepositorySummaryPublicState,
+    }),
   ),
 });
 
@@ -179,6 +184,7 @@ export const vRepositorySummaryObservationResult = union(
   object({
     state: literal("ready"),
     vaultId: id("vaults"),
+    repositoryNodeId: string(),
     repositoryFullName: string(),
     defaultBranch: vRepositorySummaryDefaultBranch,
     openPullRequestCount: number(),

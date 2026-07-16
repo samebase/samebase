@@ -314,9 +314,7 @@ describe("account-local deletion cleanup", () => {
             target: {
               kind: "failed_repository_setup",
               githubMode: "connect_existing_repository",
-              owner: "owner",
-              name: "repository",
-              repositoryFullName: "owner/repository",
+              routeRepositoryFullName: "owner/repository",
             },
             codespaces: { action: "skip", reason: "not_requested" },
             convex: { action: "skip", reason: "not_requested" },
@@ -409,6 +407,7 @@ describe("account-local deletion cleanup", () => {
       const rowKey = "pull-request:PR_cleanup";
       const snapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
         state: "ready",
+        observedAt: 1,
         vaultId,
         branchCount: 0,
         pullRequestCount: 1,
@@ -437,19 +436,29 @@ describe("account-local deletion cleanup", () => {
         processedPullRequestCount: 1,
         visiblePullRequestCount: 1,
       });
-      await ctx.db.insert("vaultRepositoryInventoryFilters", {
+      const filterId = await ctx.db.insert("vaultRepositoryInventoryFilters", {
         userId,
         vaultId,
-        hiddenLabels: [],
         includeDrafts: false,
         includeNoLabel: true,
         revision: 1,
+        excludedLabelCount: 1,
+        excludedLabelGeneration: 0,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryExcludedLabels", {
+        vaultId,
+        filterId,
+        generation: 0,
+        labelKey: "cleanup",
+        name: "cleanup",
       });
       await ctx.db.insert("vaultRepositoryInventories", {
         userId,
         vaultId,
         wantedUntil: 1,
         writeVersion: 1,
+        observedWriteVersion: 1,
+        requiredFailureCount: 0,
         lifecycle: { state: "idle" },
         publication: {
           snapshotId,
@@ -500,7 +509,6 @@ describe("account-local deletion cleanup", () => {
         labelCount: 1,
         localHeadRefName: "cleanup-inventory",
         labelChunkCount: 1,
-        filterLabelKeys: ["cleanup"],
       });
       await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
         vaultId,
@@ -540,6 +548,7 @@ describe("account-local deletion cleanup", () => {
       expect(await ctx.db.query("vaultRepositoryInventoryItems").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryLabelChunks").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryFilters").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryInventoryExcludedLabels").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryFilterViews").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryFilterViewRows").collect()).toEqual([]);
       expect(await ctx.db.query("vaultRepositoryInventoryLabelFacets").collect()).toEqual([]);

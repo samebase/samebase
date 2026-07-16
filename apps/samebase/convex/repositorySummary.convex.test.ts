@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { failRepositorySummaryInventoryObservation } from "./repositorySummary";
 import { REPOSITORY_SUMMARY_REFRESH_INTERVAL_MS } from "./repositorySummaryModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -130,6 +131,55 @@ describe("repository summary state machine", () => {
     vi.setSystemTime(now);
   });
 
+  it("bounds failure text returned by the repository directory", async () => {
+    const fixture = await createUserFixture();
+    const connected = await connectRepository(fixture, { name: "bounded-failure" });
+    const snapshotId = await fixture.t.run(async (ctx) => {
+      const id = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
+        state: "collecting",
+        vaultId: connected.vaultId,
+        branchCount: 0,
+        pullRequestCount: 0,
+        labelCount: 0,
+        labelChunkCount: 0,
+        labelFacetCount: 0,
+        noLabelPullRequestCount: 0,
+      });
+      const summary = await ctx.db
+        .query("vaultRepositorySummaries")
+        .withIndex("by_vault", (q) => q.eq("vaultId", connected.vaultId))
+        .unique();
+      if (summary === null) {
+        throw new Error("Expected repository summary.");
+      }
+      await ctx.db.patch(summary._id, {
+        lifecycle: {
+          state: "running",
+          source: "repository_inventory",
+          snapshotId: id,
+          startedAt: now,
+        },
+      });
+      return id;
+    });
+
+    await fixture.t.run(
+      async (ctx) =>
+        await failRepositorySummaryInventoryObservation(ctx, {
+          vaultId: connected.vaultId,
+          snapshotId,
+          message: "x".repeat(4_001),
+        }),
+    );
+
+    const summary = await readSummary(fixture.t, connected.vaultId);
+    expect(summary?.lifecycle).toMatchObject({ state: "failed" });
+    if (summary?.lifecycle.state !== "failed") {
+      throw new Error("Expected failed repository summary.");
+    }
+    expect(summary.lifecycle.message).toHaveLength(4_000);
+  });
+
   afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
@@ -175,7 +225,10 @@ describe("repository summary state machine", () => {
         paginationOpts: { cursor: null, numItems: 2 },
       },
     );
-    expect(firstPage.page.map((entry) => entry.repositoryFullName)).toEqual([
+    if (firstPage === null) {
+      throw new Error("Current repository summary directory revision returned stale.");
+    }
+    expect(firstPage.page.map((entry) => entry.routeRepositoryFullName)).toEqual([
       "Ada/zulu",
       "Ada/Alpha",
     ]);
@@ -188,7 +241,10 @@ describe("repository summary state machine", () => {
         paginationOpts: { cursor: firstPage.continueCursor, numItems: 2 },
       },
     );
-    expect(secondPage.page.map((entry) => entry.repositoryFullName)).toEqual(["Ada/bravo"]);
+    if (secondPage === null) {
+      throw new Error("Current repository summary directory revision returned stale.");
+    }
+    expect(secondPage.page.map((entry) => entry.routeRepositoryFullName)).toEqual(["Ada/bravo"]);
     expect(secondPage.isDone).toBe(true);
     await connectRepository(fixture, { name: "new-revision" });
     await expect(
@@ -196,7 +252,7 @@ describe("repository summary state machine", () => {
         directoryRevision,
         paginationOpts: { cursor: firstPage.continueCursor, numItems: 2 },
       }),
-    ).rejects.toThrow("Repository summary directory revision changed while loading pages.");
+    ).resolves.toBeNull();
 
     await expect(
       fixture.asUser.query(api.repositorySummary.listRepositorySummaryDirectoryPage, {
@@ -245,22 +301,26 @@ describe("repository summary state machine", () => {
         paginationOpts: { cursor: null, numItems: 25 },
       },
     );
+    if (page === null) {
+      throw new Error("Current repository summary directory revision returned stale.");
+    }
     expect(page.page).toMatchObject([
       {
         vaultId: provisioning.vaultId,
-        repositoryFullName: "Ada/provisioning",
+        routeRepositoryFullName: "Ada/provisioning",
         state: { state: "provisioning", startedAt: now },
       },
       {
         vaultId: failed.vaultId,
-        repositoryFullName: "Ada/failed",
+        routeRepositoryFullName: "Ada/failed",
         state: { state: "setup_failed", failedAt: now },
       },
       {
         vaultId: connected.vaultId,
-        repositoryFullName: "Ada/connected",
+        routeRepositoryFullName: "Ada/connected",
         state: {
           state: "connected",
+          githubRepositoryFullName: "Ada/connected",
           summary: {
             lifecycle: { state: "idle" },
             publication: { state: "unobserved" },
@@ -422,14 +482,18 @@ describe("repository summary state machine", () => {
     const fixture = await createUserFixture();
     const connected = await connectRepository(fixture, { name: "old-name" });
     const first = await scheduleAndClaim(fixture, [connected.vaultId]);
+    const firstPublishedAt = now + 2_000;
+    vi.setSystemTime(firstPublishedAt);
 
     await fixture.t.mutation(internal.repositorySummary.completeRepositorySummaryBatch, {
       userId: fixture.userId,
       batchId: first.batchId,
+      observedAt: now,
       results: [
         {
           state: "ready",
           vaultId: connected.vaultId,
+          repositoryNodeId: connected.connection.ghRepoNodeId,
           repositoryFullName: "Grace/Renamed",
           defaultBranch: {
             state: "ready",
@@ -445,15 +509,18 @@ describe("repository summary state machine", () => {
     await expect(
       fixture.t.run(async (ctx) => await ctx.db.get(connected.vaultId)),
     ).resolves.toMatchObject({
-      repositoryKey: "grace/renamed",
-      owner: "Grace",
-      name: "Renamed",
+      routeRepositoryKey: "ada/old-name",
+      routeOwner: "Ada",
+      routeName: "old-name",
+      githubOwner: "Grace",
+      githubName: "Renamed",
       defaultBranch: "trunk",
     });
     await expect(readSummary(fixture.t, connected.vaultId)).resolves.toMatchObject({
       lifecycle: { state: "idle" },
       publication: {
         state: "complete",
+        repositoryFullName: "Grace/Renamed",
         defaultBranch: {
           state: "ready",
           name: "trunk",
@@ -461,9 +528,32 @@ describe("repository summary state machine", () => {
           checkState: "success",
         },
         openPullRequestCount: 7,
-        publishedAt: now,
+        publishedAt: firstPublishedAt,
         checkedAt: now,
       },
+    });
+    await expect(
+      fixture.asUser.query(api.vault.dashboard.getUserVaultByRepository, {
+        repositoryFullName: "Ada/old-name",
+      }),
+    ).resolves.toMatchObject({ _id: connected.vaultId });
+    const directoryRevision = await readDirectoryRevision(fixture.t, fixture.userId);
+    await expect(
+      fixture.asUser.query(api.repositorySummary.listRepositorySummaryDirectoryPage, {
+        directoryRevision,
+        paginationOpts: { cursor: null, numItems: 25 },
+      }),
+    ).resolves.toMatchObject({
+      page: [
+        {
+          vaultId: connected.vaultId,
+          routeRepositoryFullName: "Ada/old-name",
+          state: {
+            state: "connected",
+            githubRepositoryFullName: "Grace/Renamed",
+          },
+        },
+      ],
     });
 
     const later = now + REPOSITORY_SUMMARY_REFRESH_INTERVAL_MS + 1;
@@ -472,10 +562,12 @@ describe("repository summary state machine", () => {
     await fixture.t.mutation(internal.repositorySummary.completeRepositorySummaryBatch, {
       userId: fixture.userId,
       batchId: second.batchId,
+      observedAt: later,
       results: [
         {
           state: "ready",
           vaultId: connected.vaultId,
+          repositoryNodeId: connected.connection.ghRepoNodeId,
           repositoryFullName: "Grace/Renamed",
           defaultBranch: {
             state: "ready",
@@ -491,7 +583,7 @@ describe("repository summary state machine", () => {
     await expect(readSummary(fixture.t, connected.vaultId)).resolves.toMatchObject({
       publication: {
         state: "complete",
-        publishedAt: now,
+        publishedAt: firstPublishedAt,
         checkedAt: later,
       },
     });
@@ -505,10 +597,12 @@ describe("repository summary state machine", () => {
     await fixture.t.mutation(internal.repositorySummary.completeRepositorySummaryBatch, {
       userId: fixture.userId,
       batchId: initial.batchId,
+      observedAt: now,
       results: [
         {
           state: "ready",
           vaultId: missing.vaultId,
+          repositoryNodeId: missing.connection.ghRepoNodeId,
           repositoryFullName: "Ada/missing",
           defaultBranch: {
             state: "ready",
@@ -521,6 +615,7 @@ describe("repository summary state machine", () => {
         {
           state: "ready",
           vaultId: healthy.vaultId,
+          repositoryNodeId: healthy.connection.ghRepoNodeId,
           repositoryFullName: "Ada/healthy",
           defaultBranch: {
             state: "ready",
@@ -543,6 +638,7 @@ describe("repository summary state machine", () => {
     await fixture.t.mutation(internal.repositorySummary.completeRepositorySummaryBatch, {
       userId: fixture.userId,
       batchId: refresh.batchId,
+      observedAt: later,
       results: [
         {
           state: "unavailable",
@@ -551,6 +647,7 @@ describe("repository summary state machine", () => {
         {
           state: "ready",
           vaultId: healthy.vaultId,
+          repositoryNodeId: healthy.connection.ghRepoNodeId,
           repositoryFullName: "Ada/healthy",
           defaultBranch: {
             state: "ready",
@@ -624,10 +721,12 @@ describe("repository summary state machine", () => {
     await fixture.t.mutation(internal.repositorySummary.completeRepositorySummaryBatch, {
       userId: fixture.userId,
       batchId: original.batchId,
+      observedAt: now,
       results: [
         {
           state: "ready",
           vaultId: connected.vaultId,
+          repositoryNodeId: connected.connection.ghRepoNodeId,
           repositoryFullName: "Ada/deferred",
           defaultBranch: {
             state: "ready",

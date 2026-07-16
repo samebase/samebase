@@ -272,7 +272,7 @@ describe("GitHub GraphQL account rate budget", () => {
     });
   });
 
-  it("uses each request's own estimated cost", async () => {
+  it("uses each request's own estimated cost and retains uncertain reservations", async () => {
     const { ids, t } = await createRateBudgetTest();
     const resetAt = now + 60 * 60_000;
     await t.run(async (ctx) => {
@@ -305,6 +305,8 @@ describe("GitHub GraphQL account rate budget", () => {
       durationMs: 1_000,
       outcome: { kind: "failed" },
     });
+    expect(await readBudget(t)).toMatchObject({ remaining: 880 });
+    expect((await readBudget(t))?.lease).toBeUndefined();
     await expect(
       claim(t, {
         githubAccountId: ids.githubAccountId,
@@ -315,7 +317,7 @@ describe("GitHub GraphQL account rate budget", () => {
       }),
     ).resolves.toEqual({ kind: "ready" });
     expect(await readBudget(t)).toMatchObject({
-      remaining: 700,
+      remaining: 580,
       lease: { leaseId: "lease-large", reservedPoints: 300 },
     });
   });
@@ -363,7 +365,7 @@ describe("GitHub GraphQL account rate budget", () => {
       retryAt: resetAt,
     });
     expect(await readBudget(t)).toMatchObject({
-      remaining: 300,
+      remaining: 250,
       block: { kind: "primary", until: resetAt },
     });
   });

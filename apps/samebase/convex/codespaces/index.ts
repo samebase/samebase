@@ -80,7 +80,7 @@ export const createCodespace = action({
     const connectedVault = assertConnectedVault(vault);
     console.log("codespaces:createCodespace:vault", {
       vaultId: connectedVault._id,
-      repo: `${connectedVault.owner}/${connectedVault.name}`,
+      repo: `${connectedVault.githubOwner}/${connectedVault.githubName}`,
       ghRepoId: connectedVault.ghRepoId,
     });
 
@@ -103,8 +103,8 @@ export const createCodespace = action({
 
     const displayName = buildCodespaceDisplayName(
       inferCodespaceDisplayEnvLabel(),
-      connectedVault.owner,
-      connectedVault.name,
+      connectedVault.githubOwner,
+      connectedVault.githubName,
     );
 
     // Create Codespace via GitHub API

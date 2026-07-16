@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import { VAULT_TREE_REFRESH_FAILURE_MESSAGE_MAX_LENGTH } from "./model";
 
 async function seedVault(): Promise<{
   t: ReturnType<typeof makeConvexTest>;
@@ -172,5 +173,20 @@ describe("vault branch trees", () => {
       treeRefreshFailureMessage: "current failure",
       treeRefreshCooldownUntil: 500,
     });
+  });
+
+  it("bounds persisted provider failure text on the vault directory row", async () => {
+    const { t, vaultId } = await seedVault();
+    const failureMessage = "x".repeat(VAULT_TREE_REFRESH_FAILURE_MESSAGE_MAX_LENGTH + 1);
+
+    await t.mutation(internal.vault.branches.recordTreeRefreshFailure, {
+      vaultId,
+      failureMessage,
+    });
+
+    const vault = await t.run(async (ctx) => await ctx.db.get(vaultId));
+    expect(vault?.treeRefreshFailureMessage).toHaveLength(
+      VAULT_TREE_REFRESH_FAILURE_MESSAGE_MAX_LENGTH,
+    );
   });
 });

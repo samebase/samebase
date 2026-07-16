@@ -78,16 +78,11 @@ export type RepositoryInventoryPullRequestComparison = Infer<
   typeof vRepositoryInventoryPullRequestComparison
 >;
 
-export const vRepositoryInventoryFilters = object({
-  hiddenLabels: array(string()),
+export const vRepositoryInventoryFilterState = object({
   includeDrafts: boolean(),
   includeNoLabel: boolean(),
-});
-export type RepositoryInventoryFilters = Infer<typeof vRepositoryInventoryFilters>;
-
-export const vRepositoryInventoryFilterState = object({
-  ...vRepositoryInventoryFilters.fields,
   revision: number(),
+  excludedLabelCount: number(),
 });
 export type RepositoryInventoryFilterState = Infer<typeof vRepositoryInventoryFilterState>;
 
@@ -95,38 +90,58 @@ export const vStoredRepositoryInventoryFilter = object({
   userId: id("users"),
   vaultId: id("vaults"),
   ...vRepositoryInventoryFilterState.fields,
+  excludedLabelGeneration: number(),
 });
 
-export const DEFAULT_REPOSITORY_INVENTORY_FILTERS: RepositoryInventoryFilters = {
-  hiddenLabels: [],
+export const vRepositoryInventoryExcludedLabel = object({
+  vaultId: id("vaults"),
+  filterId: id("vaultRepositoryInventoryFilters"),
+  generation: number(),
+  labelKey: string(),
+  name: string(),
+});
+
+const vRepositoryInventoryPublicExcludedLabel = object({
+  labelKey: string(),
+  name: string(),
+});
+const vRepositoryInventoryPublicExcludedLabelPage = paginationResultValidator(
+  vRepositoryInventoryPublicExcludedLabel,
+);
+export const vRepositoryInventoryExcludedLabelPageResult = union(
+  vNull(),
+  object({
+    filterRevision: number(),
+    expectedExcludedLabelCount: number(),
+    page: vRepositoryInventoryPublicExcludedLabelPage.fields.page,
+    isDone: boolean(),
+    continueCursor: string(),
+  }),
+);
+
+export const vRepositoryInventoryFilterChange = union(
+  object({
+    kind: literal("set_include_drafts"),
+    included: boolean(),
+  }),
+  object({
+    kind: literal("set_include_no_label"),
+    included: boolean(),
+  }),
+  object({
+    kind: literal("set_label_included"),
+    name: string(),
+    included: boolean(),
+  }),
+  object({ kind: literal("reset") }),
+);
+
+export const DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE: RepositoryInventoryFilterState = {
   includeDrafts: false,
   includeNoLabel: true,
+  revision: 0,
+  excludedLabelCount: 0,
 };
-
-export function repositoryInventoryFilterLabelKey(name: string): string {
-  return name.trim().toLowerCase();
-}
-
-export function normalizeRepositoryInventoryFilters(
-  filters: RepositoryInventoryFilters,
-): RepositoryInventoryFilters {
-  const hiddenLabels = new Map<string, string>();
-  for (const name of filters.hiddenLabels) {
-    const trimmedName = name.trim();
-    const key = repositoryInventoryFilterLabelKey(trimmedName);
-    if (key.length > 0 && !hiddenLabels.has(key)) {
-      hiddenLabels.set(key, trimmedName);
-    }
-  }
-  return {
-    hiddenLabels: Array.from(hiddenLabels.values()).sort(
-      (left, right) =>
-        left.localeCompare(right, undefined, { sensitivity: "base" }) || left.localeCompare(right),
-    ),
-    includeDrafts: filters.includeDrafts,
-    includeNoLabel: filters.includeNoLabel,
-  };
-}
 
 const repositoryInventoryPublicItemFields = {
   rowKey: string(),
@@ -263,7 +278,6 @@ export const vStoredRepositoryInventoryPullRequestItem = object({
   ...repositoryInventoryStoredFields,
   localHeadRefName: optional(string()),
   labelChunkCount: number(),
-  filterLabelKeys: array(string()),
 });
 export type StoredRepositoryInventoryPullRequestItem = Infer<
   typeof vStoredRepositoryInventoryPullRequestItem
@@ -313,11 +327,31 @@ const repositoryInventoryFilterViewFields = {
   visiblePullRequestCount: number(),
 };
 
+const vRepositoryInventoryFilterLabelCandidate = object({
+  pullRequestItemId: id("vaultRepositoryInventoryItems"),
+  rowKey: string(),
+  sortTime: number(),
+  nextLabelChunkIndex: number(),
+  processedLabelCount: number(),
+});
+export type RepositoryInventoryFilterLabelCandidate = Infer<
+  typeof vRepositoryInventoryFilterLabelCandidate
+>;
+
 export const vRepositoryInventoryFilterView = union(
   object({
     state: literal("building"),
     ...repositoryInventoryFilterViewFields,
     cursor: union(string(), vNull()),
+    labelBatch: union(
+      object({ state: literal("none") }),
+      object({
+        state: literal("pending"),
+        continueCursor: string(),
+        isDone: boolean(),
+        candidates: array(vRepositoryInventoryFilterLabelCandidate),
+      }),
+    ),
   }),
   object({
     state: literal("complete"),
@@ -392,6 +426,8 @@ export const vRepositoryInventoryScheduledWait = union(
 );
 export type RepositoryInventoryScheduledWait = Infer<typeof vRepositoryInventoryScheduledWait>;
 
+export const REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH = 4_000;
+
 export const vRepositoryInventoryLifecycle = union(
   object({
     state: literal("idle"),
@@ -423,6 +459,7 @@ export const vRepositoryInventoryLifecycle = union(
   }),
   object({
     state: literal("failed"),
+    required: boolean(),
     failedAt: number(),
     message: string(),
   }),
@@ -447,10 +484,14 @@ export const vRepositoryInventoryState = object({
   vaultId: id("vaults"),
   wantedUntil: number(),
   writeVersion: number(),
+  observedWriteVersion: number(),
+  requiredFailureCount: number(),
   lifecycle: vRepositoryInventoryLifecycle,
   publication: optional(vRepositoryInventoryPublication),
   lastStartedAt: optional(number()),
   estimatedCrawlCost: optional(number()),
+  lastCrawlRequestCount: optional(number()),
+  lastCrawlDurationMs: optional(number()),
 });
 
 const repositoryInventorySnapshotFields = {
@@ -471,6 +512,7 @@ export const vRepositoryInventorySnapshot = union(
   object({
     state: literal("ready"),
     ...repositoryInventorySnapshotFields,
+    observedAt: number(),
     repositoryNodeId: string(),
     repositoryFullName: string(),
     defaultBranch: union(string(), vNull()),
@@ -558,6 +600,7 @@ export const vRepositoryInventoryBranchContext = union(
 export type RepositoryInventoryBranchContext = Infer<typeof vRepositoryInventoryBranchContext>;
 
 export const vRepositoryInventoryRefreshRequestResult = union(
+  object({ kind: literal("satisfied") }),
   object({ kind: literal("scheduled") }),
   object({ kind: literal("running") }),
   object({
@@ -572,6 +615,7 @@ export type RepositoryInventoryRefreshRequestResult = Infer<
 export const REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE = 100;
 export const REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE = 25;
+export const REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS = 60_000;
 const REPOSITORY_INVENTORY_ORDINARY_POINTS_PER_MINUTE = 12;
 export const REPOSITORY_INVENTORY_DEMAND_TTL_MS = 135_000;

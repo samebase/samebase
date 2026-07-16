@@ -21,10 +21,13 @@ import {
   type RepositoryInventoryCheckSummary,
 } from "./repositoryInventoryModel";
 import { toErrorMessage } from "./jsonUtils";
-import type { GitHubGraphqlRateUsage } from "./githubGraphqlRateBudget";
+import {
+  githubGraphqlRateSafetyFloor,
+  type GitHubGraphqlRateUsage,
+} from "./githubGraphqlRateBudget";
+import { parseRepositoryFullName } from "../shared/repoName";
 
 const GITHUB_GRAPHQL_URL = "https://api.github.com/graphql";
-const GITHUB_REPOSITORY_BY_DATABASE_ID_URL = "https://api.github.com/repositories";
 const GITHUB_GRAPHQL_PAGE_SIZE = 50;
 const GITHUB_GRAPHQL_RETRY_PAGE_SIZE = 25;
 const GITHUB_GRAPHQL_MAX_PAGES = 1_000;
@@ -73,10 +76,13 @@ const checkContextSchema = z.discriminatedUnion("__typename", [
   statusContextSchema,
 ]);
 
-const checkContextsSchema = z.object({
+const checkCountsSchema = z.object({
   totalCount: z.number().int().nonnegative(),
   checkRunCount: z.number().int().nonnegative(),
   statusContextCount: z.number().int().nonnegative(),
+});
+
+const checkContextsSchema = checkCountsSchema.extend({
   pageInfo: pageInfoSchema,
   nodes: z.array(checkContextSchema),
 });
@@ -235,19 +241,36 @@ const pullRequestComparisonBatchSchema = z.object({
     .nullable(),
 });
 
+const providerCommitSignatureSchema = z.object({
+  oid: z.string(),
+  statusCheckRollup: z
+    .object({
+      state: z.enum(GITHUB_STATUS_CHECK_ROLLUP_STATES),
+      contexts: checkCountsSchema,
+    })
+    .nullable(),
+});
+type ProviderCommitSignature = z.infer<typeof providerCommitSignatureSchema>;
+
 const branchSignaturePageSchema = z.object({
   repository: z
     .object({
       id: z.string(),
       databaseId: z.number().int().positive(),
       nameWithOwner: z.string(),
-      defaultBranchRef: z.object({ name: z.string() }).nullable(),
+      defaultBranchRef: z
+        .object({
+          name: z.string(),
+          target: z.object({ oid: z.string() }),
+        })
+        .nullable(),
       refs: z.object({
         totalCount: z.number().int().nonnegative(),
         pageInfo: pageInfoSchema,
         nodes: z.array(
           z.object({
             name: z.string(),
+            target: providerCommitSignatureSchema,
           }),
         ),
       }),
@@ -264,7 +287,20 @@ const pullRequestSignaturePageSchema = z.object({
       pullRequests: z.object({
         totalCount: z.number().int().nonnegative(),
         pageInfo: pageInfoSchema,
-        nodes: z.array(z.object({ id: z.string() })),
+        nodes: z.array(
+          z.object({
+            id: z.string(),
+            updatedAt: z.string(),
+            headRefOid: z.string(),
+            commits: z.object({
+              nodes: z.array(
+                z.object({
+                  commit: providerCommitSignatureSchema,
+                }),
+              ),
+            }),
+          }),
+        ),
       }),
     })
     .nullable(),
@@ -308,11 +344,67 @@ const graphqlRateLimitSchema = z.object({
   resetAt: z.string(),
 });
 
-const repositoryIdentitySchema = z.object({
-  id: z.number().int().nonnegative(),
-  node_id: z.string(),
-  full_name: z.string(),
+const resolvedRepositorySchema = z.object({
+  __typename: z.literal("Repository"),
+  id: z.string(),
+  databaseId: z.number().int().positive(),
+  name: z.string(),
+  nameWithOwner: z.string(),
+  owner: z.object({
+    login: z.string(),
+    databaseId: z.number().int().positive(),
+  }),
 });
+
+const resolvedRepositoryIdentitySchema = z.object({
+  repository: resolvedRepositorySchema.nullable(),
+});
+
+const renamedRepositoryIdentitySchema = z.object({
+  updateRepository: z.object({
+    repository: resolvedRepositorySchema.nullable(),
+  }),
+});
+
+const RESOLVE_REPOSITORY_IDENTITY_QUERY = `
+  query ResolveRepositoryIdentity($repositoryId: ID!) {
+    repository: node(id: $repositoryId) {
+      __typename
+      ... on Repository {
+        id
+        databaseId
+        name
+        nameWithOwner
+        owner {
+          login
+          ... on Organization { databaseId }
+          ... on User { databaseId }
+        }
+      }
+    }
+    rateLimit { cost limit remaining resetAt }
+  }
+`;
+
+const RENAME_REPOSITORY_FOR_DELETION_MUTATION = `
+  mutation RenameRepositoryForDeletion($repositoryId: ID!, $name: String!) {
+    updateRepository(input: { repositoryId: $repositoryId, name: $name }) {
+      repository {
+        __typename
+        id
+        databaseId
+        name
+        nameWithOwner
+        owner {
+          login
+          ... on Organization { databaseId }
+          ... on User { databaseId }
+        }
+      }
+    }
+    rateLimit { cost limit remaining resetAt }
+  }
+`;
 
 const REPOSITORY_BRANCH_PAGE_QUERY = `
   query RepositoryInventoryBranchPage(
@@ -551,7 +643,10 @@ const REPOSITORY_BRANCH_SIGNATURE_PAGE_QUERY = `
         id
         databaseId
         nameWithOwner
-        defaultBranchRef { name }
+        defaultBranchRef {
+          name
+          target { ... on Commit { oid } }
+        }
         refs(
           refPrefix: "refs/heads/"
           first: 100
@@ -560,7 +655,22 @@ const REPOSITORY_BRANCH_SIGNATURE_PAGE_QUERY = `
         ) {
           totalCount
           pageInfo { hasNextPage endCursor }
-          nodes { name }
+          nodes {
+            name
+            target {
+              ... on Commit {
+                oid
+                statusCheckRollup {
+                  state
+                  contexts(first: 1) {
+                    totalCount
+                    checkRunCount
+                    statusContextCount
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -583,7 +693,26 @@ const REPOSITORY_PULL_REQUEST_SIGNATURE_PAGE_QUERY = `
         ) {
           totalCount
           pageInfo { hasNextPage endCursor }
-          nodes { id }
+          nodes {
+            id
+            updatedAt
+            headRefOid
+            commits(last: 1) {
+              nodes {
+                commit {
+                  oid
+                  statusCheckRollup {
+                    state
+                    contexts(first: 1) {
+                      totalCount
+                      checkRunCount
+                      statusContextCount
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -680,6 +809,7 @@ export type GitHubGraphqlClient = {
   request: RepositoryInventoryGraphqlRequest;
   requestPartial: RepositoryInventoryGraphqlPartialRequest;
   getUsage: () => GitHubGraphqlRateUsage | undefined;
+  getRequestCount: () => number;
 };
 
 export type CollectedRepositoryInventory = {
@@ -790,60 +920,99 @@ export class GitHubGraphqlRateLimitError extends Error {
   }
 }
 
-export async function resolveGitHubRepositoryNodeId(args: {
-  credential: string;
-  repositoryDatabaseId: string;
-  fetchImpl?: typeof fetch;
-}): Promise<string> {
-  const fetchImpl = args.fetchImpl ?? fetch;
-  let response: Response;
-  let rawPayload: unknown;
-  try {
-    ({ response, rawPayload } = await fetchGitHubJson(
-      fetchImpl,
-      `${GITHUB_REPOSITORY_BY_DATABASE_ID_URL}/${encodeURIComponent(args.repositoryDatabaseId)}`,
-      {
-        headers: {
-          Accept: "application/vnd.github+json",
-          Authorization: `Bearer ${args.credential}`,
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      },
-    ));
-  } catch (error) {
-    throw new GitHubGraphqlRequestError(
-      `GitHub repository identity request failed: ${toErrorMessage(error)}`,
-      true,
-    );
-  }
+export type ResolvedGitHubRepositoryIdentity = {
+  databaseId: string;
+  nodeId: string;
+  ownerDatabaseId: string;
+  owner: string;
+  name: string;
+  fullName: string;
+};
 
-  const topLevelMessage = z.object({ message: z.string() }).safeParse(rawPayload);
-  if (
-    isRateLimitFailure({
-      response,
-      errors: [],
-      topLevelMessage: topLevelMessage.success ? topLevelMessage.data.message : undefined,
-    })
-  ) {
-    const remaining = headerInteger(response.headers, "x-ratelimit-remaining");
-    throw new GitHubGraphqlRateLimitError(
-      `GitHub paused repository identity requests (${response.status}).`,
-      remaining === 0 ? "primary" : "secondary",
-      rateLimitRetryAt({ response, usage: undefined, now: Date.now() }),
-      undefined,
-    );
-  }
-  const identity = repositoryIdentitySchema.safeParse(rawPayload);
-  if (!response.ok || !identity.success) {
+function requireResolvedGitHubRepositoryIdentity(args: {
+  identity: z.infer<typeof resolvedRepositorySchema> | null;
+  repositoryNodeId: string;
+  expectedRepositoryDatabaseId: string;
+}): ResolvedGitHubRepositoryIdentity {
+  const { identity } = args;
+  if (identity === null) {
     throw new GitHubGraphqlRequestError(
-      `GitHub repository identity request failed (${response.status}).`,
-      response.status >= 500,
+      "GitHub repository identity is unavailable to the current connection.",
+      false,
     );
   }
-  if (String(identity.data.id) !== args.repositoryDatabaseId) {
+  if (
+    identity.id !== args.repositoryNodeId ||
+    String(identity.databaseId) !== args.expectedRepositoryDatabaseId
+  ) {
     throw new GitHubGraphqlRequestError("GitHub returned another repository.", false);
   }
-  return identity.data.node_id;
+  const { owner, name } = parseRepositoryFullName(identity.nameWithOwner);
+  if (owner.toLowerCase() !== identity.owner.login.toLowerCase() || name !== identity.name) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub returned inconsistent repository coordinates.",
+      false,
+    );
+  }
+  return {
+    databaseId: String(identity.databaseId),
+    nodeId: identity.id,
+    ownerDatabaseId: String(identity.owner.databaseId),
+    owner,
+    name,
+    fullName: identity.nameWithOwner,
+  };
+}
+
+export async function resolveGitHubRepositoryIdentity(args: {
+  credential: string;
+  repositoryNodeId: string;
+  expectedRepositoryDatabaseId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<ResolvedGitHubRepositoryIdentity> {
+  const response = resolvedRepositoryIdentitySchema.parse(
+    await createGitHubGraphqlClient({
+      credential: args.credential,
+      fetchImpl: args.fetchImpl,
+    }).request(RESOLVE_REPOSITORY_IDENTITY_QUERY, {
+      repositoryId: args.repositoryNodeId,
+    }),
+  );
+  return requireResolvedGitHubRepositoryIdentity({
+    identity: response.repository,
+    repositoryNodeId: args.repositoryNodeId,
+    expectedRepositoryDatabaseId: args.expectedRepositoryDatabaseId,
+  });
+}
+
+export async function renameGitHubRepositoryForDeletion(args: {
+  credential: string;
+  repositoryNodeId: string;
+  expectedRepositoryDatabaseId: string;
+  deletionRepositoryName: string;
+  fetchImpl?: typeof fetch;
+}): Promise<ResolvedGitHubRepositoryIdentity> {
+  const response = renamedRepositoryIdentitySchema.parse(
+    await createGitHubGraphqlClient({
+      credential: args.credential,
+      fetchImpl: args.fetchImpl,
+    }).request(RENAME_REPOSITORY_FOR_DELETION_MUTATION, {
+      repositoryId: args.repositoryNodeId,
+      name: args.deletionRepositoryName,
+    }),
+  );
+  const identity = requireResolvedGitHubRepositoryIdentity({
+    identity: response.updateRepository.repository,
+    repositoryNodeId: args.repositoryNodeId,
+    expectedRepositoryDatabaseId: args.expectedRepositoryDatabaseId,
+  });
+  if (identity.name !== args.deletionRepositoryName) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub did not apply the repository deletion tombstone.",
+      false,
+    );
+  }
+  return identity;
 }
 
 function requireRepository<T>(repository: T | null): T {
@@ -869,7 +1038,7 @@ function requireNextCursor(pageInfo: z.infer<typeof pageInfoSchema>): string | n
   if (!pageInfo.hasNextPage) {
     return null;
   }
-  if (pageInfo.endCursor === null) {
+  if (pageInfo.endCursor === null || pageInfo.endCursor.length === 0) {
     throw new GitHubGraphqlRequestError(
       "GitHub pagination reported another page without a cursor.",
       true,
@@ -983,7 +1152,7 @@ async function readCompleteCheckContexts(args: {
 
   const seenCursors = new Set<string>();
   let cursor = requireNextCursor(args.initial.pageInfo);
-  let page = 1;
+  let page = 2;
   while (cursor !== null) {
     assertPageLimit(page);
     assertNewCursor(seenCursors, cursor);
@@ -1065,6 +1234,70 @@ async function collectCommit(args: {
   };
 }
 
+function providerCommitSignature(value: ProviderCommitSignature): ProviderCommitSignature {
+  const rollup = value.statusCheckRollup;
+  if (rollup === null) {
+    return { oid: value.oid, statusCheckRollup: null };
+  }
+  if (
+    rollup.contexts.totalCount !==
+    rollup.contexts.checkRunCount + rollup.contexts.statusContextCount
+  ) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub returned inconsistent aggregate check counts.",
+      true,
+    );
+  }
+  return {
+    oid: value.oid,
+    statusCheckRollup: {
+      state: rollup.state,
+      contexts: {
+        totalCount: rollup.contexts.totalCount,
+        checkRunCount: rollup.contexts.checkRunCount,
+        statusContextCount: rollup.contexts.statusContextCount,
+      },
+    },
+  };
+}
+
+function sameProviderCommitSignature(
+  left: ProviderCommitSignature,
+  right: ProviderCommitSignature,
+): boolean {
+  if (left.oid !== right.oid) {
+    return false;
+  }
+  const leftRollup = left.statusCheckRollup;
+  const rightRollup = right.statusCheckRollup;
+  if (leftRollup === null || rightRollup === null) {
+    return leftRollup === rightRollup;
+  }
+  return (
+    leftRollup.state === rightRollup.state &&
+    leftRollup.contexts.totalCount === rightRollup.contexts.totalCount &&
+    leftRollup.contexts.checkRunCount === rightRollup.contexts.checkRunCount &&
+    leftRollup.contexts.statusContextCount === rightRollup.contexts.statusContextCount
+  );
+}
+
+type PullRequestProviderSignature = {
+  updatedAt: string;
+  headRefOid: string;
+  latestCommit: ProviderCommitSignature;
+};
+
+function samePullRequestProviderSignature(
+  left: PullRequestProviderSignature,
+  right: PullRequestProviderSignature,
+): boolean {
+  return (
+    left.updatedAt === right.updatedAt &&
+    left.headRefOid === right.headRefOid &&
+    sameProviderCommitSignature(left.latestCommit, right.latestCommit)
+  );
+}
+
 async function readCompleteLabels(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
   pullRequestNodeId: string;
@@ -1083,7 +1316,7 @@ async function readCompleteLabels(args: {
 
   const seenCursors = new Set<string>();
   let cursor = requireNextCursor(args.initial.pageInfo);
-  let page = 1;
+  let page = 2;
   while (cursor !== null) {
     assertPageLimit(page);
     assertNewCursor(seenCursors, cursor);
@@ -1142,11 +1375,14 @@ async function collectBranches(args: {
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
+  defaultBranchHeadSha: string | null;
   defaultBranchCheckState: RepositorySummaryCheckState | null;
+  providerSignatures: ReadonlyMap<string, ProviderCommitSignature>;
   items: CollectedRepositoryInventoryItem[];
 }> {
   const seenCursors = new Set<string>();
   const seenBranchNames = new Set<string>();
+  const providerSignatures = new Map<string, ProviderCommitSignature>();
   const items: CollectedRepositoryInventoryItem[] = [];
   let repositoryId: string | null = args.repositoryNodeId;
   let repositoryDatabaseId: string | null = null;
@@ -1218,6 +1454,7 @@ async function collectBranches(args: {
         throw new GitHubGraphqlRequestError("GitHub returned a duplicate branch.", true);
       }
       seenBranchNames.add(branchKey);
+      providerSignatures.set(branchKey, providerCommitSignature(ref.target));
       const rowKey = repositoryInventoryBranchRowKey(ref.name);
       const collectedCommit = await collectCommit({
         requestGraphql: args.requestGraphql,
@@ -1286,13 +1523,21 @@ async function collectBranches(args: {
   if (defaultBranch !== null && defaultBranchCheckState === null) {
     throw new GitHubGraphqlRequestError("GitHub omitted the default branch from its refs.", true);
   }
+  if (defaultBranch !== null && providerSignatures.get(defaultBranch)?.oid !== defaultBranchSha) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub returned inconsistent default branch targets.",
+      true,
+    );
+  }
 
   return {
     repositoryId,
     repositoryDatabaseId,
     repositoryFullName,
     defaultBranch,
+    defaultBranchHeadSha: defaultBranchSha,
     defaultBranchCheckState,
+    providerSignatures,
     items,
   };
 }
@@ -1471,9 +1716,13 @@ async function collectPullRequests(args: {
   repositoryDatabaseId: string;
   repositoryFullName: string;
   branchHeadShaByName: ReadonlyMap<string, string>;
-}): Promise<CollectedRepositoryInventoryItem[]> {
+}): Promise<{
+  items: CollectedRepositoryInventoryItem[];
+  providerSignatures: ReadonlyMap<string, PullRequestProviderSignature>;
+}> {
   const seenCursors = new Set<string>();
   const seenPullRequestIds = new Set<string>();
+  const providerSignatures = new Map<string, PullRequestProviderSignature>();
   const items: CollectedRepositoryInventoryItem[] = [];
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
@@ -1542,6 +1791,11 @@ async function collectPullRequests(args: {
         value: latestCommit,
       });
       const rowKey = repositoryInventoryPullRequestRowKey(pullRequest.id);
+      providerSignatures.set(rowKey, {
+        updatedAt: pullRequest.updatedAt,
+        headRefOid: pullRequest.headRefOid,
+        latestCommit: providerCommitSignature(latestCommit),
+      });
       const pullRequestLabels = await readCompleteLabels({
         requestGraphql: args.requestGraphql,
         pullRequestNodeId: pullRequest.id,
@@ -1618,37 +1872,47 @@ async function collectPullRequests(args: {
       true,
     );
   }
-  return items;
+  return { items, providerSignatures };
 }
 
-function assertSameIdentitySet(args: {
-  collected: ReadonlySet<string>;
-  verified: ReadonlySet<string>;
+function assertSameProviderSignatureMap<Signature extends object>(args: {
+  collected: ReadonlyMap<string, Signature>;
+  verified: ReadonlyMap<string, Signature>;
   expectedTotalCount: number | null;
   kind: "branch" | "pull request";
+  same: (left: Signature, right: Signature) => boolean;
 }): void {
   if (
     args.expectedTotalCount !== args.verified.size ||
-    args.verified.size !== args.collected.size ||
-    [...args.collected].some((identity) => !args.verified.has(identity))
+    args.verified.size !== args.collected.size
   ) {
     throw new GitHubGraphqlRequestError(
       `GitHub ${args.kind} inventory changed while it was being collected.`,
       true,
     );
   }
+  for (const [identity, collectedSignature] of args.collected) {
+    const verifiedSignature = args.verified.get(identity);
+    if (verifiedSignature === undefined || !args.same(collectedSignature, verifiedSignature)) {
+      throw new GitHubGraphqlRequestError(
+        `GitHub ${args.kind} inventory changed while it was being collected.`,
+        true,
+      );
+    }
+  }
 }
 
-async function verifyCollectedBranchNames(args: {
+async function verifyCollectedBranchSignatures(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
   repositoryId: string;
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
-  branchNames: ReadonlySet<string>;
+  defaultBranchHeadSha: string | null;
+  branchSignatures: ReadonlyMap<string, ProviderCommitSignature>;
 }): Promise<void> {
   const seenCursors = new Set<string>();
-  const verifiedBranchNames = new Set<string>();
+  const verifiedBranchSignatures = new Map<string, ProviderCommitSignature>();
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
@@ -1674,7 +1938,10 @@ async function verifyCollectedBranchNames(args: {
         true,
       );
     }
-    if ((repository.defaultBranchRef?.name ?? null) !== args.defaultBranch) {
+    if (
+      (repository.defaultBranchRef?.name ?? null) !== args.defaultBranch ||
+      (repository.defaultBranchRef?.target.oid ?? null) !== args.defaultBranchHeadSha
+    ) {
       throw new GitHubGraphqlRequestError(
         "GitHub default branch changed while the repository was being collected.",
         true,
@@ -1690,13 +1957,13 @@ async function verifyCollectedBranchNames(args: {
     }
 
     for (const ref of repository.refs.nodes) {
-      if (verifiedBranchNames.has(ref.name)) {
+      if (verifiedBranchSignatures.has(ref.name)) {
         throw new GitHubGraphqlRequestError(
           "GitHub returned a duplicate branch during verification.",
           true,
         );
       }
-      verifiedBranchNames.add(ref.name);
+      verifiedBranchSignatures.set(ref.name, providerCommitSignature(ref.target));
     }
 
     const nextCursor = requireNextCursor(repository.refs.pageInfo);
@@ -1707,23 +1974,24 @@ async function verifyCollectedBranchNames(args: {
     page += 1;
   } while (cursor !== null);
 
-  assertSameIdentitySet({
-    collected: args.branchNames,
-    verified: verifiedBranchNames,
+  assertSameProviderSignatureMap({
+    collected: args.branchSignatures,
+    verified: verifiedBranchSignatures,
     expectedTotalCount,
     kind: "branch",
+    same: sameProviderCommitSignature,
   });
 }
 
-async function verifyCollectedPullRequestIds(args: {
+async function verifyCollectedPullRequestSignatures(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
   repositoryId: string;
   repositoryDatabaseId: string;
   repositoryFullName: string;
-  pullRequestRowKeys: ReadonlySet<string>;
+  pullRequestSignatures: ReadonlyMap<string, PullRequestProviderSignature>;
 }): Promise<void> {
   const seenCursors = new Set<string>();
-  const verifiedPullRequestRowKeys = new Set<string>();
+  const verifiedPullRequestSignatures = new Map<string, PullRequestProviderSignature>();
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
@@ -1759,13 +2027,30 @@ async function verifyCollectedPullRequestIds(args: {
     }
     for (const pullRequest of repository.pullRequests.nodes) {
       const rowKey = repositoryInventoryPullRequestRowKey(pullRequest.id);
-      if (verifiedPullRequestRowKeys.has(rowKey)) {
+      if (verifiedPullRequestSignatures.has(rowKey)) {
         throw new GitHubGraphqlRequestError(
           "GitHub returned a duplicate pull request during verification.",
           true,
         );
       }
-      verifiedPullRequestRowKeys.add(rowKey);
+      if (pullRequest.commits.nodes.length !== 1) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub pull request did not have one latest commit during verification.",
+          true,
+        );
+      }
+      const latestCommit = pullRequest.commits.nodes[0].commit;
+      if (latestCommit.oid !== pullRequest.headRefOid) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub pull request head changed during verification.",
+          true,
+        );
+      }
+      verifiedPullRequestSignatures.set(rowKey, {
+        updatedAt: pullRequest.updatedAt,
+        headRefOid: pullRequest.headRefOid,
+        latestCommit: providerCommitSignature(latestCommit),
+      });
     }
     const nextCursor = requireNextCursor(repository.pullRequests.pageInfo);
     if (nextCursor !== null) {
@@ -1775,11 +2060,12 @@ async function verifyCollectedPullRequestIds(args: {
     page += 1;
   } while (cursor !== null);
 
-  assertSameIdentitySet({
-    collected: args.pullRequestRowKeys,
-    verified: verifiedPullRequestRowKeys,
+  assertSameProviderSignatureMap({
+    collected: args.pullRequestSignatures,
+    verified: verifiedPullRequestSignatures,
     expectedTotalCount,
     kind: "pull request",
+    same: samePullRequestProviderSignature,
   });
 }
 
@@ -1822,30 +2108,31 @@ export async function collectRepositoryInventory(args: {
       return [item.name, item.headCommit.sha];
     }),
   );
-  const pullRequestItems = await collectPullRequests({
+  const pullRequests = await collectPullRequests({
     ...args,
     repositoryId: branches.repositoryId,
     repositoryDatabaseId: branches.repositoryDatabaseId,
     repositoryFullName: branches.repositoryFullName,
     branchHeadShaByName,
   });
-  await verifyCollectedBranchNames({
+  await verifyCollectedBranchSignatures({
     requestGraphql: args.requestGraphql,
     repositoryId: branches.repositoryId,
     repositoryDatabaseId: branches.repositoryDatabaseId,
     repositoryFullName: branches.repositoryFullName,
     defaultBranch: branches.defaultBranch,
-    branchNames: new Set(branchHeadShaByName.keys()),
+    defaultBranchHeadSha: branches.defaultBranchHeadSha,
+    branchSignatures: branches.providerSignatures,
   });
-  await verifyCollectedPullRequestIds({
+  await verifyCollectedPullRequestSignatures({
     requestGraphql: args.requestGraphql,
     repositoryId: branches.repositoryId,
     repositoryDatabaseId: branches.repositoryDatabaseId,
     repositoryFullName: branches.repositoryFullName,
-    pullRequestRowKeys: new Set(pullRequestItems.map((item) => item.rowKey)),
+    pullRequestSignatures: pullRequests.providerSignatures,
   });
 
-  const items = [...branches.items, ...pullRequestItems];
+  const items = [...branches.items, ...pullRequests.items];
 
   return {
     repositoryId: branches.repositoryId,
@@ -1862,7 +2149,7 @@ export async function collectRepositoryInventory(args: {
       items,
     }),
     branchCount: branches.items.length,
-    pullRequestCount: pullRequestItems.length,
+    pullRequestCount: pullRequests.items.length,
   };
 }
 
@@ -1890,26 +2177,68 @@ function retryAfterTimestamp(headers: Headers, now: number): number | undefined 
 
 function responseRateUsage(args: {
   data: unknown;
-  headers: Headers;
+  headerUsage: GitHubGraphqlRateUsage | undefined;
   accumulatedCost: number;
 }): GitHubGraphqlRateUsage | undefined {
   const parsed = z.object({ rateLimit: graphqlRateLimitSchema }).safeParse(args.data);
   if (!parsed.success) {
     return undefined;
   }
-  const resetAtFromHeader = headerInteger(args.headers, "x-ratelimit-reset");
   const resetAtFromGraphql = Date.parse(parsed.data.rateLimit.resetAt);
-  const resetAt = resetAtFromHeader === undefined ? resetAtFromGraphql : resetAtFromHeader * 1_000;
+  const resetAt = args.headerUsage?.resetAt ?? resetAtFromGraphql;
   if (Number.isNaN(resetAt)) {
     return undefined;
   }
   return {
     cost: args.accumulatedCost + parsed.data.rateLimit.cost,
-    limit: headerInteger(args.headers, "x-ratelimit-limit") ?? parsed.data.rateLimit.limit,
-    remaining:
-      headerInteger(args.headers, "x-ratelimit-remaining") ?? parsed.data.rateLimit.remaining,
+    limit: args.headerUsage?.limit ?? parsed.data.rateLimit.limit,
+    remaining: args.headerUsage?.remaining ?? parsed.data.rateLimit.remaining,
     resetAt,
   };
+}
+
+function responseHeaderRateUsage(args: {
+  headers: Headers;
+  accumulatedCost: number;
+}): GitHubGraphqlRateUsage | undefined {
+  const limit = headerInteger(args.headers, "x-ratelimit-limit");
+  const remaining = headerInteger(args.headers, "x-ratelimit-remaining");
+  const resetAtSeconds = headerInteger(args.headers, "x-ratelimit-reset");
+  const resetAt = resetAtSeconds === undefined ? undefined : resetAtSeconds * 1_000;
+  if (
+    limit === undefined ||
+    limit === 0 ||
+    remaining === undefined ||
+    remaining > limit ||
+    resetAtSeconds === 0 ||
+    resetAt === undefined ||
+    !Number.isSafeInteger(resetAt)
+  ) {
+    return undefined;
+  }
+  return {
+    cost: args.accumulatedCost,
+    limit,
+    remaining,
+    resetAt,
+  };
+}
+
+function responseHeadersPermitRetry(usage: GitHubGraphqlRateUsage | undefined): boolean {
+  return usage !== undefined && usage.remaining > githubGraphqlRateSafetyFloor(usage.limit);
+}
+
+function responseHeadersReachedSafetyFloor(usage: GitHubGraphqlRateUsage): boolean {
+  return usage.remaining <= githubGraphqlRateSafetyFloor(usage.limit);
+}
+
+function rateSafetyFloorError(usage: GitHubGraphqlRateUsage): GitHubGraphqlRateLimitError {
+  return new GitHubGraphqlRateLimitError(
+    "GitHub GraphQL remaining points reached the safety floor.",
+    "primary",
+    Math.max(Date.now() + 60_000, usage.resetAt + 1_000),
+    usage,
+  );
 }
 
 function isRateLimitFailure(args: {
@@ -1970,12 +2299,44 @@ function rateLimitRetryAt(args: {
 export function createGitHubGraphqlClient(args: {
   credential: string;
   fetchImpl?: typeof fetch;
+  limits?: {
+    deadlineAt: number;
+    maximumCost: number;
+    maximumRequestCount: number;
+  };
 }): GitHubGraphqlClient {
   const fetchImpl = args.fetchImpl ?? fetch;
   let usage: GitHubGraphqlRateUsage | undefined;
+  let requestCount = 0;
   const requestPartial: RepositoryInventoryGraphqlPartialRequest = async (query, variables) => {
+    if (args.limits !== undefined) {
+      if (Date.now() >= args.limits.deadlineAt) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub repository inventory exceeded its execution deadline.",
+          false,
+        );
+      }
+      if (requestCount >= args.limits.maximumRequestCount) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub repository inventory exceeded its request limit.",
+          false,
+        );
+      }
+      if (usage !== undefined && usage.cost >= args.limits.maximumCost) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub repository inventory reached its cost limit.",
+          false,
+        );
+      }
+    }
+    if (usage !== undefined && usage.remaining <= githubGraphqlRateSafetyFloor(usage.limit)) {
+      throw rateSafetyFloorError(usage);
+    }
+
+    const accumulatedCost = usage?.cost ?? 0;
     let response: Response;
     let rawPayload: unknown;
+    requestCount += 1;
     try {
       ({ response, rawPayload } = await fetchGitHubJson(fetchImpl, GITHUB_GRAPHQL_URL, {
         method: "POST",
@@ -1988,13 +2349,25 @@ export function createGitHubGraphqlClient(args: {
         body: JSON.stringify({ query, variables }),
       }));
     } catch (error) {
+      usage = undefined;
       throw new GitHubGraphqlRequestError(
         `GitHub GraphQL request failed: ${toErrorMessage(error)}`,
-        true,
+        false,
       );
     }
 
+    const headerUsage = responseHeaderRateUsage({
+      headers: response.headers,
+      accumulatedCost,
+    });
+    if (headerUsage !== undefined) {
+      usage = headerUsage;
+    }
+
     if (isRateLimitFailure({ response, errors: [] })) {
+      if (headerUsage === undefined) {
+        usage = undefined;
+      }
       const remaining =
         headerInteger(response.headers, "x-ratelimit-remaining") ?? usage?.remaining;
       throw new GitHubGraphqlRateLimitError(
@@ -2006,25 +2379,58 @@ export function createGitHubGraphqlClient(args: {
     }
 
     if (rawPayload === undefined) {
+      if (headerUsage === undefined) {
+        usage = undefined;
+      }
+      if (
+        response.status >= 500 &&
+        headerUsage !== undefined &&
+        responseHeadersReachedSafetyFloor(headerUsage)
+      ) {
+        throw rateSafetyFloorError(headerUsage);
+      }
       throw new GitHubGraphqlRequestError(
         `GitHub GraphQL returned an unreadable response (${response.status}).`,
-        response.status >= 500,
+        response.status >= 500 && responseHeadersPermitRetry(headerUsage),
       );
     }
     const envelope = graphqlEnvelopeSchema.safeParse(rawPayload);
     if (!envelope.success) {
+      if (headerUsage === undefined) {
+        usage = undefined;
+      }
+      if (
+        response.status >= 500 &&
+        headerUsage !== undefined &&
+        responseHeadersReachedSafetyFloor(headerUsage)
+      ) {
+        throw rateSafetyFloorError(headerUsage);
+      }
       throw new GitHubGraphqlRequestError(
         `GitHub GraphQL returned an invalid response (${response.status}).`,
-        response.status >= 500,
+        response.status >= 500 && responseHeadersPermitRetry(headerUsage),
       );
     }
     const observedUsage = responseRateUsage({
       data: envelope.data.data,
-      headers: response.headers,
-      accumulatedCost: usage?.cost ?? 0,
+      headerUsage,
+      accumulatedCost,
     });
-    if (observedUsage !== undefined) {
-      usage = observedUsage;
+    const currentRequestUsage = observedUsage ?? headerUsage;
+    usage = currentRequestUsage;
+    if (args.limits !== undefined) {
+      if (Date.now() >= args.limits.deadlineAt) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub repository inventory exceeded its execution deadline.",
+          false,
+        );
+      }
+      if (currentRequestUsage !== undefined && currentRequestUsage.cost > args.limits.maximumCost) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub repository inventory exceeded its cost limit.",
+          false,
+        );
+      }
     }
     const errors = envelope.data.errors ?? [];
     if (
@@ -2044,7 +2450,21 @@ export function createGitHubGraphqlClient(args: {
         usage,
       );
     }
-    if (!response.ok || envelope.data.message !== undefined || envelope.data.data === undefined) {
+    const retryableGraphqlFailure = errors.some(isRetryableGraphqlError);
+    const retryableFailure = response.status >= 500 || retryableGraphqlFailure;
+    if (
+      retryableFailure &&
+      headerUsage !== undefined &&
+      responseHeadersReachedSafetyFloor(headerUsage)
+    ) {
+      throw rateSafetyFloorError(headerUsage);
+    }
+    if (
+      !response.ok ||
+      envelope.data.message !== undefined ||
+      envelope.data.data === undefined ||
+      retryableGraphqlFailure
+    ) {
       const details = [
         ...errors.map((error) => error.message),
         ...(envelope.data.message ? [envelope.data.message] : []),
@@ -2052,7 +2472,7 @@ export function createGitHubGraphqlClient(args: {
       const detail = details.length > 0 ? `: ${details.join("; ")}` : "";
       throw new GitHubGraphqlRequestError(
         `GitHub GraphQL request failed (${response.status})${detail}`,
-        response.status >= 500 || errors.some(isRetryableGraphqlError),
+        retryableFailure && responseHeadersPermitRetry(headerUsage),
       );
     }
     if (observedUsage === undefined) {
@@ -2070,7 +2490,7 @@ export function createGitHubGraphqlClient(args: {
         `GitHub GraphQL request failed (200): ${response.errors
           .map((error) => error.message)
           .join("; ")}`,
-        response.errors.some(isRetryableGraphqlError),
+        false,
       );
     }
     return response.data;
@@ -2079,6 +2499,7 @@ export function createGitHubGraphqlClient(args: {
     request,
     requestPartial,
     getUsage: () => usage,
+    getRequestCount: () => requestCount,
   };
 }
 

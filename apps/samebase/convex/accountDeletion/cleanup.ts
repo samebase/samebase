@@ -66,6 +66,7 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   vaultRepositoryInventoryItems: "vault_local",
   vaultRepositoryInventoryLabelChunks: "vault_local",
   vaultRepositoryInventoryFilters: "vault_local",
+  vaultRepositoryInventoryExcludedLabels: "vault_local",
   vaultRepositoryInventoryFilterViews: "vault_local",
   vaultRepositoryInventoryFilterViewRows: "vault_local",
   vaultRepositoryInventoryLabelFacets: "vault_local",
@@ -359,6 +360,7 @@ function vaultCleanupPhase(
     case "vaultRepositoryInventoryItems":
     case "vaultRepositoryInventoryLabelChunks":
     case "vaultRepositoryInventoryFilters":
+    case "vaultRepositoryInventoryExcludedLabels":
     case "vaultRepositoryInventoryFilterViews":
     case "vaultRepositoryInventoryFilterViewRows":
     case "vaultRepositoryInventoryLabelFacets":

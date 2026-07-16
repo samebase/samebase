@@ -75,7 +75,7 @@ export const createForVault = internalMutation({
     return await ctx.db.insert("appProvisioningRuns", {
       userId: args.userId,
       vaultId: args.vaultId,
-      repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
+      repositoryFullName: `${connectedVault.routeOwner}/${connectedVault.routeName}`,
       trigger: args.trigger,
       state: "queued",
       currentStep: "run_created",

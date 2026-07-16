@@ -2,11 +2,11 @@
 
 ## Document Control
 
-- Status: Accepted implementation reference; Phase 1 and Phase 2 runtime behavior shipped in `v1257`
-  / `#733`
+- Status: Superseded by Spec 114
 - Owner: Samebase existing repository onboarding, vault source setup, and provisioning runs
 - Created: 2026-05-08
 - Last updated: 2026-05-09
+- Superseded by: `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`

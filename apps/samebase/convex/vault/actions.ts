@@ -715,7 +715,14 @@ export async function connectRepositoryForUser(
   args: { userId: Id<"users">; repositoryFullName: string },
 ): Promise<ConnectRepositoryResult> {
   const userId = args.userId;
-  const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
+  const repositoryCoordinates = (() => {
+    try {
+      return parseRepositoryFullName(args.repositoryFullName);
+    } catch {
+      throw new Error(GITHUB_REPOSITORY_UNREADABLE_MESSAGE);
+    }
+  })();
+  const { owner, name } = repositoryCoordinates;
   const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
     userId,
     kind: "github",

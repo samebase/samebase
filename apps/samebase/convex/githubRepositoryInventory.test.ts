@@ -11,6 +11,8 @@ type FixtureBranch = {
   name: string;
   sha: string;
   checkCount: number;
+  statusContextCount?: number;
+  rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
   aheadBy?: number;
   behindBy?: number;
   comparisonUnavailable?: boolean;
@@ -31,6 +33,8 @@ type FixturePullRequest = {
   changedFiles: number;
   labelCount: number;
   checkCount: number;
+  statusContextCount?: number;
+  rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
   updatedAt: string;
   baseRefName?: string;
   aheadBy?: number;
@@ -151,19 +155,43 @@ function makeCheckRun(commitNodeId: string, position: number) {
   };
 }
 
-function makeCheckPage(args: { commitNodeId: string; checkCount: number; start: number }) {
+function makeStatusContext(commitNodeId: string, position: number) {
+  return {
+    __typename: "StatusContext",
+    id: `${commitNodeId}-status-${position}`,
+    context: `Legacy CI ${position}`,
+    state: "SUCCESS",
+    description: null,
+    targetUrl: `https://example.com/status/${position}`,
+    updatedAt: "2026-07-15T10:01:00Z",
+  };
+}
+
+function makeCheckPage(args: {
+  commitNodeId: string;
+  checkCount: number;
+  statusContextCount: number;
+  start: number;
+}) {
+  if (args.statusContextCount > args.checkCount) {
+    throw new Error("Status context fixture count exceeds its total check count.");
+  }
   const end = Math.min(args.start + 100, args.checkCount);
+  const firstStatusContext = args.checkCount - args.statusContextCount;
   return {
     totalCount: args.checkCount,
-    checkRunCount: args.checkCount,
-    statusContextCount: 0,
+    checkRunCount: args.checkCount - args.statusContextCount,
+    statusContextCount: args.statusContextCount,
     pageInfo: pageInfo(
       end < args.checkCount,
       end < args.checkCount ? `check-${args.commitNodeId}:${end}` : null,
     ),
-    nodes: Array.from({ length: end - args.start }, (_, index) =>
-      makeCheckRun(args.commitNodeId, args.start + index),
-    ),
+    nodes: Array.from({ length: end - args.start }, (_, index) => {
+      const position = args.start + index;
+      return position < firstStatusContext
+        ? makeCheckRun(args.commitNodeId, position)
+        : makeStatusContext(args.commitNodeId, position);
+    }),
   };
 }
 
@@ -172,6 +200,8 @@ function makeCommit(args: {
   sha: string;
   repositoryId: string;
   checkCount: number;
+  statusContextCount?: number;
+  rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
 }) {
   return {
     id: args.nodeId,
@@ -184,10 +214,11 @@ function makeCommit(args: {
       args.checkCount === 0
         ? null
         : {
-            state: "SUCCESS",
+            state: args.rollupState ?? "SUCCESS",
             contexts: makeCheckPage({
               commitNodeId: args.nodeId,
               checkCount: args.checkCount,
+              statusContextCount: args.statusContextCount ?? 0,
               start: 0,
             }),
           },
@@ -230,6 +261,8 @@ function makeBranchNode(fixture: RepositoryFixture, branch: FixtureBranch) {
         sha: branch.sha,
         repositoryId: fixture.repositoryId,
         checkCount: branch.checkCount,
+        statusContextCount: branch.statusContextCount,
+        rollupState: branch.rollupState,
       }),
     },
     comparison: branch.comparisonUnavailable
@@ -243,12 +276,50 @@ function makeBranchNode(fixture: RepositoryFixture, branch: FixtureBranch) {
   };
 }
 
+function makeCheckRollupSignature(args: {
+  checkCount: number;
+  statusContextCount?: number;
+  rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
+}) {
+  const statusContextCount = args.statusContextCount ?? 0;
+  return args.checkCount === 0
+    ? null
+    : {
+        state: args.rollupState ?? "SUCCESS",
+        contexts: {
+          totalCount: args.checkCount,
+          checkRunCount: args.checkCount - statusContextCount,
+          statusContextCount,
+        },
+      };
+}
+
 function makeBranchSignatureNode(branch: FixtureBranch) {
-  return { name: branch.name };
+  return {
+    name: branch.name,
+    target: {
+      oid: branch.sha,
+      statusCheckRollup: makeCheckRollupSignature(branch),
+    },
+  };
 }
 
 function makePullRequestSignatureNode(pullRequest: FixturePullRequest) {
-  return { id: pullRequest.id };
+  return {
+    id: pullRequest.id,
+    updatedAt: pullRequest.updatedAt,
+    headRefOid: pullRequest.headRefOid,
+    commits: {
+      nodes: [
+        {
+          commit: {
+            oid: pullRequest.headRefOid,
+            statusCheckRollup: makeCheckRollupSignature(pullRequest),
+          },
+        },
+      ],
+    },
+  };
 }
 
 function makePullRequestNode(fixture: RepositoryFixture, pullRequest: FixturePullRequest) {
@@ -284,6 +355,8 @@ function makePullRequestNode(fixture: RepositoryFixture, pullRequest: FixturePul
             sha: pullRequest.headRefOid,
             repositoryId: pullRequest.headRepositoryId,
             checkCount: pullRequest.checkCount,
+            statusContextCount: pullRequest.statusContextCount,
+            rollupState: pullRequest.rollupState,
           }),
         },
       ],
@@ -298,6 +371,7 @@ function findCommit(fixture: RepositoryFixture, nodeId: string) {
       nodeId,
       sha: branch.sha,
       checkCount: branch.checkCount,
+      statusContextCount: branch.statusContextCount,
     };
   }
   const pullRequest = fixture.pullRequests.find((candidate) => `${candidate.id}-commit` === nodeId);
@@ -306,6 +380,7 @@ function findCommit(fixture: RepositoryFixture, nodeId: string) {
       nodeId,
       sha: pullRequest.headRefOid,
       checkCount: pullRequest.checkCount,
+      statusContextCount: pullRequest.statusContextCount,
     };
   }
   throw new Error(`Unknown commit node ${nodeId}.`);
@@ -324,9 +399,8 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
     requestedRepositoryIds: [],
   };
   const branchNodes = fixture.branches.map((branch) => makeBranchNode(fixture, branch));
-  const branchSignatureNodes = (fixture.verificationBranches ?? fixture.branches).map(
-    makeBranchSignatureNode,
-  );
+  const verificationBranches = fixture.verificationBranches ?? fixture.branches;
+  const branchSignatureNodes = verificationBranches.map(makeBranchSignatureNode);
   const pullRequestNodes = fixture.pullRequests.map((pullRequest) =>
     makePullRequestNode(fixture, pullRequest),
   );
@@ -338,6 +412,17 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
     if (query.includes("query RepositoryInventoryBranchSignaturePage(")) {
       if (!query.includes("orderBy: { field: ALPHABETICAL, direction: ASC }")) {
         throw new Error("Expected stable alphabetical branch verification.");
+      }
+      for (const field of [
+        "target { ... on Commit { oid } }",
+        "statusCheckRollup",
+        "contexts(first: 1)",
+        "checkRunCount",
+        "statusContextCount",
+      ]) {
+        if (!query.includes(field)) {
+          throw new Error(`Expected branch verification ${field}.`);
+        }
       }
       const start = readCursor(variables, "branch-signature");
       if (start === 0) {
@@ -354,7 +439,17 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
           id: fixture.repositoryId,
           databaseId: Number(fixture.repositoryDatabaseId),
           nameWithOwner: fixture.repositoryFullName,
-          defaultBranchRef: fixture.defaultBranch === null ? null : { name: fixture.defaultBranch },
+          defaultBranchRef:
+            fixture.defaultBranch === null
+              ? null
+              : {
+                  name: fixture.defaultBranch,
+                  target: {
+                    oid: verificationBranches.find(
+                      (branch) => branch.name === fixture.defaultBranch,
+                    )?.sha,
+                  },
+                },
           refs: {
             totalCount: branchSignatureNodes.length,
             ...page,
@@ -405,6 +500,19 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
     if (query.includes("query RepositoryInventoryPullRequestSignaturePage(")) {
       if (!query.includes("orderBy: { field: CREATED_AT, direction: ASC }")) {
         throw new Error("Expected stable pull request verification ordering.");
+      }
+      for (const field of [
+        "updatedAt",
+        "headRefOid",
+        "commits(last: 1)",
+        "statusCheckRollup",
+        "contexts(first: 1)",
+        "checkRunCount",
+        "statusContextCount",
+      ]) {
+        if (!query.includes(field)) {
+          throw new Error(`Expected pull request verification ${field}.`);
+        }
       }
       const start = readCursor(variables, "pull-request-signature");
       if (start === 0) {
@@ -561,6 +669,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
             contexts: makeCheckPage({
               commitNodeId: nodeId,
               checkCount: commit.checkCount,
+              statusContextCount: commit.statusContextCount ?? 0,
               start: readCursor(variables, `check-${nodeId}`),
             }),
           },
@@ -649,6 +758,7 @@ describe("GitHub repository inventory collection", () => {
           name: "main",
           sha: "main-sha",
           checkCount: 101,
+          statusContextCount: 1,
         },
         {
           id: "REF_feature",
@@ -731,7 +841,8 @@ describe("GitHub repository inventory collection", () => {
     expect(main.headCommit.checks).toMatchObject({
       state: "success",
       totalCount: 101,
-      checkRunCount: 101,
+      checkRunCount: 100,
+      statusContextCount: 1,
       successCount: 101,
     });
     const feature = result.items.find((item) => item.kind === "branch" && item.name === "feature");
@@ -1272,6 +1383,34 @@ describe("GitHub repository inventory collection", () => {
     ).rejects.toThrow("branch inventory changed");
   });
 
+  it("rejects a branch head change found by the final signature pass", async () => {
+    const feature: FixtureBranch = {
+      id: "REF_feature",
+      name: "feature",
+      sha: "feature-before-push",
+      checkCount: 0,
+    };
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [...makeBaseFixture().branches, feature],
+      verificationBranches: [
+        ...makeBaseFixture().branches,
+        { ...feature, sha: "feature-after-push" },
+      ],
+    };
+
+    const request = createRepositoryRequest(fixture);
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: "R_base",
+        expectedRepositoryDatabaseId: "42",
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("branch inventory changed");
+  });
+
   it("rejects equal-count open pull request churn found by the final identity pass", async () => {
     const collectedPullRequest: FixturePullRequest = {
       id: "PR_old",
@@ -1313,6 +1452,138 @@ describe("GitHub repository inventory collection", () => {
         requestGraphqlPartial: request.requestGraphqlPartial,
       }),
     ).rejects.toThrow("pull request inventory changed");
+  });
+
+  it("rejects pull request metadata changes found by the final signature pass", async () => {
+    const pullRequest: FixturePullRequest = {
+      id: "PR_one",
+      number: 1,
+      title: "Changes during collection",
+      headRefName: "main",
+      headRefOid: "main-sha",
+      headRepositoryId: "R_base",
+      headRepositoryFullName: "samebase/samebase",
+      isDraft: false,
+      isCrossRepository: false,
+      additions: 2,
+      deletions: 1,
+      changedFiles: 1,
+      labelCount: 0,
+      checkCount: 0,
+      updatedAt: "2026-07-15T10:02:00Z",
+    };
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      pullRequests: [pullRequest],
+      verificationPullRequests: [{ ...pullRequest, updatedAt: "2026-07-15T10:03:00Z" }],
+    };
+
+    const request = createRepositoryRequest(fixture);
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: "R_base",
+        expectedRepositoryDatabaseId: "42",
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("pull request inventory changed");
+  });
+
+  it("rejects pull request head changes found by the final signature pass", async () => {
+    const pullRequest: FixturePullRequest = {
+      id: "PR_one",
+      number: 1,
+      title: "Head changes during collection",
+      headRefName: "main",
+      headRefOid: "main-sha",
+      headRepositoryId: "R_base",
+      headRepositoryFullName: "samebase/samebase",
+      isDraft: false,
+      isCrossRepository: false,
+      additions: 2,
+      deletions: 1,
+      changedFiles: 1,
+      labelCount: 0,
+      checkCount: 0,
+      updatedAt: "2026-07-15T10:02:00Z",
+    };
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      pullRequests: [pullRequest],
+      verificationPullRequests: [{ ...pullRequest, headRefOid: "new-main-sha" }],
+    };
+
+    const request = createRepositoryRequest(fixture);
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: "R_base",
+        expectedRepositoryDatabaseId: "42",
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("pull request inventory changed");
+  });
+
+  it("rejects aggregate check changes found by the final signature pass", async () => {
+    const pullRequest: FixturePullRequest = {
+      id: "PR_one",
+      number: 1,
+      title: "Checks change during collection",
+      headRefName: "main",
+      headRefOid: "main-sha",
+      headRepositoryId: "R_base",
+      headRepositoryFullName: "samebase/samebase",
+      isDraft: false,
+      isCrossRepository: false,
+      additions: 2,
+      deletions: 1,
+      changedFiles: 1,
+      labelCount: 0,
+      checkCount: 1,
+      rollupState: "PENDING",
+      updatedAt: "2026-07-15T10:02:00Z",
+    };
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      pullRequests: [pullRequest],
+      verificationPullRequests: [{ ...pullRequest, rollupState: "SUCCESS" }],
+    };
+
+    const request = createRepositoryRequest(fixture);
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: "R_base",
+        expectedRepositoryDatabaseId: "42",
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("pull request inventory changed");
+  });
+
+  it("rejects aggregate check-count changes found by the final branch signature pass", async () => {
+    const main = makeBaseFixture().branches.at(0);
+    if (main === undefined) {
+      throw new Error("Expected the base fixture default branch.");
+    }
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [{ ...main, checkCount: 1 }],
+      verificationBranches: [{ ...main, checkCount: 2 }],
+    };
+
+    const request = createRepositoryRequest(fixture);
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: "R_base",
+        expectedRepositoryDatabaseId: "42",
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("branch inventory changed");
   });
 
   it("treats branch names as exact-case identities", async () => {
@@ -1421,5 +1692,63 @@ describe("GitHub repository inventory collection", () => {
       pullRequests.find((pullRequest) => pullRequest.rowKey === "pull-request:PR_mismatch")
         ?.canOpenInSamebase,
     ).toBe(false);
+  });
+
+  it("fails a generation instead of reading more than 1,000 pages from one connection", async () => {
+    const branches: FixtureBranch[] = Array.from({ length: 1_001 }, (_, index) => ({
+      id: `REF_${index}`,
+      name: index === 0 ? "main" : `branch-${index}`,
+      sha: `sha-${index}`,
+      checkCount: 0,
+    }));
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branchPageWidth: 1,
+      branches,
+    };
+    const request = createRepositoryRequest(fixture);
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("GitHub pagination exceeded its safety limit.");
+  });
+
+  it("rejects an empty cursor when GitHub reports another page", async () => {
+    const requestGraphql: RepositoryInventoryGraphqlRequest = async () => ({
+      repository: {
+        id: "R_base",
+        databaseId: 42,
+        nameWithOwner: "samebase/samebase",
+        defaultBranchRef: null,
+        refs: {
+          totalCount: 1,
+          pageInfo: { hasNextPage: true, endCursor: "" },
+          nodes: [],
+        },
+      },
+    });
+    const requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest = async (
+      query,
+      variables,
+    ) => ({
+      data: await requestGraphql(query, variables),
+      errors: [],
+    });
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: "R_base",
+        expectedRepositoryDatabaseId: "42",
+        pageSize: 50,
+        requestGraphql,
+        requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("GitHub pagination reported another page without a cursor.");
   });
 });

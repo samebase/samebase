@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 
 import { internalMutation, internalQuery } from "../_generated/server";
-import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
+import {
+  VAULT_TREE_REFRESH_FAILURE_MESSAGE_MAX_LENGTH,
+  vGithubTreeData,
+  vTreeRefreshFailureKind,
+} from "./model";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 import {
   doesTreeRefreshClaimMatch,
@@ -195,7 +199,10 @@ export const releaseTreeRefresh = internalMutation({
             treeRefreshStartedAt: undefined,
             lastTreeRefreshFailedAt: now,
             treeRefreshFailureKind: args.failureKind ?? "failed",
-            treeRefreshFailureMessage: args.failureMessage,
+            treeRefreshFailureMessage: args.failureMessage?.slice(
+              0,
+              VAULT_TREE_REFRESH_FAILURE_MESSAGE_MAX_LENGTH,
+            ),
             treeRefreshCooldownUntil: cooldownUntil,
           }
         : {
@@ -245,7 +252,10 @@ export const recordTreeRefreshFailure = internalMutation({
     await ctx.db.patch(args.vaultId, {
       lastTreeRefreshFailedAt: Date.now(),
       treeRefreshFailureKind: args.failureKind ?? "failed",
-      treeRefreshFailureMessage: args.failureMessage,
+      treeRefreshFailureMessage: args.failureMessage?.slice(
+        0,
+        VAULT_TREE_REFRESH_FAILURE_MESSAGE_MAX_LENGTH,
+      ),
       treeRefreshCooldownUntil: getLaterCooldownUntil(
         vault.treeRefreshCooldownUntil,
         args.cooldownUntil,

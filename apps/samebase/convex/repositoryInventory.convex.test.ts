@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import type {
-  RepositoryInventoryBranchComparison,
-  RepositoryInventoryLifecycle,
-  RepositoryInventoryPublication,
-  RepositoryInventoryPullRequestComparison,
+import {
+  REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH,
+  type RepositoryInventoryBranchComparison,
+  type RepositoryInventoryLifecycle,
+  type RepositoryInventoryPublication,
+  type RepositoryInventoryPullRequestComparison,
 } from "./repositoryInventoryModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -67,9 +68,11 @@ async function createConnectedVault() {
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_inventory",
-      repositoryKey: "ada/inventory",
-      owner: "ada",
-      name: "inventory",
+      githubOwner: "ada",
+      githubName: "inventory",
+      routeRepositoryKey: "ada/inventory",
+      routeOwner: "ada",
+      routeName: "inventory",
       defaultBranch: "main",
       visibility: "private",
       connectedAt: now,
@@ -120,6 +123,7 @@ async function insertSnapshot(
         })
       : await ctx.db.insert("vaultRepositoryInventorySnapshots", {
           state: "ready",
+          observedAt: now - 5_000,
           repositoryNodeId: "R_inventory",
           repositoryFullName: "ada/inventory",
           defaultBranch: "main",
@@ -200,11 +204,13 @@ async function handoffAndMaterializeSnapshot(
     fingerprint: string;
     crawlCost: number;
     filterRevision?: number;
+    observedAt?: number;
   },
 ) {
   await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
     vaultId: args.vaultId,
     snapshotId: args.snapshotId,
+    observedAt: args.observedAt ?? now,
     repositoryNodeId: "R_inventory",
     repositoryFullName: "ada/inventory",
     defaultBranch: "main",
@@ -252,6 +258,8 @@ async function insertInventory(
     publication?: RepositoryInventoryPublication;
     wantedUntil?: number;
     writeVersion?: number;
+    observedWriteVersion?: number;
+    requiredFailureCount?: number;
     lastStartedAt?: number;
     estimatedCrawlCost?: number;
   },
@@ -263,6 +271,8 @@ async function insertInventory(
         vaultId: args.vaultId,
         wantedUntil: args.wantedUntil ?? now + 135_000,
         writeVersion: args.writeVersion ?? 0,
+        observedWriteVersion: args.observedWriteVersion ?? 0,
+        requiredFailureCount: args.requiredFailureCount ?? 0,
         lifecycle: args.lifecycle,
         publication: args.publication,
         lastStartedAt: args.lastStartedAt,
@@ -377,43 +387,55 @@ async function insertPullRequest(
     comparison?: RepositoryInventoryPullRequestComparison;
     labelCount?: number;
     labelChunkCount?: number;
-    filterLabelKeys?: string[];
+    labels?: string[];
   },
 ) {
-  return await t.run(
-    async (ctx) =>
-      await ctx.db.insert("vaultRepositoryInventoryItems", {
-        kind: "pull_request",
+  return await t.run(async (ctx) => {
+    const labels = args.labels ?? [];
+    const labelChunks = Array.from({ length: Math.ceil(labels.length / 100) }, (_, index) =>
+      labels.slice(index * 100, (index + 1) * 100),
+    );
+    const pullRequestItemId = await ctx.db.insert("vaultRepositoryInventoryItems", {
+      kind: "pull_request",
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
+      sortGroup: 1,
+      sortTime: args.sortTime,
+      rowKey: args.rowKey,
+      number: args.number,
+      url: `https://github.com/ada/inventory/pull/${args.number}`,
+      title: `Pull request ${args.number}`,
+      isDraft: args.number === 42,
+      additions: args.number * 10,
+      deletions: args.number,
+      changedFiles: Math.max(1, args.number % 10),
+      baseRefName: args.number === 42 ? "release/1.2" : "main",
+      isCrossRepository: args.isCrossRepository ?? !args.canOpenInSamebase,
+      headRepositoryFullName: args.canOpenInSamebase ? "ada/inventory" : "contributor/fork",
+      headRefName: args.headRefName,
+      comparison: args.comparison ?? { state: "ready", aheadBy: 6, behindBy: 2 },
+      canOpenInSamebase: args.canOpenInSamebase,
+      localHeadRefName: args.canOpenInSamebase ? args.headRefName : undefined,
+      labelCount: args.labelCount ?? labels.length,
+      labelChunkCount: args.labelChunkCount ?? labelChunks.length,
+      headCommit: {
+        sha: `${args.headRefName}-sha`,
+        title: `Pull request ${args.number}`,
+        authoredAt: now,
+        checks,
+      },
+    });
+    for (const [chunkIndex, chunkLabels] of labelChunks.entries()) {
+      await ctx.db.insert("vaultRepositoryInventoryLabelChunks", {
         vaultId: args.vaultId,
         snapshotId: args.snapshotId,
-        sortGroup: 1,
-        sortTime: args.sortTime,
         rowKey: args.rowKey,
-        number: args.number,
-        url: `https://github.com/ada/inventory/pull/${args.number}`,
-        title: `Pull request ${args.number}`,
-        isDraft: args.number === 42,
-        additions: args.number * 10,
-        deletions: args.number,
-        changedFiles: Math.max(1, args.number % 10),
-        baseRefName: args.number === 42 ? "release/1.2" : "main",
-        isCrossRepository: args.isCrossRepository ?? !args.canOpenInSamebase,
-        headRepositoryFullName: args.canOpenInSamebase ? "ada/inventory" : "contributor/fork",
-        headRefName: args.headRefName,
-        comparison: args.comparison ?? { state: "ready", aheadBy: 6, behindBy: 2 },
-        canOpenInSamebase: args.canOpenInSamebase,
-        localHeadRefName: args.canOpenInSamebase ? args.headRefName : undefined,
-        labelCount: args.labelCount ?? 0,
-        labelChunkCount: args.labelChunkCount ?? 0,
-        filterLabelKeys: args.filterLabelKeys ?? [],
-        headCommit: {
-          sha: `${args.headRefName}-sha`,
-          title: `Pull request ${args.number}`,
-          authoredAt: now,
-          checks,
-        },
-      }),
-  );
+        chunkIndex,
+        labels: chunkLabels.map((name) => ({ name })),
+      });
+    }
+    return pullRequestItemId;
+  });
 }
 
 describe("repository inventory refresh state machine", () => {
@@ -475,7 +497,151 @@ describe("repository inventory refresh state machine", () => {
     expect(state.snapshots).toHaveLength(1);
   });
 
-  it("publishes the shared summary with the completed full inventory generation", async () => {
+  it("lets connection completion adopt an in-flight initial crawl", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
+    const scheduled = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (scheduled?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected an initial repository inventory refresh.");
+    }
+    await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: scheduled.lifecycle.snapshotId,
+    });
+    const runId = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault || vault.state !== "connected") {
+        throw new Error("Expected a connected vault.");
+      }
+      return vault.runId;
+    });
+
+    await expect(
+      t.mutation(
+        internal.repositoryInventory.completeExistingRepositoryConnectionAndRequestInventory,
+        { ...ids, runId },
+      ),
+    ).resolves.toEqual({ kind: "running" });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        writeVersion: 0,
+        lifecycle: {
+          state: "running",
+          targetWriteVersion: 0,
+          required: true,
+        },
+      },
+      snapshots: [{ _id: scheduled.lifecycle.snapshotId }],
+    });
+
+    await handoffAndMaterializeSnapshot(t, {
+      vaultId: ids.vaultId,
+      snapshotId: scheduled.lifecycle.snapshotId,
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "connection-publication",
+      crawlCost: 12,
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        writeVersion: 0,
+        lifecycle: { state: "idle" },
+        publication: { fingerprint: "connection-publication" },
+      },
+      snapshots: [{ _id: scheduled.lifecycle.snapshotId }],
+    });
+  });
+
+  it("retries a required initial connection crawl after provider failure", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+    });
+    const scheduled = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (scheduled?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected an initial repository inventory refresh.");
+    }
+    const runId = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault || vault.state !== "connected") {
+        throw new Error("Expected a connected vault.");
+      }
+      return vault.runId;
+    });
+    await t.mutation(
+      internal.repositoryInventory.completeExistingRepositoryConnectionAndRequestInventory,
+      { ...ids, runId },
+    );
+    await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: scheduled.lifecycle.snapshotId,
+    });
+
+    await t.mutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: scheduled.lifecycle.snapshotId,
+      message: "Provider failed during the initial crawl.",
+    });
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      writeVersion: 0,
+      observedWriteVersion: 0,
+      requiredFailureCount: 1,
+      lifecycle: {
+        state: "scheduled",
+        required: true,
+        wait: { kind: "queue", retryAt: now + 5_000 },
+      },
+    });
+    if (state.inventory?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a queued initial-connection retry.");
+    }
+    expect(state.inventory.lifecycle.snapshotId).not.toBe(scheduled.lifecycle.snapshotId);
+  });
+
+  it("does not repeat an initial crawl that published before connection completion", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "ready" });
+    const viewId = await insertFilterView(t, { ...ids, snapshotId });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      publication: publication(snapshotId, viewId),
+    });
+    const runId = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault || vault.state !== "connected") {
+        throw new Error("Expected a connected vault.");
+      }
+      return vault.runId;
+    });
+
+    await expect(
+      t.mutation(
+        internal.repositoryInventory.completeExistingRepositoryConnectionAndRequestInventory,
+        { ...ids, runId },
+      ),
+    ).resolves.toEqual({ kind: "satisfied" });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        writeVersion: 0,
+        lifecycle: { state: "idle" },
+        publication: { snapshotId },
+      },
+      snapshots: [{ _id: snapshotId }],
+    });
+  });
+
+  it("publishes the shared summary with the provider observation time", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     await expect(
       asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
@@ -523,6 +689,7 @@ describe("repository inventory refresh state machine", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId: claimed.snapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "Ada/Inventory",
       defaultBranch: "main",
@@ -564,6 +731,8 @@ describe("repository inventory refresh state machine", () => {
       publication: { state: "unobserved" },
     });
 
+    const publishedAt = now + 15_000;
+    vi.setSystemTime(publishedAt);
     const filterViewId = await finishFilterMaterialization(t, {
       snapshotId: claimed.snapshotId,
       filterRevision: 0,
@@ -576,6 +745,8 @@ describe("repository inventory refresh state machine", () => {
           filterViewId,
           repositoryFullName: "Ada/Inventory",
           fingerprint: "summary-publication",
+          publishedAt,
+          checkedAt: now,
         },
       },
     });
@@ -590,7 +761,7 @@ describe("repository inventory refresh state machine", () => {
           checkState: "success",
         },
         openPullRequestCount: 0,
-        publishedAt: now,
+        publishedAt,
         checkedAt: now,
       },
     });
@@ -615,6 +786,7 @@ describe("repository inventory refresh state machine", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId: claimed.snapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "Ada/Inventory",
       defaultBranch: "main",
@@ -651,6 +823,61 @@ describe("repository inventory refresh state machine", () => {
       },
       publication: { state: "unobserved" },
     });
+  });
+
+  it("retries required write observation when the materialization watchdog loses its snapshot", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
+    const scheduled = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (scheduled?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a required repository inventory refresh.");
+    }
+    const claimed = await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: scheduled.lifecycle.snapshotId,
+    });
+    if (claimed.kind !== "ready") {
+      throw new Error("Expected the required repository inventory claim to be ready.");
+    }
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId: claimed.snapshotId,
+      observedAt: now,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "Ada/Inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "lost-required-snapshot",
+      crawlCost: 9,
+      summaryDefaultBranch,
+    });
+    await t.run(async (ctx) => await ctx.db.delete(claimed.snapshotId));
+
+    await t.mutation(internal.repositoryInventory.repairRepositoryInventoryFilterMaterialization, {
+      vaultId: ids.vaultId,
+      snapshotId: claimed.snapshotId,
+    });
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      writeVersion: 1,
+      observedWriteVersion: 0,
+      requiredFailureCount: 1,
+      lifecycle: {
+        state: "scheduled",
+        required: true,
+        wait: { kind: "queue", retryAt: now + 5_000 },
+      },
+    });
+    if (state.inventory?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a queued required replacement crawl.");
+    }
+    expect(state.inventory.lifecycle.snapshotId).not.toBe(claimed.snapshotId);
   });
 
   it("moves a deferred summary observation to the replacement crawl and releases expired demand", async () => {
@@ -724,6 +951,7 @@ describe("repository inventory refresh state machine", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
@@ -788,6 +1016,7 @@ describe("repository inventory refresh state machine", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
@@ -839,6 +1068,7 @@ describe("repository inventory refresh state machine", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
@@ -891,6 +1121,7 @@ describe("repository inventory refresh state machine", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
@@ -951,6 +1182,7 @@ describe("repository inventory refresh state machine", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId: stagingSnapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
@@ -1008,6 +1240,210 @@ describe("repository inventory refresh state machine", () => {
     ).resolves.toEqual({ kind: "scheduled" });
   });
 
+  it("retries an unobserved write after filter materialization fails", async () => {
+    const { ids, t } = await createConnectedVault();
+    const activeSnapshotId = await insertSnapshot(t, ids);
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
+    const stagingSnapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId: stagingSnapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-failing-materialization-write",
+      },
+      publication: publication(activeSnapshotId, activeFilterViewId),
+    });
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId: stagingSnapshotId,
+      observedAt: now,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "invalid-view-with-write",
+      crawlCost: 6,
+      ...summaryObservation(),
+    });
+    const stagingView = (await readVaultInventory(t, ids.vaultId)).filterViews.find(
+      (view) => view.snapshotId === stagingSnapshotId,
+    );
+    if (!stagingView) {
+      throw new Error("Expected the staging materialization view.");
+    }
+    await expect(
+      t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids),
+    ).resolves.toEqual({ kind: "running" });
+    await t.run(async (ctx) => await ctx.db.patch(stagingSnapshotId, { pullRequestCount: 1 }));
+
+    await t.mutation(internal.repositoryInventory.advanceRepositoryInventoryFilterMaterialization, {
+      viewId: stagingView._id,
+    });
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.inventory).toMatchObject({
+      writeVersion: 1,
+      observedWriteVersion: 0,
+      requiredFailureCount: 1,
+      lifecycle: {
+        state: "scheduled",
+        required: true,
+        wait: { kind: "queue", retryAt: now + 5_000 },
+      },
+      publication: { snapshotId: activeSnapshotId, filterViewId: activeFilterViewId },
+    });
+    if (state.inventory?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a required replacement crawl.");
+    }
+    expect(state.inventory.lifecycle.snapshotId).not.toBe(stagingSnapshotId);
+  });
+
+  it("retries a failed crawl whose current target contains an unobserved write", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      writeVersion: 1,
+      observedWriteVersion: 0,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 1,
+        required: true,
+        startedAt: now,
+        workpoolJobId: "job-required-write-failure",
+      },
+    });
+
+    await t.mutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      message: "Provider failed after the write.",
+    });
+
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        writeVersion: 1,
+        observedWriteVersion: 0,
+        requiredFailureCount: 1,
+        lifecycle: {
+          state: "scheduled",
+          required: true,
+          wait: { kind: "queue", retryAt: now + 5_000 },
+        },
+      },
+    });
+  });
+
+  it("uses the complete bounded retry sequence for a required observation", async () => {
+    const { ids, t } = await createConnectedVault();
+    let activeSnapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      writeVersion: 1,
+      observedWriteVersion: 0,
+      lifecycle: {
+        state: "running",
+        snapshotId: activeSnapshotId,
+        targetWriteVersion: 1,
+        required: true,
+        startedAt: now,
+        workpoolJobId: "job-required-retry-sequence",
+      },
+    });
+
+    for (const [index, delayMs] of [5_000, 15_000, 45_000].entries()) {
+      await t.mutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+        snapshotId: activeSnapshotId,
+        message: `Required provider failure ${index + 1}.`,
+      });
+      const state = (await readVaultInventory(t, ids.vaultId)).inventory;
+      expect(state).toMatchObject({
+        requiredFailureCount: index + 1,
+        lifecycle: {
+          state: "scheduled",
+          required: true,
+          wait: { kind: "queue", retryAt: now + delayMs },
+        },
+      });
+      if (state?.lifecycle.state !== "scheduled") {
+        throw new Error("Expected a queued required observation retry.");
+      }
+      activeSnapshotId = state.lifecycle.snapshotId;
+      await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+        snapshotId: activeSnapshotId,
+      });
+    }
+
+    await t.mutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: activeSnapshotId,
+      message: "Required provider retries exhausted.",
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        requiredFailureCount: 3,
+        lifecycle: { state: "failed", required: true },
+      },
+    });
+  });
+
+  it("stops automatic required retries at the bound but visible demand remains required", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      writeVersion: 1,
+      observedWriteVersion: 0,
+      requiredFailureCount: 3,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 1,
+        required: true,
+        startedAt: now,
+        workpoolJobId: "job-exhausted-write-failure",
+      },
+    });
+
+    await t.mutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      message: "Provider still failed.",
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        requiredFailureCount: 3,
+        lifecycle: { state: "failed" },
+      },
+    });
+
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        requiredFailureCount: 3,
+        lifecycle: { state: "scheduled", required: true, wait: { kind: "immediate" } },
+      },
+    });
+  });
+
   it("schedules exactly one immediate trailing snapshot after writes during a crawl", async () => {
     const { ids, t } = await createConnectedVault();
     const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
@@ -1041,6 +1477,8 @@ describe("repository inventory refresh state machine", () => {
     const state = await readVaultInventory(t, ids.vaultId);
     expect(state.inventory).toMatchObject({
       writeVersion: 2,
+      observedWriteVersion: 0,
+      requiredFailureCount: 0,
       publication: { snapshotId },
       lifecycle: {
         state: "scheduled",
@@ -1050,6 +1488,73 @@ describe("repository inventory refresh state machine", () => {
       },
     });
     expect(state.snapshots).toHaveLength(2);
+    if (state.inventory?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected the trailing required repository inventory crawl.");
+    }
+    const trailingSnapshotId = state.inventory.lifecycle.snapshotId;
+    await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: trailingSnapshotId,
+    });
+    await handoffAndMaterializeSnapshot(t, {
+      vaultId: ids.vaultId,
+      snapshotId: trailingSnapshotId,
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "observed-after-write",
+      crawlCost: 15,
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        writeVersion: 2,
+        observedWriteVersion: 2,
+        requiredFailureCount: 0,
+        lifecycle: { state: "idle" },
+        publication: { snapshotId: trailingSnapshotId },
+      },
+    });
+  });
+
+  it("does not advance the write boundary for action-owned read demand", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
+    await expect(
+      t.mutation(
+        internal.repositoryInventory.requestRepositoryInventoryRefreshForActionDemand,
+        ids,
+      ),
+    ).resolves.toEqual({ kind: "running" });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        writeVersion: 1,
+        observedWriteVersion: 0,
+        lifecycle: { state: "scheduled", required: true },
+      },
+    });
+  });
+
+  it("does not recreate required work while quiescing a vault for deletion", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
+
+    await t.mutation(internal.repositoryInventory.quiesceForVaultDeletion, ids);
+
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        writeVersion: 1,
+        observedWriteVersion: 0,
+        requiredFailureCount: 0,
+        lifecycle: {
+          state: "failed",
+          required: true,
+          message: "Repository inventory stopped for vault deletion.",
+        },
+      },
+    });
   });
 
   it("drops an ordinary deferred crawl after visible demand expires", async () => {
@@ -1080,7 +1585,9 @@ describe("repository inventory refresh state machine", () => {
     { crawlCost: undefined, expectedIntervalMs: 60_000 },
     { crawlCost: 12, expectedIntervalMs: 60_000 },
     { crawlCost: 13, expectedIntervalMs: 65_000 },
+    { crawlCost: 50, expectedIntervalMs: 250_000 },
     { crawlCost: 100, expectedIntervalMs: 500_000 },
+    { crawlCost: 500, expectedIntervalMs: 2_500_000 },
   ])(
     "defers a $crawlCost-point ordinary crawl until $expectedIntervalMs ms after the prior start",
     async ({ crawlCost, expectedIntervalMs }) => {
@@ -1236,8 +1743,11 @@ describe("repository inventory refresh state machine", () => {
       t.mutation(internal.repositoryInventory.completeUnchangedRepositoryInventoryRefresh, {
         vaultId: ids.vaultId,
         snapshotId: stagingSnapshotId,
+        observedAt: now,
         fingerprint: "changed-fingerprint",
         crawlCost: 37,
+        crawlRequestCount: 11,
+        crawlDurationMs: 12_345,
         ...summaryObservation(),
         summaryOpenPullRequestCount: 0,
       }),
@@ -1245,6 +1755,8 @@ describe("repository inventory refresh state machine", () => {
     await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
       inventory: {
         estimatedCrawlCost: 37,
+        lastCrawlRequestCount: 11,
+        lastCrawlDurationMs: 12_345,
         lifecycle: { state: "running", snapshotId: stagingSnapshotId },
         publication: { snapshotId: activeSnapshotId },
       },
@@ -1276,8 +1788,11 @@ describe("repository inventory refresh state machine", () => {
       t.mutation(internal.repositoryInventory.completeUnchangedRepositoryInventoryRefresh, {
         vaultId: ids.vaultId,
         snapshotId: stagingSnapshotId,
+        observedAt: now,
         fingerprint: "published-fingerprint",
         crawlCost: 18,
+        crawlRequestCount: 7,
+        crawlDurationMs: 8_765,
         ...summaryObservation(),
         summaryOpenPullRequestCount: 0,
       }),
@@ -1287,6 +1802,8 @@ describe("repository inventory refresh state machine", () => {
     expect(state.inventory).toMatchObject({
       lifecycle: { state: "idle" },
       estimatedCrawlCost: 18,
+      lastCrawlRequestCount: 7,
+      lastCrawlDurationMs: 8_765,
       publication: {
         snapshotId: activeSnapshotId,
         publishedAt: now - 5_000,
@@ -1294,6 +1811,69 @@ describe("repository inventory refresh state machine", () => {
       },
     });
     expect(state.snapshots.map((snapshot) => snapshot._id)).toEqual([activeSnapshotId]);
+  });
+
+  it("repairs a stale filter publication after an unchanged crawl", async () => {
+    const { ids, t } = await createConnectedVault();
+    const activeSnapshotId = await insertSnapshot(t, ids);
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
+    const stagingSnapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultRepositoryInventoryFilters", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        includeDrafts: true,
+        includeNoLabel: true,
+        revision: 1,
+        excludedLabelCount: 0,
+        excludedLabelGeneration: 0,
+      });
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId: stagingSnapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-filter-repair",
+      },
+      publication: publication(activeSnapshotId, activeFilterViewId),
+    });
+
+    await expect(
+      t.mutation(internal.repositoryInventory.completeUnchangedRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+        snapshotId: stagingSnapshotId,
+        observedAt: now,
+        fingerprint: "published-fingerprint",
+        crawlCost: 18,
+        crawlRequestCount: 7,
+        crawlDurationMs: 8_765,
+        ...summaryObservation(),
+        summaryOpenPullRequestCount: 0,
+      }),
+    ).resolves.toBe(true);
+
+    const repairedFilterViewId = await finishFilterMaterialization(t, {
+      snapshotId: activeSnapshotId,
+      filterRevision: 1,
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: { state: "idle" },
+        publication: {
+          snapshotId: activeSnapshotId,
+          filterViewId: repairedFilterViewId,
+          filterRevision: 1,
+          checkedAt: now,
+        },
+      },
+    });
   });
 
   it("rejects incomplete publication without disturbing the active snapshot", async () => {
@@ -1321,6 +1901,7 @@ describe("repository inventory refresh state machine", () => {
       t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
         vaultId: ids.vaultId,
         snapshotId: stagingSnapshotId,
+        observedAt: now,
         repositoryNodeId: "R_inventory",
         repositoryFullName: "ada/inventory",
         defaultBranch: "main",
@@ -1376,6 +1957,38 @@ describe("repository inventory refresh state machine", () => {
       },
     });
   });
+
+  it("bounds persisted failure messages exposed by the inventory subscription", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-long-error",
+      },
+    });
+    const message = "x".repeat(REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH + 1);
+
+    await t.mutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      message,
+    });
+
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: {
+          state: "failed",
+          message: message.slice(0, REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH),
+        },
+      },
+    });
+  });
 });
 
 describe("repository inventory snapshot reads", () => {
@@ -1414,7 +2027,6 @@ describe("repository inventory snapshot reads", () => {
       canOpenInSamebase: true,
       labelCount: 3,
       labelChunkCount: 2,
-      filterLabelKeys: ["bug", "priority", "ready"],
     });
     const forkRowKey = "pull-request:PR_43";
     const forkPullRequestItemId = await insertPullRequest(t, {
@@ -1702,7 +2314,6 @@ describe("repository inventory snapshot reads", () => {
       canOpenInSamebase: true,
       labelCount: 1,
       labelChunkCount: 1,
-      filterLabelKeys: ["old"],
     });
     const obsoleteFilterViewId = await insertFilterView(t, {
       ...ids,
@@ -1790,6 +2401,44 @@ describe("repository inventory snapshot reads", () => {
         paginationOpts: { cursor: null, numItems: 6 },
       }),
     ).rejects.toThrow("Repository inventory label pages must request between 1 and 5 chunks.");
+
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryExcludedLabelPage, {
+        vaultId: ids.vaultId,
+        filterRevision: 0,
+        paginationOpts: { cursor: null, numItems: 25, maximumRowsRead: 26 },
+      }),
+    ).rejects.toThrow("Repository inventory excluded-label pages may read at most 25 rows.");
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryBranchPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 10, maximumRowsRead: 11 },
+      }),
+    ).rejects.toThrow("Repository inventory branch pages may read at most 10 rows.");
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        paginationOpts: { cursor: null, numItems: 10, maximumRowsRead: 11 },
+      }),
+    ).rejects.toThrow("Repository inventory pull request pages may read at most 10 rows.");
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryLabelFacetPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 25, maximumRowsRead: 26 },
+      }),
+    ).rejects.toThrow("Repository inventory label facet pages may read at most 25 rows.");
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryLabelPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        rowKey: "pull-request:PR_1",
+        paginationOpts: { cursor: null, numItems: 5, maximumRowsRead: 6 },
+      }),
+    ).rejects.toThrow("Repository inventory label pages may read at most 5 rows.");
   });
 });
 
@@ -1802,6 +2451,161 @@ describe("repository inventory pull request filters", () => {
   afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
+  });
+
+  it("evaluates excluded labels across every bounded pull request label chunk", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      pullRequestCount: 2,
+      labelCount: 102,
+      labelChunkCount: 3,
+    });
+    const initialFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId,
+      totalPullRequestCount: 2,
+      visiblePullRequestCount: 2,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      publication: publication(snapshotId, initialFilterViewId),
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:late-exclusion",
+      number: 10,
+      headRefName: "late-exclusion",
+      sortTime: -200,
+      canOpenInSamebase: true,
+      labels: [...Array.from({ length: 100 }, (_, index) => `visible-${index}`), "blocked"],
+    });
+    await insertPullRequest(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "pull-request:visible",
+      number: 11,
+      headRefName: "visible",
+      sortTime: -100,
+      canOpenInSamebase: true,
+      labels: ["ready"],
+    });
+
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      change: { kind: "set_label_included", name: "blocked", included: false },
+    });
+    const filterViewId = await finishFilterMaterialization(t, {
+      snapshotId,
+      filterRevision: 1,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryPullRequestPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        viewId: filterViewId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedVisiblePullRequestCount: 1,
+      totalPullRequestCount: 2,
+      page: [{ number: 11 }],
+      isDone: true,
+    });
+  });
+
+  it("paginates excluded labels and resets their generation with bounded cleanup", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const filterId = await t.run(async (ctx) => {
+      const insertedFilterId = await ctx.db.insert("vaultRepositoryInventoryFilters", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        includeDrafts: true,
+        includeNoLabel: false,
+        revision: 1,
+        excludedLabelCount: 101,
+        excludedLabelGeneration: 0,
+      });
+      for (let index = 0; index < 101; index += 1) {
+        const name = `label-${String(index).padStart(3, "0")}`;
+        await ctx.db.insert("vaultRepositoryInventoryExcludedLabels", {
+          vaultId: ids.vaultId,
+          filterId: insertedFilterId,
+          generation: 0,
+          labelKey: name,
+          name,
+        });
+      }
+      return insertedFilterId;
+    });
+
+    const firstPage = await asUser.query(
+      api.repositoryInventory.listRepositoryInventoryExcludedLabelPage,
+      {
+        vaultId: ids.vaultId,
+        filterRevision: 1,
+        paginationOpts: { cursor: null, numItems: 25 },
+      },
+    );
+    if (firstPage === null) {
+      throw new Error("Current repository inventory filter revision returned stale.");
+    }
+    expect(firstPage).toMatchObject({
+      filterRevision: 1,
+      expectedExcludedLabelCount: 101,
+      isDone: false,
+    });
+    expect(firstPage.page).toHaveLength(25);
+    expect(firstPage.page[0]).toEqual({ labelKey: "label-000", name: "label-000" });
+    const secondPage = await asUser.query(
+      api.repositoryInventory.listRepositoryInventoryExcludedLabelPage,
+      {
+        vaultId: ids.vaultId,
+        filterRevision: 1,
+        paginationOpts: { cursor: firstPage.continueCursor, numItems: 25 },
+      },
+    );
+    if (secondPage === null) {
+      throw new Error("Current repository inventory filter revision returned stale.");
+    }
+    expect(secondPage.page[0]).toEqual({ labelKey: "label-025", name: "label-025" });
+
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      change: { kind: "reset" },
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.getRepositoryInventoryFilter, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({
+      includeDrafts: false,
+      includeNoLabel: true,
+      revision: 2,
+      excludedLabelCount: 0,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryExcludedLabelPage, {
+        vaultId: ids.vaultId,
+        filterRevision: 1,
+        paginationOpts: { cursor: null, numItems: 25 },
+      }),
+    ).resolves.toBeNull();
+
+    await t.mutation(
+      internal.repositoryInventory.cleanupRepositoryInventoryExcludedLabelGeneration,
+      { filterId, generation: 0 },
+    );
+    await t.mutation(
+      internal.repositoryInventory.cleanupRepositoryInventoryExcludedLabelGeneration,
+      { filterId, generation: 0 },
+    );
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("vaultRepositoryInventoryExcludedLabels").collect()),
+    ).resolves.toEqual([]);
   });
 
   it("publishes complete filter views without changing branch visibility", async () => {
@@ -1838,8 +2642,7 @@ describe("repository inventory pull request filters", () => {
       headRefName: "research",
       sortTime: -400,
       canOpenInSamebase: true,
-      labelCount: 1,
-      filterLabelKeys: ["research"],
+      labels: ["research"],
     });
     const noLabelPullRequestId = await insertPullRequest(t, {
       vaultId: ids.vaultId,
@@ -1858,8 +2661,7 @@ describe("repository inventory pull request filters", () => {
       headRefName: "draft",
       sortTime: -500,
       canOpenInSamebase: true,
-      labelCount: 1,
-      filterLabelKeys: ["ready"],
+      labels: ["ready"],
     });
     const readyPullRequestId = await insertPullRequest(t, {
       vaultId: ids.vaultId,
@@ -1869,8 +2671,7 @@ describe("repository inventory pull request filters", () => {
       headRefName: "ready",
       sortTime: -200,
       canOpenInSamebase: true,
-      labelCount: 1,
-      filterLabelKeys: ["ready"],
+      labels: ["ready"],
     });
     await t.run(async (ctx) => {
       for (const membership of [
@@ -1904,10 +2705,10 @@ describe("repository inventory pull request filters", () => {
         vaultId: ids.vaultId,
       }),
     ).resolves.toEqual({
-      hiddenLabels: [],
       includeDrafts: false,
       includeNoLabel: true,
       revision: 0,
+      excludedLabelCount: 0,
     });
 
     const defaultState = await asUser.query(api.repositoryInventory.getRepositoryInventoryState, {
@@ -1938,35 +2739,51 @@ describe("repository inventory pull request filters", () => {
 
     await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
       vaultId: ids.vaultId,
-      hiddenLabels: [" Research ", "research"],
-      includeDrafts: true,
-      includeNoLabel: false,
-    });
-    await expect(
-      asUser.query(api.repositoryInventory.getRepositoryInventoryFilter, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual({
-      hiddenLabels: ["Research"],
-      includeDrafts: true,
-      includeNoLabel: false,
-      revision: 1,
+      change: { kind: "set_label_included", name: " Research ", included: false },
     });
     await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
       vaultId: ids.vaultId,
-      hiddenLabels: ["research"],
-      includeDrafts: true,
-      includeNoLabel: false,
+      change: { kind: "set_include_drafts", included: true },
+    });
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      change: { kind: "set_include_no_label", included: false },
     });
     await expect(
       asUser.query(api.repositoryInventory.getRepositoryInventoryFilter, {
         vaultId: ids.vaultId,
       }),
     ).resolves.toEqual({
-      hiddenLabels: ["Research"],
       includeDrafts: true,
       includeNoLabel: false,
-      revision: 1,
+      revision: 3,
+      excludedLabelCount: 1,
+    });
+    await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
+      vaultId: ids.vaultId,
+      change: { kind: "set_label_included", name: "research", included: false },
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.getRepositoryInventoryFilter, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({
+      includeDrafts: true,
+      includeNoLabel: false,
+      revision: 3,
+      excludedLabelCount: 1,
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryExcludedLabelPage, {
+        vaultId: ids.vaultId,
+        filterRevision: 3,
+        paginationOpts: { cursor: null, numItems: 25 },
+      }),
+    ).resolves.toMatchObject({
+      filterRevision: 3,
+      expectedExcludedLabelCount: 1,
+      page: [{ labelKey: "research", name: "Research" }],
+      isDone: true,
     });
     await expect(
       asUser.query(api.repositoryInventory.getRepositoryInventoryState, {
@@ -1978,14 +2795,14 @@ describe("repository inventory pull request filters", () => {
       activeFilterRevision: 0,
     });
 
-    await finishFilterMaterialization(t, { snapshotId, filterRevision: 1 });
+    await finishFilterMaterialization(t, { snapshotId, filterRevision: 3 });
     const filteredState = await asUser.query(api.repositoryInventory.getRepositoryInventoryState, {
       vaultId: ids.vaultId,
     });
     expect(filteredState).toMatchObject({
       state: "ready",
       activeSnapshotId: snapshotId,
-      activeFilterRevision: 1,
+      activeFilterRevision: 3,
     });
     if (filteredState.state !== "ready") {
       throw new Error("Expected a published custom repository inventory filter view.");
@@ -2031,6 +2848,7 @@ describe("repository inventory pull request filters", () => {
       state: "collecting",
       pullRequestCount: 2,
       labelCount: 2,
+      labelChunkCount: 2,
     });
     await insertPullRequest(t, {
       vaultId: ids.vaultId,
@@ -2040,8 +2858,7 @@ describe("repository inventory pull request filters", () => {
       headRefName: "research",
       sortTime: -200,
       canOpenInSamebase: true,
-      labelCount: 1,
-      filterLabelKeys: ["research"],
+      labels: ["research"],
     });
     await insertPullRequest(t, {
       vaultId: ids.vaultId,
@@ -2051,8 +2868,7 @@ describe("repository inventory pull request filters", () => {
       headRefName: "draft",
       sortTime: -100,
       canOpenInSamebase: true,
-      labelCount: 1,
-      filterLabelKeys: ["ready"],
+      labels: ["ready"],
     });
     await insertInventory(t, {
       ...ids,
@@ -2069,13 +2885,14 @@ describe("repository inventory pull request filters", () => {
     await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
       vaultId: ids.vaultId,
       snapshotId: stagingSnapshotId,
+      observedAt: now,
       repositoryNodeId: "R_inventory",
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
       pullRequestCount: 2,
       labelCount: 2,
-      labelChunkCount: 0,
+      labelChunkCount: 2,
       labelFacetCount: 0,
       noLabelPullRequestCount: 0,
       fingerprint: "completed-crawl",
@@ -2085,21 +2902,15 @@ describe("repository inventory pull request filters", () => {
 
     await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
       vaultId: ids.vaultId,
-      hiddenLabels: ["research"],
-      includeDrafts: false,
-      includeNoLabel: true,
+      change: { kind: "set_label_included", name: "research", included: false },
     });
     await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
       vaultId: ids.vaultId,
-      hiddenLabels: ["research"],
-      includeDrafts: true,
-      includeNoLabel: true,
+      change: { kind: "set_include_drafts", included: true },
     });
     await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {
       vaultId: ids.vaultId,
-      hiddenLabels: ["research"],
-      includeDrafts: true,
-      includeNoLabel: false,
+      change: { kind: "set_include_no_label", included: false },
     });
 
     const staleViews = await t.run(

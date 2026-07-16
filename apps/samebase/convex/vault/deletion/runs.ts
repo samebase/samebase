@@ -31,7 +31,7 @@ const deletionRunEventState = union(literal("unchanged"), literal("running"));
 type ProviderKind = "github" | "convex" | "cloudflare";
 
 function getRepositoryFullName(vault: Exclude<Doc<"vaults">, { state: "not_connected" }>): string {
-  return `${vault.owner}/${vault.name}`;
+  return `${vault.routeOwner}/${vault.routeName}`;
 }
 
 function providerConnectionMessage(kind: ProviderKind): string {
@@ -283,9 +283,8 @@ async function buildDeletionPlan(
           target: {
             kind: "existing_repository",
             ghRepoId: args.vault.ghRepoId,
-            owner: args.vault.owner,
-            name: args.vault.name,
-            repositoryFullName,
+            ghRepoNodeId: args.vault.ghRepoNodeId,
+            routeRepositoryFullName: repositoryFullName,
           },
           githubRepository: {
             action: "skip",
@@ -308,16 +307,13 @@ async function buildDeletionPlan(
         target: {
           kind: "samebase_managed_repository",
           ghRepoId: args.vault.ghRepoId,
-          owner: args.vault.owner,
-          name: args.vault.name,
-          repositoryFullName,
+          ghRepoNodeId: args.vault.ghRepoNodeId,
+          routeRepositoryFullName: repositoryFullName,
         },
         githubRepository: args.options.removeGithubRepo
           ? {
               action: "delete_repository",
-              ghRepoId: args.vault.ghRepoId,
-              owner: args.vault.owner,
-              name: args.vault.name,
+              deletionRepositoryName: `samebase-delete-${crypto.randomUUID()}`,
             }
           : {
               action: "skip",
@@ -338,9 +334,7 @@ async function buildDeletionPlan(
         target: {
           kind: "failed_repository_setup",
           githubMode: args.vault.githubMode,
-          owner: args.vault.owner,
-          name: args.vault.name,
-          repositoryFullName,
+          routeRepositoryFullName: repositoryFullName,
         },
         githubRepository: {
           action: "skip",
@@ -454,7 +448,7 @@ export const createInitialRun = internalMutation({
     const deletionRunId = await ctx.db.insert("vaultDeletionRuns", {
       userId: args.userId,
       vaultId: args.vaultId,
-      repositoryFullName: plan.target.repositoryFullName,
+      repositoryFullName: plan.target.routeRepositoryFullName,
       attempt: { kind: "initial" },
       state: "queued",
       workflow: { state: "not_started" },

@@ -41,6 +41,38 @@ describe("existing repository connection preflight", () => {
     vi.unstubAllGlobals();
   });
 
+  it("rejects malformed repository names before provider lookup or local writes", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("users", {
+          name: "Ada",
+          email: "ada@example.com",
+          isApproved: true,
+        }),
+    );
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      asUser.action(api.vault.actions.connectRepository, {
+        repositoryFullName: "samebase/samebase/extra",
+      }),
+    ).rejects.toThrow("Repository is not readable with the connected GitHub account.");
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(
+      t.run(async (ctx) => ({
+        vaults: await ctx.db.query("vaults").collect(),
+        runs: await ctx.db.query("appProvisioningRuns").collect(),
+        events: await ctx.db.query("appProvisioningEvents").collect(),
+      })),
+    ).resolves.toEqual({ vaults: [], runs: [], events: [] });
+  });
+
   it("writes no vault or run when the repository is unreadable", async () => {
     const { asUser, t } = await createGitHubConnectedUser();
     vi.stubGlobal(
@@ -141,8 +173,8 @@ describe("existing repository connection preflight", () => {
       state: "provisioning",
       githubMode: "connect_existing_repository",
       ghRepoId: "1021726325",
-      owner: "Samebase",
-      name: "Samebase",
+      routeOwner: "Samebase",
+      routeName: "Samebase",
     });
     expect(stored.run).toMatchObject({
       repositoryFullName: "Samebase/Samebase",

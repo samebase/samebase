@@ -8,6 +8,33 @@ import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
 const appRoot = ".";
 
 describe("vault dashboard Convex contract", () => {
+  it("fails the legacy all-vault aggregate above its hard read bound", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      for (let index = 0; index < 26; index += 1) {
+        await ctx.db.insert("vaults", {
+          userId,
+          deletion: { state: "not_deleting" },
+          state: "not_connected",
+        });
+      }
+      return userId;
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.vault.dashboard.getUserVaults)).rejects.toThrow(
+      "The legacy vault aggregate supports at most 25 vaults.",
+    );
+  });
+
   it("records initializing existing repository connection before external GitHub work", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -42,9 +69,9 @@ describe("vault dashboard Convex contract", () => {
       githubMode: "connect_existing_repository",
       runId: ids.runId,
       ghRepoId: "existing-app-initializing-id",
-      repositoryKey: "ada/existing-app",
-      owner: "Ada",
-      name: "Existing-App",
+      routeRepositoryKey: "ada/existing-app",
+      routeOwner: "Ada",
+      routeName: "Existing-App",
     });
     expect(result.run).toMatchObject({
       vaultId: ids.vaultId,
@@ -92,7 +119,8 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       hasConnectedGitHubRepository: false,
-      repositoryFullName: "ada/existing-app",
+      routeRepositoryFullName: "ada/existing-app",
+      githubRepositoryFullName: "ada/existing-app",
       state: "copying_files",
       sourceSetup: {
         status: "running",
@@ -137,8 +165,11 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    const [selectedVault, vaults] = await Promise.all([
+    const [selectedVault, observationTarget, vaults] = await Promise.all([
       asUser.query(api.vault.dashboard.getUserVaultByRepository, {
+        repositoryFullName: "ADA/EXISTING-APP",
+      }),
+      asUser.query(api.vault.dashboard.getRepositoryObservationTargetByRepository, {
         repositoryFullName: "ADA/EXISTING-APP",
       }),
       asUser.query(api.vault.dashboard.getUserVaults),
@@ -148,8 +179,11 @@ describe("vault dashboard Convex contract", () => {
     expect(selectedVault).toMatchObject({
       _id: ids.vaultId,
       hasConnectedGitHubRepository: true,
-      repositoryFullName: "ada/existing-app",
+      routeRepositoryFullName: "ada/existing-app",
+      githubRepositoryFullName: "ada/existing-app",
+      state: "copying_files",
     });
+    expect(observationTarget).toEqual({ vaultId: ids.vaultId });
   });
 
   it("returns null when the user has no vault for the repository", async () => {
@@ -232,7 +266,8 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults).toHaveLength(1);
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
-      repositoryFullName: "ada/existing-app",
+      routeRepositoryFullName: "ada/existing-app",
+      githubRepositoryFullName: "ada/existing-app",
     });
   });
 
@@ -373,9 +408,11 @@ describe("vault dashboard Convex contract", () => {
       runId: ids.runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
-      repositoryKey: "ada/existing-app",
-      owner: "Ada",
-      name: "Existing-App",
+      githubOwner: "Ada",
+      githubName: "Existing-App",
+      routeRepositoryKey: "ada/existing-app",
+      routeOwner: "ada",
+      routeName: "existing-app",
       defaultBranch: "main",
       visibility: "private",
     });
@@ -427,9 +464,9 @@ describe("vault dashboard Convex contract", () => {
       githubMode: "connect_existing_repository",
       runId: ids.runId,
       ghRepoId: "missing-repo-id",
-      repositoryKey: "ada/missing-repo",
-      owner: "ada",
-      name: "missing-repo",
+      routeRepositoryKey: "ada/missing-repo",
+      routeOwner: "ada",
+      routeName: "missing-repo",
     });
   });
 
@@ -466,9 +503,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/imported",
-        owner: "ada",
-        name: "imported",
+        githubOwner: "ada",
+        githubName: "imported",
+        routeRepositoryKey: "ada/imported",
+        routeOwner: "ada",
+        routeName: "imported",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -522,7 +561,8 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       hasConnectedGitHubRepository: true,
-      repositoryFullName: "ada/imported",
+      routeRepositoryFullName: "ada/imported",
+      githubRepositoryFullName: "ada/imported",
       state: "copying_files",
       sourceSetup: {
         status: "failed",
@@ -566,9 +606,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/demo",
-        owner: "ada",
-        name: "demo",
+        githubOwner: "ada",
+        githubName: "demo",
+        routeRepositoryKey: "ada/demo",
+        routeOwner: "ada",
+        routeName: "demo",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -658,9 +700,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/demo",
-        owner: "ada",
-        name: "demo",
+        githubOwner: "ada",
+        githubName: "demo",
+        routeRepositoryKey: "ada/demo",
+        routeOwner: "ada",
+        routeName: "demo",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -735,9 +779,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/demo",
-        owner: "ada",
-        name: "demo",
+        githubOwner: "ada",
+        githubName: "demo",
+        routeRepositoryKey: "ada/demo",
+        routeOwner: "ada",
+        routeName: "demo",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -820,8 +866,8 @@ describe("vault dashboard Convex contract", () => {
       state: "provisioning",
       githubMode: "create_repository",
       runId: ids.runId,
-      owner: "ada",
-      name: "early-vault",
+      routeOwner: "ada",
+      routeName: "early-vault",
     });
     expect(result.run).toMatchObject({
       vaultId: ids.vaultId,
@@ -872,9 +918,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/source-setup-failed",
-        owner: "ada",
-        name: "source-setup-failed",
+        githubOwner: "ada",
+        githubName: "source-setup-failed",
+        routeRepositoryKey: "ada/source-setup-failed",
+        routeOwner: "ada",
+        routeName: "source-setup-failed",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -904,7 +952,8 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       hasConnectedGitHubRepository: true,
-      repositoryFullName: "ada/source-setup-failed",
+      routeRepositoryFullName: "ada/source-setup-failed",
+      githubRepositoryFullName: "ada/source-setup-failed",
       state: "copying_files",
       sourceSetup: {
         status: "failed",
@@ -948,9 +997,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/missing-run",
-        owner: "ada",
-        name: "missing-run",
+        githubOwner: "ada",
+        githubName: "missing-run",
+        routeRepositoryKey: "ada/missing-run",
+        routeOwner: "ada",
+        routeName: "missing-run",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -1013,9 +1064,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/provider-state",
-        owner: "ada",
-        name: "provider-state",
+        githubOwner: "ada",
+        githubName: "provider-state",
+        routeRepositoryKey: "ada/provider-state",
+        routeOwner: "ada",
+        routeName: "provider-state",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -1124,9 +1177,11 @@ describe("vault dashboard Convex contract", () => {
         runId: createRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/cloudflare-retry",
-        owner: "ada",
-        name: "cloudflare-retry",
+        githubOwner: "ada",
+        githubName: "cloudflare-retry",
+        routeRepositoryKey: "ada/cloudflare-retry",
+        routeOwner: "ada",
+        routeName: "cloudflare-retry",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -1240,9 +1295,11 @@ describe("vault dashboard Convex contract", () => {
         runId: createRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/cloudflare-retry",
-        owner: "ada",
-        name: "cloudflare-retry",
+        githubOwner: "ada",
+        githubName: "cloudflare-retry",
+        routeRepositoryKey: "ada/cloudflare-retry",
+        routeOwner: "ada",
+        routeName: "cloudflare-retry",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -1363,9 +1420,11 @@ describe("vault dashboard Convex contract", () => {
         runId: sourceRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/existing-cloudflare",
-        owner: "ada",
-        name: "existing-cloudflare",
+        githubOwner: "ada",
+        githubName: "existing-cloudflare",
+        routeRepositoryKey: "ada/existing-cloudflare",
+        routeOwner: "ada",
+        routeName: "existing-cloudflare",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 22,
@@ -1458,9 +1517,11 @@ describe("vault dashboard Convex contract", () => {
         runId: sourceRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/existing-convex",
-        owner: "ada",
-        name: "existing-convex",
+        githubOwner: "ada",
+        githubName: "existing-convex",
+        routeRepositoryKey: "ada/existing-convex",
+        routeOwner: "ada",
+        routeName: "existing-convex",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 22,
@@ -1579,9 +1640,11 @@ describe("vault dashboard Convex contract", () => {
           runId,
           ghRepoId: "123",
           ghRepoNodeId: "R_123",
-          repositoryKey: `ada/provider-${testCase.label.toLowerCase()}`,
-          owner: "ada",
-          name: `provider-${testCase.label}`,
+          githubOwner: "ada",
+          githubName: `provider-${testCase.label}`,
+          routeRepositoryKey: `ada/provider-${testCase.label.toLowerCase()}`,
+          routeOwner: "ada",
+          routeName: `provider-${testCase.label}`,
           visibility: "private",
           defaultBranch: "main",
           connectedAt: 20,
@@ -1692,9 +1755,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/provider-handoff",
-        owner: "ada",
-        name: "provider-handoff",
+        githubOwner: "ada",
+        githubName: "provider-handoff",
+        routeRepositoryKey: "ada/provider-handoff",
+        routeOwner: "ada",
+        routeName: "provider-handoff",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -1770,9 +1835,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/completed-provider-run",
-        owner: "ada",
-        name: "completed-provider-run",
+        githubOwner: "ada",
+        githubName: "completed-provider-run",
+        routeRepositoryKey: "ada/completed-provider-run",
+        routeOwner: "ada",
+        routeName: "completed-provider-run",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -1852,9 +1919,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/demo",
-        owner: "ada",
-        name: "demo",
+        githubOwner: "ada",
+        githubName: "demo",
+        routeRepositoryKey: "ada/demo",
+        routeOwner: "ada",
+        routeName: "demo",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -1946,9 +2015,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/upstream-state",
-        owner: "ada",
-        name: "upstream-state",
+        githubOwner: "ada",
+        githubName: "upstream-state",
+        routeRepositoryKey: "ada/upstream-state",
+        routeOwner: "ada",
+        routeName: "upstream-state",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -2098,9 +2169,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/cloudflare-state",
-        owner: "ada",
-        name: "cloudflare-state",
+        githubOwner: "ada",
+        githubName: "cloudflare-state",
+        routeRepositoryKey: "ada/cloudflare-state",
+        routeOwner: "ada",
+        routeName: "cloudflare-state",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
@@ -2289,9 +2362,11 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
-        repositoryKey: "ada/domain-order",
-        owner: "ada",
-        name: "domain-order",
+        githubOwner: "ada",
+        githubName: "domain-order",
+        routeRepositoryKey: "ada/domain-order",
+        routeOwner: "ada",
+        routeName: "domain-order",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,

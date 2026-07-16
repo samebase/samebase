@@ -14,7 +14,8 @@ import {
 } from "../repositorySummary";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
-  normalizeGitHubRepositoryKey,
+  normalizeRepositoryRouteKey,
+  VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH,
   vGitHubRepositoryVisibility,
 } from "./model";
 import { ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
@@ -67,18 +68,38 @@ async function assertUserHasNoVaultForRepository(
   ctx: Pick<MutationCtx, "db">,
   args: {
     userId: Id<"users">;
-    repositoryKey: string;
+    routeRepositoryKey: string;
     excludeVaultId: Id<"vaults"> | null;
   },
 ): Promise<void> {
   const vault = await ctx.db
     .query("vaults")
-    .withIndex("by_userId_and_repositoryKey", (q) =>
-      q.eq("userId", args.userId).eq("repositoryKey", args.repositoryKey),
+    .withIndex("by_userId_and_routeRepositoryKey", (q) =>
+      q.eq("userId", args.userId).eq("routeRepositoryKey", args.routeRepositoryKey),
     )
     .unique();
   if (vault !== null && vault._id !== args.excludeVaultId) {
     throw new Error("Vault already exists for this repository.");
+  }
+}
+
+async function assertUserHasNoVaultForGitHubRepositoryId(
+  ctx: Pick<MutationCtx, "db">,
+  args: {
+    userId: Id<"users">;
+    ghRepoId: string;
+    excludeVaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  // GitHub repository ids stay stable across owner/name renames.
+  const vault = await ctx.db
+    .query("vaults")
+    .withIndex("by_userId_and_ghRepoId", (q) =>
+      q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId),
+    )
+    .unique();
+  if (vault !== null && vault._id !== args.excludeVaultId) {
+    throw new Error("Vault already exists for this GitHub repository.");
   }
 }
 
@@ -143,7 +164,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    const repositoryKey = normalizeGitHubRepositoryKey(`${owner}/${name}`);
+    const routeRepositoryKey = normalizeRepositoryRouteKey(`${owner}/${name}`);
     const ghRepoId = args.ghRepoId.trim();
     if (!ghRepoId) {
       throw new Error("GitHub repository id is required.");
@@ -159,7 +180,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     }
     await assertUserHasNoVaultForRepository(ctx, {
       userId: args.userId,
-      repositoryKey,
+      routeRepositoryKey,
       excludeVaultId: null,
     });
 
@@ -193,9 +214,9 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       runId,
       startedAt: now,
       ghRepoId,
-      repositoryKey,
-      owner,
-      name,
+      routeRepositoryKey,
+      routeOwner: owner,
+      routeName: name,
     });
     await ctx.db.insert("appProvisioningEvents", {
       userId: args.userId,
@@ -235,21 +256,9 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       return null;
     }
 
-    const repositoryKey = normalizeGitHubRepositoryKey(`${args.ghRepoOwner}/${args.ghRepoName}`);
-
-    // GitHub repository id stays stable across owner/name renames.
-    const existingVault = await ctx.db
-      .query("vaults")
-      .withIndex("by_userId_and_ghRepoId", (q) =>
-        q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId),
-      )
-      .unique();
-    if (existingVault && existingVault._id !== args.vaultId) {
-      throw new Error("Vault already exists for this GitHub repository.");
-    }
-    await assertUserHasNoVaultForRepository(ctx, {
+    await assertUserHasNoVaultForGitHubRepositoryId(ctx, {
       userId: args.userId,
-      repositoryKey,
+      ghRepoId: args.ghRepoId,
       excludeVaultId: args.vaultId,
     });
     if (isConnectedVault(vault)) {
@@ -271,6 +280,11 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     ) {
       throw new Error("Vault is not waiting for existing repository setup.");
     }
+    await assertUserHasNoVaultForRepository(ctx, {
+      userId: args.userId,
+      routeRepositoryKey: vault.routeRepositoryKey,
+      excludeVaultId: args.vaultId,
+    });
 
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
@@ -288,9 +302,11 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       runId: args.runId,
       ghRepoId: args.ghRepoId,
       ghRepoNodeId: args.ghRepoNodeId,
-      repositoryKey,
-      owner: args.ghRepoOwner,
-      name: args.ghRepoName,
+      githubOwner: args.ghRepoOwner,
+      githubName: args.ghRepoName,
+      routeRepositoryKey: vault.routeRepositoryKey,
+      routeOwner: vault.routeOwner,
+      routeName: vault.routeName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
@@ -338,10 +354,10 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    const repositoryKey = normalizeGitHubRepositoryKey(`${owner}/${name}`);
+    const routeRepositoryKey = normalizeRepositoryRouteKey(`${owner}/${name}`);
     await assertUserHasNoVaultForRepository(ctx, {
       userId: args.userId,
-      repositoryKey,
+      routeRepositoryKey,
       excludeVaultId: null,
     });
 
@@ -374,9 +390,9 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       githubMode: "create_repository",
       runId,
       startedAt: now,
-      repositoryKey,
-      owner,
-      name,
+      routeRepositoryKey,
+      routeOwner: owner,
+      routeName: name,
       visibility: args.visibility,
     });
     await ctx.db.insert("appProvisioningEvents", {
@@ -440,10 +456,9 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
-    const repositoryKey = normalizeGitHubRepositoryKey(`${args.ghRepoOwner}/${args.ghRepoName}`);
-    await assertUserHasNoVaultForRepository(ctx, {
+    await assertUserHasNoVaultForGitHubRepositoryId(ctx, {
       userId: args.userId,
-      repositoryKey,
+      ghRepoId: args.ghRepoId,
       excludeVaultId: args.vaultId,
     });
     if (isConnectedVault(vault)) {
@@ -466,6 +481,11 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     ) {
       throw new Error("Vault is not waiting for GitHub provisioning.");
     }
+    await assertUserHasNoVaultForRepository(ctx, {
+      userId: args.userId,
+      routeRepositoryKey: vault.routeRepositoryKey,
+      excludeVaultId: args.vaultId,
+    });
 
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
@@ -483,9 +503,11 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
       runId: args.runId,
       ghRepoId: args.ghRepoId,
       ghRepoNodeId: args.ghRepoNodeId,
-      repositoryKey,
-      owner: args.ghRepoOwner,
-      name: args.ghRepoName,
+      githubOwner: args.ghRepoOwner,
+      githubName: args.ghRepoName,
+      routeRepositoryKey: vault.routeRepositoryKey,
+      routeOwner: vault.routeOwner,
+      routeName: vault.routeName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
@@ -524,9 +546,9 @@ export const markGithubProvisioningFailed = internalMutation({
         state: "failed",
         githubMode: "create_repository",
         runId: args.runId,
-        repositoryKey: vault.repositoryKey,
-        owner: vault.owner,
-        name: vault.name,
+        routeRepositoryKey: vault.routeRepositoryKey,
+        routeOwner: vault.routeOwner,
+        routeName: vault.routeName,
         visibility: vault.visibility,
         failedAt: Date.now(),
       });
@@ -540,9 +562,9 @@ export const markGithubProvisioningFailed = internalMutation({
       githubMode: "connect_existing_repository",
       runId: args.runId,
       ghRepoId: vault.ghRepoId,
-      repositoryKey: vault.repositoryKey,
-      owner: vault.owner,
-      name: vault.name,
+      routeRepositoryKey: vault.routeRepositoryKey,
+      routeOwner: vault.routeOwner,
+      routeName: vault.routeName,
       failedAt: Date.now(),
     });
     await bumpRepositorySummaryDirectoryRevision(ctx, vault.userId);
@@ -568,6 +590,11 @@ export const updateVaultDevcontainerConfig = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
+    if (args.devcontainerConfig.length > VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH) {
+      throw new Error(
+        `Devcontainer configuration may contain at most ${VAULT_DEVCONTAINER_CONFIG_MAX_LENGTH} characters.`,
+      );
+    }
     if (!isLiveConnectedVault(await ctx.db.get(args.vaultId))) {
       return null;
     }
@@ -595,12 +622,12 @@ async function getVaultByRepositoryHelper(
     branch?: string;
   },
 ) {
-  const repositoryKey = normalizeGitHubRepositoryKey(args.repositoryFullName);
+  const routeRepositoryKey = normalizeRepositoryRouteKey(args.repositoryFullName);
 
   const vault = await ctx.db
     .query("vaults")
-    .withIndex("by_userId_and_repositoryKey", (q) =>
-      q.eq("userId", args.userId).eq("repositoryKey", repositoryKey),
+    .withIndex("by_userId_and_routeRepositoryKey", (q) =>
+      q.eq("userId", args.userId).eq("routeRepositoryKey", routeRepositoryKey),
     )
     .unique();
 
@@ -637,11 +664,13 @@ async function getVaultByRepositoryHelper(
     _id: vault._id,
     _creationTime: vault._creationTime,
     ghRepoId: vault.ghRepoId,
-    ghRepoOwner: vault.owner,
-    ghRepoName: vault.name,
-    owner: vault.owner,
-    name: vault.name,
-    repositoryFullName: `${vault.owner}/${vault.name}`,
+    ghRepoNodeId: vault.ghRepoNodeId,
+    routeOwner: vault.routeOwner,
+    routeName: vault.routeName,
+    routeRepositoryFullName: `${vault.routeOwner}/${vault.routeName}`,
+    githubOwner: vault.githubOwner,
+    githubName: vault.githubName,
+    githubRepositoryFullName: `${vault.githubOwner}/${vault.githubName}`,
     treeSHA: branchTree?.treeSHA,
     commitSHA: branchTree?.commitSHA,
     treeData: branchTree?.treeData,

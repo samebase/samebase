@@ -229,8 +229,8 @@ export const rebuildCodespaceIfStale = action({
     // becomes active again; hardcoded main breaks repos that use another branch.
     const branch = activeCodespace?.branch || "main";
     const { data: branchData } = await octokit.rest.repos.getBranch({
-      owner: connectedVault.owner,
-      repo: connectedVault.name,
+      owner: connectedVault.githubOwner,
+      repo: connectedVault.githubName,
       branch,
     });
 

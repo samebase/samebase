@@ -2,9 +2,10 @@
 
 ## Document Control
 
-- Status: Accepted next-phase implementation plan
+- Status: Superseded by Spec 114
 - Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
+- Superseded by: `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Related docs:
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`

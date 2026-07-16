@@ -34,7 +34,7 @@ import {
   wireCloudflareWorkerBuilds,
   wireCloudflareWorkerConvexBuildAccess,
 } from "../cloudflareResources";
-import { fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { resolveGitHubRepositoryIdentity } from "../githubRepositoryInventory";
 import {
   createConvexDeployKey,
   createConvexPreviewDeployKey,
@@ -1189,17 +1189,16 @@ export const ensureCloudflareBuildsWiring = internalAction({
       transport: cloudflareConnection.transport,
       accountId: active.worker.accountId,
     });
-    const repoIdentity = await fetchGitHubRepoIdentity({
-      githubAccessToken: githubConnection.githubAccessToken,
-      owner: active.owner,
-      repo: active.repo,
-      expectedRepoId: active.ghRepoId,
+    const repositoryIdentity = await resolveGitHubRepositoryIdentity({
+      credential: githubConnection.githubAccessToken,
+      repositoryNodeId: active.ghRepoNodeId,
+      expectedRepositoryDatabaseId: active.ghRepoId,
     });
     const build = await wireCloudflareWorkerBuilds({
-      owner: active.owner,
-      repo: active.repo,
+      owner: repositoryIdentity.owner,
+      repo: repositoryIdentity.name,
       ghRepoId: active.ghRepoId,
-      ghRepoOwnerId: repoIdentity.ownerId,
+      ghRepoOwnerId: repositoryIdentity.ownerDatabaseId,
       defaultBranch: active.defaultBranch,
       triggerInitialBuild: !active.hasConvexDeployment,
       vaultId: args.vaultId,

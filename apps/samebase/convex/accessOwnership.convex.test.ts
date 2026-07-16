@@ -61,9 +61,11 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
-      repositoryKey: "owner/secure",
-      owner: "owner",
-      name: "secure",
+      githubOwner: "owner",
+      githubName: "secure",
+      routeRepositoryKey: "owner/secure",
+      routeOwner: "owner",
+      routeName: "secure",
       defaultBranch: "main",
       visibility: "private",
       connectedAt: 4,
@@ -82,6 +84,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
     });
     const inventorySnapshotId = await ctx.db.insert("vaultRepositoryInventorySnapshots", {
       state: "ready",
+      observedAt: now,
       vaultId,
       branchCount: 0,
       pullRequestCount: 0,
@@ -115,6 +118,8 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       vaultId,
       wantedUntil: 7,
       writeVersion: 1,
+      observedWriteVersion: 1,
+      requiredFailureCount: 0,
       lifecycle: { state: "idle" },
       publication: {
         snapshotId: inventorySnapshotId,
@@ -294,7 +299,7 @@ describe("public Convex route ownership checks", () => {
       }),
     ).resolves.toMatchObject({
       _id: ids.vaultId,
-      repositoryFullName: "owner/secure",
+      routeRepositoryFullName: "owner/secure",
       resolvedBranch: "main",
     });
     await expect(

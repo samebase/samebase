@@ -225,7 +225,7 @@ async function countAccountDeletionStakes(
     if (reviewableVault !== null && vaultUncommittedFileChangeCount > 0) {
       affectedVaults.push({
         vaultId: reviewableVault._id,
-        repositoryFullName: `${reviewableVault.owner}/${reviewableVault.name}`,
+        repositoryFullName: `${reviewableVault.routeOwner}/${reviewableVault.routeName}`,
         uncommittedFileChangeCount: vaultUncommittedFileChangeCount,
         branches: Array.from(uncommittedFileChangesByBranch, ([branch, count]) => ({
           branch,

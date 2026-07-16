@@ -19,6 +19,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultRepositoryInventoryLabelChunks"),
   literal("vaultRepositoryInventoryItems"),
   literal("vaultRepositoryInventorySnapshots"),
+  literal("vaultRepositoryInventoryExcludedLabels"),
   literal("vaultRepositoryInventoryFilters"),
   literal("vaultRepositoryInventories"),
   literal("vaultRepositorySummaries"),
@@ -319,6 +320,10 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultRepositoryInventorySnapshots"),
   },
   {
+    table: "vaultRepositoryInventoryExcludedLabels",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventoryExcludedLabels"),
+  },
+  {
     table: "vaultRepositoryInventoryFilters",
     cleanup: deleteByVaultBatch("vaultRepositoryInventoryFilters"),
   },
@@ -406,6 +411,7 @@ const vaultLocalCleanupRegistryByStep = {
     "vaultRepositoryInventoryLabelChunks",
     "vaultRepositoryInventoryItems",
     "vaultRepositoryInventorySnapshots",
+    "vaultRepositoryInventoryExcludedLabels",
     "vaultRepositoryInventoryFilters",
     "vaultRepositoryInventories",
     "vaultRepositorySummaries",

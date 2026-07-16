@@ -1,5 +1,10 @@
 # GitHub Repository Inventory Overhaul
 
+> Historical research, superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md` and
+> `research/2026-07-16-repository-observation-operator-brief.md`. Retain the measurements and
+> incident evidence below, but do not use its selected-only polling, fixed cadence, or vault
+> compatibility recommendations as current product behavior.
+
 ## Question
 
 Why did `/vault/<org>/<repo>` often show stale or incomplete pull request data until a user clicked

@@ -30,6 +30,7 @@ import { vGitHubObservationActionLease } from "./githubObservationActionLeaseMod
 import {
   vRepositoryInventoryFilterView,
   vRepositoryInventoryFilterViewRow,
+  vRepositoryInventoryExcludedLabel,
   vRepositoryInventoryLabelChunk,
   vRepositoryInventorySnapshot,
   vRepositoryInventoryState,
@@ -414,7 +415,7 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
-    .index("by_userId_and_repositoryKey", ["userId", "repositoryKey"]),
+    .index("by_userId_and_routeRepositoryKey", ["userId", "routeRepositoryKey"]),
 
   /**
    * Deployable app roots inside a repo-backed vault. Provider resources attach
@@ -565,6 +566,11 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_vault", ["vaultId"])
     .index("by_user_and_vault", ["userId", "vaultId"]),
+
+  /** One bounded row per saved pull request label exclusion. */
+  vaultRepositoryInventoryExcludedLabels: defineTable(vRepositoryInventoryExcludedLabel)
+    .index("by_vault", ["vaultId"])
+    .index("by_filter_and_generation_and_labelKey", ["filterId", "generation", "labelKey"]),
 
   /** A complete materialized PR result set for one snapshot and filter revision. */
   vaultRepositoryInventoryFilterViews: defineTable(vRepositoryInventoryFilterView)

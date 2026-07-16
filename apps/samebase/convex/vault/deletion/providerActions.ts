@@ -12,6 +12,10 @@ import {
   deleteCloudflareResources,
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
+import {
+  renameGitHubRepositoryForDeletion,
+  resolveGitHubRepositoryIdentity,
+} from "../../githubRepositoryInventory";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
 import { readRetainedSnapshot } from "./runs";
 import {
@@ -68,10 +72,10 @@ async function appendRunEvent(
   });
 }
 
-async function resolveGitHubOctokit(
+async function resolveGitHubClient(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
-): Promise<Octokit> {
+): Promise<{ credential: string; octokit: Octokit }> {
   const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
     userId,
     kind: "github",
@@ -80,9 +84,10 @@ async function resolveGitHubOctokit(
     throw new Error("GitHub is not connected.");
   }
 
-  return new Octokit({
-    auth: githubConnection.auth.credential,
-  });
+  return {
+    credential: githubConnection.auth.credential,
+    octokit: new Octokit({ auth: githubConnection.auth.credential }),
+  };
 }
 
 export const deleteConnectedCodespaces = internalAction({
@@ -115,7 +120,7 @@ export const deleteConnectedCodespaces = internalAction({
       return null;
     }
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const { octokit } = await resolveGitHubClient(ctx, args.userId);
     for (const codespace of codespaces) {
       await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
         codespaceId: codespace._id,
@@ -297,21 +302,39 @@ export const deleteGitHubRepository = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_github_repo,
     });
-    if (plan.githubRepository.action !== "delete_repository") {
+    if (
+      plan.target.kind !== "samebase_managed_repository" ||
+      plan.githubRepository.action !== "delete_repository"
+    ) {
       return null;
     }
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
-    try {
-      await octokit.rest.repos.delete({
-        owner: plan.githubRepository.owner,
-        repo: plan.githubRepository.name,
-      });
-    } catch (error) {
-      if (!(error instanceof RequestError && error.status === 404)) {
-        throw error;
-      }
+    const { credential, octokit } = await resolveGitHubClient(ctx, args.userId);
+    await renameGitHubRepositoryForDeletion({
+      credential,
+      repositoryNodeId: plan.target.ghRepoNodeId,
+      expectedRepositoryDatabaseId: plan.target.ghRepoId,
+      deletionRepositoryName: plan.githubRepository.deletionRepositoryName,
+    });
+    const repositoryIdentity = await resolveGitHubRepositoryIdentity({
+      credential,
+      repositoryNodeId: plan.target.ghRepoNodeId,
+      expectedRepositoryDatabaseId: plan.target.ghRepoId,
+    });
+    if (repositoryIdentity.name !== plan.githubRepository.deletionRepositoryName) {
+      throw new Error("GitHub repository deletion tombstone changed before deletion.");
     }
+    const currentRepository = await octokit.rest.repos.get({
+      owner: repositoryIdentity.owner,
+      repo: repositoryIdentity.name,
+    });
+    if (String(currentRepository.data.id) !== plan.target.ghRepoId) {
+      throw new Error("GitHub returned another repository immediately before deletion.");
+    }
+    await octokit.rest.repos.delete({
+      owner: repositoryIdentity.owner,
+      repo: repositoryIdentity.name,
+    });
 
     return null;
   },

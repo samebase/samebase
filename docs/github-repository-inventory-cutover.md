@@ -1,11 +1,20 @@
 # GitHub Repository Inventory Production Cutover
 
 Use this runbook once, immediately before the narrow repository inventory schema is deployed. It
-deletes only retired derived cache. It preserves vaults, provider connections, credentials, file
-staging, infrastructure records, and every other product table.
+performs an explicit no-compatibility reset: every current vault is deleted through the old
+dashboard, then the retired repository-derived tables are cleared. It preserves users,
+`providerConnections`, and their credentials. Leave every optional external-resource removal choice
+unchecked so the reset also leaves GitHub repositories, Convex resources, Cloudflare resources, and
+Codespaces intact.
 
-Do not run these commands while a production Samebase tab is open. Do not deploy the narrow schema
-until every preflight and verification below succeeds.
+The external provider objects survive, but their Samebase vault associations do not. Vault deletion
+removes the app, Convex deployment, Cloudflare Worker, domain, ownership, target, and Codespaces
+rows that told Samebase how those objects belonged together. After reconnecting a repository as a
+new vault, reattach or recreate each provider integration that the new vault still needs.
+
+Do not clear the `vaults` table directly. The old dashboard deletion workflow owns the bounded
+cleanup of vault-scoped product state. Do not deploy the narrow schema until every preflight and
+verification below succeeds.
 
 ## 1. Target production safely
 
@@ -41,7 +50,42 @@ prod_convex() {
 
 Keep that shell open for the remaining steps.
 
-## 2. Prove the retired workers are idle
+## 2. Delete every vault through the old dashboard
+
+Keep the old production runtime deployed for this step. Open the production `/vault` dashboard and
+remove every vault, including provisioning, setup-failed, connected, and deletion-failed rows. For
+each removal:
+
+1. Open `Remove Vault`.
+2. Leave every `Also remove` option unchecked. This cutover removes the Samebase vault only, not its
+   GitHub repository, Convex resource, Cloudflare resource, or Codespaces.
+3. Confirm the removal and wait until the vault disappears from the directory.
+4. If the row enters deletion-failed state, use the dashboard retry until deletion completes. Do not
+   bypass the workflow with a direct table delete.
+
+Continue loading directory pages and deleting rows until `/vault` is empty. Then open the provider
+connection UI and confirm that the existing provider connections still show as connected. Do not
+disconnect or reauthorize them as part of this cutover. Close every production Samebase tab after
+this verification so the retired client cannot request more work.
+
+## 3. Prove the vault reset boundary
+
+Verify the authoritative table is empty without printing any vault data:
+
+```bash
+vault_output="$(prod_convex data vaults --prod --limit 1 2>&1)"
+if [ "$vault_output" != "There are no documents in this table." ]; then
+  printf 'vaults is not empty; return to the old dashboard and finish deletion.\n' >&2
+  exit 1
+fi
+printf 'The production vaults table is empty.\n'
+```
+
+The provider-connection UI check from the previous step is the credential-safe preservation check.
+Do not dump `providerConnections` through the CLI because those rows contain credentials. Never add
+`providerConnections` to an import or replacement command in this runbook.
+
+## 4. Prove the retired workers are idle
 
 The retired queue must contain no `queued`, `scheduled`, or `running` request. The command also
 fails if it reaches the 10,000-row audit bound instead of proving the complete current table.
@@ -101,7 +145,7 @@ done
 
 Stop if any check fails. Do not try to repair active work by deleting its rows.
 
-## 3. Clear only the five retired cache tables
+## 5. Clear only the five retired derived tables
 
 Convex supports clearing a table by replacing it with an empty JSON array. The confirmation is
 non-interactive because the table names are fixed and the preflight already proved the writers are
@@ -124,7 +168,7 @@ done
 
 Do not add `vaults`, `providerConnections`, or any other table to this list.
 
-## 4. Independently verify every table is empty
+## 6. Independently verify every retired table is empty
 
 These are fresh reads after the replacement imports. Any document blocks the deployment.
 
@@ -146,6 +190,10 @@ done
 rm -f "$queue_audit" "$workpool_audit" "$empty_table"
 ```
 
-Immediately deploy the narrow snapshot schema and runtime after this succeeds. Keep production tabs
-closed until that deployment is complete. If deployment does not start, leave the tabs closed and
-investigate instead of restoring the retired cache or widening the new schema.
+## 7. Deploy the narrow runtime
+
+Immediately deploy the narrow snapshot schema and runtime after the empty-table verification
+succeeds. Keep production tabs closed until that deployment is complete. Reconnect repositories as
+new vaults only after the deployment is live, then reattach or recreate their external provider
+integrations. If deployment does not start, leave the tabs closed and investigate instead of
+restoring old vault or derived data or widening the new schema.
