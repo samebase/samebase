@@ -22,6 +22,7 @@ describe("vault dashboard Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        ghRepoId: "existing-app-initializing-id",
         ghRepoOwner: "Ada",
         ghRepoName: "Existing-App",
       },
@@ -40,6 +41,8 @@ describe("vault dashboard Convex contract", () => {
       state: "provisioning",
       githubMode: "connect_existing_repository",
       runId: ids.runId,
+      ghRepoId: "existing-app-initializing-id",
+      repositoryKey: "ada/existing-app",
       owner: "Ada",
       name: "Existing-App",
     });
@@ -73,6 +76,7 @@ describe("vault dashboard Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        ghRepoId: "existing-app-running-id",
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -112,6 +116,7 @@ describe("vault dashboard Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        ghRepoId: "123",
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -134,7 +139,7 @@ describe("vault dashboard Convex contract", () => {
 
     const [selectedVault, vaults] = await Promise.all([
       asUser.query(api.vault.dashboard.getUserVaultByRepository, {
-        repositoryFullName: "ada/existing-app",
+        repositoryFullName: "ADA/EXISTING-APP",
       }),
       asUser.query(api.vault.dashboard.getUserVaults),
     ]);
@@ -185,6 +190,7 @@ describe("vault dashboard Convex contract", () => {
     });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId: ids.ownerUserId,
+      ghRepoId: "other-user-existing-app-id",
       ghRepoOwner: "ada",
       ghRepoName: "existing-app",
     });
@@ -213,6 +219,7 @@ describe("vault dashboard Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        ghRepoId: "mcp-existing-app-id",
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -298,7 +305,7 @@ describe("vault dashboard Convex contract", () => {
     );
   });
 
-  it("rejects duplicate existing repository targets before GitHub fetch", async () => {
+  it("rejects duplicate stable GitHub repository identities", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -310,6 +317,7 @@ describe("vault dashboard Convex contract", () => {
 
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
+      ghRepoId: "duplicate-repository-id",
       ghRepoOwner: "Ada",
       ghRepoName: "Existing-App",
     });
@@ -317,10 +325,11 @@ describe("vault dashboard Convex contract", () => {
     await expect(
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         userId,
-        ghRepoOwner: "ada",
-        ghRepoName: "existing-app",
+        ghRepoId: "duplicate-repository-id",
+        ghRepoOwner: "Renamed-Owner",
+        ghRepoName: "Renamed-App",
       }),
-    ).rejects.toThrow("Vault already exists for this repository.");
+    ).rejects.toThrow("Vault already exists for this GitHub repository.");
   });
 
   it("connects existing repository vaults with run provenance and no providers", async () => {
@@ -336,6 +345,7 @@ describe("vault dashboard Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        ghRepoId: "123",
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -363,6 +373,7 @@ describe("vault dashboard Convex contract", () => {
       runId: ids.runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
+      repositoryKey: "ada/existing-app",
       owner: "Ada",
       name: "Existing-App",
       defaultBranch: "main",
@@ -397,6 +408,7 @@ describe("vault dashboard Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        ghRepoId: "missing-repo-id",
         ghRepoOwner: "ada",
         ghRepoName: "missing-repo",
       },
@@ -414,6 +426,8 @@ describe("vault dashboard Convex contract", () => {
       state: "failed",
       githubMode: "connect_existing_repository",
       runId: ids.runId,
+      ghRepoId: "missing-repo-id",
+      repositoryKey: "ada/missing-repo",
       owner: "ada",
       name: "missing-repo",
     });
@@ -452,6 +466,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/imported",
         owner: "ada",
         name: "imported",
         visibility: "private",
@@ -551,6 +566,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/demo",
         owner: "ada",
         name: "demo",
         visibility: "private",
@@ -642,6 +658,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/demo",
         owner: "ada",
         name: "demo",
         visibility: "private",
@@ -718,6 +735,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/demo",
         owner: "ada",
         name: "demo",
         visibility: "private",
@@ -854,6 +872,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/source-setup-failed",
         owner: "ada",
         name: "source-setup-failed",
         visibility: "private",
@@ -929,6 +948,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/missing-run",
         owner: "ada",
         name: "missing-run",
         visibility: "private",
@@ -993,6 +1013,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/provider-state",
         owner: "ada",
         name: "provider-state",
         visibility: "private",
@@ -1103,6 +1124,7 @@ describe("vault dashboard Convex contract", () => {
         runId: createRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/cloudflare-retry",
         owner: "ada",
         name: "cloudflare-retry",
         visibility: "private",
@@ -1218,6 +1240,7 @@ describe("vault dashboard Convex contract", () => {
         runId: createRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/cloudflare-retry",
         owner: "ada",
         name: "cloudflare-retry",
         visibility: "private",
@@ -1340,6 +1363,7 @@ describe("vault dashboard Convex contract", () => {
         runId: sourceRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/existing-cloudflare",
         owner: "ada",
         name: "existing-cloudflare",
         visibility: "private",
@@ -1434,6 +1458,7 @@ describe("vault dashboard Convex contract", () => {
         runId: sourceRunId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/existing-convex",
         owner: "ada",
         name: "existing-convex",
         visibility: "private",
@@ -1554,6 +1579,7 @@ describe("vault dashboard Convex contract", () => {
           runId,
           ghRepoId: "123",
           ghRepoNodeId: "R_123",
+          repositoryKey: `ada/provider-${testCase.label.toLowerCase()}`,
           owner: "ada",
           name: `provider-${testCase.label}`,
           visibility: "private",
@@ -1666,6 +1692,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/provider-handoff",
         owner: "ada",
         name: "provider-handoff",
         visibility: "private",
@@ -1743,6 +1770,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/completed-provider-run",
         owner: "ada",
         name: "completed-provider-run",
         visibility: "private",
@@ -1824,6 +1852,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/demo",
         owner: "ada",
         name: "demo",
         visibility: "private",
@@ -1917,6 +1946,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/upstream-state",
         owner: "ada",
         name: "upstream-state",
         visibility: "private",
@@ -2068,6 +2098,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/cloudflare-state",
         owner: "ada",
         name: "cloudflare-state",
         visibility: "private",
@@ -2258,6 +2289,7 @@ describe("vault dashboard Convex contract", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/domain-order",
         owner: "ada",
         name: "domain-order",
         visibility: "private",

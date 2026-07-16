@@ -67,6 +67,7 @@ async function createConnectedVault() {
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_inventory",
+      repositoryKey: "ada/inventory",
       owner: "ada",
       name: "inventory",
       defaultBranch: "main",

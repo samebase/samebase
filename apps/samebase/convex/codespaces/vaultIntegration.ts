@@ -39,12 +39,35 @@ export const createVaultWithCodespace = action({
   handler: async (ctx, args): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     assertCodespacesEnabled();
     const userId = ctx.viewer.userId;
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit = new Octokit({ auth: githubAccessToken });
+    const repo = await octokit.rest.repos.get({
+      owner: args.repoOwner,
+      repo: args.repoName,
+    });
+    const defaultBranch = repo.data.default_branch;
+    if (
+      !Number.isSafeInteger(repo.data.id) ||
+      repo.data.id <= 0 ||
+      typeof defaultBranch !== "string" ||
+      defaultBranch.length === 0
+    ) {
+      throw new Error("Repository identity and default branch are required");
+    }
+    const requestedBranch = args.branch?.trim();
+    const branch = requestedBranch || defaultBranch;
+    const { data: branchData } = await octokit.rest.repos.getBranch({
+      owner: repo.data.owner.login,
+      repo: repo.data.name,
+      branch,
+    });
     const { vaultId, runId } = await ctx.runMutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
-        ghRepoOwner: args.repoOwner,
-        ghRepoName: args.repoName,
+        ghRepoId: String(repo.data.id),
+        ghRepoOwner: repo.data.owner.login,
+        ghRepoName: repo.data.name,
       },
     );
 
@@ -56,12 +79,6 @@ export const createVaultWithCodespace = action({
         message: "Checking provider connections.",
         state: "running",
       });
-      const githubAccessToken = await getGithubAccessToken(ctx, userId);
-
-      const octokit = new Octokit({
-        auth: githubAccessToken,
-      });
-
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId,
         step: "fetch_github_repo",
@@ -69,24 +86,8 @@ export const createVaultWithCodespace = action({
         message: "Checking existing GitHub repository.",
         state: "running",
       });
-      const repo = await octokit.rest.repos.get({
-        owner: args.repoOwner,
-        repo: args.repoName,
-      });
       // TODO(Codespaces): move this legacy codespace-first path onto the
       // connect-existing Workflow if it becomes an active entrypoint again.
-      const defaultBranch = repo.data.default_branch;
-      if (typeof defaultBranch !== "string" || defaultBranch.length === 0) {
-        throw new Error("Repository default branch is required");
-      }
-      const requestedBranch = args.branch?.trim();
-      const branch = requestedBranch || defaultBranch;
-
-      const { data: branchData } = await octokit.rest.repos.getBranch({
-        owner: repo.data.owner.login,
-        repo: repo.data.name,
-        branch,
-      });
       const commitSha = branchData.commit.sha;
       const repositoryFullName = `${repo.data.owner.login}/${repo.data.name}`;
       await ctx.runMutation(internal.appProvisioningRuns.recordRepositoryFullName, {

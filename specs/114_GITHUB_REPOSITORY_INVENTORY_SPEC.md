@@ -8,9 +8,9 @@
 - Supersedes:
   - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
+  - `specs/068_ADD_VAULT_FAST_REPOSITORY_PICKER_SPEC.md`
 - Related docs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
 
 ## Product Contract
 
@@ -135,7 +135,8 @@ point-in-time queries cached by owner, revision, and cursor. The server rejects 
 requested revision is no longer current. The browser reloads every previously requested page for a
 new revision and swaps them together. It retains the prior rows during a same-owner replacement but
 never retains or reuses rows after the authenticated owner changes. The selected repository's full
-dashboard detail is loaded through its owner/name index, not by collecting all vault details.
+dashboard detail is loaded through its case-folded repository-key index, not by collecting all vault
+details.
 
 ## Atomic Snapshot Model
 
@@ -245,9 +246,10 @@ App installation nor repository administration.
 
 The browser checks connection membership for the ten preview rows plus at most one exact input with
 one bounded Convex query. The query accepts no more than 25 unique identities, reads the
-user-and-GitHub-ID index first and canonical coordinates second, preserves input order, and returns
-only name plus connected status. It does not load vault infrastructure, file staging, or branch
-data.
+user-and-GitHub-ID index first and the case-folded repository-key index second, preserves input
+order, and returns only name plus connected status. Canonical owner and name remain display and
+navigation data, while the normalized key prevents case variants from becoming distinct local
+repositories. It does not load vault infrastructure, file staging, or branch data.
 
 ## Clean Cutover
 

@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Accepted
+- Status: Superseded by `specs/114_GITHUB_REPOSITORY_INVENTORY_SPEC.md`
 - Owner: Vault add flow + GitHub integration
 - Last updated: 2026-03-25
 - Related specs:

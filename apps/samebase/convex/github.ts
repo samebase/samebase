@@ -46,12 +46,6 @@ const githubRepositoryListItem = object({
 
 type GitHubRepositoryListItem = Infer<typeof githubRepositoryListItem>;
 type GitHubRepositoryList = GitHubRepositoryListItem[];
-const githubRepositoryPreviewResult = object({
-  repositories: array(githubRepositoryListItem),
-  hasMore: boolean(),
-});
-
-type GitHubRepositoryPreviewResult = Infer<typeof githubRepositoryPreviewResult>;
 
 type CachedRepositoryBlob = {
   size?: number | null;
@@ -90,8 +84,6 @@ type FileViewTreeRefreshRequest = Infer<typeof fileViewTreeRefreshRequest>;
 
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member";
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
-const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
-const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 
 /**
@@ -298,25 +290,6 @@ export function describeRepositoryTreeRefreshFailure(
   };
 }
 
-function buildGitHubRepositoryDiscoveryUrl(perPage: number): string {
-  return `https://api.github.com/user/repos?sort=updated&per_page=${perPage}&affiliation=${GITHUB_REPOSITORY_DISCOVERY_AFFILIATION}`;
-}
-
-export function readGitHubNextPageUrl(linkHeader: string | null | undefined): string | null {
-  if (typeof linkHeader !== "string" || linkHeader.trim().length === 0) {
-    return null;
-  }
-
-  for (const match of linkHeader.matchAll(/<([^>]+)>\s*;\s*rel="([^"]+)"/g)) {
-    const [, url, rel] = match;
-    if (rel === "next") {
-      return url;
-    }
-  }
-
-  return null;
-}
-
 export function normalizeGitHubRepositoryListItem(value: unknown): GitHubRepositoryListItem | null {
   if (!isRecord(value)) {
     return null;
@@ -387,109 +360,31 @@ function normalizeGitHubRepositoryList(value: unknown): GitHubRepositoryList {
   return Array.from(repositoriesById.values());
 }
 
-async function fetchGitHubRepositoryPage(args: {
+export async function listGitHubRepositoryPreview(args: {
   accessToken: string;
-  url: string;
   fetchImpl?: typeof fetch;
-}): Promise<{
-  repositories: GitHubRepositoryList;
-  nextPageUrl: string | null;
-}> {
+}): Promise<GitHubRepositoryList> {
   const fetchImpl = args.fetchImpl ?? fetch;
-  const response = await fetchImpl(args.url, {
-    headers: {
-      Authorization: `Bearer ${args.accessToken}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "samebase-app",
-      "X-GitHub-Api-Version": "2022-11-28",
+  const response = await fetchImpl(
+    `https://api.github.com/user/repos?sort=updated&per_page=${GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE}&affiliation=${GITHUB_REPOSITORY_DISCOVERY_AFFILIATION}`,
+    {
+      headers: {
+        Authorization: `Bearer ${args.accessToken}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": "samebase-app",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
   }
 
-  return {
-    repositories: normalizeGitHubRepositoryList(await response.json()),
-    nextPageUrl: readGitHubNextPageUrl(response.headers.get("link")),
-  };
-}
-
-/**
- * The add-vault screen renders the first page immediately, then follows up
- * with the full discovery scan in the background.
- */
-export async function listGitHubRepositoryPreview(args: {
-  accessToken: string;
-  fetchImpl?: typeof fetch;
-}): Promise<GitHubRepositoryPreviewResult> {
-  const page = await fetchGitHubRepositoryPage({
-    accessToken: args.accessToken,
-    fetchImpl: args.fetchImpl,
-    url: buildGitHubRepositoryDiscoveryUrl(GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE),
-  });
-
-  return {
-    repositories: page.repositories,
-    hasMore: page.nextPageUrl !== null,
-  };
-}
-
-export async function listGitHubRepositories(args: {
-  accessToken: string;
-  fetchImpl?: typeof fetch;
-}): Promise<GitHubRepositoryList> {
-  const repositoriesById = new Map<number, GitHubRepositoryListItem>();
-  const seenPageUrls = new Set<string>();
-  let nextPageUrl: string | null = buildGitHubRepositoryDiscoveryUrl(
-    GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE,
-  );
-
-  while (nextPageUrl) {
-    if (seenPageUrls.has(nextPageUrl)) {
-      throw new Error("GitHub repository pagination loop detected");
-    }
-    if (seenPageUrls.size >= MAX_GITHUB_REPOSITORY_PAGES) {
-      throw new Error(`GitHub repository pagination exceeded ${MAX_GITHUB_REPOSITORY_PAGES} pages`);
-    }
-    seenPageUrls.add(nextPageUrl);
-
-    const page = await fetchGitHubRepositoryPage({
-      accessToken: args.accessToken,
-      fetchImpl: args.fetchImpl,
-      url: nextPageUrl,
-    });
-
-    for (const repository of page.repositories) {
-      repositoriesById.set(repository.id, repository);
-    }
-
-    nextPageUrl = page.nextPageUrl;
-  }
-
-  return Array.from(repositoriesById.values());
+  return normalizeGitHubRepositoryList(await response.json());
 }
 
 export const listRepositoriesPreview = action({
-  access: "access_repo_connect",
-  args: {},
-  returns: githubRepositoryPreviewResult,
-  handler: async (ctx): Promise<GitHubRepositoryPreviewResult> => {
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const accessToken = githubConnection.auth.credential;
-    return await listGitHubRepositoryPreview({ accessToken });
-  },
-});
-
-// List the current user's GitHub repositories
-export const listRepositories = action({
   access: "access_repo_connect",
   args: {},
   returns: array(githubRepositoryListItem),
@@ -503,7 +398,7 @@ export const listRepositories = action({
     }
 
     const accessToken = githubConnection.auth.credential;
-    return await listGitHubRepositories({ accessToken });
+    return await listGitHubRepositoryPreview({ accessToken });
   },
 });
 

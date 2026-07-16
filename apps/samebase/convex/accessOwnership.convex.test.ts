@@ -61,6 +61,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
+      repositoryKey: "owner/secure",
       owner: "owner",
       name: "secure",
       defaultBranch: "main",

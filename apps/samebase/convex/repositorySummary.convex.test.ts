@@ -46,6 +46,7 @@ async function connectRepository(
     internal.vault.records.createInitializingExistingRepositoryVaultForUser,
     {
       userId: fixture.userId,
+      ghRepoId: databaseId,
       ghRepoOwner: owner,
       ghRepoName: args.name,
     },
@@ -217,6 +218,7 @@ describe("repository summary state machine", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId: fixture.userId,
+        ghRepoId: "database-provisioning",
         ghRepoOwner: "Ada",
         ghRepoName: "provisioning",
       },
@@ -225,6 +227,7 @@ describe("repository summary state machine", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId: fixture.userId,
+        ghRepoId: "database-failed",
         ghRepoOwner: "Ada",
         ghRepoName: "failed",
       },
@@ -280,6 +283,7 @@ describe("repository summary state machine", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId: fixture.userId,
+        ghRepoId: "ownership-conflict-database",
         ghRepoOwner: "Ada",
         ghRepoName: "ownership-conflict",
       },
@@ -441,6 +445,7 @@ describe("repository summary state machine", () => {
     await expect(
       fixture.t.run(async (ctx) => await ctx.db.get(connected.vaultId)),
     ).resolves.toMatchObject({
+      repositoryKey: "grace/renamed",
       owner: "Grace",
       name: "Renamed",
       defaultBranch: "trunk",

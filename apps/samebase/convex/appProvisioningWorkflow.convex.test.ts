@@ -35,6 +35,7 @@ describe("app provisioning workflow composition", () => {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: "ada/composed-app",
         owner: "ada",
         name: "composed-app",
         visibility: "private",

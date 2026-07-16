@@ -134,6 +134,7 @@ import type * as vault_contracts_connectRepository from "../vault/contracts/conn
 import type * as vault_contracts_convexConnectExistingProject from "../vault/contracts/convexConnectExistingProject.js";
 import type * as vault_contracts_convexListProjects from "../vault/contracts/convexListProjects.js";
 import type * as vault_contracts_createRepository from "../vault/contracts/createRepository.js";
+import type * as vault_contracts_getRepositoryConnectionMemberships from "../vault/contracts/getRepositoryConnectionMemberships.js";
 import type * as vault_contracts_getUserVaults from "../vault/contracts/getUserVaults.js";
 import type * as vault_contracts_retryInfrastructureProvisioning from "../vault/contracts/retryInfrastructureProvisioning.js";
 import type * as vault_convex from "../vault/convex.js";
@@ -292,6 +293,7 @@ declare const fullApi: ApiFromModules<{
   "vault/contracts/convexConnectExistingProject": typeof vault_contracts_convexConnectExistingProject;
   "vault/contracts/convexListProjects": typeof vault_contracts_convexListProjects;
   "vault/contracts/createRepository": typeof vault_contracts_createRepository;
+  "vault/contracts/getRepositoryConnectionMemberships": typeof vault_contracts_getRepositoryConnectionMemberships;
   "vault/contracts/getUserVaults": typeof vault_contracts_getUserVaults;
   "vault/contracts/retryInfrastructureProvisioning": typeof vault_contracts_retryInfrastructureProvisioning;
   "vault/convex": typeof vault_convex;

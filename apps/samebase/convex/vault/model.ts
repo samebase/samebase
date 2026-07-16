@@ -1,7 +1,8 @@
 import { Infer, v } from "convex/values";
+import { parseRepositoryFullName } from "../../shared/repoName";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultDeletionState } from "./deletion/model";
-export { parseRepositoryFullName } from "../../shared/repoName";
+export { parseRepositoryFullName };
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -34,9 +35,20 @@ export const vTreeRefreshFailureKind = union(literal("failed"), literal("rate_li
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 
 const githubRepositoryCoordinatesFields = {
+  repositoryKey: string(),
   owner: string(),
   name: string(),
 } as const;
+
+/**
+ * Repository keys are the case-insensitive database identity for canonical
+ * GitHub owner/name coordinates. Stable GitHub ids remain the primary identity
+ * once GitHub has returned one.
+ */
+export function normalizeGitHubRepositoryKey(repositoryFullName: string): string {
+  const { owner, name } = parseRepositoryFullName(repositoryFullName);
+  return `${owner.toLowerCase()}/${name.toLowerCase()}`;
+}
 
 /**
  * Visibility is separate from coordinates because owner/name identify the repo
@@ -296,8 +308,12 @@ const vaultOperationalFields = {
   devcontainerConfig: optional(string()),
 } as const;
 
-const connectedRepositoryIdentityFields = {
+const githubRepositoryDatabaseIdentityFields = {
   ghRepoId: string(),
+} as const;
+
+const connectedRepositoryIdentityFields = {
+  ...githubRepositoryDatabaseIdentityFields,
   ghRepoNodeId: string(),
   defaultBranch: string(),
 } as const;
@@ -323,6 +339,7 @@ export const vVaultRow = union(
     runId: id("appProvisioningRuns"),
     startedAt: number(),
 
+    ...githubRepositoryDatabaseIdentityFields,
     ...githubRepositoryCoordinatesFields,
   }),
   object({
@@ -362,6 +379,7 @@ export const vVaultRow = union(
     runId: id("appProvisioningRuns"),
     failedAt: number(),
 
+    ...githubRepositoryDatabaseIdentityFields,
     ...githubRepositoryCoordinatesFields,
   }),
 );

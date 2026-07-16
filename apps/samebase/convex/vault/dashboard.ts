@@ -23,7 +23,8 @@ import {
   vProviderSetupSummary,
   vUserVaultResult,
 } from "./contracts/getUserVaults";
-import { parseRepositoryFullName, readVaultProviderUpstreamPresence } from "./model";
+import { getRepositoryConnectionMembershipsContract } from "./contracts/getRepositoryConnectionMemberships";
+import { normalizeGitHubRepositoryKey, readVaultProviderUpstreamPresence } from "./model";
 
 const { array, id, string } = v;
 type SourceSetupVault = Extract<
@@ -36,6 +37,7 @@ type VaultApp = Doc<"vaultApps">;
 type ConnectedConvexDeployment = Doc<"vaultConvexDeployments">;
 type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
+const MAX_REPOSITORY_CONNECTION_MEMBERSHIP_INPUTS = 25;
 
 function canRemoveConvexProvisionForDeployment(deployment: ConnectedConvexDeployment): boolean {
   return deployment.origin === "provisioned";
@@ -934,11 +936,11 @@ export const getUserVaultByRepository = query({
   },
   returns: v.union(v.null(), vUserVaultResult),
   handler: async (ctx, args): Promise<UserVaultResult | null> => {
-    const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
+    const repositoryKey = normalizeGitHubRepositoryKey(args.repositoryFullName);
     const vault = await ctx.db
       .query("vaults")
-      .withIndex("by_userId_and_owner_and_name", (q) =>
-        q.eq("userId", ctx.viewer.userId).eq("owner", owner).eq("name", name),
+      .withIndex("by_userId_and_repositoryKey", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("repositoryKey", repositoryKey),
       )
       .unique();
     if (!vault || vault.state === "not_connected") {
@@ -946,6 +948,76 @@ export const getUserVaultByRepository = query({
     }
 
     return await readUserVault(ctx, vault);
+  },
+});
+
+export const getRepositoryConnectionMemberships = query({
+  access: getRepositoryConnectionMembershipsContract.access,
+  args: getRepositoryConnectionMembershipsContract.args,
+  returns: getRepositoryConnectionMembershipsContract.returns,
+  handler: async (ctx, args) => {
+    if (args.repositories.length > MAX_REPOSITORY_CONNECTION_MEMBERSHIP_INPUTS) {
+      throw new Error(
+        `At most ${MAX_REPOSITORY_CONNECTION_MEMBERSHIP_INPUTS} repository memberships can be checked at once.`,
+      );
+    }
+
+    const seenGitHubRepositoryIds = new Set<number>();
+    const seenRepositoryFullNames = new Set<string>();
+    for (const repository of args.repositories) {
+      if (
+        repository.githubRepositoryId !== null &&
+        (!Number.isSafeInteger(repository.githubRepositoryId) || repository.githubRepositoryId <= 0)
+      ) {
+        throw new Error("GitHub repository id must be a positive safe integer.");
+      }
+      const repositoryKey = normalizeGitHubRepositoryKey(repository.repositoryFullName);
+      if (
+        seenRepositoryFullNames.has(repositoryKey) ||
+        (repository.githubRepositoryId !== null &&
+          seenGitHubRepositoryIds.has(repository.githubRepositoryId))
+      ) {
+        throw new Error("Repository membership inputs must be unique.");
+      }
+      seenRepositoryFullNames.add(repositoryKey);
+      if (repository.githubRepositoryId !== null) {
+        seenGitHubRepositoryIds.add(repository.githubRepositoryId);
+      }
+    }
+
+    const memberships = [];
+    for (const repository of args.repositories) {
+      const repositoryById =
+        repository.githubRepositoryId === null
+          ? null
+          : await ctx.db
+              .query("vaults")
+              .withIndex("by_userId_and_ghRepoId", (q) =>
+                q
+                  .eq("userId", ctx.viewer.userId)
+                  .eq("ghRepoId", String(repository.githubRepositoryId)),
+              )
+              .unique();
+      let connected = repositoryById !== null;
+
+      if (!connected) {
+        const repositoryKey = normalizeGitHubRepositoryKey(repository.repositoryFullName);
+        const repositoryByCoordinates = await ctx.db
+          .query("vaults")
+          .withIndex("by_userId_and_repositoryKey", (q) =>
+            q.eq("userId", ctx.viewer.userId).eq("repositoryKey", repositoryKey),
+          )
+          .unique();
+        connected = repositoryByCoordinates !== null;
+      }
+
+      memberships.push({
+        repositoryFullName: repository.repositoryFullName,
+        connected,
+      });
+    }
+
+    return memberships;
   },
 });
 

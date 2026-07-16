@@ -35,6 +35,7 @@ async function seedDeletingUserWithConnectedVault() {
       runId: provisioningRunId,
       ghRepoId: "repository-id",
       ghRepoNodeId: "R_repository",
+      repositoryKey: "owner/repository",
       owner: "owner",
       name: "repository",
       defaultBranch: "main",
@@ -82,6 +83,7 @@ describe("account deletion late-write fences", () => {
     await expect(
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         userId: ids.userId,
+        ghRepoId: "late-app-repository-id",
         ghRepoOwner: "Ada",
         ghRepoName: "Late-App",
       }),

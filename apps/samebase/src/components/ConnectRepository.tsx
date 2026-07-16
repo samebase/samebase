@@ -2,7 +2,6 @@ import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
@@ -16,11 +15,11 @@ import {
   splitRepositoryFullNameMatch,
   type RepositorySearchMatch,
 } from "@/lib/repositorySearch";
-import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
+import { tryParseRepositoryFullName } from "../../shared/repoName";
 
-type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
+type Repository = FunctionReturnType<typeof api.github.listRepositoriesPreview>[number];
 
 export type ConnectRepositoryRepository = Repository;
 
@@ -31,20 +30,15 @@ type ConnectRepositoryRow = {
 
 type ConnectRepositoryPageContentProps = {
   connectingRepositoryFullName: string | null;
+  directRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
   githubConnected: boolean;
   loading: boolean;
-  loadingMore: boolean;
-  repositoryPreviewCount: number;
   repositoryRows: ConnectRepositoryRow[];
-  repositoryTotalCount: number;
-  retryingFullRepositories: boolean;
   searchQuery: string;
-  showBackgroundError: boolean;
   onConnectGithub: () => void;
   onConnectRepository: (repositoryFullName: string) => void;
-  onRetryFullRepositories: () => void;
   onSearchQueryChange: (value: string) => void;
 };
 
@@ -109,11 +103,8 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
 export function ConnectRepository() {
   const location = useLocation();
   const navigate = useNavigate();
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
-  const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
-  const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.actions.connectRepository);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
@@ -134,54 +125,51 @@ export function ConnectRepository() {
     },
     enabled: githubConnected,
   });
-
-  // Keep the fast preview and the full discovery scan separate so /connect-repo can
-  // paint recent repositories immediately without regressing eventual search completeness.
-  const {
-    data: fullRepositories,
-    error: fullQueryError,
-    refetch: refetchFullRepositories,
-    fetchStatus: fullRepositoriesFetchStatus,
-    isFetchedAfterMount: fullRepositoriesFetchedAfterMount,
-  } = useReactQuery({
-    queryKey: ["github-repositories"],
-    queryFn: async () => {
-      return await listRepositories();
-    },
-    enabled: githubConnected && repositoryPreview?.hasMore === true,
-  });
-
-  const hasFreshFullRepositories =
-    repositoryPreview?.hasMore === true &&
-    fullRepositoriesFetchedAfterMount &&
-    fullQueryError == null;
-  const repositories = resolveDisplayedRepositories({
-    githubConnected,
-    repositoryPreview,
-    fullRepositories,
-    hasFreshFullRepositories,
-  });
-  const loading = previewLoading;
-  // Until the full query succeeds, every search result is still partial even
-  // though the first page is already interactive.
-  const hasPartialResults =
-    githubConnected && repositoryPreview?.hasMore === true && !hasFreshFullRepositories;
-  const loadingMore = hasPartialResults && fullRepositoriesFetchStatus === "fetching";
+  const repositories = githubConnected ? (repositoryPreview ?? []) : [];
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const showBackgroundError =
-    hasPartialResults && (fullQueryError != null || retryingFullRepositories);
-  const emptyRepositoryMessage =
-    showBackgroundError && !retryingFullRepositories
-      ? hasSearchQuery
-        ? "Couldn't finish loading the rest of your repositories. Retry to finish your search."
-        : "Couldn't finish loading the rest of your repositories."
-      : hasPartialResults
-        ? hasSearchQuery
-          ? "Loading more repositories to finish your search..."
-          : "Loading more repositories..."
-        : hasSearchQuery
-          ? "No repositories match your search"
-          : null;
+  const exactRepository = tryParseRepositoryFullName(searchQuery.trim());
+  const exactRepositoryFullName =
+    exactRepository === null ? null : `${exactRepository.owner}/${exactRepository.name}`;
+  const previewContainsExactRepository =
+    exactRepositoryFullName !== null &&
+    repositories.some(
+      (repository) => repository.full_name.toLowerCase() === exactRepositoryFullName.toLowerCase(),
+    );
+  const directRepositoryCandidate =
+    githubConnected && !previewContainsExactRepository ? exactRepositoryFullName : null;
+  const membershipInputs = [
+    ...repositories.map((repository) => ({
+      githubRepositoryId: repository.id,
+      repositoryFullName: repository.full_name,
+    })),
+    ...(directRepositoryCandidate === null
+      ? []
+      : [
+          {
+            githubRepositoryId: null,
+            repositoryFullName: directRepositoryCandidate,
+          },
+        ]),
+  ];
+  const repositoryMemberships = useConvexQuery(
+    api.vault.dashboard.getRepositoryConnectionMemberships,
+    githubConnected && membershipInputs.length > 0 ? { repositories: membershipInputs } : "skip",
+  );
+  const membershipLoading = membershipInputs.length > 0 && repositoryMemberships === undefined;
+  const loading = previewLoading || membershipLoading;
+  const exactRepositoryConnected =
+    exactRepositoryFullName !== null &&
+    repositoryMemberships?.some(
+      (membership) =>
+        membership.repositoryFullName.toLowerCase() === exactRepositoryFullName.toLowerCase() &&
+        membership.connected,
+    ) === true;
+  const directRepositoryFullName = exactRepositoryConnected ? null : directRepositoryCandidate;
+  const emptyRepositoryMessage = exactRepositoryConnected
+    ? "Repository is already connected"
+    : hasSearchQuery
+      ? "No preview repositories match"
+      : null;
 
   const error =
     connectError ??
@@ -191,13 +179,12 @@ export function ConnectRepository() {
         : "Failed to fetch repositories"
       : null);
 
-  const connectedVaults = vaults || [];
-
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
-    const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
-    );
-    if (isConnected) {
+    if (
+      repositoryMemberships?.some(
+        (membership) => membership.repositoryFullName === repo.full_name && membership.connected,
+      ) === true
+    ) {
       return [];
     }
 
@@ -233,13 +220,6 @@ export function ConnectRepository() {
     })();
   };
 
-  const retryFullRepositories = () => {
-    setRetryingFullRepositories(true);
-    void refetchFullRepositories().finally(() => {
-      setRetryingFullRepositories(false);
-    });
-  };
-
   const connectSelectedRepository = (repositoryFullName: string) => {
     if (connectingRepositoryFullName !== null) {
       return;
@@ -272,20 +252,15 @@ export function ConnectRepository() {
   return (
     <ConnectRepositoryPageContent
       connectingRepositoryFullName={connectingRepositoryFullName}
+      directRepositoryFullName={directRepositoryFullName}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
       githubConnected={githubConnected}
       loading={loading}
-      loadingMore={loadingMore}
-      repositoryPreviewCount={repositoryPreview?.repositories.length ?? 0}
       repositoryRows={filteredRepositories}
-      repositoryTotalCount={repositories.length}
-      retryingFullRepositories={retryingFullRepositories}
       searchQuery={searchQuery}
-      showBackgroundError={showBackgroundError}
       onConnectGithub={connectGithub}
       onConnectRepository={connectSelectedRepository}
-      onRetryFullRepositories={retryFullRepositories}
       onSearchQueryChange={setSearchQuery}
     />
   );
@@ -293,20 +268,15 @@ export function ConnectRepository() {
 
 export function ConnectRepositoryPageContent({
   connectingRepositoryFullName,
+  directRepositoryFullName,
   emptyRepositoryMessage,
   error,
   githubConnected,
   loading,
-  loadingMore,
-  repositoryPreviewCount,
   repositoryRows,
-  repositoryTotalCount,
-  retryingFullRepositories,
   searchQuery,
-  showBackgroundError,
   onConnectGithub,
   onConnectRepository,
-  onRetryFullRepositories,
   onSearchQueryChange,
 }: ConnectRepositoryPageContentProps) {
   return (
@@ -338,7 +308,7 @@ export function ConnectRepositoryPageContent({
 
       <div className="mb-6 flex-shrink-0">
         <Input
-          placeholder="Search repositories..."
+          placeholder="Search or enter owner/repo..."
           value={searchQuery}
           onChange={(e) => onSearchQueryChange(e.target.value)}
           className="max-w-md"
@@ -374,43 +344,39 @@ export function ConnectRepositoryPageContent({
                 Member docs
               </a>
             </p>
-
-            {loadingMore && (
-              <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-                Showing the {repositoryPreviewCount} most recently updated repositories while we
-                load the rest. Search results stay partial until loading finishes.
-              </p>
-            )}
-
-            {showBackgroundError && (
-              <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
-                <div>
-                  Couldn&apos;t load the rest of your repositories. You&apos;re still seeing the
-                  most recently updated ones. Review GitHub access from Providers if this keeps
-                  failing.
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-amber-300 bg-transparent"
-                  onClick={onRetryFullRepositories}
-                  disabled={retryingFullRepositories}
-                >
-                  {retryingFullRepositories ? "Retrying..." : "Retry"}
-                </Button>
-              </div>
-            )}
           </>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {githubConnected && loading && repositoryTotalCount === 0 ? (
+        {githubConnected && loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-muted-foreground">Loading repositories...</div>
           </div>
         ) : (
           <div className="space-y-2">
+            {directRepositoryFullName !== null && (
+              <div className="flex items-center justify-between p-4 border corner-notch-1 hover:bg-muted/50 transition-colors">
+                <div className="min-w-0">
+                  <div className="text-sm text-muted-foreground">
+                    {directRepositoryFullName.split("/")[0]}/
+                  </div>
+                  <div className="font-semibold truncate">
+                    {directRepositoryFullName.split("/")[1]}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onConnectRepository(directRepositoryFullName)}
+                  disabled={connectingRepositoryFullName !== null}
+                >
+                  {connectingRepositoryFullName === directRepositoryFullName
+                    ? "Connecting..."
+                    : "Connect"}
+                </Button>
+              </div>
+            )}
             {repositoryRows.map(({ repo, searchMatch }) => {
               const ownerName = repo.full_name.split("/")[0];
               const repoName = repo.name;
@@ -477,9 +443,9 @@ export function ConnectRepositoryPageContent({
         )}
 
         {repositoryRows.length === 0 &&
+          directRepositoryFullName === null &&
           !loading &&
           !error &&
-          repositoryTotalCount > 0 &&
           emptyRepositoryMessage !== null &&
           githubConnected && (
             <div className="text-center py-8">

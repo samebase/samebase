@@ -22,7 +22,7 @@ import {
   type RepositorySummaryScheduledWait,
   type RepositorySummaryWorkerInput,
 } from "./repositorySummaryModel";
-import { parseRepositoryFullName } from "../shared/repoName";
+import { normalizeGitHubRepositoryKey, parseRepositoryFullName } from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
 
 const { array, id, literal, null: vNull, number, object, string, union } = v;
@@ -727,12 +727,13 @@ async function publishRepositorySummaryObservation(
     return;
   }
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
+  const repositoryKey = normalizeGitHubRepositoryKey(args.repositoryFullName);
   const conflictingVault = await ctx.db
     .query("vaults")
-    .withIndex("by_userId_and_owner_and_name", (q) =>
-      q.eq("userId", args.userId).eq("owner", owner).eq("name", name),
+    .withIndex("by_userId_and_repositoryKey", (q) =>
+      q.eq("userId", args.userId).eq("repositoryKey", repositoryKey),
     )
-    .first();
+    .unique();
   if (conflictingVault !== null && conflictingVault._id !== vault._id) {
     await failRepositorySummaryObservation(ctx, {
       summary: args.summary,
@@ -743,8 +744,13 @@ async function publishRepositorySummaryObservation(
   }
   const defaultBranch =
     args.defaultBranch.state === "ready" ? args.defaultBranch.name : vault.defaultBranch;
-  if (vault.owner !== owner || vault.name !== name || vault.defaultBranch !== defaultBranch) {
-    await ctx.db.patch(vault._id, { owner, name, defaultBranch });
+  if (
+    vault.repositoryKey !== repositoryKey ||
+    vault.owner !== owner ||
+    vault.name !== name ||
+    vault.defaultBranch !== defaultBranch
+  ) {
+    await ctx.db.patch(vault._id, { repositoryKey, owner, name, defaultBranch });
   }
   const publishedAt =
     args.summary.publication.state === "complete" &&

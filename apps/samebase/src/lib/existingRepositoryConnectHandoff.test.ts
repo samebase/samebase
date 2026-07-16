@@ -6,6 +6,7 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     const calls: string[] = [];
     const connectRepository = vi.fn(async (args: { repositoryFullName: string }) => {
       calls.push(`connect:${args.repositoryFullName}`);
+      return { repositoryFullName: "Samebase/Samebase" };
     });
     const navigateByHref = vi.fn((href: string, options?: { replace?: boolean }) => {
       calls.push(`navigate:${href}:${options?.replace ? "replace" : "push"}`);
@@ -21,15 +22,17 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     expect(connectRepository).toHaveBeenCalledWith({
       repositoryFullName: "samebase/samebase",
     });
-    expect(navigateByHref).toHaveBeenCalledWith("/vault/samebase/samebase?prod-ui", undefined);
+    expect(navigateByHref).toHaveBeenCalledWith("/vault/Samebase/Samebase?prod-ui", undefined);
     expect(calls).toEqual([
       "connect:samebase/samebase",
-      "navigate:/vault/samebase/samebase?prod-ui:push",
+      "navigate:/vault/Samebase/Samebase?prod-ui:push",
     ]);
   });
 
   it("replaces the direct file route with the dashboard after queueing", async () => {
-    const connectRepository = vi.fn(async (_args: { repositoryFullName: string }) => undefined);
+    const connectRepository = vi.fn(async (_args: { repositoryFullName: string }) => ({
+      repositoryFullName: "samebase/samebase",
+    }));
     const navigateByHref = vi.fn((_href: string, _options?: { replace?: boolean }) => undefined);
 
     await queueExistingRepositoryAndNavigateToDashboard({

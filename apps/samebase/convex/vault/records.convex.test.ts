@@ -35,6 +35,7 @@ async function createConnectedVaultForBranchResolution() {
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
+      repositoryKey: "ada/inventory",
       owner: "ada",
       name: "inventory",
       defaultBranch: "main",
@@ -68,6 +69,7 @@ describe("vault records Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        ghRepoId: "existing-app-repository-id",
         ghRepoOwner: "Ada",
         ghRepoName: "Existing-App",
       },
@@ -188,6 +190,34 @@ describe("vault records Convex contract", () => {
     ).rejects.toThrow("Vault already exists for this repository.");
   });
 
+  it("rejects case-insensitive duplicate existing repository targets with different ids", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("users", {
+          name: "Ada",
+          email: "ada@example.com",
+          isApproved: true,
+        }),
+    );
+
+    await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      userId,
+      ghRepoId: "first-id",
+      ghRepoOwner: "Ada",
+      ghRepoName: "Example-App",
+    });
+
+    await expect(
+      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+        userId,
+        ghRepoId: "different-id",
+        ghRepoOwner: "ada",
+        ghRepoName: "example-app",
+      }),
+    ).rejects.toThrow("Vault already exists for this repository.");
+  });
+
   it("rejects malformed repository full names with extra path segments", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -207,113 +237,6 @@ describe("vault records Convex contract", () => {
         repositoryFullName: "ada/example/extra",
       }),
     ).rejects.toThrow("Invalid repository full name");
-  });
-
-  it("checks all matching repository rows for other connected vaults", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const firstFailedVaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const firstFailedRunId = await ctx.db.insert("appProvisioningRuns", {
-        userId,
-        vaultId: firstFailedVaultId,
-        repositoryFullName: "ada/shared",
-        trigger: "create",
-        state: "failed",
-        currentStep: "create_github_repo",
-        createdAt: 1,
-        updatedAt: 2,
-        lastError: "failed",
-      });
-      await ctx.db.replace(firstFailedVaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "failed",
-        githubMode: "create_repository",
-        runId: firstFailedRunId,
-        owner: "ada",
-        name: "shared",
-        visibility: "private",
-        failedAt: 4,
-      });
-
-      const secondFailedVaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const secondFailedRunId = await ctx.db.insert("appProvisioningRuns", {
-        userId,
-        vaultId: secondFailedVaultId,
-        repositoryFullName: "ada/shared",
-        trigger: "create",
-        state: "failed",
-        currentStep: "create_github_repo",
-        createdAt: 5,
-        updatedAt: 6,
-        lastError: "failed",
-      });
-      await ctx.db.replace(secondFailedVaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "failed",
-        githubMode: "create_repository",
-        runId: secondFailedRunId,
-        owner: "ada",
-        name: "shared",
-        visibility: "private",
-        failedAt: 8,
-      });
-
-      const connectedVaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const connectedRunId = await ctx.db.insert("appProvisioningRuns", {
-        userId,
-        vaultId: connectedVaultId,
-        repositoryFullName: "ada/shared",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 9,
-        updatedAt: 10,
-        completedAt: 11,
-      });
-      await ctx.db.replace(connectedVaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId: connectedRunId,
-        ghRepoId: "123",
-        ghRepoNodeId: "R_123",
-        owner: "ada",
-        name: "shared",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 12,
-      });
-
-      return { firstFailedVaultId };
-    });
-
-    await expect(
-      t.query(internal.vault.records.hasOtherVaultsForRepository, {
-        owner: "ada",
-        repo: "shared",
-        excludeVaultId: ids.firstFailedVaultId,
-      }),
-    ).resolves.toBe(true);
   });
 
   it("keeps a requested branch until the first complete inventory can validate it", async () => {

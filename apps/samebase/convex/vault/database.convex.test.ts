@@ -78,6 +78,7 @@ async function seedDatabaseEditorVault(
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
+      repositoryKey: "ada/demo",
       owner: "ada",
       name: "demo",
       visibility: "private",

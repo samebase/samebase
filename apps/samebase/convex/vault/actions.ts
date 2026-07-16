@@ -667,6 +667,49 @@ export const listRepositoryOwners = action({
 
 export type ConnectRepositoryResult = Infer<typeof connectRepositoryContract.returns>;
 
+const GITHUB_REPOSITORY_UNREADABLE_MESSAGE =
+  "Repository is not readable with the connected GitHub account.";
+
+async function preflightExistingGitHubRepository(args: {
+  accessToken: string;
+  owner: string;
+  name: string;
+}): Promise<{
+  ghRepoId: string;
+  owner: string;
+  name: string;
+}> {
+  const octokit = new Octokit({ auth: args.accessToken });
+  try {
+    const { data } = await octokit.rest.repos.get({
+      owner: args.owner,
+      repo: args.name,
+    });
+    const owner = data.owner.login.trim();
+    const name = data.name.trim();
+    const defaultBranch = data.default_branch.trim();
+    if (
+      !Number.isSafeInteger(data.id) ||
+      data.id <= 0 ||
+      owner.length === 0 ||
+      owner.includes("/") ||
+      name.length === 0 ||
+      name.includes("/") ||
+      !defaultBranch
+    ) {
+      throw new Error(GITHUB_REPOSITORY_UNREADABLE_MESSAGE);
+    }
+
+    return {
+      ghRepoId: String(data.id),
+      owner,
+      name,
+    };
+  } catch {
+    throw new Error(GITHUB_REPOSITORY_UNREADABLE_MESSAGE);
+  }
+}
+
 export async function connectRepositoryForUser(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: { userId: Id<"users">; repositoryFullName: string },
@@ -680,24 +723,34 @@ export async function connectRepositoryForUser(
   if (githubConnection?.kind !== "github") {
     throw new Error("GitHub is not connected");
   }
+  const repository = await preflightExistingGitHubRepository({
+    accessToken: githubConnection.auth.credential,
+    owner,
+    name,
+  });
 
   const { vaultId, runId } = await ctx.runMutation(
     internal.vault.records.createInitializingExistingRepositoryVaultForUser,
     {
       userId,
-      ghRepoOwner: owner,
-      ghRepoName: name,
+      ghRepoId: repository.ghRepoId,
+      ghRepoOwner: repository.owner,
+      ghRepoName: repository.name,
     },
   );
   await startConnectExistingRepositoryProvisioningOrFail(ctx, {
     vaultId,
     runId,
     userId,
-    repositoryOwner: owner,
-    repositoryName: name,
+    repositoryOwner: repository.owner,
+    repositoryName: repository.name,
   });
 
-  return { vaultId, runId };
+  return {
+    vaultId,
+    runId,
+    repositoryFullName: `${repository.owner}/${repository.name}`,
+  };
 }
 
 export const connectRepository = action({

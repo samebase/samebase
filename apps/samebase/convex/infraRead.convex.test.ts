@@ -35,6 +35,7 @@ async function createConnectedVault() {
       runId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
+      repositoryKey: "ada/monorepo",
       owner: "ada",
       name: "monorepo",
       visibility: "private",

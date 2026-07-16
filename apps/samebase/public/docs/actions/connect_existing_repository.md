@@ -12,8 +12,10 @@ existing projects; attach providers afterwards with `connect_convex_deployment` 
 supported use on its own).
 
 Preconditions: a GitHub provider connection, and read access to the repository. Nothing is created
-on any provider; the only writes are Samebase's own record and the tree sync. Progress and failure
-are readable through `get_user_vaults` (`sourceSetup` running/failed with step and message).
+on any provider. GitHub repository identity and the default branch are verified before Samebase
+creates a vault or provisioning run. The result returns GitHub's canonical `owner/name` for
+navigation. The only writes are Samebase's own record and the tree sync. Progress and failure are
+readable through `get_user_vaults` (`sourceSetup` running/failed with step and message).
 
 ## Arguments
 
@@ -32,9 +34,12 @@ JSON Schema for the tool's `structuredContent`:
     },
     "runId": {
       "type": "string"
+    },
+    "repositoryFullName": {
+      "type": "string"
     }
   },
-  "required": ["vaultId", "runId"],
+  "required": ["vaultId", "runId", "repositoryFullName"],
   "additionalProperties": false
 }
 ```

@@ -37,6 +37,7 @@ async function createConvexConnectionVault() {
       runId: sourceRunId,
       ghRepoId: "123",
       ghRepoNodeId: "R_123",
+      repositoryKey: "ada/manual-convex",
       owner: "ada",
       name: "manual-convex",
       visibility: "private",

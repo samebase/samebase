@@ -103,6 +103,10 @@ import {
   AccountDeletionStatusVisualFixture,
   type AccountDeletionStatusVisualMode,
 } from "@/components/AccountDeletionStatusVisualFixture";
+import {
+  ConnectRepositoryVisualFixture,
+  type ConnectRepositoryVisualMode,
+} from "@/components/ConnectRepositoryVisualFixture";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@samebase/dependent";
 
@@ -137,6 +141,7 @@ type VisualFixtureMode =
   | AppBootFailureStateVisualMode
   | "corner-notch"
   | "corner-notch-detail"
+  | ConnectRepositoryVisualMode
   | AccountDeletionStatusVisualMode;
 
 type VisualFixtureSelection =
@@ -251,6 +256,9 @@ const ROUTE_URL_EDITOR_VISUAL_MODES = [
 const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-connected",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
+const CONNECT_REPOSITORY_VISUAL_MODES = [
+  "connect-repository-exact-public",
+] as const satisfies readonly ConnectRepositoryVisualMode[];
 const MISC_VISUAL_MODES = [
   "account-deletion-running",
   "account-deletion-attention",
@@ -321,6 +329,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Providers",
     modes: PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES,
+  },
+  {
+    label: "Repository Connect",
+    modes: CONNECT_REPOSITORY_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -495,6 +507,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "providers-page-connected") {
     return <ProviderConnectionsPageVisualFixture />;
+  }
+
+  if (mode === "connect-repository-exact-public") {
+    return <ConnectRepositoryVisualFixture />;
   }
 
   if (mode === "button") {

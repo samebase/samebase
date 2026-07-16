@@ -48,6 +48,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
         runId,
         ghRepoId: "123",
         ghRepoNodeId: "R_123",
+        repositoryKey: `ada/${args.repoName.toLowerCase()}`,
         owner: "ada",
         name: args.repoName,
         visibility: "private",

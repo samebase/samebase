@@ -294,11 +294,23 @@ describe("account deletion workflow ownership and outcomes", () => {
         runId: provisioningRunId,
         ghRepoId: "repository-id",
         ghRepoNodeId: "R_repository",
+        repositoryKey: "owner/repository",
         owner: "owner",
         name: "repository",
         defaultBranch: "main",
         visibility: "private",
         connectedAt: now,
+      });
+      await ctx.db.insert("vaultRepositorySummaries", {
+        userId,
+        vaultId,
+        refreshEligibleAt: 0,
+        lifecycle: { state: "idle" },
+        publication: { state: "unobserved" },
+      });
+      await ctx.db.insert("vaultRepositorySummaryDirectoryStates", {
+        userId,
+        revision: 1,
       });
       return { userId, vaultId };
     });

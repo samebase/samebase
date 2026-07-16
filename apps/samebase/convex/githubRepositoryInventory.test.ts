@@ -180,13 +180,17 @@ function makeCommit(args: {
     authoredDate: "2026-07-15T09:59:00Z",
     committedDate: "2026-07-15T10:00:00Z",
     repository: { id: args.repositoryId },
-    statusCheckRollup: {
-      contexts: makeCheckPage({
-        commitNodeId: args.nodeId,
-        checkCount: args.checkCount,
-        start: 0,
-      }),
-    },
+    statusCheckRollup:
+      args.checkCount === 0
+        ? null
+        : {
+            state: "SUCCESS",
+            contexts: makeCheckPage({
+              commitNodeId: args.nodeId,
+              checkCount: args.checkCount,
+              start: 0,
+            }),
+          },
   };
 }
 
@@ -553,6 +557,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
           __typename: "Commit",
           oid: commit.sha,
           statusCheckRollup: {
+            state: "SUCCESS",
             contexts: makeCheckPage({
               commitNodeId: nodeId,
               checkCount: commit.checkCount,

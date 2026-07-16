@@ -5,7 +5,9 @@ import { parseRepositoryFullName } from "../../shared/repoName";
 
 type RouteSearch = RouterState<RegisteredRouter["routeTree"]>["location"]["search"];
 
-type ConnectExistingRepository = (args: { repositoryFullName: string }) => Promise<unknown>;
+type ConnectExistingRepository = (args: {
+  repositoryFullName: string;
+}) => Promise<{ repositoryFullName: string }>;
 
 type DashboardNavigationOptions = {
   replace?: boolean;
@@ -24,8 +26,10 @@ export async function queueExistingRepositoryAndNavigateToDashboard(args: {
   replace?: boolean;
   search: RouteSearch;
 }) {
-  await args.connectRepository({ repositoryFullName: args.repositoryFullName });
-  const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
+  const connectedRepository = await args.connectRepository({
+    repositoryFullName: args.repositoryFullName,
+  });
+  const { owner, name } = parseRepositoryFullName(connectedRepository.repositoryFullName);
   await args.navigateByHref(
     buildPathWithTanStackSearch({
       pathname: buildVaultDashboardRoute({ owner, repoName: name }),

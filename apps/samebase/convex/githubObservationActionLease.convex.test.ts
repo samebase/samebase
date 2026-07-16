@@ -36,6 +36,7 @@ async function createConnectedVault(t: ConvexTest, userId: Id<"users">, name: st
       runId,
       ghRepoId: `database-${name}`,
       ghRepoNodeId: `node-${name}`,
+      repositoryKey: `ada/${name.toLowerCase()}`,
       owner: "ada",
       name,
       defaultBranch: "main",

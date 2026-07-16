@@ -46,20 +46,15 @@ function buildRepositoryRow(repository: ConnectRepositoryRepository, searchQuery
 function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPageContentProps>) {
   const props: ConnectRepositoryPageContentProps = {
     connectingRepositoryFullName: null,
+    directRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
     githubConnected: true,
     loading: false,
-    loadingMore: false,
-    repositoryPreviewCount: 0,
     repositoryRows: [],
-    repositoryTotalCount: 0,
-    retryingFullRepositories: false,
     searchQuery: "",
-    showBackgroundError: false,
     onConnectGithub: noop,
     onConnectRepository: noop,
-    onRetryFullRepositories: noop,
     onSearchQueryChange: noop,
     ...overrides,
   };
@@ -83,37 +78,28 @@ describe("ConnectRepositoryPageContent", () => {
     expect(markup).not.toContain("Back to Vaults");
     expect(markup).toContain("GitHub connection required");
     expect(markup).toContain("Connect GitHub to list your repositories.");
-    expect(markup).toContain("Search repositories...");
+    expect(markup).toContain("Search or enter owner/repo...");
     expect(markup).not.toContain("Owner docs");
   });
 
-  it("renders partial repository discovery with retry copy and real rows", () => {
+  it("renders the repository preview without background scan state", () => {
     const firstRepository = buildRepository(1, "samebase/samebase");
     const secondRepository = buildRepository(2, "samebase/starter-kit");
 
     const markup = renderConnectRepositoryContent({
       githubConnected: true,
-      loadingMore: true,
-      repositoryPreviewCount: 10,
       repositoryRows: [
         buildRepositoryRow(firstRepository, ""),
         buildRepositoryRow(secondRepository, ""),
       ],
-      repositoryTotalCount: 2,
-      showBackgroundError: true,
     });
 
     expect(markup).toContain("Owner docs");
     expect(markup).toContain("Member docs");
     expect(markup).toContain("Review GitHub access");
     expect(markup).toContain("to check granted scopes and repository listing");
-    expect(markup).toContain(
-      "Showing the 10 most recently updated repositories while we load the rest.",
-    );
-    expect(markup).toContain(
-      "Couldn't load the rest of your repositories. You're still seeing the most recently updated ones. Review GitHub access from Providers if this keeps failing.",
-    );
-    expect(markup).toContain("Retry");
+    expect(markup).not.toContain("load the rest");
+    expect(markup).not.toContain("Retry");
     expect(markup).toContain("samebase");
     expect(markup).toContain("samebase");
     expect(markup).toContain("starter-kit");
@@ -125,27 +111,24 @@ describe("ConnectRepositoryPageContent", () => {
     const markup = renderConnectRepositoryContent({
       connectingRepositoryFullName: repository.full_name,
       repositoryRows: [buildRepositoryRow(repository, "")],
-      repositoryTotalCount: 1,
     });
 
     expect(markup).toContain("Connecting...");
     expect(markup).toContain("disabled");
   });
 
-  it("renders the search-empty background failure message", () => {
+  it("offers an exact public repository that is absent from the preview", () => {
     const markup = renderConnectRepositoryContent({
-      emptyRepositoryMessage:
-        "Couldn't finish loading the rest of your repositories. Retry to finish your search.",
+      directRepositoryFullName: "facebook/react",
       githubConnected: true,
       repositoryRows: [],
-      repositoryTotalCount: 3,
-      searchQuery: "transferred",
-      showBackgroundError: true,
+      searchQuery: "facebook/react",
     });
 
-    expect(markup).toContain(
-      "Couldn't finish loading the rest of your repositories. Retry to finish your search.",
-    );
+    expect(markup).toContain("facebook/");
+    expect(markup).toContain("react");
+    expect(markup).toContain("Connect");
+    expect(markup).not.toContain("No preview repositories match");
   });
 
   it("keeps the loading state and stays silent for default empty content", () => {
@@ -153,12 +136,10 @@ describe("ConnectRepositoryPageContent", () => {
       githubConnected: true,
       loading: true,
       repositoryRows: [],
-      repositoryTotalCount: 0,
     });
     const emptyMarkup = renderConnectRepositoryContent({
       githubConnected: true,
       repositoryRows: [],
-      repositoryTotalCount: 0,
     });
 
     expect(loadingMarkup).toContain("Loading repositories...");

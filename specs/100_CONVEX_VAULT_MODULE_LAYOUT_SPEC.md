@@ -137,7 +137,6 @@ The accepted public and internal Convex references are named by responsibility:
 - `internal.vault.records.getByIdForUser`
 - `internal.vault.records.getInfrastructureByVaultId`
 - `internal.vault.records.getByRepositoryFullName`
-- `internal.vault.records.hasOtherVaultsForRepository`
 - `internal.vault.records.createInitializingExistingRepositoryVaultForUser`
 - `internal.vault.records.createInitializingSamebaseManagedVaultForUser`
 - `internal.vault.records.connectExistingRepositoryVaultGitHub`
