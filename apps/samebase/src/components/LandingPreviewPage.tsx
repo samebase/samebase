@@ -584,21 +584,28 @@ function LandingPreviewOverview() {
               <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
             </p>
           </div>
-          <div className="mt-12">
-            <video
-              aria-label="Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase"
-              autoPlay
-              className="block w-full"
-              data-testid="landing-preview-hero-video"
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              src="/landing-preview/tic-tac-toe-codex.mp4"
-            />
-            <p className="mt-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
-              Codex builds, ships, and plays a 4×4×4 game with me · 4:52 · muted
-            </p>
+          <div className="mt-12" style={{ containerType: "inline-size" }}>
+            <div
+              className="overflow-hidden"
+              data-testid="landing-preview-hero-video-frame"
+              style={{
+                borderRadius: "1.104% / 1.664%",
+                boxShadow:
+                  "0 0.11cqw 0.44cqw rgb(0 0 0 / 22%), 0 1.325cqw 3.31cqw rgb(0 0 0 / 30%)",
+              }}
+            >
+              <video
+                aria-label="Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase"
+                autoPlay
+                className="block w-full"
+                data-testid="landing-preview-hero-video"
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                src="/landing-preview/tic-tac-toe-codex.mp4"
+              />
+            </div>
           </div>
         </section>
 
