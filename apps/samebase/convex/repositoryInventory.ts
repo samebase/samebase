@@ -17,9 +17,9 @@ import { githubObservationWorkpool } from "./githubObservationWorkpool";
 import {
   claimRepositorySummaryForInventory,
   completeRepositorySummaryInventoryObservation,
-  deferRepositorySummaryInventoryObservation,
   failRepositorySummaryInventoryObservation,
   releaseRepositorySummaryInventoryObservation,
+  scheduleRepositorySummaryForInventory,
 } from "./repositorySummary";
 import { toErrorMessage } from "./jsonUtils";
 import {
@@ -349,6 +349,13 @@ async function scheduleRepositoryInventoryRefresh(
       workpoolJobId,
       wait,
     },
+  });
+  await scheduleRepositorySummaryForInventory(ctx, {
+    userId: inventory.userId,
+    vaultId: inventory.vaultId,
+    snapshotId,
+    scheduledAt,
+    wait,
   });
   return snapshotId;
 }
@@ -738,13 +745,6 @@ export const deferRepositoryInventoryRefresh = internalMutation({
     if (scheduledSnapshotId === null) {
       throw new Error("Repository inventory could not be rescheduled after waiting.");
     }
-    await deferRepositorySummaryInventoryObservation(ctx, {
-      vaultId: args.vaultId,
-      claimedSnapshotId: args.snapshotId,
-      scheduledSnapshotId,
-      reason: args.reason,
-      retryAt: Math.max(args.retryAt, Date.now() + 1_000),
-    });
     return null;
   },
 });

@@ -12,7 +12,6 @@ import {
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
-  VaultDashboardVaultPickerPane,
   VaultDashboardView,
   VaultBranchLinkContent,
   VaultPullRequestHeaderControls,
@@ -1035,29 +1034,6 @@ describe("VaultDashboardRepositoryCard", () => {
     });
 
     expect(buildVaultProductionApps(vault)).toEqual([]);
-  });
-
-  it("renders the root dashboard vault picker in the main pane", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultDashboardVaultPickerPane
-          vaults={[
-            makeResourceRailBuilderVault({
-              ghRepoName: "demo",
-              ghRepoOwner: "ada",
-              repositoryFullName: "ada/demo",
-            }),
-          ]}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain("Vaults");
-    expect(markup).toContain("ada/demo");
-    expect(markup).toContain('href="/vault/ada/demo"');
-    expect(markup).not.toContain(
-      "Select a vault from the left sidebar or add one from the right sidebar.",
-    );
   });
 
   it("keeps the repository title passive when no title href is provided", () => {

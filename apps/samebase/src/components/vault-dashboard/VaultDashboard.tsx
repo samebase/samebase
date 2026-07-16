@@ -9,6 +9,11 @@ import { Input } from "@/components/ui/input";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultPullRequestFiltersControl } from "@/components/vault-dashboard/VaultPullRequestFilters";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
+import {
+  RepositorySummaryDirectoryHeader,
+  RepositorySummaryDirectoryList,
+  RepositorySummaryDirectoryPane,
+} from "@/components/vault-dashboard/RepositorySummaryDirectory";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
@@ -64,7 +69,6 @@ import {
   VaultDashboardEmptyState,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
-  VaultDashboardSidebarContent,
   VaultDashboardScrollTargetEndPadding,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { findVaultDashboardVerticalScrollport } from "@/components/vault-dashboard/vaultDashboardScrollport";
@@ -74,7 +78,6 @@ import {
 } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
-  buildVaultDashboardRoute,
   buildVaultCodespaceChatRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
@@ -130,8 +133,9 @@ import {
   SamebaseLogoMark,
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import { useRepositoryInventoryDemand } from "@/hooks/useRepositoryInventoryDemand";
+import { useRepositoryObservationDemand } from "@/hooks/useRepositoryObservationDemand";
 import { useRepositoryInventorySnapshot } from "@/hooks/useRepositoryInventorySnapshot";
+import { useRepositorySummaryDirectory } from "@/hooks/useRepositorySummaryDirectory";
 import type {
   CloudflareWorkerOption,
   CloudflareWorkerRepositoryEvidence,
@@ -153,8 +157,8 @@ const VAULT_BRANCH_LOADER_ROW_KEY = "vault-branch-loader";
 const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
 
 export type VaultDashboardVault = NonNullable<
-  (typeof api.vault.dashboard.getUserVaults)["_returnType"]
->[number];
+  (typeof api.vault.dashboard.getUserVaultByRepository)["_returnType"]
+>;
 type VaultDashboardStagedBranchSummary = NonNullable<
   (typeof api.fileStaging.listStagedFilesBranchSummaries)["_returnType"]
 >[number];
@@ -2986,73 +2990,6 @@ function buildVaultDashboardAddAppRootHref({
   });
 }
 
-export function VaultDashboardVaultList({
-  selectedVaultId,
-  vaults,
-}: {
-  selectedVaultId: Id<"vaults"> | null;
-  vaults: VaultDashboardVault[];
-}) {
-  return (
-    <VaultDashboardSidebarContent>
-      <nav aria-label="Vaults" className="p-2">
-        <ul className="space-y-1">
-          {vaults.map((vault) => {
-            const isSelected = vault._id === selectedVaultId;
-
-            return (
-              <li key={vault._id}>
-                <Link
-                  resetScroll={isSelected ? false : undefined}
-                  to={buildVaultDashboardRoute({
-                    owner: vault.ghRepoOwner,
-                    repoName: vault.ghRepoName,
-                  })}
-                  search={(currentSearch) =>
-                    applySearchPatch(currentSearch, {
-                      [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
-                      [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
-                      "add-cloudflare": null,
-                      "add-convex": null,
-                      delete: null,
-                    })
-                  }
-                  title={vault.repositoryFullName}
-                  className={clsx(
-                    "flex min-h-8 min-w-0 items-center px-2 py-1.5 text-sm leading-5 no-underline transition-colors hover:no-underline",
-                    isSelected
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                  )}
-                >
-                  <span className="truncate">{vault.repositoryFullName}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-    </VaultDashboardSidebarContent>
-  );
-}
-
-function VaultDashboardVaultListHeader() {
-  return (
-    <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">Vaults</div>
-  );
-}
-
-export function VaultDashboardVaultPickerPane({ vaults }: { vaults: VaultDashboardVault[] }) {
-  return (
-    <div className="flex min-h-full min-w-0 flex-col">
-      <div className="flex h-8 shrink-0 items-center border-b border-border">
-        <VaultDashboardVaultListHeader />
-      </div>
-      <VaultDashboardVaultList selectedVaultId={null} vaults={vaults} />
-    </div>
-  );
-}
-
 export function VaultDashboardPaneMessage({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full items-start p-4 text-sm text-muted-foreground">{children}</div>
@@ -3432,21 +3369,27 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
-  const selectedVault = useMemo(() => {
-    if (!vaults || vaults.length === 0) {
-      return null;
-    }
-    if (!selectedRepositoryFullName) {
-      return null;
-    }
-    return vaults.find((vault) => vault.repositoryFullName === selectedRepositoryFullName) ?? null;
-  }, [selectedRepositoryFullName, vaults]);
+  const repositoryDirectory = useRepositorySummaryDirectory();
+  const selectedVaultResult = useQuery(
+    api.vault.dashboard.getUserVaultByRepository,
+    selectedRepositoryFullName ? { repositoryFullName: selectedRepositoryFullName } : "skip",
+  );
+  const selectedVault = selectedVaultResult ?? null;
+  const selectedVaultLoaded =
+    selectedRepositoryFullName === undefined || selectedVaultResult !== undefined;
   const selectedInventoryVaultId =
     selectedVault?.state === "ready" && selectedVault.deletion.state === "not_deleting"
       ? selectedVault._id
       : null;
-  useRepositoryInventoryDemand(selectedInventoryVaultId);
+  const visibleSummaryVaultIds = useMemo(
+    () => repositoryDirectory.entries.slice(0, 25).map((entry) => entry.vaultId),
+    [repositoryDirectory.entries],
+  );
+  useRepositoryObservationDemand({
+    selectedInventoryVaultId,
+    selectedSummaryVaultId: selectedVault?._id ?? null,
+    visibleSummaryVaultIds,
+  });
   const selectedVaultRepositoryInventoryState = useConvexQuery(
     api.repositoryInventory.getRepositoryInventoryState,
     selectedInventoryVaultId ? { vaultId: selectedInventoryVaultId } : "skip",
@@ -3533,9 +3476,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   );
   const dashboardData = useMemo(
     () =>
-      vaults
+      selectedVaultLoaded
         ? {
-            allVaults: vaults,
             viewModel: {
               vaults: selectedVault ? [selectedVault] : [],
               repositoryInventoryStatesByVaultId:
@@ -3569,7 +3511,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       selectedVaultRepositoryInventoryRows,
       selectedVaultPullRequestFilter,
       stagedBranchSummariesByVaultId,
-      vaults,
+      selectedVaultLoaded,
     ],
   );
   const now = useNow();
@@ -4010,7 +3952,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         preparedAddAppRootRepositoryRef.current = null;
         resetAddAppRootDialogState();
       }
-      if (addAppRootModeActive && vaults) {
+      if (addAppRootModeActive && selectedVaultLoaded) {
         replaceVaultDashboardDialogRoute("add-app-root");
       }
       return;
@@ -4028,7 +3970,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     replaceVaultDashboardDialogRoute,
     resetAddAppRootDialogState,
     vaultToAddAppRoot,
-    vaults,
+    selectedVaultLoaded,
   ]);
 
   useEffect(() => {
@@ -4037,7 +3979,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         preparedDeleteRepositoryRef.current = null;
         resetDeleteDialogState();
       }
-      if (deleteModeActive && vaults && !deleteDialogVault) {
+      if (deleteModeActive && selectedVaultLoaded && !deleteDialogVault) {
         replaceVaultDashboardDialogRoute("delete");
       }
       return;
@@ -4058,7 +4000,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     replaceVaultDashboardDialogRoute,
     deleteDialogVault,
     vaultToDelete,
-    vaults,
+    selectedVaultLoaded,
   ]);
 
   useEffect(() => {
@@ -4067,7 +4009,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         preparedAddConvexRepositoryRef.current = null;
         resetConvexDialogState();
       }
-      if (addConvexModeActive && vaults) {
+      if (addConvexModeActive && selectedVaultLoaded) {
         replaceVaultDashboardDialogRoute("add-convex");
       }
       return;
@@ -4095,7 +4037,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setConvexConnectDialogAppRoot,
     setConvexConnectDialogCreateProjectName,
     vaultToConnectConvex,
-    vaults,
+    selectedVaultLoaded,
   ]);
 
   useEffect(() => {
@@ -4104,7 +4046,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         preparedAddCloudflareWorkerRepositoryRef.current = null;
         resetCloudflareDialogState();
       }
-      if (addCloudflareWorkerModeActive && vaults) {
+      if (addCloudflareWorkerModeActive && selectedVaultLoaded) {
         replaceVaultDashboardDialogRoute("add-cloudflare");
       }
       return;
@@ -4137,7 +4079,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setCloudflareConnectDialogAppRoot,
     setCloudflareConnectDialogCreateWorkerName,
     vaultToConnectCloudflare,
-    vaults,
+    selectedVaultLoaded,
   ]);
 
   const handleAddAppRootDialogOpenChange = (isOpen: boolean) => {
@@ -4466,7 +4408,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     return null;
   }
 
-  const { allVaults, viewModel: dashboardViewModel } = dashboardData;
+  const { viewModel: dashboardViewModel } = dashboardData;
 
   const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>(
     (userVaultResourceLinksState ?? []).map((state) => [state.vaultId, state.resourceLinksOpen]),
@@ -4505,25 +4447,44 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
 
   const selectedVaultMissing = Boolean(selectedRepositoryFullName) && selectedVault === null;
   const isVaultRootRoute = selectedRepositoryFullName === undefined;
+  const repositoryDirectoryProps = {
+    entries: repositoryDirectory.entries,
+    error: repositoryDirectory.error,
+    loadMore: repositoryDirectory.loadMore,
+    now,
+    selectedVaultId: selectedVault?._id ?? null,
+    status: repositoryDirectory.status,
+  };
   const leftPane = {
-    header: <VaultDashboardVaultListHeader />,
-    content: (
-      <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={allVaults} />
-    ),
+    header: <RepositorySummaryDirectoryHeader />,
+    content: <RepositorySummaryDirectoryList {...repositoryDirectoryProps} />,
   };
   const dashboardBody =
     selectedVaultMissing && selectedRepositoryFullName ? (
       <VaultDashboardPaneMessage>
         Vault not found: {selectedRepositoryFullName}
       </VaultDashboardPaneMessage>
-    ) : selectedVault === null && allVaults.length > 0 ? (
-      isVaultRootRoute ? (
-        <VaultDashboardVaultPickerPane vaults={allVaults} />
+    ) : isVaultRootRoute ? (
+      repositoryDirectory.entries.length === 0 && repositoryDirectory.status === "Exhausted" ? (
+        <VaultDashboardEmptyState
+          logoRouteSearch={rootRouteSearch}
+          replaceRouteSearch={(nextSearch) => {
+            void navigate({
+              replace: true,
+              resetScroll: false,
+              search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+              state: true,
+              to: ".",
+            });
+          }}
+        />
       ) : (
-        <VaultDashboardPaneMessage>
-          Select a vault from the left sidebar or add one from the right sidebar.
-        </VaultDashboardPaneMessage>
+        <RepositorySummaryDirectoryPane {...repositoryDirectoryProps} />
       )
+    ) : selectedVault === null ? (
+      <VaultDashboardPaneMessage>
+        Select a vault from the left sidebar or add one from the right sidebar.
+      </VaultDashboardPaneMessage>
     ) : (
       <VaultDashboardView
         deleteModeActive={deleteModeActive}

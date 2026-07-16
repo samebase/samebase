@@ -88,7 +88,7 @@ import {
   useFileViewRouteSearch,
 } from "@/routeSearch/fileView";
 import { encodeGitHubPath } from "@/lib/githubUrls";
-import { useRepositoryInventoryDemand } from "@/hooks/useRepositoryInventoryDemand";
+import { useRepositoryObservationDemand } from "@/hooks/useRepositoryObservationDemand";
 import {
   type BranchComparePreview,
   BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
@@ -105,6 +105,8 @@ import {
   type SidebarMode,
   type StagedFileRecord,
 } from "./fileViewShared";
+
+const EMPTY_VISIBLE_SUMMARY_VAULT_IDS = [] as const;
 
 function FileViewWrapper() {
   const router = useRouter();
@@ -142,7 +144,11 @@ function FileViewWrapper() {
   const branch = routeBranch ?? vault?.resolvedBranch;
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
-  useRepositoryInventoryDemand(vaultId ?? null);
+  useRepositoryObservationDemand({
+    selectedInventoryVaultId: vaultId ?? null,
+    selectedSummaryVaultId: vaultId ?? null,
+    visibleSummaryVaultIds: EMPTY_VISIBLE_SUMMARY_VAULT_IDS,
+  });
   const repositoryInventoryBranchContext = useQuery(
     api.repositoryInventory.getRepositoryInventoryBranchContext,
     vaultId && branch

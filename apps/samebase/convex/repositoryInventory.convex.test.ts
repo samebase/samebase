@@ -483,6 +483,20 @@ describe("repository inventory refresh state machine", () => {
     if (scheduled?.lifecycle.state !== "scheduled") {
       throw new Error("Expected a scheduled repository inventory refresh.");
     }
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: {
+        state: "scheduled",
+        source: "repository_inventory",
+        snapshotId: scheduled.lifecycle.snapshotId,
+        wait: { kind: "immediate" },
+      },
+      publication: { state: "unobserved" },
+    });
+    await expect(
+      asUser.mutation(api.repositorySummary.requestRepositorySummaryRefresh, {
+        visibleVaultIds: [ids.vaultId],
+      }),
+    ).resolves.toEqual({ state: "idle" });
 
     const claimed = await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
       vaultId: ids.vaultId,

@@ -19,6 +19,7 @@ import {
   vRepositorySummaryWorkerInput,
   type RepositorySummaryDefaultBranch,
   type RepositorySummaryPublicState,
+  type RepositorySummaryScheduledWait,
   type RepositorySummaryWorkerInput,
 } from "./repositorySummaryModel";
 import { parseRepositoryFullName } from "../shared/repoName";
@@ -42,6 +43,17 @@ async function readRepositorySummary(
     .query("vaultRepositorySummaries")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .unique();
+}
+
+async function readRepositorySummaryDirectoryRevision(
+  ctx: Pick<QueryCtx, "db">,
+  userId: Id<"users">,
+): Promise<number> {
+  const state = await ctx.db
+    .query("vaultRepositorySummaryDirectoryStates")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  return state?.revision ?? 0;
 }
 
 export async function bumpRepositorySummaryDirectoryRevision(
@@ -238,23 +250,26 @@ function publicRepositorySummaryState(summary: RepositorySummaryDoc): Repository
 export const getRepositorySummaryDirectoryState = query({
   access: "access_dashboard",
   args: {},
-  returns: object({ revision: number() }),
+  returns: object({ ownerId: id("users"), revision: number() }),
   handler: async (ctx) => {
-    const state = await ctx.db
-      .query("vaultRepositorySummaryDirectoryStates")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.viewer.userId))
-      .unique();
-    return { revision: state?.revision ?? 0 };
+    return {
+      ownerId: ctx.viewer.userId,
+      revision: await readRepositorySummaryDirectoryRevision(ctx, ctx.viewer.userId),
+    };
   },
 });
 
 export const listRepositorySummaryDirectoryPage = query({
   access: "access_dashboard",
   args: {
+    directoryRevision: number(),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(vRepositorySummaryDirectoryEntry),
   handler: async (ctx, args) => {
+    if (!Number.isSafeInteger(args.directoryRevision) || args.directoryRevision < 0) {
+      throw new Error("Repository summary directory revision must be a non-negative integer.");
+    }
     if (
       !Number.isInteger(args.paginationOpts.numItems) ||
       args.paginationOpts.numItems < 1 ||
@@ -274,6 +289,10 @@ export const listRepositorySummaryDirectoryPage = query({
       throw new Error(
         `Repository summary directory pages may read at most ${REPOSITORY_SUMMARY_PAGE_SIZE} rows.`,
       );
+    }
+    const currentRevision = await readRepositorySummaryDirectoryRevision(ctx, ctx.viewer.userId);
+    if (currentRevision !== args.directoryRevision) {
+      throw new Error("Repository summary directory revision changed while loading pages.");
     }
     const page = await ctx.db
       .query("vaults")
@@ -553,6 +572,34 @@ export async function claimRepositorySummaryForInventory(
   await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
 }
 
+export async function scheduleRepositorySummaryForInventory(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+    scheduledAt: number;
+    wait: RepositorySummaryScheduledWait;
+  },
+): Promise<void> {
+  const summary = await readRepositorySummary(ctx, args.vaultId);
+  if (summary === null || summary.userId !== args.userId) {
+    throw new Error("Connected vault repository summary is missing.");
+  }
+  const runAt = args.wait.kind === "immediate" ? args.scheduledAt : args.wait.retryAt;
+  await ctx.db.patch(summary._id, {
+    refreshEligibleAt: runAt + REPOSITORY_SUMMARY_REFRESH_INTERVAL_MS,
+    lifecycle: {
+      state: "scheduled",
+      source: "repository_inventory",
+      snapshotId: args.snapshotId,
+      scheduledAt: args.scheduledAt,
+      wait: args.wait,
+    },
+  });
+  await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
+}
+
 export async function releaseRepositorySummaryInventoryObservation(
   ctx: MutationCtx,
   args: {
@@ -572,38 +619,6 @@ export async function releaseRepositorySummaryInventoryObservation(
   await ctx.db.patch(summary._id, {
     refreshEligibleAt: Date.now(),
     lifecycle: { state: "idle" },
-  });
-  await bumpRepositorySummaryDirectoryRevision(ctx, summary.userId);
-}
-
-export async function deferRepositorySummaryInventoryObservation(
-  ctx: MutationCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    claimedSnapshotId: Id<"vaultRepositoryInventorySnapshots">;
-    scheduledSnapshotId: Id<"vaultRepositoryInventorySnapshots">;
-    reason: "queue" | "rate_limit";
-    retryAt: number;
-  },
-): Promise<void> {
-  const summary = await readRepositorySummary(ctx, args.vaultId);
-  if (
-    summary === null ||
-    summary.lifecycle.state !== "running" ||
-    summary.lifecycle.source !== "repository_inventory" ||
-    summary.lifecycle.snapshotId !== args.claimedSnapshotId
-  ) {
-    return;
-  }
-  await ctx.db.patch(summary._id, {
-    refreshEligibleAt: args.retryAt + REPOSITORY_SUMMARY_REFRESH_INTERVAL_MS,
-    lifecycle: {
-      state: "scheduled",
-      source: "repository_inventory",
-      snapshotId: args.scheduledSnapshotId,
-      scheduledAt: Date.now(),
-      wait: { kind: args.reason, retryAt: args.retryAt },
-    },
   });
   await bumpRepositorySummaryDirectoryRevision(ctx, summary.userId);
 }

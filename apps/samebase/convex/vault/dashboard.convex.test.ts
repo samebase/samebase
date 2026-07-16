@@ -99,6 +99,107 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("returns one user vault by repository with the list query's exact result", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    const ids = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      },
+    );
+    await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      userId,
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      ghRepoId: "123",
+      ghRepoNodeId: "R_123",
+      ghRepoOwner: "ada",
+      ghRepoName: "existing-app",
+      defaultBranch: "main",
+      visibility: "public",
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    const [selectedVault, vaults] = await Promise.all([
+      asUser.query(api.vault.dashboard.getUserVaultByRepository, {
+        repositoryFullName: "ada/existing-app",
+      }),
+      asUser.query(api.vault.dashboard.getUserVaults),
+    ]);
+
+    expect(selectedVault).toEqual(vaults[0]);
+    expect(selectedVault).toMatchObject({
+      _id: ids.vaultId,
+      hasConnectedGitHubRepository: true,
+      repositoryFullName: "ada/existing-app",
+    });
+  });
+
+  it("returns null when the user has no vault for the repository", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(
+      asUser.query(api.vault.dashboard.getUserVaultByRepository, {
+        repositoryFullName: "ada/missing",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("does not return another user's vault by repository", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const ownerUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const viewerUserId = await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      return { ownerUserId, viewerUserId };
+    });
+    await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      userId: ids.ownerUserId,
+      ghRepoOwner: "ada",
+      ghRepoName: "existing-app",
+    });
+    const asOtherUser = t.withIdentity({
+      subject: `${ids.viewerUserId}|test-session`,
+      tokenIdentifier: `test:${ids.viewerUserId}`,
+    });
+
+    await expect(
+      asOtherUser.query(api.vault.dashboard.getUserVaultByRepository, {
+        repositoryFullName: "ada/existing-app",
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("exposes user vaults through the MCP user bridge", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

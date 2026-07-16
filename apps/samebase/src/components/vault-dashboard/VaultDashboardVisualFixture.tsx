@@ -24,13 +24,16 @@ import {
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
-  VaultDashboardVaultList,
-  VaultDashboardVaultPickerPane,
   type VaultDeleteDialogTarget,
   type VaultDashboardVault,
   VaultProviderSetupSection,
   VaultSetupProgressSection,
 } from "@/components/vault-dashboard/VaultDashboard";
+import {
+  RepositorySummaryDirectoryList,
+  RepositorySummaryDirectoryPane,
+} from "@/components/vault-dashboard/RepositorySummaryDirectory";
+import type { RepositorySummaryDirectoryEntry } from "@/hooks/useRepositorySummaryDirectory";
 import {
   buildPullRequestFilterOptions,
   type RepositoryInventoryFilters,
@@ -598,6 +601,91 @@ const SIDEBAR_LIST_VAULTS = [
   },
 ] satisfies VaultDashboardVault[];
 
+const SIDEBAR_LIST_DIRECTORY_ENTRIES = [
+  {
+    vaultId: SIDEBAR_LIST_VAULTS[0]._id,
+    repositoryFullName: "samebase/samebase",
+    state: {
+      state: "connected",
+      summary: {
+        lifecycle: { state: "idle" },
+        publication: {
+          state: "complete",
+          defaultBranch: {
+            state: "ready",
+            name: "main",
+            headSha: "1234567890abcdef1234567890abcdef12345678",
+            checkState: "success",
+          },
+          openPullRequestCount: 98,
+          publishedAt: FIXTURE_NOW - 120_000,
+          checkedAt: FIXTURE_NOW - 120_000,
+        },
+      },
+    },
+  },
+  {
+    vaultId: SIDEBAR_LIST_SELECTED_VAULT_ID,
+    repositoryFullName: "samebase/marketing-site",
+    state: {
+      state: "connected",
+      summary: {
+        lifecycle: { state: "updating" },
+        publication: {
+          state: "complete",
+          defaultBranch: {
+            state: "ready",
+            name: "main",
+            headSha: "2234567890abcdef1234567890abcdef12345678",
+            checkState: "running",
+          },
+          openPullRequestCount: 4,
+          publishedAt: FIXTURE_NOW - 60_000,
+          checkedAt: FIXTURE_NOW - 60_000,
+        },
+      },
+    },
+  },
+  {
+    vaultId: SIDEBAR_LIST_VAULTS[2]._id,
+    repositoryFullName: "noter/guestbook",
+    state: {
+      state: "connected",
+      summary: {
+        lifecycle: { state: "idle" },
+        publication: {
+          state: "complete",
+          defaultBranch: {
+            state: "ready",
+            name: "main",
+            headSha: "3234567890abcdef1234567890abcdef12345678",
+            checkState: "none",
+          },
+          openPullRequestCount: 0,
+          publishedAt: FIXTURE_NOW - 300_000,
+          checkedAt: FIXTURE_NOW - 300_000,
+        },
+      },
+    },
+  },
+  {
+    vaultId: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8f"),
+    repositoryFullName: "nicu-chiciuc/notes",
+    state: {
+      state: "connected",
+      summary: {
+        lifecycle: { state: "updating" },
+        publication: { state: "unobserved" },
+      },
+    },
+  },
+  {
+    vaultId: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8g"),
+    repositoryFullName: "nicu-chiciuc/tmp-broken",
+    state: { state: "setup_failed", failedAt: FIXTURE_NOW - 30_000 },
+  },
+] satisfies RepositorySummaryDirectoryEntry[];
+
 const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
   branch: fixtureVaultBranch({
     kind: "branch",
@@ -818,9 +906,13 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
     >
       <FixtureDashboardShell
         leftContent={
-          <VaultDashboardVaultList
+          <RepositorySummaryDirectoryList
+            entries={SIDEBAR_LIST_DIRECTORY_ENTRIES}
+            error={null}
+            loadMore={() => {}}
+            now={FIXTURE_NOW}
             selectedVaultId={SIDEBAR_LIST_SELECTED_VAULT_ID}
-            vaults={SIDEBAR_LIST_VAULTS}
+            status="Exhausted"
           />
         }
         mainContent={
@@ -879,7 +971,14 @@ function VaultDashboardRootPickerFixture({ mode }: { mode: VaultDashboardVisualM
       className="h-dvh w-full bg-background text-foreground"
     >
       <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultDashboardVaultPickerPane vaults={SIDEBAR_LIST_VAULTS} />
+        <RepositorySummaryDirectoryPane
+          entries={SIDEBAR_LIST_DIRECTORY_ENTRIES}
+          error={null}
+          loadMore={() => {}}
+          now={FIXTURE_NOW}
+          selectedVaultId={null}
+          status="Exhausted"
+        />
       </TestRouterProvider>
     </div>
   );

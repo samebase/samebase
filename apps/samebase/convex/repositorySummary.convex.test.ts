@@ -165,10 +165,12 @@ describe("repository summary state machine", () => {
     await connectRepository(fixture, { name: "zulu" });
     await connectRepository(fixture, { name: "Alpha" });
     await connectRepository(fixture, { name: "bravo" });
+    const directoryRevision = await readDirectoryRevision(fixture.t, fixture.userId);
 
     const firstPage = await fixture.asUser.query(
       api.repositorySummary.listRepositorySummaryDirectoryPage,
       {
+        directoryRevision,
         paginationOpts: { cursor: null, numItems: 2 },
       },
     );
@@ -181,19 +183,29 @@ describe("repository summary state machine", () => {
     const secondPage = await fixture.asUser.query(
       api.repositorySummary.listRepositorySummaryDirectoryPage,
       {
+        directoryRevision,
         paginationOpts: { cursor: firstPage.continueCursor, numItems: 2 },
       },
     );
     expect(secondPage.page.map((entry) => entry.repositoryFullName)).toEqual(["Ada/bravo"]);
     expect(secondPage.isDone).toBe(true);
+    await connectRepository(fixture, { name: "new-revision" });
+    await expect(
+      fixture.asUser.query(api.repositorySummary.listRepositorySummaryDirectoryPage, {
+        directoryRevision,
+        paginationOpts: { cursor: firstPage.continueCursor, numItems: 2 },
+      }),
+    ).rejects.toThrow("Repository summary directory revision changed while loading pages.");
 
     await expect(
       fixture.asUser.query(api.repositorySummary.listRepositorySummaryDirectoryPage, {
+        directoryRevision,
         paginationOpts: { cursor: null, numItems: 26 },
       }),
     ).rejects.toThrow("Repository summary directory pages must request between 1 and 25 items.");
     await expect(
       fixture.asUser.query(api.repositorySummary.listRepositorySummaryDirectoryPage, {
+        directoryRevision,
         paginationOpts: { cursor: null, numItems: 25, maximumRowsRead: 26 },
       }),
     ).rejects.toThrow("Repository summary directory pages may read at most 25 rows.");
@@ -221,10 +233,12 @@ describe("repository summary state machine", () => {
       runId: failed.runId,
     });
     const connected = await connectRepository(fixture, { name: "connected" });
+    const directoryRevision = await readDirectoryRevision(fixture.t, fixture.userId);
 
     const page = await fixture.asUser.query(
       api.repositorySummary.listRepositorySummaryDirectoryPage,
       {
+        directoryRevision,
         paginationOpts: { cursor: null, numItems: 25 },
       },
     );
