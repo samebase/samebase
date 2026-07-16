@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "main": "./worker/index.ts",
-  "compatibility_date": "2026-05-14",
+  "compatibility_date": "2026-07-16",
   "preview_urls": true,
   "cache": {
     "enabled": true,
