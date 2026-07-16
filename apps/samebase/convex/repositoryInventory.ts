@@ -1,8 +1,8 @@
-import { Workpool, vOnCompleteArgs } from "@convex-dev/workpool";
+import { vOnCompleteArgs } from "@convex-dev/workpool";
 import { paginationOptsValidator } from "convex/server";
 import { Infer, v } from "convex/values";
 
-import { components, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
@@ -13,6 +13,14 @@ import {
 import { mutation, query } from "./functions";
 import { readOwnedActiveRun } from "./accountDeletion/stepContext";
 import { clearGitHubGraphqlRateBudgetLeaseForVault } from "./githubGraphqlRateBudget";
+import { githubObservationWorkpool } from "./githubObservationWorkpool";
+import {
+  claimRepositorySummaryForInventory,
+  completeRepositorySummaryInventoryObservation,
+  deferRepositorySummaryInventoryObservation,
+  failRepositorySummaryInventoryObservation,
+  releaseRepositorySummaryInventoryObservation,
+} from "./repositorySummary";
 import { toErrorMessage } from "./jsonUtils";
 import {
   REPOSITORY_INVENTORY_DEMAND_TTL_MS,
@@ -44,6 +52,7 @@ import {
   type RepositoryInventoryRefreshRequestResult,
   type RepositoryInventoryScheduledWait,
 } from "./repositoryInventoryModel";
+import { vRepositorySummaryDefaultBranch } from "./repositorySummaryModel";
 import { isLiveConnectedVault } from "./vault/state";
 
 const { array, boolean, id, literal, null: vNull, number, object, string, union } = v;
@@ -54,11 +63,6 @@ const REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE = 25;
 const REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE = 100;
 const REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_WATCHDOG_MS = 30_000;
 const ACCOUNT_DELETION_QUIESCE_BATCH_SIZE = 25;
-
-const repositoryInventoryWorkpool = new Workpool(components.repositoryInventoryWorkpool, {
-  maxParallelism: 3,
-  retryActionsByDefault: false,
-});
 
 const repositoryInventoryWorkpoolContext = object({
   vaultId: id("vaults"),
@@ -71,7 +75,7 @@ const vRepositoryInventoryWorkerInput = union(
     userId: id("users"),
     vaultId: id("vaults"),
     githubRepositoryId: string(),
-    repositoryNodeId: v.optional(string()),
+    repositoryNodeId: string(),
     snapshotId: id("vaultRepositoryInventorySnapshots"),
     estimatedCrawlCost: v.optional(number()),
   }),
@@ -240,6 +244,11 @@ async function failRepositoryInventoryFilterMaterialization(
     },
   });
   if (activeSnapshotId !== null && activeSnapshotId !== args.inventory.publication?.snapshotId) {
+    await failRepositorySummaryInventoryObservation(ctx, {
+      vaultId: args.inventory.vaultId,
+      snapshotId: activeSnapshotId,
+      message: args.message,
+    });
     await scheduleSnapshotCleanup(ctx, activeSnapshotId);
   }
   if (args.view.snapshotId !== activeSnapshotId) {
@@ -296,9 +305,9 @@ async function scheduleRepositoryInventoryRefresh(
     required: boolean;
     wait?: RepositoryInventoryScheduledWait;
   },
-): Promise<void> {
+): Promise<Id<"vaultRepositoryInventorySnapshots"> | null> {
   if (inventory.lifecycle.state !== "idle" && inventory.lifecycle.state !== "failed") {
-    return;
+    return null;
   }
   const wait = args.wait ?? { kind: "immediate" };
   const scheduledAt = Date.now();
@@ -313,7 +322,7 @@ async function scheduleRepositoryInventoryRefresh(
     labelFacetCount: 0,
     noLabelPullRequestCount: 0,
   });
-  const workpoolJobId = await repositoryInventoryWorkpool.enqueueAction(
+  const workpoolJobId = await githubObservationWorkpool.enqueueAction(
     ctx,
     internal.repositoryInventoryActions.runRepositoryInventoryRefresh,
     {
@@ -341,6 +350,7 @@ async function scheduleRepositoryInventoryRefresh(
       wait,
     },
   });
+  return snapshotId;
 }
 
 function minimumIntervalWait(
@@ -362,7 +372,7 @@ async function cancelOwnedInventoryJob(
     return;
   }
   // @ts-expect-error This value was returned by this Workpool and persisted as a string.
-  await repositoryInventoryWorkpool.cancel(ctx, inventory.lifecycle.workpoolJobId);
+  await githubObservationWorkpool.cancel(ctx, inventory.lifecycle.workpoolJobId);
 }
 
 async function rescheduleRequiredInventoryRefresh(
@@ -608,6 +618,7 @@ export const claimRepositoryInventoryRefresh = internalMutation({
     const now = Date.now();
     if (!inventory.lifecycle.required && inventory.wantedUntil <= now) {
       await ctx.db.patch(inventory._id, { lifecycle: { state: "idle" } });
+      await releaseRepositorySummaryInventoryObservation(ctx, args);
       await scheduleSnapshotCleanup(ctx, args.snapshotId);
       return { kind: "cancel" };
     }
@@ -624,14 +635,11 @@ export const claimRepositoryInventoryRefresh = internalMutation({
       snapshot.state !== "collecting" ||
       snapshot.vaultId !== args.vaultId
     ) {
-      await ctx.db.patch(inventory._id, {
-        lifecycle: {
-          state: "failed",
-          failedAt: now,
-          message: "Repository inventory vault is no longer connected.",
-        },
-      });
-      await scheduleSnapshotCleanup(ctx, args.snapshotId);
+      await transitionRepositoryInventoryToFailed(
+        ctx,
+        inventory,
+        "Repository inventory vault is no longer connected.",
+      );
       return { kind: "cancel" };
     }
 
@@ -646,12 +654,18 @@ export const claimRepositoryInventoryRefresh = internalMutation({
       },
       lastStartedAt: now,
     });
+    await claimRepositorySummaryForInventory(ctx, {
+      userId: inventory.userId,
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
+      startedAt: now,
+    });
     return {
       kind: "ready",
       userId: inventory.userId,
       vaultId: args.vaultId,
       githubRepositoryId: vault.ghRepoId,
-      repositoryNodeId: inventory.publication?.repositoryNodeId,
+      repositoryNodeId: vault.ghRepoNodeId,
       snapshotId: args.snapshotId,
       estimatedCrawlCost: inventory.estimatedCrawlCost,
     };
@@ -711,14 +725,25 @@ export const deferRepositoryInventoryRefresh = internalMutation({
     await scheduleSnapshotCleanup(ctx, args.snapshotId);
     const idleInventory = await ctx.db.get(inventory._id);
     if (!idleInventory || (!required && idleInventory.wantedUntil <= Date.now())) {
+      await releaseRepositorySummaryInventoryObservation(ctx, args);
       return null;
     }
-    await scheduleRepositoryInventoryRefresh(ctx, idleInventory, {
+    const scheduledSnapshotId = await scheduleRepositoryInventoryRefresh(ctx, idleInventory, {
       required,
       wait: {
         kind: args.reason,
         retryAt: Math.max(args.retryAt, Date.now() + 1_000),
       },
+    });
+    if (scheduledSnapshotId === null) {
+      throw new Error("Repository inventory could not be rescheduled after waiting.");
+    }
+    await deferRepositorySummaryInventoryObservation(ctx, {
+      vaultId: args.vaultId,
+      claimedSnapshotId: args.snapshotId,
+      scheduledSnapshotId,
+      reason: args.reason,
+      retryAt: Math.max(args.retryAt, Date.now() + 1_000),
     });
     return null;
   },
@@ -873,6 +898,8 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
     snapshotId: id("vaultRepositoryInventorySnapshots"),
     fingerprint: string(),
     crawlCost: number(),
+    summaryDefaultBranch: vRepositorySummaryDefaultBranch,
+    summaryOpenPullRequestCount: number(),
   },
   returns: boolean(),
   handler: async (ctx, args): Promise<boolean> => {
@@ -910,6 +937,14 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
         checkedAt,
       },
     });
+    await completeRepositorySummaryInventoryObservation(ctx, {
+      userId: inventory.userId,
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
+      repositoryFullName: inventory.publication.repositoryFullName,
+      defaultBranch: args.summaryDefaultBranch,
+      openPullRequestCount: args.summaryOpenPullRequestCount,
+    });
     const patchedInventory = await ctx.db.get(inventory._id);
     if (!patchedInventory) {
       throw new Error("Repository inventory disappeared after its fingerprint check.");
@@ -936,6 +971,7 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
     noLabelPullRequestCount: number(),
     fingerprint: string(),
     crawlCost: number(),
+    summaryDefaultBranch: vRepositorySummaryDefaultBranch,
   },
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
@@ -975,6 +1011,7 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
       defaultBranch: args.defaultBranch,
       fingerprint: args.fingerprint,
       crawlCost: args.crawlCost,
+      summaryDefaultBranch: args.summaryDefaultBranch,
     });
     await ctx.db.patch(inventory._id, {
       lifecycle: {
@@ -1022,11 +1059,17 @@ export const repairRepositoryInventoryFilterMaterialization = internalMutation({
       readRepositoryInventoryFilterState(ctx, inventory.userId, args.vaultId),
     ]);
     if (!snapshot || snapshot.state !== "ready" || snapshot.vaultId !== args.vaultId) {
+      const message = "Repository inventory filter materialization lost its snapshot.";
+      await failRepositorySummaryInventoryObservation(ctx, {
+        vaultId: args.vaultId,
+        snapshotId: args.snapshotId,
+        message,
+      });
       await ctx.db.patch(inventory._id, {
         lifecycle: {
           state: "failed",
           failedAt: Date.now(),
-          message: "Repository inventory filter materialization lost its snapshot.",
+          message,
         },
       });
       await scheduleSnapshotCleanup(ctx, args.snapshotId);
@@ -1215,6 +1258,14 @@ export const advanceRepositoryInventoryFilterMaterialization = internalMutation(
         publication: nextPublication,
       });
       if (publishesNewSnapshot) {
+        await completeRepositorySummaryInventoryObservation(ctx, {
+          userId: inventory.userId,
+          vaultId: inventory.vaultId,
+          snapshotId: snapshot._id,
+          repositoryFullName: snapshot.repositoryFullName,
+          defaultBranch: snapshot.summaryDefaultBranch,
+          openPullRequestCount: snapshot.pullRequestCount,
+        });
         if (priorPublication && priorPublication.snapshotId !== view.snapshotId) {
           await scheduleSnapshotCleanup(ctx, priorPublication.snapshotId);
         }
@@ -1254,6 +1305,11 @@ async function transitionRepositoryInventoryToFailed(
   }
   const failedAt = Date.now();
   const obsoleteSnapshotId = inventory.lifecycle.snapshotId;
+  await failRepositorySummaryInventoryObservation(ctx, {
+    vaultId: inventory.vaultId,
+    snapshotId: obsoleteSnapshotId,
+    message,
+  });
   await ctx.db.patch(inventory._id, {
     lifecycle: {
       state: "failed",

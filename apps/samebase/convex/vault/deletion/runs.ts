@@ -14,6 +14,7 @@ import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import { CODESPACES_ENABLED } from "../../../shared/featureFlags";
+import { bumpRepositorySummaryDirectoryRevision } from "../../repositorySummary";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -484,6 +485,7 @@ export const createInitialRun = internalMutation({
         requestedAt: now,
       },
     });
+    await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
 
     return { deletionRunId };
   },
@@ -562,6 +564,7 @@ export const createRetryRun = internalMutation({
         requestedAt: now,
       },
     });
+    await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
 
     return { deletionRunId };
   },
@@ -729,6 +732,7 @@ export const markWorkflowFailed = internalMutation({
           failedAt: now,
         },
       });
+      await bumpRepositorySummaryDirectoryRevision(ctx, vault.userId);
     }
     return null;
   },

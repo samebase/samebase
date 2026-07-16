@@ -34,6 +34,7 @@ async function createConnectedVault() {
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
+      ghRepoNodeId: "R_123",
       owner: "ada",
       name: "monorepo",
       visibility: "private",

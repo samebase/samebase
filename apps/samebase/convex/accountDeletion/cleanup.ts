@@ -42,6 +42,7 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   accountDeletionRuns: "receipt",
   accountDeletionEvents: "receipt",
   agentActionLeases: "action_quiescence",
+  githubObservationActionLeases: "action_quiescence",
   providerConnections: "provider_revocation",
   githubGraphqlRateBudgets: "global",
   connectedMachines: "account_local",
@@ -59,6 +60,8 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   vaultConvexSchemaSnapshots: "vault_local",
   vaultConvexSchemaGraphLayouts: "vault_local",
   vaultRepositoryInventories: "vault_local",
+  vaultRepositorySummaries: "vault_local",
+  vaultRepositorySummaryDirectoryStates: "user_finalization",
   vaultRepositoryInventorySnapshots: "vault_local",
   vaultRepositoryInventoryItems: "vault_local",
   vaultRepositoryInventoryLabelChunks: "vault_local",
@@ -171,6 +174,11 @@ const accountDeletionQuiescenceResult = union(
   object({
     state: literal("waiting"),
     blocker: literal("active_agent_action"),
+    retryAfterMs: number(),
+  }),
+  object({
+    state: literal("waiting"),
+    blocker: literal("active_github_observation"),
     retryAfterMs: number(),
   }),
 );
@@ -346,6 +354,7 @@ function vaultCleanupPhase(
     case "vaultResourceLinksState":
     case "folderExpansionState":
     case "vaultRepositoryInventories":
+    case "vaultRepositorySummaries":
     case "vaultRepositoryInventorySnapshots":
     case "vaultRepositoryInventoryItems":
     case "vaultRepositoryInventoryLabelChunks":
@@ -1002,6 +1011,31 @@ export const inspectQuiescence = internalMutation({
 
     if (leases.length === 25) {
       return { state: "waiting", blocker: "active_agent_action", retryAfterMs: 0 } as const;
+    }
+
+    const githubObservationLeases = await ctx.db
+      .query("githubObservationActionLeases")
+      .withIndex("by_userId_and_expiresAt", (query) => query.eq("userId", run.identity.userId))
+      .take(25);
+
+    for (const lease of githubObservationLeases) {
+      if (lease.expiresAt > now) {
+        return {
+          state: "waiting",
+          blocker: "active_github_observation",
+          retryAfterMs: lease.expiresAt - now,
+        } as const;
+      }
+
+      await ctx.db.delete(lease._id);
+    }
+
+    if (githubObservationLeases.length === 25) {
+      return {
+        state: "waiting",
+        blocker: "active_github_observation",
+        retryAfterMs: 0,
+      } as const;
     }
 
     return { state: "done" } as const;

@@ -24,6 +24,6 @@ export function makeConvexTest() {
   const t = convexTest(schema, modules);
   agentTest.register(t);
   workflowTest.register(t);
-  workpoolTest.register(t, "repositoryInventoryWorkpool");
+  workpoolTest.register(t, "githubObservationWorkpool");
   return t;
 }

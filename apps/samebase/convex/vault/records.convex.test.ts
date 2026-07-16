@@ -34,6 +34,7 @@ async function createConnectedVaultForBranchResolution() {
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
+      ghRepoNodeId: "R_123",
       owner: "ada",
       name: "inventory",
       defaultBranch: "main",
@@ -100,6 +101,58 @@ describe("vault records Convex contract", () => {
         },
       ]),
     );
+  });
+
+  it("creates the repository summary when a Samebase-managed vault connects to GitHub", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("users", {
+          name: "Ada",
+          email: "ada@example.com",
+          isApproved: true,
+        }),
+    );
+    const initialized = await t.mutation(
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Created-App",
+        visibility: "private",
+        convexProjectName: "created-app",
+        cloudflareAccountId: "cloudflare-account",
+        cloudflareWorkerName: "created-app",
+      },
+    );
+
+    await t.mutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {
+      vaultId: initialized.vaultId,
+      runId: initialized.runId,
+      userId,
+      ghRepoId: "created-app-database-id",
+      ghRepoNodeId: "created-app-node-id",
+      ghRepoOwner: "Ada",
+      ghRepoName: "Created-App",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultRepositorySummaries")
+            .withIndex("by_vault", (q) => q.eq("vaultId", initialized.vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      userId,
+      vaultId: initialized.vaultId,
+      refreshEligibleAt: 0,
+      lifecycle: { state: "idle" },
+      publication: { state: "unobserved" },
+    });
   });
 
   it("rejects case-insensitive duplicate Samebase-managed repository targets", async () => {
@@ -243,6 +296,7 @@ describe("vault records Convex contract", () => {
         githubMode: "create_repository",
         runId: connectedRunId,
         ghRepoId: "123",
+        ghRepoNodeId: "R_123",
         owner: "ada",
         name: "shared",
         defaultBranch: "main",
@@ -305,6 +359,12 @@ describe("vault records Convex contract", () => {
         defaultBranch: "trunk",
         fingerprint: "inventory",
         crawlCost: 1,
+        summaryDefaultBranch: {
+          state: "ready",
+          name: "trunk",
+          headSha: "trunk-sha",
+          checkState: "none",
+        },
       });
       const filterViewId = await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
         state: "complete",

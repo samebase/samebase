@@ -78,6 +78,7 @@ describe("account deletion provider actions", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,
+        githubAccountId: 101,
         auth: { method: "api_key", credential: "test-github-credential" },
         createdAt: 1,
         updatedAt: 1,
@@ -122,6 +123,7 @@ describe("account deletion provider actions", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,
+        githubAccountId: 101,
         auth: { method: "oauth", credential: "test-github-credential" },
         createdAt: 1,
         updatedAt: 1,

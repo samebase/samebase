@@ -15,6 +15,7 @@ describe("app provisioning workflow actions", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,
+        githubAccountId: 101,
         auth: {
           method: "api_key",
           credential: "github-token",

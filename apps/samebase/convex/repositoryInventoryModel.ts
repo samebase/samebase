@@ -1,6 +1,8 @@
 import { paginationResultValidator } from "convex/server";
 import { Infer, v } from "convex/values";
 
+import { vRepositorySummaryDefaultBranch } from "./repositorySummaryModel";
+
 const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 export const vRepositoryInventoryCheckState = union(
@@ -474,6 +476,7 @@ export const vRepositoryInventorySnapshot = union(
     defaultBranch: union(string(), vNull()),
     fingerprint: string(),
     crawlCost: number(),
+    summaryDefaultBranch: vRepositorySummaryDefaultBranch,
   }),
 );
 

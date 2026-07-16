@@ -48,36 +48,6 @@ export function assertAuthSessionUserCanSignIn(user: unknown): void {
   throw new Error("Account deletion is already finalizing.");
 }
 
-async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
-  const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
-  if (credential === null) {
-    return;
-  }
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const existing = await getConnectionByUserAndKind(db, userId, "github");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "github",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
 async function upsertSeedConvexConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
   const teamId = readOptionalEnv("DEV_SEED_CONVEX_TEAM_ID");
@@ -157,7 +127,6 @@ async function applyAutoSeedProviderKeys(db: DatabaseWriter, userId: Id<"users">
   if (deploymentProfile.kind !== "local_worktree" && deploymentProfile.kind !== "preview") {
     return;
   }
-  await upsertSeedGithubConnection(db, userId);
   await upsertSeedConvexConnection(db, userId);
   await upsertSeedCloudflareConnection(db, userId);
 }

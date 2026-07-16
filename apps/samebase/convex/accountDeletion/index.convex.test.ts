@@ -86,6 +86,7 @@ async function seedVault(
       githubMode: "create_repository",
       runId,
       ghRepoId: `${vaultId}-github`,
+      ghRepoNodeId: `${vaultId}-github-node`,
       owner: "ada",
       name,
       defaultBranch: "main",

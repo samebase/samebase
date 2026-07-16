@@ -6,7 +6,7 @@ import { internalMutation, type MutationCtx } from "./_generated/server";
 const { id, literal, number, object, optional, string, union } = v;
 
 const GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS = 2 * 60_000;
-const GITHUB_GRAPHQL_DEFAULT_CRAWL_RESERVATION = 128;
+const GITHUB_GRAPHQL_DEFAULT_REQUEST_RESERVATION = 128;
 const GITHUB_GRAPHQL_MINIMUM_SAFETY_FLOOR = 50;
 const GITHUB_GRAPHQL_SAFETY_FLOOR_RATIO = 0.05;
 const GITHUB_GRAPHQL_SECONDARY_BACKOFF_MS = 60_000;
@@ -33,10 +33,22 @@ const vGitHubGraphqlRateBlock = union(
   }),
 );
 
+export const vGitHubGraphqlRateLeaseOwner = union(
+  object({
+    kind: literal("repository_inventory"),
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+  }),
+  object({
+    kind: literal("repository_summary_batch"),
+    userId: id("users"),
+    batchId: string(),
+  }),
+);
+
 const vGitHubGraphqlRateLease = object({
   leaseId: string(),
-  vaultId: id("vaults"),
-  snapshotId: id("vaultRepositoryInventorySnapshots"),
+  owner: vGitHubGraphqlRateLeaseOwner,
   startedAt: number(),
   expiresAt: number(),
   reservedPoints: number(),
@@ -47,7 +59,7 @@ export const vGitHubGraphqlRateBudget = object({
   limit: optional(number()),
   remaining: optional(number()),
   resetAt: optional(number()),
-  lastCompletedCrawlDurationMs: optional(number()),
+  lastCompletedRequestDurationMs: optional(number()),
   consecutiveSecondaryBlocks: number(),
   block: optional(vGitHubGraphqlRateBlock),
   lease: optional(vGitHubGraphqlRateLease),
@@ -65,7 +77,7 @@ const vGitHubGraphqlRateBudgetClaimResult = union(
 );
 export type GitHubGraphqlRateBudgetClaimResult = Infer<typeof vGitHubGraphqlRateBudgetClaimResult>;
 
-const vGitHubGraphqlCrawlOutcome = union(
+const vGitHubGraphqlRequestOutcome = union(
   object({
     kind: literal("success"),
     usage: vGitHubGraphqlRateUsage,
@@ -105,7 +117,7 @@ function retryAfterActiveLease(budget: GitHubGraphqlRateBudgetDoc, now: number):
   if (budget.lease === undefined) {
     return now;
   }
-  const expectedDuration = Math.max(budget.lastCompletedCrawlDurationMs ?? 5_000, 5_000);
+  const expectedDuration = Math.max(budget.lastCompletedRequestDurationMs ?? 5_000, 5_000);
   const expectedFinish = budget.lease.startedAt + expectedDuration;
   return Math.min(
     budget.lease.expiresAt + 1_000,
@@ -133,9 +145,8 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
   args: {
     githubAccountId: number(),
     leaseId: string(),
-    vaultId: id("vaults"),
-    snapshotId: id("vaultRepositoryInventorySnapshots"),
-    estimatedCrawlCost: optional(number()),
+    owner: vGitHubGraphqlRateLeaseOwner,
+    estimatedCost: optional(number()),
   },
   returns: vGitHubGraphqlRateBudgetClaimResult,
   handler: async (ctx, args): Promise<GitHubGraphqlRateBudgetClaimResult> => {
@@ -147,8 +158,7 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
         consecutiveSecondaryBlocks: 0,
         lease: {
           leaseId: args.leaseId,
-          vaultId: args.vaultId,
-          snapshotId: args.snapshotId,
+          owner: args.owner,
           startedAt: now,
           expiresAt: now + GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS,
           reservedPoints: 0,
@@ -187,7 +197,7 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
     const reservedPoints =
       window.remaining === undefined
         ? 0
-        : (args.estimatedCrawlCost ?? GITHUB_GRAPHQL_DEFAULT_CRAWL_RESERVATION);
+        : (args.estimatedCost ?? GITHUB_GRAPHQL_DEFAULT_REQUEST_RESERVATION);
     if (
       existing.limit !== undefined &&
       window.remaining !== undefined &&
@@ -215,8 +225,7 @@ export const claimGitHubGraphqlRateBudget = internalMutation({
       block: undefined,
       lease: {
         leaseId: args.leaseId,
-        vaultId: args.vaultId,
-        snapshotId: args.snapshotId,
+        owner: args.owner,
         startedAt: now,
         expiresAt: now + GITHUB_GRAPHQL_RATE_BUDGET_LEASE_MS,
         reservedPoints,
@@ -277,12 +286,12 @@ function applyRateUsage(
   };
 }
 
-export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
+export const finishGitHubGraphqlRateBudgetLease = internalMutation({
   args: {
     githubAccountId: number(),
     leaseId: string(),
     durationMs: number(),
-    outcome: vGitHubGraphqlCrawlOutcome,
+    outcome: vGitHubGraphqlRequestOutcome,
   },
   returns: object({
     retryAt: optional(number()),
@@ -343,7 +352,7 @@ export const finishGitHubGraphqlRateBudgetCrawl = internalMutation({
           budget.block !== undefined && budget.block.until > now ? budget.block : undefined;
         await ctx.db.patch(budget._id, {
           ...observed,
-          lastCompletedCrawlDurationMs: args.durationMs,
+          lastCompletedRequestDurationMs: args.durationMs,
           consecutiveSecondaryBlocks:
             activeBlock?.kind === "secondary" ? budget.consecutiveSecondaryBlocks : 0,
           block: activeBlock,
@@ -415,14 +424,14 @@ export async function clearGitHubGraphqlRateBudgetLeaseForVault(
 ): Promise<void> {
   const budgets = await ctx.db
     .query("githubGraphqlRateBudgets")
-    .withIndex("by_lease_vaultId", (q) => q.eq("lease.vaultId", vaultId))
+    .withIndex("by_inventory_lease_vaultId", (q) => q.eq("lease.owner.vaultId", vaultId))
     .take(100);
   for (const budget of budgets) {
+    if (budget.lease?.owner.kind !== "repository_inventory") {
+      continue;
+    }
     await ctx.db.patch(budget._id, {
-      remaining:
-        budget.lease !== undefined && budget.lease.reservedPoints > 0
-          ? undefined
-          : budget.remaining,
+      remaining: budget.lease.reservedPoints > 0 ? undefined : budget.remaining,
       lease: undefined,
     });
   }

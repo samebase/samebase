@@ -212,6 +212,15 @@ export async function assertIdentityDeletionReady(
     throw new Error("Agent action remains active during finalization.");
   }
 
+  const activeGitHubObservation = await ctx.db
+    .query("githubObservationActionLeases")
+    .withIndex("by_userId_and_expiresAt", (query) => query.eq("userId", run.identity.userId))
+    .first();
+
+  if (activeGitHubObservation !== null) {
+    throw new Error("GitHub observation remains active during finalization.");
+  }
+
   const initiatingSession = await ctx.db.get(run.initiatingSessionId);
 
   if (initiatingSession !== null && initiatingSession.userId !== run.identity.userId) {
@@ -279,6 +288,17 @@ export async function assertIdentityDeletionReady(
   if (remainingProviderConnection !== null) {
     throw new Error("Provider connections remain for the deleting account.");
   }
+
+  const remainingRepositorySummary = await ctx.db
+    .query("vaultRepositorySummaries")
+    .withIndex("by_userId_and_lifecycle_state_and_refreshEligibleAt", (query) =>
+      query.eq("userId", run.identity.userId),
+    )
+    .first();
+
+  if (remainingRepositorySummary !== null) {
+    throw new Error("Repository summaries remain for the deleting account.");
+  }
 }
 
 export const finishIdentityDeletion = internalMutation({
@@ -303,6 +323,14 @@ export const finishIdentityDeletion = internalMutation({
 
     if (initiatingSession?.userId === run.identity.userId) {
       await ctx.db.delete(initiatingSession._id);
+    }
+
+    const directoryState = await ctx.db
+      .query("vaultRepositorySummaryDirectoryStates")
+      .withIndex("by_userId", (query) => query.eq("userId", run.identity.userId))
+      .unique();
+    if (directoryState !== null) {
+      await ctx.db.delete(directoryState._id);
     }
 
     await ctx.db.delete(run.identity.userId);

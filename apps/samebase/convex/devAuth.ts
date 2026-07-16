@@ -1,4 +1,5 @@
 import { createAccount, modifyAccountCredentials } from "@convex-dev/auth/server";
+import { Octokit } from "@octokit/rest";
 import { Infer, v } from "convex/values";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
@@ -15,13 +16,14 @@ import type { Id } from "./_generated/dataModel";
 import {
   assertProviderConnectionWriteAllowed,
   buildSeedCloudflareDefaultAccount,
-  deleteProviderConnection,
   getConnectionByUserAndKind,
+  upsertGithubConnection,
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 
-const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
+const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
+const GITHUB_SEED_IDENTITY_TIMEOUT_MS = 10_000;
 
 function readSeedValue(envName: string): string | undefined {
   const value = readOptionalEnv(envName);
@@ -30,6 +32,29 @@ function readSeedValue(envName: string): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+async function fetchSeedGitHubIdentity(apiKey: string): Promise<{
+  githubAccountId: number;
+  username: string;
+}> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GITHUB_SEED_IDENTITY_TIMEOUT_MS);
+  try {
+    const response = await new Octokit({
+      auth: apiKey,
+      userAgent: "samebase-app",
+    }).rest.users.getAuthenticated({ request: { signal: controller.signal } });
+    if (!Number.isSafeInteger(response.data.id) || response.data.id <= 0 || !response.data.login) {
+      throw new Error("GitHub seed API key returned an invalid account identity.");
+    }
+    return {
+      githubAccountId: response.data.id,
+      username: response.data.login,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function readRequiredSeedPasswordAccountConfig(args: {
@@ -110,32 +135,6 @@ function readSeedPasswordAccountConfig(): {
   }
 }
 
-async function upsertGithubApiKey(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-  credential: string,
-): Promise<void> {
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const existing = await getConnectionByUserAndKind(db, userId, "github");
-  const now = Date.now();
-  if (existing) {
-    if (existing.kind === "github" && existing.auth.credential === credential) {
-      return;
-    }
-    await deleteProviderConnection(db, existing);
-  }
-  await db.insert("providerConnections", {
-    kind: "github",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
 async function upsertConvexApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -209,7 +208,13 @@ async function upsertCloudflareApiKey(
 
 const seedProviderConnectionsArgs = object({
   userId: id("users"),
-  githubApiKey: optional(string()),
+  github: optional(
+    object({
+      apiKey: string(),
+      githubAccountId: number(),
+      username: string(),
+    }),
+  ),
   convexManagementApiKey: optional(string()),
   convexTeamId: optional(string()),
   convexTeamSlug: optional(string()),
@@ -232,8 +237,13 @@ export const seedProviderConnectionsForUser = internalMutation({
       await ctx.db.patch(args.userId, { isApproved: true });
     }
 
-    if (args.githubApiKey) {
-      await upsertGithubApiKey(ctx.db, args.userId, args.githubApiKey);
+    if (args.github) {
+      await upsertGithubConnection(ctx.db, {
+        userId: args.userId,
+        auth: { method: "api_key", credential: args.github.apiKey },
+        githubAccountId: args.github.githubAccountId,
+        username: args.github.username,
+      });
     }
 
     if (args.convexManagementApiKey || args.convexTeamId || args.convexTeamSlug) {
@@ -352,7 +362,10 @@ export const seedPasswordAccount = internalAction({
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
     const seedArgs: Omit<SeedProviderConnectionsArgs, "userId"> = {};
     if (githubApiKey !== undefined) {
-      seedArgs.githubApiKey = githubApiKey;
+      seedArgs.github = {
+        apiKey: githubApiKey,
+        ...(await fetchSeedGitHubIdentity(githubApiKey)),
+      };
     }
     if (convexManagementApiKey !== undefined) {
       seedArgs.convexManagementApiKey = convexManagementApiKey;

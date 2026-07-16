@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import {
+  GITHUB_STATUS_CHECK_ROLLUP_STATES,
+  repositorySummaryCheckStateFromGitHubRollup,
+} from "./githubRepositoryCheckState";
+import type { RepositorySummaryCheckState } from "./repositorySummaryModel";
+
+import {
   buildRepositoryInventoryCheckSummary,
   normalizeCommitCheckSnapshot,
   selectBranchPreviewAliasUrlFromCommitCheckItems,
@@ -77,6 +83,7 @@ const checkContextsSchema = z.object({
 
 const statusCheckRollupSchema = z
   .object({
+    state: z.enum(GITHUB_STATUS_CHECK_ROLLUP_STATES),
     contexts: checkContextsSchema,
   })
   .nullable();
@@ -340,6 +347,7 @@ const REPOSITORY_BRANCH_PAGE_QUERY = `
                 committedDate
                 repository { id }
                 statusCheckRollup {
+                  state
                   contexts(first: 100) {
                     totalCount
                     checkRunCount
@@ -436,6 +444,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
                   committedDate
                   repository { id }
                   statusCheckRollup {
+                    state
                     contexts(first: 100) {
                       totalCount
                       checkRunCount
@@ -605,6 +614,7 @@ const REPOSITORY_CHECK_CONTINUATION_QUERY = `
       ... on Commit {
         oid
         statusCheckRollup {
+          state
           contexts(first: 100, after: $after) {
             totalCount
             checkRunCount
@@ -641,7 +651,14 @@ const REPOSITORY_CHECK_CONTINUATION_QUERY = `
   }
 `;
 
-type GraphqlVariables = Record<string, string | number | null>;
+type GraphqlVariable =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly GraphqlVariable[]
+  | { readonly [key: string]: GraphqlVariable };
+type GraphqlVariables = Record<string, GraphqlVariable>;
 export type RepositoryInventoryGraphqlRequest = (
   query: string,
   variables: GraphqlVariables,
@@ -670,6 +687,7 @@ export type CollectedRepositoryInventory = {
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
+  defaultBranchCheckState: RepositorySummaryCheckState | null;
   items: CollectedRepositoryInventoryItem[];
   fingerprint: string;
   branchCount: number;
@@ -747,6 +765,7 @@ async function fetchGitHubJson(
 type CollectedCommit = {
   commit: CollectedRepositoryInventoryItem["headCommit"];
   checkItems: CommitCheckItemInput[];
+  summaryCheckState: RepositorySummaryCheckState;
 };
 
 class GitHubGraphqlRequestError extends Error {
@@ -1032,6 +1051,9 @@ async function collectCommit(args: {
   const checkItems = normalizeCheckContexts(contexts);
   return {
     checkItems,
+    summaryCheckState: repositorySummaryCheckStateFromGitHubRollup(
+      args.value.statusCheckRollup?.state ?? null,
+    ),
     commit: {
       sha: args.value.oid,
       title: optionalString(args.value.messageHeadline),
@@ -1120,6 +1142,7 @@ async function collectBranches(args: {
   repositoryDatabaseId: string;
   repositoryFullName: string;
   defaultBranch: string | null;
+  defaultBranchCheckState: RepositorySummaryCheckState | null;
   items: CollectedRepositoryInventoryItem[];
 }> {
   const seenCursors = new Set<string>();
@@ -1129,6 +1152,7 @@ async function collectBranches(args: {
   let repositoryDatabaseId: string | null = null;
   let repositoryFullName: string | null = null;
   let defaultBranch: string | null = null;
+  let defaultBranchCheckState: RepositorySummaryCheckState | null = null;
   let defaultBranchSha: string | null = null;
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
@@ -1200,6 +1224,9 @@ async function collectBranches(args: {
         value: ref.target,
       });
       const isDefault = ref.name === defaultBranch;
+      if (isDefault) {
+        defaultBranchCheckState = collectedCommit.summaryCheckState;
+      }
       const lastCommitAt = parseTimestamp(ref.target.committedDate);
       const comparisonError = comparisonErrorIndexes.has(String(index));
       if (comparisonError && ref.comparison !== null) {
@@ -1256,12 +1283,16 @@ async function collectBranches(args: {
       true,
     );
   }
+  if (defaultBranch !== null && defaultBranchCheckState === null) {
+    throw new GitHubGraphqlRequestError("GitHub omitted the default branch from its refs.", true);
+  }
 
   return {
     repositoryId,
     repositoryDatabaseId,
     repositoryFullName,
     defaultBranch,
+    defaultBranchCheckState,
     items,
   };
 }
@@ -1821,6 +1852,7 @@ export async function collectRepositoryInventory(args: {
     repositoryDatabaseId: branches.repositoryDatabaseId,
     repositoryFullName: branches.repositoryFullName,
     defaultBranch: branches.defaultBranch,
+    defaultBranchCheckState: branches.defaultBranchCheckState,
     items,
     fingerprint: await repositoryInventoryFingerprint({
       repositoryId: branches.repositoryId,

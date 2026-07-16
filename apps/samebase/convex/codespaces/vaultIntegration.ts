@@ -106,6 +106,7 @@ export const createVaultWithCodespace = action({
         runId,
         userId,
         ghRepoId: repo.data.id.toString(),
+        ghRepoNodeId: repo.data.node_id,
         ghRepoOwner: repo.data.owner.login,
         ghRepoName: repo.data.name,
         defaultBranch,

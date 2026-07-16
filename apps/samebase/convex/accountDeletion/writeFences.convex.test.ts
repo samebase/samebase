@@ -34,6 +34,7 @@ async function seedDeletingUserWithConnectedVault() {
       githubMode: "connect_existing_repository",
       runId: provisioningRunId,
       ghRepoId: "repository-id",
+      ghRepoNodeId: "R_repository",
       owner: "owner",
       name: "repository",
       defaultBranch: "main",

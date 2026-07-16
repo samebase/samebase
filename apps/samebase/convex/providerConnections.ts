@@ -72,7 +72,7 @@ const vGithubConnectionResult = object({
   kind: literal("github"),
   userId: id("users"),
   auth: vStandardProviderAuth,
-  githubAccountId: optional(number()),
+  githubAccountId: number(),
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
@@ -186,15 +186,18 @@ export async function deleteProviderConnection(
   connection: Doc<"providerConnections">,
 ): Promise<void> {
   await db.delete(connection._id);
-  if (connection.kind === "github" && connection.githubAccountId !== undefined) {
+  if (connection.kind === "github") {
     await deleteGitHubGraphqlRateBudgetIfUnreferenced(db, connection.githubAccountId);
   }
 }
 
-async function upsertGithubConnection(
+export async function upsertGithubConnection(
   db: DatabaseWriter,
   args: Infer<typeof vGithubConnectionUpsert>,
 ): Promise<void> {
+  if (!Number.isSafeInteger(args.githubAccountId) || args.githubAccountId <= 0) {
+    throw new Error("GitHub account id must be a positive safe integer.");
+  }
   await assertProviderConnectionWriteAllowed(db, args.userId);
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "github");
@@ -209,7 +212,7 @@ async function upsertGithubConnection(
       username: args.username,
       updatedAt: Math.max(now, existing.updatedAt + 1),
     });
-    if (previousGithubAccountId !== undefined && previousGithubAccountId !== args.githubAccountId) {
+    if (previousGithubAccountId !== args.githubAccountId) {
       await deleteGitHubGraphqlRateBudgetIfUnreferenced(db, previousGithubAccountId);
     }
     return;
@@ -330,33 +333,6 @@ export const upsertGithub = internalMutation({
   handler: async (ctx, args) => {
     await upsertGithubConnection(ctx.db, args);
     return null;
-  },
-});
-
-export const setGithubIdentityIfUnchanged = internalMutation({
-  args: {
-    providerConnectionId: id("providerConnections"),
-    expectedUpdatedAt: number(),
-    githubAccountId: number(),
-    username: string(),
-  },
-  returns: boolean(),
-  handler: async (ctx, args): Promise<boolean> => {
-    const connection = await ctx.db.get(args.providerConnectionId);
-    if (
-      connection?.kind !== "github" ||
-      connection.updatedAt !== args.expectedUpdatedAt ||
-      connection.githubAccountId !== undefined
-    ) {
-      return false;
-    }
-
-    await ctx.db.patch(connection._id, {
-      githubAccountId: args.githubAccountId,
-      username: args.username,
-      updatedAt: Math.max(Date.now(), connection.updatedAt + 1),
-    });
-    return true;
   },
 });
 

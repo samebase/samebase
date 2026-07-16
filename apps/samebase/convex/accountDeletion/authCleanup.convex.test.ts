@@ -359,6 +359,7 @@ describe("account deletion auth cleanup", () => {
       return await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: ids.userId,
+        githubAccountId: 101,
         auth: { method: "oauth", credential: "late-provider-token" },
         createdAt: 1,
         updatedAt: 1,
@@ -382,6 +383,44 @@ describe("account deletion auth cleanup", () => {
     await expect(
       t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
     ).rejects.toThrow("Samebase account data remains during finalization.");
+  });
+
+  it("fails closed when an orphan repository summary survives account cleanup", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId: ids.userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      await ctx.db.insert("vaultRepositorySummaries", {
+        userId: ids.userId,
+        vaultId,
+        refreshEligibleAt: 0,
+        lifecycle: { state: "idle" },
+        publication: { state: "unobserved" },
+      });
+      await ctx.db.delete(vaultId);
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).rejects.toThrow("Repository summaries remain for the deleting account.");
   });
 });
 

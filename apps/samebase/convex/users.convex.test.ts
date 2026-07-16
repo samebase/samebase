@@ -32,6 +32,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,
+        githubAccountId: 101,
         auth: {
           method: "api_key",
           credential: "test-github-api-key",
@@ -225,6 +226,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: ownerId,
+        githubAccountId: 102,
         auth: {
           method: "api_key",
           credential: "test-owner-github-api-key",
@@ -340,6 +342,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: insertedUserId,
+        githubAccountId: 103,
         auth: {
           method: "api_key",
           credential: "test-github-api-key",
@@ -372,6 +375,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: insertedUserId,
+        githubAccountId: 104,
         auth: {
           method: "oauth",
           credential: "github-oauth-token",
@@ -406,6 +410,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: insertedUserId,
+        githubAccountId: 105,
         auth: {
           method: "oauth",
           credential: "github-oauth-token",
@@ -568,6 +573,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: insertedUserId,
+        githubAccountId: 106,
         auth: {
           method: "oauth",
           credential: "github-oauth-token",
@@ -642,6 +648,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: insertedUserId,
+        githubAccountId: 107,
         auth: {
           method: "oauth",
           credential: "github-oauth-token",
@@ -718,6 +725,7 @@ describe("users Convex contract", () => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId: insertedUserId,
+        githubAccountId: 108,
         auth: {
           method: "oauth",
           credential: "github-oauth-token",

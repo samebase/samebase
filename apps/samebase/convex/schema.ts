@@ -26,6 +26,7 @@ import {
   vMachineRegistrationRequestRow,
 } from "./connectedMachineModel";
 import { vGitHubGraphqlRateBudget } from "./githubGraphqlRateBudget";
+import { vGitHubObservationActionLease } from "./githubObservationActionLeaseModel";
 import {
   vRepositoryInventoryFilterView,
   vRepositoryInventoryFilterViewRow,
@@ -36,6 +37,7 @@ import {
   vStoredRepositoryInventoryItem,
   vStoredRepositoryInventoryPullRequestLabelFacet,
 } from "./repositoryInventoryModel";
+import { vRepositorySummary, vRepositorySummaryDirectoryState } from "./repositorySummaryModel";
 import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 import { vVaultResourceLinksStateRow } from "./vault/resourceLinksStateModel";
@@ -259,7 +261,7 @@ export const vGithubProviderConnection = object({
   kind: literal("github"),
   userId: id("users"),
   auth: vStandardProviderAuth,
-  githubAccountId: optional(number()),
+  githubAccountId: number(),
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
@@ -485,12 +487,39 @@ export default defineSchema({
     .index("by_userId_and_lifecycle_state", ["userId", "lifecycle.state"]),
 
   /**
+   * One fixed-size default-branch summary for every connected vault. Directory
+   * pages join at most one summary row per vault and never read inventory pages.
+   */
+  vaultRepositorySummaries: defineTable(vRepositorySummary)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_lifecycle_state_and_refreshEligibleAt", [
+      "userId",
+      "lifecycle.state",
+      "refreshEligibleAt",
+    ]),
+
+  /**
+   * One reactive revision per user. Summary directory pages are point-in-time;
+   * this row tells the browser when its currently loaded pages should refetch.
+   */
+  vaultRepositorySummaryDirectoryStates: defineTable(vRepositorySummaryDirectoryState).index(
+    "by_userId",
+    ["userId"],
+  ),
+
+  /**
    * High-churn GitHub GraphQL budget state. GitHub-account-scoped leases serialize
    * repository crawls across every connection for the same provider principal.
    */
   githubGraphqlRateBudgets: defineTable(vGitHubGraphqlRateBudget)
     .index("by_githubAccountId", ["githubAccountId"])
-    .index("by_lease_vaultId", ["lease.vaultId"]),
+    .index("by_inventory_lease_vaultId", ["lease.owner.vaultId"]),
+
+  /** Provider-capable GitHub actions that account and vault deletion must outlive. */
+  githubObservationActionLeases: defineTable(vGitHubObservationActionLease)
+    .index("by_userId_and_expiresAt", ["userId", "expiresAt"])
+    .index("by_vaultId_and_expiresAt", ["vaultId", "expiresAt"])
+    .index("by_leaseGroupId", ["leaseGroupId"]),
 
   /**
    * Bounded counters for one immutable repository inventory snapshot.

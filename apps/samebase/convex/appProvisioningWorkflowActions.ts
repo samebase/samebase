@@ -24,6 +24,7 @@ const { boolean, id, literal, object, string, union } = v;
 const descriptionValidator = union(string(), v.null());
 const githubRepositoryResult = object({
   ghRepoId: string(),
+  ghRepoNodeId: string(),
   ownerName: string(),
   repoName: string(),
   defaultBranch: string(),
@@ -366,6 +367,7 @@ export const createGitHubRepository = internalAction({
 
     return {
       ghRepoId: repo.data.id.toString(),
+      ghRepoNodeId: repo.data.node_id,
       ownerName,
       repoName: repoFinalName,
       defaultBranch: readDefaultBranch(repo.data),
@@ -495,6 +497,7 @@ export const fetchExistingGitHubRepository = internalAction({
 
     return {
       ghRepoId: repo.data.id.toString(),
+      ghRepoNodeId: repo.data.node_id,
       ownerName,
       repoName: repoFinalName,
       defaultBranch,
@@ -565,6 +568,7 @@ export const createVaultForRepository = internalAction({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ghRepoId: string(),
+    ghRepoNodeId: string(),
     ownerName: string(),
     repoName: string(),
     defaultBranch: string(),
@@ -586,6 +590,7 @@ export const createVaultForRepository = internalAction({
       vaultId: args.vaultId,
       userId: args.userId,
       ghRepoId: args.ghRepoId,
+      ghRepoNodeId: args.ghRepoNodeId,
       ghRepoOwner: args.ownerName,
       ghRepoName: args.repoName,
       defaultBranch: args.defaultBranch,
@@ -610,6 +615,7 @@ export const connectExistingRepositoryVault = internalAction({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ghRepoId: string(),
+    ghRepoNodeId: string(),
     ownerName: string(),
     repoName: string(),
     defaultBranch: string(),
@@ -631,6 +637,7 @@ export const connectExistingRepositoryVault = internalAction({
       vaultId: args.vaultId,
       userId: args.userId,
       ghRepoId: args.ghRepoId,
+      ghRepoNodeId: args.ghRepoNodeId,
       ghRepoOwner: args.ownerName,
       ghRepoName: args.repoName,
       defaultBranch: args.defaultBranch,

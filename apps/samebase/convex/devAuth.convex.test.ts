@@ -136,7 +136,11 @@ describe("devAuth password account seed", () => {
     await expect(
       t.mutation(internal.devAuth.seedProviderConnectionsForUser, {
         userId,
-        githubApiKey: "github-token",
+        github: {
+          apiKey: "github-token",
+          githubAccountId: 101,
+          username: "seed-user",
+        },
         convexManagementApiKey: "convex-token",
         convexTeamId: "team-id",
         convexTeamSlug: "team-slug",
@@ -162,6 +166,10 @@ describe("devAuth password account seed", () => {
       "convex",
       "github",
     ]);
+    expect(snapshot.connections.find((connection) => connection.kind === "github")).toMatchObject({
+      githubAccountId: 101,
+      username: "seed-user",
+    });
   });
 
   it("fails closed when the seed user is missing", async () => {

@@ -36,6 +36,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        ghRepoNodeId: "R_123",
         owner: "ada",
         name: "delete-me",
         defaultBranch: "main",
@@ -91,6 +92,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        ghRepoNodeId: "R_123",
         owner: "ada",
         name: "delete-me",
         defaultBranch: "main",
@@ -207,6 +209,7 @@ describe("vault deletion workflow", () => {
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "123",
+        ghRepoNodeId: "R_123",
         owner: "ada",
         name: "existing-repo",
         defaultBranch: "main",
@@ -356,6 +359,28 @@ describe("vault deletion workflow", () => {
     });
   });
 
+  it("refuses to delete a vault row while its repository summary remains", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(
+      async (ctx) =>
+        await ctx.db.insert("vaultRepositorySummaries", {
+          userId: ids.userId,
+          vaultId: ids.vaultId,
+          refreshEligibleAt: 0,
+          lifecycle: { state: "idle" },
+          publication: { state: "unobserved" },
+        }),
+    );
+
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.deleteVaultRow, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+      }),
+    ).rejects.toThrow("Repository summary remains during vault deletion.");
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.vaultId))).resolves.not.toBeNull();
+  });
+
   it("finishes local cleanup through workflow cleanup batches", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
@@ -387,6 +412,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        ghRepoNodeId: "R_123",
         owner: "ada",
         name: "delete-me",
         defaultBranch: "main",
@@ -628,6 +654,7 @@ describe("vault deletion workflow", () => {
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "456",
+        ghRepoNodeId: "R_456",
         owner: "ada",
         name: "existing",
         defaultBranch: "main",
@@ -683,6 +710,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "789",
+        ghRepoNodeId: "R_789",
         owner: "ada",
         name: "codespaces",
         defaultBranch: "main",
@@ -761,6 +789,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId: setupRunId,
         ghRepoId: "789",
+        ghRepoNodeId: "R_789",
         owner: "ada",
         name: "retry-me",
         defaultBranch: "main",
@@ -830,6 +859,7 @@ describe("vault deletion workflow", () => {
       const githubConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,
+        githubAccountId: 101,
         auth: {
           method: "api_key",
           credential: "test-github-api-key",
@@ -861,6 +891,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId: setupRunId,
         ghRepoId: "789",
+        ghRepoNodeId: "R_789",
         owner: "ada",
         name: "retry-missing-provider",
         defaultBranch: "main",

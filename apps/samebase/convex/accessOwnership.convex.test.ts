@@ -60,6 +60,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
+      ghRepoNodeId: "R_123",
       owner: "owner",
       name: "secure",
       defaultBranch: "main",
@@ -92,6 +93,12 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       defaultBranch: "main",
       fingerprint: "owner-inventory",
       crawlCost: 1,
+      summaryDefaultBranch: {
+        state: "ready",
+        name: "main",
+        headSha: "abc123",
+        checkState: "none",
+      },
     });
     const inventoryFilterViewId = await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
       state: "complete",

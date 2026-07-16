@@ -1,14 +1,12 @@
-import { Octokit } from "@octokit/rest";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
-import { internalAction, type ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { internalAction } from "./_generated/server";
 import {
   collectRepositoryInventoryWithRetry,
   createGitHubGraphqlClient,
   GitHubGraphqlRateLimitError,
-  resolveGitHubRepositoryNodeId,
 } from "./githubRepositoryInventory";
 import { toErrorMessage } from "./jsonUtils";
 import {
@@ -22,9 +20,9 @@ import {
   type StoredRepositoryInventoryItem,
 } from "./repositoryInventoryModel";
 import type { RepositoryInventoryWorkerInput } from "./repositoryInventory";
+import type { RepositorySummaryDefaultBranch } from "./repositorySummaryModel";
 
 const GITHUB_RATE_LEASE_RENEW_INTERVAL_MS = 30_000;
-const GITHUB_IDENTITY_TIMEOUT_MS = 10_000;
 const REPOSITORY_INVENTORY_STAGE_FACET_BATCH_SIZE = 25;
 
 class RepositoryInventoryRateDeferredError extends Error {
@@ -32,62 +30,6 @@ class RepositoryInventoryRateDeferredError extends Error {
     super("GitHub GraphQL rate budget blocked the active repository inventory crawl.");
     this.name = "RepositoryInventoryRateDeferredError";
   }
-}
-
-type GitHubConnection = Extract<Doc<"providerConnections">, { kind: "github" }>;
-
-async function fetchGitHubAccountIdentity(credential: string): Promise<{
-  githubAccountId: number;
-  username: string;
-}> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), GITHUB_IDENTITY_TIMEOUT_MS);
-  try {
-    const response = await new Octokit({
-      auth: credential,
-      userAgent: "samebase-app",
-    }).rest.users.getAuthenticated({ request: { signal: controller.signal } });
-    const githubAccountId = response.data.id;
-    const username = response.data.login;
-    if (!Number.isSafeInteger(githubAccountId) || githubAccountId <= 0 || !username) {
-      throw new Error("GitHub returned an invalid authenticated account identity.");
-    }
-    return { githubAccountId, username };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function resolveGitHubConnectionWithAccountId(
-  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
-  userId: Id<"users">,
-): Promise<{ connection: GitHubConnection; githubAccountId: number }> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
-    });
-    if (connection?.kind !== "github") {
-      throw new Error("GitHub is not connected.");
-    }
-    if (connection.githubAccountId !== undefined) {
-      return { connection, githubAccountId: connection.githubAccountId };
-    }
-
-    const identity = await fetchGitHubAccountIdentity(connection.auth.credential);
-    const persisted = await ctx.runMutation(
-      internal.providerConnections.setGithubIdentityIfUnchanged,
-      {
-        providerConnectionId: connection._id,
-        expectedUpdatedAt: connection.updatedAt,
-        ...identity,
-      },
-    );
-    if (persisted) {
-      return { connection, githubAccountId: identity.githubAccountId };
-    }
-  }
-  throw new Error("GitHub connection changed while resolving its account identity.");
 }
 
 function chunk<Value>(values: readonly Value[], size: number): Value[][] {
@@ -180,6 +122,33 @@ function prepareRepositoryInventoryForStorage(args: {
   };
 }
 
+function repositorySummaryDefaultBranch(
+  inventory: Awaited<ReturnType<typeof collectRepositoryInventoryWithRetry>>,
+): RepositorySummaryDefaultBranch {
+  if (inventory.defaultBranch === null) {
+    return {
+      state: "unavailable",
+      reason: "repository_has_no_default_branch",
+    };
+  }
+  const defaultBranch = inventory.items.find(
+    (item) => item.kind === "branch" && item.isDefault && item.name === inventory.defaultBranch,
+  );
+  if (defaultBranch?.kind !== "branch") {
+    throw new Error("GitHub repository inventory omitted its default branch.");
+  }
+  return {
+    state: "ready",
+    name: defaultBranch.name,
+    headSha: defaultBranch.headCommit.sha,
+    checkState:
+      inventory.defaultBranchCheckState ??
+      (() => {
+        throw new Error("GitHub repository inventory omitted its default branch check state.");
+      })(),
+  };
+}
+
 export const runRepositoryInventoryRefresh = internalAction({
   args: {
     vaultId: v.id("vaults"),
@@ -195,15 +164,38 @@ export const runRepositoryInventoryRefresh = internalAction({
       return null;
     }
 
+    const observationLeaseGroupId = crypto.randomUUID();
+    const observationLeaseAcquired = await ctx.runMutation(
+      internal.githubObservationActionLease.acquire,
+      {
+        userId: input.userId,
+        leaseGroupId: observationLeaseGroupId,
+        vaultIds: [input.vaultId],
+      },
+    );
+    if (!observationLeaseAcquired) {
+      await ctx.runMutation(internal.repositoryInventory.failRepositoryInventoryRefresh, {
+        vaultId: input.vaultId,
+        snapshotId: input.snapshotId,
+        message: "Repository inventory stopped before accessing GitHub.",
+      });
+      return null;
+    }
+
     let githubAccountId: number | undefined;
     let rateBudgetLeaseId: string | undefined;
     let rateBudgetLeaseOwned = false;
     let crawlStartedAt = Date.now();
     let graphqlClient: ReturnType<typeof createGitHubGraphqlClient> | undefined;
     try {
-      const resolvedConnection = await resolveGitHubConnectionWithAccountId(ctx, input.userId);
-      const githubConnection = resolvedConnection.connection;
-      const claimedGithubAccountId = resolvedConnection.githubAccountId;
+      const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId: input.userId,
+        kind: "github",
+      });
+      if (githubConnection?.kind !== "github") {
+        throw new Error("GitHub is not connected.");
+      }
+      const claimedGithubAccountId = githubConnection.githubAccountId;
       githubAccountId = claimedGithubAccountId;
       const claimedRateBudgetLeaseId = crypto.randomUUID();
       rateBudgetLeaseId = claimedRateBudgetLeaseId;
@@ -212,9 +204,12 @@ export const runRepositoryInventoryRefresh = internalAction({
         {
           githubAccountId: claimedGithubAccountId,
           leaseId: claimedRateBudgetLeaseId,
-          vaultId: input.vaultId,
-          snapshotId: input.snapshotId,
-          estimatedCrawlCost: input.estimatedCrawlCost,
+          owner: {
+            kind: "repository_inventory",
+            vaultId: input.vaultId,
+            snapshotId: input.snapshotId,
+          },
+          estimatedCost: input.estimatedCrawlCost,
         },
       );
       if (budgetClaim.kind === "wait") {
@@ -258,14 +253,8 @@ export const runRepositoryInventoryRefresh = internalAction({
         credential: githubConnection.auth.credential,
       });
       graphqlClient = client;
-      const repositoryNodeId =
-        input.repositoryNodeId ??
-        (await resolveGitHubRepositoryNodeId({
-          credential: githubConnection.auth.credential,
-          repositoryDatabaseId: input.githubRepositoryId,
-        }));
       const inventory = await collectRepositoryInventoryWithRetry({
-        repositoryNodeId,
+        repositoryNodeId: input.repositoryNodeId,
         expectedRepositoryDatabaseId: input.githubRepositoryId,
         requestGraphql: async (query, variables) => {
           await renewRateLeaseIfNeeded();
@@ -279,13 +268,14 @@ export const runRepositoryInventoryRefresh = internalAction({
       if (inventory.repositoryDatabaseId !== input.githubRepositoryId) {
         throw new Error("GitHub repository identity does not match the connected vault.");
       }
+      const summaryDefaultBranch = repositorySummaryDefaultBranch(inventory);
 
       await renewRateLeaseIfNeeded(true);
       const usage = client.getUsage();
       if (usage === undefined) {
         throw new Error("GitHub GraphQL accounting was not collected.");
       }
-      await ctx.runMutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+      await ctx.runMutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
         githubAccountId: claimedGithubAccountId,
         leaseId: claimedRateBudgetLeaseId,
         durationMs: Date.now() - crawlStartedAt,
@@ -303,6 +293,8 @@ export const runRepositoryInventoryRefresh = internalAction({
           snapshotId: input.snapshotId,
           fingerprint: inventory.fingerprint,
           crawlCost: usage.cost,
+          summaryDefaultBranch,
+          summaryOpenPullRequestCount: inventory.pullRequestCount,
         },
       );
       if (unchanged) {
@@ -364,6 +356,7 @@ export const runRepositoryInventoryRefresh = internalAction({
           noLabelPullRequestCount: storedInventory.noLabelPullRequestCount,
           fingerprint: inventory.fingerprint,
           crawlCost: usage.cost,
+          summaryDefaultBranch,
         },
       );
       return null;
@@ -374,7 +367,7 @@ export const runRepositoryInventoryRefresh = internalAction({
         rateBudgetLeaseId !== undefined &&
         rateBudgetLeaseOwned
       ) {
-        await ctx.runMutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+        await ctx.runMutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
           githubAccountId,
           leaseId: rateBudgetLeaseId,
           durationMs: Date.now() - crawlStartedAt,
@@ -399,7 +392,7 @@ export const runRepositoryInventoryRefresh = internalAction({
         rateBudgetLeaseOwned
       ) {
         const result = await ctx.runMutation(
-          internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl,
+          internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease,
           {
             githubAccountId,
             leaseId: rateBudgetLeaseId,
@@ -426,7 +419,7 @@ export const runRepositoryInventoryRefresh = internalAction({
         rateBudgetLeaseId !== undefined &&
         rateBudgetLeaseOwned
       ) {
-        await ctx.runMutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+        await ctx.runMutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
           githubAccountId,
           leaseId: rateBudgetLeaseId,
           durationMs: Date.now() - crawlStartedAt,
@@ -443,6 +436,10 @@ export const runRepositoryInventoryRefresh = internalAction({
         message: toErrorMessage(error),
       });
       throw error;
+    } finally {
+      await ctx.runMutation(internal.githubObservationActionLease.release, {
+        leaseGroupId: observationLeaseGroupId,
+      });
     }
   },
 });

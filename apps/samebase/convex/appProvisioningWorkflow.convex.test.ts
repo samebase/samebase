@@ -34,6 +34,7 @@ describe("app provisioning workflow composition", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        ghRepoNodeId: "R_123",
         owner: "ada",
         name: "composed-app",
         visibility: "private",

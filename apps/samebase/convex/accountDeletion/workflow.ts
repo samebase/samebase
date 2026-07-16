@@ -320,6 +320,22 @@ export const deleteAccountWorkflow = workflow.define({
 
     for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
       const result = await step.runMutation(
+        internal.repositorySummary.quiesceForAccountDeletion,
+        ownedArgs,
+        { name: `quiesce_repository_summaries_${check}` },
+      );
+
+      if (result.state === "done") {
+        break;
+      }
+
+      if (check === MAX_QUIESCE_CHECKS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+    }
+
+    for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
+      const result = await step.runMutation(
         internal.accountDeletion.cleanup.inspectQuiescence,
         ownedArgs,
         { name: `inspect_quiescence_${check}` },
@@ -334,7 +350,7 @@ export const deleteAccountWorkflow = workflow.define({
       }
 
       const waitMs =
-        result.blocker === "active_agent_action"
+        result.blocker === "active_agent_action" || result.blocker === "active_github_observation"
           ? Math.max(1, Math.min(result.retryAfterMs, 5_000))
           : 1_000;
       await step.sleep(waitMs, { name: `wait_for_active_work_${check}` });

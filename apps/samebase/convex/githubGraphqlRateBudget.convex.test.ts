@@ -80,10 +80,40 @@ async function claim(
     leaseId: string;
     vaultId: Id<"vaults">;
     snapshotId: Id<"vaultRepositoryInventorySnapshots">;
-    estimatedCrawlCost?: number;
+    estimatedCost?: number;
   },
 ) {
-  return await t.mutation(internal.githubGraphqlRateBudget.claimGitHubGraphqlRateBudget, args);
+  return await t.mutation(internal.githubGraphqlRateBudget.claimGitHubGraphqlRateBudget, {
+    githubAccountId: args.githubAccountId,
+    leaseId: args.leaseId,
+    owner: {
+      kind: "repository_inventory",
+      vaultId: args.vaultId,
+      snapshotId: args.snapshotId,
+    },
+    estimatedCost: args.estimatedCost,
+  });
+}
+
+async function claimSummaryBatch(
+  t: ConvexTest,
+  args: {
+    githubAccountId: number;
+    leaseId: string;
+    userId: Id<"users">;
+    batchId: string;
+  },
+) {
+  return await t.mutation(internal.githubGraphqlRateBudget.claimGitHubGraphqlRateBudget, {
+    githubAccountId: args.githubAccountId,
+    leaseId: args.leaseId,
+    owner: {
+      kind: "repository_summary_batch",
+      userId: args.userId,
+      batchId: args.batchId,
+    },
+    estimatedCost: 1,
+  });
 }
 
 async function readBudget(t: ConvexTest, accountId = githubAccountId) {
@@ -210,13 +240,39 @@ describe("GitHub GraphQL account rate budget", () => {
     });
     expect((await readBudget(t))?.lease).toMatchObject({
       leaseId: "lease-owner",
-      vaultId: ids.firstVaultId,
-      snapshotId: ids.firstSnapshotId,
+      owner: {
+        kind: "repository_inventory",
+        vaultId: ids.firstVaultId,
+        snapshotId: ids.firstSnapshotId,
+      },
       expiresAt: now + 40_000 + leaseDurationMs,
     });
   });
 
-  it("uses each vault's own estimated crawl cost", async () => {
+  it("serializes summary batches behind full inventory requests", async () => {
+    const { ids, t } = await createRateBudgetTest();
+    await claim(t, {
+      githubAccountId: ids.githubAccountId,
+      leaseId: "inventory-lease",
+      vaultId: ids.firstVaultId,
+      snapshotId: ids.firstSnapshotId,
+    });
+
+    await expect(
+      claimSummaryBatch(t, {
+        githubAccountId: ids.githubAccountId,
+        leaseId: "summary-lease",
+        userId: ids.userId,
+        batchId: "summary-batch",
+      }),
+    ).resolves.toEqual({
+      kind: "wait",
+      reason: "queue",
+      retryAt: now + 5_000,
+    });
+  });
+
+  it("uses each request's own estimated cost", async () => {
     const { ids, t } = await createRateBudgetTest();
     const resetAt = now + 60 * 60_000;
     await t.run(async (ctx) => {
@@ -235,7 +291,7 @@ describe("GitHub GraphQL account rate budget", () => {
         leaseId: "lease-small",
         vaultId: ids.firstVaultId,
         snapshotId: ids.firstSnapshotId,
-        estimatedCrawlCost: 120,
+        estimatedCost: 120,
       }),
     ).resolves.toEqual({ kind: "ready" });
     expect(await readBudget(t)).toMatchObject({
@@ -243,7 +299,7 @@ describe("GitHub GraphQL account rate budget", () => {
       lease: { leaseId: "lease-small", reservedPoints: 120 },
     });
 
-    await t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+    await t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
       githubAccountId: ids.githubAccountId,
       leaseId: "lease-small",
       durationMs: 1_000,
@@ -255,7 +311,7 @@ describe("GitHub GraphQL account rate budget", () => {
         leaseId: "lease-large",
         vaultId: ids.secondVaultId,
         snapshotId: ids.secondSnapshotId,
-        estimatedCrawlCost: 300,
+        estimatedCost: 300,
       }),
     ).resolves.toEqual({ kind: "ready" });
     expect(await readBudget(t)).toMatchObject({
@@ -283,10 +339,10 @@ describe("GitHub GraphQL account rate budget", () => {
         leaseId: "lease-at-floor",
         vaultId: ids.firstVaultId,
         snapshotId: ids.firstSnapshotId,
-        estimatedCrawlCost: 50,
+        estimatedCost: 50,
       }),
     ).resolves.toEqual({ kind: "ready" });
-    await t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+    await t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
       githubAccountId: ids.githubAccountId,
       leaseId: "lease-at-floor",
       durationMs: 1_000,
@@ -299,7 +355,7 @@ describe("GitHub GraphQL account rate budget", () => {
         leaseId: "lease-below-floor",
         vaultId: ids.secondVaultId,
         snapshotId: ids.secondSnapshotId,
-        estimatedCrawlCost: 51,
+        estimatedCost: 51,
       }),
     ).resolves.toEqual({
       kind: "wait",
@@ -312,7 +368,7 @@ describe("GitHub GraphQL account rate budget", () => {
     });
   });
 
-  it("records successful observed usage and crawl duration", async () => {
+  it("records successful observed usage and request duration", async () => {
     const { ids, t } = await createRateBudgetTest();
     const resetAt = now + 60 * 60_000;
     await claim(t, {
@@ -323,7 +379,7 @@ describe("GitHub GraphQL account rate budget", () => {
     });
 
     await expect(
-      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
         githubAccountId: ids.githubAccountId,
         leaseId: "lease-success",
         durationMs: 8_000,
@@ -342,7 +398,7 @@ describe("GitHub GraphQL account rate budget", () => {
       limit: 5_000,
       remaining: 4_000,
       resetAt,
-      lastCompletedCrawlDurationMs: 8_000,
+      lastCompletedRequestDurationMs: 8_000,
       consecutiveSecondaryBlocks: 0,
     });
     expect((await readBudget(t))?.lease).toBeUndefined();
@@ -359,7 +415,7 @@ describe("GitHub GraphQL account rate budget", () => {
     });
 
     await expect(
-      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
         githubAccountId: ids.githubAccountId,
         leaseId: "lease-primary",
         durationMs: 4_000,
@@ -404,7 +460,7 @@ describe("GitHub GraphQL account rate budget", () => {
     });
 
     await expect(
-      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
         githubAccountId: ids.githubAccountId,
         leaseId: "lease-secondary-1",
         durationMs: 4_000,
@@ -428,7 +484,7 @@ describe("GitHub GraphQL account rate budget", () => {
       snapshotId: ids.secondSnapshotId,
     });
     await expect(
-      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
         githubAccountId: ids.githubAccountId,
         leaseId: "lease-secondary-2",
         durationMs: 4_000,
@@ -457,8 +513,11 @@ describe("GitHub GraphQL account rate budget", () => {
         consecutiveSecondaryBlocks: 0,
         lease: {
           leaseId: "lease-old",
-          vaultId: ids.firstVaultId,
-          snapshotId: ids.firstSnapshotId,
+          owner: {
+            kind: "repository_inventory",
+            vaultId: ids.firstVaultId,
+            snapshotId: ids.firstSnapshotId,
+          },
           startedAt: now - leaseDurationMs,
           expiresAt: now - 1,
           reservedPoints: 100,
@@ -471,12 +530,12 @@ describe("GitHub GraphQL account rate budget", () => {
         leaseId: "lease-new",
         vaultId: ids.secondVaultId,
         snapshotId: ids.secondSnapshotId,
-        estimatedCrawlCost: 200,
+        estimatedCost: 200,
       }),
     ).resolves.toEqual({ kind: "ready" });
 
     await expect(
-      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+      t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
         githubAccountId: ids.githubAccountId,
         leaseId: "lease-old",
         durationMs: 20_000,
@@ -494,13 +553,16 @@ describe("GitHub GraphQL account rate budget", () => {
     expect(await readBudget(t)).toMatchObject({
       lease: {
         leaseId: "lease-new",
-        vaultId: ids.secondVaultId,
-        snapshotId: ids.secondSnapshotId,
+        owner: {
+          kind: "repository_inventory",
+          vaultId: ids.secondVaultId,
+          snapshotId: ids.secondSnapshotId,
+        },
       },
     });
     expect((await readBudget(t))?.remaining).toBeUndefined();
 
-    await t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetCrawl, {
+    await t.mutation(internal.githubGraphqlRateBudget.finishGitHubGraphqlRateBudgetLease, {
       githubAccountId: ids.githubAccountId,
       leaseId: "lease-old",
       durationMs: 20_000,
@@ -542,7 +604,7 @@ describe("GitHub GraphQL account rate budget", () => {
       leaseId: "lease-deleted-vault",
       vaultId: ids.firstVaultId,
       snapshotId: ids.firstSnapshotId,
-      estimatedCrawlCost: 200,
+      estimatedCost: 200,
     });
 
     await t.mutation(internal.repositoryInventory.quiesceForVaultDeletion, {
@@ -558,7 +620,7 @@ describe("GitHub GraphQL account rate budget", () => {
         leaseId: "lease-surviving-vault",
         vaultId: ids.secondVaultId,
         snapshotId: ids.secondSnapshotId,
-        estimatedCrawlCost: 300,
+        estimatedCost: 300,
       }),
     ).resolves.toEqual({ kind: "ready" });
     expect(await readBudget(t)).toMatchObject({

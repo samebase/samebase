@@ -8,6 +8,7 @@ import type { VaultDeletionCleanupStep } from "./model";
 
 const workflow = new WorkflowManager(components.workflow);
 const { id, object, string } = v;
+const MAX_GITHUB_OBSERVATION_QUIESCE_CHECKS = 130;
 
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
@@ -71,6 +72,33 @@ export const deleteVaultWorkflow = workflow.define({
       },
       { name: "quiesce_repository_inventory" },
     );
+    await step.runMutation(
+      internal.repositorySummary.quiesceForVaultDeletion,
+      {
+        vaultId: args.vaultId,
+        userId: args.userId,
+      },
+      { name: "quiesce_repository_summary" },
+    );
+    for (let check = 0; check < MAX_GITHUB_OBSERVATION_QUIESCE_CHECKS; check += 1) {
+      const result = await step.runMutation(
+        internal.githubObservationActionLease.inspectForVaultDeletion,
+        {
+          vaultId: args.vaultId,
+          userId: args.userId,
+        },
+        { name: `inspect_github_observation_${check}` },
+      );
+      if (result.state === "done") {
+        break;
+      }
+      if (check === MAX_GITHUB_OBSERVATION_QUIESCE_CHECKS - 1) {
+        throw new Error("GitHub repository observation did not stop before vault deletion.");
+      }
+      await step.sleep(Math.max(1, Math.min(result.retryAfterMs, 5_000)), {
+        name: `wait_for_github_observation_${check}`,
+      });
+    }
     await step.runAction(internal.vault.deletion.providerActions.deleteConnectedCodespaces, args, {
       name: "delete_codespaces",
       retry: idempotentProviderStepRetry,

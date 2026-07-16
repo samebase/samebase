@@ -293,6 +293,7 @@ describe("account deletion workflow ownership and outcomes", () => {
         githubMode: "connect_existing_repository",
         runId: provisioningRunId,
         ghRepoId: "repository-id",
+        ghRepoNodeId: "R_repository",
         owner: "owner",
         name: "repository",
         defaultBranch: "main",
@@ -373,6 +374,7 @@ describe("account deletion workflow ownership and outcomes", () => {
         await ctx.db.insert("providerConnections", {
           kind: "github",
           userId: ids.userId,
+          githubAccountId: 1_000 + index,
           auth: { method: "api_key", credential: `credential-${index}` },
           createdAt: now + index,
           updatedAt: now + index,

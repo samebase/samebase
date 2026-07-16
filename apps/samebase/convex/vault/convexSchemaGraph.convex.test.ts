@@ -127,6 +127,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
+      ghRepoNodeId: "R_123",
       owner: "ada",
       name: "demo",
       visibility: "private",

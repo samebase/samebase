@@ -30,6 +30,7 @@ async function seedGithubConnection(t: ReturnType<typeof makeConvexTest>, auth: 
     await ctx.db.insert("providerConnections", {
       kind: "github",
       userId,
+      githubAccountId: 101,
       auth,
       username: "ada",
       createdAt: 1,

@@ -1,6 +1,10 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
+import {
+  bumpRepositorySummaryDirectoryRevision,
+  deleteRepositorySummaryForVault,
+} from "../../repositorySummary";
 import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
 
 const { id, literal, number, object, union } = v;
@@ -17,6 +21,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultRepositoryInventorySnapshots"),
   literal("vaultRepositoryInventoryFilters"),
   literal("vaultRepositoryInventories"),
+  literal("vaultRepositorySummaries"),
   literal("vaultDomains"),
   literal("vaultApps"),
   literal("vaultConvexDeployments"),
@@ -94,6 +99,35 @@ function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLoca
 
     return rows.length;
   };
+}
+
+async function deleteRepositorySummary(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs,
+): Promise<number> {
+  return (await deleteRepositorySummaryForVault(ctx, args)) ? 1 : 0;
+}
+
+async function assertRepositoryObservationRemoved(
+  ctx: VaultLocalCleanupCtx,
+  vaultId: Id<"vaults">,
+): Promise<void> {
+  const [summary, actionLease] = await Promise.all([
+    ctx.db
+      .query("vaultRepositorySummaries")
+      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+      .first(),
+    ctx.db
+      .query("githubObservationActionLeases")
+      .withIndex("by_vaultId_and_expiresAt", (q) => q.eq("vaultId", vaultId))
+      .first(),
+  ]);
+  if (summary !== null) {
+    throw new Error("Repository summary remains during vault deletion.");
+  }
+  if (actionLease !== null) {
+    throw new Error("GitHub observation remains active during vault deletion.");
+  }
 }
 
 function deleteStorageBackedByVaultBatch(
@@ -293,6 +327,10 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultRepositoryInventories"),
   },
   {
+    table: "vaultRepositorySummaries",
+    cleanup: deleteRepositorySummary,
+  },
+  {
     table: "vaultBranchTrees",
     cleanup: deleteVaultBranchTreesBatch,
   },
@@ -370,6 +408,7 @@ const vaultLocalCleanupRegistryByStep = {
     "vaultRepositoryInventorySnapshots",
     "vaultRepositoryInventoryFilters",
     "vaultRepositoryInventories",
+    "vaultRepositorySummaries",
     "vaultBranchTrees",
   ],
   cleanup_runtime_state: [
@@ -414,7 +453,9 @@ export async function deleteVaultLocalDataBatchForUser(
     }
   }
 
+  await assertRepositoryObservationRemoved(ctx, vault._id);
   await ctx.db.delete(vault._id);
+  await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
   return { state: "deleted" };
 }
 
@@ -482,7 +523,9 @@ export const deleteVaultRow = internalMutation({
       throw new Error("Vault not found");
     }
 
+    await assertRepositoryObservationRemoved(ctx, vault._id);
     await ctx.db.delete(vault._id);
+    await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
     return null;
   },
 });

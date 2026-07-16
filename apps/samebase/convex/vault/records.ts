@@ -9,6 +9,10 @@ import {
 import { query } from "../functions";
 import { readActiveRepositoryInventoryBranchSelection } from "../repositoryInventory";
 import {
+  bumpRepositorySummaryDirectoryRevision,
+  createRepositorySummaryForConnectedVault,
+} from "../repositorySummary";
+import {
   buildVaultCloudflareBuildConfigForAppRoot,
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
@@ -196,6 +200,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       message: "Queued existing repository connection.",
       createdAt: now,
     });
+    await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
 
     return { vaultId, runId };
   },
@@ -207,6 +212,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ghRepoId: v.string(),
+    ghRepoNodeId: v.string(),
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
     defaultBranch: v.string(),
@@ -236,6 +242,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       if (
         vault.githubMode !== "connect_existing_repository" ||
         vault.ghRepoId !== args.ghRepoId ||
+        vault.ghRepoNodeId !== args.ghRepoNodeId ||
         vault.runId !== args.runId
       ) {
         throw new Error("Connected vault repository identity cannot be changed.");
@@ -265,11 +272,16 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       githubMode: "connect_existing_repository",
       runId: args.runId,
       ghRepoId: args.ghRepoId,
+      ghRepoNodeId: args.ghRepoNodeId,
       owner: args.ghRepoOwner,
       name: args.ghRepoName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
+    });
+    await createRepositorySummaryForConnectedVault(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
     });
 
     return null;
@@ -383,6 +395,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       appRoot: ROOT_VAULT_APP_ROOT,
       createdAt: now,
     });
+    await bumpRepositorySummaryDirectoryRevision(ctx, args.userId);
 
     return { vaultId, runId };
   },
@@ -394,6 +407,7 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ghRepoId: string(),
+    ghRepoNodeId: string(),
     ghRepoOwner: string(),
     ghRepoName: string(),
     defaultBranch: string(),
@@ -412,7 +426,11 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
       if (!isSamebaseManagedVault(vault)) {
         throw new Error("Connected vault repository identity cannot be changed.");
       }
-      if (vault.ghRepoId !== args.ghRepoId || vault.runId !== args.runId) {
+      if (
+        vault.ghRepoId !== args.ghRepoId ||
+        vault.ghRepoNodeId !== args.ghRepoNodeId ||
+        vault.runId !== args.runId
+      ) {
         throw new Error("Connected vault repository identity cannot be changed.");
       }
       return null;
@@ -440,11 +458,16 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
       githubMode: "create_repository",
       runId: args.runId,
       ghRepoId: args.ghRepoId,
+      ghRepoNodeId: args.ghRepoNodeId,
       owner: args.ghRepoOwner,
       name: args.ghRepoName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
+    });
+    await createRepositorySummaryForConnectedVault(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
     });
 
     return null;
@@ -481,6 +504,7 @@ export const markGithubProvisioningFailed = internalMutation({
         visibility: vault.visibility,
         failedAt: Date.now(),
       });
+      await bumpRepositorySummaryDirectoryRevision(ctx, vault.userId);
       return null;
     }
 
@@ -493,6 +517,7 @@ export const markGithubProvisioningFailed = internalMutation({
       name: vault.name,
       failedAt: Date.now(),
     });
+    await bumpRepositorySummaryDirectoryRevision(ctx, vault.userId);
 
     return null;
   },

@@ -24,6 +24,16 @@ const checks = {
   neutralCount: 0,
   unknownCount: 0,
 };
+const summaryDefaultBranch = {
+  state: "ready" as const,
+  name: "main",
+  headSha: "summary-head",
+  checkState: "none" as const,
+};
+
+function summaryObservation() {
+  return { summaryDefaultBranch };
+}
 
 async function createConnectedVault() {
   const t = makeConvexTest();
@@ -56,11 +66,19 @@ async function createConnectedVault() {
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
+      ghRepoNodeId: "R_inventory",
       owner: "ada",
       name: "inventory",
       defaultBranch: "main",
       visibility: "private",
       connectedAt: now,
+    });
+    await ctx.db.insert("vaultRepositorySummaries", {
+      userId,
+      vaultId,
+      refreshEligibleAt: 0,
+      lifecycle: { state: "idle" },
+      publication: { state: "unobserved" },
     });
     return { userId, vaultId };
   });
@@ -106,6 +124,7 @@ async function insertSnapshot(
           defaultBranch: "main",
           fingerprint: "published-fingerprint",
           crawlCost: 10,
+          summaryDefaultBranch,
           vaultId: args.vaultId,
           ...counts,
         });
@@ -196,6 +215,7 @@ async function handoffAndMaterializeSnapshot(
     noLabelPullRequestCount: args.noLabelPullRequestCount,
     fingerprint: args.fingerprint,
     crawlCost: args.crawlCost,
+    summaryDefaultBranch,
   });
   return await finishFilterMaterialization(t, {
     snapshotId: args.snapshotId,
@@ -291,6 +311,16 @@ async function readVaultInventory(t: ConvexTest, vaultId: Id<"vaults">) {
       filterViewRows,
     };
   });
+}
+
+async function readRepositorySummary(t: ConvexTest, vaultId: Id<"vaults">) {
+  return await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query("vaultRepositorySummaries")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .unique(),
+  );
 }
 
 async function insertBranch(
@@ -442,6 +472,223 @@ describe("repository inventory refresh state machine", () => {
     expect(state.snapshots).toHaveLength(1);
   });
 
+  it("publishes the shared summary with the completed full inventory generation", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
+    const scheduled = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (scheduled?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a scheduled repository inventory refresh.");
+    }
+
+    const claimed = await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: scheduled.lifecycle.snapshotId,
+    });
+    if (claimed.kind !== "ready") {
+      throw new Error("Expected the repository inventory claim to be ready.");
+    }
+    expect(claimed).toMatchObject({
+      repositoryNodeId: "R_inventory",
+    });
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: {
+        state: "running",
+        source: "repository_inventory",
+        snapshotId: claimed.snapshotId,
+      },
+      publication: { state: "unobserved" },
+    });
+
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId: claimed.snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "Ada/Inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "summary-publication",
+      crawlCost: 9,
+      summaryDefaultBranch: {
+        state: "ready",
+        name: "main",
+        headSha: "observed-main-head",
+        checkState: "success",
+      },
+    });
+
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: { state: "materializing", snapshotId: claimed.snapshotId },
+      },
+      snapshots: [
+        {
+          _id: claimed.snapshotId,
+          state: "ready",
+          repositoryFullName: "Ada/Inventory",
+          fingerprint: "summary-publication",
+        },
+      ],
+    });
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: {
+        state: "running",
+        source: "repository_inventory",
+        snapshotId: claimed.snapshotId,
+      },
+      publication: { state: "unobserved" },
+    });
+
+    const filterViewId = await finishFilterMaterialization(t, {
+      snapshotId: claimed.snapshotId,
+      filterRevision: 0,
+    });
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        lifecycle: { state: "idle" },
+        publication: {
+          snapshotId: claimed.snapshotId,
+          filterViewId,
+          repositoryFullName: "Ada/Inventory",
+          fingerprint: "summary-publication",
+        },
+      },
+    });
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: { state: "idle" },
+      publication: {
+        state: "complete",
+        defaultBranch: {
+          state: "ready",
+          name: "main",
+          headSha: "observed-main-head",
+          checkState: "success",
+        },
+        openPullRequestCount: 0,
+        publishedAt: now,
+        checkedAt: now,
+      },
+    });
+  });
+
+  it("fails the paired summary when materialization loses its ready snapshot", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+    });
+    const scheduled = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (scheduled?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a scheduled repository inventory refresh.");
+    }
+    const claimed = await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: scheduled.lifecycle.snapshotId,
+    });
+    if (claimed.kind !== "ready") {
+      throw new Error("Expected the repository inventory claim to be ready.");
+    }
+    await t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+      vaultId: ids.vaultId,
+      snapshotId: claimed.snapshotId,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "Ada/Inventory",
+      defaultBranch: "main",
+      branchCount: 0,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "lost-snapshot",
+      crawlCost: 9,
+      summaryDefaultBranch: {
+        state: "ready",
+        name: "main",
+        headSha: "lost-snapshot-head",
+        checkState: "success",
+      },
+    });
+    await t.run(async (ctx) => await ctx.db.delete(claimed.snapshotId));
+
+    await t.mutation(internal.repositoryInventory.repairRepositoryInventoryFilterMaterialization, {
+      vaultId: ids.vaultId,
+      snapshotId: claimed.snapshotId,
+    });
+
+    const message = "Repository inventory filter materialization lost its snapshot.";
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: { lifecycle: { state: "failed", message } },
+    });
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: {
+        state: "failed",
+        message,
+      },
+      publication: { state: "unobserved" },
+    });
+  });
+
+  it("moves a deferred summary observation to the replacement crawl and releases expired demand", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+    });
+    const initial = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (initial?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected an initial scheduled repository inventory refresh.");
+    }
+    const claimed = await t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: initial.lifecycle.snapshotId,
+    });
+    if (claimed.kind !== "ready") {
+      throw new Error("Expected the repository inventory claim to be ready.");
+    }
+
+    const retryAt = now + 30_000;
+    await t.mutation(internal.repositoryInventory.deferRepositoryInventoryRefresh, {
+      vaultId: ids.vaultId,
+      snapshotId: claimed.snapshotId,
+      reason: "rate_limit",
+      retryAt,
+    });
+    const deferred = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (deferred?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a replacement repository inventory refresh.");
+    }
+    expect(deferred.lifecycle.snapshotId).not.toBe(claimed.snapshotId);
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: {
+        state: "scheduled",
+        source: "repository_inventory",
+        snapshotId: deferred.lifecycle.snapshotId,
+        wait: { kind: "rate_limit", retryAt },
+      },
+      publication: { state: "unobserved" },
+    });
+
+    vi.setSystemTime(now + 135_001);
+    await expect(
+      t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+        snapshotId: deferred.lifecycle.snapshotId,
+      }),
+    ).resolves.toEqual({ kind: "cancel" });
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      refreshEligibleAt: now + 135_001,
+      lifecycle: { state: "idle" },
+      publication: { state: "unobserved" },
+    });
+  });
+
   it("keeps a completed crawl unpublished until its filter view is complete", async () => {
     const { ids, t } = await createConnectedVault();
     const snapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
@@ -471,6 +718,7 @@ describe("repository inventory refresh state machine", () => {
       noLabelPullRequestCount: 0,
       fingerprint: "materializing",
       crawlCost: 9,
+      ...summaryObservation(),
     });
 
     const materializingState = await readVaultInventory(t, ids.vaultId);
@@ -534,6 +782,7 @@ describe("repository inventory refresh state machine", () => {
       noLabelPullRequestCount: 0,
       fingerprint: "before-focus",
       crawlCost: 8,
+      ...summaryObservation(),
     });
 
     await expect(
@@ -584,6 +833,7 @@ describe("repository inventory refresh state machine", () => {
       noLabelPullRequestCount: 0,
       fingerprint: "before-materializing-write",
       crawlCost: 8,
+      ...summaryObservation(),
     });
 
     await t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids);
@@ -635,6 +885,7 @@ describe("repository inventory refresh state machine", () => {
       noLabelPullRequestCount: 0,
       fingerprint: "watchdog",
       crawlCost: 7,
+      ...summaryObservation(),
     });
     const abandonedView = (await readVaultInventory(t, ids.vaultId)).filterViews.at(0);
     if (!abandonedView) {
@@ -694,6 +945,7 @@ describe("repository inventory refresh state machine", () => {
       noLabelPullRequestCount: 0,
       fingerprint: "invalid-view",
       crawlCost: 6,
+      ...summaryObservation(),
     });
     const stagingView = (await readVaultInventory(t, ids.vaultId)).filterViews.find(
       (view) => view.snapshotId === stagingSnapshotId,
@@ -848,6 +1100,8 @@ describe("repository inventory refresh state machine", () => {
         snapshotId: stagingSnapshotId,
         fingerprint: "published-fingerprint",
         crawlCost: 18,
+        ...summaryObservation(),
+        summaryOpenPullRequestCount: 0,
       }),
     ).resolves.toBe(true);
 
@@ -900,6 +1154,7 @@ describe("repository inventory refresh state machine", () => {
         noLabelPullRequestCount: 0,
         fingerprint: "incomplete",
         crawlCost: 5,
+        ...summaryObservation(),
       }),
     ).rejects.toThrow("Repository inventory snapshot counts are incomplete.");
 
@@ -1647,6 +1902,7 @@ describe("repository inventory pull request filters", () => {
       noLabelPullRequestCount: 0,
       fingerprint: "completed-crawl",
       crawlCost: 11,
+      ...summaryObservation(),
     });
 
     await asUser.mutation(api.repositoryInventory.setRepositoryInventoryFilter, {

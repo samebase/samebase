@@ -16,6 +16,6 @@ const app = defineApp({
 
 app.use(agent);
 app.use(workflow);
-app.use(workpool, { name: "repositoryInventoryWorkpool" });
+app.use(workpool, { name: "githubObservationWorkpool" });
 
 export default app;

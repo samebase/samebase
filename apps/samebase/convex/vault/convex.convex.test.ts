@@ -84,6 +84,7 @@ async function createConvexConnectedVault() {
       githubMode: "connect_existing_repository",
       runId: sourceRunId,
       ghRepoId: "123",
+      ghRepoNodeId: "R_123",
       owner: "ada",
       name: "demo",
       visibility: "private",

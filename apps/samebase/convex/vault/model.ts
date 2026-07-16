@@ -298,6 +298,7 @@ const vaultOperationalFields = {
 
 const connectedRepositoryIdentityFields = {
   ghRepoId: string(),
+  ghRepoNodeId: string(),
   defaultBranch: string(),
 } as const;
 

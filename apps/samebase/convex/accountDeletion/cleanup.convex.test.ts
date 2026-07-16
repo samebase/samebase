@@ -421,6 +421,12 @@ describe("account-local deletion cleanup", () => {
         defaultBranch: "main",
         fingerprint: "inventory-fingerprint",
         crawlCost: 1,
+        summaryDefaultBranch: {
+          state: "ready",
+          name: "main",
+          headSha: "cleanup-head",
+          checkState: "none",
+        },
       });
       const filterViewId = await ctx.db.insert("vaultRepositoryInventoryFilterViews", {
         state: "complete",
