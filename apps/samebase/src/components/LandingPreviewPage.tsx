@@ -31,6 +31,7 @@ import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
+import { publicMediaManifest } from "../../shared/publicMediaManifest";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -606,7 +607,7 @@ function LandingPreviewOverview() {
                 playsInline
                 poster="/landing-preview/tic-tac-toe-codex-poster.webp"
                 preload="metadata"
-                src="https://media.samebase.com/landing/tic-tac-toe-codex-v1.mp4"
+                src={publicMediaManifest.landingTicTacToeCodex.publicUrl}
                 width={1280}
               />
             </div>

@@ -11,11 +11,12 @@ import {
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { publicMediaManifest } from "../shared/publicMediaManifest";
 
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
   devices["iPhone 13"];
 
-const LANDING_HERO_VIDEO_URL = "https://media.samebase.com/landing/tic-tac-toe-codex-v1.mp4";
+const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingTicTacToeCodex.publicUrl;
 const LANDING_PREVIEW_PROD_UI_ROUTE = `${LANDING_PREVIEW_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
