@@ -417,13 +417,13 @@ export const requestRepositorySummaryRefresh = mutation({
     if (ctx.viewer.user.accountDeletion !== undefined) {
       throw new Error("Repository summaries are unavailable during account deletion.");
     }
-    if (args.visibleVaultIds.length > REPOSITORY_SUMMARY_PAGE_SIZE) {
+    const uniqueVisibleVaultIds = [...new Set(args.visibleVaultIds)];
+    if (uniqueVisibleVaultIds.length > REPOSITORY_SUMMARY_PAGE_SIZE) {
       throw new Error(
         `Repository summary refresh demand accepts at most ${REPOSITORY_SUMMARY_PAGE_SIZE} visible vaults.`,
       );
     }
     const now = Date.now();
-    const uniqueVisibleVaultIds = [...new Set(args.visibleVaultIds)];
     const visibleSummaries = await Promise.all(
       uniqueVisibleVaultIds.map((vaultId) => readRepositorySummary(ctx, vaultId)),
     );

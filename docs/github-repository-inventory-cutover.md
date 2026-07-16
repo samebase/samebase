@@ -2,10 +2,11 @@
 
 Use this runbook once, immediately before the narrow repository inventory schema is deployed. It
 performs an explicit no-compatibility reset: every current vault is deleted through the old
-dashboard, then the retired repository-derived tables are cleared. It preserves users,
-`providerConnections`, and their credentials. Leave every optional external-resource removal choice
-unchecked so the reset also leaves GitHub repositories, Convex resources, Cloudflare resources, and
-Codespaces intact.
+dashboard, GitHub is disconnected, then the retired repository-derived tables are cleared. It
+preserves users plus non-GitHub `providerConnections` and their credentials. The old GitHub
+connection cannot survive because its row lacks the required stable numeric GitHub account ID. Leave
+every optional external-resource removal choice unchecked so the reset still leaves GitHub
+repositories, Convex resources, Cloudflare resources, and Codespaces intact.
 
 The external provider objects survive, but their Samebase vault associations do not. Vault deletion
 removes the app, Convex deployment, Cloudflare Worker, domain, ownership, target, and Codespaces
@@ -64,9 +65,9 @@ each removal:
    bypass the workflow with a direct table delete.
 
 Continue loading directory pages and deleting rows until `/vault` is empty. Then open the provider
-connection UI and confirm that the existing provider connections still show as connected. Do not
-disconnect or reauthorize them as part of this cutover. Close every production Samebase tab after
-this verification so the retired client cannot request more work.
+connection UI, disconnect GitHub, and wait until GitHub shows as disconnected. Confirm that every
+non-GitHub provider connection that should survive still shows as connected. Close every production
+Samebase tab after this verification so the retired client cannot request more work.
 
 ## 3. Prove the vault reset boundary
 
@@ -81,9 +82,11 @@ fi
 printf 'The production vaults table is empty.\n'
 ```
 
-The provider-connection UI check from the previous step is the credential-safe preservation check.
-Do not dump `providerConnections` through the CLI because those rows contain credentials. Never add
-`providerConnections` to an import or replacement command in this runbook.
+The provider-connection UI check from the previous step is both the credential-safe GitHub removal
+check and the non-GitHub preservation check. Do not dump `providerConnections` through the CLI
+because those rows contain credentials. Never add `providerConnections` to an import or replacement
+command in this runbook. A forgotten old GitHub row must make the narrow schema deployment fail; do
+not widen the schema to bypass that failure.
 
 ## 4. Prove the retired workers are idle
 
@@ -166,7 +169,8 @@ do
 done
 ```
 
-Do not add `vaults`, `providerConnections`, or any other table to this list.
+Do not add `vaults`, `providerConnections`, or any other table to this list. GitHub connection
+removal belongs to the authenticated provider UI, not a credential-bearing table replacement.
 
 ## 6. Independently verify every retired table is empty
 
@@ -193,7 +197,8 @@ rm -f "$queue_audit" "$workpool_audit" "$empty_table"
 ## 7. Deploy the narrow runtime
 
 Immediately deploy the narrow snapshot schema and runtime after the empty-table verification
-succeeds. Keep production tabs closed until that deployment is complete. Reconnect repositories as
-new vaults only after the deployment is live, then reattach or recreate their external provider
-integrations. If deployment does not start, leave the tabs closed and investigate instead of
-restoring old vault or derived data or widening the new schema.
+succeeds. Keep production tabs closed until that deployment is complete. Reconnect GitHub first so
+the new provider row records the stable numeric account ID, then reconnect repositories as new
+vaults and reattach or recreate their external provider integrations. If deployment does not start,
+leave the tabs closed and investigate instead of restoring old vault or derived data or widening the
+new schema.

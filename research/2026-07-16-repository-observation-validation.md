@@ -26,6 +26,11 @@ Each fresh connection produced one inventory root and one ready snapshot. Connec
 not start a duplicate full crawl after an earlier visibility request had already published or was in
 flight.
 
+The live crawls used an API-key connection, as allowed for local development. OAuth callback tests
+verify that OAuth stores the same required numeric GitHub account ID and server-side credential
+shape. The inventory and summary actions read only `auth.credential` after validating the GitHub
+connection kind, so there is no auth-method-specific collection branch.
+
 ## Real UI matrix
 
 The same live test passed in Chromium desktop and mobile against the real local routes. It proved:
@@ -45,6 +50,20 @@ The mobile filter surface is intentionally modal and locks page scroll. The live
 sheet before advancing the virtualized list; desktop closes the corresponding popover by toggling
 its Filters button. Product pagination itself required no exception.
 
+## FileView route probe
+
+Before a direct `meteor-import-issue/fs/master` visit, the inventory had last started
+at 1784189521016. Opening the real FileView route advanced `lastStartedAt` to 1784191820275 and
+`checkedAt` to 1784191822536; the five-request, seven-point unchanged crawl took 2.243 seconds. The
+rendered file header used the published branch context and showed head `55bec04` plus `No checks`.
+
+A one-tab SPA round trip from FileView to the repository dashboard and back before the next
+eligibility boundary left `lastStartedAt` unchanged and only extended visible demand. The execution
+window contained one `runRepositoryInventoryRefresh` action and no standalone checks action. In
+code, FileView reads `getRepositoryInventoryBranchContext` for the head and checks, so it has no
+second REST checks polling loop. The shared demand-hook test separately proves immediate visible
+demand, the 60-second heartbeat, hidden-tab suspension, and cleanup on unmount.
+
 ## Convex and browser shape
 
 The published Samebase generation retains these useful derived rows:
@@ -56,14 +75,40 @@ The published Samebase generation retains these useful derived rows:
 - 1 fixed-size filter root, 1 complete filter view, and 53 visible memberships;
 - 1 fixed-size repository summary.
 
-That is 313 current rows, with no retained raw check-context archive or refresh history. The first
-stored ten-row item page was 11,688 JSON bytes before the public query removed storage-only fields;
-its largest stored row was 1,272 bytes. All three stored summary roots together were 1,555 JSON
-bytes, with a largest row of 526 bytes.
+That is 313 current rows, with no retained raw check-context archive or refresh history. Their raw
+JSON encoding totaled 259,486 bytes: 233,444 bytes were immutable branch and pull request items,
+18,006 bytes were visible memberships, and the other eight fixed or bounded groups totaled 8,036
+bytes. The largest observed pull request, branch, and membership documents were 1,395, 994, and 339
+JSON bytes respectively.
 
-The server caps item pages at 10 rows, label pages at 5 chunks, filter facets and exclusions at 25
-rows, and directory pages at 25 vaults. The browser keeps fixed reactive roots and loads immutable
-pages as point-in-time queries; it does not subscribe once per row or loaded page.
+Local Convex function-completion records provide execution-level usage even though the aggregate
+Insights command is cloud-only. For the measured changed Samebase generation:
+
+- the inventory action call tree ran 24 functions, read 69 documents and 33,225 database bytes,
+  wrote 396,084 database bytes, and received 74,454 network-egress bytes from GitHub;
+- the user demand mutation and one local filter-materialization mutation raised the core path total
+  to 194 documents and 176,877 bytes read plus 431,947 database bytes written;
+- materializing the default filter alone read 111 documents and 137,784 bytes and wrote 32,432
+  bytes;
+- retiring the previous generation ran eight cleanup batches and read 636 documents and 547,431
+  bytes. Each cleanup transaction remains capped at 100 rows.
+
+The same records measured the selected browser load after publication. Five reactive state results,
+one ten-row branch page, two ten-row pull request pages, one facet page, and 19 label-page results
+returned 34,795 bytes before transport framing. The branch page read 13 documents and returned 7,310
+bytes. Each pull request page read 25 documents; together they returned 20,437 bytes. The facet page
+read six documents and returned 492 bytes. The 19 label queries, most for zero-label pull requests,
+read 80 documents and returned 5,039 bytes. A two-vault directory page read six documents and
+returned 1,258 bytes.
+
+The server caps pagination collections at 10 branch or pull request memberships, 5 label chunks, 25
+filter facets or exclusions, and 25 vaults. Including authenticated-viewer and fixed-root reads, the
+total query bounds are 13 documents for a branch page, 25 for a pull request page, 9 for a label
+page, 28 for a facet or exclusion page, and 52 for a full directory page. The selected dashboard
+adds three fixed reactive roots for directory revision, selected inventory publication, and filter
+revision. Immutable pages are point-in-time queries; there is no subscription per row or loaded
+page. A publication-root change invalidates only the selected inventory, while a directory revision
+reloads only the already requested directory depth.
 
 ## Failure and cost boundaries
 

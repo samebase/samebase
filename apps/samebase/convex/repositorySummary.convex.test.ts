@@ -416,6 +416,20 @@ describe("repository summary state machine", () => {
     });
   });
 
+  it("applies the visible priority limit after deduplicating vault ids", async () => {
+    const fixture = await createUserFixture();
+    const connected = await connectRepository(fixture, { name: "repeated-visible" });
+
+    await expect(
+      fixture.asUser.mutation(api.repositorySummary.requestRepositorySummaryRefresh, {
+        visibleVaultIds: Array.from({ length: 30 }, () => connected.vaultId),
+      }),
+    ).resolves.toEqual({ state: "scheduled", repositoryCount: 1 });
+    await expect(readSummary(fixture.t, connected.vaultId)).resolves.toMatchObject({
+      lifecycle: { state: "scheduled", source: "summary_batch" },
+    });
+  });
+
   it("does not let old scheduled rows hide a later eligible repository", async () => {
     const fixture = await createUserFixture();
     const activeVaultIds: Id<"vaults">[] = [];

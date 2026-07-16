@@ -190,7 +190,10 @@ eligible summaries so repositories beyond the loaded page still make progress. S
 full-inventory jobs share one Workpool with maximum parallelism three and the same serialized
 GitHub-account rate budget. Scheduling a selected full inventory immediately reserves that vault's
 summary lifecycle, so the lightweight batch cannot duplicate its GitHub work. A completed full
-inventory publishes the matching summary from the same provider observation.
+inventory publishes the matching summary from the same provider observation. If a summary request
+has already reached GitHub when selected full work starts, the full crawl takes ownership of the
+summary lifecycle and the late summary result is ignored. This race can spend one bounded one-point
+summary request, but it cannot schedule a second summary or a second full crawl.
 
 The directory serializes every user-visible state: provisioning, setup failed, connected but not
 observed, updating, waiting for GitHub, update failed, repository unavailable, deleting, and
@@ -199,14 +202,15 @@ fails. The UI shows the default branch, checks, pull request count including zer
 time, and the current lifecycle. It never turns a missing or failed summary into an empty healthy
 repository.
 
-Vault rows paginate in stable creation order. A page requests and may read at most 25 vaults. The
-browser keeps exactly one reactive subscription for `{ ownerId, revision }`; directory pages are
-point-in-time queries cached by owner, revision, and cursor. The server rejects a page when its
-requested revision is no longer current. The browser reloads every previously requested page for a
-new revision and swaps them together. It retains the prior rows during a same-owner replacement but
-never retains or reuses rows after the authenticated owner changes. The selected repository's full
-dashboard detail is loaded through its case-folded repository-key index, not by collecting all vault
-details.
+Vault rows paginate in stable creation order. A page requests at most 25 vault rows, then reads at
+most one fixed summary for each connected row plus the fixed directory-revision and authenticated
+viewer rows, for a total bound of 52 documents. The browser keeps exactly one reactive subscription
+for `{ ownerId, revision }`; directory pages are point-in-time queries cached by owner, revision,
+and cursor. The server rejects a page when its requested revision is no longer current. The browser
+reloads every previously requested page for a new revision and swaps them together. It retains the
+prior rows during a same-owner replacement but never retains or reuses rows after the authenticated
+owner changes. The selected repository's full dashboard detail is loaded through its case-folded
+repository-key index, not by collecting all vault details.
 
 The older MCP vault-detail aggregate is not a dashboard data source. It fails explicitly above 25
 vaults or above 1,000 staged-file rows in one vault, so it cannot reintroduce an unbounded all-vault
@@ -375,10 +379,11 @@ not load vault infrastructure, file staging, or branch data.
 ## Clean Cutover
 
 Samebase currently has one real operator, so this release uses an explicit no-compatibility reset.
-It preserves users, provider connections, and provider credentials, but it preserves no vault IDs,
-vault-scoped product state, old inventory, branch catalog, check cache, refresh history, or Workpool
-state. External GitHub repositories, Convex resources, Cloudflare resources, and Codespaces are not
-part of the reset.
+It preserves users and non-GitHub provider connections and credentials. It deliberately removes the
+GitHub provider connection because the new connection row requires the stable numeric GitHub account
+ID that old rows do not contain. It preserves no vault IDs, vault-scoped product state, old
+inventory, branch catalog, check cache, refresh history, or Workpool state. External GitHub
+repositories, Convex resources, Cloudflare resources, and Codespaces are not part of the reset.
 
 Their external provider objects remain, but deleting the old vault removes Samebase's vault-scoped
 associations to them. Reconnecting creates a new vault and does not reconstruct those associations;
@@ -390,15 +395,16 @@ Before deploying the narrow schema to production, the operator must:
 1. Keep the old runtime deployed and delete every current vault through its dashboard removal flow.
    Leave every optional external-resource removal choice unchecked and wait for each deletion to
    complete.
-2. Verify `/vault` and the production `vaults` table are empty. Verify through the provider UI that
-   existing provider connections remain connected, then close every production Samebase tab.
+2. Verify `/vault` and the production `vaults` table are empty. Disconnect GitHub through the
+   provider UI, verify it is disconnected, verify every non-GitHub provider connection that should
+   survive remains connected, then close every production Samebase tab.
 3. Verify the retired repository refresh queue and Workpool have no queued, scheduled, or running
    jobs.
 4. Clear every row from the retired refresh, branch catalog, branch filter, check snapshot, and
    check item tables while the old schema is still deployed.
 5. Independently verify all retired tables are empty.
-6. Deploy the narrow snapshot schema and runtime immediately, then reconnect repositories as new
-   vaults.
+6. Deploy the narrow snapshot schema and runtime immediately. Reconnect GitHub first so the new row
+   records its stable account ID, then reconnect repositories as new vaults.
 
 The executable operator procedure is `docs/github-repository-inventory-cutover.md`.
 
@@ -424,10 +430,13 @@ runtime.
 
 - A branch-heavy repository publishes all branches, all open pull requests, checks, statuses, and
   labels without partial dashboard data.
-- Server branch and pull request pages request and read at most ten rows, label pages at most five
-  bounded chunks, label-facet and excluded-label pages at most 25 rows, and directory pages at most
-  25 vault rows. Every public pagination endpoint rejects `maximumRowsRead` above its own bound. The
-  browser accepts a generation only when every required row, chunk, label, and facet is present.
+- Public pagination collections read at most ten branch or pull request membership rows, five label
+  chunks, 25 label facets or exclusions, and 25 directory vault rows. Including fixed ownership and
+  publication roots, the authenticated viewer, and pull request dereferences, the total query bounds
+  are 13 documents for a branch page, 25 for a pull request page, 9 for a label page, 28 for a
+  label-facet or excluded-label page, and 52 for a directory page. Every public pagination endpoint
+  rejects `maximumRowsRead` above its collection bound. The browser accepts a generation only when
+  every required row, chunk, label, and facet is present.
 - Empty, repeated, and cyclic nonterminal cursors fail closed in GitHub collection and browser
   pagination. A GraphQL connection that would exceed 1,000 pages fails the whole generation while
   the prior publication stays visible.
@@ -481,7 +490,9 @@ runtime.
 - Rapid filter revisions publish only the latest revision. A missing batch is resumed, and an
   invalid batch leaves the prior publication usable instead of leaving the vault materializing
   indefinitely.
-- API-key and OAuth-backed vaults use the same inventory contract.
+- The live inventory probe may use an API-key connection. OAuth connection tests must prove that
+  OAuth stores the same required account identity and server-side credential shape; inventory then
+  uses the shared credential path without auth-method branches.
 - Repository discovery makes one ten-row preview request and never performs an automatic full
   account scan. Entering a readable public `owner/repo` outside the preview connects it
   successfully.
@@ -492,9 +503,9 @@ runtime.
   repository ID or coordinate indexes.
 - `/vault` and the selected sidebar render the same fixed summary rows, including exact zero pull
   requests, default-branch checks, checked time, and explicit incomplete or failed states.
-- Directory pages read at most 25 vaults, reject a stale revision, retain a same-owner prior
-  generation until the replacement is complete, and never reuse a same-numbered revision across
-  authenticated users.
+- Directory pages paginate at most 25 vaults and read at most 52 total documents, reject a stale
+  revision, retain a same-owner prior generation until the replacement is complete, and never reuse
+  a same-numbered revision across authenticated users.
 - Visible summary demand accepts at most 25 unique priority vaults, schedules at most 25 eligible
   summaries, and continues fair oldest-first progress for vaults outside the loaded page.
 - Scheduling an eligible selected full inventory before summary demand prevents the selected vault
@@ -506,4 +517,5 @@ runtime.
 - No GraphQL request starts after a response reports remaining points at or below
   `max(50, ceil(provider limit × 0.05))`, including pagination and smaller-page retry requests.
 - The production preflight proves the vault table, every retired table, and the retired work queue
-  empty while provider connections remain available before the narrow schema is deployed.
+  empty, proves GitHub disconnected, and preserves required non-GitHub provider connections before
+  the narrow schema is deployed. GitHub reconnects after deployment and before any repository.
