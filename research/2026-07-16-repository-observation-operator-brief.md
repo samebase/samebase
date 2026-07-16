@@ -19,23 +19,20 @@ research, a concrete proposal belongs in an RFC, and accepted behavior belongs i
 - **Pull request**: GitHub's review object for a source branch and its current head commit. A pull
   request does not own a separate provider build.
 - **Cloudflare Worker**: the long-lived Cloudflare project that receives built code.
-- **Hosting project**: a long-lived hosting-provider resource that receives deploys. A Cloudflare
-  Worker and a Netlify Site are hosting projects.
 - **Build trigger**: Cloudflare Workers Builds configuration connecting a Worker to a GitHub
   repository. It owns the root directory, branch rules, changed-path rules, and commands.
-- **Build run**: one provider-reported execution for one hosting project, branch, and commit. A
-  build run has an explicit state even when it produces no preview URL.
+- **Build run**: one Cloudflare-reported execution for one Worker, branch, and commit. A build run
+  has an explicit state even when it produces no preview URL.
 - **Root directory**: the single Samebase and Cloudflare concept identifying the repository root for
   an app. Samebase's historical `appRoot` name and Cloudflare's `root_directory` must not represent
   different paths. Samebase uses Cloudflare's spelling, including `/` for the repository root,
   rather than storing the same root as `.`. The implementation may rename `appRoot` to
   `rootDirectory`.
-- **Immutable preview URL**: a URL whose content never changes. This is Cloudflare's version or
-  commit preview URL and Netlify's deploy permalink. Rebuilding the same Git commit can produce a
-  new provider version and a new immutable URL.
-- **Moving preview URL**: a stable alias whose content advances after a later successful build. A
-  Cloudflare branch preview is scoped to a branch. A Netlify Deploy Preview is scoped to a pull
-  request, and a Netlify branch deploy is scoped to a branch.
+- **Version preview URL**: the immutable Cloudflare URL for one Worker version produced by one build
+  run. Cloudflare's Workers Builds UI also calls this the commit preview URL. Rebuilding the same
+  Git commit can produce a new Worker version and a new version preview URL.
+- **Branch preview URL**: the stable Cloudflare alias for one Worker and branch. Cloudflare updates
+  what that URL serves when a newer build of the branch succeeds.
 - **GitHub check**: one status attached to a commit, such as CI, Playwright, or a Cloudflare Workers
   Build.
 - **Repository snapshot**: Samebase's complete, atomically published view of current branches, open
@@ -146,22 +143,19 @@ preserving the current implementation or its derived data.
 
 The following user stories are approved operator expectations:
 
-- Samebase creates a build record only when GitHub or a hosting provider supplies evidence that a
-  build actually ran. It never creates an empty build for every hosting project that could have
-  built the commit.
+- Samebase creates a build record only when GitHub or Cloudflare supplies evidence that a Cloudflare
+  Worker build actually ran. It never creates an empty build for every Worker that could have built
+  the commit.
 - A Worker omitted by changed-path rules has no build record for that commit. This absence is
   different from a queued, running, failed, cancelled, or successful build.
-- Some providers report an explicit skipped build instead of omitting the build. A provider-reported
-  skip is a real build record with state `skipped`; Samebase never translates absence into skipped
-  or skipped into absence.
 - Every recorded build has an explicit state.
 - Preview availability is an explicit closed state, not an optional URL whose absence has ambiguous
   meaning. The model must distinguish at least a preview disabled by Worker configuration, a build
   that has not produced a preview yet, a build that cannot produce one because it failed or was
   cancelled, a ready preview result, and provider data that Samebase could not determine.
-- A ready preview result preserves every provider-reported URL with its type and scope: immutable
-  version, moving branch alias, or moving pull-request alias. They must never be collapsed into one
-  scalar or selected through a first-match rule.
+- A ready Cloudflare preview result preserves both URL types when Cloudflare supplies them: the
+  immutable version preview URL and the mutable branch preview URL. They must never be collapsed
+  into one scalar or selected through a first-match rule.
 - Root directory has one meaning. Samebase must use Cloudflare Workers Builds `root_directory`
   exactly as the app's root instead of inferring a more semantic directory from commands or changed
   paths. Unusual user commands do not create a second Samebase root concept.
@@ -169,13 +163,13 @@ The following user stories are approved operator expectations:
   Build ID can resolve the exact build and root through the Cloudflare Workers Builds API when the
   user has connected Cloudflare. Without that access, Samebase may show the Worker and preview URLs
   with the root explicitly unknown. It must never infer the root from a preview hostname.
-- An expected unknown root, such as a GitHub-only provider observation, is ordinary product state.
-  Recognized provider data that remains incomplete despite available provider access should emit a
+- An expected unknown root, such as a GitHub-only Cloudflare observation, is ordinary product state.
+  Recognized Cloudflare data that remains incomplete despite available provider access should emit a
   bounded, credential-free diagnostic or metric. Rendering an unknown row must not repeatedly log an
   error.
-- Root directory is not hosting-project identity. More than one Worker or hosting project may use
-  the same root even though Samebase does not recommend that setup. Samebase identifies each project
-  by its provider ID and must handle the case without choosing one arbitrarily.
+- Root directory is not Worker identity. More than one Worker may use the same root even though
+  Samebase does not recommend that setup. Samebase identifies each Worker by its Cloudflare ID and
+  must handle the case without choosing one arbitrarily.
 - A build run may be visible from both its branch row and a pull request whose head is that branch
   and commit. Those are two views of one provider build, not two provider builds.
 - GitHub's ordinary check rows are loaded on demand when the user expands the compact check summary.
@@ -184,31 +178,35 @@ The following user stories are approved operator expectations:
 - The compact check summary opens the inline check list. It does not link to an arbitrary first
   check target. The expanded surface retains an explicit link to GitHub, and each check links to its
   own provider details when available.
-- Closed pull requests and historical build attempts remain GitHub and the hosting provider's
-  responsibility for this phase.
+- Closed pull requests and historical build attempts remain GitHub and Cloudflare's responsibility
+  for this phase.
+- Repository monitoring may connect any readable GitHub repository without Cloudflare or Convex.
+  That creates a monitoring vault, not a provider-neutral Samebase app or infrastructure model.
+- Checks from Netlify or any other unsupported provider remain ordinary GitHub checks. The lazy
+  Checks surface may display GitHub's name, state, and target link, but Samebase does not parse them
+  into first-class builds, previews, roots, sites, or provider resources.
+- Samebase's supported application stack is Cloudflare Workers plus Convex. It does not introduce a
+  generic hosting-provider abstraction, Netlify connection, or Cloudflare Pages variant.
 
-#### Proposed Netlify plus Convex interpretation
+#### Proposed stack-entry flow
 
-The following interpretation responds to a real operator story but remains subject to operator
-confirmation:
+The following interpretation remains subject to operator confirmation:
 
-- Repository monitoring does not require a hosting-provider connection. A Netlify-hosted repository
-  can expose actual builds, build state, and proven preview URLs through GitHub checks while
-  `rootDirectory` remains explicitly unknown.
-- Netlify monitoring must not restore the removed Netlify OAuth, provisioning, teardown, or account
-  model. A small GitHub-check interpreter may recognize proven Netlify build and preview facts.
-- A user may declare `rootDirectory` manually when associating a Convex deployment with an app
-  hosted by a provider Samebase cannot inspect. Monitoring itself does not require that declaration.
-  A later provider connection must match the declared root or surface a conflict; it never silently
-  rewrites the app.
+- An existing Worker with readable Workers Builds configuration supplies `rootDirectory`. Creating a
+  Worker or attaching one without readable Builds configuration may ask for `rootDirectory` as part
+  of configuring that Worker. Samebase does not create a manual app root independently for an
+  unsupported host.
+- Convex attaches only after the app has a Cloudflare Worker root. A repository that is still hosted
+  on Netlify can use Samebase's GitHub monitoring while it remains outside Samebase's supported
+  infrastructure model.
 
 Historical context is not a retained product invariant. The app-root-first UI existed partly to
 associate a manually selected Convex deployment with a repository folder because GitHub and Convex
 do not provide an equivalent of Cloudflare's GitHub App repository connection. It also preserved a
 possible Convex-only folder and avoided redesigning an already shipped app-root picker. This history
-explains the current model but does not require Samebase to make root declaration a prerequisite for
-monitoring. Netlify plus Convex supplies a current reason to retain manual root declaration only for
-explicit resource association.
+explains the current model but does not require Samebase to preserve provider-neutral manual app
+roots. A transitional Netlify repository is a GitHub monitoring case, not a reason to restore or
+generalize hosting-provider support.
 
 ## Exploration Method
 
@@ -257,6 +255,8 @@ model, tests, and durable contract.
 - Keep manual refresh or focus behavior solely for compatibility.
 - Adopt GitHub App installation authorization or webhooks as part of this exploration unless later
   evidence makes a separate authorization project necessary.
+- Add Netlify, Cloudflare Pages, or a generic multi-hosting-provider model. Samebase supports
+  Cloudflare Workers and Convex application infrastructure only.
 - Delete existing implementation during the exploratory phase.
 
 ## Questions To Resolve Through Evidence
@@ -276,9 +276,6 @@ model, tests, and durable contract.
   rather than omitted because the build or provider observation was incomplete?
 - Which provider identifiers prove that a branch row and pull request row refer to the same build
   run while keeping the branch preview URL scoped to the exact branch?
-- Netlify separates its build base directory from its monorepo package directory, while Cloudflare
-  has one `root_directory`. Which Netlify provider fact, if any, can prove Samebase's root without a
-  user declaration requires evidence before a future Netlify connection is designed.
 
 These are research questions, not requests for the operator to decide before the app and provider
 behavior have been exercised.
