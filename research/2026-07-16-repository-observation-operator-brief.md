@@ -18,6 +18,9 @@ research, a concrete proposal belongs in an RFC, and accepted behavior belongs i
 - **Branch**: a named Git ref pointing at a commit.
 - **Pull request**: GitHub's review object for a source branch and its current head commit. A pull
   request does not own a separate provider build.
+- **App**: one vault-scoped repository root with at least one attached supported resource: a Convex
+  deployment, one or more Cloudflare Workers, or both. The app has stable Samebase identity separate
+  from its root string and provider resources.
 - **Cloudflare Worker**: the long-lived Cloudflare project that receives built code.
 - **Build trigger**: Cloudflare Workers Builds configuration connecting a Worker to a GitHub
   repository. It owns the root directory, branch rules, changed-path rules, and commands.
@@ -187,26 +190,43 @@ The following user stories are approved operator expectations:
   into first-class builds, previews, roots, sites, or provider resources.
 - Samebase's supported application stack is Cloudflare Workers plus Convex. It does not introduce a
   generic hosting-provider abstraction, Netlify connection, or Cloudflare Pages variant.
+- Convex without Cloudflare is a valid supported app state for Expo, React Native, and other clients
+  that use Convex without a web Worker. Missing Cloudflare is neutral in that state, not a setup
+  failure.
 
-#### Proposed stack-entry flow
+#### Proposed resource connection model
 
 The following interpretation remains subject to operator confirmation:
 
+- Resource connection order is arbitrary. Either the first Convex deployment or the first Cloudflare
+  Worker creates the app atomically with its successful attachment.
+- Samebase does not persist an app with no attached resource and does not keep a standalone Add app
+  root workflow.
 - An existing Worker with readable Workers Builds configuration supplies `rootDirectory`. Creating a
-  Worker or attaching one without readable Builds configuration may ask for `rootDirectory` as part
-  of configuring that Worker. Samebase does not create a manual app root independently for an
-  unsupported host.
-- Convex attaches only after the app has a Cloudflare Worker root. A repository that is still hosted
-  on Netlify can use Samebase's GitHub monitoring while it remains outside Samebase's supported
-  infrastructure model.
+  Worker or attaching one without readable Builds configuration asks for the exact Cloudflare-style
+  root as part of configuring that Worker.
+- Connecting Convex asks the user to confirm `rootDirectory`. Repository evidence may preselect a
+  suggestion, but the user confirmation establishes the relationship because GitHub and Convex do
+  not expose a provider-native repository link.
+- A directory containing `convex.json` plus its configured functions path is the strongest root
+  suggestion. A conventional `convex/` folder is useful evidence but never proof: it may be stale,
+  shared, relocated by configuration, or one of several Convex folders.
+- A later Worker joins a Convex-only app only when Cloudflare's exact `root_directory` matches. A
+  mismatch never rewrites or silently merges the app.
+- `vaultConvexDeployments` and `vaultCloudflareWorkers` reference the stable app ID instead of
+  copying the root string as their relationship. The app stores the one canonical `rootDirectory`
+  fact.
+- One app may have zero or more Workers and initially at most one Convex production deployment. The
+  allowed durable states are Worker only, Convex only, or both.
 
 Historical context is not a retained product invariant. The app-root-first UI existed partly to
 associate a manually selected Convex deployment with a repository folder because GitHub and Convex
 do not provide an equivalent of Cloudflare's GitHub App repository connection. It also preserved a
 possible Convex-only folder and avoided redesigning an already shipped app-root picker. This history
 explains the current model but does not require Samebase to preserve provider-neutral manual app
-roots. A transitional Netlify repository is a GitHub monitoring case, not a reason to restore or
-generalize hosting-provider support.
+roots or empty root placeholders. A transitional Netlify repository is a GitHub monitoring case, not
+a reason to restore or generalize hosting-provider support. Expo plus Convex is a supported reason
+for a user-confirmed root inside the Convex connection flow.
 
 ## Exploration Method
 
@@ -276,6 +296,10 @@ model, tests, and durable contract.
   rather than omitted because the build or provider observation was incomplete?
 - Which provider identifiers prove that a branch row and pull request row refer to the same build
   run while keeping the branch preview URL scoped to the exact branch?
+- When `apps/web` and `apps/mobile` share one Convex backend under `packages/backend`, should
+  Samebase show that deployment once as the backend app or relate the same deployment to both client
+  apps? The deployment must never be duplicated into independent rows with divergent health or
+  deploy-key state.
 
 These are research questions, not requests for the operator to decide before the app and provider
 behavior have been exercised.
