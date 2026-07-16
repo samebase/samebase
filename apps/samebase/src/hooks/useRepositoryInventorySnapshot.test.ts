@@ -396,12 +396,81 @@ describe("loadRepositoryInventorySnapshot", () => {
     });
   });
 
+  it("skips label pages for unlabeled PRs while paginating labeled PRs", async () => {
+    const snapshotId = fakeSnapshotId();
+    const viewId = fakeViewId();
+    const labelPageCalls: Array<{ rowKey: string; cursor: string | null }> = [];
+    const snapshot = await loadSnapshot({
+      queryClient: queryClient(),
+      queryBranchPage: async () =>
+        readyBranchPage({
+          snapshotId,
+          expectedBranchCount: 0,
+          page: [],
+          isDone: true,
+        }),
+      queryPullRequestPage: async () =>
+        readyPullRequestPage({
+          snapshotId,
+          viewId,
+          expectedVisiblePullRequestCount: 2,
+          totalPullRequestCount: 2,
+          page: [
+            pullRequest("pull-request:unlabeled", 0, 1),
+            pullRequest("pull-request:labeled", 2, 2),
+          ],
+          isDone: true,
+        }),
+      queryLabelPage: async (args) => {
+        labelPageCalls.push({ rowKey: args.rowKey, cursor: args.paginationOpts.cursor });
+        if (args.rowKey !== "pull-request:labeled") {
+          throw new Error("The unlabeled pull request must not request a label page.");
+        }
+        return args.paginationOpts.cursor === null
+          ? readyLabelPage({
+              expectedLabelCount: 2,
+              expectedChunkCount: 2,
+              page: [{ chunkIndex: 0, labels: [{ name: "bug", color: "ff0000" }] }],
+              isDone: false,
+              continueCursor: "next-label-page",
+            })
+          : readyLabelPage({
+              expectedLabelCount: 2,
+              expectedChunkCount: 2,
+              page: [{ chunkIndex: 1, labels: [{ name: "ready", color: "00ff00" }] }],
+            });
+      },
+      queryLabelFacetPage: async () => emptyLabelFacetPage(snapshotId),
+      vaultId: fakeVaultId(),
+      snapshotId,
+      viewId,
+      expectedDefaultBranch: null,
+      requestedItemCount: 2,
+    });
+
+    expect(snapshot.items).toMatchObject([
+      { rowKey: "pull-request:unlabeled", labels: [] },
+      {
+        rowKey: "pull-request:labeled",
+        labels: [
+          { name: "bug", color: "ff0000" },
+          { name: "ready", color: "00ff00" },
+        ],
+      },
+    ]);
+    expect(snapshot.items[0]).not.toHaveProperty("labelCount");
+    expect(labelPageCalls).toEqual([
+      { rowKey: "pull-request:labeled", cursor: null },
+      { rowKey: "pull-request:labeled", cursor: "next-label-page" },
+    ]);
+  });
+
   it("resumes retained pages and loads labels in bounded batches", async () => {
     const snapshotId = fakeSnapshotId();
     const viewId = fakeViewId();
     const client = queryClient();
     const pullRequests = Array.from({ length: 32 }, (_, index) =>
-      pullRequest(`pull-request:${index + 1}`, 0, index + 1),
+      pullRequest(`pull-request:${index + 1}`, 1, index + 1),
     );
     let pullRequestPageCount = 0;
     let labelPageCount = 0;
@@ -430,7 +499,11 @@ describe("loadRepositoryInventorySnapshot", () => {
       maximumActiveLabelPageCount = Math.max(maximumActiveLabelPageCount, activeLabelPageCount);
       await Promise.resolve();
       activeLabelPageCount -= 1;
-      return emptyLabelPage();
+      return readyLabelPage({
+        expectedLabelCount: 1,
+        expectedChunkCount: 1,
+        page: [{ chunkIndex: 0, labels: [{ name: "loaded" }] }],
+      });
     };
     const queryLabelFacetPage: LabelFacetPageQuery = async () => {
       labelFacetPageCount += 1;

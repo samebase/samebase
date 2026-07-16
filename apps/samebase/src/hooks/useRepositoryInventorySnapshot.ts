@@ -249,6 +249,11 @@ async function loadPullRequestLabels(args: {
   item: RepositoryInventoryPullRequestItem;
   signal: AbortSignal;
 }): Promise<LoadedRepositoryInventoryItem> {
+  if (args.item.labelCount === 0) {
+    const { labelCount: _labelCount, ...pullRequest } = args.item;
+    return { ...pullRequest, labels: [] };
+  }
+
   const chunks: RepositoryInventoryLabelPage["page"] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
