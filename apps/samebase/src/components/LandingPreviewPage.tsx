@@ -606,7 +606,7 @@ function LandingPreviewOverview() {
                 playsInline
                 poster="/landing-preview/tic-tac-toe-codex-poster.webp"
                 preload="metadata"
-                src="/landing-preview/tic-tac-toe-codex.mp4"
+                src="https://media.samebase.com/landing/hero/tic-tac-toe-codex-v1.mp4"
                 width={1280}
               />
             </div>

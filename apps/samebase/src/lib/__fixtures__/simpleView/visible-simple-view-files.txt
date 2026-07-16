@@ -155,7 +155,6 @@ apps/samebase/public/landing-preview/step-2-use-template.mp4
 apps/samebase/public/landing-preview/step-3-connect-cloudflare-pages.mp4
 apps/samebase/public/landing-preview/step-4-create-convex-project.mp4
 apps/samebase/public/landing-preview/step-5-create-cloudflare-pages-deploy.mp4
-apps/samebase/public/landing-preview/tic-tac-toe-codex.mp4
 apps/samebase/public/logo_pick.svg
 apps/samebase/public/logo-static.svg
 apps/samebase/public/logo-v1-side-primary.svg

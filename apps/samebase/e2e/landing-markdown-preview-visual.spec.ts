@@ -153,7 +153,10 @@ test("landing preview route renders the React overview in workspace chrome", asy
     "/landing-preview/tic-tac-toe-codex-poster.webp",
   );
   await expect(heroVideo).toHaveAttribute("preload", "metadata");
-  await expect(heroVideo).toHaveAttribute("src", "/landing-preview/tic-tac-toe-codex.mp4");
+  await expect(heroVideo).toHaveAttribute(
+    "src",
+    "https://media.samebase.com/landing/hero/tic-tac-toe-codex-v1.mp4",
+  );
   await expect(heroVideo).toHaveAttribute("width", "1280");
   await expect(article).toContainText(
     "GitHub + Convex + Cloudflare is the best way we've found to build an app.",
@@ -280,7 +283,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
 
 test("landing hero reserves its frame before video metadata loads", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.route("**/landing-preview/tic-tac-toe-codex.mp4", (route) => route.abort());
+  await page.route("**/landing/hero/tic-tac-toe-codex-v1.mp4", (route) => route.abort());
 
   await page.goto(LANDING_PREVIEW_ROUTE, {
     waitUntil: "domcontentloaded",
