@@ -12,6 +12,30 @@
 This document is input to exploration, not an accepted implementation design. Evidence belongs in
 research, a concrete proposal belongs in an RFC, and accepted behavior belongs in specs.
 
+## Shared Vocabulary
+
+- **Repository**: the GitHub repository connected to one Samebase vault.
+- **Branch**: a named Git ref pointing at a commit.
+- **Pull request**: GitHub's review object for a source branch and its current head commit. A pull
+  request does not own a separate provider build.
+- **Cloudflare Worker**: the long-lived Cloudflare project that receives built code.
+- **Build trigger**: Cloudflare Workers Builds configuration connecting a Worker to a GitHub
+  repository. It owns the root directory, branch rules, changed-path rules, and commands.
+- **Build run**: one provider-reported execution for one Worker, branch, and commit. A build run has
+  an explicit state even when it produces no preview URL.
+- **Root directory**: the single Samebase and Cloudflare concept identifying the repository root for
+  an app. Samebase's historical `appRoot` name and Cloudflare's `root_directory` must not represent
+  different paths. The implementation may rename `appRoot` to `rootDirectory`.
+- **Version preview URL**: the immutable Cloudflare URL for one Worker version produced by one build
+  run. Cloudflare's Workers Builds UI also calls this the commit preview URL. Rebuilding the same
+  Git commit can produce a new Worker version and therefore a new version preview URL.
+- **Branch preview URL**: the stable Cloudflare alias for one Worker and branch. Cloudflare updates
+  what that URL serves when a newer build of the branch succeeds.
+- **GitHub check**: one status attached to a commit, such as CI, Playwright, or a Cloudflare Workers
+  Build.
+- **Repository snapshot**: Samebase's complete, atomically published view of current branches, open
+  pull requests, their head commits, compact check summaries, and provider build information.
+
 ## Primary Outcome
 
 Samebase should present repository information that is as fresh as practical and complete for the
@@ -113,6 +137,46 @@ preserving the current implementation or its derived data.
 - Nonselected vaults should still become fresh enough to make the list useful.
 - Refresh cost must remain bounded as both vault count and selected-repository size grow.
 
+### Builds, previews, root directories, and checks
+
+The following user stories are approved operator expectations:
+
+- Samebase creates a build record only when GitHub or Cloudflare provides evidence that a build
+  actually ran. It never creates an empty build for every Worker that could have built the commit.
+- A Worker omitted by changed-path rules has no build record for that commit. This absence is
+  different from a queued, running, failed, cancelled, or successful build.
+- Every recorded build has an explicit state.
+- Preview availability is an explicit closed state, not an optional URL whose absence has ambiguous
+  meaning. The model must distinguish at least a preview disabled by Worker configuration, a build
+  that has not produced a preview yet, a build that cannot produce one because it failed or was
+  cancelled, a ready preview result, and provider data that Samebase could not determine.
+- A ready Cloudflare preview result preserves both URL types when Cloudflare supplies them: the
+  immutable version preview URL and the mutable branch preview URL. They must never be collapsed
+  into one scalar or selected through a first-match rule.
+- Root directory has one meaning. Samebase must use Cloudflare Workers Builds `root_directory`
+  exactly as the app's root instead of inferring a more semantic directory from commands or changed
+  paths. Unusual user commands do not create a second Samebase root concept.
+- A GitHub Workers Builds check and its preview URLs do not reveal `root_directory`. The check's
+  Build ID can resolve the exact build and root through the Cloudflare Workers Builds API when the
+  user has connected Cloudflare. Without that access, Samebase may show the Worker and preview URLs
+  with the root explicitly unknown. It must never infer the root from a preview hostname.
+- A build run may be visible from both its branch row and a pull request whose head is that branch
+  and commit. Those are two views of one provider build, not two provider builds.
+- GitHub's ordinary check rows are loaded on demand when the user expands the compact check summary.
+  They are paginated without silent truncation, briefly cached in the browser, and not copied into
+  Convex as an immutable per-check archive.
+- The compact check summary opens the inline check list. It does not link to an arbitrary first
+  check target. The expanded surface retains an explicit link to GitHub, and each check links to its
+  own provider details when available.
+- Closed pull requests and historical build attempts remain GitHub and Cloudflare's responsibility
+  for this phase.
+
+Historical context is not a retained product invariant. The app-root-first UI existed partly to
+associate a manually selected Convex deployment with a repository folder because GitHub and Convex
+do not provide an equivalent of Cloudflare's GitHub App repository connection. It also preserved a
+possible Convex-only folder and avoided redesigning an already shipped app-root picker. This history
+explains the current model but does not require Samebase to preserve that flow.
+
 ## Exploration Method
 
 - Implementation is an exploration tool. Do not require the operator to accept a complete abstract
@@ -173,6 +237,18 @@ model, tests, and durable contract.
 - Which summary and full-inventory states must be serialized to prevent an older crawl from
   overwriting a newer observation?
 - What should remain visible when summary or full-inventory refresh fails?
+- Should a Convex deployment with no Cloudflare Worker be a first-class Samebase app? If yes,
+  Samebase still needs an explicit user-supplied root because no provider relationship proves it. If
+  no, Convex attaches only to a root already established by a Cloudflare Worker.
+- What is the smallest closed preview-result union that represents disabled, pending, failed or
+  cancelled, ready, and provider-unknown outcomes without impossible combinations with build state?
+- Which exact Cloudflare API response should prove that preview URLs were disabled intentionally,
+  rather than omitted because the build or provider observation was incomplete?
+- Which provider identifiers prove that a branch row and pull request row refer to the same build
+  run while keeping the branch preview URL scoped to the exact branch?
+- May two Cloudflare Workers intentionally use the same root directory? Root equality must not be
+  treated as Worker identity unless the product explicitly forbids this case. If it is allowed,
+  Convex deploy-key wiring must identify the exact Worker instead of selecting one only by root.
 
 These are research questions, not requests for the operator to decide before the app and provider
 behavior have been exercised.
