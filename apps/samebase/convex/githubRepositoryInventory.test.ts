@@ -55,6 +55,7 @@ type FixtureCheckEvidence = {
 
 type FixtureBranch = FixtureCheckEvidence & {
   id: string;
+  commitNodeId?: string;
   name: string;
   sha: string;
   aheadBy?: number;
@@ -64,6 +65,7 @@ type FixtureBranch = FixtureCheckEvidence & {
 
 type FixturePullRequest = FixtureCheckEvidence & {
   id: string;
+  commitNodeId?: string;
   number: number;
   title: string;
   headRefName: string;
@@ -105,10 +107,16 @@ type RepositoryFixture = {
   branchVerificationPageWidth?: number;
   pullRequestPageWidth?: number;
   pullRequestVerificationPageWidth?: number;
+  transformCloudflareBatch?: (args: {
+    commitIds: readonly string[];
+    nodes: readonly unknown[];
+    pass: "initial" | "verification";
+  }) => unknown[];
 };
 
 type RequestObservations = {
   branchPageSizes: number[];
+  cloudflareCommitBatchIds: string[][];
   pullRequestComparisonBatchSizes: number[];
   branchVerificationPasses: number;
   pullRequestVerificationPasses: number;
@@ -116,6 +124,8 @@ type RequestObservations = {
   cloudflareSuiteContinuationRequests: number;
   cloudflareCheckRunContinuationRequests: number;
 };
+
+type TransformCloudflareBatch = NonNullable<RepositoryFixture["transformCloudflareBatch"]>;
 
 function pageInfo(hasNextPage: boolean, endCursor: string | null) {
   return { hasNextPage, endCursor };
@@ -139,6 +149,17 @@ function requireNumberVariable(
   const value = variables[name];
   if (typeof value !== "number") {
     throw new Error(`Expected ${name} to be a number.`);
+  }
+  return value;
+}
+
+function requireStringArrayVariable(
+  variables: Parameters<RepositoryInventoryGraphqlRequest>[1],
+  name: string,
+): string[] {
+  const value = variables[name];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`Expected ${name} to be a string array.`);
   }
   return value;
 }
@@ -302,8 +323,9 @@ function makeCloudflareSuitePage(args: {
   suites: readonly FixtureCloudflareCheckSuite[];
   totalCount?: number;
   start: number;
+  width: number;
 }) {
-  const end = Math.min(args.start + 10, args.suites.length);
+  const end = Math.min(args.start + args.width, args.suites.length);
   return {
     totalCount: args.totalCount ?? args.suites.length,
     pageInfo: pageInfo(
@@ -316,6 +338,10 @@ function makeCloudflareSuitePage(args: {
       checkRuns: makeCloudflareCheckRunPage(suite, 0),
     })),
   };
+}
+
+function fixtureCommitNodeId(repositoryId: string, sha: string): string {
+  return `COMMIT:${repositoryId}:${sha}`;
 }
 
 function makeWorkerBuild(args: {
@@ -345,13 +371,13 @@ Preview URL: [Preview](${versionUrl})${branchAliasLine}${args.summarySuffix ?? "
 
 function makeCommit(
   args: FixtureCheckEvidence & {
-    nodeId: string;
+    nodeId?: string;
     sha: string;
     repositoryId: string;
   },
 ) {
   return {
-    id: args.nodeId,
+    id: args.nodeId ?? fixtureCommitNodeId(args.repositoryId, args.sha),
     oid: args.sha,
     messageHeadline: `Commit ${args.sha}`,
     authoredDate: "2026-07-15T09:59:00Z",
@@ -364,12 +390,6 @@ function makeCommit(
             state: args.rollupState ?? "SUCCESS",
             contexts: makeCheckCounts(args),
           },
-    checkSuites: makeCloudflareSuitePage({
-      commitNodeId: args.nodeId,
-      suites: args.cloudflareSuites ?? [],
-      totalCount: args.cloudflareSuiteTotalCount,
-      start: 0,
-    }),
   };
 }
 
@@ -406,7 +426,7 @@ function makeBranchNode(fixture: RepositoryFixture, branch: FixtureBranch) {
       __typename: "Commit",
       ...makeCommit({
         ...branch,
-        nodeId: `${branch.id}-commit`,
+        nodeId: branch.commitNodeId,
         sha: branch.sha,
         repositoryId: fixture.repositoryId,
       }),
@@ -431,42 +451,50 @@ function makeCheckRollupSignature(args: FixtureCheckEvidence) {
       };
 }
 
-function makeBranchSignatureNode(branch: FixtureBranch) {
+function makeBranchSignatureNode(repositoryId: string, branch: FixtureBranch) {
   return {
     name: branch.name,
     target: {
-      id: `${branch.id}-commit`,
+      id: branch.commitNodeId ?? fixtureCommitNodeId(repositoryId, branch.sha),
       oid: branch.sha,
+      repository: { id: repositoryId },
       statusCheckRollup: makeCheckRollupSignature(branch),
-      checkSuites: makeCloudflareSuitePage({
-        commitNodeId: `${branch.id}-commit`,
-        suites: branch.cloudflareSuites ?? [],
-        totalCount: branch.cloudflareSuiteTotalCount,
-        start: 0,
-      }),
     },
   };
 }
 
-function makePullRequestSignatureNode(pullRequest: FixturePullRequest) {
+function makePullRequestSignatureNode(
+  repositoryId: string,
+  defaultBranch: string | null,
+  pullRequest: FixturePullRequest,
+) {
+  const baseRefName = pullRequest.baseRefName ?? defaultBranch;
+  if (baseRefName === null) {
+    throw new Error("Expected a pull request base branch fixture.");
+  }
   return {
     id: pullRequest.id,
     updatedAt: pullRequest.updatedAt,
+    baseRefName,
     headRefName: pullRequest.headRefName,
     headRefOid: pullRequest.headRefOid,
+    headRepository:
+      pullRequest.headRepositoryAvailable === false
+        ? null
+        : {
+            id: pullRequest.headRepositoryId,
+            nameWithOwner: pullRequest.headRepositoryFullName,
+            owner: { login: pullRequest.headRepositoryFullName.split("/")[0] },
+          },
     commits: {
       nodes: [
         {
           commit: {
-            id: `${pullRequest.id}-commit`,
+            id:
+              pullRequest.commitNodeId ?? fixtureCommitNodeId(repositoryId, pullRequest.headRefOid),
             oid: pullRequest.headRefOid,
+            repository: { id: repositoryId },
             statusCheckRollup: makeCheckRollupSignature(pullRequest),
-            checkSuites: makeCloudflareSuitePage({
-              commitNodeId: `${pullRequest.id}-commit`,
-              suites: pullRequest.cloudflareSuites ?? [],
-              totalCount: pullRequest.cloudflareSuiteTotalCount,
-              start: 0,
-            }),
           },
         },
       ],
@@ -504,13 +532,108 @@ function makePullRequestNode(fixture: RepositoryFixture, pullRequest: FixturePul
         {
           commit: makeCommit({
             ...pullRequest,
-            nodeId: `${pullRequest.id}-commit`,
+            nodeId: pullRequest.commitNodeId,
             sha: pullRequest.headRefOid,
-            repositoryId: pullRequest.headRepositoryId,
+            repositoryId: fixture.repositoryId,
           }),
         },
       ],
     },
+  };
+}
+
+type FixtureCommitObservation = {
+  nodeId: string;
+  repositoryId: string;
+  sha: string;
+  suites: FixtureCloudflareCheckSuite[];
+  suiteTotalCount?: number;
+};
+
+function buildFixtureCommitObservations(args: {
+  repositoryId: string;
+  branches: readonly FixtureBranch[];
+  pullRequests: readonly FixturePullRequest[];
+}): ReadonlyMap<string, FixtureCommitObservation> {
+  const observations = new Map<string, FixtureCommitObservation>();
+  const append = (args: {
+    nodeId: string;
+    repositoryId: string;
+    sha: string;
+    evidence: FixtureCheckEvidence;
+  }): void => {
+    const { nodeId } = args;
+    const existing = observations.get(nodeId);
+    if (existing === undefined) {
+      observations.set(nodeId, {
+        nodeId,
+        repositoryId: args.repositoryId,
+        sha: args.sha,
+        suites: [...(args.evidence.cloudflareSuites ?? [])],
+        suiteTotalCount: args.evidence.cloudflareSuiteTotalCount,
+      });
+      return;
+    }
+    const suites = [...existing.suites];
+    for (const suite of args.evidence.cloudflareSuites ?? []) {
+      const repeated = suites.find((candidate) => candidate.id === suite.id);
+      if (repeated !== undefined && JSON.stringify(repeated) !== JSON.stringify(suite)) {
+        throw new Error(`Fixture commit ${nodeId} gives suite ${suite.id} conflicting facts.`);
+      }
+      if (repeated === undefined) {
+        suites.push(suite);
+      }
+    }
+    const existingTotalCount = existing.suiteTotalCount;
+    const nextTotalCount = args.evidence.cloudflareSuiteTotalCount;
+    if (
+      existingTotalCount !== undefined &&
+      nextTotalCount !== undefined &&
+      existingTotalCount !== nextTotalCount
+    ) {
+      throw new Error(`Fixture commit ${nodeId} gives conflicting suite totals.`);
+    }
+    observations.set(nodeId, {
+      nodeId,
+      repositoryId: args.repositoryId,
+      sha: args.sha,
+      suites,
+      suiteTotalCount: existingTotalCount ?? nextTotalCount,
+    });
+  };
+  for (const branch of args.branches) {
+    append({
+      nodeId: branch.commitNodeId ?? fixtureCommitNodeId(args.repositoryId, branch.sha),
+      repositoryId: args.repositoryId,
+      sha: branch.sha,
+      evidence: branch,
+    });
+  }
+  for (const pullRequest of args.pullRequests) {
+    append({
+      nodeId:
+        pullRequest.commitNodeId ?? fixtureCommitNodeId(args.repositoryId, pullRequest.headRefOid),
+      repositoryId: args.repositoryId,
+      sha: pullRequest.headRefOid,
+      evidence: pullRequest,
+    });
+  }
+  return observations;
+}
+
+function makeCloudflareCommitObservationNode(commit: FixtureCommitObservation) {
+  return {
+    __typename: "Commit",
+    id: commit.nodeId,
+    oid: commit.sha,
+    repository: { id: commit.repositoryId },
+    checkSuites: makeCloudflareSuitePage({
+      commitNodeId: commit.nodeId,
+      suites: commit.suites,
+      totalCount: commit.suiteTotalCount,
+      start: 0,
+      width: 3,
+    }),
   };
 }
 
@@ -521,6 +644,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
 } {
   const observations: RequestObservations = {
     branchPageSizes: [],
+    cloudflareCommitBatchIds: [],
     pullRequestComparisonBatchSizes: [],
     branchVerificationPasses: 0,
     pullRequestVerificationPasses: 0,
@@ -530,34 +654,31 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
   };
   const branchNodes = fixture.branches.map((branch) => makeBranchNode(fixture, branch));
   const verificationBranches = fixture.verificationBranches ?? fixture.branches;
-  const branchSignatureNodes = verificationBranches.map(makeBranchSignatureNode);
+  const branchSignatureNodes = verificationBranches.map((branch) =>
+    makeBranchSignatureNode(fixture.repositoryId, branch),
+  );
   const pullRequestNodes = fixture.pullRequests.map((pullRequest) =>
     makePullRequestNode(fixture, pullRequest),
   );
   const pullRequestSignatureNodes = (fixture.verificationPullRequests ?? fixture.pullRequests).map(
-    makePullRequestSignatureNode,
+    (pullRequest) =>
+      makePullRequestSignatureNode(fixture.repositoryId, fixture.defaultBranch, pullRequest),
   );
-  const activeCommits = new Map<
-    string,
-    {
-      sha: string;
-      suites: readonly FixtureCloudflareCheckSuite[];
-      suiteTotalCount?: number;
-    }
-  >();
+  const initialCommitObservations = buildFixtureCommitObservations({
+    repositoryId: fixture.repositoryId,
+    branches: fixture.branches,
+    pullRequests: fixture.pullRequests,
+  });
+  const verificationCommitObservations = buildFixtureCommitObservations({
+    repositoryId: fixture.repositoryId,
+    branches: verificationBranches,
+    pullRequests: fixture.verificationPullRequests ?? fixture.pullRequests,
+  });
+  const activeCommits = new Map<string, FixtureCommitObservation>();
   const activeSuites = new Map<string, FixtureCloudflareCheckSuite>();
-  const activateCommit = (args: {
-    nodeId: string;
-    sha: string;
-    evidence: FixtureCheckEvidence;
-  }): void => {
-    const suites = args.evidence.cloudflareSuites ?? [];
-    activeCommits.set(args.nodeId, {
-      sha: args.sha,
-      suites,
-      suiteTotalCount: args.evidence.cloudflareSuiteTotalCount,
-    });
-    for (const suite of suites) {
+  const activateCommit = (commit: FixtureCommitObservation): void => {
+    activeCommits.set(commit.nodeId, commit);
+    for (const suite of commit.suites) {
       activeSuites.set(suite.id, suite);
     }
   };
@@ -575,9 +696,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         "statusContextCount",
         "checkRunCountsByState",
         "statusContextCountsByState",
-        "checkSuites(",
-        "first: 10",
-        "filterBy: { appId: 85455 }",
+        "repository { id }",
       ]) {
         if (!query.includes(field)) {
           throw new Error(`Expected branch verification ${field}.`);
@@ -586,18 +705,14 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
         throw new Error("Branch inventory must not download ordinary check contexts.");
       }
+      if (query.includes("checkSuites") || query.includes("checkRuns")) {
+        throw new Error("Branch verification must not download Cloudflare observations.");
+      }
       const start = readCursor(variables, "branch-signature");
       if (start === 0) {
         observations.branchVerificationPasses += 1;
       }
       const width = fixture.branchVerificationPageWidth ?? branchSignatureNodes.length;
-      for (const branch of verificationBranches.slice(start, start + width)) {
-        activateCommit({
-          nodeId: `${branch.id}-commit`,
-          sha: branch.sha,
-          evidence: branch,
-        });
-      }
       const page = slicePage({
         values: branchSignatureNodes,
         start,
@@ -636,9 +751,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         "contexts(first: 1)",
         "checkRunCountsByState",
         "statusContextCountsByState",
-        "filterBy: { appId: 85455 }",
-        "filterBy: { checkType: LATEST }",
-        "first: 10",
+        "repository { id }",
       ]) {
         if (!query.includes(field)) {
           throw new Error(`Expected branch collection ${field}.`);
@@ -647,6 +760,9 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
         throw new Error("Branch inventory must not download ordinary check contexts.");
       }
+      if (query.includes("checkSuites") || query.includes("checkRuns")) {
+        throw new Error("Branch collection must not download Cloudflare observations.");
+      }
       const start = readCursor(variables, "branch");
       const pageSize = requireNumberVariable(variables, "pageSize");
       if (start === 0) {
@@ -654,13 +770,6 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         observations.requestedRepositoryIds.push(requireStringVariable(variables, "repositoryId"));
       }
       const width = fixture.branchPageWidth ?? branchNodes.length;
-      for (const branch of fixture.branches.slice(start, start + width)) {
-        activateCommit({
-          nodeId: `${branch.id}-commit`,
-          sha: branch.sha,
-          evidence: branch,
-        });
-      }
       const page = slicePage({
         values: branchNodes,
         start,
@@ -696,7 +805,10 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       }
       for (const field of [
         "updatedAt",
+        "baseRefName",
+        "headRefName",
         "headRefOid",
+        "headRepository { id nameWithOwner owner { login } }",
         "commits(last: 1)",
         "statusCheckRollup",
         "contexts(first: 1)",
@@ -704,9 +816,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         "statusContextCount",
         "checkRunCountsByState",
         "statusContextCountsByState",
-        "checkSuites(",
-        "first: 10",
-        "filterBy: { appId: 85455 }",
+        "repository { id }",
       ]) {
         if (!query.includes(field)) {
           throw new Error(`Expected pull request verification ${field}.`);
@@ -715,19 +825,14 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
         throw new Error("Pull request inventory must not download ordinary check contexts.");
       }
+      if (query.includes("checkSuites") || query.includes("checkRuns")) {
+        throw new Error("Pull request verification must not download Cloudflare observations.");
+      }
       const start = readCursor(variables, "pull-request-signature");
       if (start === 0) {
         observations.pullRequestVerificationPasses += 1;
       }
-      const verificationPullRequests = fixture.verificationPullRequests ?? fixture.pullRequests;
       const width = fixture.pullRequestVerificationPageWidth ?? pullRequestSignatureNodes.length;
-      for (const pullRequest of verificationPullRequests.slice(start, start + width)) {
-        activateCommit({
-          nodeId: `${pullRequest.id}-commit`,
-          sha: pullRequest.headRefOid,
-          evidence: pullRequest,
-        });
-      }
       const page = slicePage({
         values: pullRequestSignatureNodes,
         start,
@@ -760,9 +865,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         "contexts(first: 1)",
         "checkRunCountsByState",
         "statusContextCountsByState",
-        "filterBy: { appId: 85455 }",
-        "filterBy: { checkType: LATEST }",
-        "first: 10",
+        "repository { id }",
       ]) {
         if (!query.includes(field)) {
           throw new Error(`Expected pull request collection ${field}.`);
@@ -771,15 +874,11 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
         throw new Error("Pull request inventory must not download ordinary check contexts.");
       }
+      if (query.includes("checkSuites") || query.includes("checkRuns")) {
+        throw new Error("Pull request collection must not download Cloudflare observations.");
+      }
       const start = readCursor(variables, "pull-request");
       const width = fixture.pullRequestPageWidth ?? pullRequestNodes.length;
-      for (const pullRequest of fixture.pullRequests.slice(start, start + width)) {
-        activateCommit({
-          nodeId: `${pullRequest.id}-commit`,
-          sha: pullRequest.headRefOid,
-          evidence: pullRequest,
-        });
-      }
       const page = slicePage({
         values: pullRequestNodes,
         start,
@@ -876,6 +975,39 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       };
     }
 
+    if (query.includes("query RepositoryInventoryCloudflareCommitBatch(")) {
+      for (const field of [
+        "nodes(ids: $commitIds)",
+        "first: 3",
+        "filterBy: { appId: 85455 }",
+        "filterBy: { checkType: LATEST }",
+        "repository { id }",
+      ]) {
+        if (!query.includes(field)) {
+          throw new Error(`Expected Cloudflare commit batch ${field}.`);
+        }
+      }
+      if (query.includes("statusCheckRollup")) {
+        throw new Error("Cloudflare commit batches must not repeat aggregate check metadata.");
+      }
+      const commitIds = requireStringArrayVariable(variables, "commitIds");
+      observations.cloudflareCommitBatchIds.push(commitIds);
+      const pass = observations.branchVerificationPasses > 0 ? "verification" : "initial";
+      const source =
+        pass === "verification" ? verificationCommitObservations : initialCommitObservations;
+      const nodes = commitIds.map((nodeId) => {
+        const commit = source.get(nodeId);
+        if (commit === undefined) {
+          throw new Error(`Unknown commit node ${nodeId}.`);
+        }
+        activateCommit(commit);
+        return makeCloudflareCommitObservationNode(commit);
+      });
+      return {
+        nodes: fixture.transformCloudflareBatch?.({ commitIds, nodes, pass }) ?? nodes,
+      };
+    }
+
     if (query.includes("query RepositoryInventoryLabelContinuation(")) {
       const nodeId = requireStringVariable(variables, "nodeId");
       const pullRequest = fixture.pullRequests.find((candidate) => candidate.id === nodeId);
@@ -903,12 +1035,15 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       return {
         node: {
           __typename: "Commit",
+          id: commit.nodeId,
           oid: commit.sha,
+          repository: { id: commit.repositoryId },
           checkSuites: makeCloudflareSuitePage({
             commitNodeId: nodeId,
             suites: commit.suites,
             totalCount: commit.suiteTotalCount,
             start: readCursor(variables, `cloudflare-suites-${nodeId}`),
+            width: 100,
           }),
         },
       };
@@ -1166,6 +1301,13 @@ describe("GitHub repository inventory collection", () => {
     expect(observations.branchVerificationPasses).toBe(1);
     expect(observations.pullRequestVerificationPasses).toBe(1);
     expect(observations.pullRequestComparisonBatchSizes).toEqual([1, 1]);
+    expect(observations.cloudflareCommitBatchIds.map((batch) => batch.length)).toEqual([4, 4]);
+    expect(observations.cloudflareCommitBatchIds[0]).toEqual(
+      observations.cloudflareCommitBatchIds[1],
+    );
+    expect(observations.cloudflareCommitBatchIds[0]).toContain(
+      fixtureCommitNodeId("R_base", "feature-sha"),
+    );
     expect(observations.cloudflareSuiteContinuationRequests).toBe(0);
     expect(observations.cloudflareCheckRunContinuationRequests).toBe(0);
   });
@@ -1306,6 +1448,286 @@ describe("GitHub repository inventory collection", () => {
     const release = branches.find((branch) => branch.name === "release");
     expect(main?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-main"]);
     expect(release?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-release"]);
+    expect(request.observations.cloudflareCommitBatchIds).toEqual([
+      [fixtureCommitNodeId("R_base", "shared-sha")],
+      [fixtureCommitNodeId("R_base", "shared-sha")],
+    ]);
+  });
+
+  it("keeps fork identity separate from its base-scoped commit observation", async () => {
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          id: "REF_main",
+          name: "main",
+          sha: "shared-sha",
+          checkCount: 1,
+          cloudflareSuites: [
+            {
+              id: "suite-base",
+              branchName: "main",
+              checkRuns: [makeWorkerBuild({ id: "run-base", workerName: "base" })],
+            },
+          ],
+        },
+      ],
+      pullRequests: [
+        {
+          id: "PR_fork",
+          number: 1,
+          title: "Fork commit with the same Git object",
+          headRefName: "contribution",
+          headRefOid: "shared-sha",
+          headRepositoryId: "R_fork",
+          headRepositoryFullName: "contributor/samebase",
+          isDraft: false,
+          isCrossRepository: true,
+          additions: 1,
+          deletions: 0,
+          changedFiles: 1,
+          labelCount: 0,
+          checkCount: 1,
+          updatedAt: "2026-07-15T10:02:00Z",
+          cloudflareSuites: [
+            {
+              id: "suite-fork",
+              branchName: "contribution",
+              checkRuns: [makeWorkerBuild({ id: "run-fork", workerName: "fork" })],
+            },
+          ],
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+    });
+
+    const branch = result.items.find((item) => item.kind === "branch");
+    const pullRequest = result.items.find((item) => item.kind === "pull_request");
+    expect(branch?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-base"]);
+    expect(pullRequest?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-fork"]);
+    expect(pullRequest).toMatchObject({
+      headRepository: { repositoryNodeId: "R_fork" },
+      isCrossRepository: true,
+    });
+    expect(request.observations.cloudflareCommitBatchIds).toEqual([
+      [fixtureCommitNodeId("R_base", "shared-sha")],
+      [fixtureCommitNodeId("R_base", "shared-sha")],
+    ]);
+  });
+
+  it.each([
+    { pageSize: 50, expectedBatchSizes: [50, 1, 50, 1] },
+    { pageSize: 25, expectedBatchSizes: [25, 25, 1, 25, 25, 1] },
+  ])(
+    "batches 51 unique commits at $pageSize commits without weakening either provider pass",
+    async ({ pageSize, expectedBatchSizes }) => {
+      const branches: FixtureBranch[] = Array.from({ length: 51 }, (_, index) => ({
+        id: `REF_${index}`,
+        name: `branch-${String(index).padStart(3, "0")}`,
+        sha: `sha-${String(index).padStart(3, "0")}`,
+        checkCount: 0,
+      }));
+      const fixture: RepositoryFixture = {
+        ...makeBaseFixture(),
+        defaultBranch: "branch-000",
+        branches,
+        branchPageWidth: pageSize,
+      };
+      const request = createRepositoryRequest(fixture);
+
+      await collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      });
+
+      expect(request.observations.cloudflareCommitBatchIds.map((batch) => batch.length)).toEqual(
+        expectedBatchSizes,
+      );
+    },
+  );
+
+  it.each<{ name: string; expected: string; transform: TransformCloudflareBatch }>([
+    {
+      name: "null node",
+      expected: "non-commit Cloudflare observation",
+      transform: () => [null, null],
+    },
+    {
+      name: "missing node",
+      expected: "omitted a repository commit",
+      transform: ({ nodes }) => nodes.slice(0, 1),
+    },
+    {
+      name: "duplicate node",
+      expected: "unexpected or duplicate",
+      transform: ({ nodes }) => [nodes[0], nodes[0]],
+    },
+    {
+      name: "wrong SHA",
+      expected: "did not match its repository commit",
+      transform: ({ commitIds, nodes }) => [
+        makeCloudflareCommitObservationNode({
+          nodeId: commitIds[0] ?? "missing",
+          repositoryId: "R_base",
+          sha: "wrong-sha",
+          suites: [],
+        }),
+        nodes[1],
+      ],
+    },
+    {
+      name: "wrong repository",
+      expected: "did not match its repository commit",
+      transform: ({ commitIds, nodes }) => [
+        makeCloudflareCommitObservationNode({
+          nodeId: commitIds[0] ?? "missing",
+          repositoryId: "R_other",
+          sha: "feature-sha",
+          suites: [],
+        }),
+        nodes[1],
+      ],
+    },
+    {
+      name: "non-Commit node",
+      expected: "non-commit Cloudflare observation",
+      transform: ({ commitIds, nodes }) => [
+        { __typename: "Repository", id: commitIds[0] },
+        nodes[1],
+      ],
+    },
+  ])("rejects a Cloudflare batch with a $name", async ({ expected, transform }) => {
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        ...makeBaseFixture().branches,
+        {
+          id: "REF_feature",
+          name: "feature",
+          sha: "feature-sha",
+          checkCount: 0,
+        },
+      ],
+      transformCloudflareBatch: transform,
+    };
+    const request = createRepositoryRequest(fixture);
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow(expected);
+  });
+
+  it("accepts reordered commit batch nodes while preserving exact identities", async () => {
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        ...makeBaseFixture().branches,
+        {
+          id: "REF_feature",
+          name: "feature",
+          sha: "feature-sha",
+          checkCount: 0,
+        },
+      ],
+      transformCloudflareBatch: ({ nodes }) => [...nodes].reverse(),
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+    });
+
+    expect(result.branchCount).toBe(2);
+    expect(request.observations.cloudflareCommitBatchIds.map((batch) => batch.length)).toEqual([
+      2, 2,
+    ]);
+  });
+
+  it("rejects two node IDs for one repository-scoped commit", async () => {
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          id: "REF_main",
+          commitNodeId: "COMMIT_first",
+          name: "main",
+          sha: "shared-sha",
+          checkCount: 0,
+        },
+        {
+          id: "REF_release",
+          commitNodeId: "COMMIT_second",
+          name: "release",
+          sha: "shared-sha",
+          checkCount: 0,
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("two commit identities for one repository commit");
+  });
+
+  it("rejects one node ID for two repository-scoped commits", async () => {
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          id: "REF_main",
+          commitNodeId: "COMMIT_shared",
+          name: "main",
+          sha: "main-sha",
+          checkCount: 0,
+        },
+        {
+          id: "REF_feature",
+          commitNodeId: "COMMIT_shared",
+          name: "feature",
+          sha: "feature-sha",
+          checkCount: 0,
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("one commit identity for different repository commits");
   });
 
   it("keeps a null provider branch explicit without promoting its alias", async () => {
@@ -1842,8 +2264,10 @@ describe("GitHub repository inventory collection", () => {
   });
 
   it("keeps the fingerprint stable across identical complete collections", async () => {
+    const main = makeBaseFixture().branches[0];
     const fixture: RepositoryFixture = {
       ...makeBaseFixture(),
+      branches: [{ ...main, checkCount: 1 }],
       pullRequests: [
         {
           id: "PR_one",
@@ -2154,41 +2578,68 @@ describe("GitHub repository inventory collection", () => {
     ).rejects.toThrow("pull request inventory changed");
   });
 
-  it("rejects pull request head changes found by the final signature pass", async () => {
-    const pullRequest: FixturePullRequest = {
-      id: "PR_one",
-      number: 1,
-      title: "Head changes during collection",
-      headRefName: "main",
-      headRefOid: "main-sha",
-      headRepositoryId: "R_base",
-      headRepositoryFullName: "samebase/samebase",
-      isDraft: false,
-      isCrossRepository: false,
-      additions: 2,
-      deletions: 1,
-      changedFiles: 1,
-      labelCount: 0,
-      checkCount: 0,
-      updatedAt: "2026-07-15T10:02:00Z",
-    };
-    const fixture: RepositoryFixture = {
-      ...makeBaseFixture(),
-      pullRequests: [pullRequest],
-      verificationPullRequests: [{ ...pullRequest, headRefOid: "new-main-sha" }],
-    };
-
-    const request = createRepositoryRequest(fixture);
-    await expect(
-      collectRepositoryInventory({
-        repositoryNodeId: "R_base",
-        expectedRepositoryDatabaseId: "42",
-        pageSize: 50,
-        requestGraphql: request.requestGraphql,
-        requestGraphqlPartial: request.requestGraphqlPartial,
+  it.each<{
+    axis: string;
+    change: (pullRequest: FixturePullRequest) => FixturePullRequest;
+  }>([
+    {
+      axis: "commit",
+      change: (pullRequest) => ({ ...pullRequest, headRefOid: "new-main-sha" }),
+    },
+    {
+      axis: "branch alias",
+      change: (pullRequest) => ({ ...pullRequest, headRefName: "renamed-main" }),
+    },
+    {
+      axis: "base branch",
+      change: (pullRequest) => ({ ...pullRequest, baseRefName: "release" }),
+    },
+    {
+      axis: "head repository",
+      change: (pullRequest) => ({
+        ...pullRequest,
+        headRepositoryId: "R_fork",
+        headRepositoryFullName: "contributor/samebase",
       }),
-    ).rejects.toThrow("pull request inventory changed");
-  });
+    },
+  ])(
+    "rejects a pull request $axis change found by the final signature pass",
+    async ({ change }) => {
+      const pullRequest: FixturePullRequest = {
+        id: "PR_one",
+        number: 1,
+        title: "Head changes during collection",
+        headRefName: "main",
+        headRefOid: "main-sha",
+        headRepositoryId: "R_base",
+        headRepositoryFullName: "samebase/samebase",
+        isDraft: false,
+        isCrossRepository: false,
+        additions: 2,
+        deletions: 1,
+        changedFiles: 1,
+        labelCount: 0,
+        checkCount: 0,
+        updatedAt: "2026-07-15T10:02:00Z",
+      };
+      const fixture: RepositoryFixture = {
+        ...makeBaseFixture(),
+        pullRequests: [pullRequest],
+        verificationPullRequests: [change(pullRequest)],
+      };
+
+      const request = createRepositoryRequest(fixture);
+      await expect(
+        collectRepositoryInventory({
+          repositoryNodeId: "R_base",
+          expectedRepositoryDatabaseId: "42",
+          pageSize: 50,
+          requestGraphql: request.requestGraphql,
+          requestGraphqlPartial: request.requestGraphqlPartial,
+        }),
+      ).rejects.toThrow("pull request inventory changed");
+    },
+  );
 
   it.each<{
     name: string;
@@ -2254,7 +2705,7 @@ describe("GitHub repository inventory collection", () => {
         requestGraphql: request.requestGraphql,
         requestGraphqlPartial: request.requestGraphqlPartial,
       }),
-    ).rejects.toThrow("branch inventory changed");
+    ).rejects.toThrow("Cloudflare build observations changed");
   });
 
   it("rejects aggregate check changes found by the final signature pass", async () => {
@@ -2262,12 +2713,12 @@ describe("GitHub repository inventory collection", () => {
       id: "PR_one",
       number: 1,
       title: "Checks change during collection",
-      headRefName: "main",
-      headRefOid: "main-sha",
-      headRepositoryId: "R_base",
-      headRepositoryFullName: "samebase/samebase",
+      headRefName: "contribution",
+      headRefOid: "fork-sha",
+      headRepositoryId: "R_fork",
+      headRepositoryFullName: "contributor/samebase",
       isDraft: false,
-      isCrossRepository: false,
+      isCrossRepository: true,
       additions: 2,
       deletions: 1,
       changedFiles: 1,

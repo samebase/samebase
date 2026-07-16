@@ -32,7 +32,7 @@ const GITHUB_GRAPHQL_RETRY_PAGE_SIZE = 25;
 const GITHUB_GRAPHQL_MAX_PAGES = 1_000;
 const GITHUB_REQUEST_TIMEOUT_MS = 30_000;
 const CLOUDFLARE_WORKERS_GITHUB_APP_ID = 85_455;
-const GITHUB_CLOUDFLARE_INITIAL_SUITE_PAGE_SIZE = 10;
+const GITHUB_CLOUDFLARE_INITIAL_SUITE_PAGE_SIZE = 3;
 
 const pageInfoSchema = z.object({
   hasNextPage: z.boolean(),
@@ -129,7 +129,6 @@ const commitSchema = z.object({
     id: z.string(),
   }),
   statusCheckRollup: statusCheckRollupSchema,
-  checkSuites: cloudflareCheckSuitesSchema,
 });
 
 const comparisonSchema = z.object({
@@ -181,6 +180,12 @@ const labelsSchema = z.object({
   nodes: z.array(labelSchema),
 });
 
+const pullRequestHeadRepositorySchema = z.object({
+  id: z.string(),
+  nameWithOwner: z.string(),
+  owner: z.object({ login: z.string() }),
+});
+
 const pullRequestSchema = z.object({
   id: z.string(),
   number: z.number().int().positive(),
@@ -196,13 +201,7 @@ const pullRequestSchema = z.object({
   baseRefName: z.string(),
   headRefName: z.string(),
   headRefOid: z.string(),
-  headRepository: z
-    .object({
-      id: z.string(),
-      nameWithOwner: z.string(),
-      owner: z.object({ login: z.string() }),
-    })
-    .nullable(),
+  headRepository: pullRequestHeadRepositorySchema.nullable(),
   labels: labelsSchema,
   commits: z.object({
     nodes: z.array(
@@ -234,13 +233,7 @@ const pullRequestComparisonNodeSchema = z.object({
   baseRefName: z.string(),
   headRefName: z.string(),
   headRefOid: z.string(),
-  headRepository: z
-    .object({
-      id: z.string(),
-      nameWithOwner: z.string(),
-      owner: z.object({ login: z.string() }),
-    })
-    .nullable(),
+  headRepository: pullRequestHeadRepositorySchema.nullable(),
   baseRef: z
     .object({
       name: z.string(),
@@ -267,11 +260,27 @@ const pullRequestComparisonBatchSchema = z.object({
     .nullable(),
 });
 
-const providerCommitSnapshotSchema = z.object({
+const commitSignatureSchema = z.object({
   id: z.string(),
   oid: z.string(),
+  repository: z.object({
+    id: z.string(),
+  }),
   statusCheckRollup: statusCheckRollupSchema,
+});
+
+const cloudflareCommitObservationSchema = z.object({
+  __typename: z.literal("Commit"),
+  id: z.string(),
+  oid: z.string(),
+  repository: z.object({
+    id: z.string(),
+  }),
   checkSuites: cloudflareCheckSuitesSchema,
+});
+
+const cloudflareCommitBatchSchema = z.object({
+  nodes: z.array(z.unknown()),
 });
 
 const branchSignaturePageSchema = z.object({
@@ -292,7 +301,7 @@ const branchSignaturePageSchema = z.object({
         nodes: z.array(
           z.object({
             name: z.string(),
-            target: providerCommitSnapshotSchema,
+            target: commitSignatureSchema,
           }),
         ),
       }),
@@ -313,12 +322,14 @@ const pullRequestSignaturePageSchema = z.object({
           z.object({
             id: z.string(),
             updatedAt: z.string(),
+            baseRefName: z.string(),
             headRefName: z.string(),
             headRefOid: z.string(),
+            headRepository: pullRequestHeadRepositorySchema.nullable(),
             commits: z.object({
               nodes: z.array(
                 z.object({
-                  commit: providerCommitSnapshotSchema,
+                  commit: commitSignatureSchema,
                 }),
               ),
             }),
@@ -342,7 +353,9 @@ const cloudflareSuiteContinuationSchema = z.object({
   node: z
     .object({
       __typename: z.literal("Commit"),
+      id: z.string(),
       oid: z.string(),
+      repository: z.object({ id: z.string() }),
       checkSuites: cloudflareCheckSuitesSchema,
     })
     .nullable(),
@@ -482,32 +495,6 @@ const REPOSITORY_BRANCH_PAGE_QUERY = `
                     statusContextCountsByState { state count }
                   }
                 }
-                checkSuites(
-                  first: ${GITHUB_CLOUDFLARE_INITIAL_SUITE_PAGE_SIZE}
-                  filterBy: { appId: ${CLOUDFLARE_WORKERS_GITHUB_APP_ID} }
-                ) {
-                  totalCount
-                  pageInfo { hasNextPage endCursor }
-                  nodes {
-                    id
-                    branch { name }
-                    checkRuns(first: 100, filterBy: { checkType: LATEST }) {
-                      totalCount
-                      pageInfo { hasNextPage endCursor }
-                      nodes {
-                        id
-                        name
-                        status
-                        conclusion
-                        detailsUrl
-                        url
-                        summary
-                        startedAt
-                        completedAt
-                      }
-                    }
-                  }
-                }
               }
             }
             comparison: compare(headRef: "HEAD") {
@@ -581,32 +568,6 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
                       statusContextCount
                       checkRunCountsByState { state count }
                       statusContextCountsByState { state count }
-                    }
-                  }
-                  checkSuites(
-                    first: ${GITHUB_CLOUDFLARE_INITIAL_SUITE_PAGE_SIZE}
-                    filterBy: { appId: ${CLOUDFLARE_WORKERS_GITHUB_APP_ID} }
-                  ) {
-                    totalCount
-                    pageInfo { hasNextPage endCursor }
-                    nodes {
-                      id
-                      branch { name }
-                      checkRuns(first: 100, filterBy: { checkType: LATEST }) {
-                        totalCount
-                        pageInfo { hasNextPage endCursor }
-                        nodes {
-                          id
-                          name
-                          status
-                          conclusion
-                          detailsUrl
-                          url
-                          summary
-                          startedAt
-                          completedAt
-                        }
-                      }
                     }
                   }
                 }
@@ -703,6 +664,7 @@ const REPOSITORY_BRANCH_SIGNATURE_PAGE_QUERY = `
               ... on Commit {
                 id
                 oid
+                repository { id }
                 statusCheckRollup {
                   state
                   contexts(first: 1) {
@@ -711,32 +673,6 @@ const REPOSITORY_BRANCH_SIGNATURE_PAGE_QUERY = `
                     statusContextCount
                     checkRunCountsByState { state count }
                     statusContextCountsByState { state count }
-                  }
-                }
-                checkSuites(
-                  first: ${GITHUB_CLOUDFLARE_INITIAL_SUITE_PAGE_SIZE}
-                  filterBy: { appId: ${CLOUDFLARE_WORKERS_GITHUB_APP_ID} }
-                ) {
-                  totalCount
-                  pageInfo { hasNextPage endCursor }
-                  nodes {
-                    id
-                    branch { name }
-                    checkRuns(first: 100, filterBy: { checkType: LATEST }) {
-                      totalCount
-                      pageInfo { hasNextPage endCursor }
-                      nodes {
-                        id
-                        name
-                        status
-                        conclusion
-                        detailsUrl
-                        url
-                        summary
-                        startedAt
-                        completedAt
-                      }
-                    }
                   }
                 }
               }
@@ -767,13 +703,16 @@ const REPOSITORY_PULL_REQUEST_SIGNATURE_PAGE_QUERY = `
           nodes {
             id
             updatedAt
+            baseRefName
             headRefName
             headRefOid
+            headRepository { id nameWithOwner owner { login } }
             commits(last: 1) {
               nodes {
                 commit {
                   id
                   oid
+                  repository { id }
                   statusCheckRollup {
                     state
                     contexts(first: 1) {
@@ -784,33 +723,47 @@ const REPOSITORY_PULL_REQUEST_SIGNATURE_PAGE_QUERY = `
                       statusContextCountsByState { state count }
                     }
                   }
-                  checkSuites(
-                    first: ${GITHUB_CLOUDFLARE_INITIAL_SUITE_PAGE_SIZE}
-                    filterBy: { appId: ${CLOUDFLARE_WORKERS_GITHUB_APP_ID} }
-                  ) {
-                    totalCount
-                    pageInfo { hasNextPage endCursor }
-                    nodes {
-                      id
-                      branch { name }
-                      checkRuns(first: 100, filterBy: { checkType: LATEST }) {
-                        totalCount
-                        pageInfo { hasNextPage endCursor }
-                        nodes {
-                          id
-                          name
-                          status
-                          conclusion
-                          detailsUrl
-                          url
-                          summary
-                          startedAt
-                          completedAt
-                        }
-                      }
-                    }
-                  }
                 }
+              }
+            }
+          }
+        }
+      }
+    }
+    rateLimit { cost limit remaining resetAt }
+  }
+`;
+
+const REPOSITORY_CLOUDFLARE_COMMIT_BATCH_QUERY = `
+  query RepositoryInventoryCloudflareCommitBatch($commitIds: [ID!]!) {
+    nodes(ids: $commitIds) {
+      __typename
+      ... on Commit {
+        id
+        oid
+        repository { id }
+        checkSuites(
+          first: ${GITHUB_CLOUDFLARE_INITIAL_SUITE_PAGE_SIZE}
+          filterBy: { appId: ${CLOUDFLARE_WORKERS_GITHUB_APP_ID} }
+        ) {
+          totalCount
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id
+            branch { name }
+            checkRuns(first: 100, filterBy: { checkType: LATEST }) {
+              totalCount
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                id
+                name
+                status
+                conclusion
+                detailsUrl
+                url
+                summary
+                startedAt
+                completedAt
               }
             }
           }
@@ -842,7 +795,9 @@ const REPOSITORY_CLOUDFLARE_SUITE_CONTINUATION_QUERY = `
     node(id: $nodeId) {
       __typename
       ... on Commit {
+        id
         oid
+        repository { id }
         checkSuites(
           first: 100
           after: $after
@@ -1040,20 +995,52 @@ type ProviderCloudflareCheckSignature = {
   completedAt: string | null;
 };
 
-type ProviderCommitSignature = {
-  oid: string;
+type RepositoryScopedCommit = {
+  nodeId: string;
+  repositoryNodeId: string;
+  sha: string;
+};
+
+type CommitMetadataSignature = RepositoryScopedCommit & {
   statusCheckRollup: {
     state: (typeof GITHUB_STATUS_CHECK_ROLLUP_STATES)[number];
     contexts: GitHubCheckCountsSnapshotInput;
   } | null;
+};
+
+type CloudflareCommitSignature = RepositoryScopedCommit & {
   cloudflareChecks: ProviderCloudflareCheckSignature[];
 };
 
-type CollectedCommit = {
+type CloudflareCommitObservation = {
+  checkRuns: CollectedCloudflareCheckRun[];
+  signature: CloudflareCommitSignature;
+};
+
+type CollectedCommitMetadata = {
   commit: CollectedRepositoryInventoryItem["headCommit"];
-  cloudflareBuilds: RepositoryInventoryCloudflareBuild[];
-  providerSignature: ProviderCommitSignature;
+  identity: RepositoryScopedCommit;
+  signature: CommitMetadataSignature;
   summaryCheckState: RepositorySummaryCheckState;
+};
+
+type CollectedBranchWithoutCloudflareBuilds = Omit<
+  Extract<CollectedRepositoryInventoryItem, { kind: "branch" }>,
+  "cloudflareBuilds"
+>;
+type CollectedPullRequestWithoutCloudflareBuilds = Omit<
+  Extract<CollectedRepositoryInventoryItem, { kind: "pull_request" }>,
+  "cloudflareBuilds"
+>;
+type CollectedItemWithoutCloudflareBuilds =
+  | CollectedBranchWithoutCloudflareBuilds
+  | CollectedPullRequestWithoutCloudflareBuilds;
+
+type InventoryItemCommitAssociation = {
+  rowKey: string;
+  branchName: string;
+  commit: RepositoryScopedCommit;
+  signature: CommitMetadataSignature;
 };
 
 class GitHubGraphqlRequestError extends Error {
@@ -1343,7 +1330,7 @@ async function readCompleteCloudflareSuiteCheckRuns(args: {
 
 async function readCompleteCloudflareCheckRuns(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
-  value: z.infer<typeof providerCommitSnapshotSchema>;
+  value: z.infer<typeof cloudflareCommitObservationSchema>;
 }): Promise<CollectedCloudflareCheckRun[]> {
   const initial = args.value.checkSuites;
   const expectedTotalCount = initial.totalCount;
@@ -1397,7 +1384,9 @@ async function readCompleteCloudflareCheckRuns(args: {
     const node = response.node;
     if (
       node === null ||
+      node.id !== args.value.id ||
       node.oid !== args.value.oid ||
+      node.repository.id !== args.value.repository.id ||
       node.checkSuites.totalCount !== expectedTotalCount
     ) {
       throw new GitHubGraphqlRequestError(
@@ -1441,20 +1430,14 @@ function toCloudflareBuild(value: CollectedCloudflareCheckRun): RepositoryInvent
   return normalizeCloudflareBuildCheckRun(input);
 }
 
-function providerCommitSignature(args: {
-  value: z.infer<typeof providerCommitSnapshotSchema>;
+function cloudflareCommitSignature(args: {
+  value: z.infer<typeof cloudflareCommitObservationSchema>;
   cloudflareCheckRuns: readonly CollectedCloudflareCheckRun[];
-}): ProviderCommitSignature {
-  const rollup = args.value.statusCheckRollup;
+}): CloudflareCommitSignature {
   return {
-    oid: args.value.oid,
-    statusCheckRollup:
-      rollup === null
-        ? null
-        : {
-            state: rollup.state,
-            contexts: canonicalCheckCounts(rollup.contexts),
-          },
+    nodeId: args.value.id,
+    repositoryNodeId: args.value.repository.id,
+    sha: args.value.oid,
     cloudflareChecks: args.cloudflareCheckRuns.map(({ suiteId, branchName, checkRun }) => ({
       suiteId,
       sourceKey: checkRun.id,
@@ -1471,64 +1454,258 @@ function providerCommitSignature(args: {
   };
 }
 
-async function collectProviderCommitSignature(args: {
-  requestGraphql: RepositoryInventoryGraphqlRequest;
-  value: z.infer<typeof providerCommitSnapshotSchema>;
-  branchName: string;
-}): Promise<ProviderCommitSignature> {
-  const cloudflareCheckRuns = (await readCompleteCloudflareCheckRuns(args)).filter(
-    (value) => value.branchName === null || value.branchName === args.branchName,
-  );
-  return providerCommitSignature({ value: args.value, cloudflareCheckRuns });
+function repositoryScopedCommitKey(commit: RepositoryScopedCommit): string {
+  return JSON.stringify([commit.repositoryNodeId, commit.sha]);
 }
 
-async function collectCommit(args: {
-  requestGraphql: RepositoryInventoryGraphqlRequest;
-  value: z.infer<typeof commitSchema>;
-  branchName: string;
-}): Promise<CollectedCommit> {
-  const cloudflareCheckRuns = (await readCompleteCloudflareCheckRuns(args)).filter(
-    (value) => value.branchName === null || value.branchName === args.branchName,
-  );
+function commitMetadataSignature(
+  value: z.infer<typeof commitSignatureSchema>,
+): CommitMetadataSignature {
+  const rollup = value.statusCheckRollup;
   return {
-    cloudflareBuilds: cloudflareCheckRuns.map(toCloudflareBuild),
-    providerSignature: providerCommitSignature({
-      value: args.value,
-      cloudflareCheckRuns,
-    }),
+    nodeId: value.id,
+    repositoryNodeId: value.repository.id,
+    sha: value.oid,
+    statusCheckRollup:
+      rollup === null
+        ? null
+        : {
+            state: rollup.state,
+            contexts: canonicalCheckCounts(rollup.contexts),
+          },
+  };
+}
+
+function collectCommitMetadata(value: z.infer<typeof commitSchema>): CollectedCommitMetadata {
+  const signature = commitMetadataSignature(value);
+  return {
+    identity: {
+      nodeId: signature.nodeId,
+      repositoryNodeId: signature.repositoryNodeId,
+      sha: signature.sha,
+    },
+    signature,
     summaryCheckState: repositorySummaryCheckStateFromGitHubRollup(
-      args.value.statusCheckRollup?.state ?? null,
+      value.statusCheckRollup?.state ?? null,
     ),
     commit: {
-      sha: args.value.oid,
-      title: optionalString(args.value.messageHeadline),
-      authoredAt: parseTimestamp(args.value.authoredDate),
-      checks: toCheckSummary(args.value.statusCheckRollup),
+      sha: value.oid,
+      title: optionalString(value.messageHeadline),
+      authoredAt: parseTimestamp(value.authoredDate),
+      checks: toCheckSummary(value.statusCheckRollup),
     },
   };
 }
 
-function sameProviderCommitSignature(
-  left: ProviderCommitSignature,
-  right: ProviderCommitSignature,
+function sameCommitMetadataSignature(
+  left: CommitMetadataSignature,
+  right: CommitMetadataSignature,
 ): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-type PullRequestProviderSignature = {
+function uniqueRepositoryScopedCommits(
+  associations: readonly InventoryItemCommitAssociation[],
+): RepositoryScopedCommit[] {
+  const byKey = new Map<string, RepositoryScopedCommit>();
+  const signatureByKey = new Map<string, CommitMetadataSignature>();
+  const keyByNodeId = new Map<string, string>();
+  for (const association of associations) {
+    const key = repositoryScopedCommitKey(association.commit);
+    const existing = byKey.get(key);
+    if (existing !== undefined && existing.nodeId !== association.commit.nodeId) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub returned two commit identities for one repository commit.",
+        true,
+      );
+    }
+    const existingSignature = signatureByKey.get(key);
+    if (
+      existingSignature !== undefined &&
+      !sameCommitMetadataSignature(existingSignature, association.signature)
+    ) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub returned different metadata for one repository commit.",
+        true,
+      );
+    }
+    const existingKey = keyByNodeId.get(association.commit.nodeId);
+    if (existingKey !== undefined && existingKey !== key) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub returned one commit identity for different repository commits.",
+        true,
+      );
+    }
+    byKey.set(key, association.commit);
+    signatureByKey.set(key, association.signature);
+    keyByNodeId.set(association.commit.nodeId, key);
+  }
+  return [...byKey.values()].sort(
+    (left, right) =>
+      left.repositoryNodeId.localeCompare(right.repositoryNodeId) ||
+      left.sha.localeCompare(right.sha),
+  );
+}
+
+async function collectCloudflareCommitObservations(args: {
+  requestGraphql: RepositoryInventoryGraphqlRequest;
+  commits: readonly RepositoryScopedCommit[];
+  batchSize: number;
+}): Promise<ReadonlyMap<string, CloudflareCommitObservation>> {
+  const observations = new Map<string, CloudflareCommitObservation>();
+  for (let start = 0; start < args.commits.length; start += args.batchSize) {
+    const batch = args.commits.slice(start, start + args.batchSize);
+    const expectedByNodeId = new Map(batch.map((commit) => [commit.nodeId, commit]));
+    if (expectedByNodeId.size !== batch.length) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub repository commit batch contained duplicate node identities.",
+        true,
+      );
+    }
+    const response = cloudflareCommitBatchSchema.parse(
+      await args.requestGraphql(REPOSITORY_CLOUDFLARE_COMMIT_BATCH_QUERY, {
+        commitIds: batch.map((commit) => commit.nodeId),
+      }),
+    );
+    if (response.nodes.length !== batch.length) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub omitted a repository commit from Cloudflare observation.",
+        true,
+      );
+    }
+    const seenNodeIds = new Set<string>();
+    for (const rawNode of response.nodes) {
+      const parsed = cloudflareCommitObservationSchema.safeParse(rawNode);
+      if (!parsed.success) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub returned a non-commit Cloudflare observation.",
+          true,
+        );
+      }
+      const value = parsed.data;
+      const expected = expectedByNodeId.get(value.id);
+      if (expected === undefined || seenNodeIds.has(value.id)) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub returned an unexpected or duplicate Cloudflare commit observation.",
+          true,
+        );
+      }
+      if (value.oid !== expected.sha || value.repository.id !== expected.repositoryNodeId) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub Cloudflare observation did not match its repository commit.",
+          true,
+        );
+      }
+      seenNodeIds.add(value.id);
+      const checkRuns = await readCompleteCloudflareCheckRuns({
+        requestGraphql: args.requestGraphql,
+        value,
+      });
+      const key = repositoryScopedCommitKey(expected);
+      if (observations.has(key)) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub returned a duplicate repository commit observation.",
+          true,
+        );
+      }
+      observations.set(key, {
+        checkRuns,
+        signature: cloudflareCommitSignature({ value, cloudflareCheckRuns: checkRuns }),
+      });
+    }
+    if (seenNodeIds.size !== batch.length) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub omitted a repository commit from Cloudflare observation.",
+        true,
+      );
+    }
+  }
+  return observations;
+}
+
+function sameCloudflareCommitSignature(
+  left: CloudflareCommitSignature,
+  right: CloudflareCommitSignature,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function assertSameCloudflareCommitObservations(args: {
+  collected: ReadonlyMap<string, CloudflareCommitObservation>;
+  verified: ReadonlyMap<string, CloudflareCommitObservation>;
+}): void {
+  if (args.collected.size !== args.verified.size) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub Cloudflare build observations changed while the repository was being collected.",
+      true,
+    );
+  }
+  for (const [key, collected] of args.collected) {
+    const verified = args.verified.get(key);
+    if (
+      verified === undefined ||
+      !sameCloudflareCommitSignature(collected.signature, verified.signature)
+    ) {
+      throw new GitHubGraphqlRequestError(
+        "GitHub Cloudflare build observations changed while the repository was being collected.",
+        true,
+      );
+    }
+  }
+}
+
+function attachCloudflareBuilds(args: {
+  items: readonly CollectedItemWithoutCloudflareBuilds[];
+  associations: readonly InventoryItemCommitAssociation[];
+  observations: ReadonlyMap<string, CloudflareCommitObservation>;
+}): CollectedRepositoryInventoryItem[] {
+  const associationByRowKey = new Map<string, InventoryItemCommitAssociation>();
+  for (const association of args.associations) {
+    if (associationByRowKey.has(association.rowKey)) {
+      throw new Error("Repository inventory item has more than one commit association.");
+    }
+    associationByRowKey.set(association.rowKey, association);
+  }
+  return args.items.map((item) => {
+    const association = associationByRowKey.get(item.rowKey);
+    if (association === undefined) {
+      throw new Error("Repository inventory item is missing its commit association.");
+    }
+    const observation = args.observations.get(repositoryScopedCommitKey(association.commit));
+    if (observation === undefined) {
+      throw new Error("Repository inventory item is missing its Cloudflare commit observation.");
+    }
+    const cloudflareBuilds = observation.checkRuns
+      .filter((value) => value.branchName === null || value.branchName === association.branchName)
+      .map(toCloudflareBuild);
+    return item.kind === "branch" ? { ...item, cloudflareBuilds } : { ...item, cloudflareBuilds };
+  });
+}
+
+type PullRequestMetadataSignature = {
   updatedAt: string;
+  baseRefName: string;
+  headRefName: string;
   headRefOid: string;
-  latestCommit: ProviderCommitSignature;
+  headRepository: {
+    nodeId: string;
+    fullName: string;
+    owner: string;
+  } | null;
+  latestCommit: CommitMetadataSignature;
 };
 
-function samePullRequestProviderSignature(
-  left: PullRequestProviderSignature,
-  right: PullRequestProviderSignature,
+function samePullRequestMetadataSignature(
+  left: PullRequestMetadataSignature,
+  right: PullRequestMetadataSignature,
 ): boolean {
   return (
     left.updatedAt === right.updatedAt &&
+    left.baseRefName === right.baseRefName &&
+    left.headRefName === right.headRefName &&
     left.headRefOid === right.headRefOid &&
-    sameProviderCommitSignature(left.latestCommit, right.latestCommit)
+    JSON.stringify(left.headRepository) === JSON.stringify(right.headRepository) &&
+    sameCommitMetadataSignature(left.latestCommit, right.latestCommit)
   );
 }
 
@@ -1611,13 +1788,15 @@ async function collectBranches(args: {
   defaultBranch: string | null;
   defaultBranchHeadSha: string | null;
   defaultBranchCheckState: RepositorySummaryCheckState | null;
-  providerSignatures: ReadonlyMap<string, ProviderCommitSignature>;
-  items: CollectedRepositoryInventoryItem[];
+  signatures: ReadonlyMap<string, CommitMetadataSignature>;
+  associations: InventoryItemCommitAssociation[];
+  items: CollectedBranchWithoutCloudflareBuilds[];
 }> {
   const seenCursors = new Set<string>();
   const seenBranchNames = new Set<string>();
-  const providerSignatures = new Map<string, ProviderCommitSignature>();
-  const items: CollectedRepositoryInventoryItem[] = [];
+  const signatures = new Map<string, CommitMetadataSignature>();
+  const associations: InventoryItemCommitAssociation[] = [];
+  const items: CollectedBranchWithoutCloudflareBuilds[] = [];
   let repositoryId: string | null = args.repositoryNodeId;
   let repositoryDatabaseId: string | null = null;
   let repositoryFullName: string | null = null;
@@ -1689,12 +1868,8 @@ async function collectBranches(args: {
       }
       seenBranchNames.add(branchKey);
       const rowKey = repositoryInventoryBranchRowKey(ref.name);
-      const collectedCommit = await collectCommit({
-        requestGraphql: args.requestGraphql,
-        value: ref.target,
-        branchName: ref.name,
-      });
-      providerSignatures.set(branchKey, collectedCommit.providerSignature);
+      const collectedCommit = collectCommitMetadata(ref.target);
+      signatures.set(branchKey, collectedCommit.signature);
       const isDefault = ref.name === defaultBranch;
       if (isDefault) {
         defaultBranchCheckState = collectedCommit.summaryCheckState;
@@ -1736,8 +1911,13 @@ async function collectBranches(args: {
         name: ref.name,
         isDefault,
         comparison,
-        cloudflareBuilds: collectedCommit.cloudflareBuilds,
         headCommit: collectedCommit.commit,
+      });
+      associations.push({
+        rowKey,
+        branchName: ref.name,
+        commit: collectedCommit.identity,
+        signature: collectedCommit.signature,
       });
     }
 
@@ -1758,7 +1938,7 @@ async function collectBranches(args: {
   if (defaultBranch !== null && defaultBranchCheckState === null) {
     throw new GitHubGraphqlRequestError("GitHub omitted the default branch from its refs.", true);
   }
-  if (defaultBranch !== null && providerSignatures.get(defaultBranch)?.oid !== defaultBranchSha) {
+  if (defaultBranch !== null && signatures.get(defaultBranch)?.sha !== defaultBranchSha) {
     throw new GitHubGraphqlRequestError(
       "GitHub returned inconsistent default branch targets.",
       true,
@@ -1772,7 +1952,8 @@ async function collectBranches(args: {
     defaultBranch,
     defaultBranchHeadSha: defaultBranchSha,
     defaultBranchCheckState,
-    providerSignatures,
+    signatures,
+    associations,
     items,
   };
 }
@@ -1952,13 +2133,15 @@ async function collectPullRequests(args: {
   repositoryFullName: string;
   branchHeadShaByName: ReadonlyMap<string, string>;
 }): Promise<{
-  items: CollectedRepositoryInventoryItem[];
-  providerSignatures: ReadonlyMap<string, PullRequestProviderSignature>;
+  items: CollectedPullRequestWithoutCloudflareBuilds[];
+  associations: InventoryItemCommitAssociation[];
+  signatures: ReadonlyMap<string, PullRequestMetadataSignature>;
 }> {
   const seenCursors = new Set<string>();
   const seenPullRequestIds = new Set<string>();
-  const providerSignatures = new Map<string, PullRequestProviderSignature>();
-  const items: CollectedRepositoryInventoryItem[] = [];
+  const signatures = new Map<string, PullRequestMetadataSignature>();
+  const associations: InventoryItemCommitAssociation[] = [];
+  const items: CollectedPullRequestWithoutCloudflareBuilds[] = [];
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
@@ -2021,16 +2204,22 @@ async function collectPullRequests(args: {
           true,
         );
       }
-      const collectedCommit = await collectCommit({
-        requestGraphql: args.requestGraphql,
-        value: latestCommit,
-        branchName: pullRequest.headRefName,
-      });
+      const collectedCommit = collectCommitMetadata(latestCommit);
       const rowKey = repositoryInventoryPullRequestRowKey(pullRequest.id);
-      providerSignatures.set(rowKey, {
+      signatures.set(rowKey, {
         updatedAt: pullRequest.updatedAt,
+        baseRefName: pullRequest.baseRefName,
+        headRefName: pullRequest.headRefName,
         headRefOid: pullRequest.headRefOid,
-        latestCommit: collectedCommit.providerSignature,
+        headRepository:
+          pullRequest.headRepository === null
+            ? null
+            : {
+                nodeId: pullRequest.headRepository.id,
+                fullName: pullRequest.headRepository.nameWithOwner,
+                owner: pullRequest.headRepository.owner.login,
+              },
+        latestCommit: collectedCommit.signature,
       });
       const pullRequestLabels = await readCompleteLabels({
         requestGraphql: args.requestGraphql,
@@ -2095,8 +2284,13 @@ async function collectPullRequests(args: {
           name: label.name,
           color: optionalString(label.color),
         })),
-        cloudflareBuilds: collectedCommit.cloudflareBuilds,
         headCommit: collectedCommit.commit,
+      });
+      associations.push({
+        rowKey,
+        branchName: pullRequest.headRefName,
+        commit: collectedCommit.identity,
+        signature: collectedCommit.signature,
       });
     }
 
@@ -2114,7 +2308,7 @@ async function collectPullRequests(args: {
       true,
     );
   }
-  return { items, providerSignatures };
+  return { items, associations, signatures };
 }
 
 function assertSameProviderSignatureMap<Signature extends object>(args: {
@@ -2151,10 +2345,10 @@ async function verifyCollectedBranchSignatures(args: {
   repositoryFullName: string;
   defaultBranch: string | null;
   defaultBranchHeadSha: string | null;
-  branchSignatures: ReadonlyMap<string, ProviderCommitSignature>;
+  branchSignatures: ReadonlyMap<string, CommitMetadataSignature>;
 }): Promise<void> {
   const seenCursors = new Set<string>();
-  const verifiedBranchSignatures = new Map<string, ProviderCommitSignature>();
+  const verifiedBranchSignatures = new Map<string, CommitMetadataSignature>();
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
@@ -2205,14 +2399,7 @@ async function verifyCollectedBranchSignatures(args: {
           true,
         );
       }
-      verifiedBranchSignatures.set(
-        ref.name,
-        await collectProviderCommitSignature({
-          requestGraphql: args.requestGraphql,
-          value: ref.target,
-          branchName: ref.name,
-        }),
-      );
+      verifiedBranchSignatures.set(ref.name, commitMetadataSignature(ref.target));
     }
 
     const nextCursor = requireNextCursor(repository.refs.pageInfo);
@@ -2228,7 +2415,7 @@ async function verifyCollectedBranchSignatures(args: {
     verified: verifiedBranchSignatures,
     expectedTotalCount,
     kind: "branch",
-    same: sameProviderCommitSignature,
+    same: sameCommitMetadataSignature,
   });
 }
 
@@ -2237,10 +2424,10 @@ async function verifyCollectedPullRequestSignatures(args: {
   repositoryId: string;
   repositoryDatabaseId: string;
   repositoryFullName: string;
-  pullRequestSignatures: ReadonlyMap<string, PullRequestProviderSignature>;
+  pullRequestSignatures: ReadonlyMap<string, PullRequestMetadataSignature>;
 }): Promise<void> {
   const seenCursors = new Set<string>();
-  const verifiedPullRequestSignatures = new Map<string, PullRequestProviderSignature>();
+  const verifiedPullRequestSignatures = new Map<string, PullRequestMetadataSignature>();
   let expectedTotalCount: number | null = null;
   let cursor: string | null = null;
   let page = 1;
@@ -2297,12 +2484,18 @@ async function verifyCollectedPullRequestSignatures(args: {
       }
       verifiedPullRequestSignatures.set(rowKey, {
         updatedAt: pullRequest.updatedAt,
+        baseRefName: pullRequest.baseRefName,
+        headRefName: pullRequest.headRefName,
         headRefOid: pullRequest.headRefOid,
-        latestCommit: await collectProviderCommitSignature({
-          requestGraphql: args.requestGraphql,
-          value: latestCommit,
-          branchName: pullRequest.headRefName,
-        }),
+        headRepository:
+          pullRequest.headRepository === null
+            ? null
+            : {
+                nodeId: pullRequest.headRepository.id,
+                fullName: pullRequest.headRepository.nameWithOwner,
+                owner: pullRequest.headRepository.owner.login,
+              },
+        latestCommit: commitMetadataSignature(latestCommit),
       });
     }
     const nextCursor = requireNextCursor(repository.pullRequests.pageInfo);
@@ -2318,7 +2511,7 @@ async function verifyCollectedPullRequestSignatures(args: {
     verified: verifiedPullRequestSignatures,
     expectedTotalCount,
     kind: "pull request",
-    same: samePullRequestProviderSignature,
+    same: samePullRequestMetadataSignature,
   });
 }
 
@@ -2354,12 +2547,7 @@ export async function collectRepositoryInventory(args: {
 }): Promise<CollectedRepositoryInventory> {
   const branches = await collectBranches(args);
   const branchHeadShaByName = new Map(
-    branches.items.map((item): [string, string] => {
-      if (item.kind !== "branch") {
-        throw new Error("Branch collection returned another item kind.");
-      }
-      return [item.name, item.headCommit.sha];
-    }),
+    branches.items.map((item): [string, string] => [item.name, item.headCommit.sha]),
   );
   const pullRequests = await collectPullRequests({
     ...args,
@@ -2368,6 +2556,13 @@ export async function collectRepositoryInventory(args: {
     repositoryFullName: branches.repositoryFullName,
     branchHeadShaByName,
   });
+  const associations = [...branches.associations, ...pullRequests.associations];
+  const commits = uniqueRepositoryScopedCommits(associations);
+  const collectedCloudflareObservations = await collectCloudflareCommitObservations({
+    requestGraphql: args.requestGraphql,
+    commits,
+    batchSize: args.pageSize,
+  });
   await verifyCollectedBranchSignatures({
     requestGraphql: args.requestGraphql,
     repositoryId: branches.repositoryId,
@@ -2375,17 +2570,30 @@ export async function collectRepositoryInventory(args: {
     repositoryFullName: branches.repositoryFullName,
     defaultBranch: branches.defaultBranch,
     defaultBranchHeadSha: branches.defaultBranchHeadSha,
-    branchSignatures: branches.providerSignatures,
+    branchSignatures: branches.signatures,
   });
   await verifyCollectedPullRequestSignatures({
     requestGraphql: args.requestGraphql,
     repositoryId: branches.repositoryId,
     repositoryDatabaseId: branches.repositoryDatabaseId,
     repositoryFullName: branches.repositoryFullName,
-    pullRequestSignatures: pullRequests.providerSignatures,
+    pullRequestSignatures: pullRequests.signatures,
+  });
+  const verifiedCloudflareObservations = await collectCloudflareCommitObservations({
+    requestGraphql: args.requestGraphql,
+    commits,
+    batchSize: args.pageSize,
+  });
+  assertSameCloudflareCommitObservations({
+    collected: collectedCloudflareObservations,
+    verified: verifiedCloudflareObservations,
   });
 
-  const items = [...branches.items, ...pullRequests.items];
+  const items = attachCloudflareBuilds({
+    items: [...branches.items, ...pullRequests.items],
+    associations,
+    observations: collectedCloudflareObservations,
+  });
 
   return {
     repositoryId: branches.repositoryId,
