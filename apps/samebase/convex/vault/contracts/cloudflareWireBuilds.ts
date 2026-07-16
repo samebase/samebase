@@ -14,6 +14,7 @@ export const cloudflareWireBuildsContract = {
   },
   returns: v.null(),
   mcp: {
+    title: "Wire Workers Builds",
     name: "vault_cloudflare_wireBuilds",
     description:
       "Connect the app's Cloudflare Worker to its GitHub repository through Workers Builds: production and preview triggers, so pushes deploy and pull requests get previews.",

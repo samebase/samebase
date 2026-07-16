@@ -19,6 +19,7 @@ export const convexListProjectsContract = {
   returns: array(vConvexProjectResult),
   structuredContent: object({ projects: array(vConvexProjectResult) }),
   mcp: {
+    title: "List Convex projects",
     name: "vault_convex_listProjects",
     description:
       "List the Convex projects available on the caller's connected Convex account, for choosing an attach target.",

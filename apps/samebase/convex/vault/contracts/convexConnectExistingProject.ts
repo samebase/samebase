@@ -15,6 +15,7 @@ export const convexConnectExistingProjectContract = {
   },
   returns: v.null(),
   mcp: {
+    title: "Connect Convex deployment",
     name: "vault_convex_connectExistingProject",
     description:
       "Attach an existing Convex project to a Samebase app (manual attach): records the deployment and starts the connection run.",

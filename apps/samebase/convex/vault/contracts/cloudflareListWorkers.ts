@@ -79,6 +79,7 @@ export const cloudflareListWorkersContract = {
   returns: array(vCloudflareWorkerResult),
   structuredContent: object({ workers: array(vCloudflareWorkerResult) }),
   mcp: {
+    title: "List Cloudflare Workers",
     name: "vault_cloudflare_listWorkers",
     description:
       "List the Workers on a Cloudflare account, classified against the app's repository so safe attach targets are marked recommended.",

@@ -17,6 +17,7 @@ export const cloudflareListAccountsContract = {
   returns: array(vCloudflareAccountResult),
   structuredContent: object({ accounts: array(vCloudflareAccountResult) }),
   mcp: {
+    title: "List Cloudflare accounts",
     name: "vault_cloudflare_listAccounts",
     description:
       "List the Cloudflare accounts available on the caller's connected Cloudflare login, for choosing where a Worker lives.",

@@ -14,6 +14,7 @@ export const cloudflareVerifyInfrastructureContract = {
   },
   returns: v.null(),
   mcp: {
+    title: "Verify infrastructure",
     name: "vault_cloudflare_verifyInfrastructure",
     description:
       "Verify the app's recorded Cloudflare infrastructure: Workers Builds trigger IDs and Convex deploy-key variables, then mark stale Samebase records as repairable.",

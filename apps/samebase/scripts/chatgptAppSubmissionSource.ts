@@ -7,9 +7,9 @@ fails closed when a catalog tool has no justification entry.
 
 export const appInfo = {
   display_name: "Samebase",
-  subtitle: "Create apps from chat",
+  subtitle: "Create and connect web apps",
   description:
-    "Provision a Github + Convex + Cloudflare Worker app on your own accounts. Manage all your apps from a single dashboard. Samebase is made in itself, can your app-builder do that?",
+    "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect app state and repair provider wiring from one inventory.",
   category: "DEVELOPER_TOOLS",
 } as const;
 
@@ -161,6 +161,16 @@ export const testCases = [
     tools_triggered: "vault_actions_createRepository",
     expected_output:
       "Starts app provisioning with public GitHub repository visibility and returns the Samebase vault ID and provisioning run ID.",
+    expected_output_url: null,
+  },
+  {
+    description: "Connect an existing GitHub repository without changing its providers.",
+    user_prompt:
+      "Connect the existing GitHub repository samebase/tmp-chatgpt-existing to Samebase. Keep it GitHub-only for now and do not attach Convex or Cloudflare.",
+    file_attachment_urls: null,
+    tools_triggered: "vault_actions_connectRepository",
+    expected_output:
+      "Creates the Samebase app record and starts repository tree sync while leaving Convex and Cloudflare unconfigured.",
     expected_output_url: null,
   },
   {

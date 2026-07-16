@@ -18,6 +18,7 @@ export const connectRepositoryContract = {
   returns: vConnectRepositoryResult,
   structuredContent: vConnectRepositoryResult,
   mcp: {
+    title: "Connect existing repository",
     name: "vault_actions_connectRepository",
     description:
       "Import an existing GitHub repository as a Samebase app. Creates the Samebase record and syncs the repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.",

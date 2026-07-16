@@ -45,6 +45,23 @@ Samebase wraps provider joins, registry writes, and learned failure modes, while
 operations stay provider-direct unless an independent Samebase product need justifies changing that
 boundary.
 
+## Where The Lessons Apply
+
+The Sites lessons belong in both Samebase repositories, with one owner for each kind of truth:
+
+- `samebase/agent-plugins` owns discovery, build and hosting workflow, cross-skill handoff, success
+  criteria, and agent communication;
+- Samebase action contracts own tool names, schemas, access, safety annotations, and results;
+- MCP server instructions own the short cross-tool continuity contract clients receive at
+  initialization;
+- `docs/operate/*` owns durable provider-direct handoffs;
+- generated `llms.txt` owns public discovery and links to the plugin, action contracts, and operate
+  guides;
+- `chatgptAppSubmissionSource.ts` owns app-submission prose and representative tool-trigger tests.
+
+This division applies the first-party packaging discipline without copying the workflow into
+`llms.txt` or making the plugin a stale second action catalog.
+
 ## Source Boundary
 
 This investigation inspected the installed proprietary Sites bundle and the callable tool schemas

@@ -19,293 +19,211 @@ None.
 
 ## Returns
 
-Convex validator JSON of the tool's `structuredContent`:
+JSON Schema for the tool's `structuredContent`:
 
 ```json
 {
   "type": "object",
-  "value": {
+  "properties": {
     "authentication": {
-      "fieldType": {
-        "type": "union",
-        "value": [
-          {
-            "type": "object",
-            "value": {
-              "authenticated": {
-                "fieldType": {
-                  "type": "literal",
-                  "value": true
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "authenticated": {
+              "const": true
+            },
+            "user": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string"
                 },
-                "optional": false
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                }
               },
-              "user": {
-                "fieldType": {
-                  "type": "object",
-                  "value": {
-                    "userId": {
-                      "fieldType": {
-                        "type": "id",
-                        "tableName": "users"
-                      },
-                      "optional": false
-                    },
-                    "name": {
-                      "fieldType": {
-                        "type": "string"
-                      },
-                      "optional": true
-                    },
-                    "email": {
-                      "fieldType": {
-                        "type": "string"
-                      },
-                      "optional": false
-                    }
+              "required": ["userId", "email"],
+              "additionalProperties": false
+            },
+            "role": {
+              "anyOf": [
+                {
+                  "const": "role_anonymous"
+                },
+                {
+                  "const": "role_deleting"
+                },
+                {
+                  "const": "role_pending_access"
+                },
+                {
+                  "const": "role_member"
+                },
+                {
+                  "const": "role_staff"
+                }
+              ]
+            },
+            "accessKeys": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "const": "access_public"
+                  },
+                  {
+                    "const": "access_account_deletion"
+                  },
+                  {
+                    "const": "access_user_preferences"
+                  },
+                  {
+                    "const": "access_dashboard"
+                  },
+                  {
+                    "const": "access_provider_connections"
+                  },
+                  {
+                    "const": "access_repo_connect"
+                  },
+                  {
+                    "const": "access_app_create"
+                  },
+                  {
+                    "const": "access_app_refresh"
+                  },
+                  {
+                    "const": "access_files_read"
+                  },
+                  {
+                    "const": "access_files_write"
+                  },
+                  {
+                    "const": "access_machines"
+                  },
+                  {
+                    "const": "access_mcp"
+                  },
+                  {
+                    "const": "access_browser_login_handoff"
+                  },
+                  {
+                    "const": "access_schema_graph"
+                  },
+                  {
+                    "const": "access_admin"
                   }
-                },
-                "optional": false
-              },
-              "role": {
-                "fieldType": {
-                  "type": "union",
-                  "value": [
-                    {
-                      "type": "literal",
-                      "value": "role_anonymous"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_deleting"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_pending_access"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_member"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_staff"
-                    }
-                  ]
-                },
-                "optional": false
-              },
-              "accessKeys": {
-                "fieldType": {
-                  "type": "array",
-                  "value": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "access_public"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_account_deletion"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_user_preferences"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_dashboard"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_provider_connections"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_repo_connect"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_app_create"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_app_refresh"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_files_read"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_files_write"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_machines"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_mcp"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_browser_login_handoff"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_schema_graph"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_admin"
-                      }
-                    ]
-                  }
-                },
-                "optional": false
-              },
-              "grantedScopes": {
-                "fieldType": {
-                  "type": "array",
-                  "value": {
-                    "type": "string"
-                  }
-                },
-                "optional": false
+                ]
+              }
+            },
+            "grantedScopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
             }
           },
-          {
-            "type": "object",
-            "value": {
-              "authenticated": {
-                "fieldType": {
-                  "type": "literal",
-                  "value": false
+          "required": ["authenticated", "user", "role", "accessKeys", "grantedScopes"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "authenticated": {
+              "const": false
+            },
+            "user": {
+              "type": "null"
+            },
+            "role": {
+              "anyOf": [
+                {
+                  "const": "role_anonymous"
                 },
-                "optional": false
-              },
-              "user": {
-                "fieldType": {
-                  "type": "null"
+                {
+                  "const": "role_deleting"
                 },
-                "optional": false
-              },
-              "role": {
-                "fieldType": {
-                  "type": "union",
-                  "value": [
-                    {
-                      "type": "literal",
-                      "value": "role_anonymous"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_deleting"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_pending_access"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_member"
-                    },
-                    {
-                      "type": "literal",
-                      "value": "role_staff"
-                    }
-                  ]
+                {
+                  "const": "role_pending_access"
                 },
-                "optional": false
-              },
-              "accessKeys": {
-                "fieldType": {
-                  "type": "array",
-                  "value": {
-                    "type": "union",
-                    "value": [
-                      {
-                        "type": "literal",
-                        "value": "access_public"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_account_deletion"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_user_preferences"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_dashboard"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_provider_connections"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_repo_connect"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_app_create"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_app_refresh"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_files_read"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_files_write"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_machines"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_mcp"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_browser_login_handoff"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_schema_graph"
-                      },
-                      {
-                        "type": "literal",
-                        "value": "access_admin"
-                      }
-                    ]
+                {
+                  "const": "role_member"
+                },
+                {
+                  "const": "role_staff"
+                }
+              ]
+            },
+            "accessKeys": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "const": "access_public"
+                  },
+                  {
+                    "const": "access_account_deletion"
+                  },
+                  {
+                    "const": "access_user_preferences"
+                  },
+                  {
+                    "const": "access_dashboard"
+                  },
+                  {
+                    "const": "access_provider_connections"
+                  },
+                  {
+                    "const": "access_repo_connect"
+                  },
+                  {
+                    "const": "access_app_create"
+                  },
+                  {
+                    "const": "access_app_refresh"
+                  },
+                  {
+                    "const": "access_files_read"
+                  },
+                  {
+                    "const": "access_files_write"
+                  },
+                  {
+                    "const": "access_machines"
+                  },
+                  {
+                    "const": "access_mcp"
+                  },
+                  {
+                    "const": "access_browser_login_handoff"
+                  },
+                  {
+                    "const": "access_schema_graph"
+                  },
+                  {
+                    "const": "access_admin"
                   }
-                },
-                "optional": false
-              },
-              "grantedScopes": {
-                "fieldType": {
-                  "type": "array",
-                  "value": {
-                    "type": "string"
-                  }
-                },
-                "optional": false
+                ]
+              }
+            },
+            "grantedScopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
             }
-          }
-        ]
-      },
-      "optional": false
+          },
+          "required": ["authenticated", "user", "role", "accessKeys", "grantedScopes"],
+          "additionalProperties": false
+        }
+      ]
     }
-  }
+  },
+  "required": ["authentication"],
+  "additionalProperties": false
 }
 ```

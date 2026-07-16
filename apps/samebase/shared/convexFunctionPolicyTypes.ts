@@ -39,6 +39,7 @@ type AppViewerForAccess<
 > = Access extends PublicAccessKey ? PublicViewer : AuthenticatedViewer;
 
 export type AppFunctionMcpMetadata = {
+  title: string;
   name: string;
   description: string;
   safety: "read_only" | "write" | "destructive" | "proposal_only";

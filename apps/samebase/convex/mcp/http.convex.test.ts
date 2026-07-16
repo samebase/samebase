@@ -227,6 +227,29 @@ describe("MCP tool listing access", () => {
       actionContracts.map((contract) => contract.mcp.name),
     );
   });
+
+  it("publishes human titles and structured output schemas", () => {
+    const tools = listMcpToolsForAccess({
+      grantedScopes: [...ACCESS_KEYS],
+      currentAccessKeys: [...ACCESS_KEYS],
+    });
+
+    expect(tools.find((tool) => tool.name === "vault_actions_createRepository")).toMatchObject({
+      title: "Create Samebase app",
+      outputSchema: {
+        type: "object",
+        properties: {
+          vaultId: { type: "string" },
+          runId: { type: "string" },
+        },
+        required: ["vaultId", "runId"],
+        additionalProperties: false,
+      },
+    });
+    expect(tools.find((tool) => tool.name === "vault_cloudflare_wireBuilds")).not.toHaveProperty(
+      "outputSchema",
+    );
+  });
 });
 
 describe("MCP usage attribution dimensions", () => {
@@ -364,8 +387,43 @@ describe("MCP tools/call access enforcement", () => {
       return await response.json();
     };
 
-    return { callTool, t, userId };
+    return { accessToken, callTool, t, userId };
   }
+
+  it("returns cross-tool workflow instructions during initialization", async () => {
+    const { accessToken, t } = await seedMcpBearer({ isApproved: true });
+
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      result: {
+        instructions: expect.stringContaining(
+          "A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.",
+        ),
+        serverInfo: {
+          name: "samebase",
+          version: "0.1.0",
+        },
+      },
+    });
+  });
 
   it("advertises OAuth metadata when the bearer token is missing", async () => {
     const t = makeConvexTest();

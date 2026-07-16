@@ -13,6 +13,7 @@ export const retryInfrastructureProvisioningContract = {
   },
   returns: v.null(),
   mcp: {
+    title: "Retry infrastructure provisioning",
     name: "vault_actions_retryInfrastructureProvisioning",
     description:
       "Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.",

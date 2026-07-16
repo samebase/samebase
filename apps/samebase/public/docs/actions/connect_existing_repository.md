@@ -21,26 +21,20 @@ are readable through `get_user_vaults` (`sourceSetup` running/failed with step a
 
 ## Returns
 
-Convex validator JSON of the tool's `structuredContent`:
+JSON Schema for the tool's `structuredContent`:
 
 ```json
 {
   "type": "object",
-  "value": {
+  "properties": {
     "vaultId": {
-      "fieldType": {
-        "type": "id",
-        "tableName": "vaults"
-      },
-      "optional": false
+      "type": "string"
     },
     "runId": {
-      "fieldType": {
-        "type": "id",
-        "tableName": "appProvisioningRuns"
-      },
-      "optional": false
+      "type": "string"
     }
-  }
+  },
+  "required": ["vaultId", "runId"],
+  "additionalProperties": false
 }
 ```

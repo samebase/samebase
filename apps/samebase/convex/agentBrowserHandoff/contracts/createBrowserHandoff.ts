@@ -19,6 +19,7 @@ export const createBrowserHandoffContract = {
   returns: vCreateBrowserHandoffResult,
   structuredContent: vCreateBrowserHandoffResult,
   mcp: {
+    title: "Create browser handoff",
     name: "create_browser_handoff",
     description:
       "Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.",
