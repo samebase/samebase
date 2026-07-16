@@ -96,6 +96,7 @@ const checks = {
 function branch(rowKey: string, name: string, isDefault = name === "main"): BranchItem {
   return {
     kind: "branch",
+    buildCount: 0,
     rowKey,
     name,
     isDefault,
@@ -109,6 +110,7 @@ function branch(rowKey: string, name: string, isDefault = name === "main"): Bran
 function pullRequest(rowKey: string, labelCount: number, number = 42): PullRequestItem {
   return {
     kind: "pull_request",
+    buildCount: 0,
     rowKey,
     number,
     url: `https://github.com/ada/inventory/pull/${number}`,
@@ -119,7 +121,11 @@ function pullRequest(rowKey: string, labelCount: number, number = 42): PullReque
     changedFiles: 17,
     baseRefName: "main",
     isCrossRepository: false,
-    headRepositoryFullName: "ada/inventory",
+    headRepository: {
+      state: "available",
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+    },
     headRefName: `feature/${number}`,
     comparison: { state: "ready", aheadBy: 6, behindBy: 2 },
     canOpenInSamebase: true,
@@ -339,6 +345,7 @@ describe("loadRepositoryInventorySnapshot", () => {
         branch("branch:main", "main"),
         {
           kind: "pull_request",
+          buildCount: 0,
           rowKey,
           number: 42,
           url: "https://github.com/ada/inventory/pull/42",
@@ -349,7 +356,11 @@ describe("loadRepositoryInventorySnapshot", () => {
           changedFiles: 17,
           baseRefName: "main",
           isCrossRepository: false,
-          headRepositoryFullName: "ada/inventory",
+          headRepository: {
+            state: "available",
+            repositoryNodeId: "R_inventory",
+            repositoryFullName: "ada/inventory",
+          },
           headRefName: "feature/42",
           comparison: { state: "ready", aheadBy: 6, behindBy: 2 },
           canOpenInSamebase: true,

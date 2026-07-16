@@ -24,7 +24,6 @@ export const vRepositoryInventoryCheckSummary = object({
   runningCount: number(),
   neutralCount: number(),
   unknownCount: number(),
-  primaryTargetUrl: optional(string()),
 });
 export type RepositoryInventoryCheckSummary = Infer<typeof vRepositoryInventoryCheckSummary>;
 
@@ -35,6 +34,157 @@ export const vRepositoryInventoryCommit = object({
   checks: vRepositoryInventoryCheckSummary,
 });
 export type RepositoryInventoryCommit = Infer<typeof vRepositoryInventoryCommit>;
+
+export const vRepositoryInventoryCloudflareBuildState = union(
+  literal("queued"),
+  literal("running"),
+  literal("success"),
+  literal("failure"),
+  literal("cancelled"),
+  literal("skipped"),
+  literal("provider_unknown"),
+);
+export type RepositoryInventoryCloudflareBuildState = Infer<
+  typeof vRepositoryInventoryCloudflareBuildState
+>;
+
+const vRepositoryInventoryCloudflareBuildPreviewPending = object({
+  state: literal("pending"),
+});
+const vRepositoryInventoryCloudflareBuildPreviewReady = object({
+  state: literal("ready"),
+  versionUrl: string(),
+  branchAlias: union(
+    object({ state: literal("not_provided") }),
+    object({ state: literal("ready"), branchName: string(), url: string() }),
+    object({
+      state: literal("provider_unknown"),
+      reason: literal("branch_unavailable"),
+      providerUrl: string(),
+    }),
+  ),
+});
+const vRepositoryInventoryCloudflareBuildPreviewUnavailable = object({
+  state: literal("unavailable"),
+});
+const vRepositoryInventoryCloudflareBuildPreviewDisabled = object({
+  state: literal("disabled"),
+});
+const vRepositoryInventoryCloudflareBuildPreviewProviderUnknown = object({
+  state: literal("provider_unknown"),
+  reason: union(
+    literal("configuration_unavailable"),
+    literal("invalid_provider_output"),
+    literal("unrecognized_build_state"),
+  ),
+});
+
+export const vRepositoryInventoryCloudflareBuildPreview = union(
+  vRepositoryInventoryCloudflareBuildPreviewPending,
+  vRepositoryInventoryCloudflareBuildPreviewReady,
+  vRepositoryInventoryCloudflareBuildPreviewUnavailable,
+  vRepositoryInventoryCloudflareBuildPreviewDisabled,
+  vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+);
+export type RepositoryInventoryCloudflareBuildPreview = Infer<
+  typeof vRepositoryInventoryCloudflareBuildPreview
+>;
+
+const repositoryInventoryCloudflareBuildFields = {
+  sourceKey: string(),
+  checkName: string(),
+  workerName: string(),
+  rootDirectory: union(
+    object({ state: literal("known"), value: string() }),
+    object({ state: literal("unknown") }),
+  ),
+  branch: union(
+    object({ state: literal("known"), name: string() }),
+    object({ state: literal("unknown") }),
+  ),
+  providerStatus: string(),
+  providerConclusion: optional(string()),
+  providerBuildId: optional(string()),
+  detailsUrl: optional(string()),
+  githubUrl: optional(string()),
+  startedAt: optional(number()),
+  completedAt: optional(number()),
+};
+
+/*
+ * Build state and preview state share one union so impossible rows, such as a successful build
+ * whose preview is still pending, are rejected by the storage boundary.
+ */
+export const vRepositoryInventoryCloudflareBuild = union(
+  object({
+    ...repositoryInventoryCloudflareBuildFields,
+    state: literal("queued"),
+    preview: union(
+      vRepositoryInventoryCloudflareBuildPreviewPending,
+      vRepositoryInventoryCloudflareBuildPreviewDisabled,
+      vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+    ),
+  }),
+  object({
+    ...repositoryInventoryCloudflareBuildFields,
+    state: literal("running"),
+    preview: union(
+      vRepositoryInventoryCloudflareBuildPreviewPending,
+      vRepositoryInventoryCloudflareBuildPreviewReady,
+      vRepositoryInventoryCloudflareBuildPreviewDisabled,
+      vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+    ),
+  }),
+  object({
+    ...repositoryInventoryCloudflareBuildFields,
+    state: literal("success"),
+    preview: union(
+      vRepositoryInventoryCloudflareBuildPreviewReady,
+      vRepositoryInventoryCloudflareBuildPreviewDisabled,
+      vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+    ),
+  }),
+  object({
+    ...repositoryInventoryCloudflareBuildFields,
+    state: literal("failure"),
+    preview: union(
+      vRepositoryInventoryCloudflareBuildPreviewUnavailable,
+      vRepositoryInventoryCloudflareBuildPreviewReady,
+      vRepositoryInventoryCloudflareBuildPreviewDisabled,
+      vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+    ),
+  }),
+  object({
+    ...repositoryInventoryCloudflareBuildFields,
+    state: literal("cancelled"),
+    preview: union(
+      vRepositoryInventoryCloudflareBuildPreviewUnavailable,
+      vRepositoryInventoryCloudflareBuildPreviewReady,
+      vRepositoryInventoryCloudflareBuildPreviewDisabled,
+      vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+    ),
+  }),
+  object({
+    ...repositoryInventoryCloudflareBuildFields,
+    state: literal("skipped"),
+    preview: union(
+      vRepositoryInventoryCloudflareBuildPreviewUnavailable,
+      vRepositoryInventoryCloudflareBuildPreviewReady,
+      vRepositoryInventoryCloudflareBuildPreviewDisabled,
+      vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+    ),
+  }),
+  object({
+    ...repositoryInventoryCloudflareBuildFields,
+    state: literal("provider_unknown"),
+    preview: union(
+      vRepositoryInventoryCloudflareBuildPreviewReady,
+      vRepositoryInventoryCloudflareBuildPreviewDisabled,
+      vRepositoryInventoryCloudflareBuildPreviewProviderUnknown,
+    ),
+  }),
+);
+export type RepositoryInventoryCloudflareBuild = Infer<typeof vRepositoryInventoryCloudflareBuild>;
 
 export const vRepositoryInventoryPullRequestLabel = object({
   name: string(),
@@ -143,27 +293,39 @@ export const DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE: RepositoryInventoryFilte
   excludedLabelCount: 0,
 };
 
-const repositoryInventoryPublicItemFields = {
+const repositoryInventoryItemFields = {
   rowKey: string(),
-  previewUrl: optional(string()),
   headCommit: vRepositoryInventoryCommit,
 };
 
 const repositoryInventoryBranchFields = {
-  ...repositoryInventoryPublicItemFields,
+  ...repositoryInventoryItemFields,
   name: string(),
   isDefault: boolean(),
   comparison: vRepositoryInventoryBranchComparison,
 };
 
+export const vRepositoryInventoryPullRequestHeadRepository = union(
+  object({
+    state: literal("available"),
+    repositoryNodeId: string(),
+    repositoryFullName: string(),
+  }),
+  object({ state: literal("unavailable") }),
+);
+export type RepositoryInventoryPullRequestHeadRepository = Infer<
+  typeof vRepositoryInventoryPullRequestHeadRepository
+>;
+
 export const vRepositoryInventoryBranchItem = object({
   kind: literal("branch"),
   ...repositoryInventoryBranchFields,
+  buildCount: number(),
 });
 export type RepositoryInventoryBranchItem = Infer<typeof vRepositoryInventoryBranchItem>;
 
 const repositoryInventoryPullRequestFields = {
-  ...repositoryInventoryPublicItemFields,
+  ...repositoryInventoryItemFields,
   number: number(),
   url: string(),
   title: string(),
@@ -173,7 +335,7 @@ const repositoryInventoryPullRequestFields = {
   changedFiles: number(),
   baseRefName: string(),
   isCrossRepository: boolean(),
-  headRepositoryFullName: optional(string()),
+  headRepository: vRepositoryInventoryPullRequestHeadRepository,
   headRefName: string(),
   comparison: vRepositoryInventoryPullRequestComparison,
   canOpenInSamebase: boolean(),
@@ -183,6 +345,7 @@ const repositoryInventoryPullRequestFields = {
 export const vRepositoryInventoryPullRequestItem = object({
   kind: literal("pull_request"),
   ...repositoryInventoryPullRequestFields,
+  buildCount: number(),
 });
 export type RepositoryInventoryPullRequestItem = Infer<typeof vRepositoryInventoryPullRequestItem>;
 
@@ -238,6 +401,7 @@ const repositoryInventoryStoredFields = {
 export const vCollectedRepositoryInventoryBranchItem = object({
   kind: literal("branch"),
   ...repositoryInventoryBranchFields,
+  cloudflareBuilds: array(vRepositoryInventoryCloudflareBuild),
   sortGroup: number(),
   sortTime: number(),
 });
@@ -248,6 +412,7 @@ export type CollectedRepositoryInventoryBranchItem = Infer<
 export const vCollectedRepositoryInventoryPullRequestItem = object({
   kind: literal("pull_request"),
   ...repositoryInventoryPullRequestFields,
+  cloudflareBuilds: array(vRepositoryInventoryCloudflareBuild),
   labels: array(vRepositoryInventoryPullRequestLabel),
   sortGroup: number(),
   sortTime: number(),
@@ -263,9 +428,50 @@ export const vCollectedRepositoryInventoryItem = union(
 );
 export type CollectedRepositoryInventoryItem = Infer<typeof vCollectedRepositoryInventoryItem>;
 
+export const vRepositoryInventoryCloudflareBuildRow = object({
+  vaultId: id("vaults"),
+  snapshotId: id("vaultRepositoryInventorySnapshots"),
+  build: vRepositoryInventoryCloudflareBuild,
+});
+export type RepositoryInventoryCloudflareBuildRow = Infer<
+  typeof vRepositoryInventoryCloudflareBuildRow
+>;
+
+export const vRepositoryInventoryCloudflareBuildAssociation = object({
+  vaultId: id("vaults"),
+  snapshotId: id("vaultRepositoryInventorySnapshots"),
+  rowKey: string(),
+  buildSourceKey: string(),
+  sortKey: string(),
+});
+export type RepositoryInventoryCloudflareBuildAssociation = Infer<
+  typeof vRepositoryInventoryCloudflareBuildAssociation
+>;
+
+const vRepositoryInventoryCloudflareBuildPage = paginationResultValidator(
+  vRepositoryInventoryCloudflareBuild,
+);
+export const vRepositoryInventoryCloudflareBuildPageResult = union(
+  object({
+    state: literal("unavailable"),
+  }),
+  object({
+    state: literal("ready"),
+    expectedBuildCount: number(),
+    page: vRepositoryInventoryCloudflareBuildPage.fields.page,
+    isDone: boolean(),
+    continueCursor: string(),
+  }),
+);
+export type RepositoryInventoryCloudflareBuildPageResult = Infer<
+  typeof vRepositoryInventoryCloudflareBuildPageResult
+>;
+
 export const vStoredRepositoryInventoryBranchItem = object({
   kind: literal("branch"),
   ...repositoryInventoryBranchFields,
+  buildCount: number(),
+  expectedBuildCount: number(),
   ...repositoryInventoryStoredFields,
 });
 export type StoredRepositoryInventoryBranchItem = Infer<
@@ -275,6 +481,8 @@ export type StoredRepositoryInventoryBranchItem = Infer<
 export const vStoredRepositoryInventoryPullRequestItem = object({
   kind: literal("pull_request"),
   ...repositoryInventoryPullRequestFields,
+  buildCount: number(),
+  expectedBuildCount: number(),
   ...repositoryInventoryStoredFields,
   localHeadRefName: optional(string()),
   labelChunkCount: number(),
@@ -498,6 +706,8 @@ const repositoryInventorySnapshotFields = {
   vaultId: id("vaults"),
   branchCount: number(),
   pullRequestCount: number(),
+  buildCount: number(),
+  buildAssociationCount: number(),
   labelCount: number(),
   labelChunkCount: number(),
   labelFacetCount: number(),
@@ -508,6 +718,7 @@ export const vRepositoryInventorySnapshot = union(
   object({
     state: literal("collecting"),
     ...repositoryInventorySnapshotFields,
+    expectedBuildAssociationCount: number(),
   }),
   object({
     state: literal("ready"),
@@ -613,6 +824,8 @@ export type RepositoryInventoryRefreshRequestResult = Infer<
 >;
 
 export const REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE = 25;
+export const REPOSITORY_INVENTORY_STAGE_BUILD_BATCH_SIZE = 25;
+export const REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE = 100;
 export const REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE = 25;
@@ -637,4 +850,11 @@ export function repositoryInventoryBranchRowKey(name: string): string {
 
 export function repositoryInventoryPullRequestRowKey(nodeId: string): string {
   return `pull-request:${nodeId}`;
+}
+
+export function repositoryInventoryCloudflareBuildSortKey(args: {
+  workerName: string;
+  sourceKey: string;
+}): string {
+  return `${args.workerName.toLowerCase()}\u0000${args.sourceKey}`;
 }

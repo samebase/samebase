@@ -6,19 +6,63 @@ import {
   type RepositoryInventoryGraphqlRequest,
 } from "./githubRepositoryInventory";
 
-type FixtureBranch = {
+type FixtureCheckRunState =
+  | "ACTION_REQUIRED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "FAILURE"
+  | "IN_PROGRESS"
+  | "NEUTRAL"
+  | "PENDING"
+  | "QUEUED"
+  | "SKIPPED"
+  | "STALE"
+  | "STARTUP_FAILURE"
+  | "SUCCESS"
+  | "TIMED_OUT"
+  | "WAITING";
+
+type FixtureStatusContextState = "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
+
+type FixtureCloudflareCheckRun = {
   id: string;
   name: string;
-  sha: string;
+  status?: string;
+  conclusion?: string | null;
+  detailsUrl?: string | null;
+  url?: string | null;
+  summary?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+};
+
+type FixtureCloudflareCheckSuite = {
+  id: string;
+  branchName: string | null;
+  checkRuns: FixtureCloudflareCheckRun[];
+  totalCount?: number;
+};
+
+type FixtureCheckEvidence = {
   checkCount: number;
   statusContextCount?: number;
   rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
+  checkRunCountsByState?: Array<{ state: FixtureCheckRunState; count: number }>;
+  statusContextCountsByState?: Array<{ state: FixtureStatusContextState; count: number }>;
+  cloudflareSuites?: FixtureCloudflareCheckSuite[];
+  cloudflareSuiteTotalCount?: number;
+};
+
+type FixtureBranch = FixtureCheckEvidence & {
+  id: string;
+  name: string;
+  sha: string;
   aheadBy?: number;
   behindBy?: number;
   comparisonUnavailable?: boolean;
 };
 
-type FixturePullRequest = {
+type FixturePullRequest = FixtureCheckEvidence & {
   id: string;
   number: number;
   title: string;
@@ -32,9 +76,6 @@ type FixturePullRequest = {
   deletions: number;
   changedFiles: number;
   labelCount: number;
-  checkCount: number;
-  statusContextCount?: number;
-  rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
   updatedAt: string;
   baseRefName?: string;
   aheadBy?: number;
@@ -72,6 +113,8 @@ type RequestObservations = {
   branchVerificationPasses: number;
   pullRequestVerificationPasses: number;
   requestedRepositoryIds: string[];
+  cloudflareSuiteContinuationRequests: number;
+  cloudflareCheckRunContinuationRequests: number;
 };
 
 function pageInfo(hasNextPage: boolean, endCursor: string | null) {
@@ -134,75 +177,179 @@ function slicePage<Value>(args: {
   };
 }
 
-function makeCheckRun(commitNodeId: string, position: number) {
-  return {
-    __typename: "CheckRun",
-    id: `${commitNodeId}-check-${position}`,
-    name: `CI ${position}`,
-    status: "COMPLETED",
-    conclusion: "SUCCESS",
-    detailsUrl: `https://example.com/checks/${position}`,
-    url: `https://github.com/checks/${position}`,
-    summary: null,
-    startedAt: "2026-07-15T10:00:00Z",
-    completedAt: "2026-07-15T10:01:00Z",
-    checkSuite: {
-      app: {
-        name: "Example CI",
-        slug: "example-ci",
-      },
-    },
-  };
+const CHECK_RUN_STATES: readonly FixtureCheckRunState[] = [
+  "ACTION_REQUIRED",
+  "CANCELLED",
+  "COMPLETED",
+  "FAILURE",
+  "IN_PROGRESS",
+  "NEUTRAL",
+  "PENDING",
+  "QUEUED",
+  "SKIPPED",
+  "STALE",
+  "STARTUP_FAILURE",
+  "SUCCESS",
+  "TIMED_OUT",
+  "WAITING",
+];
+
+const STATUS_CONTEXT_STATES: readonly FixtureStatusContextState[] = [
+  "EXPECTED",
+  "ERROR",
+  "FAILURE",
+  "PENDING",
+  "SUCCESS",
+];
+
+function aggregateCheckRunState(
+  rollupState: FixtureCheckEvidence["rollupState"],
+): FixtureCheckRunState {
+  switch (rollupState) {
+    case "ERROR":
+    case "FAILURE":
+      return "FAILURE";
+    case "EXPECTED":
+    case "PENDING":
+      return "PENDING";
+    case "SUCCESS":
+    case undefined:
+      return "SUCCESS";
+    default: {
+      rollupState satisfies never;
+      return "COMPLETED";
+    }
+  }
 }
 
-function makeStatusContext(commitNodeId: string, position: number) {
-  return {
-    __typename: "StatusContext",
-    id: `${commitNodeId}-status-${position}`,
-    context: `Legacy CI ${position}`,
-    state: "SUCCESS",
-    description: null,
-    targetUrl: `https://example.com/status/${position}`,
-    updatedAt: "2026-07-15T10:01:00Z",
-  };
+function aggregateStatusContextState(
+  rollupState: FixtureCheckEvidence["rollupState"],
+): FixtureStatusContextState {
+  switch (rollupState) {
+    case "ERROR":
+      return "ERROR";
+    case "EXPECTED":
+      return "EXPECTED";
+    case "FAILURE":
+      return "FAILURE";
+    case "PENDING":
+      return "PENDING";
+    case "SUCCESS":
+    case undefined:
+      return "SUCCESS";
+    default: {
+      rollupState satisfies never;
+      return "PENDING";
+    }
+  }
 }
 
-function makeCheckPage(args: {
-  commitNodeId: string;
-  checkCount: number;
-  statusContextCount: number;
-  start: number;
-}) {
-  if (args.statusContextCount > args.checkCount) {
+function makeCheckCounts(args: FixtureCheckEvidence) {
+  const statusContextCount = args.statusContextCount ?? 0;
+  if (statusContextCount > args.checkCount) {
     throw new Error("Status context fixture count exceeds its total check count.");
   }
-  const end = Math.min(args.start + 100, args.checkCount);
-  const firstStatusContext = args.checkCount - args.statusContextCount;
+  const checkRunCount = args.checkCount - statusContextCount;
+  const checkRunState = aggregateCheckRunState(args.rollupState);
+  const statusContextState = aggregateStatusContextState(args.rollupState);
   return {
     totalCount: args.checkCount,
-    checkRunCount: args.checkCount - args.statusContextCount,
-    statusContextCount: args.statusContextCount,
-    pageInfo: pageInfo(
-      end < args.checkCount,
-      end < args.checkCount ? `check-${args.commitNodeId}:${end}` : null,
-    ),
-    nodes: Array.from({ length: end - args.start }, (_, index) => {
-      const position = args.start + index;
-      return position < firstStatusContext
-        ? makeCheckRun(args.commitNodeId, position)
-        : makeStatusContext(args.commitNodeId, position);
-    }),
+    checkRunCount,
+    statusContextCount,
+    checkRunCountsByState:
+      args.checkRunCountsByState ??
+      CHECK_RUN_STATES.map((state) => ({
+        state,
+        count: state === checkRunState ? checkRunCount : 0,
+      })),
+    statusContextCountsByState:
+      args.statusContextCountsByState ??
+      STATUS_CONTEXT_STATES.map((state) => ({
+        state,
+        count: state === statusContextState ? statusContextCount : 0,
+      })),
   };
 }
 
-function makeCommit(args: {
-  nodeId: string;
-  sha: string;
-  repositoryId: string;
-  checkCount: number;
-  statusContextCount?: number;
-  rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
+function makeCloudflareCheckRun(run: FixtureCloudflareCheckRun) {
+  return {
+    id: run.id,
+    name: run.name,
+    status: run.status ?? "COMPLETED",
+    conclusion: run.conclusion === undefined ? "SUCCESS" : run.conclusion,
+    detailsUrl: run.detailsUrl ?? `https://dash.cloudflare.com/builds/${run.id}`,
+    url: run.url ?? `https://github.com/checks/${run.id}`,
+    summary: run.summary ?? null,
+    startedAt: run.startedAt ?? "2026-07-15T10:00:00Z",
+    completedAt: run.completedAt ?? "2026-07-15T10:01:00Z",
+  };
+}
+
+function makeCloudflareCheckRunPage(suite: FixtureCloudflareCheckSuite, start: number) {
+  const end = Math.min(start + 100, suite.checkRuns.length);
+  return {
+    totalCount: suite.totalCount ?? suite.checkRuns.length,
+    pageInfo: pageInfo(
+      end < suite.checkRuns.length,
+      end < suite.checkRuns.length ? `cloudflare-runs-${suite.id}:${end}` : null,
+    ),
+    nodes: suite.checkRuns.slice(start, end).map(makeCloudflareCheckRun),
+  };
+}
+
+function makeCloudflareSuitePage(args: {
+  commitNodeId: string;
+  suites: readonly FixtureCloudflareCheckSuite[];
+  totalCount?: number;
+  start: number;
 }) {
+  const end = Math.min(args.start + 10, args.suites.length);
+  return {
+    totalCount: args.totalCount ?? args.suites.length,
+    pageInfo: pageInfo(
+      end < args.suites.length,
+      end < args.suites.length ? `cloudflare-suites-${args.commitNodeId}:${end}` : null,
+    ),
+    nodes: args.suites.slice(args.start, end).map((suite) => ({
+      id: suite.id,
+      branch: suite.branchName === null ? null : { name: suite.branchName },
+      checkRuns: makeCloudflareCheckRunPage(suite, 0),
+    })),
+  };
+}
+
+function makeWorkerBuild(args: {
+  id: string;
+  workerName: string;
+  versionUrl?: string;
+  branchAliasUrl?: string;
+  status?: string;
+  conclusion?: string | null;
+  summarySuffix?: string;
+}): FixtureCloudflareCheckRun {
+  const versionUrl = args.versionUrl ?? `https://${args.id}.workers.dev/`;
+  const branchAliasLine = args.branchAliasUrl
+    ? `\nPreview Alias URL: [Preview Alias](${args.branchAliasUrl})`
+    : "";
+  return {
+    id: args.id,
+    name: `Workers Builds: ${args.workerName}`,
+    status: args.status,
+    conclusion: args.conclusion,
+    summary: `Build ID: [build-${args.id}](https://dash.cloudflare.com/builds/${args.id})
+Script: [${args.workerName}](https://dash.cloudflare.com/workers/${args.workerName})
+Version ID: [version-${args.id}](https://dash.cloudflare.com/versions/${args.id})
+Preview URL: [Preview](${versionUrl})${branchAliasLine}${args.summarySuffix ?? ""}`,
+  };
+}
+
+function makeCommit(
+  args: FixtureCheckEvidence & {
+    nodeId: string;
+    sha: string;
+    repositoryId: string;
+  },
+) {
   return {
     id: args.nodeId,
     oid: args.sha,
@@ -215,13 +362,14 @@ function makeCommit(args: {
         ? null
         : {
             state: args.rollupState ?? "SUCCESS",
-            contexts: makeCheckPage({
-              commitNodeId: args.nodeId,
-              checkCount: args.checkCount,
-              statusContextCount: args.statusContextCount ?? 0,
-              start: 0,
-            }),
+            contexts: makeCheckCounts(args),
           },
+    checkSuites: makeCloudflareSuitePage({
+      commitNodeId: args.nodeId,
+      suites: args.cloudflareSuites ?? [],
+      totalCount: args.cloudflareSuiteTotalCount,
+      start: 0,
+    }),
   };
 }
 
@@ -257,12 +405,10 @@ function makeBranchNode(fixture: RepositoryFixture, branch: FixtureBranch) {
     target: {
       __typename: "Commit",
       ...makeCommit({
+        ...branch,
         nodeId: `${branch.id}-commit`,
         sha: branch.sha,
         repositoryId: fixture.repositoryId,
-        checkCount: branch.checkCount,
-        statusContextCount: branch.statusContextCount,
-        rollupState: branch.rollupState,
       }),
     },
     comparison: branch.comparisonUnavailable
@@ -276,21 +422,12 @@ function makeBranchNode(fixture: RepositoryFixture, branch: FixtureBranch) {
   };
 }
 
-function makeCheckRollupSignature(args: {
-  checkCount: number;
-  statusContextCount?: number;
-  rollupState?: "ERROR" | "EXPECTED" | "FAILURE" | "PENDING" | "SUCCESS";
-}) {
-  const statusContextCount = args.statusContextCount ?? 0;
+function makeCheckRollupSignature(args: FixtureCheckEvidence) {
   return args.checkCount === 0
     ? null
     : {
         state: args.rollupState ?? "SUCCESS",
-        contexts: {
-          totalCount: args.checkCount,
-          checkRunCount: args.checkCount - statusContextCount,
-          statusContextCount,
-        },
+        contexts: makeCheckCounts(args),
       };
 }
 
@@ -298,8 +435,15 @@ function makeBranchSignatureNode(branch: FixtureBranch) {
   return {
     name: branch.name,
     target: {
+      id: `${branch.id}-commit`,
       oid: branch.sha,
       statusCheckRollup: makeCheckRollupSignature(branch),
+      checkSuites: makeCloudflareSuitePage({
+        commitNodeId: `${branch.id}-commit`,
+        suites: branch.cloudflareSuites ?? [],
+        totalCount: branch.cloudflareSuiteTotalCount,
+        start: 0,
+      }),
     },
   };
 }
@@ -308,13 +452,21 @@ function makePullRequestSignatureNode(pullRequest: FixturePullRequest) {
   return {
     id: pullRequest.id,
     updatedAt: pullRequest.updatedAt,
+    headRefName: pullRequest.headRefName,
     headRefOid: pullRequest.headRefOid,
     commits: {
       nodes: [
         {
           commit: {
+            id: `${pullRequest.id}-commit`,
             oid: pullRequest.headRefOid,
             statusCheckRollup: makeCheckRollupSignature(pullRequest),
+            checkSuites: makeCloudflareSuitePage({
+              commitNodeId: `${pullRequest.id}-commit`,
+              suites: pullRequest.cloudflareSuites ?? [],
+              totalCount: pullRequest.cloudflareSuiteTotalCount,
+              start: 0,
+            }),
           },
         },
       ],
@@ -351,39 +503,15 @@ function makePullRequestNode(fixture: RepositoryFixture, pullRequest: FixturePul
       nodes: [
         {
           commit: makeCommit({
+            ...pullRequest,
             nodeId: `${pullRequest.id}-commit`,
             sha: pullRequest.headRefOid,
             repositoryId: pullRequest.headRepositoryId,
-            checkCount: pullRequest.checkCount,
-            statusContextCount: pullRequest.statusContextCount,
-            rollupState: pullRequest.rollupState,
           }),
         },
       ],
     },
   };
-}
-
-function findCommit(fixture: RepositoryFixture, nodeId: string) {
-  const branch = fixture.branches.find((candidate) => `${candidate.id}-commit` === nodeId);
-  if (branch) {
-    return {
-      nodeId,
-      sha: branch.sha,
-      checkCount: branch.checkCount,
-      statusContextCount: branch.statusContextCount,
-    };
-  }
-  const pullRequest = fixture.pullRequests.find((candidate) => `${candidate.id}-commit` === nodeId);
-  if (pullRequest) {
-    return {
-      nodeId,
-      sha: pullRequest.headRefOid,
-      checkCount: pullRequest.checkCount,
-      statusContextCount: pullRequest.statusContextCount,
-    };
-  }
-  throw new Error(`Unknown commit node ${nodeId}.`);
 }
 
 function createRepositoryRequest(fixture: RepositoryFixture): {
@@ -397,6 +525,8 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
     branchVerificationPasses: 0,
     pullRequestVerificationPasses: 0,
     requestedRepositoryIds: [],
+    cloudflareSuiteContinuationRequests: 0,
+    cloudflareCheckRunContinuationRequests: 0,
   };
   const branchNodes = fixture.branches.map((branch) => makeBranchNode(fixture, branch));
   const verificationBranches = fixture.verificationBranches ?? fixture.branches;
@@ -407,6 +537,30 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
   const pullRequestSignatureNodes = (fixture.verificationPullRequests ?? fixture.pullRequests).map(
     makePullRequestSignatureNode,
   );
+  const activeCommits = new Map<
+    string,
+    {
+      sha: string;
+      suites: readonly FixtureCloudflareCheckSuite[];
+      suiteTotalCount?: number;
+    }
+  >();
+  const activeSuites = new Map<string, FixtureCloudflareCheckSuite>();
+  const activateCommit = (args: {
+    nodeId: string;
+    sha: string;
+    evidence: FixtureCheckEvidence;
+  }): void => {
+    const suites = args.evidence.cloudflareSuites ?? [];
+    activeCommits.set(args.nodeId, {
+      sha: args.sha,
+      suites,
+      suiteTotalCount: args.evidence.cloudflareSuiteTotalCount,
+    });
+    for (const suite of suites) {
+      activeSuites.set(suite.id, suite);
+    }
+  };
 
   const requestGraphql: RepositoryInventoryGraphqlRequest = async (query, variables) => {
     if (query.includes("query RepositoryInventoryBranchSignaturePage(")) {
@@ -419,19 +573,35 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         "contexts(first: 1)",
         "checkRunCount",
         "statusContextCount",
+        "checkRunCountsByState",
+        "statusContextCountsByState",
+        "checkSuites(",
+        "first: 10",
+        "filterBy: { appId: 85455 }",
       ]) {
         if (!query.includes(field)) {
           throw new Error(`Expected branch verification ${field}.`);
         }
       }
+      if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
+        throw new Error("Branch inventory must not download ordinary check contexts.");
+      }
       const start = readCursor(variables, "branch-signature");
       if (start === 0) {
         observations.branchVerificationPasses += 1;
       }
+      const width = fixture.branchVerificationPageWidth ?? branchSignatureNodes.length;
+      for (const branch of verificationBranches.slice(start, start + width)) {
+        activateCommit({
+          nodeId: `${branch.id}-commit`,
+          sha: branch.sha,
+          evidence: branch,
+        });
+      }
       const page = slicePage({
         values: branchSignatureNodes,
         start,
-        width: fixture.branchVerificationPageWidth ?? branchSignatureNodes.length,
+        width,
         cursorPrefix: "branch-signature",
       });
       return {
@@ -462,16 +632,39 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       if (!query.includes("orderBy: { field: ALPHABETICAL, direction: ASC }")) {
         throw new Error("Expected stable alphabetical branch pagination.");
       }
+      for (const field of [
+        "contexts(first: 1)",
+        "checkRunCountsByState",
+        "statusContextCountsByState",
+        "filterBy: { appId: 85455 }",
+        "filterBy: { checkType: LATEST }",
+        "first: 10",
+      ]) {
+        if (!query.includes(field)) {
+          throw new Error(`Expected branch collection ${field}.`);
+        }
+      }
+      if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
+        throw new Error("Branch inventory must not download ordinary check contexts.");
+      }
       const start = readCursor(variables, "branch");
       const pageSize = requireNumberVariable(variables, "pageSize");
       if (start === 0) {
         observations.branchPageSizes.push(pageSize);
         observations.requestedRepositoryIds.push(requireStringVariable(variables, "repositoryId"));
       }
+      const width = fixture.branchPageWidth ?? branchNodes.length;
+      for (const branch of fixture.branches.slice(start, start + width)) {
+        activateCommit({
+          nodeId: `${branch.id}-commit`,
+          sha: branch.sha,
+          evidence: branch,
+        });
+      }
       const page = slicePage({
         values: branchNodes,
         start,
-        width: fixture.branchPageWidth ?? branchNodes.length,
+        width,
         cursorPrefix: "branch",
       });
       return {
@@ -509,19 +702,36 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         "contexts(first: 1)",
         "checkRunCount",
         "statusContextCount",
+        "checkRunCountsByState",
+        "statusContextCountsByState",
+        "checkSuites(",
+        "first: 10",
+        "filterBy: { appId: 85455 }",
       ]) {
         if (!query.includes(field)) {
           throw new Error(`Expected pull request verification ${field}.`);
         }
       }
+      if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
+        throw new Error("Pull request inventory must not download ordinary check contexts.");
+      }
       const start = readCursor(variables, "pull-request-signature");
       if (start === 0) {
         observations.pullRequestVerificationPasses += 1;
       }
+      const verificationPullRequests = fixture.verificationPullRequests ?? fixture.pullRequests;
+      const width = fixture.pullRequestVerificationPageWidth ?? pullRequestSignatureNodes.length;
+      for (const pullRequest of verificationPullRequests.slice(start, start + width)) {
+        activateCommit({
+          nodeId: `${pullRequest.id}-commit`,
+          sha: pullRequest.headRefOid,
+          evidence: pullRequest,
+        });
+      }
       const page = slicePage({
         values: pullRequestSignatureNodes,
         start,
-        width: fixture.pullRequestVerificationPageWidth ?? pullRequestSignatureNodes.length,
+        width,
         cursorPrefix: "pull-request-signature",
       });
       return {
@@ -546,11 +756,34 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
           throw new Error(`Expected pull request ${field}.`);
         }
       }
+      for (const field of [
+        "contexts(first: 1)",
+        "checkRunCountsByState",
+        "statusContextCountsByState",
+        "filterBy: { appId: 85455 }",
+        "filterBy: { checkType: LATEST }",
+        "first: 10",
+      ]) {
+        if (!query.includes(field)) {
+          throw new Error(`Expected pull request collection ${field}.`);
+        }
+      }
+      if (query.includes("... on StatusContext") || query.includes("contexts(first: 100)")) {
+        throw new Error("Pull request inventory must not download ordinary check contexts.");
+      }
       const start = readCursor(variables, "pull-request");
+      const width = fixture.pullRequestPageWidth ?? pullRequestNodes.length;
+      for (const pullRequest of fixture.pullRequests.slice(start, start + width)) {
+        activateCommit({
+          nodeId: `${pullRequest.id}-commit`,
+          sha: pullRequest.headRefOid,
+          evidence: pullRequest,
+        });
+      }
       const page = slicePage({
         values: pullRequestNodes,
         start,
-        width: fixture.pullRequestPageWidth ?? pullRequestNodes.length,
+        width,
         cursorPrefix: "pull-request",
       });
       return {
@@ -657,22 +890,49 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
       };
     }
 
-    if (query.includes("query RepositoryInventoryCheckContinuation(")) {
+    if (query.includes("query RepositoryInventoryCloudflareSuiteContinuation(")) {
+      if (!query.includes("first: 100") || !query.includes("after: $after")) {
+        throw new Error("Expected complete Cloudflare suite continuation pagination.");
+      }
       const nodeId = requireStringVariable(variables, "nodeId");
-      const commit = findCommit(fixture, nodeId);
+      const commit = activeCommits.get(nodeId);
+      if (commit === undefined) {
+        throw new Error(`Unknown commit node ${nodeId}.`);
+      }
+      observations.cloudflareSuiteContinuationRequests += 1;
       return {
         node: {
           __typename: "Commit",
           oid: commit.sha,
-          statusCheckRollup: {
-            state: "SUCCESS",
-            contexts: makeCheckPage({
-              commitNodeId: nodeId,
-              checkCount: commit.checkCount,
-              statusContextCount: commit.statusContextCount ?? 0,
-              start: readCursor(variables, `check-${nodeId}`),
-            }),
-          },
+          checkSuites: makeCloudflareSuitePage({
+            commitNodeId: nodeId,
+            suites: commit.suites,
+            totalCount: commit.suiteTotalCount,
+            start: readCursor(variables, `cloudflare-suites-${nodeId}`),
+          }),
+        },
+      };
+    }
+
+    if (query.includes("query RepositoryInventoryCloudflareCheckRunContinuation(")) {
+      if (!query.includes("first: 100") || !query.includes("after: $after")) {
+        throw new Error("Expected complete Cloudflare check run continuation pagination.");
+      }
+      const nodeId = requireStringVariable(variables, "nodeId");
+      const suite = activeSuites.get(nodeId);
+      if (suite === undefined) {
+        throw new Error(`Unknown Cloudflare check suite ${nodeId}.`);
+      }
+      observations.cloudflareCheckRunContinuationRequests += 1;
+      return {
+        node: {
+          __typename: "CheckSuite",
+          id: suite.id,
+          branch: suite.branchName === null ? null : { name: suite.branchName },
+          checkRuns: makeCloudflareCheckRunPage(
+            suite,
+            readCursor(variables, `cloudflare-runs-${nodeId}`),
+          ),
         },
       };
     }
@@ -747,7 +1007,7 @@ function makeBaseFixture(): RepositoryFixture {
 }
 
 describe("GitHub repository inventory collection", () => {
-  it("collects every paginated branch, pull request, label, and check context", async () => {
+  it("uses exact aggregate check counts without ordinary check pagination", async () => {
     const fixture: RepositoryFixture = {
       ...makeBaseFixture(),
       branchPageWidth: 1,
@@ -759,6 +1019,16 @@ describe("GitHub repository inventory collection", () => {
           sha: "main-sha",
           checkCount: 101,
           statusContextCount: 1,
+          rollupState: "FAILURE",
+          checkRunCountsByState: [
+            { state: "SUCCESS", count: 95 },
+            { state: "FAILURE", count: 1 },
+            { state: "IN_PROGRESS", count: 1 },
+            { state: "NEUTRAL", count: 1 },
+            { state: "COMPLETED", count: 1 },
+            { state: "SKIPPED", count: 1 },
+          ],
+          statusContextCountsByState: [{ state: "EXPECTED", count: 1 }],
         },
         {
           id: "REF_feature",
@@ -839,11 +1109,15 @@ describe("GitHub repository inventory collection", () => {
     expect(main.isDefault).toBe(true);
     expect(main.comparison).toEqual({ state: "ready", aheadBy: 0, behindBy: 0 });
     expect(main.headCommit.checks).toMatchObject({
-      state: "success",
+      state: "failure",
       totalCount: 101,
       checkRunCount: 100,
       statusContextCount: 1,
-      successCount: 101,
+      successCount: 95,
+      failureCount: 1,
+      runningCount: 2,
+      neutralCount: 2,
+      unknownCount: 1,
     });
     const feature = result.items.find((item) => item.kind === "branch" && item.name === "feature");
     expect(feature?.comparison).toEqual({ state: "ready", aheadBy: 4, behindBy: 2 });
@@ -892,6 +1166,396 @@ describe("GitHub repository inventory collection", () => {
     expect(observations.branchVerificationPasses).toBe(1);
     expect(observations.pullRequestVerificationPasses).toBe(1);
     expect(observations.pullRequestComparisonBatchSizes).toEqual([1, 1]);
+    expect(observations.cloudflareSuiteContinuationRequests).toBe(0);
+    expect(observations.cloudflareCheckRunContinuationRequests).toBe(0);
+  });
+
+  it("keeps every Worker build and both preview URL types", async () => {
+    const alpha = makeWorkerBuild({
+      id: "run-alpha",
+      workerName: "alpha",
+      versionUrl: "https://version-alpha.workers.dev/",
+      branchAliasUrl: "https://main-alpha.workers.dev/",
+    });
+    const beta = makeWorkerBuild({
+      id: "run-beta",
+      workerName: "beta",
+      versionUrl: "https://version-beta.workers.dev/",
+      branchAliasUrl: "https://main-beta.workers.dev/",
+    });
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          ...makeBaseFixture().branches[0],
+          checkCount: 2,
+          cloudflareSuites: [
+            {
+              id: "suite-main",
+              branchName: "main",
+              checkRuns: [alpha, beta],
+            },
+          ],
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+    });
+
+    const main = result.items.find((item) => item.kind === "branch" && item.name === "main");
+    if (main?.kind !== "branch") {
+      throw new Error("Expected the main branch.");
+    }
+    expect(main.cloudflareBuilds).toMatchObject([
+      {
+        sourceKey: "run-alpha",
+        workerName: "alpha",
+        branch: { state: "known", name: "main" },
+        state: "success",
+        preview: {
+          state: "ready",
+          versionUrl: "https://version-alpha.workers.dev/",
+          branchAlias: {
+            state: "ready",
+            branchName: "main",
+            url: "https://main-alpha.workers.dev/",
+          },
+        },
+      },
+      {
+        sourceKey: "run-beta",
+        workerName: "beta",
+        branch: { state: "known", name: "main" },
+        state: "success",
+        preview: {
+          state: "ready",
+          versionUrl: "https://version-beta.workers.dev/",
+          branchAlias: {
+            state: "ready",
+            branchName: "main",
+            url: "https://main-beta.workers.dev/",
+          },
+        },
+      },
+    ]);
+  });
+
+  it("isolates branch aliases when two branches point at the same SHA", async () => {
+    const suites: FixtureCloudflareCheckSuite[] = [
+      {
+        id: "suite-main",
+        branchName: "main",
+        checkRuns: [
+          makeWorkerBuild({
+            id: "run-main",
+            workerName: "web",
+            branchAliasUrl: "https://main-web.workers.dev/",
+          }),
+        ],
+      },
+      {
+        id: "suite-release",
+        branchName: "release",
+        checkRuns: [
+          makeWorkerBuild({
+            id: "run-release",
+            workerName: "web",
+            branchAliasUrl: "https://release-web.workers.dev/",
+          }),
+        ],
+      },
+    ];
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          id: "REF_main",
+          name: "main",
+          sha: "shared-sha",
+          checkCount: 2,
+          cloudflareSuites: suites,
+        },
+        {
+          id: "REF_release",
+          name: "release",
+          sha: "shared-sha",
+          checkCount: 2,
+          cloudflareSuites: suites,
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+    });
+
+    const branches = result.items.filter((item) => item.kind === "branch");
+    const main = branches.find((branch) => branch.name === "main");
+    const release = branches.find((branch) => branch.name === "release");
+    expect(main?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-main"]);
+    expect(release?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-release"]);
+  });
+
+  it("keeps a null provider branch explicit without promoting its alias", async () => {
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          ...makeBaseFixture().branches[0],
+          checkCount: 1,
+          cloudflareSuites: [
+            {
+              id: "suite-unknown",
+              branchName: null,
+              checkRuns: [
+                makeWorkerBuild({
+                  id: "run-unknown",
+                  workerName: "web",
+                  branchAliasUrl: "https://unattributed-web.workers.dev/",
+                }),
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+    });
+
+    const main = result.items.find((item) => item.kind === "branch");
+    if (main?.kind !== "branch") {
+      throw new Error("Expected the main branch.");
+    }
+    expect(main.cloudflareBuilds).toMatchObject([
+      {
+        sourceKey: "run-unknown",
+        branch: { state: "unknown" },
+        preview: {
+          state: "ready",
+          branchAlias: {
+            state: "provider_unknown",
+            reason: "branch_unavailable",
+            providerUrl: "https://unattributed-web.workers.dev/",
+          },
+        },
+      },
+    ]);
+  });
+
+  it("paginates more than ten Cloudflare suites without truncation", async () => {
+    const suites: FixtureCloudflareCheckSuite[] = Array.from({ length: 11 }, (_, index) => ({
+      id: `suite-${index}`,
+      branchName: "main",
+      checkRuns: [makeWorkerBuild({ id: `run-${index}`, workerName: `worker-${index}` })],
+    }));
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          ...makeBaseFixture().branches[0],
+          checkCount: 11,
+          cloudflareSuites: suites,
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+    });
+
+    const main = result.items.find((item) => item.kind === "branch");
+    expect(main?.cloudflareBuilds).toHaveLength(11);
+    expect(request.observations.cloudflareSuiteContinuationRequests).toBe(2);
+    expect(request.observations.cloudflareCheckRunContinuationRequests).toBe(0);
+  });
+
+  it("paginates more than one hundred latest Cloudflare runs without truncation", async () => {
+    const checkRuns = Array.from({ length: 101 }, (_, index) =>
+      makeWorkerBuild({ id: `run-${index}`, workerName: `worker-${index}` }),
+    );
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          ...makeBaseFixture().branches[0],
+          checkCount: 101,
+          cloudflareSuites: [
+            {
+              id: "suite-main",
+              branchName: "main",
+              checkRuns,
+            },
+          ],
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+    });
+
+    const main = result.items.find((item) => item.kind === "branch");
+    expect(main?.cloudflareBuilds).toHaveLength(101);
+    expect(request.observations.cloudflareSuiteContinuationRequests).toBe(0);
+    expect(request.observations.cloudflareCheckRunContinuationRequests).toBe(2);
+  });
+
+  it.each([
+    {
+      name: "a duplicate suite across pages",
+      evidence: {
+        checkCount: 11,
+        cloudflareSuites: [
+          ...Array.from({ length: 10 }, (_, index) => ({
+            id: `suite-${index}`,
+            branchName: "main",
+            checkRuns: [makeWorkerBuild({ id: `run-${index}`, workerName: `worker-${index}` })],
+          })),
+          {
+            id: "suite-0",
+            branchName: "main",
+            checkRuns: [makeWorkerBuild({ id: "run-repeat", workerName: "worker-repeat" })],
+          },
+        ],
+      } satisfies FixtureCheckEvidence,
+      error: "duplicate Cloudflare check suite",
+    },
+    {
+      name: "a duplicate run across pages",
+      evidence: {
+        checkCount: 101,
+        cloudflareSuites: [
+          {
+            id: "suite-main",
+            branchName: "main",
+            checkRuns: [
+              ...Array.from({ length: 100 }, (_, index) =>
+                makeWorkerBuild({ id: `run-${index}`, workerName: `worker-${index}` }),
+              ),
+              makeWorkerBuild({ id: "run-0", workerName: "worker-repeat" }),
+            ],
+          },
+        ],
+      } satisfies FixtureCheckEvidence,
+      error: "duplicate Cloudflare check run",
+    },
+    {
+      name: "an inconsistent suite total",
+      evidence: {
+        checkCount: 1,
+        cloudflareSuiteTotalCount: 2,
+        cloudflareSuites: [
+          {
+            id: "suite-main",
+            branchName: "main",
+            checkRuns: [makeWorkerBuild({ id: "run-main", workerName: "web" })],
+          },
+        ],
+      } satisfies FixtureCheckEvidence,
+      error: "did not return every suite",
+    },
+    {
+      name: "an inconsistent run total",
+      evidence: {
+        checkCount: 1,
+        cloudflareSuites: [
+          {
+            id: "suite-main",
+            branchName: "main",
+            totalCount: 2,
+            checkRuns: [makeWorkerBuild({ id: "run-main", workerName: "web" })],
+          },
+        ],
+      } satisfies FixtureCheckEvidence,
+      error: "did not return every check run",
+    },
+  ])("rejects $name", async ({ evidence, error }) => {
+    const base = makeBaseFixture();
+    const main = base.branches.at(0);
+    if (main === undefined) {
+      throw new Error("Expected the base fixture default branch.");
+    }
+    const fixture: RepositoryFixture = {
+      ...base,
+      branches: [{ ...main, ...evidence }],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow(error);
+  });
+
+  it.each([
+    {
+      name: "duplicate aggregate states",
+      checkRunCountsByState: [
+        { state: "SUCCESS", count: 1 },
+        { state: "SUCCESS", count: 0 },
+      ] satisfies FixtureCheckEvidence["checkRunCountsByState"],
+    },
+    {
+      name: "an incomplete aggregate total",
+      checkRunCountsByState: [
+        { state: "SUCCESS", count: 0 },
+      ] satisfies FixtureCheckEvidence["checkRunCountsByState"],
+    },
+  ])("rejects $name", async ({ checkRunCountsByState }) => {
+    const base = makeBaseFixture();
+    const main = base.branches.at(0);
+    if (main === undefined) {
+      throw new Error("Expected the base fixture default branch.");
+    }
+    const fixture: RepositoryFixture = {
+      ...base,
+      branches: [{ ...main, checkCount: 1, checkRunCountsByState }],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("inconsistent aggregate check counts");
   });
 
   it("keeps unavailable comparisons explicit without discarding ready siblings", async () => {
@@ -1524,6 +2188,73 @@ describe("GitHub repository inventory collection", () => {
         requestGraphqlPartial: request.requestGraphqlPartial,
       }),
     ).rejects.toThrow("pull request inventory changed");
+  });
+
+  it.each<{
+    name: string;
+    change: (run: FixtureCloudflareCheckRun) => FixtureCloudflareCheckRun;
+  }>([
+    {
+      name: "identity",
+      change: (run) => ({ ...run, id: "run-after" }),
+    },
+    {
+      name: "state",
+      change: (run) => ({ ...run, status: "IN_PROGRESS", conclusion: null }),
+    },
+    {
+      name: "summary",
+      change: (run) => ({ ...run, summary: `${run.summary ?? ""}\nProvider note: changed` }),
+    },
+  ])("rejects a Cloudflare $name change found by the final signature pass", async ({ change }) => {
+    const base = makeBaseFixture();
+    const main = base.branches.at(0);
+    if (main === undefined) {
+      throw new Error("Expected the base fixture default branch.");
+    }
+    const collectedRun = makeWorkerBuild({
+      id: "run-before",
+      workerName: "web",
+      branchAliasUrl: "https://main-web.workers.dev/",
+    });
+    const collectedBranch: FixtureBranch = {
+      ...main,
+      checkCount: 1,
+      cloudflareSuites: [
+        {
+          id: "suite-main",
+          branchName: "main",
+          checkRuns: [collectedRun],
+        },
+      ],
+    };
+    const fixture: RepositoryFixture = {
+      ...base,
+      branches: [collectedBranch],
+      verificationBranches: [
+        {
+          ...collectedBranch,
+          cloudflareSuites: [
+            {
+              id: "suite-main",
+              branchName: "main",
+              checkRuns: [change(collectedRun)],
+            },
+          ],
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    await expect(
+      collectRepositoryInventory({
+        repositoryNodeId: fixture.repositoryId,
+        expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+        pageSize: 50,
+        requestGraphql: request.requestGraphql,
+        requestGraphqlPartial: request.requestGraphqlPartial,
+      }),
+    ).rejects.toThrow("branch inventory changed");
   });
 
   it("rejects aggregate check changes found by the final signature pass", async () => {

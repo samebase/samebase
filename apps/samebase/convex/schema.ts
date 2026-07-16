@@ -30,6 +30,8 @@ import { vGitHubObservationActionLease } from "./githubObservationActionLeaseMod
 import {
   vRepositoryInventoryFilterView,
   vRepositoryInventoryFilterViewRow,
+  vRepositoryInventoryCloudflareBuildAssociation,
+  vRepositoryInventoryCloudflareBuildRow,
   vRepositoryInventoryExcludedLabel,
   vRepositoryInventoryLabelChunk,
   vRepositoryInventorySnapshot,
@@ -548,6 +550,18 @@ export default defineSchema({
       "sortTime",
       "rowKey",
     ]),
+
+  /** Each provider build is stored once per immutable inventory snapshot. */
+  vaultRepositoryInventoryCloudflareBuilds: defineTable(vRepositoryInventoryCloudflareBuildRow)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_build_sourceKey", ["snapshotId", "build.sourceKey"]),
+
+  /** Ordered branch and pull request membership for normalized provider builds. */
+  vaultRepositoryInventoryCloudflareBuildAssociations: defineTable(
+    vRepositoryInventoryCloudflareBuildAssociation,
+  )
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_rowKey_and_sortKey", ["snapshotId", "rowKey", "sortKey"]),
 
   /**
    * Bounded pull request label chunks for one immutable inventory snapshot.

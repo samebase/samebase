@@ -91,15 +91,21 @@ function getChecksClassName(summary: RepositoryInventoryCheckSummary): string {
   }
 }
 
-function RepositoryInventoryChecks({ summary }: { summary: RepositoryInventoryCheckSummary }) {
+function RepositoryInventoryChecks({
+  githubChecksUrl,
+  summary,
+}: {
+  githubChecksUrl: string | null;
+  summary: RepositoryInventoryCheckSummary;
+}) {
   const label = formatChecksLabel(summary);
   const title = formatChecksTitle(summary);
   const className = cn("mr-1 font-mono", getChecksClassName(summary));
 
-  return summary.primaryTargetUrl ? (
+  return githubChecksUrl && summary.totalCount > 0 ? (
     <a
       className={cn(className, "hover:underline")}
-      href={summary.primaryTargetUrl}
+      href={githubChecksUrl}
       target="_blank"
       rel="noopener noreferrer"
       title={title}
@@ -203,7 +209,12 @@ export function VaultSyncStatusContent({
             <span>·</span>
           </>
         )}
-        {checks && <RepositoryInventoryChecks summary={checks} />}
+        {checks && (
+          <RepositoryInventoryChecks
+            githubChecksUrl={commitUrl ? `${commitUrl}/checks` : null}
+            summary={checks}
+          />
+        )}
         {commitSha && commitUrl ? (
           <a
             className={`font-mono ${linkStyle}`}

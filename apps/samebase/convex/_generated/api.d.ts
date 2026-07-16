@@ -104,6 +104,8 @@ import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerConnections from "../providerConnections.js";
 import type * as repositoryInventory from "../repositoryInventory.js";
 import type * as repositoryInventoryActions from "../repositoryInventoryActions.js";
+import type * as repositoryInventoryChecks from "../repositoryInventoryChecks.js";
+import type * as repositoryInventoryChecksModel from "../repositoryInventoryChecksModel.js";
 import type * as repositoryInventoryModel from "../repositoryInventoryModel.js";
 import type * as repositorySummary from "../repositorySummary.js";
 import type * as repositorySummaryActions from "../repositorySummaryActions.js";
@@ -262,6 +264,8 @@ declare const fullApi: ApiFromModules<{
   providerConnections: typeof providerConnections;
   repositoryInventory: typeof repositoryInventory;
   repositoryInventoryActions: typeof repositoryInventoryActions;
+  repositoryInventoryChecks: typeof repositoryInventoryChecks;
+  repositoryInventoryChecksModel: typeof repositoryInventoryChecksModel;
   repositoryInventoryModel: typeof repositoryInventoryModel;
   repositorySummary: typeof repositorySummary;
   repositorySummaryActions: typeof repositorySummaryActions;

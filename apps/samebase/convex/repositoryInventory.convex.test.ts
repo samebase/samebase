@@ -4,7 +4,9 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH,
+  repositoryInventoryCloudflareBuildSortKey,
   type RepositoryInventoryBranchComparison,
+  type RepositoryInventoryCloudflareBuild,
   type RepositoryInventoryLifecycle,
   type RepositoryInventoryPublication,
   type RepositoryInventoryPullRequestComparison,
@@ -98,6 +100,9 @@ async function insertSnapshot(
   args: {
     vaultId: Id<"vaults">;
     branchCount?: number;
+    buildCount?: number;
+    buildAssociationCount?: number;
+    expectedBuildAssociationCount?: number;
     pullRequestCount?: number;
     labelCount?: number;
     labelChunkCount?: number;
@@ -109,6 +114,8 @@ async function insertSnapshot(
   return await t.run(async (ctx) => {
     const counts = {
       branchCount: args.branchCount ?? 0,
+      buildCount: args.buildCount ?? 0,
+      buildAssociationCount: args.buildAssociationCount ?? 0,
       pullRequestCount: args.pullRequestCount ?? 0,
       labelCount: args.labelCount ?? 0,
       labelChunkCount: args.labelChunkCount ?? 0,
@@ -120,6 +127,8 @@ async function insertSnapshot(
           state: "collecting",
           vaultId: args.vaultId,
           ...counts,
+          expectedBuildAssociationCount:
+            args.expectedBuildAssociationCount ?? args.buildAssociationCount ?? 0,
         })
       : await ctx.db.insert("vaultRepositoryInventorySnapshots", {
           state: "ready",
@@ -196,6 +205,8 @@ async function handoffAndMaterializeSnapshot(
     vaultId: Id<"vaults">;
     snapshotId: Id<"vaultRepositoryInventorySnapshots">;
     branchCount: number;
+    buildCount?: number;
+    buildAssociationCount?: number;
     pullRequestCount: number;
     labelCount: number;
     labelChunkCount: number;
@@ -215,6 +226,8 @@ async function handoffAndMaterializeSnapshot(
     repositoryFullName: "ada/inventory",
     defaultBranch: "main",
     branchCount: args.branchCount,
+    buildCount: args.buildCount ?? 0,
+    buildAssociationCount: args.buildAssociationCount ?? 0,
     pullRequestCount: args.pullRequestCount,
     labelCount: args.labelCount,
     labelChunkCount: args.labelChunkCount,
@@ -283,41 +296,60 @@ async function insertInventory(
 
 async function readVaultInventory(t: ConvexTest, vaultId: Id<"vaults">) {
   return await t.run(async (ctx) => {
-    const [inventory, snapshots, items, labelChunks, labelFacets, filterViews, filterViewRows] =
-      await Promise.all([
-        ctx.db
-          .query("vaultRepositoryInventories")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .unique(),
-        ctx.db
-          .query("vaultRepositoryInventorySnapshots")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect(),
-        ctx.db
-          .query("vaultRepositoryInventoryItems")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect(),
-        ctx.db
-          .query("vaultRepositoryInventoryLabelChunks")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect(),
-        ctx.db
-          .query("vaultRepositoryInventoryLabelFacets")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect(),
-        ctx.db
-          .query("vaultRepositoryInventoryFilterViews")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect(),
-        ctx.db
-          .query("vaultRepositoryInventoryFilterViewRows")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect(),
-      ]);
+    const [
+      inventory,
+      snapshots,
+      items,
+      builds,
+      buildAssociations,
+      labelChunks,
+      labelFacets,
+      filterViews,
+      filterViewRows,
+    ] = await Promise.all([
+      ctx.db
+        .query("vaultRepositoryInventories")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .unique(),
+      ctx.db
+        .query("vaultRepositoryInventorySnapshots")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultRepositoryInventoryItems")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultRepositoryInventoryCloudflareBuilds")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultRepositoryInventoryCloudflareBuildAssociations")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultRepositoryInventoryLabelChunks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultRepositoryInventoryLabelFacets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultRepositoryInventoryFilterViews")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultRepositoryInventoryFilterViewRows")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect(),
+    ]);
     return {
       inventory,
       snapshots,
       items,
+      builds,
+      buildAssociations,
       labelChunks,
       labelFacets,
       filterViews,
@@ -343,6 +375,8 @@ async function insertBranch(
     snapshotId: Id<"vaultRepositoryInventorySnapshots">;
     name: string;
     isDefault?: boolean;
+    buildCount?: number;
+    stagedBuildCount?: number;
     sortTime?: number;
     comparison?: RepositoryInventoryBranchComparison;
   },
@@ -356,6 +390,8 @@ async function insertBranch(
         sortGroup: args.isDefault ? 0 : 2,
         sortTime: args.sortTime ?? -now,
         rowKey: `branch:${args.name}`,
+        buildCount: args.stagedBuildCount ?? args.buildCount ?? 0,
+        expectedBuildCount: args.buildCount ?? 0,
         name: args.name,
         isDefault: args.isDefault ?? false,
         comparison:
@@ -371,6 +407,33 @@ async function insertBranch(
         },
       }),
   );
+}
+
+function cloudflareBuild(workerName: string): RepositoryInventoryCloudflareBuild {
+  return {
+    state: "success",
+    sourceKey: `cloudflare:${workerName}`,
+    checkName: `Workers Builds: ${workerName}`,
+    workerName,
+    rootDirectory: { state: "known", value: `apps/${workerName}` },
+    branch: { state: "known", name: "feature/builds" },
+    providerStatus: "completed",
+    providerConclusion: "success",
+    providerBuildId: `${workerName}-build-id`,
+    detailsUrl: `https://dash.cloudflare.com/builds/${workerName}`,
+    githubUrl: `https://github.com/ada/inventory/runs/${workerName}`,
+    startedAt: now - 1_000,
+    completedAt: now,
+    preview: {
+      state: "ready",
+      versionUrl: `https://${workerName}-version.example.workers.dev`,
+      branchAlias: {
+        state: "ready",
+        branchName: "feature/builds",
+        url: `https://feature-builds-${workerName}.example.workers.dev`,
+      },
+    },
+  };
 }
 
 async function insertPullRequest(
@@ -402,6 +465,8 @@ async function insertPullRequest(
       sortGroup: 1,
       sortTime: args.sortTime,
       rowKey: args.rowKey,
+      buildCount: 0,
+      expectedBuildCount: 0,
       number: args.number,
       url: `https://github.com/ada/inventory/pull/${args.number}`,
       title: `Pull request ${args.number}`,
@@ -411,7 +476,11 @@ async function insertPullRequest(
       changedFiles: Math.max(1, args.number % 10),
       baseRefName: args.number === 42 ? "release/1.2" : "main",
       isCrossRepository: args.isCrossRepository ?? !args.canOpenInSamebase,
-      headRepositoryFullName: args.canOpenInSamebase ? "ada/inventory" : "contributor/fork",
+      headRepository: {
+        state: "available",
+        repositoryNodeId: args.canOpenInSamebase ? "R_inventory" : "R_fork",
+        repositoryFullName: args.canOpenInSamebase ? "ada/inventory" : "contributor/fork",
+      },
       headRefName: args.headRefName,
       comparison: args.comparison ?? { state: "ready", aheadBy: 6, behindBy: 2 },
       canOpenInSamebase: args.canOpenInSamebase,
@@ -694,6 +763,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "Ada/Inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -791,6 +862,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "Ada/Inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -847,6 +920,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "Ada/Inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -956,6 +1031,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1021,6 +1098,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1073,6 +1152,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1126,6 +1207,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1187,6 +1270,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1268,6 +1353,8 @@ describe("repository inventory refresh state machine", () => {
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1906,6 +1993,8 @@ describe("repository inventory refresh state machine", () => {
         repositoryFullName: "ada/inventory",
         defaultBranch: "main",
         branchCount: 1,
+        buildCount: 0,
+        buildAssociationCount: 0,
         pullRequestCount: 0,
         labelCount: 0,
         labelChunkCount: 0,
@@ -1988,6 +2077,382 @@ describe("repository inventory refresh state machine", () => {
         },
       },
     });
+  });
+});
+
+describe("repository inventory Cloudflare build storage", () => {
+  it("counts normalized builds separately from row associations", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      state: "collecting",
+      branchCount: 1,
+      expectedBuildAssociationCount: 2,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-build-counts",
+      },
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "main",
+      isDefault: true,
+      buildCount: 2,
+      stagedBuildCount: 0,
+    });
+    const alpha = cloudflareBuild("alpha");
+    const beta = cloudflareBuild("beta");
+
+    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      builds: [
+        { vaultId: ids.vaultId, snapshotId, build: alpha },
+        { vaultId: ids.vaultId, snapshotId, build: beta },
+      ],
+    });
+    await t.mutation(
+      internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: [
+          {
+            vaultId: ids.vaultId,
+            snapshotId,
+            rowKey: "branch:main",
+            buildSourceKey: alpha.sourceKey,
+            sortKey: repositoryInventoryCloudflareBuildSortKey(alpha),
+          },
+          {
+            vaultId: ids.vaultId,
+            snapshotId,
+            rowKey: "branch:main",
+            buildSourceKey: beta.sourceKey,
+            sortKey: repositoryInventoryCloudflareBuildSortKey(beta),
+          },
+        ],
+      },
+    );
+
+    const state = await readVaultInventory(t, ids.vaultId);
+    expect(state.snapshots).toMatchObject([
+      { state: "collecting", buildCount: 2, buildAssociationCount: 2 },
+    ]);
+    expect(state.builds.map((row) => row.build.sourceKey)).toEqual([
+      alpha.sourceKey,
+      beta.sourceKey,
+    ]);
+    expect(state.buildAssociations.map((association) => association.buildSourceKey)).toEqual([
+      alpha.sourceKey,
+      beta.sourceKey,
+    ]);
+  });
+
+  it("rejects duplicate builds and associations whose parent row is missing", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      state: "collecting",
+      branchCount: 1,
+      expectedBuildAssociationCount: 1,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-build-rejections",
+      },
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "main",
+      isDefault: true,
+      buildCount: 1,
+      stagedBuildCount: 0,
+    });
+    const alpha = cloudflareBuild("alpha");
+    const buildRow = { vaultId: ids.vaultId, snapshotId, build: alpha };
+
+    await expect(
+      t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        builds: [buildRow, buildRow],
+      }),
+    ).rejects.toThrow("Repository inventory build staging batch contains a duplicate.");
+    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      builds: [buildRow],
+    });
+    await expect(
+      t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        builds: [buildRow],
+      }),
+    ).rejects.toThrow("Repository inventory build was already staged.");
+
+    const association = {
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: "branch:main",
+      buildSourceKey: alpha.sourceKey,
+      sortKey: repositoryInventoryCloudflareBuildSortKey(alpha),
+    };
+    await expect(
+      t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: [{ ...association, rowKey: "branch:missing" }],
+      }),
+    ).rejects.toThrow("Repository inventory build association parent item is missing.");
+    await expect(
+      t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: [association, association],
+      }),
+    ).rejects.toThrow("Repository inventory build association staging batch contains a duplicate.");
+    await t.mutation(
+      internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: [association],
+      },
+    );
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      snapshots: [{ buildCount: 1, buildAssociationCount: 1 }],
+      builds: [{ build: { sourceKey: alpha.sourceKey } }],
+      buildAssociations: [{ buildSourceKey: alpha.sourceKey }],
+    });
+  });
+
+  it("refuses handoff when either build count is incomplete", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      state: "collecting",
+      branchCount: 1,
+      expectedBuildAssociationCount: 1,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-build-handoff",
+      },
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "main",
+      isDefault: true,
+      buildCount: 1,
+      stagedBuildCount: 0,
+    });
+    const alpha = cloudflareBuild("alpha");
+    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      builds: [{ vaultId: ids.vaultId, snapshotId, build: alpha }],
+    });
+    await t.mutation(
+      internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: [
+          {
+            vaultId: ids.vaultId,
+            snapshotId,
+            rowKey: "branch:main",
+            buildSourceKey: alpha.sourceKey,
+            sortKey: repositoryInventoryCloudflareBuildSortKey(alpha),
+          },
+        ],
+      },
+    );
+    const counts = {
+      vaultId: ids.vaultId,
+      snapshotId,
+      observedAt: now,
+      repositoryNodeId: "R_inventory",
+      repositoryFullName: "ada/inventory",
+      defaultBranch: "main",
+      branchCount: 1,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "build-handoff",
+      crawlCost: 3,
+      summaryDefaultBranch,
+    };
+
+    await expect(
+      t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+        ...counts,
+        buildCount: 0,
+        buildAssociationCount: 1,
+      }),
+    ).rejects.toThrow("Repository inventory snapshot counts are incomplete.");
+    await expect(
+      t.mutation(internal.repositoryInventory.handoffCompletedRepositoryInventorySnapshot, {
+        ...counts,
+        buildCount: 1,
+        buildAssociationCount: 0,
+      }),
+    ).rejects.toThrow("Repository inventory snapshot counts are incomplete.");
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: { lifecycle: { state: "running", snapshotId } },
+      snapshots: [{ state: "collecting", buildCount: 1, buildAssociationCount: 1 }],
+    });
+  });
+
+  it("returns the builds associated with each row through the public page", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      state: "collecting",
+      branchCount: 2,
+      expectedBuildAssociationCount: 3,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-build-page",
+      },
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "main",
+      isDefault: true,
+      buildCount: 2,
+      stagedBuildCount: 0,
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "feature/builds",
+      buildCount: 1,
+      stagedBuildCount: 0,
+    });
+    const alpha = cloudflareBuild("alpha");
+    const beta = cloudflareBuild("beta");
+    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      builds: [
+        { vaultId: ids.vaultId, snapshotId, build: alpha },
+        { vaultId: ids.vaultId, snapshotId, build: beta },
+      ],
+    });
+    await t.mutation(
+      internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: [
+          {
+            vaultId: ids.vaultId,
+            snapshotId,
+            rowKey: "branch:main",
+            buildSourceKey: alpha.sourceKey,
+            sortKey: repositoryInventoryCloudflareBuildSortKey(alpha),
+          },
+          {
+            vaultId: ids.vaultId,
+            snapshotId,
+            rowKey: "branch:main",
+            buildSourceKey: beta.sourceKey,
+            sortKey: repositoryInventoryCloudflareBuildSortKey(beta),
+          },
+          {
+            vaultId: ids.vaultId,
+            snapshotId,
+            rowKey: "branch:feature/builds",
+            buildSourceKey: alpha.sourceKey,
+            sortKey: repositoryInventoryCloudflareBuildSortKey(alpha),
+          },
+        ],
+      },
+    );
+    await handoffAndMaterializeSnapshot(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      branchCount: 2,
+      buildCount: 2,
+      buildAssociationCount: 3,
+      pullRequestCount: 0,
+      labelCount: 0,
+      labelChunkCount: 0,
+      labelFacetCount: 0,
+      noLabelPullRequestCount: 0,
+      fingerprint: "build-page",
+      crawlCost: 4,
+    });
+
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryCloudflareBuildPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        rowKey: "branch:main",
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedBuildCount: 2,
+      isDone: true,
+      page: [{ sourceKey: alpha.sourceKey }, { sourceKey: beta.sourceKey }],
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryCloudflareBuildPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        rowKey: "branch:feature/builds",
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedBuildCount: 1,
+      isDone: true,
+      page: [{ sourceKey: alpha.sourceKey }],
+    });
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryCloudflareBuildPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        rowKey: "branch:missing",
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toEqual({ state: "unavailable" });
   });
 });
 
@@ -2166,7 +2631,11 @@ describe("repository inventory snapshot reads", () => {
           changedFiles: 2,
           baseRefName: "release/1.2",
           isCrossRepository: false,
-          headRepositoryFullName: "ada/inventory",
+          headRepository: {
+            state: "available",
+            repositoryNodeId: "R_inventory",
+            repositoryFullName: "ada/inventory",
+          },
           comparison: { state: "ready", aheadBy: 6, behindBy: 2 },
           labelCount: 3,
         },
@@ -2176,7 +2645,11 @@ describe("repository inventory snapshot reads", () => {
           number: 43,
           baseRefName: "main",
           isCrossRepository: true,
-          headRepositoryFullName: "contributor/fork",
+          headRepository: {
+            state: "available",
+            repositoryNodeId: "R_fork",
+            repositoryFullName: "contributor/fork",
+          },
           comparison: { state: "unavailable", reason: "head_ref_unavailable" },
           labelCount: 0,
         },
@@ -2274,7 +2747,12 @@ describe("repository inventory snapshot reads", () => {
 
   it("cleans only the exact obsolete snapshot", async () => {
     const { ids, t } = await createConnectedVault();
-    const activeSnapshotId = await insertSnapshot(t, { vaultId: ids.vaultId, branchCount: 1 });
+    const activeSnapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      branchCount: 1,
+      buildCount: 1,
+      buildAssociationCount: 1,
+    });
     const activeFilterViewId = await insertFilterView(t, {
       ...ids,
       snapshotId: activeSnapshotId,
@@ -2282,6 +2760,8 @@ describe("repository inventory snapshot reads", () => {
     const obsoleteSnapshotId = await insertSnapshot(t, {
       vaultId: ids.vaultId,
       branchCount: 1,
+      buildCount: 1,
+      buildAssociationCount: 1,
       pullRequestCount: 1,
       labelCount: 1,
       labelChunkCount: 1,
@@ -2297,11 +2777,13 @@ describe("repository inventory snapshot reads", () => {
       snapshotId: activeSnapshotId,
       name: "main",
       isDefault: true,
+      buildCount: 1,
     });
     await insertBranch(t, {
       vaultId: ids.vaultId,
       snapshotId: obsoleteSnapshotId,
       name: "old",
+      buildCount: 1,
     });
     const rowKey = "pull-request:obsolete";
     const obsoletePullRequestItemId = await insertPullRequest(t, {
@@ -2321,7 +2803,33 @@ describe("repository inventory snapshot reads", () => {
       totalPullRequestCount: 1,
       visiblePullRequestCount: 1,
     });
+    const activeBuild = cloudflareBuild("active");
+    const obsoleteBuild = cloudflareBuild("obsolete");
     await t.run(async (ctx) => {
+      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuilds", {
+        vaultId: ids.vaultId,
+        snapshotId: activeSnapshotId,
+        build: activeBuild,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuilds", {
+        vaultId: ids.vaultId,
+        snapshotId: obsoleteSnapshotId,
+        build: obsoleteBuild,
+      });
+      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuildAssociations", {
+        vaultId: ids.vaultId,
+        snapshotId: activeSnapshotId,
+        rowKey: "branch:main",
+        buildSourceKey: activeBuild.sourceKey,
+        sortKey: repositoryInventoryCloudflareBuildSortKey(activeBuild),
+      });
+      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuildAssociations", {
+        vaultId: ids.vaultId,
+        snapshotId: obsoleteSnapshotId,
+        rowKey: "branch:old",
+        buildSourceKey: obsoleteBuild.sourceKey,
+        sortKey: repositoryInventoryCloudflareBuildSortKey(obsoleteBuild),
+      });
       await ctx.db.insert("vaultRepositoryInventoryFilterViewRows", {
         vaultId: ids.vaultId,
         snapshotId: obsoleteSnapshotId,
@@ -2357,6 +2865,12 @@ describe("repository inventory snapshot reads", () => {
     expect(state.snapshots.map((snapshot) => snapshot._id)).toEqual([activeSnapshotId]);
     expect(state.items).toHaveLength(1);
     expect(state.items[0]).toMatchObject({ snapshotId: activeSnapshotId, rowKey: "branch:main" });
+    expect(state.builds).toMatchObject([
+      { snapshotId: activeSnapshotId, build: { sourceKey: activeBuild.sourceKey } },
+    ]);
+    expect(state.buildAssociations).toMatchObject([
+      { snapshotId: activeSnapshotId, buildSourceKey: activeBuild.sourceKey },
+    ]);
     expect(state.labelChunks).toEqual([]);
     expect(state.labelFacets).toEqual([]);
     expect(state.filterViews.map((view) => view._id)).toEqual([activeFilterViewId]);
@@ -2890,6 +3404,8 @@ describe("repository inventory pull request filters", () => {
       repositoryFullName: "ada/inventory",
       defaultBranch: "main",
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 2,
       labelCount: 2,
       labelChunkCount: 2,

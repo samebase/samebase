@@ -136,6 +136,11 @@ preserving the current implementation or its derived data.
   decision.
 - Checks, commit statuses, labels, identity, and freshness remain complete.
 - Newest or most recently updated pull requests are prioritized in the initial bounded view.
+- A complete atomic snapshot does not require downloading and rebuilding unchanged row details on
+  every observation. Without webhooks, Samebase still needs a bounded provider scan that can detect
+  branch moves, changed checks, new or closed pull requests, and base-branch movement. A
+  signature-first crawl that reuses unchanged immutable rows is the leading incremental direction
+  and must be evaluated against real large repositories before becoming an accepted contract.
 
 ### Multiple vaults
 
@@ -181,6 +186,8 @@ The following user stories are approved operator expectations:
   must handle the case without choosing one arbitrarily.
 - A build run may be visible from both its branch row and a pull request whose head is that branch
   and commit. Those are two views of one provider build, not two provider builds.
+- One snapshot stores that provider build once and uses bounded associations for its branch and pull
+  request views. The branch and pull request never carry duplicate copies of the build observation.
 - GitHub's ordinary check rows are loaded on demand when the user expands the compact check summary.
   They are paginated without silent truncation, briefly cached in the browser, and not copied into
   Convex as an immutable per-check archive.

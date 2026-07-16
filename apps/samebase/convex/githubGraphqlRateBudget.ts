@@ -40,6 +40,11 @@ export const vGitHubGraphqlRateLeaseOwner = union(
     snapshotId: id("vaultRepositoryInventorySnapshots"),
   }),
   object({
+    kind: literal("repository_inventory_checks"),
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+  }),
+  object({
     kind: literal("repository_summary_batch"),
     userId: id("users"),
     batchId: string(),
@@ -419,7 +424,10 @@ export async function clearGitHubGraphqlRateBudgetLeaseForVault(
     .withIndex("by_inventory_lease_vaultId", (q) => q.eq("lease.owner.vaultId", vaultId))
     .take(100);
   for (const budget of budgets) {
-    if (budget.lease?.owner.kind !== "repository_inventory") {
+    if (
+      budget.lease?.owner.kind !== "repository_inventory" &&
+      budget.lease?.owner.kind !== "repository_inventory_checks"
+    ) {
       continue;
     }
     await ctx.db.patch(budget._id, {

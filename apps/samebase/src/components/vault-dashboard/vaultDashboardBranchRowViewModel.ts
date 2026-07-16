@@ -34,7 +34,6 @@ type VaultBranchRowViewModelFields = {
   githubUrl?: string;
   canOpenInSamebase: boolean;
   isDefault: boolean;
-  previewUrl?: string;
   headCommit: VaultBranchHeadCommitViewModel;
 };
 
@@ -70,7 +69,6 @@ export function buildVaultBranchRowViewModel({
       : undefined,
     canOpenInSamebase: branch.canOpenInSamebase,
     isDefault: branch.isDefault,
-    previewUrl: branch.previewUrl,
     headCommit: {
       sha: branch.headCommit.sha,
       shortSha: branch.headCommit.sha.slice(0, 7),

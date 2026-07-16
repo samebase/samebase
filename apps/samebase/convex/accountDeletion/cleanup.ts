@@ -64,6 +64,8 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   vaultRepositorySummaryDirectoryStates: "user_finalization",
   vaultRepositoryInventorySnapshots: "vault_local",
   vaultRepositoryInventoryItems: "vault_local",
+  vaultRepositoryInventoryCloudflareBuilds: "vault_local",
+  vaultRepositoryInventoryCloudflareBuildAssociations: "vault_local",
   vaultRepositoryInventoryLabelChunks: "vault_local",
   vaultRepositoryInventoryFilters: "vault_local",
   vaultRepositoryInventoryExcludedLabels: "vault_local",
@@ -358,6 +360,8 @@ function vaultCleanupPhase(
     case "vaultRepositorySummaries":
     case "vaultRepositoryInventorySnapshots":
     case "vaultRepositoryInventoryItems":
+    case "vaultRepositoryInventoryCloudflareBuilds":
+    case "vaultRepositoryInventoryCloudflareBuildAssociations":
     case "vaultRepositoryInventoryLabelChunks":
     case "vaultRepositoryInventoryFilters":
     case "vaultRepositoryInventoryExcludedLabels":

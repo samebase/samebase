@@ -410,6 +410,8 @@ describe("account-local deletion cleanup", () => {
         observedAt: 1,
         vaultId,
         branchCount: 0,
+        buildCount: 0,
+        buildAssociationCount: 0,
         pullRequestCount: 1,
         labelCount: 1,
         labelChunkCount: 1,
@@ -479,6 +481,8 @@ describe("account-local deletion cleanup", () => {
         sortGroup: 1,
         sortTime: -1,
         rowKey,
+        buildCount: 0,
+        expectedBuildCount: 0,
         headCommit: {
           sha: "commit-sha",
           checks: {
@@ -502,7 +506,11 @@ describe("account-local deletion cleanup", () => {
         changedFiles: 2,
         baseRefName: "main",
         isCrossRepository: false,
-        headRepositoryFullName: "owner/repository",
+        headRepository: {
+          state: "available",
+          repositoryNodeId: "R_repository",
+          repositoryFullName: "owner/repository",
+        },
         headRefName: "cleanup-inventory",
         comparison: { state: "ready", aheadBy: 1, behindBy: 0 },
         canOpenInSamebase: true,

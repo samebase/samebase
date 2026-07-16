@@ -366,7 +366,6 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
                       runningCount: 0,
                       neutralCount: 0,
                       unknownCount: 0,
-                      primaryTargetUrl: `https://github.com/${FIXTURE_REPOSITORY_FULL_NAME}/commit/${FIXTURE_COMMIT_SHA}/checks`,
                     }}
                     lastTreeRefreshAt={FIXTURE_NOW - 60_000}
                     now={FIXTURE_NOW}

@@ -1,6 +1,10 @@
 import { Infer, v } from "convex/values";
 
-import type { RepositoryInventoryCheckSummary } from "./repositoryInventoryModel";
+import type {
+  RepositoryInventoryCheckSummary,
+  RepositoryInventoryCloudflareBuild,
+  RepositoryInventoryCloudflareBuildState,
+} from "./repositoryInventoryModel";
 
 const { literal, number, object, optional, string, union } = v;
 
@@ -14,6 +18,11 @@ const vCommitCheckState = union(
 );
 type CommitCheckState = Infer<typeof vCommitCheckState>;
 
+type RepositoryInventoryCheckTotals = Pick<
+  RepositoryInventoryCheckSummary,
+  "successCount" | "failureCount" | "runningCount" | "neutralCount" | "unknownCount"
+>;
+
 const commitCheckItemInputValidator = object({
   source: vCommitCheckSource,
   sourceKey: string(),
@@ -23,12 +32,7 @@ const commitCheckItemInputValidator = object({
   status: string(),
   conclusion: optional(string()),
   targetUrl: optional(string()),
-  detailsUrl: optional(string()),
   githubUrl: optional(string()),
-  previewUrl: optional(string()),
-  previewAliasUrl: optional(string()),
-  previewStatus: optional(string()),
-  logUrl: optional(string()),
   startedAt: optional(number()),
   completedAt: optional(number()),
   updatedAt: optional(number()),
@@ -44,7 +48,6 @@ export type GitHubCheckRunSnapshotInput = {
   detailsUrl?: string;
   htmlUrl?: string;
   appName?: string;
-  appSlug?: string;
   outputSummary?: string;
   startedAt?: string;
   completedAt?: string;
@@ -57,6 +60,23 @@ export type GitHubCommitStatusSnapshotInput = {
   description?: string | null;
   targetUrl?: string | null;
   updatedAt?: string;
+};
+
+export type GitHubCheckStateCountInput = {
+  state: string;
+  count: number;
+};
+
+export type GitHubCheckCountsSnapshotInput = {
+  totalCount: number;
+  checkRunCount: number;
+  statusContextCount: number;
+  checkRunCountsByState: GitHubCheckStateCountInput[];
+  statusContextCountsByState: GitHubCheckStateCountInput[];
+};
+
+export type GitHubCloudflareBuildSnapshotInput = GitHubCheckRunSnapshotInput & {
+  branchName?: string;
 };
 
 function parseGitTimestamp(value: string | undefined): number | undefined {
@@ -119,50 +139,19 @@ function readSummaryField(summary: string | undefined, label: string): string | 
   return undefined;
 }
 
-function isCloudflareWorkersAndPagesCheckRun(input: GitHubCheckRunSnapshotInput): boolean {
-  const appSlug = input.appSlug?.toLowerCase();
-  if (appSlug === "cloudflare-workers-and-pages") {
-    return true;
-  }
-
-  const appName = input.appName?.toLowerCase();
-  if (typeof appName === "string" && appName.includes("cloudflare")) {
-    return true;
-  }
-
-  return input.name.toLowerCase().startsWith("workers builds:");
+function readMarkdownLinkLabel(value: string | undefined): string | undefined {
+  const match = value?.match(/^\[([^\]]+)\]\(https:\/\/[^)]+\)$/i);
+  const label = match?.[1]?.trim();
+  return label ? label : undefined;
 }
 
-function readCloudflarePreviewStatus(input: GitHubCheckRunSnapshotInput): string {
-  if (input.status === "queued") {
-    return "Build queued";
-  }
-  if (input.status === "in_progress") {
-    return "Build in progress";
-  }
-  if (input.status !== "completed") {
-    return "Build pending";
-  }
-
-  switch (input.conclusion) {
-    case "success":
-      return "Build successful";
-    case "failure":
-    case "cancelled":
-    case "timed_out":
-    case "action_required":
-    case "stale":
-    case "startup_failure":
-      return "Build failed";
-    case "neutral":
-    case "skipped":
-      return "Build skipped";
-    case undefined:
-    case null:
-      return "Build completed";
-    default:
-      return `Build ${input.conclusion.replace(/_/g, " ")}`;
-  }
+function readCloudflareSummaryIdentifier(
+  summary: string | undefined,
+  label: string,
+): string | undefined {
+  const value = readSummaryField(summary, label);
+  const identifier = readMarkdownLinkLabel(value) ?? value?.trim();
+  return identifier ? identifier : undefined;
 }
 
 function classifyCheckRun(input: GitHubCheckRunSnapshotInput): CommitCheckState {
@@ -209,29 +198,390 @@ function classifyCommitStatus(input: GitHubCommitStatusSnapshotInput): CommitChe
     case "failure":
       return "failure";
     case "pending":
+    case "expected":
       return "running";
     default:
       return "unknown";
   }
 }
 
-function toOptionalString(value: string | null | undefined): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function readCheckRunPreviewFields(
+function classifyCloudflareBuildState(
   input: GitHubCheckRunSnapshotInput,
-): Pick<CommitCheckItemInput, "previewUrl" | "previewAliasUrl" | "previewStatus" | "logUrl"> {
-  if (!isCloudflareWorkersAndPagesCheckRun(input)) {
-    return {};
+): RepositoryInventoryCloudflareBuildState {
+  switch (input.status) {
+    case "queued":
+    case "pending":
+    case "requested":
+    case "waiting":
+      return "queued";
+    case "in_progress":
+      return "running";
+    case "completed":
+      break;
+    default:
+      return "provider_unknown";
   }
 
+  switch (input.conclusion) {
+    case "success":
+      return "success";
+    case "cancelled":
+      return "cancelled";
+    case "neutral":
+    case "skipped":
+      return "skipped";
+    case "failure":
+    case "timed_out":
+    case "action_required":
+    case "stale":
+    case "startup_failure":
+      return "failure";
+    case undefined:
+    case null:
+      return "provider_unknown";
+    default:
+      return "provider_unknown";
+  }
+}
+
+type CloudflarePreviewEvidence =
+  | { state: "absent" }
+  | { state: "invalid" }
+  | {
+      state: "ready";
+      preview: Extract<RepositoryInventoryCloudflareBuild["preview"], { state: "ready" }>;
+    };
+
+function readCloudflarePreviewEvidence(
+  input: GitHubCloudflareBuildSnapshotInput,
+): CloudflarePreviewEvidence {
+  const rawVersionUrl = readSummaryField(input.outputSummary, "Preview URL");
+  if (rawVersionUrl === undefined) {
+    return { state: "absent" };
+  }
+  const versionUrl = readHttpsUrl(rawVersionUrl);
+  if (versionUrl === undefined) {
+    return { state: "invalid" };
+  }
+  const rawBranchUrl = readSummaryField(input.outputSummary, "Preview Alias URL");
+  const branchUrl = rawBranchUrl === undefined ? undefined : readHttpsUrl(rawBranchUrl);
+  if (rawBranchUrl !== undefined && branchUrl === undefined) {
+    return { state: "invalid" };
+  }
   return {
-    previewUrl: readHttpsUrl(readSummaryField(input.outputSummary, "Preview URL")),
-    previewAliasUrl: readHttpsUrl(readSummaryField(input.outputSummary, "Preview Alias URL")),
-    previewStatus: readCloudflarePreviewStatus(input),
-    logUrl: readHttpsUrl(input.detailsUrl) ?? readHttpsUrl(input.htmlUrl),
+    state: "ready",
+    preview: {
+      state: "ready",
+      versionUrl,
+      branchAlias: branchUrl
+        ? input.branchName
+          ? { state: "ready", branchName: input.branchName, url: branchUrl }
+          : {
+              state: "provider_unknown",
+              reason: "branch_unavailable",
+              providerUrl: branchUrl,
+            }
+        : { state: "not_provided" },
+    },
   };
+}
+
+function readCloudflareWorkerName(input: GitHubCheckRunSnapshotInput): string {
+  const summaryName = readCloudflareSummaryIdentifier(input.outputSummary, "Script");
+  if (summaryName) {
+    return summaryName;
+  }
+  const prefix = "workers builds:";
+  if (input.name.toLowerCase().startsWith(prefix)) {
+    const suffix = input.name.slice(prefix.length).trim();
+    if (suffix) {
+      return suffix;
+    }
+  }
+  return input.name;
+}
+
+export function normalizeCloudflareBuildCheckRun(
+  input: GitHubCloudflareBuildSnapshotInput,
+): RepositoryInventoryCloudflareBuild {
+  const state = classifyCloudflareBuildState(input);
+  const common: Pick<
+    RepositoryInventoryCloudflareBuild,
+    | "sourceKey"
+    | "checkName"
+    | "workerName"
+    | "rootDirectory"
+    | "branch"
+    | "providerStatus"
+    | "providerConclusion"
+    | "providerBuildId"
+    | "detailsUrl"
+    | "githubUrl"
+    | "startedAt"
+    | "completedAt"
+  > = {
+    sourceKey: String(input.id),
+    checkName: input.name,
+    workerName: readCloudflareWorkerName(input),
+    rootDirectory: { state: "unknown" },
+    branch: input.branchName ? { state: "known", name: input.branchName } : { state: "unknown" },
+    providerStatus: input.status,
+    providerConclusion: toOptionalString(input.conclusion),
+    providerBuildId: readCloudflareSummaryIdentifier(input.outputSummary, "Build ID"),
+    detailsUrl: readHttpsUrl(input.detailsUrl),
+    githubUrl: readHttpsUrl(input.htmlUrl),
+    startedAt: parseGitTimestamp(input.startedAt),
+    completedAt: parseGitTimestamp(input.completedAt),
+  };
+  const previewEvidence = readCloudflarePreviewEvidence(input);
+  switch (state) {
+    case "queued":
+      return {
+        ...common,
+        state,
+        preview:
+          previewEvidence.state !== "absent"
+            ? { state: "provider_unknown", reason: "invalid_provider_output" }
+            : { state: "pending" },
+      };
+    case "running":
+      return {
+        ...common,
+        state,
+        preview:
+          previewEvidence.state === "ready"
+            ? previewEvidence.preview
+            : previewEvidence.state === "invalid"
+              ? { state: "provider_unknown", reason: "invalid_provider_output" }
+              : { state: "pending" },
+      };
+    case "success":
+      return {
+        ...common,
+        state,
+        preview:
+          previewEvidence.state === "ready"
+            ? previewEvidence.preview
+            : {
+                state: "provider_unknown",
+                reason:
+                  previewEvidence.state === "invalid"
+                    ? "invalid_provider_output"
+                    : "configuration_unavailable",
+              },
+      };
+    case "failure":
+      return {
+        ...common,
+        state,
+        preview:
+          previewEvidence.state === "ready"
+            ? previewEvidence.preview
+            : previewEvidence.state === "invalid"
+              ? { state: "provider_unknown", reason: "invalid_provider_output" }
+              : { state: "unavailable" },
+      };
+    case "cancelled":
+      return {
+        ...common,
+        state,
+        preview:
+          previewEvidence.state === "ready"
+            ? previewEvidence.preview
+            : previewEvidence.state === "invalid"
+              ? { state: "provider_unknown", reason: "invalid_provider_output" }
+              : { state: "unavailable" },
+      };
+    case "skipped":
+      return {
+        ...common,
+        state,
+        preview:
+          previewEvidence.state === "ready"
+            ? previewEvidence.preview
+            : previewEvidence.state === "invalid"
+              ? { state: "provider_unknown", reason: "invalid_provider_output" }
+              : { state: "unavailable" },
+      };
+    case "provider_unknown":
+      return {
+        ...common,
+        state,
+        preview:
+          previewEvidence.state === "ready"
+            ? previewEvidence.preview
+            : {
+                state: "provider_unknown",
+                reason:
+                  previewEvidence.state === "invalid"
+                    ? "invalid_provider_output"
+                    : "unrecognized_build_state",
+              },
+      };
+    default: {
+      state satisfies never;
+      throw new Error("Cloudflare build state was not classified.");
+    }
+  }
+}
+
+function addCheckCount(
+  totals: RepositoryInventoryCheckTotals,
+  state: CommitCheckState,
+  count: number,
+): void {
+  switch (state) {
+    case "success":
+      totals.successCount += count;
+      break;
+    case "failure":
+      totals.failureCount += count;
+      break;
+    case "running":
+      totals.runningCount += count;
+      break;
+    case "neutral":
+      totals.neutralCount += count;
+      break;
+    case "unknown":
+      totals.unknownCount += count;
+      break;
+    default: {
+      state satisfies never;
+    }
+  }
+}
+
+function checkRunState(state: string): CommitCheckState {
+  switch (state.toLowerCase()) {
+    case "success":
+      return "success";
+    case "action_required":
+    case "cancelled":
+    case "failure":
+    case "stale":
+    case "startup_failure":
+    case "timed_out":
+      return "failure";
+    case "in_progress":
+    case "pending":
+    case "queued":
+    case "waiting":
+      return "running";
+    case "neutral":
+    case "skipped":
+      return "neutral";
+    case "completed":
+      return "unknown";
+    default:
+      throw new Error(`GitHub returned an unknown check run aggregate state: ${state}.`);
+  }
+}
+
+function statusContextState(state: string): CommitCheckState {
+  switch (state.toLowerCase()) {
+    case "success":
+      return "success";
+    case "error":
+    case "failure":
+      return "failure";
+    case "expected":
+    case "pending":
+      return "running";
+    default:
+      throw new Error(`GitHub returned an unknown status aggregate state: ${state}.`);
+  }
+}
+
+function addProviderCounts(args: {
+  counts: readonly GitHubCheckStateCountInput[];
+  expectedCount: number;
+  classify: (state: string) => CommitCheckState;
+  totals: RepositoryInventoryCheckTotals;
+}): void {
+  const seenStates = new Set<string>();
+  let actualCount = 0;
+  for (const entry of args.counts) {
+    if (!Number.isSafeInteger(entry.count) || entry.count < 0) {
+      throw new Error("GitHub returned an invalid check aggregate count.");
+    }
+    const state = entry.state.toLowerCase();
+    if (seenStates.has(state)) {
+      throw new Error("GitHub returned a duplicate check aggregate state.");
+    }
+    seenStates.add(state);
+    actualCount += entry.count;
+    addCheckCount(args.totals, args.classify(state), entry.count);
+  }
+  if (actualCount !== args.expectedCount) {
+    throw new Error("GitHub returned inconsistent check aggregate counts.");
+  }
+}
+
+export function buildRepositoryInventoryCheckSummaryFromCounts(
+  input: GitHubCheckCountsSnapshotInput,
+): RepositoryInventoryCheckSummary {
+  if (
+    !Number.isSafeInteger(input.totalCount) ||
+    input.totalCount < 0 ||
+    !Number.isSafeInteger(input.checkRunCount) ||
+    input.checkRunCount < 0 ||
+    !Number.isSafeInteger(input.statusContextCount) ||
+    input.statusContextCount < 0
+  ) {
+    throw new Error("GitHub returned invalid check counts.");
+  }
+  if (input.checkRunCount + input.statusContextCount !== input.totalCount) {
+    throw new Error("GitHub returned inconsistent check counts.");
+  }
+  const totals = {
+    successCount: 0,
+    failureCount: 0,
+    runningCount: 0,
+    neutralCount: 0,
+    unknownCount: 0,
+  };
+  addProviderCounts({
+    counts: input.checkRunCountsByState,
+    expectedCount: input.checkRunCount,
+    classify: checkRunState,
+    totals,
+  });
+  addProviderCounts({
+    counts: input.statusContextCountsByState,
+    expectedCount: input.statusContextCount,
+    classify: statusContextState,
+    totals,
+  });
+  if (
+    totals.successCount +
+      totals.failureCount +
+      totals.runningCount +
+      totals.neutralCount +
+      totals.unknownCount !==
+    input.totalCount
+  ) {
+    throw new Error("GitHub check aggregate buckets are incomplete.");
+  }
+  const state = (() => {
+    if (totals.failureCount > 0) return "failure";
+    if (totals.runningCount > 0) return "running";
+    if (totals.unknownCount > 0) return "unknown";
+    if (totals.successCount > 0) return "success";
+    if (totals.neutralCount > 0) return "neutral";
+    return "unknown";
+  })();
+  return {
+    state,
+    totalCount: input.totalCount,
+    checkRunCount: input.checkRunCount,
+    statusContextCount: input.statusContextCount,
+    ...totals,
+  };
+}
+
+function toOptionalString(value: string | null | undefined): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 export function normalizeCommitCheckRun(input: GitHubCheckRunSnapshotInput): CommitCheckItemInput {
@@ -249,9 +599,7 @@ export function normalizeCommitCheckRun(input: GitHubCheckRunSnapshotInput): Com
     status: input.status,
     conclusion: toOptionalString(input.conclusion),
     targetUrl: detailsUrl ?? githubUrl,
-    detailsUrl,
     githubUrl,
-    ...readCheckRunPreviewFields(input),
     startedAt,
     completedAt,
     updatedAt: completedAt ?? startedAt,
@@ -272,129 +620,5 @@ export function normalizeCommitStatus(
     conclusion: toOptionalString(input.description),
     targetUrl,
     updatedAt: parseGitTimestamp(input.updatedAt),
-  };
-}
-
-export function normalizeCommitCheckSnapshot(args: {
-  checkRuns: GitHubCheckRunSnapshotInput[];
-  statuses: GitHubCommitStatusSnapshotInput[];
-}): CommitCheckItemInput[] {
-  return [
-    ...args.checkRuns.map(normalizeCommitCheckRun),
-    ...args.statuses.map(normalizeCommitStatus),
-  ].sort(compareCommitCheckItems);
-}
-
-function compareStatePriority(left: CommitCheckState, right: CommitCheckState): number {
-  const priorities: Record<CommitCheckState, number> = {
-    failure: 0,
-    running: 1,
-    unknown: 2,
-    neutral: 3,
-    success: 4,
-  };
-  return priorities[left] - priorities[right];
-}
-
-function compareCommitCheckItems(left: CommitCheckItemInput, right: CommitCheckItemInput): number {
-  const statePriority = compareStatePriority(left.state, right.state);
-  if (statePriority !== 0) {
-    return statePriority;
-  }
-
-  const providerNameCompare = (left.providerName ?? "").localeCompare(right.providerName ?? "");
-  if (providerNameCompare !== 0) {
-    return providerNameCompare;
-  }
-
-  const nameCompare = left.name.localeCompare(right.name);
-  if (nameCompare !== 0) {
-    return nameCompare;
-  }
-
-  return left.sourceKey.localeCompare(right.sourceKey);
-}
-
-function selectPrimaryTargetUrl(items: CommitCheckItemInput[]): string | undefined {
-  return items.find((item) => item.targetUrl)?.targetUrl;
-}
-
-export function selectBranchPreviewAliasUrlFromCommitCheckItems(
-  items: readonly Pick<CommitCheckItemInput, "previewAliasUrl">[],
-): string | undefined {
-  return items.find((candidate) => candidate.previewAliasUrl)?.previewAliasUrl;
-}
-
-export function buildRepositoryInventoryCheckSummary(args: {
-  items: CommitCheckItemInput[];
-}): RepositoryInventoryCheckSummary {
-  let checkRunCount = 0;
-  let statusContextCount = 0;
-  let successCount = 0;
-  let failureCount = 0;
-  let runningCount = 0;
-  let neutralCount = 0;
-  let unknownCount = 0;
-
-  for (const item of args.items) {
-    if (item.source === "check_run") {
-      checkRunCount += 1;
-    } else {
-      statusContextCount += 1;
-    }
-
-    switch (item.state) {
-      case "success":
-        successCount += 1;
-        break;
-      case "failure":
-        failureCount += 1;
-        break;
-      case "running":
-        runningCount += 1;
-        break;
-      case "neutral":
-        neutralCount += 1;
-        break;
-      case "unknown":
-        unknownCount += 1;
-        break;
-      default: {
-        item.state satisfies never;
-      }
-    }
-  }
-
-  const totalCount = args.items.length;
-  const state = (() => {
-    if (failureCount > 0) {
-      return "failure";
-    }
-    if (runningCount > 0) {
-      return "running";
-    }
-    if (unknownCount > 0) {
-      return "unknown";
-    }
-    if (successCount > 0) {
-      return "success";
-    }
-    if (neutralCount > 0) {
-      return "neutral";
-    }
-    return "unknown";
-  })();
-
-  return {
-    state,
-    totalCount,
-    checkRunCount,
-    statusContextCount,
-    successCount,
-    failureCount,
-    runningCount,
-    neutralCount,
-    unknownCount,
-    primaryTargetUrl: selectPrimaryTargetUrl(args.items),
   };
 }

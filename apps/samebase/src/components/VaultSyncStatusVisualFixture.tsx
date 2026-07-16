@@ -13,8 +13,6 @@ const FIXTURE_CHECKS = {
   runningCount: 0,
   neutralCount: 0,
   unknownCount: 0,
-  primaryTargetUrl:
-    "https://github.com/samebase/samebase/commit/1234567890abcdef1234567890abcdef12345678/checks",
   syncedAt: FIXTURE_NOW - 18_000,
 } as const;
 

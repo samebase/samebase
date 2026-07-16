@@ -15,6 +15,8 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("folderExpansionState"),
   literal("vaultRepositoryInventoryFilterViewRows"),
   literal("vaultRepositoryInventoryFilterViews"),
+  literal("vaultRepositoryInventoryCloudflareBuildAssociations"),
+  literal("vaultRepositoryInventoryCloudflareBuilds"),
   literal("vaultRepositoryInventoryLabelFacets"),
   literal("vaultRepositoryInventoryLabelChunks"),
   literal("vaultRepositoryInventoryItems"),
@@ -304,6 +306,14 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultRepositoryInventoryFilterViews"),
   },
   {
+    table: "vaultRepositoryInventoryCloudflareBuildAssociations",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventoryCloudflareBuildAssociations"),
+  },
+  {
+    table: "vaultRepositoryInventoryCloudflareBuilds",
+    cleanup: deleteByVaultBatch("vaultRepositoryInventoryCloudflareBuilds"),
+  },
+  {
     table: "vaultRepositoryInventoryLabelFacets",
     cleanup: deleteByVaultBatch("vaultRepositoryInventoryLabelFacets"),
   },
@@ -407,6 +417,8 @@ const vaultLocalCleanupRegistryByStep = {
     "folderExpansionState",
     "vaultRepositoryInventoryFilterViewRows",
     "vaultRepositoryInventoryFilterViews",
+    "vaultRepositoryInventoryCloudflareBuildAssociations",
+    "vaultRepositoryInventoryCloudflareBuilds",
     "vaultRepositoryInventoryLabelFacets",
     "vaultRepositoryInventoryLabelChunks",
     "vaultRepositoryInventoryItems",

@@ -22,8 +22,6 @@ describe("VaultSyncStatusContent", () => {
           runningCount: 2,
           neutralCount: 0,
           unknownCount: 0,
-          primaryTargetUrl:
-            "https://github.com/samebase/samebase/commit/1234567890abcdef1234567890abcdef12345678/checks",
         }}
         stagedFiles={[]}
         now={now}

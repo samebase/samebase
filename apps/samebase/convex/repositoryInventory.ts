@@ -27,14 +27,20 @@ import {
   REPOSITORY_INVENTORY_DEMAND_TTL_MS,
   REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH,
   REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE,
+  REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE,
+  REPOSITORY_INVENTORY_STAGE_BUILD_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE,
   DEFAULT_REPOSITORY_INVENTORY_FILTER_STATE,
+  repositoryInventoryCloudflareBuildSortKey,
   repositoryInventoryMinimumRefreshIntervalMs,
   repositoryInventoryBranchRowKey,
   vRepositoryInventoryBranchPageResult,
   vRepositoryInventoryBranchContext,
+  vRepositoryInventoryCloudflareBuildAssociation,
+  vRepositoryInventoryCloudflareBuildPageResult,
+  vRepositoryInventoryCloudflareBuildRow,
   vRepositoryInventoryFilterState,
   vRepositoryInventoryFilterChange,
   vRepositoryInventoryExcludedLabelPageResult,
@@ -48,6 +54,7 @@ import {
   vStoredRepositoryInventoryItem,
   type RepositoryInventoryBranchPageResult,
   type RepositoryInventoryBranchContext,
+  type RepositoryInventoryCloudflareBuildPageResult,
   type RepositoryInventoryCommit,
   type RepositoryInventoryFilterState,
   type RepositoryInventoryFilterLabelCandidate,
@@ -64,6 +71,7 @@ import { isLiveConnectedVault } from "./vault/state";
 const { array, boolean, id, literal, null: vNull, number, object, string, union } = v;
 const REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE = 100;
 const REPOSITORY_INVENTORY_PUBLIC_PAGE_SIZE = 10;
+const REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE = 25;
 const REPOSITORY_INVENTORY_PUBLIC_LABEL_CHUNK_PAGE_SIZE = 5;
 const REPOSITORY_INVENTORY_PUBLIC_LABEL_FACET_PAGE_SIZE = 25;
 const REPOSITORY_INVENTORY_FILTER_MATERIALIZATION_BATCH_SIZE = 100;
@@ -358,6 +366,9 @@ async function scheduleRepositoryInventoryRefresh(
     vaultId: inventory.vaultId,
     branchCount: 0,
     pullRequestCount: 0,
+    buildCount: 0,
+    buildAssociationCount: 0,
+    expectedBuildAssociationCount: 0,
     labelCount: 0,
     labelChunkCount: 0,
     labelFacetCount: 0,
@@ -1074,6 +1085,9 @@ export const deferRepositoryInventoryRefresh = internalMutation({
     if (
       snapshot.branchCount !== 0 ||
       snapshot.pullRequestCount !== 0 ||
+      snapshot.buildCount !== 0 ||
+      snapshot.buildAssociationCount !== 0 ||
+      snapshot.expectedBuildAssociationCount !== 0 ||
       snapshot.labelCount !== 0 ||
       snapshot.labelChunkCount !== 0 ||
       snapshot.labelFacetCount !== 0 ||
@@ -1131,10 +1145,23 @@ export const stageRepositoryInventoryItems = internalMutation({
     }
     let branchCount = 0;
     let pullRequestCount = 0;
+    let expectedBuildAssociationCount = 0;
     let noLabelPullRequestCount = 0;
     for (const item of args.items) {
       if (item.vaultId !== args.vaultId || item.snapshotId !== args.snapshotId) {
         throw new Error("Repository inventory item belongs to another snapshot.");
+      }
+      if (
+        item.buildCount !== 0 ||
+        !Number.isSafeInteger(item.expectedBuildCount) ||
+        item.expectedBuildCount < 0 ||
+        item.expectedBuildCount >= Number.MAX_SAFE_INTEGER
+      ) {
+        throw new Error("Repository inventory item has an invalid build count.");
+      }
+      expectedBuildAssociationCount += item.expectedBuildCount;
+      if (!Number.isSafeInteger(expectedBuildAssociationCount)) {
+        throw new Error("Repository inventory item build counts are too large.");
       }
       if (item.kind === "branch") {
         branchCount += 1;
@@ -1146,10 +1173,225 @@ export const stageRepositoryInventoryItems = internalMutation({
       }
       await ctx.db.insert("vaultRepositoryInventoryItems", item);
     }
+    const nextExpectedBuildAssociationCount =
+      snapshot.expectedBuildAssociationCount + expectedBuildAssociationCount;
+    if (!Number.isSafeInteger(nextExpectedBuildAssociationCount)) {
+      throw new Error("Repository inventory snapshot build association count is too large.");
+    }
     await ctx.db.patch(snapshot._id, {
       branchCount: snapshot.branchCount + branchCount,
       pullRequestCount: snapshot.pullRequestCount + pullRequestCount,
+      expectedBuildAssociationCount: nextExpectedBuildAssociationCount,
       noLabelPullRequestCount: snapshot.noLabelPullRequestCount + noLabelPullRequestCount,
+    });
+    return null;
+  },
+});
+
+export const stageRepositoryInventoryCloudflareBuilds = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    builds: array(vRepositoryInventoryCloudflareBuildRow),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    if (
+      args.builds.length < 1 ||
+      args.builds.length > REPOSITORY_INVENTORY_STAGE_BUILD_BATCH_SIZE
+    ) {
+      throw new Error("Repository inventory build staging batch has an invalid size.");
+    }
+    const [inventory, snapshot] = await Promise.all([
+      readOwnedRunningInventory(ctx, args),
+      ctx.db.get(args.snapshotId),
+    ]);
+    if (
+      !inventory ||
+      !snapshot ||
+      snapshot.state !== "collecting" ||
+      snapshot.vaultId !== args.vaultId
+    ) {
+      throw new Error("Repository inventory snapshot is not running.");
+    }
+
+    const sourceKeys = new Set<string>();
+    for (const buildRow of args.builds) {
+      if (buildRow.vaultId !== args.vaultId || buildRow.snapshotId !== args.snapshotId) {
+        throw new Error("Repository inventory build belongs to another snapshot.");
+      }
+      if (sourceKeys.has(buildRow.build.sourceKey)) {
+        throw new Error("Repository inventory build staging batch contains a duplicate.");
+      }
+      sourceKeys.add(buildRow.build.sourceKey);
+    }
+
+    const existingBuilds = await Promise.all(
+      args.builds.map(async (buildRow) => {
+        return await ctx.db
+          .query("vaultRepositoryInventoryCloudflareBuilds")
+          .withIndex("by_snapshot_and_build_sourceKey", (q) =>
+            q.eq("snapshotId", args.snapshotId).eq("build.sourceKey", buildRow.build.sourceKey),
+          )
+          .unique();
+      }),
+    );
+    if (existingBuilds.some((build) => build !== null)) {
+      throw new Error("Repository inventory build was already staged.");
+    }
+
+    const nextBuildCount = snapshot.buildCount + args.builds.length;
+    if (!Number.isSafeInteger(nextBuildCount)) {
+      throw new Error("Repository inventory snapshot build count is too large.");
+    }
+    for (const build of args.builds) {
+      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuilds", build);
+    }
+    await ctx.db.patch(snapshot._id, {
+      buildCount: nextBuildCount,
+    });
+    return null;
+  },
+});
+
+export const stageRepositoryInventoryCloudflareBuildAssociations = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    associations: array(vRepositoryInventoryCloudflareBuildAssociation),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    if (
+      args.associations.length < 1 ||
+      args.associations.length > REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE
+    ) {
+      throw new Error("Repository inventory build association staging batch has an invalid size.");
+    }
+    const [inventory, snapshot] = await Promise.all([
+      readOwnedRunningInventory(ctx, args),
+      ctx.db.get(args.snapshotId),
+    ]);
+    if (
+      !inventory ||
+      !snapshot ||
+      snapshot.state !== "collecting" ||
+      snapshot.vaultId !== args.vaultId
+    ) {
+      throw new Error("Repository inventory snapshot is not running.");
+    }
+
+    const associationsByRowKey = new Map<string, Array<(typeof args.associations)[number]>>();
+    const sortKeysByRowKey = new Map<string, Set<string>>();
+    const buildSourceKeysByRowKey = new Map<string, Set<string>>();
+    const buildSourceKeys = new Set<string>();
+    for (const association of args.associations) {
+      if (association.vaultId !== args.vaultId || association.snapshotId !== args.snapshotId) {
+        throw new Error("Repository inventory build association belongs to another snapshot.");
+      }
+      const sortKeys = sortKeysByRowKey.get(association.rowKey) ?? new Set<string>();
+      const rowBuildSourceKeys =
+        buildSourceKeysByRowKey.get(association.rowKey) ?? new Set<string>();
+      if (sortKeys.has(association.sortKey) || rowBuildSourceKeys.has(association.buildSourceKey)) {
+        throw new Error(
+          "Repository inventory build association staging batch contains a duplicate.",
+        );
+      }
+      sortKeys.add(association.sortKey);
+      sortKeysByRowKey.set(association.rowKey, sortKeys);
+      rowBuildSourceKeys.add(association.buildSourceKey);
+      buildSourceKeysByRowKey.set(association.rowKey, rowBuildSourceKeys);
+      buildSourceKeys.add(association.buildSourceKey);
+      const rowAssociations = associationsByRowKey.get(association.rowKey) ?? [];
+      rowAssociations.push(association);
+      associationsByRowKey.set(association.rowKey, rowAssociations);
+    }
+
+    const [parentEntries, buildEntries, existingAssociations] = await Promise.all([
+      Promise.all(
+        [...associationsByRowKey].map(async ([rowKey]) => {
+          const item = await ctx.db
+            .query("vaultRepositoryInventoryItems")
+            .withIndex("by_snapshot_and_rowKey", (q) =>
+              q.eq("snapshotId", args.snapshotId).eq("rowKey", rowKey),
+            )
+            .unique();
+          return [rowKey, item] as const;
+        }),
+      ),
+      Promise.all(
+        [...buildSourceKeys].map(async (sourceKey) => {
+          const build = await ctx.db
+            .query("vaultRepositoryInventoryCloudflareBuilds")
+            .withIndex("by_snapshot_and_build_sourceKey", (q) =>
+              q.eq("snapshotId", args.snapshotId).eq("build.sourceKey", sourceKey),
+            )
+            .unique();
+          return [sourceKey, build] as const;
+        }),
+      ),
+      Promise.all(
+        args.associations.map(async (association) => {
+          return await ctx.db
+            .query("vaultRepositoryInventoryCloudflareBuildAssociations")
+            .withIndex("by_snapshot_and_rowKey_and_sortKey", (q) =>
+              q
+                .eq("snapshotId", args.snapshotId)
+                .eq("rowKey", association.rowKey)
+                .eq("sortKey", association.sortKey),
+            )
+            .unique();
+        }),
+      ),
+    ]);
+    const parentItemsByRowKey = new Map(parentEntries);
+    const buildsBySourceKey = new Map(buildEntries);
+    if (existingAssociations.some((association) => association !== null)) {
+      throw new Error("Repository inventory build association was already staged.");
+    }
+
+    for (const association of args.associations) {
+      const buildRow = buildsBySourceKey.get(association.buildSourceKey);
+      if (!buildRow || buildRow.vaultId !== args.vaultId) {
+        throw new Error("Repository inventory build association references a missing build.");
+      }
+      const expectedSortKey = repositoryInventoryCloudflareBuildSortKey({
+        workerName: buildRow.build.workerName,
+        sourceKey: buildRow.build.sourceKey,
+      });
+      if (association.sortKey !== expectedSortKey) {
+        throw new Error("Repository inventory build association has an invalid sort key.");
+      }
+    }
+
+    for (const [rowKey, associations] of associationsByRowKey) {
+      const parentItem = parentItemsByRowKey.get(rowKey);
+      if (!parentItem || parentItem.vaultId !== args.vaultId) {
+        throw new Error("Repository inventory build association parent item is missing.");
+      }
+      if (parentItem.buildCount + associations.length > parentItem.expectedBuildCount) {
+        throw new Error("Repository inventory item has too many build associations.");
+      }
+    }
+
+    const nextBuildAssociationCount = snapshot.buildAssociationCount + args.associations.length;
+    if (!Number.isSafeInteger(nextBuildAssociationCount)) {
+      throw new Error("Repository inventory snapshot build association count is too large.");
+    }
+    for (const association of args.associations) {
+      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuildAssociations", association);
+    }
+    for (const [rowKey, associations] of associationsByRowKey) {
+      const parentItem = parentItemsByRowKey.get(rowKey);
+      if (!parentItem) {
+        throw new Error("Repository inventory build association parent item is missing.");
+      }
+      await ctx.db.patch(parentItem._id, {
+        buildCount: parentItem.buildCount + associations.length,
+      });
+    }
+    await ctx.db.patch(snapshot._id, {
+      buildAssociationCount: nextBuildAssociationCount,
     });
     return null;
   },
@@ -1315,6 +1557,9 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
     if (
       snapshot.branchCount !== 0 ||
       snapshot.pullRequestCount !== 0 ||
+      snapshot.buildCount !== 0 ||
+      snapshot.buildAssociationCount !== 0 ||
+      snapshot.expectedBuildAssociationCount !== 0 ||
       snapshot.labelCount !== 0 ||
       snapshot.labelChunkCount !== 0 ||
       snapshot.labelFacetCount !== 0 ||
@@ -1391,6 +1636,8 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
     defaultBranch: union(string(), vNull()),
     branchCount: number(),
     pullRequestCount: number(),
+    buildCount: number(),
+    buildAssociationCount: number(),
     labelCount: number(),
     labelChunkCount: number(),
     labelFacetCount: number(),
@@ -1416,6 +1663,9 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
     if (
       snapshot.branchCount !== args.branchCount ||
       snapshot.pullRequestCount !== args.pullRequestCount ||
+      snapshot.buildCount !== args.buildCount ||
+      snapshot.buildAssociationCount !== args.buildAssociationCount ||
+      snapshot.buildAssociationCount !== snapshot.expectedBuildAssociationCount ||
       snapshot.labelCount !== args.labelCount ||
       snapshot.labelChunkCount !== args.labelChunkCount ||
       snapshot.labelFacetCount !== args.labelFacetCount ||
@@ -1429,6 +1679,8 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
       observedAt: args.observedAt,
       branchCount: snapshot.branchCount,
       pullRequestCount: snapshot.pullRequestCount,
+      buildCount: snapshot.buildCount,
+      buildAssociationCount: snapshot.buildAssociationCount,
       labelCount: snapshot.labelCount,
       labelChunkCount: snapshot.labelChunkCount,
       labelFacetCount: snapshot.labelFacetCount,
@@ -2054,6 +2306,30 @@ export const cleanupRepositoryInventorySnapshot = internalMutation({
       return null;
     }
 
+    const buildAssociations = await ctx.db
+      .query("vaultRepositoryInventoryCloudflareBuildAssociations")
+      .withIndex("by_snapshot_and_rowKey_and_sortKey", (q) => q.eq("snapshotId", args.snapshotId))
+      .take(REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE);
+    for (const association of buildAssociations) {
+      await ctx.db.delete(association._id);
+    }
+    if (buildAssociations.length > 0) {
+      await scheduleSnapshotCleanup(ctx, args.snapshotId);
+      return null;
+    }
+
+    const builds = await ctx.db
+      .query("vaultRepositoryInventoryCloudflareBuilds")
+      .withIndex("by_snapshot_and_build_sourceKey", (q) => q.eq("snapshotId", args.snapshotId))
+      .take(REPOSITORY_INVENTORY_CLEANUP_BATCH_SIZE);
+    for (const build of builds) {
+      await ctx.db.delete(build._id);
+    }
+    if (builds.length > 0) {
+      await scheduleSnapshotCleanup(ctx, args.snapshotId);
+      return null;
+    }
+
     const labelFacets = await ctx.db
       .query("vaultRepositoryInventoryLabelFacets")
       .withIndex("by_snapshot_and_sortKey_and_labelKey", (q) => q.eq("snapshotId", args.snapshotId))
@@ -2317,7 +2593,7 @@ export const listRepositoryInventoryBranchPage = query({
         return {
           kind: item.kind,
           rowKey: item.rowKey,
-          previewUrl: item.previewUrl,
+          buildCount: item.buildCount,
           headCommit: item.headCommit,
           name: item.name,
           isDefault: item.isDefault,
@@ -2395,7 +2671,7 @@ export const listRepositoryInventoryPullRequestPage = query({
         return {
           kind: item.kind,
           rowKey: item.rowKey,
-          previewUrl: item.previewUrl,
+          buildCount: item.buildCount,
           headCommit: item.headCommit,
           number: item.number,
           url: item.url,
@@ -2406,7 +2682,7 @@ export const listRepositoryInventoryPullRequestPage = query({
           changedFiles: item.changedFiles,
           baseRefName: item.baseRefName,
           isCrossRepository: item.isCrossRepository,
-          headRepositoryFullName: item.headRepositoryFullName,
+          headRepository: item.headRepository,
           headRefName: item.headRefName,
           comparison: item.comparison,
           canOpenInSamebase: item.canOpenInSamebase,
@@ -2423,6 +2699,87 @@ export const listRepositoryInventoryPullRequestPage = query({
       page: pullRequests,
       isDone: page.isDone,
       continueCursor: page.continueCursor,
+    };
+  },
+});
+
+export const listRepositoryInventoryCloudflareBuildPage = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    rowKey: string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: vRepositoryInventoryCloudflareBuildPageResult,
+  handler: async (ctx, args): Promise<RepositoryInventoryCloudflareBuildPageResult> => {
+    if (
+      !Number.isInteger(args.paginationOpts.numItems) ||
+      args.paginationOpts.numItems < 1 ||
+      args.paginationOpts.numItems > REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE
+    ) {
+      throw new Error(
+        `Repository inventory build pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE} items.`,
+      );
+    }
+    const maximumRowsRead = boundedMaximumRowsRead(
+      args.paginationOpts.maximumRowsRead,
+      REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE,
+      `Repository inventory build pages may read at most ${REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE} rows.`,
+    );
+    const [vault, snapshot, item] = await Promise.all([
+      ctx.db.get(args.vaultId),
+      ctx.db.get(args.snapshotId),
+      ctx.db
+        .query("vaultRepositoryInventoryItems")
+        .withIndex("by_snapshot_and_rowKey", (q) =>
+          q.eq("snapshotId", args.snapshotId).eq("rowKey", args.rowKey),
+        )
+        .unique(),
+    ]);
+    if (
+      !vault ||
+      vault.userId !== ctx.viewer.userId ||
+      !isLiveConnectedVault(vault) ||
+      !snapshot ||
+      snapshot.state !== "ready" ||
+      snapshot.vaultId !== args.vaultId ||
+      !item ||
+      item.vaultId !== args.vaultId
+    ) {
+      return { state: "unavailable" };
+    }
+
+    const associationPage = await ctx.db
+      .query("vaultRepositoryInventoryCloudflareBuildAssociations")
+      .withIndex("by_snapshot_and_rowKey_and_sortKey", (q) =>
+        q.eq("snapshotId", args.snapshotId).eq("rowKey", args.rowKey),
+      )
+      .paginate({ ...args.paginationOpts, maximumRowsRead });
+    const builds = await Promise.all(
+      associationPage.page.map(async (association) => {
+        if (association.vaultId !== args.vaultId) {
+          throw new Error("Repository inventory build association belongs to another vault.");
+        }
+        const buildRow = await ctx.db
+          .query("vaultRepositoryInventoryCloudflareBuilds")
+          .withIndex("by_snapshot_and_build_sourceKey", (q) =>
+            q.eq("snapshotId", args.snapshotId).eq("build.sourceKey", association.buildSourceKey),
+          )
+          .unique();
+        if (!buildRow || buildRow.vaultId !== args.vaultId) {
+          throw new Error("Repository inventory build association references a missing build.");
+        }
+        return buildRow.build;
+      }),
+    );
+
+    return {
+      state: "ready",
+      expectedBuildCount: item.buildCount,
+      page: builds,
+      isDone: associationPage.isDone,
+      continueCursor: associationPage.continueCursor,
     };
   },
 });

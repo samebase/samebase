@@ -4,8 +4,8 @@ interface VaultRepositoryInventoryRowFields {
   rowKey: string;
   name: string;
   canOpenInSamebase: boolean;
+  buildCount: number;
   headCommit: VaultRepositoryInventoryHeadCommit;
-  previewUrl?: string;
 }
 
 export type VaultRepositoryInventoryBranchComparison = Extract<
@@ -59,7 +59,6 @@ export interface VaultRepositoryInventoryCommitChecksSummary {
   runningCount: number;
   neutralCount: number;
   unknownCount: number;
-  primaryTargetUrl?: string;
 }
 
 export function mapRepositoryInventoryItemToDashboardRow(args: {
@@ -81,10 +80,10 @@ export function mapRepositoryInventoryItemToDashboardRow(args: {
       name: item.name,
       githubRepositoryFullName: args.repositoryFullName,
       canOpenInSamebase: true,
+      buildCount: item.buildCount,
       headCommit: commit,
       isDefault: item.isDefault,
       comparison: item.comparison,
-      previewUrl: item.previewUrl,
     };
   }
 
@@ -92,8 +91,12 @@ export function mapRepositoryInventoryItemToDashboardRow(args: {
     kind: "pull_request",
     rowKey: item.rowKey,
     name: item.headRefName,
-    githubRepositoryFullName: item.headRepositoryFullName,
+    githubRepositoryFullName:
+      item.headRepository.state === "available"
+        ? item.headRepository.repositoryFullName
+        : undefined,
     canOpenInSamebase: item.canOpenInSamebase,
+    buildCount: item.buildCount,
     headCommit: commit,
     isDefault: false,
     comparison: item.comparison,
@@ -107,6 +110,5 @@ export function mapRepositoryInventoryItemToDashboardRow(args: {
     pullRequestAdditions: item.additions,
     pullRequestDeletions: item.deletions,
     pullRequestChangedFiles: item.changedFiles,
-    previewUrl: item.previewUrl,
   };
 }

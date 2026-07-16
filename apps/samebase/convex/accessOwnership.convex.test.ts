@@ -87,6 +87,8 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       observedAt: now,
       vaultId,
       branchCount: 0,
+      buildCount: 0,
+      buildAssociationCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,

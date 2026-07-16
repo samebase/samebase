@@ -12,10 +12,16 @@ import { toErrorMessage } from "./jsonUtils";
 import { repositoryInventoryFilterLabelKey } from "../shared/repositoryInventoryFilters";
 import {
   REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE,
+  REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE,
+  REPOSITORY_INVENTORY_STAGE_BUILD_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
   REPOSITORY_INVENTORY_STAGE_LABEL_FACET_BATCH_SIZE,
+  repositoryInventoryCloudflareBuildSortKey,
   type CollectedRepositoryInventoryItem,
+  type RepositoryInventoryCloudflareBuild,
+  type RepositoryInventoryCloudflareBuildAssociation,
+  type RepositoryInventoryCloudflareBuildRow,
   type RepositoryInventoryLabelChunk,
   type StoredRepositoryInventoryPullRequestLabelFacet,
   type StoredRepositoryInventoryItem,
@@ -49,24 +55,66 @@ function prepareRepositoryInventoryForStorage(args: {
   snapshotId: Id<"vaultRepositoryInventorySnapshots">;
 }): {
   items: StoredRepositoryInventoryItem[];
+  builds: RepositoryInventoryCloudflareBuildRow[];
+  buildAssociations: RepositoryInventoryCloudflareBuildAssociation[];
   labelChunks: RepositoryInventoryLabelChunk[];
   labelFacets: StoredRepositoryInventoryPullRequestLabelFacet[];
   noLabelPullRequestCount: number;
 } {
   const storedItems: StoredRepositoryInventoryItem[] = [];
+  const buildsBySourceKey = new Map<string, RepositoryInventoryCloudflareBuildRow>();
+  const buildAssociations: RepositoryInventoryCloudflareBuildAssociation[] = [];
   const labelChunks: RepositoryInventoryLabelChunk[] = [];
   const labelFacets = new Map<string, { name: string; color?: string; pullRequestCount: number }>();
   let noLabelPullRequestCount = 0;
-  for (const item of args.items) {
-    if (item.kind === "branch") {
-      storedItems.push({
-        ...item,
+
+  const recordCloudflareBuilds = (
+    rowKey: string,
+    cloudflareBuilds: readonly RepositoryInventoryCloudflareBuild[],
+  ): number => {
+    const rowSourceKeys = new Set<string>();
+    for (const build of cloudflareBuilds) {
+      if (rowSourceKeys.has(build.sourceKey)) {
+        throw new Error(
+          "GitHub returned one Cloudflare build more than once for an inventory row.",
+        );
+      }
+      rowSourceKeys.add(build.sourceKey);
+      const existing = buildsBySourceKey.get(build.sourceKey);
+      if (existing && JSON.stringify(existing.build) !== JSON.stringify(build)) {
+        throw new Error("GitHub returned conflicting observations for one Cloudflare build.");
+      }
+      if (!existing) {
+        buildsBySourceKey.set(build.sourceKey, {
+          vaultId: args.vaultId,
+          snapshotId: args.snapshotId,
+          build,
+        });
+      }
+      buildAssociations.push({
         vaultId: args.vaultId,
         snapshotId: args.snapshotId,
+        rowKey,
+        buildSourceKey: build.sourceKey,
+        sortKey: repositoryInventoryCloudflareBuildSortKey(build),
+      });
+    }
+    return rowSourceKeys.size;
+  };
+
+  for (const item of args.items) {
+    if (item.kind === "branch") {
+      const { cloudflareBuilds, ...branch } = item;
+      storedItems.push({
+        ...branch,
+        vaultId: args.vaultId,
+        snapshotId: args.snapshotId,
+        buildCount: 0,
+        expectedBuildCount: recordCloudflareBuilds(item.rowKey, cloudflareBuilds),
       });
       continue;
     }
-    const { labels, ...pullRequest } = item;
+    const { cloudflareBuilds, labels, ...pullRequest } = item;
     const labelsByKey = new Map<string, (typeof labels)[number]>();
     for (const label of labels) {
       const labelKey = repositoryInventoryFilterLabelKey(label.name);
@@ -94,6 +142,8 @@ function prepareRepositoryInventoryForStorage(args: {
       ...pullRequest,
       vaultId: args.vaultId,
       snapshotId: args.snapshotId,
+      buildCount: 0,
+      expectedBuildCount: recordCloudflareBuilds(item.rowKey, cloudflareBuilds),
       labelChunkCount: chunks.length,
     });
     labelChunks.push(
@@ -108,6 +158,13 @@ function prepareRepositoryInventoryForStorage(args: {
   }
   return {
     items: storedItems,
+    builds: [...buildsBySourceKey.values()].sort((left, right) =>
+      left.build.sourceKey.localeCompare(right.build.sourceKey),
+    ),
+    buildAssociations: buildAssociations.sort(
+      (left, right) =>
+        left.rowKey.localeCompare(right.rowKey) || left.sortKey.localeCompare(right.sortKey),
+    ),
     labelChunks,
     labelFacets: Array.from(labelFacets, ([labelKey, facet]) => ({
       vaultId: args.vaultId,
@@ -328,6 +385,32 @@ export const runRepositoryInventoryRefresh = internalAction({
           items,
         });
       }
+      for (const builds of chunk(
+        storedInventory.builds,
+        REPOSITORY_INVENTORY_STAGE_BUILD_BATCH_SIZE,
+      )) {
+        await ctx.runMutation(
+          internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds,
+          {
+            vaultId: input.vaultId,
+            snapshotId: input.snapshotId,
+            builds,
+          },
+        );
+      }
+      for (const associations of chunk(
+        storedInventory.buildAssociations,
+        REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE,
+      )) {
+        await ctx.runMutation(
+          internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
+          {
+            vaultId: input.vaultId,
+            snapshotId: input.snapshotId,
+            associations,
+          },
+        );
+      }
       for (const labelChunks of chunk(
         storedInventory.labelChunks,
         REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE,
@@ -360,6 +443,8 @@ export const runRepositoryInventoryRefresh = internalAction({
           defaultBranch: inventory.defaultBranch,
           branchCount: inventory.branchCount,
           pullRequestCount: inventory.pullRequestCount,
+          buildCount: storedInventory.builds.length,
+          buildAssociationCount: storedInventory.buildAssociations.length,
           labelCount: inventory.items.reduce(
             (count, item) => count + (item.kind === "pull_request" ? item.labelCount : 0),
             0,

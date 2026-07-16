@@ -30,20 +30,23 @@ targeting another base says `vs <actual-base>`. An unavailable comparison has an
 is never presented as zero.
 
 The collector uses GitHub GraphQL with the vault's existing GitHub connection credential. It
-paginates until it has read every branch, open pull request, check context, status context, and
-label. It validates repository identity, total counts, cursors, duplicates, required nested data,
+paginates until it has read every branch, open pull request, pull request label, and Cloudflare
+Workers Builds check for each observed head. Ordinary GitHub checks use the provider's fixed-size
+state-count aggregates instead of downloading every check row during inventory collection. The
+collector validates repository identity, total counts, cursors, duplicates, required nested data,
 and a final compact signature pass. That pass verifies the default branch name and head, every
 branch name and head, every open pull request node ID, `updatedAt`, head OID, and latest commit,
-plus the raw check-rollup state and aggregate check counts for every observed head. A repository
-rename or transfer is accepted only when the stable repository identity still matches. GitHub's
-canonical repository name is used for links.
+plus the raw check-rollup state, exact aggregate check counts, and Cloudflare build check identity,
+state, conclusion, and preview-bearing summary for every observed head. A repository rename or
+transfer is accepted only when the stable repository identity still matches. GitHub's canonical
+repository name is used for links.
 
 GitHub does not provide a transaction spanning these GraphQL requests. The final signature pass
-detects membership, head, pull request metadata, rollup state, and check-cardinality changes during
-collection and retries instead of publishing them together. It does not detect an individual check
-context detail changing while its head OID, raw rollup state, total count, check-run count, and
-status-context count all remain identical. Re-reading every full check payload would approximately
-duplicate the most expensive nested data; the accepted contract keeps that limitation explicit.
+detects membership, head, pull request metadata, rollup state, aggregate outcome, and Cloudflare
+build changes during collection and retries instead of publishing them together. It does not detect
+an ordinary check's name, description, or target link changing while its head OID and every
+aggregate outcome count remain identical. Those rows are not snapshot data and are fetched fresh
+when the user opens the check list.
 
 Every GraphQL connection has a hard limit of 1,000 pages in one generation. Reaching a page beyond
 that limit fails the entire generation and leaves the previous complete publication visible. The
@@ -82,11 +85,52 @@ history, becomes the matching item-level unavailable state while ready sibling a
 usable. Permission, rate-limit, schema, repository, mixed, and unclassified errors fail the
 generation and leave the prior snapshot visible.
 
-Checks are an exact compact rollup, not a retained context archive. The collector paginates and
-validates every check run and commit status context for each observed head commit before deriving
-the row's overall state, total count, typed counts, outcome counts, and primary target URL. Snapshot
-rows retain that rollup only. Raw check-run and status-context payloads are not stored as child rows
-or copied into the immutable snapshot.
+Checks are an exact compact rollup, not a retained context archive. For each observed head commit,
+the collector reads GitHub's `checkRunCountsByState` and `statusContextCountsByState`, validates
+every enum and nonnegative integer count, rejects duplicate states, and proves the typed and outcome
+totals equal `totalCount`. Snapshot rows retain that rollup only. The compact summary never chooses
+an arbitrary check target URL.
+
+Opening the compact summary loads ordinary check runs and commit statuses from GitHub on demand in
+pages of 100, briefly caches them in the browser, and stores none of them in Convex. The inline list
+shows each check's name and state, links each row to its own target when one exists, and provides a
+separate explicit GitHub link. For a fork pull request, Samebase stores the stable head-repository
+identity and resolves the commit in that repository rather than the base repository. A deleted or
+otherwise unavailable head repository produces an explicit unavailable result.
+
+No page silently truncates the list. A one-page list is one GitHub request. When a list spans more
+than 100 checks, each page carries a compact content signature. Fetching the final page repeats the
+complete paginated read and accepts it only when every page signature matches. A same-count rerun,
+replacement, reordering, name change, state change, or link change therefore fails visibly instead
+of combining two provider generations. This verification doubles provider reads only after the user
+loads the final page of a multi-page list. On-demand requests claim and report usage through the
+same account-wide GitHub GraphQL budget as inventories and summaries. One list is limited to 50
+pages; exceeding that bound is an explicit error rather than a partial result.
+
+Cloudflare Workers Builds checks are different because their build and preview evidence powers the
+dashboard. The collector asks GitHub only for check suites belonging to Cloudflare's GitHub App and
+latest check runs, paginates those provider connections completely, and creates one build row only
+when a check run exists. A Worker omitted by path rules has no build row. Each build row has an
+explicit build state, Worker name, branch evidence, provider links, and a closed preview result. A
+ready preview preserves both the immutable version URL and the mutable branch alias URL. Missing or
+invalid provider evidence is explicit and is never treated as a failed build or an empty URL. Each
+provider check run is stored once per snapshot. Bounded association rows make that same build
+visible from its branch and pull request without duplicating the provider observation. A branch
+alias is ready only when GitHub identifies the matching CheckSuite branch; a shared commit SHA never
+authorizes copying one branch's alias to another branch.
+
+Application roots and provider-resource ownership remain explicit outside the repository snapshot. A
+shared Convex deployment belongs to one app at its actual repository root and appears exactly once
+under that app. Client roots remain separate apps even when they use that backend. Samebase does not
+duplicate the Convex deployment beneath those clients and does not infer client-to-backend usage
+from matching commits, URLs, or folder proximity.
+
+A Cloudflare Worker may have an explicit deployment dependency on a Convex deployment owned by a
+different app root. That relationship records which Worker build pipeline deploys the backend. It
+does not transfer ownership and is not copied into branch, pull request, build, or preview rows. The
+`samebase/shared-convex-monorepo-fixture` acceptance topology is therefore three apps: `apps/web`,
+`apps/mobile`, and `packages/backend`. The Convex deployment appears once under `packages/backend`;
+the two client apps remain independently visible.
 
 The dashboard has one visibility-demand loop. On mount it requests the selected full inventory
 first, then requests lightweight repository summaries. It repeats every 60 seconds while the page is
@@ -226,11 +270,11 @@ subscriptions cannot inherit unbounded text.
 ## Atomic Snapshot Model
 
 Completed inventory snapshots are immutable. The backend stages a new snapshot, verifies that the
-stored item, label, facet, and chunk counts exactly match the complete GraphQL crawl, then derives
-the current user's pull request filter view in bounded mutations. It publishes the snapshot ID and
-filter view ID together in the vault's single inventory state row only after both are complete. The
-previously published pair remains authoritative while a crawl runs, waits for rate capacity,
-materializes, or fails.
+stored item, build, label, facet, and chunk counts exactly match the complete GraphQL crawl, then
+derives the current user's pull request filter view in bounded mutations. It publishes the snapshot
+ID and filter view ID together in the vault's single inventory state row only after both are
+complete. The previously published pair remains authoritative while a crawl runs, waits for rate
+capacity, materializes, or fails.
 
 If a crawl proves that provider data is unchanged, the backend deletes the empty staging snapshot,
 advances `checkedAt`, and keeps the published snapshot ID. `publishedAt` records when the displayed
@@ -246,6 +290,9 @@ The persistent model is intentionally small:
 - `vaultRepositoryInventories`: one reactive lifecycle and publication root per vault
 - `vaultRepositoryInventorySnapshots`: immutable snapshot counts
 - `vaultRepositoryInventoryItems`: immutable branch and pull request rows
+- `vaultRepositoryInventoryCloudflareBuilds`: normalized immutable Cloudflare build observations
+- `vaultRepositoryInventoryCloudflareBuildAssociations`: bounded membership connecting one build
+  observation to each branch or pull request row that may display it
 - `vaultRepositoryInventoryLabelChunks`: bounded, immutable pull request label chunks
 - `vaultRepositoryInventoryFilters`: one fixed-size saved pull request filter root per user and
   vault
