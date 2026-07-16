@@ -198,14 +198,7 @@ export function buildVaultCloudflareBuildConfigForAppRoot(args: {
   const pathIncludes =
     appRoot === "."
       ? ["*"]
-      : [
-          `${appRoot}/*`,
-          "packages/dependent/*",
-          "pnpm-lock.yaml",
-          "pnpm-workspace.yaml",
-          "package.json",
-          ".nvmrc",
-        ];
+      : [`${appRoot}/*`, ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"];
 
   return {
     rootDirectory,
