@@ -22,6 +22,12 @@ research, a concrete proposal belongs in an RFC, and accepted behavior belongs i
   Cloudflare Workers, both, or neither. The app has stable Samebase identity separate from its root
   string and provider resources.
 - **Cloudflare Worker**: the long-lived Cloudflare project that receives built code.
+- **Resource owner**: the app root under which a Worker or Convex deployment is stored and shown.
+  Ownership is not changed by another app building, deploying, or calling that resource.
+- **Deployment dependency**: an explicit relationship saying that one Cloudflare Worker build
+  pipeline deploys one Convex deployment. The Worker and Convex deployment may have different app
+  roots. This relationship is build configuration, not shared ownership and not proof that every
+  client calling Convex has a deployment dependency.
 - **Build trigger**: Cloudflare Workers Builds configuration connecting a Worker to a GitHub
   repository. It owns the root directory, branch rules, changed-path rules, and commands.
 - **Build run**: one Cloudflare-reported execution for one Worker, branch, and commit. A build run
@@ -193,10 +199,18 @@ The following user stories are approved operator expectations:
 - Convex without Cloudflare is a valid supported app state for Expo, React Native, and other clients
   that use Convex without a web Worker. Missing Cloudflare is neutral in that state, not a setup
   failure.
+- An app root may remain visible with no attached provider resource. This is intentional state, not
+  an incomplete resource record.
+- A shared Convex deployment is stored and shown once under its actual backend root. Client apps
+  remain separate visible roots, and Samebase never duplicates the deployment beneath them.
+- A Worker build pipeline may deploy a Convex deployment owned by another root. That explicit
+  deployment dependency does not transfer resource ownership. It is stored once as low-churn
+  infrastructure configuration and is not copied into every branch or pull request snapshot.
 
-#### Proposed resource connection model
+#### Resource connection model under exploration
 
-The following interpretation remains subject to operator confirmation:
+The ownership and deployment-dependency rules above are approved. The exact connection flow below
+still needs runnable evidence before becoming an accepted contract:
 
 - Resource connection order is arbitrary. Either the first Convex deployment or the first Cloudflare
   Worker creates the app atomically with its successful attachment.
@@ -221,9 +235,8 @@ The following interpretation remains subject to operator confirmation:
   fact.
 - One app may have zero or more Workers and initially at most one Convex production deployment. Root
   only, Worker only, Convex only, and both are valid durable states.
-- A shared Convex deployment is stored and shown once under its own backend root. Client apps remain
-  separate visible roots. Samebase may add explicit client-to-backend relationships after real usage
-  proves the necessary controls, but it never duplicates the Convex deployment under each client.
+- Runtime client-to-backend usage is not inferred from build configuration. Samebase may model it
+  later if real usage proves a need, but it is distinct from a Worker pipeline deploying Convex.
 
 Historical context is not a retained product invariant. The app-root-first UI existed partly to
 associate a manually selected Convex deployment with a repository folder because GitHub and Convex
@@ -233,6 +246,40 @@ explains the current model but does not require Samebase to preserve provider-ne
 roots or empty root placeholders. A transitional Netlify repository is a GitHub monitoring case, not
 a reason to restore or generalize hosting-provider support. Expo plus Convex is a supported reason
 for a user-confirmed root inside the Convex connection flow.
+
+## Verified Shared Backend Fixture
+
+The private
+[`samebase/shared-convex-monorepo-fixture`](https://github.com/samebase/shared-convex-monorepo-fixture)
+and its durable [pull request](https://github.com/samebase/shared-convex-monorepo-fixture/pull/1)
+exercise the approved transparent topology with real providers:
+
+- `apps/web` owns one Cloudflare Worker and no Convex deployment.
+- `apps/mobile` is a real Expo app root with no provider resources.
+- `packages/backend` owns one Convex deployment and no Worker.
+- Samebase's current resource UI displays all three roots and shows the shared Convex deployment
+  exactly once under `packages/backend`.
+- A mobile-only commit produced zero GitHub check runs. No Worker build record existed, which is
+  observably different from a failed build.
+- A web and backend change produced exactly one Workers Builds check and one Convex preview
+  deployment. The successful build exposed both a mutable
+  [branch preview](https://codex-shared-backend-shared-convex-monorepo-fixture-web.pfp.workers.dev/)
+  and an immutable
+  [version preview](https://52cb2278-shared-convex-monorepo-fixture-web.pfp.workers.dev/).
+- The first preview run caught a real integration error: Convex selected the preview deployment, but
+  the Worker bundle retained its production Convex URL. The corrected pipeline explicitly passes
+  Convex's selected URL into the web build. Both Worker preview URL types now report the preview
+  backend state, while production remains unchanged.
+- Samebase currently stores and displays only one preview URL on an inventory row. The fixture
+  therefore proves that the immutable version URL is lost even though Cloudflare supplies it.
+- Samebase currently derives Worker watch paths and Convex build access from resources on the same
+  root. The fixture required `apps/web` to watch `packages/backend/*` and use that backend's deploy
+  keys. Until Samebase models the deployment dependency explicitly, infrastructure verification can
+  treat this valid cross-root configuration as drift.
+
+The sustainable shape is one typed deployment dependency per participating Worker. It adds no GitHub
+GraphQL request, no branch or pull request row, and no browser subscription. Provider calls occur
+only when the relationship is declared, wired, rotated, or verified.
 
 ## Exploration Method
 
