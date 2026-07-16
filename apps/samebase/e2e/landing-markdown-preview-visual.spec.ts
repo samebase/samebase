@@ -139,6 +139,8 @@ test("landing preview route renders the React overview in workspace chrome", asy
   const heroVideo = article.getByTestId("landing-preview-hero-video");
   await expect(heroVideo).toBeVisible();
   await expect(heroVideo).toHaveAttribute("autoplay", "");
+  await expect(heroVideo).toHaveAttribute("controls", "");
+  await expect(heroVideo).toHaveAttribute("height", "850");
   await expect(heroVideo).toHaveAttribute("loop", "");
   await expect
     .poll(() =>
@@ -146,8 +148,13 @@ test("landing preview route renders the React overview in workspace chrome", asy
     )
     .toBe(true);
   await expect(heroVideo).toHaveAttribute("playsinline", "");
+  await expect(heroVideo).toHaveAttribute(
+    "poster",
+    "/landing-preview/tic-tac-toe-codex-poster.webp",
+  );
   await expect(heroVideo).toHaveAttribute("preload", "metadata");
   await expect(heroVideo).toHaveAttribute("src", "/landing-preview/tic-tac-toe-codex.mp4");
+  await expect(heroVideo).toHaveAttribute("width", "1280");
   await expect(article).toContainText(
     "GitHub + Convex + Cloudflare is the best way we've found to build an app.",
   );
@@ -269,6 +276,31 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
     .toBeLessThan(81);
+});
+
+test("landing hero reserves its frame before video metadata loads", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.route("**/landing-preview/tic-tac-toe-codex.mp4", (route) => route.abort());
+
+  await page.goto(LANDING_PREVIEW_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+
+  const heroVideo = page.getByTestId("landing-preview-hero-video");
+  await expect(heroVideo).toBeVisible();
+  await expect(heroVideo).toHaveAttribute(
+    "poster",
+    "/landing-preview/tic-tac-toe-codex-poster.webp",
+  );
+
+  const initialVideoLayout = await heroVideo.evaluate((element) => ({
+    height: element.clientHeight,
+    readyState: element.readyState,
+    width: element.clientWidth,
+  }));
+
+  expect(initialVideoLayout.readyState).toBe(0);
+  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1280 / 850, 3);
 });
 
 test("landing preview overview adapts to a narrow pane", async ({ page }) => {

@@ -102,7 +102,11 @@ describe("LandingPreviewPage", () => {
 
     // The real Codex capture replaces the scripted placeholder loop.
     expect(markup).toContain('src="/landing-preview/tic-tac-toe-codex.mp4"');
+    expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
     expect(markup).toContain("Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase");
+    expect(markup).toContain('controls=""');
+    expect(markup).toContain('width="1280"');
+    expect(markup).toContain('height="850"');
     expect(markup).toContain('preload="metadata"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");

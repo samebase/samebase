@@ -598,12 +598,16 @@ function LandingPreviewOverview() {
                 aria-label="Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase"
                 autoPlay
                 className="block w-full"
+                controls
                 data-testid="landing-preview-hero-video"
+                height={850}
                 loop
                 muted
                 playsInline
+                poster="/landing-preview/tic-tac-toe-codex-poster.webp"
                 preload="metadata"
                 src="/landing-preview/tic-tac-toe-codex.mp4"
+                width={1280}
               />
             </div>
           </div>
