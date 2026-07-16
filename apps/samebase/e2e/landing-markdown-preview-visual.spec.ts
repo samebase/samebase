@@ -136,7 +136,18 @@ test("landing preview route renders the React overview in workspace chrome", asy
   );
   await expect(article.getByRole("button", { name: "Open Samebase" })).toHaveCount(2);
   await expect(article).not.toContainText("no chatbot");
-  await expect(article).toContainText("build me tic-tac-toe, but 4x4. use samebase");
+  const heroVideo = article.getByTestId("landing-preview-hero-video");
+  await expect(heroVideo).toBeVisible();
+  await expect(heroVideo).toHaveAttribute("autoplay", "");
+  await expect(heroVideo).toHaveAttribute("loop", "");
+  await expect
+    .poll(() =>
+      heroVideo.evaluate((element) => element instanceof HTMLVideoElement && element.muted),
+    )
+    .toBe(true);
+  await expect(heroVideo).toHaveAttribute("playsinline", "");
+  await expect(heroVideo).toHaveAttribute("preload", "metadata");
+  await expect(heroVideo).toHaveAttribute("src", "/landing-preview/tic-tac-toe-codex.mp4");
   await expect(article).toContainText(
     "GitHub + Convex + Cloudflare is the best way we've found to build an app.",
   );
@@ -192,7 +203,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("heading", { name: /The correct/ })).toHaveCount(0);
   await expect(article).not.toContainText("the leaving test");
   await expect(article).not.toContainText("account owner");
-  await expect(article.locator("video")).toHaveCount(0);
+  await expect(article.locator("video")).toHaveCount(1);
 
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
@@ -201,7 +212,8 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
     animations: "disabled",
     caret: "hide",
-    mask: [page.getByTestId("public-landing-logo-stage")],
+    mask: [heroVideo, page.getByTestId("public-landing-logo-stage")],
+    maskColor: "#f5f5f5",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
@@ -275,6 +287,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const heroVideo = article.getByTestId("landing-preview-hero-video");
   await expect(
     article.getByRole("heading", {
       name: /Not another AI app builder/,
@@ -288,7 +301,8 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   await expect(page).toHaveScreenshot("landing-preview-overview-narrow-pane.png", {
     animations: "disabled",
     caret: "hide",
-    mask: [page.getByTestId("public-landing-logo-stage")],
+    mask: [heroVideo, page.getByTestId("public-landing-logo-stage")],
+    maskColor: "#f5f5f5",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
@@ -403,7 +417,17 @@ test.describe("mobile landing preview", () => {
 
     const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+    const heroVideo = article.getByTestId("landing-preview-hero-video");
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+    await expect(heroVideo).toBeVisible();
+    await expect(page).toHaveScreenshot("landing-preview-hero-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      mask: [heroVideo],
+      maskColor: "#f5f5f5",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
     await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
       "landing-preview-provider-grid-mobile.png",
       {

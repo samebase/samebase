@@ -100,12 +100,12 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("no chatbot");
     expect(markup).not.toContain("$0/month idle");
 
-    // Agent loop placeholder with the concrete provisioning artifacts.
-    expect(markup).toContain("build me tic-tac-toe, but 4x4. use samebase");
-    expect(markup).toContain("samebase.create_app(&quot;tictactoe-4x4&quot;)");
-    expect(markup).toContain("github.com/you/tictactoe-4x4");
-    expect(markup).toContain("Live in 58s.");
-    expect(markup).toContain("placeholder loop · final asset: real screen capture of your agent");
+    // The real Codex capture replaces the scripted placeholder loop.
+    expect(markup).toContain('src="/landing-preview/tic-tac-toe-codex.mp4"');
+    expect(markup).toContain("Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase");
+    expect(markup).toContain("Codex builds, ships, and plays a 4×4×4 game with me");
+    expect(markup).toContain('preload="metadata"');
+    expect(markup).not.toContain("placeholder loop");
 
     // The opinion, named, with the trio row under it.
     expect(markup).toContain("the opinion we&#x27;re selling");
