@@ -1,7 +1,11 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  "main": "./worker/index.ts",
   "compatibility_date": "2026-05-14",
   "preview_urls": true,
+  "cache": {
+    "enabled": true,
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,
@@ -19,7 +23,9 @@
   },
   "assets": {
     "directory": "./dist/client",
+    "binding": "ASSETS",
     "html_handling": "none",
+    "run_worker_first": ["/landing-preview/tic-tac-toe-codex.mp4"],
     // Cloudflare's single-page-application asset mode serves /index.html for
     // unknown app routes. Keep vite.config.ts emitting the Start shell there.
     "not_found_handling": "single-page-application",
