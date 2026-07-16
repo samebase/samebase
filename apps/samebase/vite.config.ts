@@ -415,6 +415,10 @@ function samebaseSyncScriptAssetPlugin() {
 const contentDocsMarkdownAssets = [
   { assetPath: "docs/do-it-yourself.md", sourcePath: "src/content/docs-do-it-yourself.md" },
   {
+    assetPath: "docs/operate/agent-plugin.md",
+    sourcePath: "src/content/docs-operate-agent-plugin.md",
+  },
+  {
     assetPath: "docs/operate/custom-domain.md",
     sourcePath: "src/content/docs-operate-custom-domain.md",
   },

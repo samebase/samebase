@@ -14,6 +14,7 @@ export const cloudflareWireConvexBuildAccessContract = {
   },
   returns: v.null(),
   mcp: {
+    title: "Wire Convex build access",
     name: "vault_cloudflare_wireConvexBuildAccess",
     description:
       "Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.",

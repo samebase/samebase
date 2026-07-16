@@ -24,6 +24,7 @@ export const createRepositoryContract = {
   returns: vCreateRepositoryResult,
   structuredContent: vCreateRepositoryResult,
   mcp: {
+    title: "Create Samebase app",
     name: "vault_actions_createRepository",
     description:
       "Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.",

@@ -23,24 +23,20 @@ the handoff on successful redemption or account mismatch.
 
 ## Returns
 
-Convex validator JSON of the tool's `structuredContent`:
+JSON Schema for the tool's `structuredContent`:
 
 ```json
 {
   "type": "object",
-  "value": {
+  "properties": {
     "url": {
-      "fieldType": {
-        "type": "string"
-      },
-      "optional": false
+      "type": "string"
     },
     "expiresAt": {
-      "fieldType": {
-        "type": "number"
-      },
-      "optional": false
+      "type": "number"
     }
-  }
+  },
+  "required": ["url", "expiresAt"],
+  "additionalProperties": false
 }
 ```

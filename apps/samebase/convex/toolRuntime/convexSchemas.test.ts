@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { v } from "convex/values";
 
-import { convexArgsToToolInputSchema } from "./convexSchemas";
+import { convexArgsToToolInputSchema, convexValidatorToToolOutputSchema } from "./convexSchemas";
 
 describe("convexArgsToToolInputSchema", () => {
   it("converts Convex args into an MCP input schema", () => {
@@ -63,6 +63,40 @@ describe("convexArgsToToolInputSchema", () => {
         },
       },
       required: ["name", "visibility", "labels", "settings"],
+      additionalProperties: false,
+    });
+  });
+});
+
+describe("convexValidatorToToolOutputSchema", () => {
+  it("converts structured content into an MCP output schema", () => {
+    expect(
+      convexValidatorToToolOutputSchema(
+        v.object({
+          app: v.object({
+            id: v.id("vaults"),
+            state: v.union(v.literal("ready"), v.literal("failed")),
+          }),
+          nextAction: v.optional(v.string()),
+        }),
+      ),
+    ).toEqual({
+      type: "object",
+      properties: {
+        app: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            state: {
+              anyOf: [{ const: "ready" }, { const: "failed" }],
+            },
+          },
+          required: ["id", "state"],
+          additionalProperties: false,
+        },
+        nextAction: { type: "string" },
+      },
+      required: ["app"],
       additionalProperties: false,
     });
   });

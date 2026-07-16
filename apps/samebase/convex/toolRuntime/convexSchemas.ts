@@ -108,6 +108,10 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
   }
 }
 
+export function convexValidatorToToolOutputSchema(validator: unknown) {
+  return convexJsonToToolJsonSchema(readConvexValidatorJson(validator));
+}
+
 export function convexArgsToToolInputSchema<TArgs extends PropertyValidators>(
   args: TArgs,
   argsDescriptions: Record<keyof TArgs, string>,

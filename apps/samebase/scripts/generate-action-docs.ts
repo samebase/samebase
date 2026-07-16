@@ -32,6 +32,7 @@ const actionContractSchema = object({
   access: string,
   doc: string,
   mcp: object({
+    title: string,
     name: string,
     description: string,
     safety: string,
@@ -90,7 +91,7 @@ const contractSourceByMcpName: Record<string, string> = {
 type LoadedCatalog = {
   contracts: ActionContractDoc[];
   argumentLinesByMcpName: Map<string, string>;
-  /** Wire-shape validator JSON per tool; null for text-only tools. */
+  /** Wire-shape JSON Schema per tool; null for text-only tools. */
   structuredContentJsonByMcpName: Map<string, string | null>;
 };
 
@@ -128,6 +129,10 @@ async function loadCatalog(): Promise<LoadedCatalog> {
     if (typeof convertArgs !== "function") {
       throw new Error("convexSchemas.ts did not export convexArgsToToolInputSchema.");
     }
+    const convertOutput = schemasModule.convexValidatorToToolOutputSchema;
+    if (typeof convertOutput !== "function") {
+      throw new Error("convexSchemas.ts did not export convexValidatorToToolOutputSchema.");
+    }
 
     const rawContracts = catalogModule.actionContracts;
     if (!Array.isArray(rawContracts)) {
@@ -156,16 +161,16 @@ async function loadCatalog(): Promise<LoadedCatalog> {
         renderArgumentLines(converted.properties, new Set(schema.required ?? [])),
       );
 
-      // Convex validators expose their JSON metadata; a contract's
-      // structuredContent validator is the wire shape an MCP caller receives,
-      // rendered verbatim. A contract may omit it only when its returns
-      // validator is null (text-only reply); any other omission means an
-      // undocumented wire payload, so generation fails.
+      // A contract's structuredContent validator is the wire shape an MCP
+      // caller receives. Render the same JSON Schema published by tools/list.
+      // A contract may omit it only when its returns validator is null
+      // (text-only reply); any other omission means an undocumented wire
+      // payload, so generation fails.
       const rawStructuredContent = rawContract.structuredContent;
       if (isObject(rawStructuredContent) && rawStructuredContent.json !== undefined) {
         structuredContentJsonByMcpName.set(
           contract.mcp.name,
-          JSON.stringify(rawStructuredContent.json, null, 2),
+          JSON.stringify(convertOutput(rawStructuredContent), null, 2),
         );
       } else if (
         isObject(rawContract.returns) &&
@@ -200,7 +205,7 @@ function renderArgumentLines(properties: Record<string, unknown>, required: Set<
 }
 
 function actionTitle(contract: ActionContractDoc): string {
-  return contract.id.replaceAll("_", " ").replace(/^./, (first) => first.toUpperCase());
+  return contract.mcp.title;
 }
 
 function renderActionDoc(
@@ -216,7 +221,7 @@ function renderActionDoc(
   const returnsSection =
     structuredContentJson === null
       ? "The reply is confirmation text only; the tool sets no `structuredContent`."
-      : `Convex validator JSON of the tool's \`structuredContent\`:
+      : `JSON Schema for the tool's \`structuredContent\`:
 
 \`\`\`json
 ${structuredContentJson}
@@ -261,8 +266,9 @@ roots in the dashboard.
 
 The dashboard gives humans one inventory of every app they connect, its app roots, provider
 resources, current state, direct provider coordinates, and provider or connection repair actions.
-Samebase does not replace the coding-agent interface the user already chose: Codex, Claude Code,
-Cursor, or any MCP client can call its actions over MCP.
+Codex and Claude Code can install \`samebase@samebase\`, which packages the create or connect, local
+repository build, and Git-backed hosting workflows. Cursor and other MCP clients can call the same
+actions directly.
 
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
 Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build
@@ -293,6 +299,8 @@ ${actionLines}
 
 ## Operate
 
+- [Agent plugin](https://samebase.com/docs/operate/agent-plugin.md): install \`samebase@samebase\`
+  for the building and Git-backed hosting workflows around this action catalog
 - [MCP server](https://api.samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
   browser); the tools are the actions listed above.
 - [Production logs](https://samebase.com/docs/operate/production-logs.md): read backend and Worker

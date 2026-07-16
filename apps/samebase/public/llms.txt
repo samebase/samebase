@@ -11,8 +11,9 @@ roots in the dashboard.
 
 The dashboard gives humans one inventory of every app they connect, its app roots, provider
 resources, current state, direct provider coordinates, and provider or connection repair actions.
-Samebase does not replace the coding-agent interface the user already chose: Codex, Claude Code,
-Cursor, or any MCP client can call its actions over MCP.
+Codex and Claude Code can install `samebase@samebase`, which packages the create or connect, local
+repository build, and Git-backed hosting workflows. Cursor and other MCP clients can call the same
+actions directly.
 
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
 Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build
@@ -40,22 +41,24 @@ Every operational action has one contract, and these are the same actions the da
 Degraded app states name their remedy in a `nextAction` field whose values are these action ids.
 
 - [Get authentication status](https://samebase.com/docs/actions/get_authentication_status.md): Read the caller's current Samebase MCP authentication state: account identity, role, access keys, and OAuth token scopes.
-- [Get user vaults](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.
-- [Create repository](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.
+- [List Samebase apps](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.
+- [Create Samebase app](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.
 - [Connect existing repository](https://samebase.com/docs/actions/connect_existing_repository.md): Import an existing GitHub repository as a Samebase app. Creates the Samebase record and syncs the repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.
-- [List convex projects](https://samebase.com/docs/actions/list_convex_projects.md): List the Convex projects available on the caller's connected Convex account, for choosing an attach target.
-- [List cloudflare accounts](https://samebase.com/docs/actions/list_cloudflare_accounts.md): List the Cloudflare accounts available on the caller's connected Cloudflare login, for choosing where a Worker lives.
-- [List cloudflare workers](https://samebase.com/docs/actions/list_cloudflare_workers.md): List the Workers on a Cloudflare account, classified against the app's repository so safe attach targets are marked recommended.
-- [Connect convex deployment](https://samebase.com/docs/actions/connect_convex_deployment.md): Attach an existing Convex project to a Samebase app (manual attach): records the deployment and starts the connection run.
-- [Connect cloudflare worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Attach an existing Cloudflare Worker to a Samebase app (manual attach): validates the Worker against the repository and starts the connection run.
-- [Wire builds](https://samebase.com/docs/actions/wire_builds.md): Connect the app's Cloudflare Worker to its GitHub repository through Workers Builds: production and preview triggers, so pushes deploy and pull requests get previews.
-- [Wire convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.
+- [List Convex projects](https://samebase.com/docs/actions/list_convex_projects.md): List the Convex projects available on the caller's connected Convex account, for choosing an attach target.
+- [List Cloudflare accounts](https://samebase.com/docs/actions/list_cloudflare_accounts.md): List the Cloudflare accounts available on the caller's connected Cloudflare login, for choosing where a Worker lives.
+- [List Cloudflare Workers](https://samebase.com/docs/actions/list_cloudflare_workers.md): List the Workers on a Cloudflare account, classified against the app's repository so safe attach targets are marked recommended.
+- [Connect Convex deployment](https://samebase.com/docs/actions/connect_convex_deployment.md): Attach an existing Convex project to a Samebase app (manual attach): records the deployment and starts the connection run.
+- [Connect Cloudflare Worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Attach an existing Cloudflare Worker to a Samebase app (manual attach): validates the Worker against the repository and starts the connection run.
+- [Wire Workers Builds](https://samebase.com/docs/actions/wire_builds.md): Connect the app's Cloudflare Worker to its GitHub repository through Workers Builds: production and preview triggers, so pushes deploy and pull requests get previews.
+- [Wire Convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.
 - [Verify infrastructure](https://samebase.com/docs/actions/verify_infrastructure.md): Verify the app's recorded Cloudflare infrastructure: Workers Builds trigger IDs and Convex deploy-key variables, then mark stale Samebase records as repairable.
 - [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
 - [Create browser handoff](https://samebase.com/docs/actions/create_browser_handoff.md): Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.
 
 ## Operate
 
+- [Agent plugin](https://samebase.com/docs/operate/agent-plugin.md): install `samebase@samebase`
+  for the building and Git-backed hosting workflows around this action catalog
 - [MCP server](https://api.samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
   browser); the tools are the actions listed above.
 - [Production logs](https://samebase.com/docs/operate/production-logs.md): read backend and Worker

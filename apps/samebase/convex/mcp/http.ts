@@ -9,7 +9,10 @@ import {
 } from "../../shared/accountPresentation";
 import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
-import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
+import {
+  convexArgsToToolInputSchema,
+  convexValidatorToToolOutputSchema,
+} from "../toolRuntime/convexSchemas";
 import {
   logMcpHttpUsageContext,
   type SamebaseUsageMcpMethod,
@@ -66,6 +69,13 @@ import { parseScopeTokens } from "./scopes";
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
+const MCP_SERVER_INSTRUCTIONS = `Samebase manages app inventory and the joins between user-owned GitHub, Convex, and Cloudflare resources. Read ${getUserVaultsContract.mcp.name} before writes whenever an app may already exist, and reuse the returned app-root and provider identifiers.
+
+After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until provisioning reaches a terminal ready or failed state. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
+
+An inventory nextAction value is an action contract ID, not necessarily a callable MCP tool name. Match it to the live tool contract, call that repair action, then reread inventory.
+
+Make code changes, run setup and validation, and commit or push in the returned GitHub repository. Use provider-native tools for logs, general environment values, migrations, custom domains, and terminal build state when Samebase does not expose that read. The current action and provider-boundary docs are indexed at https://samebase.com/llms.txt.`;
 const mcpToolCallParams = object({
   name: string,
   arguments: optional(unknownValue),
@@ -258,6 +268,7 @@ async function callCreateBrowserHandoffMcpTool(ctx: ActionCtx, invocation: McpTo
 const mcpToolCatalog = [
   {
     access: getAuthenticationStatusContract.access,
+    title: getAuthenticationStatusContract.mcp.title,
     name: getAuthenticationStatusContract.mcp.name,
     description: getAuthenticationStatusContract.mcp.description,
     annotations: getAuthenticationStatusContract.mcp.annotations,
@@ -265,10 +276,14 @@ const mcpToolCatalog = [
       getAuthenticationStatusContract.args,
       getAuthenticationStatusContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(
+      getAuthenticationStatusContract.structuredContent,
+    ),
     call: callGetAuthenticationStatusMcpTool,
   },
   {
     access: getUserVaultsContract.access,
+    title: getUserVaultsContract.mcp.title,
     name: getUserVaultsContract.mcp.name,
     description: getUserVaultsContract.mcp.description,
     annotations: getUserVaultsContract.mcp.annotations,
@@ -276,10 +291,12 @@ const mcpToolCatalog = [
       getUserVaultsContract.args,
       getUserVaultsContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(getUserVaultsContract.structuredContent),
     call: callGetUserVaultsMcpTool,
   },
   {
     access: createRepositoryContract.access,
+    title: createRepositoryContract.mcp.title,
     name: createRepositoryContract.mcp.name,
     description: createRepositoryContract.mcp.description,
     annotations: createRepositoryContract.mcp.annotations,
@@ -287,10 +304,12 @@ const mcpToolCatalog = [
       createRepositoryContract.args,
       createRepositoryContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(createRepositoryContract.structuredContent),
     call: callCreateRepositoryMcpTool,
   },
   {
     access: connectRepositoryContract.access,
+    title: connectRepositoryContract.mcp.title,
     name: connectRepositoryContract.mcp.name,
     description: connectRepositoryContract.mcp.description,
     annotations: connectRepositoryContract.mcp.annotations,
@@ -298,10 +317,12 @@ const mcpToolCatalog = [
       connectRepositoryContract.args,
       connectRepositoryContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(connectRepositoryContract.structuredContent),
     call: callConnectRepositoryMcpTool,
   },
   {
     access: convexListProjectsContract.access,
+    title: convexListProjectsContract.mcp.title,
     name: convexListProjectsContract.mcp.name,
     description: convexListProjectsContract.mcp.description,
     annotations: convexListProjectsContract.mcp.annotations,
@@ -309,10 +330,12 @@ const mcpToolCatalog = [
       convexListProjectsContract.args,
       convexListProjectsContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(convexListProjectsContract.structuredContent),
     call: callConvexListProjectsMcpTool,
   },
   {
     access: cloudflareListAccountsContract.access,
+    title: cloudflareListAccountsContract.mcp.title,
     name: cloudflareListAccountsContract.mcp.name,
     description: cloudflareListAccountsContract.mcp.description,
     annotations: cloudflareListAccountsContract.mcp.annotations,
@@ -320,10 +343,14 @@ const mcpToolCatalog = [
       cloudflareListAccountsContract.args,
       cloudflareListAccountsContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(
+      cloudflareListAccountsContract.structuredContent,
+    ),
     call: callCloudflareListAccountsMcpTool,
   },
   {
     access: cloudflareListWorkersContract.access,
+    title: cloudflareListWorkersContract.mcp.title,
     name: cloudflareListWorkersContract.mcp.name,
     description: cloudflareListWorkersContract.mcp.description,
     annotations: cloudflareListWorkersContract.mcp.annotations,
@@ -331,10 +358,14 @@ const mcpToolCatalog = [
       cloudflareListWorkersContract.args,
       cloudflareListWorkersContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(
+      cloudflareListWorkersContract.structuredContent,
+    ),
     call: callCloudflareListWorkersMcpTool,
   },
   {
     access: convexConnectExistingProjectContract.access,
+    title: convexConnectExistingProjectContract.mcp.title,
     name: convexConnectExistingProjectContract.mcp.name,
     description: convexConnectExistingProjectContract.mcp.description,
     annotations: convexConnectExistingProjectContract.mcp.annotations,
@@ -342,10 +373,12 @@ const mcpToolCatalog = [
       convexConnectExistingProjectContract.args,
       convexConnectExistingProjectContract.mcp.inputDescriptions,
     ),
+    outputSchema: undefined,
     call: callConvexConnectExistingProjectMcpTool,
   },
   {
     access: cloudflareConnectExistingWorkerContract.access,
+    title: cloudflareConnectExistingWorkerContract.mcp.title,
     name: cloudflareConnectExistingWorkerContract.mcp.name,
     description: cloudflareConnectExistingWorkerContract.mcp.description,
     annotations: cloudflareConnectExistingWorkerContract.mcp.annotations,
@@ -353,10 +386,12 @@ const mcpToolCatalog = [
       cloudflareConnectExistingWorkerContract.args,
       cloudflareConnectExistingWorkerContract.mcp.inputDescriptions,
     ),
+    outputSchema: undefined,
     call: callCloudflareConnectExistingWorkerMcpTool,
   },
   {
     access: cloudflareWireBuildsContract.access,
+    title: cloudflareWireBuildsContract.mcp.title,
     name: cloudflareWireBuildsContract.mcp.name,
     description: cloudflareWireBuildsContract.mcp.description,
     annotations: cloudflareWireBuildsContract.mcp.annotations,
@@ -364,10 +399,12 @@ const mcpToolCatalog = [
       cloudflareWireBuildsContract.args,
       cloudflareWireBuildsContract.mcp.inputDescriptions,
     ),
+    outputSchema: undefined,
     call: callCloudflareWireBuildsMcpTool,
   },
   {
     access: cloudflareWireConvexBuildAccessContract.access,
+    title: cloudflareWireConvexBuildAccessContract.mcp.title,
     name: cloudflareWireConvexBuildAccessContract.mcp.name,
     description: cloudflareWireConvexBuildAccessContract.mcp.description,
     annotations: cloudflareWireConvexBuildAccessContract.mcp.annotations,
@@ -375,10 +412,12 @@ const mcpToolCatalog = [
       cloudflareWireConvexBuildAccessContract.args,
       cloudflareWireConvexBuildAccessContract.mcp.inputDescriptions,
     ),
+    outputSchema: undefined,
     call: callCloudflareWireConvexBuildAccessMcpTool,
   },
   {
     access: cloudflareVerifyInfrastructureContract.access,
+    title: cloudflareVerifyInfrastructureContract.mcp.title,
     name: cloudflareVerifyInfrastructureContract.mcp.name,
     description: cloudflareVerifyInfrastructureContract.mcp.description,
     annotations: cloudflareVerifyInfrastructureContract.mcp.annotations,
@@ -386,10 +425,12 @@ const mcpToolCatalog = [
       cloudflareVerifyInfrastructureContract.args,
       cloudflareVerifyInfrastructureContract.mcp.inputDescriptions,
     ),
+    outputSchema: undefined,
     call: callCloudflareVerifyInfrastructureMcpTool,
   },
   {
     access: retryInfrastructureProvisioningContract.access,
+    title: retryInfrastructureProvisioningContract.mcp.title,
     name: retryInfrastructureProvisioningContract.mcp.name,
     description: retryInfrastructureProvisioningContract.mcp.description,
     annotations: retryInfrastructureProvisioningContract.mcp.annotations,
@@ -397,10 +438,12 @@ const mcpToolCatalog = [
       retryInfrastructureProvisioningContract.args,
       retryInfrastructureProvisioningContract.mcp.inputDescriptions,
     ),
+    outputSchema: undefined,
     call: callRetryInfrastructureProvisioningMcpTool,
   },
   {
     access: createBrowserHandoffContract.access,
+    title: createBrowserHandoffContract.mcp.title,
     name: createBrowserHandoffContract.mcp.name,
     description: createBrowserHandoffContract.mcp.description,
     annotations: createBrowserHandoffContract.mcp.annotations,
@@ -408,6 +451,7 @@ const mcpToolCatalog = [
       createBrowserHandoffContract.args,
       createBrowserHandoffContract.mcp.inputDescriptions,
     ),
+    outputSchema: convexValidatorToToolOutputSchema(createBrowserHandoffContract.structuredContent),
     call: callCreateBrowserHandoffMcpTool,
   },
 ] as const;
@@ -423,10 +467,12 @@ export function listMcpToolsForAccess(args: {
         canAccess(tool.access, args.currentAccessKeys),
     )
     .map((tool) => ({
+      title: tool.title,
       name: tool.name,
       description: tool.description,
       annotations: tool.annotations,
       inputSchema: tool.inputSchema,
+      ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
     }));
 }
 
@@ -1113,6 +1159,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
           name: "samebase",
           version: "0.1.0",
         },
+        instructions: MCP_SERVER_INSTRUCTIONS,
       },
     });
   }

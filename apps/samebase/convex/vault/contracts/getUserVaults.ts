@@ -214,6 +214,7 @@ export const getUserVaultsContract = {
   returns: vUserVaultsResult,
   structuredContent: object({ vaults: vUserVaultsResult }),
   mcp: {
+    title: "List Samebase apps",
     name: "vault_dashboard_getUserVaults",
     description:
       "List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.",

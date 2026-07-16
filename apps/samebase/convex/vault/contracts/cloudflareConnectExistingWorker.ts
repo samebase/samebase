@@ -16,6 +16,7 @@ export const cloudflareConnectExistingWorkerContract = {
   },
   returns: v.null(),
   mcp: {
+    title: "Connect Cloudflare Worker",
     name: "vault_cloudflare_connectExistingWorker",
     description:
       "Attach an existing Cloudflare Worker to a Samebase app (manual attach): validates the Worker against the repository and starts the connection run.",
