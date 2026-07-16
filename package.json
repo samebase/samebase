@@ -31,6 +31,7 @@
     "check:root": "pnpm run check:scripts",
     "check:scripts": "pnpm run typecheck:scripts && pnpm run warn:tracked-file-paths && pnpm run lint:scripts && pnpm run check:agents-budget",
     "check:agents-budget": "node ./scripts/check-agents-doc-budget.ts",
+    "check:public-media": "node ./scripts/check-public-media.ts",
     "audit:signatures": "pnpm audit signatures",
     "audit:vulnerabilities": "pnpm audit",
     "audit:supply-chain": "pnpm install --frozen-lockfile --ignore-scripts && pnpm run audit:signatures && pnpm run audit:vulnerabilities",

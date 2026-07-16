@@ -7,6 +7,7 @@ import {
   DocsTheStackPage,
   LandingPreviewPage,
 } from "@/components/LandingPreviewPage";
+import { publicMediaManifest } from "../../shared/publicMediaManifest";
 
 const appAuthState = vi.hoisted(() => ({ authenticated: false }));
 
@@ -100,12 +101,17 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("no chatbot");
     expect(markup).not.toContain("$0/month idle");
 
-    // Agent loop placeholder with the concrete provisioning artifacts.
-    expect(markup).toContain("build me tic-tac-toe, but 4x4. use samebase");
-    expect(markup).toContain("samebase.create_app(&quot;tictactoe-4x4&quot;)");
-    expect(markup).toContain("github.com/you/tictactoe-4x4");
-    expect(markup).toContain("Live in 58s.");
-    expect(markup).toContain("placeholder loop · final asset: real screen capture of your agent");
+    // The real Codex capture replaces the scripted placeholder loop.
+    expect(markup).toContain(`src="${publicMediaManifest.landingTicTacToeCodex.publicUrl}"`);
+    expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
+    expect(markup).toContain("Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase");
+    expect(markup).toContain('controls=""');
+    expect(markup).toContain('width="1280"');
+    expect(markup).toContain('height="850"');
+    expect(markup).toContain('preload="metadata"');
+    expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
+    expect(markup).toContain("border-radius:1.104% / 1.664%");
+    expect(markup).not.toContain("placeholder loop");
 
     // The opinion, named, with the trio row under it.
     expect(markup).toContain("the opinion we&#x27;re selling");

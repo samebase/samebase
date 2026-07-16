@@ -31,6 +31,7 @@ import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
+import { publicMediaManifest } from "../../shared/publicMediaManifest";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -318,69 +319,6 @@ function LandingCreateAppButton() {
   );
 }
 
-/**
-The provisioning demo the hero sells: a CSS-only timeline placeholder until the
-real screen capture exists. One 10s cycle types the prompt and reveals each
-provisioning line; reduced motion shows the completed final frame.
-*/
-function LandingAgentLoop() {
-  return (
-    <div>
-      <div className="border border-border">
-        <div className="flex items-center gap-3 border-b border-border bg-muted/50 px-4 py-2.5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            your agent · muted loop · 0:10
-          </p>
-          <img
-            alt=""
-            className="ml-auto h-3.5 w-3.5 dark:invert"
-            height="14"
-            src="/brand/logo/v1-side-primary-duotone.svg"
-            width="14"
-          />
-        </div>
-        <div className="overflow-x-auto whitespace-nowrap px-5 py-5 font-mono text-[13px] leading-[1.7]">
-          <p className="text-muted-foreground">you</p>
-          <p>
-            <span className="animate-landing-loop-type inline-block max-w-full overflow-hidden align-bottom">
-              build me tic-tac-toe, but 4x4. use samebase
-            </span>
-            <span className="animate-landing-loop-caret inline-block align-bottom text-secondary">
-              ▏
-            </span>
-          </p>
-          <p className="animate-landing-loop-reveal-42 mt-4">
-            <span className="text-muted-foreground">●</span> samebase.create_app("tictactoe-4x4"){" "}
-            <span className="text-muted-foreground">via MCP</span>
-          </p>
-          <p className="animate-landing-loop-reveal-50 mt-3.5">
-            <span className="text-secondary">✓</span> github.com/you/tictactoe-4x4{" "}
-            <span className="text-muted-foreground">· repo created</span>
-          </p>
-          <p className="animate-landing-loop-reveal-57 mt-1.5">
-            <span className="text-secondary">✓</span> convex, tictactoe-prod{" "}
-            <span className="text-muted-foreground">· backend live</span>
-          </p>
-          <p className="animate-landing-loop-reveal-64 mt-1.5">
-            <span className="text-secondary">✓</span> tictactoe-4x4.you.workers.dev{" "}
-            <span className="text-muted-foreground">· deployed</span>
-          </p>
-          <p className="animate-landing-loop-reveal-71 mt-1.5">
-            <span className="text-secondary">✓</span> CI wired{" "}
-            <span className="text-muted-foreground">· push deploys, PRs get previews</span>
-          </p>
-          <p className="animate-landing-loop-reveal-80 mt-4">
-            Live in 58s. Idle cost: <span className="font-semibold text-secondary">$0/month</span>.
-          </p>
-        </div>
-      </div>
-      <p className="mt-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
-        placeholder loop · final asset: real screen capture of your agent, autoplaying, no audio
-      </p>
-    </div>
-  );
-}
-
 const COPY_LABEL_RESET_DELAY_MS = 1500;
 
 function LandingCopyPromptButton() {
@@ -628,33 +566,51 @@ function LandingPreviewOverview() {
           <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
         </p>
 
-        <section className="mt-10 @5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
-          <div>
-            <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-              <span className="block">Not another AI app builder.</span>
-              <span className="block">
-                <span className="text-muted-foreground">The tool your AI uses</span> to ship real
-                apps.
-              </span>
-            </h1>
-            <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-              One action creates the repo, provisions the database + backend, and deploys the app on
-              accounts you own. Every connected app stays visible in one inventory.
+        <section className="mt-10">
+          <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
+            <span className="block">Not another AI app builder.</span>
+            <span className="block">
+              <span className="text-muted-foreground">The tool your AI uses</span> to ship real
+              apps.
+            </span>
+          </h1>
+          <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
+            One action creates the repo, provisions the database + backend, and deploys the app on
+            accounts you own. Every connected app stays visible in one inventory.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <LandingCreateAppButton />
+            <p className="text-sm text-muted-foreground">
+              Free today; an idle app costs $0/month.
+              <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
-              <LandingCreateAppButton />
-              <p className="text-sm text-muted-foreground">
-                Free today; an idle app costs $0/month.
-                <LandingFootnoteMark
-                  fragment="landing-note-zero"
-                  label="footnote: zero"
-                  marker="‡"
-                />
-              </p>
-            </div>
           </div>
-          <div className="mt-12 @5xl:mt-1.5">
-            <LandingAgentLoop />
+          <div className="mt-12" style={{ containerType: "inline-size" }}>
+            <div
+              className="overflow-hidden"
+              data-testid="landing-preview-hero-video-frame"
+              style={{
+                borderRadius: "1.104% / 1.664%",
+                boxShadow:
+                  "0 0.11cqw 0.44cqw rgb(0 0 0 / 22%), 0 1.325cqw 3.31cqw rgb(0 0 0 / 30%)",
+              }}
+            >
+              <video
+                aria-label="Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase"
+                autoPlay
+                className="block w-full"
+                controls
+                data-testid="landing-preview-hero-video"
+                height={850}
+                loop
+                muted
+                playsInline
+                poster="/landing-preview/tic-tac-toe-codex-poster.webp"
+                preload="metadata"
+                src={publicMediaManifest.landingTicTacToeCodex.publicUrl}
+                width={1280}
+              />
+            </div>
           </div>
         </section>
 

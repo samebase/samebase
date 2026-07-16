@@ -11,9 +11,13 @@ import {
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { publicMediaManifest } from "../shared/publicMediaManifest";
 
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
   devices["iPhone 13"];
+
+const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingTicTacToeCodex.publicUrl;
+const LANDING_PREVIEW_PROD_UI_ROUTE = `${LANDING_PREVIEW_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
   "Overview",
@@ -106,10 +110,15 @@ async function readMainPaneScrollTop(page: Page) {
     .evaluate((element) => element.scrollTop);
 }
 
+async function showLandingHeroPoster(page: Page) {
+  await page.route(LANDING_HERO_VIDEO_URL, (route) => route.abort());
+}
+
 test("landing preview route renders the React overview in workspace chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await showLandingHeroPoster(page);
 
-  await page.goto(LANDING_PREVIEW_ROUTE, {
+  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -126,6 +135,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
   await expect(page.getByTestId(DOCS_SIDEBAR_TEST_ID)).toHaveCount(0);
   await expect(rightSidebar).toHaveCSS("width", "288px");
+  await expect(rightSidebar).not.toContainText("Password auth (dev)");
   await expect(
     article.getByRole("heading", {
       name: /Not another AI app builder/,
@@ -136,7 +146,25 @@ test("landing preview route renders the React overview in workspace chrome", asy
   );
   await expect(article.getByRole("button", { name: "Open Samebase" })).toHaveCount(2);
   await expect(article).not.toContainText("no chatbot");
-  await expect(article).toContainText("build me tic-tac-toe, but 4x4. use samebase");
+  const heroVideo = article.getByTestId("landing-preview-hero-video");
+  await expect(heroVideo).toBeVisible();
+  await expect(heroVideo).toHaveAttribute("autoplay", "");
+  await expect(heroVideo).toHaveAttribute("controls", "");
+  await expect(heroVideo).toHaveAttribute("height", "850");
+  await expect(heroVideo).toHaveAttribute("loop", "");
+  await expect
+    .poll(() =>
+      heroVideo.evaluate((element) => element instanceof HTMLVideoElement && element.muted),
+    )
+    .toBe(true);
+  await expect(heroVideo).toHaveAttribute("playsinline", "");
+  await expect(heroVideo).toHaveAttribute(
+    "poster",
+    "/landing-preview/tic-tac-toe-codex-poster.webp",
+  );
+  await expect(heroVideo).toHaveAttribute("preload", "metadata");
+  await expect(heroVideo).toHaveAttribute("src", LANDING_HERO_VIDEO_URL);
+  await expect(heroVideo).toHaveAttribute("width", "1280");
   await expect(article).toContainText(
     "GitHub + Convex + Cloudflare is the best way we've found to build an app.",
   );
@@ -192,16 +220,17 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("heading", { name: /The correct/ })).toHaveCount(0);
   await expect(article).not.toContainText("the leaving test");
   await expect(article).not.toContainText("account owner");
-  await expect(article.locator("video")).toHaveCount(0);
+  await expect(article.locator("video")).toHaveCount(1);
 
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
-  // The interactive logo canvases render nondeterministically across GPUs, so
-  // the overview baseline masks their stages and covers layout and typography.
+  // The interactive logo canvas renders nondeterministically across GPUs. The
+  // video request stays aborted so its real frame-zero poster remains visible.
   await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
     animations: "disabled",
     caret: "hide",
     mask: [page.getByTestId("public-landing-logo-stage")],
+    maskColor: "#f5f5f5",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
@@ -218,7 +247,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("link", { name: "Do it yourself", exact: true })
     .click();
-  await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  await expect.poll(() => new URL(page.url()).pathname).toBe(DOCS_DO_IT_YOURSELF_ROUTE);
   const docsSidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   await expectDesktopPaneWidths(page, {
     left: "240px",
@@ -259,13 +288,39 @@ test("landing preview route renders the React overview in workspace chrome", asy
     .toBeLessThan(81);
 });
 
+test("landing hero reserves its frame before video metadata loads", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await showLandingHeroPoster(page);
+
+  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+
+  const heroVideo = page.getByTestId("landing-preview-hero-video");
+  await expect(heroVideo).toBeVisible();
+  await expect(heroVideo).toHaveAttribute(
+    "poster",
+    "/landing-preview/tic-tac-toe-codex-poster.webp",
+  );
+
+  const initialVideoLayout = await heroVideo.evaluate((element) => ({
+    height: element.clientHeight,
+    readyState: element.readyState,
+    width: element.clientWidth,
+  }));
+
+  expect(initialVideoLayout.readyState).toBe(0);
+  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1280 / 850, 3);
+});
+
 test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   // A tablet-width viewport leaves the pane beside the right sidebar narrower
   // than the viewport md breakpoint. The overview must render its stacked
   // container layout instead of forcing the two-column hero grid.
   await page.setViewportSize({ width: 800, height: 900 });
+  await showLandingHeroPoster(page);
 
-  await page.goto(LANDING_PREVIEW_ROUTE, {
+  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -289,6 +344,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     animations: "disabled",
     caret: "hide",
     mask: [page.getByTestId("public-landing-logo-stage")],
+    maskColor: "#f5f5f5",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
@@ -392,7 +448,9 @@ test.describe("mobile landing preview", () => {
   test.use(landingPreviewMobileDevice);
 
   test("selects the explicit sign-in sidebar", async ({ page }) => {
-    await page.goto(LANDING_PREVIEW_ROUTE, {
+    await page.setViewportSize({ height: 900, width: 390 });
+    await showLandingHeroPoster(page);
+    await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");
@@ -403,7 +461,15 @@ test.describe("mobile landing preview", () => {
 
     const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+    const heroVideo = article.getByTestId("landing-preview-hero-video");
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+    await expect(heroVideo).toBeVisible();
+    await expect(page).toHaveScreenshot("landing-preview-hero-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
     await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
       "landing-preview-provider-grid-mobile.png",
       {
