@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { z } from "zod";
 
 import { internal } from "./_generated/api";
@@ -490,7 +490,11 @@ export const listRepositoryInventoryChecksPage = action({
       },
     );
     if (budgetClaim.kind === "wait") {
-      throw new Error("GitHub checks are temporarily unavailable.");
+      throw new ConvexError({
+        code: "github_checks_temporarily_unavailable",
+        reason: budgetClaim.reason,
+        retryAt: budgetClaim.retryAt,
+      });
     }
     let leaseOwned = true;
     const graphqlClient = createGitHubGraphqlClient({

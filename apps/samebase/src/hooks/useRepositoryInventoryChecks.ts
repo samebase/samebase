@@ -4,6 +4,7 @@ import {
   type UndefinedInitialDataInfiniteOptions,
 } from "@tanstack/react-query";
 import { useConvex } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useMemo } from "react";
 
 import { api } from "../../convex/_generated/api";
@@ -16,6 +17,27 @@ type RepositoryInventoryChecksPageParam = {
   cursor: string | null;
   previousPageSignatures: string[];
 };
+
+function queuedChecksRetryAt(error: Error): number | undefined {
+  if (!(error instanceof ConvexError)) {
+    return undefined;
+  }
+  const data: unknown = error.data;
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("code" in data) ||
+    data.code !== "github_checks_temporarily_unavailable" ||
+    !("reason" in data) ||
+    data.reason !== "queue" ||
+    !("retryAt" in data) ||
+    typeof data.retryAt !== "number" ||
+    !Number.isFinite(data.retryAt)
+  ) {
+    return undefined;
+  }
+  return data.retryAt;
+}
 
 function sameCheckTotals(
   left: RepositoryInventoryChecksPage["totals"],
@@ -81,7 +103,11 @@ export function useRepositoryInventoryChecks(args: {
             cursor: lastPage.nextCursor,
             previousPageSignatures: pages.map((page) => page.pageSignature),
           },
-    retry: false,
+    retry: (failureCount, error) => failureCount < 6 && queuedChecksRetryAt(error) !== undefined,
+    retryDelay: (_failureCount, error) => {
+      const retryAt = queuedChecksRetryAt(error);
+      return retryAt === undefined ? 0 : Math.min(Math.max(retryAt - Date.now(), 0), 5_000);
+    },
     staleTime: 30_000,
     gcTime: 5 * 60_000,
   };

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { ConvexError } from "convex/values";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -719,12 +720,23 @@ describe("on-demand repository inventory checks", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      asUser.action(
+    const error: unknown = await asUser
+      .action(
         api.repositoryInventoryChecks.listRepositoryInventoryChecksPage,
         checksActionArgs(ids),
-      ),
-    ).rejects.toThrow("GitHub checks are temporarily unavailable.");
+      )
+      .then(
+        () => null,
+        (reason: unknown) => reason,
+      );
+    if (!(error instanceof ConvexError)) {
+      throw new Error("Expected a structured Convex error.");
+    }
+    expect(error.data).toEqual({
+      code: "github_checks_temporarily_unavailable",
+      reason: "queue",
+      retryAt: now + 5_000,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

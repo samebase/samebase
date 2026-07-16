@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getFunctionName, type FunctionReference } from "convex/server";
+import { ConvexError } from "convex/values";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -169,6 +170,41 @@ describe("useRepositoryInventoryChecks", () => {
       "repositoryInventoryChecks:listRepositoryInventoryChecksPage",
     );
     expect(args).toEqual({ ...defaultArgs, cursor: null, previousPageSignatures: [] });
+  });
+
+  it("retries when another repository observation temporarily owns the GitHub lease", async () => {
+    convexActionMock
+      .mockRejectedValueOnce(
+        new ConvexError({
+          code: "github_checks_temporarily_unavailable",
+          reason: "queue",
+          retryAt: Date.now(),
+        }),
+      )
+      .mockResolvedValue(page({ items: [check("one")], totalCount: 1 }));
+
+    renderHook(defaultArgs);
+
+    await vi.waitFor(() => {
+      expect(currentResult().checks.map((item) => item.sourceKey)).toEqual(["one"]);
+      expect(currentResult().error).toBeNull();
+    });
+    expect(convexActionMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a GitHub rate-limit wait", async () => {
+    convexActionMock.mockRejectedValue(
+      new ConvexError({
+        code: "github_checks_temporarily_unavailable",
+        reason: "rate_limit",
+        retryAt: Date.now() + 60_000,
+      }),
+    );
+
+    renderHook(defaultArgs);
+
+    await vi.waitFor(() => expect(currentResult().error).not.toBeNull());
+    expect(convexActionMock).toHaveBeenCalledTimes(1);
   });
 
   it("accumulates explicit pages", async () => {
