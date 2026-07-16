@@ -35,6 +35,7 @@ function buildSummaryPriorityVaultIds(args: {
  * and fair scheduling across vaults.
  */
 export function useRepositoryObservationDemand(args: {
+  enabled: boolean;
   selectedInventoryVaultId: Id<"vaults"> | null;
   selectedSummaryVaultId: Id<"vaults"> | null;
   visibleSummaryVaultIds: readonly Id<"vaults">[];
@@ -57,6 +58,9 @@ export function useRepositoryObservationDemand(args: {
   const priorityVaultIds = priorityVaultIdsRef.current;
 
   useEffect(() => {
+    if (!args.enabled) {
+      return;
+    }
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const request = () => {
       void (async () => {
@@ -65,6 +69,7 @@ export function useRepositoryObservationDemand(args: {
             await requestInventoryRefresh({ vaultId: args.selectedInventoryVaultId });
           } catch (error) {
             console.error("Failed to request repository inventory:", error);
+            return;
           }
         }
         try {
@@ -102,6 +107,7 @@ export function useRepositoryObservationDemand(args: {
       stopPolling();
     };
   }, [
+    args.enabled,
     args.selectedInventoryVaultId,
     priorityVaultIds,
     requestInventoryRefresh,

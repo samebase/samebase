@@ -24,9 +24,9 @@ import {
 import { toErrorMessage } from "./jsonUtils";
 import {
   REPOSITORY_INVENTORY_DEMAND_TTL_MS,
-  REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS,
   DEFAULT_REPOSITORY_INVENTORY_FILTERS,
   normalizeRepositoryInventoryFilters,
+  repositoryInventoryMinimumRefreshIntervalMs,
   repositoryInventoryBranchRowKey,
   repositoryInventoryFilterLabelKey,
   vRepositoryInventoryBranchPageResult,
@@ -367,7 +367,9 @@ function minimumIntervalWait(
   if (inventory.lastStartedAt === undefined) {
     return { kind: "immediate" };
   }
-  const retryAt = inventory.lastStartedAt + REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS;
+  const retryAt =
+    inventory.lastStartedAt +
+    repositoryInventoryMinimumRefreshIntervalMs(inventory.estimatedCrawlCost);
   return retryAt > now ? { kind: "queue", retryAt } : { kind: "immediate" };
 }
 
@@ -492,9 +494,15 @@ async function requestRepositoryInventoryRefreshForUser(
       if (!inventory) {
         throw new Error("Repository inventory disappeared while requesting a refresh.");
       }
+      const wait = args.required
+        ? { kind: "immediate" as const }
+        : minimumIntervalWait(inventory, now);
+      if (wait.kind !== "immediate") {
+        return { kind: "deferred", retryAt: wait.retryAt };
+      }
       await scheduleRepositoryInventoryRefresh(ctx, inventory, {
         required: args.required,
-        wait: args.required ? { kind: "immediate" } : minimumIntervalWait(inventory, now),
+        wait,
       });
       return { kind: "scheduled" };
     }
@@ -915,6 +923,7 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
     ) {
       throw new Error("Repository inventory snapshot is not running.");
     }
+    await ctx.db.patch(inventory._id, { estimatedCrawlCost: args.crawlCost });
     if (inventory.publication?.fingerprint !== args.fingerprint) {
       return false;
     }

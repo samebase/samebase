@@ -5,7 +5,9 @@
 - Status: Accepted
 - Owner: Samebase vault dashboard repository freshness
 - Last updated: 2026-07-16
-- Supersedes: `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+- Supersedes:
+  - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+  - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
 - Related docs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
@@ -47,25 +49,93 @@ history, becomes the matching item-level unavailable state while ready sibling a
 usable. Permission, rate-limit, schema, repository, mixed, and unclassified errors fail the
 generation and leave the prior snapshot visible.
 
-Opening a selected vault route while the page is visible requests an inventory immediately. The
-selected dashboard and FileView are mutually exclusive owners of the same demand hook. While that
-route remains mounted and visible, the client requests another inventory every 60 seconds. A hidden
-page does not poll, and becoming visible again requests an inventory immediately. Only the selected
-vault polls.
+The dashboard has one visibility-demand loop. On mount it requests the selected full inventory
+first, then requests lightweight repository summaries. It repeats every 60 seconds while the page is
+visible, stops while hidden, and requests immediately after becoming visible. The selected dashboard
+and FileView are mutually exclusive owners of this loop. It has no manual reload control and no
+window-focus listener. Only the selected vault requests a full inventory; summary demand may
+schedule eligible work for other vaults. Stable ordered vault IDs are the demand identity, so a
+directory publication that contains the same vaults cannot restart the loop. On a selected route,
+the loop remains disabled until the indexed selected-vault detail resolves; background summary work
+therefore cannot claim that vault before its first full-inventory request.
 
 Ordinary visible demand expires after 135 seconds. Repeated route requests extend that deadline but
 do not schedule a trailing crawl while GitHub collection or local filter materialization is active.
 The active generation satisfies ordinary route demand even if its provider collection finished a few
 seconds before that signal. A confirmed repository write increments a write version and guarantees
 exactly one immediate trailing crawl when the active crawl did not include that write. This
-distinction prevents duplicate full crawls from focus and polling signals while preserving
+distinction prevents duplicate full crawls from visibility and polling signals while preserving
 write-after-refresh correctness.
+
+The 60-second client request is a visibility heartbeat, not a promise to crawl GitHub every minute.
+After the first successful crawl, ordinary full-inventory eligibility is derived from the last start
+time and measured GraphQL cost:
+
+`intervalMs = max(60,000, ceil(measuredCost × 60,000 / 12))`
+
+For a repository whose crawl cost remains stable, this targets at most 12 points per minute, or 720
+points per hour, before the account-wide budget applies. Costs 1 through 12 have one-minute
+eligibility; 13 points becomes eligible after 65 seconds, 50 after 250 seconds, 100 after 500
+seconds, and 500 after 2,500 seconds. The 60-second visibility heartbeat starts the crawl on or
+after that eligibility boundary. The measured Samebase crawl costs 12 points, so its ordinary
+cadence remains one minute. A new vault with no measurement uses the one-minute floor. A repository
+can grow between observations, so the GitHub-account lease, reserved estimate, and remaining-point
+safety floor are the hard capacity guardrail. Provider cost is persisted immediately after a
+complete GitHub collection, before local snapshot staging and filter materialization, so a later
+local failure cannot discard the next pacing estimate.
+
+Required post-write crawls bypass ordinary freshness pacing. A required request replaces a future
+ordinary job, or coalesces into one immediate trailing crawl when collection or materialization is
+already active. It still obeys the GitHub-account lease, safety floor, and primary or secondary
+cooldowns. The cost formula is a per-selected-vault pacing guardrail; the shared account budget is
+the aggregate hard stop.
 
 GitHub account rate coordination is keyed by the stable GitHub account ID. Token rotation does not
 split a budget, switching accounts does not inherit another account's cooldown, and two Samebase
 connections for the same GitHub user cannot crawl concurrently. Each vault reserves the cost of its
 own most recent crawl, subject to a conservative default and GitHub's remaining-point safety floor.
 Leases renew only when needed. Primary and secondary cooldowns reported by GitHub stop new work.
+
+## Repository Summary Directory
+
+`/vault` and the selected-vault sidebar render the same repository directory component from the same
+data. Each connected repository has one fixed-size summary publication containing:
+
+- the canonical repository name;
+- the default branch name and head SHA, or an explicit no-default-branch state;
+- the default branch check rollup as none, running, passing, or failing;
+- the exact open pull request count;
+- the last complete GitHub check time.
+
+The summary does not contain branch pages, pull request rows, labels, comparisons, or diff
+statistics. Those belong only to the selected full inventory. Repository summary collection uses one
+GraphQL `nodes(ids)` request for a scheduled batch of at most 25 repositories. The collector has a
+hard input limit of 50, validates every stable repository identity, and accepts only an exact
+item-local unavailable response. Actual GraphQL cost is charged to the same GitHub-account budget as
+full inventory work.
+
+Each summary is eligible at most once every five minutes. A demand request prioritizes the selected
+and first visible directory rows, accepts at most 25 unique priority IDs, then fills the batch with
+the oldest eligible summaries so repositories beyond the loaded page still make progress. Summary
+and full-inventory jobs share one Workpool with maximum parallelism three and the same serialized
+GitHub-account rate budget. Scheduling a selected full inventory immediately reserves that vault's
+summary lifecycle, so the lightweight batch cannot duplicate its GitHub work. A completed full
+inventory publishes the matching summary from the same provider observation.
+
+The directory serializes every user-visible state: provisioning, setup failed, connected but not
+observed, updating, waiting for GitHub, update failed, repository unavailable, deleting, and
+deletion failed. A complete publication remains visible while replacement work runs, waits, or
+fails. The UI shows the default branch, checks, pull request count including zero, last checked
+time, and the current lifecycle. It never turns a missing or failed summary into an empty healthy
+repository.
+
+Vault rows paginate in stable creation order. A page requests and may read at most 25 vaults. The
+browser keeps exactly one reactive subscription for `{ ownerId, revision }`; directory pages are
+point-in-time queries cached by owner, revision, and cursor. The server rejects a page when its
+requested revision is no longer current. The browser reloads every previously requested page for a
+new revision and swaps them together. It retains the prior rows during a same-owner replacement but
+never retains or reuses rows after the authenticated owner changes. The selected repository's full
+dashboard detail is loaded through its owner/name index, not by collecting all vault details.
 
 ## Atomic Snapshot Model
 
@@ -91,20 +161,23 @@ The persistent model is intentionally small:
 - `vaultRepositoryInventoryFilterViews`: immutable, snapshot-scoped filter view totals
 - `vaultRepositoryInventoryFilterViewRows`: visible pull request membership for a filter view
 - `vaultRepositoryInventoryLabelFacets`: complete per-snapshot pull request label counts
+- `vaultRepositorySummaries`: one fixed-size summary lifecycle and publication per connected vault
+- `vaultRepositorySummaryDirectoryStates`: one owner-scoped directory revision per user
 - `githubGraphqlRateBudgets`: high-churn GitHub-account lease and cooldown state
+- `githubObservationActionLeases`: bounded deletion safety for active GitHub observations
 
 Snapshot `_id` is the only snapshot identity. There are no numeric generation counters, separate
 publication rows, separate refresh rows, compatibility readers, or duplicated user ownership on
 child rows. Snapshot, item, and label-chunk rows retain `vaultId` only for indexed vault deletion.
 
-The browser keeps one reactive subscription for repository freshness and one for the selected
-vault's saved filter and published view. Snapshot branch, visible pull request, label, and facet
-pages are point-in-time queries cached under immutable snapshot and view IDs. They do not create a
-reactive subscription per page. The browser loads a replacement snapshot and filter view off-screen,
-validates stable totals, unique row keys, contiguous label chunks, and exact label counts, then
-swaps the requested leading slice in one state update. A missing or invalid snapshot or view is
-unavailable, never an authoritative empty list. Until the replacement pair is complete, the prior
-rows and their matching freshness metadata stay visible.
+For the selected repository, the browser keeps one reactive subscription for full-inventory
+freshness and one for the saved filter and published view. Snapshot branch, visible pull request,
+label, and facet pages are point-in-time queries cached under immutable snapshot and view IDs. They
+do not create a reactive subscription per page. The browser loads a replacement snapshot and filter
+view off-screen, validates stable totals, unique row keys, contiguous label chunks, and exact label
+counts, then swaps the requested leading slice in one state update. A missing or invalid snapshot or
+view is unavailable, never an authoritative empty list. Until the replacement pair is complete, the
+prior rows and their matching freshness metadata stay visible.
 
 The server orders the default branch first, then open pull requests from newest update time to
 oldest, then remaining branches from newest commit time to oldest. Stable row keys break ties. The
@@ -146,9 +219,9 @@ total pull request counts whenever the filter excludes anything.
 
 ## Runtime Boundaries
 
-Repository inventory freshness has one path. It does not use a manual refresh action, browser focus
-fan-out, an all-vault dashboard fan-out, the legacy REST refresh queue, or branch-by-branch REST
-discovery.
+Repository observation has one visibility-demand path. It does not use a manual refresh action,
+browser-focus fan-out, an all-vault full-inventory fan-out, the legacy REST refresh queue, or
+branch-by-branch REST discovery.
 
 Repository file trees remain a separate branch-scoped operation because opening and editing files
 requires different data and timing. FileView reads branch identity, pull request identity, and head
@@ -157,9 +230,24 @@ may fetch only the exact selected branch tree. Compare preview and deleted-file 
 published inventory identity before making their compare and file requests. Repository writes
 request a required inventory crawl and refresh only affected branch trees.
 
-GitHub connection behavior does not change. Existing API-key and OAuth connections continue to be
-used. Connecting a public repository does not require a GitHub App installation or repository
-administration solely for inventory polling.
+GitHub authentication behavior does not change. Existing API-key and OAuth connections supply the
+same server-side credential. The connect screen makes one REST request for the ten most recently
+updated repositories returned by `GET /user/repos`; it never paginates through the account's full
+repository set. That list is a convenience preview, not the connection boundary.
+
+A user may enter an exact `owner/repo` outside the preview. Connect then calls
+`GET /repos/{owner}/{repo}` once before any vault, run, event, or resource-link write. Samebase
+requires a positive stable repository ID, GitHub's canonical owner and name, and a nonempty default
+branch. An unreadable, missing, empty, or malformed repository fails with one generic unreadable
+message and leaves no local connection state. The normal provisioning workflow revalidates the
+repository while completing setup. Connecting a readable public repository requires neither a GitHub
+App installation nor repository administration.
+
+The browser checks connection membership for the ten preview rows plus at most one exact input with
+one bounded Convex query. The query accepts no more than 25 unique identities, reads the
+user-and-GitHub-ID index first and canonical coordinates second, preserves input order, and returns
+only name plus connected status. It does not load vault infrastructure, file staging, or branch
+data.
 
 ## Clean Cutover
 
@@ -189,7 +277,8 @@ runtime.
 - Preserve the old repository refresh queue, request history, cached inventory, or trigger
   vocabulary.
 - Preserve existing vault inventory rows across the production cutover.
-- Refresh every connected vault when the user is viewing one selected vault.
+- Run a full inventory for every connected vault when the user is viewing one selected vault.
+- Put multiple branch or pull request rows into the lightweight repository summary.
 - Use inventory polling to load file contents or full branch trees.
 - Add a webhook, GitHub App installation, or new GitHub authorization flow.
 - Keep a manual reload control as a fallback for an unreliable automatic path.
@@ -212,6 +301,13 @@ runtime.
   crawl. One or more confirmed writes during either phase create exactly one immediate required
   snapshot.
 - Deferred ordinary demand is abandoned after its visibility deadline expires.
+- A 12-point selected crawl remains eligible every 60 seconds. Costs 13, 50, 100, and 500 derive
+  65-second, 250-second, 500-second, and 2,500-second eligibility intervals. A heartbeat before the
+  boundary creates no snapshot or Workpool job, so lightweight summaries remain eligible. The first
+  heartbeat on or after the boundary schedules the full crawl.
+- A changed provider crawl persists its measured cost before local staging. Required writes still
+  schedule immediately and multiple writes during an active generation still create one trailing
+  crawl.
 - Publication becomes visible in one atomic root change. Readers never combine rows or labels from
   different snapshots.
 - An unchanged crawl advances `checkedAt` without replacing the published snapshot.
@@ -236,6 +332,25 @@ runtime.
   invalid batch leaves the prior publication usable instead of leaving the vault materializing
   indefinitely.
 - API-key and OAuth-backed vaults use the same inventory contract.
+- Repository discovery makes one ten-row preview request and never performs an automatic full
+  account scan. Entering a readable public `owner/repo` outside the preview connects it
+  successfully.
+- Exact connection validates stable identity, canonical coordinates, and the default branch before
+  any local write. An unreadable repository leaves vault, run, event, and resource-link tables
+  unchanged.
+- Repository connection membership accepts at most 25 unique identities and uses only user-scoped
+  repository ID or coordinate indexes.
+- `/vault` and the selected sidebar render the same fixed summary rows, including exact zero pull
+  requests, default-branch checks, checked time, and explicit incomplete or failed states.
+- Directory pages read at most 25 vaults, reject a stale revision, retain a same-owner prior
+  generation until the replacement is complete, and never reuse a same-numbered revision across
+  authenticated users.
+- Visible summary demand accepts at most 25 unique priority vaults, schedules at most 25 eligible
+  summaries, and continues fair oldest-first progress for vaults outside the loaded page.
+- Scheduling an eligible selected full inventory before summary demand prevents the selected vault
+  from entering the lightweight batch. A cost-paced inventory that is not eligible creates no work
+  and leaves the lightweight summary available. A full inventory completion publishes its summary
+  without a second GitHub request.
 - A GitHub account switch receives a new rate budget, while token rotation for the same account
   keeps the existing budget.
 - The production preflight proves every retired table and retired work queue empty before the narrow

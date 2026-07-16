@@ -3386,6 +3386,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     [repositoryDirectory.entries],
   );
   useRepositoryObservationDemand({
+    enabled: selectedVaultLoaded,
     selectedInventoryVaultId,
     selectedSummaryVaultId: selectedVault?._id ?? null,
     visibleSummaryVaultIds,

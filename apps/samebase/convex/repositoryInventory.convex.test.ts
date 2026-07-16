@@ -252,6 +252,7 @@ async function insertInventory(
     wantedUntil?: number;
     writeVersion?: number;
     lastStartedAt?: number;
+    estimatedCrawlCost?: number;
   },
 ) {
   return await t.run(
@@ -264,6 +265,7 @@ async function insertInventory(
         lifecycle: args.lifecycle,
         publication: args.publication,
         lastStartedAt: args.lastStartedAt,
+        estimatedCrawlCost: args.estimatedCrawlCost,
       }),
   );
 }
@@ -986,13 +988,23 @@ describe("repository inventory refresh state machine", () => {
       asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
         vaultId: ids.vaultId,
       }),
-    ).resolves.toEqual({ kind: "scheduled" });
+    ).resolves.toEqual({ kind: "deferred", retryAt: now + 60_000 });
     await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
       inventory: {
-        lifecycle: { state: "scheduled" },
+        lifecycle: {
+          state: "failed",
+          message: "Repository inventory filter materialization has an invalid snapshot.",
+        },
         publication: { snapshotId: activeSnapshotId, filterViewId: activeFilterViewId },
       },
     });
+
+    vi.setSystemTime(now + 60_000);
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
   });
 
   it("schedules exactly one immediate trailing snapshot after writes during a crawl", async () => {
@@ -1063,26 +1075,177 @@ describe("repository inventory refresh state machine", () => {
     });
   });
 
-  it("delays repeated ordinary demand from the prior crawl start", async () => {
+  it.each([
+    { crawlCost: undefined, expectedIntervalMs: 60_000 },
+    { crawlCost: 12, expectedIntervalMs: 60_000 },
+    { crawlCost: 13, expectedIntervalMs: 65_000 },
+    { crawlCost: 100, expectedIntervalMs: 500_000 },
+  ])(
+    "defers a $crawlCost-point ordinary crawl until $expectedIntervalMs ms after the prior start",
+    async ({ crawlCost, expectedIntervalMs }) => {
+      const { asUser, ids, t } = await createConnectedVault();
+      await insertInventory(t, {
+        ...ids,
+        lifecycle: { state: "idle" },
+        lastStartedAt: now,
+        estimatedCrawlCost: crawlCost,
+      });
+      vi.setSystemTime(now + 59_000);
+
+      await expect(
+        asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+          vaultId: ids.vaultId,
+        }),
+      ).resolves.toEqual({ kind: "deferred", retryAt: now + expectedIntervalMs });
+      await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+        inventory: {
+          lifecycle: { state: "idle" },
+        },
+        snapshots: [],
+      });
+    },
+  );
+
+  it("keeps summaries eligible until a cost-paced crawl becomes runnable", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     await insertInventory(t, {
       ...ids,
       lifecycle: { state: "idle" },
       lastStartedAt: now,
+      estimatedCrawlCost: 100,
     });
-    vi.setSystemTime(now + 59_000);
+    vi.setSystemTime(now + 60_000);
 
     await expect(
       asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
         vaultId: ids.vaultId,
       }),
+    ).resolves.toEqual({ kind: "deferred", retryAt: now + 500_000 });
+    await expect(
+      asUser.mutation(api.repositorySummary.requestRepositorySummaryRefresh, {
+        visibleVaultIds: [ids.vaultId],
+      }),
+    ).resolves.toEqual({ state: "scheduled", repositoryCount: 1 });
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: { state: "scheduled", source: "summary_batch" },
+    });
+    for (const heartbeatAt of [180_000, 300_000, 420_000]) {
+      vi.setSystemTime(now + heartbeatAt);
+      await expect(
+        asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+          vaultId: ids.vaultId,
+        }),
+      ).resolves.toEqual({ kind: "deferred", retryAt: now + 500_000 });
+    }
+
+    vi.setSystemTime(now + 500_000);
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "scheduled" });
+    const scheduled = (await readVaultInventory(t, ids.vaultId)).inventory;
+    if (scheduled?.lifecycle.state !== "scheduled") {
+      throw new Error("Expected a runnable repository inventory refresh.");
+    }
+    await expect(readRepositorySummary(t, ids.vaultId)).resolves.toMatchObject({
+      lifecycle: {
+        state: "scheduled",
+        source: "repository_inventory",
+        snapshotId: scheduled.lifecycle.snapshotId,
+      },
+    });
+    await expect(
+      t.mutation(internal.repositoryInventory.claimRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+        snapshotId: scheduled.lifecycle.snapshotId,
+      }),
+    ).resolves.toMatchObject({ kind: "ready", vaultId: ids.vaultId });
+  });
+
+  it("creates no cost-paced job when visible heartbeats stop", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      lastStartedAt: now,
+      estimatedCrawlCost: 100,
+    });
+    vi.setSystemTime(now + 60_000);
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "deferred", retryAt: now + 500_000 });
+    vi.setSystemTime(now + 500_000);
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: { lifecycle: { state: "idle" } },
+      snapshots: [],
+    });
+  });
+
+  it("lets a required write bypass cost pacing", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: { state: "idle" },
+      lastStartedAt: now,
+      estimatedCrawlCost: 100,
+    });
+    vi.setSystemTime(now + 100_000);
+    await expect(
+      asUser.mutation(api.repositoryInventory.requestRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ kind: "deferred", retryAt: now + 500_000 });
+
+    await expect(
+      t.mutation(internal.repositoryInventory.requestRepositoryInventoryRefreshAfterWrite, ids),
     ).resolves.toEqual({ kind: "scheduled" });
     await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
       inventory: {
-        lifecycle: {
-          state: "scheduled",
-          wait: { kind: "queue", retryAt: now + 60_000 },
-        },
+        writeVersion: 1,
+        lifecycle: { state: "scheduled", required: true, wait: { kind: "immediate" } },
+      },
+    });
+  });
+
+  it("learns changed provider cost before local snapshot materialization", async () => {
+    const { ids, t } = await createConnectedVault();
+    const activeSnapshotId = await insertSnapshot(t, ids);
+    const activeFilterViewId = await insertFilterView(t, {
+      ...ids,
+      snapshotId: activeSnapshotId,
+    });
+    const stagingSnapshotId = await insertSnapshot(t, { ...ids, state: "collecting" });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId: stagingSnapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-cost",
+      },
+      publication: publication(activeSnapshotId, activeFilterViewId),
+    });
+
+    await expect(
+      t.mutation(internal.repositoryInventory.completeUnchangedRepositoryInventoryRefresh, {
+        vaultId: ids.vaultId,
+        snapshotId: stagingSnapshotId,
+        fingerprint: "changed-fingerprint",
+        crawlCost: 37,
+        ...summaryObservation(),
+        summaryOpenPullRequestCount: 0,
+      }),
+    ).resolves.toBe(false);
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      inventory: {
+        estimatedCrawlCost: 37,
+        lifecycle: { state: "running", snapshotId: stagingSnapshotId },
+        publication: { snapshotId: activeSnapshotId },
       },
     });
   });

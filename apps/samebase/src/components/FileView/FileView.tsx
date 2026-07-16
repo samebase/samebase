@@ -145,6 +145,7 @@ function FileViewWrapper() {
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
   useRepositoryObservationDemand({
+    enabled: vaultId !== undefined,
     selectedInventoryVaultId: vaultId ?? null,
     selectedSummaryVaultId: vaultId ?? null,
     visibleSummaryVaultIds: EMPTY_VISIBLE_SUMMARY_VAULT_IDS,

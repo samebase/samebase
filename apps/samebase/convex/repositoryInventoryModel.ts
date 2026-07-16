@@ -560,6 +560,10 @@ export type RepositoryInventoryBranchContext = Infer<typeof vRepositoryInventory
 export const vRepositoryInventoryRefreshRequestResult = union(
   object({ kind: literal("scheduled") }),
   object({ kind: literal("running") }),
+  object({
+    kind: literal("deferred"),
+    retryAt: number(),
+  }),
 );
 export type RepositoryInventoryRefreshRequestResult = Infer<
   typeof vRepositoryInventoryRefreshRequestResult
@@ -569,7 +573,19 @@ export const REPOSITORY_INVENTORY_STAGE_ITEM_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_LABEL_CHUNK_SIZE = 100;
 export const REPOSITORY_INVENTORY_STAGE_LABEL_CHUNK_BATCH_SIZE = 25;
 export const REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS = 60_000;
+const REPOSITORY_INVENTORY_ORDINARY_POINTS_PER_MINUTE = 12;
 export const REPOSITORY_INVENTORY_DEMAND_TTL_MS = 135_000;
+
+export function repositoryInventoryMinimumRefreshIntervalMs(
+  estimatedCrawlCost: number | undefined,
+): number {
+  return estimatedCrawlCost === undefined
+    ? REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS
+    : Math.max(
+        REPOSITORY_INVENTORY_MIN_REFRESH_INTERVAL_MS,
+        Math.ceil((estimatedCrawlCost * 60_000) / REPOSITORY_INVENTORY_ORDINARY_POINTS_PER_MINUTE),
+      );
+}
 
 export function repositoryInventoryBranchRowKey(name: string): string {
   return `branch:${name}`;

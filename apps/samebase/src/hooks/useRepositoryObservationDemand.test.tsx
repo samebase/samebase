@@ -32,15 +32,18 @@ function vaultId(value: string): Id<"vaults"> {
 }
 
 function RepositoryObservationDemandProbe({
+  enabled = true,
   selectedInventoryVaultId,
   selectedSummaryVaultId,
   visibleSummaryVaultIds,
 }: {
+  enabled?: boolean;
   selectedInventoryVaultId: Id<"vaults"> | null;
   selectedSummaryVaultId: Id<"vaults"> | null;
   visibleSummaryVaultIds: readonly Id<"vaults">[];
 }) {
   useRepositoryObservationDemand({
+    enabled,
     selectedInventoryVaultId,
     selectedSummaryVaultId,
     visibleSummaryVaultIds,
@@ -155,7 +158,7 @@ describe("useRepositoryObservationDemand", () => {
     expect(mocks.requestInventoryRefresh).toHaveBeenCalledTimes(3);
   });
 
-  it("requests the selected inventory immediately when selected detail resolves", async () => {
+  it("waits for selected detail and then requests its inventory before summaries", async () => {
     const selectedVaultId = vaultId("selected-vault");
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -165,14 +168,39 @@ describe("useRepositoryObservationDemand", () => {
     await act(async () => {
       mountedRoot.render(
         <RepositoryObservationDemandProbe
+          enabled={false}
           selectedInventoryVaultId={null}
+          selectedSummaryVaultId={null}
+          visibleSummaryVaultIds={[]}
+        />,
+      );
+      await Promise.resolve();
+    });
+    expect(mocks.requestInventoryRefresh).not.toHaveBeenCalled();
+    expect(mocks.requestSummaryRefresh).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mountedRoot.render(
+        <RepositoryObservationDemandProbe
+          enabled
+          selectedInventoryVaultId={selectedVaultId}
           selectedSummaryVaultId={selectedVaultId}
           visibleSummaryVaultIds={[selectedVaultId]}
         />,
       );
       await Promise.resolve();
     });
-    expect(mocks.requestInventoryRefresh).not.toHaveBeenCalled();
+    expect(mocks.requestInventoryRefresh).toHaveBeenCalledWith({ vaultId: selectedVaultId });
+    expect(mocks.requestSummaryRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let summary demand overtake a rejected selected inventory request", async () => {
+    const selectedVaultId = vaultId("selected-vault");
+    mocks.requestInventoryRefresh.mockRejectedValueOnce(new Error("inventory unavailable"));
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const mountedRoot = createRoot(rootElement);
+    root = mountedRoot;
 
     await act(async () => {
       mountedRoot.render(
@@ -183,9 +211,11 @@ describe("useRepositoryObservationDemand", () => {
         />,
       );
       await Promise.resolve();
+      await Promise.resolve();
     });
+
     expect(mocks.requestInventoryRefresh).toHaveBeenCalledWith({ vaultId: selectedVaultId });
-    expect(mocks.requestSummaryRefresh).toHaveBeenCalledTimes(2);
+    expect(mocks.requestSummaryRefresh).not.toHaveBeenCalled();
   });
 
   it("requests fair background summary work before any directory rows load", async () => {
