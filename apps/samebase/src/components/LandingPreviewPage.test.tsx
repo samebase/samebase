@@ -101,9 +101,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("$0/month idle");
 
     // The real Codex capture replaces the scripted placeholder loop.
-    expect(markup).toContain(
-      'src="https://media.samebase.com/landing/hero/tic-tac-toe-codex-v1.mp4"',
-    );
+    expect(markup).toContain('src="https://media.samebase.com/landing/tic-tac-toe-codex-v1.mp4"');
     expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
     expect(markup).toContain("Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase");
     expect(markup).toContain('controls=""');
