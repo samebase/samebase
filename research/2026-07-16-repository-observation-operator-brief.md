@@ -18,9 +18,9 @@ research, a concrete proposal belongs in an RFC, and accepted behavior belongs i
 - **Branch**: a named Git ref pointing at a commit.
 - **Pull request**: GitHub's review object for a source branch and its current head commit. A pull
   request does not own a separate provider build.
-- **App**: one vault-scoped repository root with at least one attached supported resource: a Convex
-  deployment, one or more Cloudflare Workers, or both. The app has stable Samebase identity separate
-  from its root string and provider resources.
+- **App**: one explicit vault-scoped repository root. It may have a Convex deployment, one or more
+  Cloudflare Workers, both, or neither. The app has stable Samebase identity separate from its root
+  string and provider resources.
 - **Cloudflare Worker**: the long-lived Cloudflare project that receives built code.
 - **Build trigger**: Cloudflare Workers Builds configuration connecting a Worker to a GitHub
   repository. It owns the root directory, branch rules, changed-path rules, and commands.
@@ -200,8 +200,11 @@ The following interpretation remains subject to operator confirmation:
 
 - Resource connection order is arbitrary. Either the first Convex deployment or the first Cloudflare
   Worker creates the app atomically with its successful attachment.
-- Samebase does not persist an app with no attached resource and does not keep a standalone Add app
-  root workflow.
+- Resource attachment is not required for app identity. A root such as an Expo client remains an
+  explicit app even when its shared backend belongs to another root and it has no Cloudflare Worker.
+- Samebase may create apps from explicit user confirmation or sufficiently clear repository
+  structure. It does not invent roots silently, and provider connection flows do not require a
+  separate preliminary Add app root ceremony when they can confirm the root themselves.
 - An existing Worker with readable Workers Builds configuration supplies `rootDirectory`. Creating a
   Worker or attaching one without readable Builds configuration asks for the exact Cloudflare-style
   root as part of configuring that Worker.
@@ -216,8 +219,11 @@ The following interpretation remains subject to operator confirmation:
 - `vaultConvexDeployments` and `vaultCloudflareWorkers` reference the stable app ID instead of
   copying the root string as their relationship. The app stores the one canonical `rootDirectory`
   fact.
-- One app may have zero or more Workers and initially at most one Convex production deployment. The
-  allowed durable states are Worker only, Convex only, or both.
+- One app may have zero or more Workers and initially at most one Convex production deployment. Root
+  only, Worker only, Convex only, and both are valid durable states.
+- A shared Convex deployment is stored and shown once under its own backend root. Client apps remain
+  separate visible roots. Samebase may add explicit client-to-backend relationships after real usage
+  proves the necessary controls, but it never duplicates the Convex deployment under each client.
 
 Historical context is not a retained product invariant. The app-root-first UI existed partly to
 associate a manually selected Convex deployment with a repository folder because GitHub and Convex
@@ -296,10 +302,6 @@ model, tests, and durable contract.
   rather than omitted because the build or provider observation was incomplete?
 - Which provider identifiers prove that a branch row and pull request row refer to the same build
   run while keeping the branch preview URL scoped to the exact branch?
-- When `apps/web` and `apps/mobile` share one Convex backend under `packages/backend`, should
-  Samebase show that deployment once as the backend app or relate the same deployment to both client
-  apps? The deployment must never be duplicated into independent rows with divergent health or
-  deploy-key state.
 
 These are research questions, not requests for the operator to decide before the app and provider
 behavior have been exercised.
