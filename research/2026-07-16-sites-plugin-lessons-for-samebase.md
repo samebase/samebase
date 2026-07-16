@@ -1,4 +1,4 @@
-# Sites And Samebase Plugin Parity
+# Sites Plugin Lessons For Samebase
 
 - Status: research
 - Date: 2026-07-16
@@ -11,14 +11,23 @@
 
 ## Executive Conclusion
 
-Samebase can become a semantic substitute for Sites. A user should be able to replace an explicit
-Sites plugin mention with Samebase and preserve the journey: create or open an app, work on the real
-source locally, preview it, publish an exact source state, observe deployment, and receive the live
-URL.
+Samebase should treat Sites as a high-signal, continuously evolving reference for how a first-party
+Codex plugin should be packaged and operated. Sites has dedicated product placement, broad
+distribution, and feedback signals that Samebase cannot reproduce. Its stack-neutral decisions are
+therefore valuable upstream research.
 
-That does not require matching Sites tool names or reproducing Sites internals. It requires matching
-the user-level workflow and preserving state between its stages. Samebase should keep its stronger
-model:
+The goal is not full substitution or feature parity. Samebase does not need to handle every prompt
+that Sites handles, expose the same tool inventory, or reproduce Sites' hosting control plane. The
+goal is to follow the same quality bar inside Samebase's own scope:
+
+- broad and accurate plugin discovery;
+- progressive workflow instructions split by responsibility;
+- deterministic local mechanics behind small scripts;
+- clear handoffs between local work, source control, and the remote control plane;
+- strict tool metadata, structured continuity, safety defaults, and user-facing communication;
+- a versioned process for rechecking what Sites changes over time.
+
+Samebase should keep its distinct product model:
 
 - the source is a GitHub repository the user owns;
 - a Git commit is the version identity;
@@ -31,11 +40,10 @@ references, deterministic scripts, a small interaction MCP server, and a first-p
 Samebase carries one 25-line skill and its remote MCP declaration even though the Samebase backend
 already has a substantial OAuth, provisioning, inventory, and repair control plane.
 
-Full substitution also requires one product-boundary decision. RFC 093 deliberately leaves
-environment variables and domains to provider-direct tools. Sites includes them in its own control
-plane. The recommended revision is narrow: Samebase should own app-scoped lifecycle operations for
-apps in its registry, but should still avoid wrapping generic provider administration, logs, data
-inspection, migrations, queues, or unrelated resources.
+Sites should not be treated as a feature backlog. RFC 093's provider boundary remains coherent:
+Samebase wraps provider joins, registry writes, and learned failure modes, while routine provider
+operations stay provider-direct unless an independent Samebase product need justifies changing that
+boundary.
 
 ## Source Boundary
 
@@ -244,73 +252,56 @@ deployment state. The new deployment noun must keep those states separate.
 
 ## Side-By-Side Assessment
 
-| Concern          | Sites 0.1.27                                           | Samebase today                                                                     | Recommended Samebase target                                            |
-| ---------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Plugin trigger   | Broad app/site vocabulary                              | Narrow create/open vocabulary                                                      | Match the broad user intents                                           |
-| Workflow         | Separate build and host skills                         | One short handoff skill                                                            | Add `samebase-building` and `samebase-hosting`                         |
-| Starter          | Bundled and initialized locally                        | Seeded into the new GitHub repo                                                    | Keep `samebase/app` as the single source and clone the created repo    |
-| Source ownership | OpenAI-managed source repository                       | User-owned GitHub repository                                                       | Keep GitHub ownership                                                  |
-| Version identity | Opaque version ID plus number and commit SHA           | Git commit SHA                                                                     | Keep commit SHA; do not invent a second version system                 |
-| Deployment       | Explicit save, deploy, and status tools                | Push-driven Workers Builds; provisioning success does not prove deployment success | Add commit-scoped deployment status and hosting workflow               |
-| Backend          | D1 and Drizzle                                         | Convex                                                                             | Keep Convex                                                            |
-| Blob storage     | R2                                                     | No universal plugin rule                                                           | Add only when the product needs blobs                                  |
-| Authentication   | Workspace headers and SIWC, plus hosting access policy | Convex Auth direction is still open in the starter                                 | Decide a private-by-default app access contract before claiming parity |
-| Runtime values   | First-class environment get/update tools               | Build keys are wired, generic values remain provider-direct                        | Add app-scoped frontend/backend runtime value tools                    |
-| Domains          | First-class domain lifecycle tools                     | Provider-direct guide only                                                         | Add app-scoped domain tools if substitution is the goal                |
-| Design choice    | Local image-picker MCP                                 | None in plugin                                                                     | Reimplement the interaction independently after the core path works    |
-| App distribution | First-party app connector plus skills                  | Remote OAuth MCP plus skill                                                        | Submit the production MCP as an app-plus-skills plugin                 |
+| Concern          | Sites 0.1.27                                           | Samebase today                                                                     | Lesson for Samebase                                                                 |
+| ---------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Plugin trigger   | Broad app/site vocabulary                              | Narrow create/open vocabulary                                                      | Expand only to user intents the Samebase workflow can actually complete             |
+| Workflow         | Separate build and host skills                         | One short handoff skill                                                            | Add `samebase-building` and `samebase-hosting`                                      |
+| Starter          | Bundled and initialized locally                        | Seeded into the new GitHub repo                                                    | Keep `samebase/app` as the single source and clone the created repo                 |
+| Source ownership | OpenAI-managed source repository                       | User-owned GitHub repository                                                       | Keep GitHub ownership                                                               |
+| Version identity | Opaque version ID plus number and commit SHA           | Git commit SHA                                                                     | Keep commit SHA; do not invent a second version system                              |
+| Deployment       | Explicit save, deploy, and status tools                | Push-driven Workers Builds; provisioning success does not prove deployment success | Make the skill prove the outcome; add a Samebase read only if the registry needs it |
+| Backend          | D1 and Drizzle                                         | Convex                                                                             | Keep Convex                                                                         |
+| Blob storage     | R2                                                     | No universal plugin rule                                                           | Add storage only when the product needs it                                          |
+| Authentication   | Workspace headers and SIWC, plus hosting access policy | Convex Auth direction is still open in the starter                                 | Borrow fail-closed and narrow-access principles, not the Sites identity model       |
+| Runtime values   | First-class environment get/update tools               | Build keys are wired, generic values remain provider-direct                        | Keep provider-direct unless an independent Samebase requirement justifies a wrapper |
+| Domains          | First-class domain lifecycle tools                     | Provider-direct guide only                                                         | Keep provider-direct and improve the agent handoff                                  |
+| Design choice    | Local image-picker MCP                                 | None in plugin                                                                     | Adopt later only if it improves Samebase's real workflow                            |
+| App distribution | First-party app connector plus skills                  | Remote OAuth MCP plus skill                                                        | Submit the production MCP as an app-plus-skills plugin                              |
 
-## What "Replace Sites With Samebase" Must Mean
+## The Correct Analogy
 
 Codex has no documented plugin inheritance or `replaces` mechanism. Exact MCP tool names do not form
-a compatibility interface. The plugin mention selects a bundle, skills describe the workflow, and
-tool metadata lets the model choose operations.
+a compatibility interface. More importantly, Samebase does not need one.
 
-The useful compatibility test is therefore semantic:
+Sites should be treated as upstream product research for:
 
-```text
-[@Sites] Build and publish this app
-[@Samebase] Build and publish this app
-```
+- how plugin descriptions capture user intent;
+- how large workflows are split across skills;
+- what belongs in prose, references, scripts, templates, a local MCP server, or a remote app;
+- how local source state is tied to remote actions;
+- how tool descriptions carry cross-tool invariants;
+- where explicit approval, narrow access, polling, and terminal-state checks appear;
+- how much deployment machinery should stay out of user-facing communication.
 
-Both prompts should finish with a working application and production URL. Their internal traces
-should differ. Sites may save an archive-backed version. Samebase should create or open the real
-GitHub repository, work locally, commit and push, observe Workers Builds and Convex, then return the
-deployment URL.
+Samebase should be close in form and rigor, not compatible in scope. Its normal flow still needs
+deterministic continuity across the app ID, repository, provisioning run, commit, provider state,
+URLs, and exact repair action. That continuity can use different tools and stop at a different
+provider boundary.
 
-State continuity matters more than names. Every stage needs deterministic structured output for:
+## RFC 093 Still Holds
 
-- app ID;
-- repository URL and default branch;
-- provisioning run and current step;
-- commit SHA;
-- preview or production environment;
-- frontend and backend deployment status;
-- preview and production URLs;
-- the exact next repair action when degraded.
+RFC 093 says Samebase wraps provider joins, registry writes, and learned failure modes, while logs,
+environment variables, migrations, and custom domains stay provider-direct. The Sites inspection
+does not invalidate that decision.
 
-## Product-Boundary Conflict
+Sites owns its hosting control plane, so environment, domain, and access operations naturally appear
+there. Samebase deliberately puts the running resources in the user's GitHub, Convex, and Cloudflare
+accounts. Its plugin can follow Sites' handoff quality while still teaching the agent to use the
+correct provider tool or CLI for routine provider work.
 
-RFC 093 currently says Samebase wraps provider joins, registry writes, and learned failure modes,
-while logs, environment variables, migrations, and custom domains stay provider-direct. Its
-non-goals explicitly say Samebase MCP complements official provider tools and never substitutes for
-them.
-
-That boundary is coherent for a thin operations registry. It is not coherent with the proposed
-Sites-substitute promise. A user who selects only Samebase cannot finish common Sites tasks if the
-workflow stops and asks for another plugin or CLI to configure a runtime value, verify deployment,
-or attach a domain.
-
-The exact recommended boundary is:
-
-> Samebase owns app-scoped lifecycle operations for a repository, Convex deployment, and Cloudflare
-> Worker already joined in the Samebase registry. Generic provider administration and deep provider
-> operations remain provider-direct.
-
-This allows deployment status, app environment values, access, and app domains without turning
-Samebase into a replacement Cloudflare or Convex console. Logs, arbitrary data queries, schema
-migrations, queues, cron configuration, account-wide resource creation, and unrelated provider
-resources remain out of scope.
+An operation should enter the Samebase MCP only when it independently passes RFC 093's existing
+test: it joins providers, keeps the durable registry truthful, or encodes a learned failure mode.
+The 19 Sites connector tools are evidence about tool design, not a Samebase backlog.
 
 ## Recommended Target Architecture
 
@@ -331,29 +322,20 @@ In the `samebase/agent-plugins` repository:
 
 Use the Sites workflow as a behavioral checklist, not as source material.
 
-### 2. Add a small user-facing MCP facade
+### 2. Make the existing MCP contract legible to the plugin
 
-Build the facade from the existing action-contract base rather than adding a parallel catalog:
+Improve the current action-contract base before adding new operations:
 
-| New semantic operation  | Purpose                                                                                                                 |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `get_account_readiness` | Report Samebase auth plus GitHub, Convex, and Cloudflare connection readiness before creation                           |
-| `create_app`            | Choose stable provider names from one app name unless the user overrides them, then start the existing managed workflow |
-| `list_apps`             | Return a concise app list with IDs, repository URLs, deployment summary, and live URL                                   |
-| `get_app`               | Return one app's focused state, resources, current commit, URLs, and exact repair action                                |
-| `get_deployment_status` | Return a commit-scoped aggregate of Workers Build and Convex deployment state                                           |
+- fix the fresh-task path where the Samebase skill surfaced but its MCP tools did not;
+- generate the server version and plugin capability summary from the contract catalog;
+- publish the existing structured-output validators where the MCP client supports them;
+- return the repository, provider URLs, and next-call identifiers directly when current writes
+  already know them;
+- make the mapping from action IDs such as `wire_builds` to callable MCP names deterministic;
+- keep the plugin's skill and `.mcp.json` description aligned with the live catalog.
 
-The existing detailed tools remain useful for attach and repair. The facade removes the current
-requirement for users to supply four provider-specific names and avoids forcing agents to parse the
-very large `get_user_vaults` result for a single app.
-
-Every write should return structured state. The current create tool returns only `vaultId` and
-`runId`, and several repair tools return confirmation text only. The Sites tools consistently return
-the identifiers needed by the next call.
-
-Publish the existing structured-output validators through MCP metadata where the client supports
-them. Generate the server version, plugin capability summary, and action-name mapping from the same
-contract catalog so the plugin cannot drift behind the backend.
+Add focused reads or higher-level actions only when the completed Samebase workflow demonstrates a
+real missing seam. Do not add a facade solely to resemble Sites.
 
 ### 3. Model deployment around Git
 
@@ -365,25 +347,24 @@ Do not create `save_version` merely for naming parity.
 - deployment: a commit-scoped aggregate with component states;
 - rollback: redeploy or revert to a chosen commit through Git and Workers Builds.
 
-The hosting skill should commit and push the exact validated source, then call the focused
-deployment read until the frontend and backend reach a terminal state. This preserves the strongest
-Samebase property: source and release provenance remain in the user's repository.
+The hosting skill should commit and push the exact validated source, then prove the resulting
+Workers Builds and Convex state through the best available provider or Samebase read. This preserves
+the strongest Samebase property: source and release provenance remain in the user's repository.
 
-### 4. Close the real parity gaps
+### 4. Borrow patterns, not the tool inventory
 
-After the build-to-URL path is reliable, add app-scoped contracts for:
+Adopt Sites patterns that apply to Samebase:
 
-1. frontend and backend runtime values, including secret redaction and revision state;
-2. custom-domain add, list, refresh, and remove;
-3. deployed-app access policy;
-4. preview and production deployment history by commit;
-5. a private deployment path that does not require the user to make an unfinished app public.
+- strict opaque identifiers and source provenance;
+- explicit separation between starting work and observing terminal success;
+- narrow defaults and explicit approval before public external writes;
+- focused communication for nontechnical users;
+- local scripts for deterministic mechanics;
+- a small interaction MCP only when ordinary conversation cannot express the decision well.
 
-Access is the largest blocker. A private GitHub repository does not make its Worker private. Sites
-defaults to narrow visitor access and has a dedicated owner-only deployment path. Samebase should
-not claim drop-in parity until its starter and control plane have a deliberate private-by-default
-visitor model. The preferred direction is an app-owned Convex Auth gate rather than hiding this
-inside plugin prose, but that needs its own accepted product contract.
+Do not infer that Samebase needs Sites' environment, domain, access-policy, SIWC-token, archive, or
+synthetic-version operations. Evaluate each future Samebase operation against its own product need
+and RFC 093.
 
 ### 5. Use the official app submission path
 
@@ -395,48 +376,67 @@ catalog, which is the right foundation.
 After the MCP-backed app is accepted, package the approved app surface with the two workflow skills.
 Do not fabricate or hard-code a Sites-style connector ID during local plugin development.
 
+### 6. Establish a version-triggered upstream learning loop
+
+The installed Sites bundle should be treated as a moving reference, not a one-time audit. Record the
+inspected version, then rerun a focused comparison whenever the installed Sites version changes.
+
+The comparison should cover only high-signal surfaces:
+
+1. manifest trigger vocabulary and starter prompts;
+2. skill topology and cross-skill handoffs;
+3. tool inventory, descriptions, annotations, and output continuity;
+4. deterministic scripts, references, and starter conventions;
+5. approval, privacy, and deployment-success rules;
+6. app submission and Codex-native interaction patterns.
+
+Classify each change as `adopt`, `adapt`, or `reject`, with one Samebase-specific reason. OpenAI's
+distribution and ability to observe aggregate behavior make its changes a strong prior, but not
+proof that every choice fits Samebase. A version-triggered audit preserves the benefit without
+creating blind synchronization.
+
 ## Rollout Order
 
-1. **Plugin parity first:** two skills, broad triggers, references, complete Git-to-live workflow,
-   fresh-install OAuth test.
-2. **Focused reads and structured outputs:** readiness, app detail, deployment status, URLs, and
-   repair continuity.
-3. **App-scoped hosting controls:** environment values, domains, access, deployment history.
-4. **Design interaction:** independent three-option picker only after the core path is dependable.
-5. **Submission and eval:** app-plus-skills submission, then identical-prompt tests with only the
-   plugin mention changed.
+1. **Plugin architecture first:** two skills, accurate triggers, focused references, deterministic
+   helpers, and the complete Samebase Git workflow.
+2. **Existing MCP hardening:** fresh-task exposure, generated metadata, structured continuity, and
+   truthful terminal-state reporting.
+3. **Submission and eval:** ship Samebase as an app-plus-skills plugin and test its own supported
+   journeys from clean tasks.
+4. **Upstream learning loop:** rerun the focused audit whenever the installed Sites version changes.
+5. **Optional interaction patterns:** adopt design pickers or other Sites conventions only after the
+   Samebase workflow demonstrates their value.
 
 This order reuses the existing provisioning research immediately. It avoids holding plugin quality
 hostage to every future provider operation.
 
 ## Acceptance Tests
 
-Run each test from a fresh task with only the named plugin enabled and connected:
+Run each test from a fresh task with the Samebase plugin enabled and connected:
 
-1. Build and publish a public one-page site. Samebase returns the GitHub repository and production
-   URL.
-2. Build a persistent dashboard. Samebase chooses Convex, validates locally, pushes the exact
-   commit, and reports both deployment components.
-3. Open an existing Samebase app, change it, create a preview, and return the preview URL.
-4. Save work without production deployment. The result is a commit or review branch, not a live
-   release.
-5. Add one runtime secret without exposing its value in tool output or logs.
-6. Attach a custom domain and report the exact validation state.
-7. Keep an unfinished deployment owner-only, then widen access only after explicit approval.
-8. Install Samebase in a clean Codex host, complete OAuth, and verify that the MCP tools surface in
-   the same task.
-9. Delete the Samebase account and confirm that the user-owned GitHub, Convex, and Cloudflare app
+1. Install Samebase, complete OAuth, and verify that the MCP tools surface in the same task.
+2. Create an app, observe provisioning, clone the returned GitHub repository, and start its normal
+   local development flow.
+3. Change an existing Samebase app, validate it, commit and push the exact source, then distinguish
+   a requested build from a successful deployment.
+4. Read a degraded app state and call the exact repair operation named by the contract.
+5. Ask for a provider-direct operation such as logs or a custom domain and verify that the skill
+   returns the correct app coordinates and provider tool or CLI handoff without implying Samebase
+   performed the operation.
+6. Regenerate the action docs and submission metadata and verify that plugin-facing capability text
+   matches the live catalog.
+7. When Sites advances from the recorded version, rerun the focused audit and classify each material
+   change as `adopt`, `adapt`, or `reject`.
+8. Delete the Samebase account and confirm that the user-owned GitHub, Convex, and Cloudflare app
    continues serving.
-
-The primary eval should use paired prompts where only `[@Sites]` changes to `[@Samebase]`. Success
-is equivalent user-visible completion, not identical internal calls.
 
 ## Final Recommendation
 
-Adopt "Samebase is the user-owned-stack substitute for Sites" as the target. Mirror Sites at the
-workflow and safety-contract level, preserve Git commits and Workers Builds as Samebase's native
-release model, and revise RFC 093 only enough to let Samebase finish app-scoped hosting work itself.
+Adopt "Sites is Samebase's upstream plugin-design reference" as the target. Follow its latest
+stack-neutral workflow, packaging, metadata, safety, and communication decisions as closely as they
+fit. Preserve Samebase's GitHub, Convex, Cloudflare, and RFC 093 product boundaries.
 
-The first implementation should be the plugin workflow, not a new provisioning engine. The engine
-already exists. The highest-leverage backend additions are focused app/deployment reads and
-structured outputs that let the workflow continue deterministically.
+The first implementation should improve the plugin workflow, not expand the Samebase control plane
+to match Sites. The engine already exists. The highest-leverage backend work is fixing current
+plugin-to-MCP exposure and metadata continuity; future tools should still earn their place through a
+Samebase product need.
