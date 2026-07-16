@@ -1356,6 +1356,8 @@ export const trackedFilePaths = [
   "apps/samebase/tsconfig.json",
   "apps/samebase/vite.config.ts",
   "apps/samebase/worker-configuration.d.ts",
+  "apps/samebase/worker/byteRange.test.ts",
+  "apps/samebase/worker/byteRange.ts",
   "apps/samebase/worker/index.ts",
   "apps/samebase/worker/tsconfig.json",
   "apps/samebase/wrangler.jsonc",

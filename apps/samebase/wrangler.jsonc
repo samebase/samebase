@@ -3,9 +3,6 @@
   "main": "./worker/index.ts",
   "compatibility_date": "2026-05-14",
   "preview_urls": true,
-  "cache": {
-    "enabled": true,
-  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,
