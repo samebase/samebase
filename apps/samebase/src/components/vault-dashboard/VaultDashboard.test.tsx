@@ -9,6 +9,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import {
   VaultDashboardAppRootDialog,
+  VaultDashboardCloudflareBuildsDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
@@ -290,6 +291,7 @@ function renderRepositoryInventoryStatus(
         schemaGraphAccessEnabled={false}
         rootRouteSearch={rootRouteSearch}
         onConnectCloudflareGithubRepository={() => {}}
+        onDeployCloudflareConvex={() => {}}
         onOpenDeveloperToolsChange={() => {}}
         onRepositoryInventoryFilterChange={() => {}}
         onRetryInfrastructureProvisioning={() => {}}
@@ -1116,6 +1118,7 @@ describe("VaultDashboardRepositoryCard", () => {
           schemaGraphAccessEnabled={false}
           rootRouteSearch={rootRouteSearch}
           onConnectCloudflareGithubRepository={() => {}}
+          onDeployCloudflareConvex={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onRepositoryInventoryFilterChange={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
@@ -1515,6 +1518,75 @@ describe("VaultDashboardAppRootDialog", () => {
     expect(markup).not.toContain("App root mode");
     expect(markup).toContain("apps/domain-router");
     expect(markup).toContain("Add app root");
+  });
+});
+
+describe("VaultDashboardCloudflareBuildsDialog", () => {
+  const target = {
+    mode: "connect_repository" as const,
+    workerName: "demo-worker",
+    convexDeployments: [
+      {
+        convexDeploymentId: fakeConvexDeploymentId(),
+        projectSlug: "demo-project",
+        rootDirectory: "packages/backend",
+        teamSlug: "demo-team",
+      },
+    ],
+  };
+
+  it("requires an explicit Worker-only or Convex deployment choice", () => {
+    const unselectedMarkup = renderToStaticMarkup(
+      <VaultDashboardCloudflareBuildsDialog
+        isSubmitting={false}
+        onConvexDeploymentChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        open
+        selection={{ state: "unselected" }}
+        target={target}
+      />,
+    );
+    const unselectedDocument = new DOMParser().parseFromString(unselectedMarkup, "text/html");
+    const unselectedConnectButton = [...unselectedDocument.querySelectorAll("button")].find(
+      (button) => button.textContent === "Connect",
+    );
+    expect(unselectedConnectButton?.disabled).toBe(true);
+    expect(unselectedMarkup).toContain("Convex deployment");
+
+    const workerOnlyMarkup = renderToStaticMarkup(
+      <VaultDashboardCloudflareBuildsDialog
+        isSubmitting={false}
+        onConvexDeploymentChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        open
+        selection={{ state: "worker_only" }}
+        target={target}
+      />,
+    );
+    const workerOnlyDocument = new DOMParser().parseFromString(workerOnlyMarkup, "text/html");
+    const workerOnlyConnectButton = [...workerOnlyDocument.querySelectorAll("button")].find(
+      (button) => button.textContent === "Connect",
+    );
+    expect(workerOnlyConnectButton?.disabled).toBe(false);
+    expect(workerOnlyMarkup).toContain("No Convex deployment");
+
+    const deploymentMarkup = renderToStaticMarkup(
+      <VaultDashboardCloudflareBuildsDialog
+        isSubmitting={false}
+        onConvexDeploymentChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        open
+        selection={{
+          state: "deploys_convex",
+          convexDeploymentId: fakeConvexDeploymentId(),
+        }}
+        target={target}
+      />,
+    );
+    expect(deploymentMarkup).toContain("packages/backend · demo-team/demo-project");
   });
 });
 
@@ -2669,6 +2741,45 @@ describe("buildVaultDashboardResourceRailState", () => {
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Verify infrastructure");
+  });
+
+  it("offers an explicit Convex deployment choice for a connected Worker", () => {
+    const deployCloudflareConvex = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      deployCloudflareConvexOnClick: deployCloudflareConvex,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        apps: [
+          { appId: fakeAppId(), rootDirectory: "apps/web" },
+          { appId: fakeSecondAppId(), rootDirectory: "packages/backend" },
+        ],
+        convexDeployments: [makeResourceRailConvexDeployment({ appId: fakeSecondAppId() })],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            appId: fakeAppId(),
+            githubRepositoryConnection: { state: "connected" },
+          }),
+        ],
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, "apps/web", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      actions: [{ kind: "connect", label: "Deploy Convex", disabled: false }],
+    });
+    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
+      throw new Error("Expected Cloudflare row with Convex deployment action.");
+    }
+    cloudflareRow.actions[0].onClick?.();
+    expect(deployCloudflareConvex).toHaveBeenCalledWith(fakeCloudflareWorkerId());
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Deploy Convex");
+    expect(markup).toContain("packages/backend");
+    const text = new DOMParser().parseFromString(markup, "text/html").body.textContent;
+    expect(text.match(/demo-team\/demo-project/g) ?? []).toHaveLength(1);
   });
 
   it("keeps the Cloudflare Worker row repairable after Convex build access fails before Builds are connected", () => {

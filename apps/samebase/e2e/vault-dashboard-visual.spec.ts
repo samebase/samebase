@@ -503,6 +503,32 @@ test("vault dashboard fixture (connect Cloudflare dialog)", async ({ page }) => 
   });
 });
 
+test("vault dashboard fixture (choose Worker Convex deployment)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-cloudflare-builds-open");
+
+  const connectDialog = page.getByRole("dialog", {
+    name: "Connect GitHub repo",
+  });
+  const deploymentSelect = connectDialog.getByRole("combobox", {
+    name: "Convex deployment",
+  });
+  await deploymentSelect.click();
+  await expect(page.getByRole("option", { name: "No Convex deployment" })).toBeVisible();
+  await expect(
+    page.getByRole("option", {
+      name: "packages/backend · samebase/shared-convex-monorepo-fixture-backend",
+    }),
+  ).toBeVisible();
+  await expect(connectDialog.getByRole("button", { name: "Connect" })).toBeDisabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-builds-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (connect Cloudflare worker select mobile)", async ({
   browser,
 }, testInfo) => {

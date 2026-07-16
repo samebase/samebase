@@ -19,6 +19,7 @@ import {
   VaultPullRequestHeaderControls,
   VaultDashboardView,
   VaultDashboardAppRootDialog,
+  VaultDashboardCloudflareBuildsDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteControl,
@@ -48,6 +49,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-add-first-app-root-open"
   | "vault-dashboard-add-app-root-open"
   | "vault-dashboard-connect-cloudflare-open"
+  | "vault-dashboard-connect-cloudflare-builds-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-connect-convex-open"
   | "vault-dashboard-delete-open"
@@ -927,6 +929,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           schemaGraphAccessEnabled
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onConnectCloudflareGithubRepository={() => {}}
+          onDeployCloudflareConvex={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onRepositoryInventoryFilterChange={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
@@ -977,6 +980,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           schemaGraphAccessEnabled={false}
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onConnectCloudflareGithubRepository={() => {}}
+          onDeployCloudflareConvex={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onRepositoryInventoryFilterChange={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
@@ -1047,6 +1051,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
             onConnectCloudflareGithubRepository={() => {}}
+            onDeployCloudflareConvex={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onRepositoryInventoryFilterChange={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
@@ -1686,6 +1691,50 @@ function VaultDashboardConnectCloudflareOpenFixture() {
   );
 }
 
+function VaultDashboardConnectCloudflareBuildsOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-connect-cloudflare-builds-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryName="shared-convex-monorepo-fixture"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardCloudflareBuildsDialog
+          isSubmitting={false}
+          onConvexDeploymentChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          open={true}
+          selection={{ state: "unselected" }}
+          target={{
+            mode: "connect_repository",
+            workerName: "shared-convex-monorepo-fixture-web",
+            convexDeployments: [
+              {
+                convexDeploymentId: fakeConvexDeploymentId(),
+                projectSlug: "shared-convex-monorepo-fixture-backend",
+                rootDirectory: "packages/backend",
+                teamSlug: "samebase",
+              },
+            ],
+          }}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
 function VaultDashboardAddAppRootConvertOpenFixture() {
   const [rootDirectory, setRootDirectory] = useState("");
 
@@ -2238,6 +2287,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-connect-cloudflare-open") {
     return <VaultDashboardConnectCloudflareOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-connect-cloudflare-builds-open") {
+    return <VaultDashboardConnectCloudflareBuildsOpenFixture />;
   }
 
   if (mode === "vault-dashboard-connect-cloudflare-mobile-shell-open") {

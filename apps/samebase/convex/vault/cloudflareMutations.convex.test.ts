@@ -336,10 +336,9 @@ describe("Cloudflare Worker persistence", () => {
 });
 
 describe("Worker to Convex deployment dependencies", () => {
-  it("stores partial and wired deploy-key state on the explicit cross-root relation", async () => {
+  it("creates Builds and stores deploy-key state on the explicit cross-root relation", async () => {
     const { ids, t } = await createVaultFixture();
     const workerId = await attachWorker(t, ids, "web-worker");
-    await setWorkerBuilds(t, workerId, WEB_ONLY_BUILDS);
     const convexDeploymentId = await insertConvexDeployment(t, ids);
     const runId = await createRun(t, ids, "wire_convex_build_access");
     const runArgs = {
@@ -362,6 +361,10 @@ describe("Worker to Convex deployment dependencies", () => {
     );
     expect(active).toMatchObject({
       active: true,
+      buildConfig: {
+        rootDirectory: WEB_ROOT_DIRECTORY,
+        pathIncludes: DEPENDENCY_AWARE_BUILDS.pathIncludes,
+      },
       workerApp: {
         appId: ids.webAppId,
         rootDirectory: WEB_ROOT_DIRECTORY,
@@ -372,7 +375,6 @@ describe("Worker to Convex deployment dependencies", () => {
       },
       worker: {
         workerId,
-        builds: { pathIncludes: DEPENDENCY_AWARE_BUILDS.pathIncludes },
       },
       convex: { convexDeploymentId },
       dependency: {
@@ -385,6 +387,12 @@ describe("Worker to Convex deployment dependencies", () => {
         },
       },
     });
+    await expect(
+      t.mutation(
+        internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
+        runArgs,
+      ),
+    ).rejects.toThrow("Convex build access was not recorded.");
 
     await t.mutation(
       internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,

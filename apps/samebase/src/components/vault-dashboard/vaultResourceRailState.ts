@@ -137,6 +137,7 @@ export function buildVaultDashboardResourceRailState({
   buildAddConvexHref,
   addConvexOnClick,
   connectCloudflareGithubRepoOnClick,
+  deployCloudflareConvexOnClick,
   buildAddAppRootHref,
   addAppRootOnClick,
   githubRepositoryUrl,
@@ -154,6 +155,7 @@ export function buildVaultDashboardResourceRailState({
   buildAddConvexHref?: (app: VaultDashboardApp) => string;
   addConvexOnClick?: (app: VaultDashboardApp) => void;
   connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  deployCloudflareConvexOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   buildAddAppRootHref?: () => string;
   addAppRootOnClick?: () => void;
   githubRepositoryUrl: string;
@@ -276,6 +278,20 @@ export function buildVaultDashboardResourceRailState({
       disabled: isSetting || !setCloudflareConvexDeployKeysOnClick,
       onClick: setCloudflareConvexDeployKeysOnClick
         ? () => setCloudflareConvexDeployKeysOnClick(args)
+        : undefined,
+    };
+  }
+
+  function buildDeployCloudflareConvexAction(
+    workerId: Id<"vaultCloudflareWorkers">,
+  ): VaultResourceRailAction {
+    return {
+      kind: "connect",
+      label: "Deploy Convex",
+      ariaLabel: "Choose Convex deployment for Cloudflare Worker",
+      disabled: !deployCloudflareConvexOnClick,
+      onClick: deployCloudflareConvexOnClick
+        ? () => deployCloudflareConvexOnClick(workerId)
         : undefined,
     };
   }
@@ -421,6 +437,13 @@ export function buildVaultDashboardResourceRailState({
           ? `${repairDescription} ${dependencyDescription}`
           : repairDescription;
         cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.workerId);
+      } else if (
+        canRepairCloudflareWorkers &&
+        dependency === undefined &&
+        deployCloudflareConvexOnClick &&
+        vault.convexDeployments.some((candidate) => candidate.upstream.state === "present")
+      ) {
+        cloudflareAction = buildDeployCloudflareConvexAction(worker.workerId);
       } else if (canRepairCloudflareWorkers && dependency?.wiring.state === "not_wired") {
         const repairDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
         cloudflareDescription = dependencyDescription
