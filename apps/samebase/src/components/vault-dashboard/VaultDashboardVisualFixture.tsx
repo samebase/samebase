@@ -169,6 +169,7 @@ interface FixtureVaultBranchRow {
 }
 
 type FixtureVaultBranchDefaults =
+  | "buildCount"
   | "canOpenInSamebase"
   | "comparison"
   | "githubRepositoryFullName"
@@ -176,6 +177,7 @@ type FixtureVaultBranchDefaults =
 
 type FixtureVaultBranchInput =
   | (Omit<Extract<FixtureVaultBranch, { kind: "branch" }>, FixtureVaultBranchDefaults> & {
+      buildCount?: number;
       canOpenInSamebase?: boolean;
       comparison?: Extract<FixtureVaultBranch, { kind: "branch" }>["comparison"];
       githubRepositoryFullName?: string;
@@ -192,6 +194,7 @@ type FixtureVaultBranchInput =
       | "pullRequestIsDraft"
       | "pullRequestLabels"
     > & {
+      buildCount?: number;
       canOpenInSamebase?: boolean;
       comparison?: Extract<FixtureVaultBranch, { kind: "pull_request" }>["comparison"];
       githubRepositoryFullName?: string;
@@ -207,6 +210,7 @@ type FixtureVaultBranchInput =
 
 function fixtureVaultBranch(branch: FixtureVaultBranchInput): FixtureVaultBranch {
   const sharedFields = {
+    buildCount: branch.buildCount ?? 0,
     rowKey:
       branch.rowKey ??
       (branch.kind === "branch"
@@ -318,7 +322,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
           runningCount: 0,
           neutralCount: 0,
           unknownCount: 0,
-          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
         },
       },
     }),
@@ -326,6 +329,7 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
   {
     branch: fixtureVaultBranch({
       kind: "pull_request",
+      buildCount: 2,
       name: "codex/dashboard-main-pane-spacing",
       isDefault: false,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
@@ -344,7 +348,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
           runningCount: 2,
           neutralCount: 0,
           unknownCount: 0,
-          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/321",
         },
       },
     }),
@@ -370,7 +373,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
           runningCount: 0,
           neutralCount: 1,
           unknownCount: 0,
-          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/322",
         },
       },
     }),
@@ -396,7 +398,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
           runningCount: 1,
           neutralCount: 1,
           unknownCount: 0,
-          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/323",
         },
       },
     }),

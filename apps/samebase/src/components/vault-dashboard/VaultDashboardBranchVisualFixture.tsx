@@ -27,6 +27,7 @@ export function VaultDashboardBranchVisualFixture() {
                   name: "codex/draft-pr-button",
                   githubRepositoryFullName: "samebase/samebase",
                   canOpenInSamebase: true,
+                  buildCount: 0,
                   headCommit: { sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" },
                   isDefault: false,
                   comparison: { state: "ready", aheadBy: 6, behindBy: 2 },

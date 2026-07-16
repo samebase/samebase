@@ -22,7 +22,6 @@ import {
   CircleDashed,
   CircleDot,
   CircleX,
-  ExternalLink,
   GitBranch,
   Loader2,
 } from "lucide-react";
@@ -136,6 +135,14 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useRepositoryObservationDemand } from "@/hooks/useRepositoryObservationDemand";
 import { useRepositoryInventoryFilter } from "@/hooks/useRepositoryInventoryFilter";
+import {
+  useRepositoryInventoryChecks,
+  type RepositoryInventoryCheck,
+} from "@/hooks/useRepositoryInventoryChecks";
+import {
+  useRepositoryInventoryCloudflareBuilds,
+  type RepositoryInventoryCloudflareBuild,
+} from "@/hooks/useRepositoryInventoryCloudflareBuilds";
 import { useRepositoryInventorySnapshot } from "@/hooks/useRepositoryInventorySnapshot";
 import { useRepositorySummaryDirectory } from "@/hooks/useRepositorySummaryDirectory";
 import type {
@@ -1778,6 +1785,7 @@ interface StagedSummary {
 
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
+  snapshotId?: Id<"vaultRepositoryInventorySnapshots">;
   repositoryFullName: string;
   defaultBranchName: string | null;
   branch: VaultRepositoryInventoryRow;
@@ -1962,7 +1970,17 @@ function buildVaultDashboardBranchConvexLinks(args: {
     });
 }
 
-function CommitChecksSummaryLink({ commit }: { commit: VaultBranchHeadCommitViewModel }) {
+function CommitChecksSummaryButton({
+  canOpen,
+  commit,
+  onClick,
+  open,
+}: {
+  canOpen: boolean;
+  commit: VaultBranchHeadCommitViewModel;
+  onClick: () => void;
+  open: boolean;
+}) {
   const checks = commit.checks;
   if (!checks) {
     return null;
@@ -1970,7 +1988,6 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchHeadCommitView
   const title = [commit.shortSha, commit.title, formatCommitChecksTitle(checks)]
     .filter(Boolean)
     .join(" • ");
-  const href = checks.primaryTargetUrl ?? (commit.url ? `${commit.url}/checks` : undefined);
   const className = clsx(
     "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums",
     getCommitChecksStateClassName(checks),
@@ -1979,10 +1996,13 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchHeadCommitView
     <>
       <CommitChecksIcon summary={checks} />
       <span>{formatCommitChecksCompactLabel(checks)}</span>
+      {canOpen ? (
+        <ChevronDownIcon aria-hidden="true" className={clsx("h-3.5 w-3.5", open && "rotate-180")} />
+      ) : null}
     </>
   );
 
-  if (!href) {
+  if (!canOpen) {
     return (
       <span aria-label={formatCommitChecksLabel(checks)} className={className} title={title}>
         {content}
@@ -1991,39 +2011,356 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchHeadCommitView
   }
 
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
+    <button
+      type="button"
+      aria-expanded={open}
       aria-label={formatCommitChecksLabel(checks)}
       className={clsx(className, "transition-colors hover:underline")}
       title={title}
+      onClick={onClick}
     >
       {content}
-    </a>
+    </button>
   );
 }
 
-function BranchPreviewLink({ previewUrl }: { previewUrl: string | undefined }) {
-  if (!previewUrl) {
+function formatRepositoryInventoryCheckState(check: RepositoryInventoryCheck): string {
+  switch (check.state) {
+    case "success":
+      return "Passed";
+    case "failure":
+      return "Failed";
+    case "running":
+      return "Running";
+    case "neutral":
+      return check.source === "check_run" && check.conclusion === "skipped" ? "Skipped" : "Neutral";
+    case "unknown":
+      return "Unknown";
+    default: {
+      check.state satisfies never;
+      return "Unknown";
+    }
+  }
+}
+
+function RepositoryInventoryCheckIcon({ check }: { check: RepositoryInventoryCheck }) {
+  switch (check.state) {
+    case "success":
+      return <CircleCheck aria-hidden="true" className="h-4 w-4 text-emerald-600" />;
+    case "failure":
+      return <CircleX aria-hidden="true" className="h-4 w-4 text-destructive" />;
+    case "running":
+      return <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />;
+    case "neutral":
+      return <CircleDashed aria-hidden="true" className="h-4 w-4" />;
+    case "unknown":
+      return <CircleAlert aria-hidden="true" className="h-4 w-4" />;
+    default: {
+      check.state satisfies never;
+      return null;
+    }
+  }
+}
+
+function RepositoryInventoryCheckRow({ check }: { check: RepositoryInventoryCheck }) {
+  const content = (
+    <>
+      <RepositoryInventoryCheckIcon check={check} />
+      <span className="min-w-0 flex-1 break-words text-foreground">{check.name}</span>
+      <span className="shrink-0">{formatRepositoryInventoryCheckState(check)}</span>
+    </>
+  );
+  const className = "flex min-h-8 items-center gap-2 py-1 text-sm text-muted-foreground";
+  if (!check.targetUrl) {
+    return <li className={className}>{content}</li>;
+  }
+  return (
+    <li>
+      <a
+        href={check.targetUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        className={clsx(
+          className,
+          "-mx-1 rounded-sm px-1 underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+          linkStyle,
+        )}
+      >
+        {content}
+      </a>
+    </li>
+  );
+}
+
+function CommitChecksDetails({
+  rowKey,
+  snapshotId,
+  vaultId,
+}: {
+  rowKey: string;
+  snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+  vaultId: Id<"vaults">;
+}) {
+  const checks = useRepositoryInventoryChecks({ rowKey, snapshotId, vaultId });
+  if (checks.isLoading) {
+    return (
+      <div role="status" className="flex min-h-8 items-center text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="sr-only">Loading checks</span>
+      </div>
+    );
+  }
+  if (checks.error) {
+    return <div className="text-sm text-destructive">Checks unavailable</div>;
+  }
+  return (
+    <div className="border-l border-border pl-3">
+      <ul>
+        {checks.checks.map((check) => (
+          <RepositoryInventoryCheckRow key={`${check.source}:${check.sourceKey}`} check={check} />
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {checks.githubChecksUrl ? (
+          <a
+            href={checks.githubChecksUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={clsx(
+              "-mx-1 inline-flex min-h-8 items-center rounded-sm px-1 text-sm underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+              linkStyle,
+            )}
+          >
+            Open in GitHub
+          </a>
+        ) : null}
+        {checks.hasNextPage ? (
+          <button
+            type="button"
+            className={clsx(
+              "-mx-1 inline-flex min-h-8 items-center gap-1 rounded-sm px-1 text-sm underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current disabled:no-underline",
+              linkStyle,
+            )}
+            disabled={checks.isFetchingNextPage}
+            onClick={() => void checks.fetchNextPage()}
+          >
+            {checks.isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Load more checks
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function formatCloudflareBuildState(build: RepositoryInventoryCloudflareBuild): string {
+  switch (build.state) {
+    case "queued":
+      return "Queued";
+    case "running":
+      return "Building";
+    case "success":
+      return "Passed";
+    case "failure":
+      return "Failed";
+    case "cancelled":
+      return "Cancelled";
+    case "skipped":
+      return "Skipped";
+    case "provider_unknown":
+      return "State unknown";
+    default: {
+      build satisfies never;
+      return "State unknown";
+    }
+  }
+}
+
+function CloudflareBuildPreviewResult({ build }: { build: RepositoryInventoryCloudflareBuild }) {
+  const preview = build.preview;
+  const linkClassName = clsx(
+    "-mx-1 inline-flex min-h-7 items-center rounded-sm px-1 font-mono text-sm underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+    linkStyle,
+  );
+  if (preview.state === "ready") {
+    return (
+      <>
+        {preview.branchAlias.state === "ready" ? (
+          <a
+            href={preview.branchAlias.url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={linkClassName}
+            title={`Open ${preview.branchAlias.branchName} preview`}
+          >
+            Preview
+          </a>
+        ) : null}
+        <a
+          href={preview.versionUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={linkClassName}
+          title="Open immutable Worker version"
+        >
+          Version
+        </a>
+        {preview.branchAlias.state === "provider_unknown" ? (
+          <span title="GitHub did not identify the branch for this preview alias">
+            Branch unknown
+          </span>
+        ) : null}
+      </>
+    );
+  }
+  switch (preview.state) {
+    case "pending":
+      return <span>Preview pending</span>;
+    case "unavailable":
+      return <span>No preview</span>;
+    case "disabled":
+      return <span>Preview disabled</span>;
+    case "provider_unknown":
+      return <span>Preview unknown</span>;
+    default: {
+      preview satisfies never;
+      return null;
+    }
+  }
+}
+
+function CloudflareBuildRow({ build }: { build: RepositoryInventoryCloudflareBuild }) {
+  const providerLinkClassName = clsx(
+    "-mx-1 inline-flex min-h-7 items-center rounded-sm px-1 font-mono text-sm underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+    linkStyle,
+  );
+  return (
+    <li className="space-y-1 border-t border-border/40 py-2 first:border-t-0 first:pt-0 last:pb-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="min-w-0 break-all font-mono text-sm text-foreground">
+          {build.workerName}
+        </span>
+        <span>{formatCloudflareBuildState(build)}</span>
+        <span className="font-mono text-xs">
+          {build.rootDirectory.state === "known" ? build.rootDirectory.value : "Root unknown"}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <CloudflareBuildPreviewResult build={build} />
+        {build.detailsUrl ? (
+          <a
+            href={build.detailsUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={providerLinkClassName}
+          >
+            Build
+          </a>
+        ) : null}
+        {build.githubUrl ? (
+          <a
+            href={build.githubUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={providerLinkClassName}
+          >
+            GitHub
+          </a>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+function CloudflareBuildDetails({
+  rowKey,
+  snapshotId,
+  vaultId,
+}: {
+  rowKey: string;
+  snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+  vaultId: Id<"vaults">;
+}) {
+  const builds = useRepositoryInventoryCloudflareBuilds({ rowKey, snapshotId, vaultId });
+  if (builds.isLoading) {
+    return (
+      <div role="status" className="flex min-h-8 items-center text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="sr-only">Loading Cloudflare builds</span>
+      </div>
+    );
+  }
+  if (builds.error) {
+    return <div className="text-sm text-destructive">Builds unavailable</div>;
+  }
+  return (
+    <div className="border-l border-border pl-3 text-muted-foreground">
+      <ul>
+        {builds.builds.map((build) => (
+          <CloudflareBuildRow key={build.sourceKey} build={build} />
+        ))}
+      </ul>
+      {builds.hasNextPage ? (
+        <button
+          type="button"
+          className={clsx(
+            "-mx-1 mt-1 inline-flex min-h-8 items-center gap-1 rounded-sm px-1 text-sm underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current disabled:no-underline",
+            linkStyle,
+          )}
+          disabled={builds.isFetchingNextPage}
+          onClick={() => void builds.fetchNextPage()}
+        >
+          {builds.isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Load more builds
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function CloudflareBuildDisclosure({
+  buildCount,
+  rowKey,
+  snapshotId,
+  vaultId,
+}: {
+  buildCount: number;
+  rowKey: string;
+  snapshotId: Id<"vaultRepositoryInventorySnapshots"> | undefined;
+  vaultId: Id<"vaults"> | undefined;
+}) {
+  const [open, setOpen] = useState(false);
+  if (buildCount === 0) {
     return null;
   }
-
+  const label = `${buildCount} ${buildCount === 1 ? "build" : "builds"}`;
+  const canOpen = snapshotId !== undefined && vaultId !== undefined;
   return (
-    <a
-      href={previewUrl}
-      target="_blank"
-      rel="noreferrer noopener"
-      aria-label="Open branch preview"
-      className={clsx(
-        "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm transition-colors hover:underline",
-        linkStyle,
-      )}
-      title={previewUrl}
-    >
-      <ExternalLink className="h-4 w-4" strokeWidth={2} />
-      <span>Preview</span>
-    </a>
+    <div className="space-y-1">
+      <button
+        type="button"
+        aria-expanded={canOpen ? open : undefined}
+        className={clsx(
+          "-mx-1.5 inline-flex min-h-7 items-center gap-1.5 rounded-sm px-1.5 font-mono text-sm transition-colors",
+          canOpen && "hover:underline",
+          linkStyle,
+        )}
+        disabled={!canOpen}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <CloudflareProviderLogo />
+        <span>{label}</span>
+        {canOpen ? (
+          <ChevronDownIcon
+            aria-hidden="true"
+            className={clsx("h-3.5 w-3.5", open && "rotate-180")}
+          />
+        ) : null}
+      </button>
+      {open && snapshotId && vaultId ? (
+        <CloudflareBuildDetails rowKey={rowKey} snapshotId={snapshotId} vaultId={vaultId} />
+      ) : null}
+    </div>
   );
 }
 
@@ -2054,17 +2391,44 @@ function VaultBranchCommitLink({ commit }: { commit: VaultBranchHeadCommitViewMo
 }
 
 function VaultBranchHeadCommit({
+  buildCount,
   commit,
-  previewUrl,
+  rowKey,
+  snapshotId,
+  vaultId,
 }: {
+  buildCount: number;
   commit: VaultBranchHeadCommitViewModel;
-  previewUrl: string | undefined;
+  rowKey: string;
+  snapshotId: Id<"vaultRepositoryInventorySnapshots"> | undefined;
+  vaultId: Id<"vaults"> | undefined;
 }) {
+  const [checksOpen, setChecksOpen] = useState(false);
+  const canOpenChecks =
+    commit.checks !== undefined &&
+    commit.checks.totalCount > 0 &&
+    snapshotId !== undefined &&
+    vaultId !== undefined;
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-      <VaultBranchCommitLink commit={commit} />
-      <CommitChecksSummaryLink commit={commit} />
-      <BranchPreviewLink previewUrl={previewUrl} />
+    <div className="space-y-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <VaultBranchCommitLink commit={commit} />
+        <CommitChecksSummaryButton
+          canOpen={canOpenChecks}
+          commit={commit}
+          open={checksOpen}
+          onClick={() => setChecksOpen((current) => !current)}
+        />
+      </div>
+      {checksOpen && snapshotId && vaultId ? (
+        <CommitChecksDetails rowKey={rowKey} snapshotId={snapshotId} vaultId={vaultId} />
+      ) : null}
+      <CloudflareBuildDisclosure
+        buildCount={buildCount}
+        rowKey={rowKey}
+        snapshotId={snapshotId}
+        vaultId={vaultId}
+      />
     </div>
   );
 }
@@ -2111,6 +2475,8 @@ export function VaultDashboardRepositoryExternalLinks({
 }
 
 export function VaultBranchLinkContent({
+  vaultId,
+  snapshotId,
   repositoryFullName,
   defaultBranchName,
   branch,
@@ -2118,6 +2484,8 @@ export function VaultBranchLinkContent({
   productionApps = [],
   schemaGraphAccessEnabled = false,
 }: {
+  vaultId?: Id<"vaults">;
+  snapshotId?: Id<"vaultRepositoryInventorySnapshots">;
   repositoryFullName: string;
   defaultBranchName: string | null;
   branch: VaultRepositoryInventoryRow;
@@ -2230,7 +2598,13 @@ export function VaultBranchLinkContent({
           </div>
         )}
         <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
-          <VaultBranchHeadCommit commit={branchRow.headCommit} previewUrl={branchRow.previewUrl} />
+          <VaultBranchHeadCommit
+            buildCount={branch.buildCount}
+            commit={branchRow.headCommit}
+            rowKey={branch.rowKey}
+            snapshotId={snapshotId}
+            vaultId={vaultId}
+          />
           {rowMetadata ? (
             <div className="font-mono text-sm">
               <span aria-hidden="true">{rowMetadata.visual}</span>
@@ -2305,6 +2679,7 @@ export function VaultBranchLinkContent({
 
 export function VaultBranchLinkRow({
   vaultId,
+  snapshotId,
   repositoryFullName,
   defaultBranchName,
   branch,
@@ -2324,6 +2699,8 @@ export function VaultBranchLinkRow({
       className="flex items-start gap-2 border-b border-border/40 px-2 py-3.5 last:border-b-0"
     >
       <VaultBranchLinkContent
+        vaultId={vaultId}
+        snapshotId={snapshotId}
         repositoryFullName={repositoryFullName}
         defaultBranchName={defaultBranchName}
         branch={branch}
@@ -2351,6 +2728,7 @@ export function VaultBranchLinkRow({
 
 interface VaultBranchListProps {
   vaultId: Id<"vaults">;
+  snapshotId?: Id<"vaultRepositoryInventorySnapshots">;
   repositoryFullName: string;
   defaultBranchName: string | null;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
@@ -2364,6 +2742,7 @@ interface VaultBranchListProps {
 
 function VaultBranchList({
   vaultId,
+  snapshotId,
   repositoryFullName,
   defaultBranchName,
   convexDeployments,
@@ -2520,6 +2899,7 @@ function VaultBranchList({
                 <VaultBranchLinkRow
                   branch={branch}
                   vaultId={vaultId}
+                  snapshotId={snapshotId}
                   repositoryFullName={repositoryFullName}
                   defaultBranchName={defaultBranchName}
                   stagedSummary={
@@ -2603,6 +2983,7 @@ export function VaultBranchSection({
   repositoryFullName,
   schemaGraphAccessEnabled,
   stagedSummaries,
+  snapshotId,
   vaultId,
   remoteBranches,
 }: {
@@ -2614,6 +2995,7 @@ export function VaultBranchSection({
   repositoryFullName: string;
   schemaGraphAccessEnabled: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
+  snapshotId?: Id<"vaultRepositoryInventorySnapshots">;
   vaultId: Id<"vaults">;
   remoteBranches: readonly VaultRepositoryInventoryRow[];
 }) {
@@ -2622,6 +3004,7 @@ export function VaultBranchSection({
       {remoteBranches.length > 0 || paginationStatus === "LoadingFirstPage" ? (
         <VaultBranchList
           vaultId={vaultId}
+          snapshotId={snapshotId}
           repositoryFullName={repositoryFullName}
           defaultBranchName={defaultBranchName}
           remoteBranches={remoteBranches}
@@ -3226,6 +3609,11 @@ export function VaultDashboardView({
               loadMore={remoteBranchPage?.loadMore ?? ignoreVaultBranchLoadMore}
               paginationStatus={remoteBranchPage?.status ?? "LoadingFirstPage"}
               schemaGraphAccessEnabled={schemaGraphAccessEnabled}
+              snapshotId={
+                inventoryState !== undefined && inventoryState.state !== "empty"
+                  ? inventoryState.activeSnapshotId
+                  : undefined
+              }
               vaultId={vault._id}
               repositoryFullName={vault.routeRepositoryFullName}
               remoteBranches={paginatedRemoteBranches}

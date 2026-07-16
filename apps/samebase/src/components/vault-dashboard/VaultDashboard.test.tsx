@@ -241,12 +241,14 @@ function renderRepositoryInventoryStatus(
 describe("VaultBranchLinkContent", () => {
   const readyComparison = { state: "ready", aheadBy: 6, behindBy: 2 } as const;
   const defaultBranchComparison = { state: "ready", aheadBy: 0, behindBy: 0 } as const;
+  const noCloudflareBuilds = { buildCount: 0 } as const;
 
   it("pairs branch rows with the committed repository identity", () => {
     const row = mapRepositoryInventoryItemToDashboardRow({
       repositoryFullName: "samebase/renamed-repository",
       item: {
         kind: "branch",
+        ...noCloudflareBuilds,
         rowKey: "branch:main",
         name: "main",
         isDefault: true,
@@ -260,6 +262,7 @@ describe("VaultBranchLinkContent", () => {
 
     expect(row).toMatchObject({
       kind: "branch",
+      ...noCloudflareBuilds,
       githubRepositoryFullName: "samebase/renamed-repository",
     });
   });
@@ -269,6 +272,7 @@ describe("VaultBranchLinkContent", () => {
       repositoryFullName: "samebase/samebase",
       item: {
         kind: "pull_request",
+        ...noCloudflareBuilds,
         rowKey: "pull-request:fork",
         number: 1000,
         url: "https://github.com/samebase/samebase/pull/1000",
@@ -280,7 +284,11 @@ describe("VaultBranchLinkContent", () => {
         baseRefName: "main",
         isCrossRepository: true,
         comparison: readyComparison,
-        headRepositoryFullName: "contributor/samebase-fork",
+        headRepository: {
+          state: "available",
+          repositoryNodeId: "R_fork",
+          repositoryFullName: "contributor/samebase-fork",
+        },
         headRefName: "contributor/fork-monitoring",
         canOpenInSamebase: false,
         labels: [],
@@ -293,6 +301,7 @@ describe("VaultBranchLinkContent", () => {
 
     expect(row).toMatchObject({
       kind: "pull_request",
+      ...noCloudflareBuilds,
       githubRepositoryFullName: "contributor/samebase-fork",
       pullRequestNumber: 1000,
       pullRequestBaseRefName: "main",
@@ -308,6 +317,7 @@ describe("VaultBranchLinkContent", () => {
       repositoryFullName: "samebase/samebase",
       item: {
         kind: "pull_request",
+        ...noCloudflareBuilds,
         rowKey: "pull-request:deleted-fork",
         number: 1001,
         url: "https://github.com/samebase/samebase/pull/1001",
@@ -319,6 +329,7 @@ describe("VaultBranchLinkContent", () => {
         baseRefName: "main",
         isCrossRepository: true,
         comparison: { state: "unavailable", reason: "head_ref_unavailable" },
+        headRepository: { state: "unavailable" },
         headRefName: "contributor/deleted-fork",
         canOpenInSamebase: false,
         labels: [],
@@ -332,6 +343,7 @@ describe("VaultBranchLinkContent", () => {
 
     expect(row).toMatchObject({
       kind: "pull_request",
+      ...noCloudflareBuilds,
       githubRepositoryFullName: undefined,
     });
     expect(viewModel).toMatchObject({
@@ -369,6 +381,7 @@ describe("VaultBranchLinkContent", () => {
     const viewModel = buildVaultBranchRowViewModel({
       branch: {
         kind: "branch",
+        ...noCloudflareBuilds,
         rowKey: "branch:main",
         name: "main",
         githubRepositoryFullName: "samebase/samebase",
@@ -386,7 +399,6 @@ describe("VaultBranchLinkContent", () => {
             runningCount: 0,
             neutralCount: 0,
             unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
           },
         },
         isDefault: true,
@@ -400,7 +412,6 @@ describe("VaultBranchLinkContent", () => {
       title: "Build dashboard branch rows from commits",
       checks: {
         state: "success",
-        primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
       },
     });
   });
@@ -413,6 +424,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:main",
             name: "main",
             githubRepositoryFullName: "samebase/samebase",
@@ -430,10 +442,8 @@ describe("VaultBranchLinkContent", () => {
                 runningCount: 0,
                 neutralCount: 0,
                 unknownCount: 0,
-                primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/456",
               },
             },
-            previewUrl: "https://preview-branch.example.workers.dev",
             isDefault: true,
             comparison: defaultBranchComparison,
           }}
@@ -441,11 +451,38 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="https://github.com/samebase/samebase/actions/runs/456"');
-    expect(markup).toContain('href="https://preview-branch.example.workers.dev"');
+    expect(markup).not.toContain("/actions/runs/456");
+    expect(markup).toContain("4 checks total");
     expect(markup).toContain(">2 failed<");
-    expect(markup).toContain(">Preview<");
     expect(markup).not.toContain("Pull request");
+  });
+
+  it("shows a compact build count before provider details are requested", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          defaultBranchName="main"
+          snapshotId={fakeInventorySnapshotId()}
+          vaultId={fakeVaultId()}
+          branch={{
+            kind: "branch",
+            buildCount: 2,
+            rowKey: "branch:codex/two-builds",
+            name: "codex/two-builds",
+            githubRepositoryFullName: "samebase/samebase",
+            canOpenInSamebase: true,
+            headCommit: { sha: "abcdef1234567890abcdef1234567890abcdef12" },
+            isDefault: false,
+            comparison: readyComparison,
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(">2 builds<");
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).not.toContain(">Version<");
   });
 
   it("keeps a visible commit link when the current head has no checks", () => {
@@ -456,6 +493,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:main",
             name: "main",
             githubRepositoryFullName: "samebase/samebase",
@@ -482,6 +520,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "pull_request",
+            ...noCloudflareBuilds,
             rowKey: "pr:999",
             name: "codex/draft-monitoring",
             githubRepositoryFullName: "samebase/samebase",
@@ -538,6 +577,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "pull_request",
+            ...noCloudflareBuilds,
             rowKey: "pr:1000",
             name: "contributor/fork-monitoring",
             githubRepositoryFullName: "contributor/samebase-fork",
@@ -581,6 +621,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:codex/no-checks",
             name: "codex/no-checks",
             githubRepositoryFullName: "samebase/samebase",
@@ -619,6 +660,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:codex/dashboard branch-link",
             name: "codex/dashboard branch-link",
             githubRepositoryFullName: "samebase/samebase",
@@ -647,6 +689,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:main",
             name: "main",
             githubRepositoryFullName: "samebase/samebase",
@@ -674,6 +717,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:main",
             name: "main",
             githubRepositoryFullName: "samebase/samebase",
@@ -715,6 +759,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:main",
             name: "main",
             githubRepositoryFullName: "samebase/samebase",
@@ -753,6 +798,7 @@ describe("VaultBranchLinkContent", () => {
           defaultBranchName="main"
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:codex/view changes",
             name: "codex/view changes",
             githubRepositoryFullName: "samebase/samebase",
@@ -793,6 +839,7 @@ describe("VaultBranchLinkContent", () => {
           ]}
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:main",
             name: "main",
             githubRepositoryFullName: "samebase/samebase",
@@ -851,6 +898,7 @@ describe("VaultBranchLinkContent", () => {
           ]}
           branch={{
             kind: "branch",
+            ...noCloudflareBuilds,
             rowKey: "branch:main",
             name: "main",
             githubRepositoryFullName: "samebase/samebase",
