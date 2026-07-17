@@ -68,7 +68,13 @@ describe("build-cloudflare", () => {
       deployKey: "prod-key",
       postHogProjectToken: "phc_prod",
       routeEnvironment: "production",
-      args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
+      args: [
+        "exec",
+        "convex",
+        "deploy",
+        "--cmd",
+        "pnpm run build:ci && node ./scripts/verify-current-branch-head.ts",
+      ],
     });
   });
 
@@ -109,7 +115,7 @@ describe("build-cloudflare", () => {
         "--preview-run",
         "devAuth:seedPasswordAccount",
         "--cmd",
-        "pnpm run build:ci",
+        "pnpm run build:ci && node ./scripts/verify-current-branch-head.ts",
       ],
     });
   });
