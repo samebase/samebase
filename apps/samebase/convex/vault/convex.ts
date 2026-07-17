@@ -200,6 +200,7 @@ function toConvexProjectResult(project: ProjectResponse): ConvexProjectResult {
 async function listProjectsForConnection(
   connection: ConvexActionConnection,
 ): Promise<ConvexProjectResult[]> {
+  // TODO: Return provider pages incrementally once the project picker supports loading on scroll.
   const projects = await listConvexManagementProjects({
     token: connection.token,
     teamId: connection.teamId,
