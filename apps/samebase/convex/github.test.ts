@@ -53,6 +53,28 @@ describe("readExactRepositoryBranch", () => {
     expect(requestedTreeShas).toEqual(["tree-2"]);
   });
 
+  it("rejects an incomplete recursive tree instead of publishing it as ready", async () => {
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => ({
+          commitSha: "commit-2",
+          treeSha: "tree-2",
+        }),
+        getTree: async () => ({
+          sha: "tree-2",
+          truncated: true,
+          tree: [{ path: "partial.txt", mode: "100644", type: "blob", sha: "blob-1" }],
+        }),
+        confirmRepository: async () => undefined,
+      }),
+    ).resolves.toMatchObject({
+      kind: "failed",
+      error: expect.objectContaining({
+        message: "GitHub returned an incomplete recursive repository tree.",
+      }),
+    });
+  });
+
   it("confirms the repository before reporting an absent branch", async () => {
     let repositoryConfirmations = 0;
 

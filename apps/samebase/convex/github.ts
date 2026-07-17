@@ -243,10 +243,18 @@ export async function readExactRepositoryBranch(args: {
   }
 
   try {
+    const treeData = await args.getTree(branch.treeSha);
+    if (treeData.truncated) {
+      return {
+        kind: "failed",
+        error: new Error("GitHub returned an incomplete recursive repository tree."),
+      };
+    }
+
     return {
       kind: "ready",
       commitSha: branch.commitSha,
-      treeData: await args.getTree(branch.treeSha),
+      treeData,
     };
   } catch (error) {
     return { kind: "failed", error };

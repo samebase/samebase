@@ -264,6 +264,8 @@ function FileViewWrapper() {
       }
       const key = `${owner}/${repoName}:branch:${branch}`;
       const hasTree = vault.branchTreeState === "ready";
+      const hasConfirmedMissingBranch =
+        branchHydrationFeedback?.key === key && branchHydrationFeedback.state.kind === "not_found";
       if (
         !hasTree &&
         typeof vault.treeRefreshStartedAt === "number" &&
@@ -286,7 +288,7 @@ function FileViewWrapper() {
         }
         return;
       }
-      if (hasTree && !claimRefreshDebounce("file_view", key)) {
+      if ((hasTree || hasConfirmedMissingBranch) && !claimRefreshDebounce("file_view", key)) {
         return;
       }
       if (!hasTree && branchHydrationInFlightKeyRef.current === key) {
@@ -304,6 +306,7 @@ function FileViewWrapper() {
               setBranchHydrationFeedback((previous) => (previous?.key === key ? null : previous));
               break;
             case "not_found":
+              claimRefreshDebounce("file_view", key);
               setBranchHydrationFeedback({ key, state: { kind: "not_found" } });
               break;
             case "deferred":
@@ -337,6 +340,7 @@ function FileViewWrapper() {
       owner,
       repoName,
       branch,
+      branchHydrationFeedback,
       refreshTree,
       vault?.branchTreeState,
       vault?.treeRefreshCooldownUntil,

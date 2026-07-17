@@ -18,6 +18,7 @@ import {
   type ProviderApiCall,
   type ProviderApiCallRecorder,
 } from "./providerApiLog";
+import { readExactRepositoryBranch } from "./github";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -675,54 +676,91 @@ export const syncVaultTreeForRepository = internalAction({
       runId: args.runId,
       step: "sync_tree",
     });
-    await recordApiCall({
-      provider: "GitHub",
-      method: "GET",
-      endpoint: "/repos/{owner}/{repo}/git/trees/{tree_sha}",
-      values: {
-        params: {
-          path: {
-            ownerName: args.ownerName,
-            repoName: args.repoName,
-            tree_sha: args.defaultBranch,
+    const branchRead = await readExactRepositoryBranch({
+      getBranch: async () => {
+        await recordApiCall({
+          provider: "GitHub",
+          method: "GET",
+          endpoint: "/repos/{owner}/{repo}/branches/{branch}",
+          values: {
+            params: {
+              path: {
+                ownerName: args.ownerName,
+                repoName: args.repoName,
+                branch: args.defaultBranch,
+              },
+            },
           },
-          query: {
-            recursive: "1",
+        });
+        const branchData = await octokit.rest.repos.getBranch({
+          owner: args.ownerName,
+          repo: args.repoName,
+          branch: args.defaultBranch,
+        });
+        return {
+          commitSha: branchData.data.commit.sha,
+          treeSha: branchData.data.commit.commit.tree.sha,
+        };
+      },
+      getTree: async (treeSha) => {
+        await recordApiCall({
+          provider: "GitHub",
+          method: "GET",
+          endpoint: "/repos/{owner}/{repo}/git/trees/{tree_sha}",
+          values: {
+            params: {
+              path: {
+                ownerName: args.ownerName,
+                repoName: args.repoName,
+                tree_sha: treeSha,
+              },
+              query: {
+                recursive: "1",
+              },
+            },
           },
-        },
+        });
+        const tree = await octokit.rest.git.getTree({
+          owner: args.ownerName,
+          repo: args.repoName,
+          tree_sha: treeSha,
+          recursive: "1",
+        });
+        return tree.data;
+      },
+      confirmRepository: async () => {
+        await recordApiCall({
+          provider: "GitHub",
+          method: "GET",
+          endpoint: "/repos/{owner}/{repo}",
+          values: {
+            params: {
+              path: {
+                ownerName: args.ownerName,
+                repoName: args.repoName,
+              },
+            },
+          },
+        });
+        await octokit.rest.repos.get({
+          owner: args.ownerName,
+          repo: args.repoName,
+        });
       },
     });
-    const tree = await octokit.rest.git.getTree({
-      owner: args.ownerName,
-      repo: args.repoName,
-      tree_sha: args.defaultBranch,
-      recursive: "1",
-    });
-    await recordApiCall({
-      provider: "GitHub",
-      method: "GET",
-      endpoint: "/repos/{owner}/{repo}/branches/{branch}",
-      values: {
-        params: {
-          path: {
-            ownerName: args.ownerName,
-            repoName: args.repoName,
-            branch: args.defaultBranch,
-          },
-        },
-      },
-    });
-    const branchData = await octokit.rest.repos.getBranch({
-      owner: args.ownerName,
-      repo: args.repoName,
-      branch: args.defaultBranch,
-    });
+
+    if (branchRead.kind !== "ready") {
+      if (branchRead.kind === "not_found") {
+        throw new Error("GitHub repository default branch was not found.");
+      }
+      throw branchRead.error;
+    }
 
     await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
       vaultId: args.vaultId,
       branch: args.defaultBranch,
-      treeData: tree.data,
-      commitSHA: branchData.data.commit.sha,
+      treeData: branchRead.treeData,
+      commitSHA: branchRead.commitSha,
     });
 
     await appendRunEvent(ctx, {
