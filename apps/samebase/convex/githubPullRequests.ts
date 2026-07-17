@@ -462,8 +462,8 @@ function normalizePullRequest(args: {
   ) {
     throw new Error("GitHub returned inconsistent pull request repository identities.");
   }
-  if (headRepository !== null && latestCommit.repository.id !== headRepository.id) {
-    throw new Error("GitHub pull request head commit belongs to another repository.");
+  if (latestCommit.repository.id !== args.repositoryNodeId) {
+    throw new Error("GitHub pull request head commit does not belong to the base repository.");
   }
   if (headRepository !== null) {
     const separator = headRepository.nameWithOwner.indexOf("/");

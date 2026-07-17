@@ -125,4 +125,33 @@ describe("buildRepositoryPullRequestPage", () => {
       }).defaultBranch,
     ).toEqual({ state: "absent" });
   });
+
+  it("takes the head repository identity from the pull request rather than its commit", () => {
+    const page = providerPage();
+    page.pullRequests[0].isCrossRepository = true;
+    page.pullRequests[0].headRepository = {
+      nodeId: "R_fork",
+      nameWithOwner: "contributor/samebase",
+      owner: "contributor",
+    };
+
+    expect(
+      buildRepositoryPullRequestPage({ observedAt: 1_700_000_000_000, page }).pullRequests[0].head,
+    ).toMatchObject({
+      baseRepositoryNodeId: "R_base",
+      headRepositoryNodeId: "R_fork",
+      headCommitNodeId: "C_head",
+    });
+  });
+
+  it("keeps a deleted pull request head repository explicit", () => {
+    const page = providerPage();
+    page.pullRequests[0].isCrossRepository = true;
+    page.pullRequests[0].headRepository = null;
+
+    expect(
+      buildRepositoryPullRequestPage({ observedAt: 1_700_000_000_000, page }).pullRequests[0].head
+        .headRepositoryNodeId,
+    ).toBeNull();
+  });
 });

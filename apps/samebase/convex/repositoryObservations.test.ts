@@ -258,6 +258,7 @@ describe("observation validators", () => {
   });
 
   it("keeps exact heads and truthful action outcomes required", () => {
+    expectTypeOf<PullRequestHeadIdentity["headRepositoryNodeId"]>().toEqualTypeOf<string | null>();
     expectTypeOf<
       Extract<CloudflareBuildObservationResult, { state: "fresh_absence" }>
     >().toEqualTypeOf<{

@@ -211,7 +211,7 @@ export function buildRepositoryPullRequestPage(args: {
       head: {
         baseRepositoryNodeId: args.page.repositoryNodeId,
         pullRequestNodeId: pullRequest.nodeId,
-        headRepositoryNodeId: pullRequest.headCommit.repositoryNodeId,
+        headRepositoryNodeId: pullRequest.headRepository?.nodeId ?? null,
         headRefName: pullRequest.headRefName,
         headCommitNodeId: pullRequest.headCommit.nodeId,
         headOid: pullRequest.headCommit.sha,

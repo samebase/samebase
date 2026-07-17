@@ -303,14 +303,13 @@ function observeCommitForHead(args: {
     args.pullRequest.repository.id !== args.repositoryNodeId ||
     args.pullRequest.headRefName !== args.head.headRefName ||
     args.pullRequest.headRefOid !== args.head.headOid ||
-    (args.pullRequest.headRepository !== null &&
-      args.pullRequest.headRepository.id !== args.head.headRepositoryNodeId) ||
+    (args.pullRequest.headRepository?.id ?? null) !== args.head.headRepositoryNodeId ||
     latestCommit.id !== args.head.headCommitNodeId ||
     latestCommit.oid !== args.head.headOid ||
-    latestCommit.repository.id !== args.head.headRepositoryNodeId ||
+    latestCommit.repository.id !== args.head.baseRepositoryNodeId ||
     args.commit.id !== args.head.headCommitNodeId ||
     args.commit.oid !== args.head.headOid ||
-    args.commit.repository.id !== args.head.headRepositoryNodeId
+    args.commit.repository.id !== args.head.baseRepositoryNodeId
   ) {
     return { state: "identity_mismatch", head: args.head };
   }

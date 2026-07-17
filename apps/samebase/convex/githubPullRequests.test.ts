@@ -38,6 +38,7 @@ function pullRequest(
   number: number,
   args?: {
     draft?: boolean;
+    isCrossRepository?: boolean;
     labels?: Array<{ name: string; color: string }>;
     labelTotalCount?: number;
     labelHasNextPage?: boolean;
@@ -45,6 +46,9 @@ function pullRequest(
     headRefOid?: string;
     commitOid?: string;
     commitRepositoryNodeId?: string;
+    headRepositoryNodeId?: string | null;
+    headRepositoryNameWithOwner?: string;
+    headRepositoryOwner?: string;
     totalCheckCount?: number;
     nullRollup?: boolean;
   },
@@ -57,7 +61,7 @@ function pullRequest(
     title: `Pull request ${number}`,
     url: `https://github.com/samebase/samebase/pull/${number}`,
     isDraft: args?.draft ?? false,
-    isCrossRepository: false,
+    isCrossRepository: args?.isCrossRepository ?? false,
     additions: number,
     deletions: number + 1,
     changedFiles: number + 2,
@@ -65,11 +69,14 @@ function pullRequest(
     baseRefName: "main",
     headRefName: `feature-${number}`,
     headRefOid,
-    headRepository: {
-      id: "R_repo",
-      nameWithOwner: "samebase/samebase",
-      owner: { login: "samebase" },
-    },
+    headRepository:
+      args?.headRepositoryNodeId === null
+        ? null
+        : {
+            id: args?.headRepositoryNodeId ?? "R_repo",
+            nameWithOwner: args?.headRepositoryNameWithOwner ?? "samebase/samebase",
+            owner: { login: args?.headRepositoryOwner ?? "samebase" },
+          },
     labels: {
       totalCount: args?.labelTotalCount ?? labels.length,
       pageInfo: {
@@ -343,7 +350,64 @@ describe("fetchGitHubPullRequestPage", () => {
     });
   });
 
-  it("rejects a head commit that does not belong to the reported head repository", async () => {
+  it("keeps a fork repository separate from the base-owned pull request commit", async () => {
+    const queue = responseQueue([
+      page({
+        nodes: [
+          pullRequest(1, {
+            isCrossRepository: true,
+            headRepositoryNodeId: "R_fork",
+            headRepositoryNameWithOwner: "contributor/samebase",
+            headRepositoryOwner: "contributor",
+          }),
+        ],
+        totalCount: 1,
+        hasNextPage: false,
+        endCursor: null,
+      }),
+    ]);
+
+    const result = await fetchGitHubPullRequestPage({
+      ...defaultArgs,
+      pageSize: 1,
+      fetchImpl: queue.fetchImpl,
+    });
+
+    expect(result.pullRequests[0]).toMatchObject({
+      isCrossRepository: true,
+      headRepository: {
+        nodeId: "R_fork",
+        nameWithOwner: "contributor/samebase",
+        owner: "contributor",
+      },
+      headCommit: { repositoryNodeId: "R_repo" },
+    });
+  });
+
+  it("keeps a deleted fork repository explicit while accepting its base-owned commit", async () => {
+    const queue = responseQueue([
+      page({
+        nodes: [pullRequest(1, { isCrossRepository: true, headRepositoryNodeId: null })],
+        totalCount: 1,
+        hasNextPage: false,
+        endCursor: null,
+      }),
+    ]);
+
+    const result = await fetchGitHubPullRequestPage({
+      ...defaultArgs,
+      pageSize: 1,
+      fetchImpl: queue.fetchImpl,
+    });
+
+    expect(result.pullRequests[0]).toMatchObject({
+      isCrossRepository: true,
+      headRepository: null,
+      headCommit: { repositoryNodeId: "R_repo" },
+    });
+  });
+
+  it("rejects a head commit that does not belong to the base repository", async () => {
     const queue = responseQueue([
       page({
         nodes: [pullRequest(1, { commitRepositoryNodeId: "R_other" })],
@@ -359,7 +423,7 @@ describe("fetchGitHubPullRequestPage", () => {
         pageSize: 1,
         fetchImpl: queue.fetchImpl,
       }),
-    ).rejects.toThrow("head commit belongs to another repository");
+    ).rejects.toThrow("head commit does not belong to the base repository");
   });
 
   it("fails when another provider page has no cursor", async () => {

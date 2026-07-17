@@ -72,7 +72,7 @@ function makeCommit(args: {
     __typename: "Commit",
     id: args.head.headCommitNodeId,
     oid: args.oid ?? args.head.headOid,
-    repository: { id: args.repositoryNodeId ?? args.head.headRepositoryNodeId },
+    repository: { id: args.repositoryNodeId ?? args.head.baseRepositoryNodeId },
     checkSuites: {
       totalCount: args.suiteTotalCount ?? suites.length,
       pageInfo: {
@@ -95,6 +95,11 @@ function makePullRequest(args: {
   latestCommitOid?: string;
   latestCommitRepositoryNodeId?: string;
 }) {
+  const headRepositoryNodeId =
+    args.headRepositoryNodeId === undefined
+      ? args.head.headRepositoryNodeId
+      : args.headRepositoryNodeId;
+
   return {
     __typename: "PullRequest",
     id: args.head.pullRequestNodeId,
@@ -102,10 +107,7 @@ function makePullRequest(args: {
     repository: { id: args.repositoryNodeId ?? args.head.baseRepositoryNodeId },
     headRefName: args.headRefName ?? args.head.headRefName,
     headRefOid: args.headRefOid ?? args.head.headOid,
-    headRepository:
-      args.headRepositoryNodeId === null
-        ? null
-        : { id: args.headRepositoryNodeId ?? args.head.headRepositoryNodeId },
+    headRepository: headRepositoryNodeId === null ? null : { id: headRepositoryNodeId },
     commits: {
       nodes: [
         {
@@ -113,7 +115,7 @@ function makePullRequest(args: {
             id: args.latestCommitNodeId ?? args.head.headCommitNodeId,
             oid: args.latestCommitOid ?? args.head.headOid,
             repository: {
-              id: args.latestCommitRepositoryNodeId ?? args.head.headRepositoryNodeId,
+              id: args.latestCommitRepositoryNodeId ?? args.head.baseRepositoryNodeId,
             },
           },
         },
@@ -332,7 +334,7 @@ describe("fetchGitHubCloudflareBuildObservations", () => {
   });
 
   it("accepts a deleted head repository when GitHub still proves the latest commit", async () => {
-    const head = makeHead("deleted-head");
+    const head = makeHead("deleted-head", { headRepositoryNodeId: null });
     const result = await fetchObservations({
       requestGraphql: async () =>
         makeBatch({
@@ -346,6 +348,26 @@ describe("fetchGitHubCloudflareBuildObservations", () => {
     expect(result).toEqual({
       state: "complete",
       observations: [{ state: "complete", head, checkRuns: [] }],
+    });
+  });
+
+  it("rejects a fork repository that changed after the pull request observation", async () => {
+    const head = makeHead("changed-fork");
+    const result = await fetchObservations({
+      requestGraphql: async () =>
+        makeBatch({
+          heads: [head],
+          pullRequests: [
+            makePullRequest({ head, headRepositoryNodeId: "different-fork-repository" }),
+          ],
+          commits: [makeCommit({ head })],
+        }),
+      heads: [head],
+    });
+
+    expect(result).toEqual({
+      state: "complete",
+      observations: [{ state: "identity_mismatch", head }],
     });
   });
 
@@ -498,7 +520,7 @@ describe("fetchGitHubCloudflareBuildObservations", () => {
       commit: (head: PullRequestHeadIdentity) => makeCommit({ head, oid: "different-sha" }),
     },
     {
-      name: "head repository",
+      name: "base repository",
       commit: (head: PullRequestHeadIdentity) =>
         makeCommit({ head, repositoryNodeId: "different-repository" }),
     },

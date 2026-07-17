@@ -235,7 +235,7 @@ export function summarizeChecks(input: GitHubCheckCounts): CheckSummary {
 export const vPullRequestHeadIdentity = object({
   baseRepositoryNodeId: string(),
   pullRequestNodeId: string(),
-  headRepositoryNodeId: string(),
+  headRepositoryNodeId: union(string(), vNull()),
   headRefName: string(),
   headCommitNodeId: string(),
   headOid: string(),
