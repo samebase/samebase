@@ -33,6 +33,27 @@ const checkSuiteSchema = z.object({
   }),
 });
 
+const pullRequestSchema = z.object({
+  __typename: z.literal("PullRequest"),
+  id: z.string().min(1),
+  state: z.enum(["OPEN", "CLOSED", "MERGED"]),
+  repository: z.object({ id: z.string().min(1) }),
+  headRefName: z.string().min(1),
+  headRefOid: z.string().min(1),
+  headRepository: z.object({ id: z.string().min(1) }).nullable(),
+  commits: z.object({
+    nodes: z.array(
+      z.object({
+        commit: z.object({
+          id: z.string().min(1),
+          oid: z.string().min(1),
+          repository: z.object({ id: z.string().min(1) }),
+        }),
+      }),
+    ),
+  }),
+});
+
 const commitSchema = z.object({
   __typename: z.literal("Commit"),
   id: z.string().min(1),
@@ -51,7 +72,15 @@ const nodeIdentitySchema = z.object({
 });
 
 const batchSchema = z.object({
-  nodes: z.array(z.unknown()),
+  repository: z
+    .object({
+      id: z.string().min(1),
+      databaseId: z.number().int().positive(),
+      nameWithOwner: z.string().min(3),
+    })
+    .nullable(),
+  pullRequests: z.array(z.unknown()),
+  commits: z.array(z.unknown()),
 });
 
 const rateLimitErrorSchema = z.object({
@@ -59,12 +88,54 @@ const rateLimitErrorSchema = z.object({
   retryAt: z.number().int().nonnegative(),
 });
 
+const repositoryInputSchema = z.object({
+  owner: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[^/]+$/),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[^/]+$/),
+  expectedRepositoryDatabaseId: z.string().regex(/^[1-9][0-9]*$/),
+});
+
 const GITHUB_CLOUDFLARE_BUILD_OBSERVATIONS_QUERY = `
   query CloudflareBuildObservations(
+    $owner: String!
+    $name: String!
+    $pullRequestIds: [ID!]!
     $commitIds: [ID!]!
     $checkRunType: CheckRunType!
   ) {
-    nodes(ids: $commitIds) {
+    repository(owner: $owner, name: $name) {
+      id
+      databaseId
+      nameWithOwner
+    }
+    pullRequests: nodes(ids: $pullRequestIds) {
+      __typename
+      ... on PullRequest {
+        id
+        state
+        repository { id }
+        headRefName
+        headRefOid
+        headRepository { id }
+        commits(last: 1) {
+          nodes {
+            commit {
+              id
+              oid
+              repository { id }
+            }
+          }
+        }
+      }
+    }
+    commits: nodes(ids: $commitIds) {
       __typename
       ... on Commit {
         id
@@ -102,6 +173,9 @@ const GITHUB_CLOUDFLARE_BUILD_OBSERVATIONS_QUERY = `
 `;
 
 type GitHubCloudflareBuildGraphqlVariables = {
+  owner: string;
+  name: string;
+  pullRequestIds: readonly string[];
   commitIds: readonly string[];
   checkRunType: "LATEST";
 };
@@ -147,7 +221,13 @@ export type GitHubCloudflareBuildObservationBatch =
     }
   | {
       state: "invalid_request";
-      reason: "too_many_heads";
+      reason: "invalid_repository" | "too_many_heads";
+    }
+  | {
+      state: "repository_unavailable";
+    }
+  | {
+      state: "repository_identity_mismatch";
     }
   | {
       state: "rate_limited";
@@ -195,10 +275,28 @@ function toCheckRunObservation(args: {
 }
 
 function observeCommitForHead(args: {
+  pullRequest: z.infer<typeof pullRequestSchema>;
   commit: z.infer<typeof commitSchema>;
   head: PullRequestHeadIdentity;
+  repositoryNodeId: string;
 }): GitHubCloudflareBuildHeadObservation {
+  const latestCommits = args.pullRequest.commits.nodes;
+  if (latestCommits.length !== 1) {
+    return { state: "invalid_response", head: args.head };
+  }
+  const latestCommit = latestCommits[0].commit;
   if (
+    args.head.baseRepositoryNodeId !== args.repositoryNodeId ||
+    args.pullRequest.id !== args.head.pullRequestNodeId ||
+    args.pullRequest.state !== "OPEN" ||
+    args.pullRequest.repository.id !== args.repositoryNodeId ||
+    args.pullRequest.headRefName !== args.head.headRefName ||
+    args.pullRequest.headRefOid !== args.head.headOid ||
+    (args.pullRequest.headRepository !== null &&
+      args.pullRequest.headRepository.id !== args.head.headRepositoryNodeId) ||
+    latestCommit.id !== args.head.headCommitNodeId ||
+    latestCommit.oid !== args.head.headOid ||
+    latestCommit.repository.id !== args.head.headRepositoryNodeId ||
     args.commit.id !== args.head.headCommitNodeId ||
     args.commit.oid !== args.head.headOid ||
     args.commit.repository.id !== args.head.headRepositoryNodeId
@@ -252,8 +350,19 @@ function observeCommitForHead(args: {
 
 export async function fetchGitHubCloudflareBuildObservations(args: {
   requestGraphql: GitHubCloudflareBuildGraphqlRequest;
+  owner: string;
+  name: string;
+  expectedRepositoryDatabaseId: string;
   heads: readonly PullRequestHeadIdentity[];
 }): Promise<GitHubCloudflareBuildObservationBatch> {
+  const repositoryInput = repositoryInputSchema.safeParse({
+    owner: args.owner,
+    name: args.name,
+    expectedRepositoryDatabaseId: args.expectedRepositoryDatabaseId,
+  });
+  if (!repositoryInput.success) {
+    return { state: "invalid_request", reason: "invalid_repository" };
+  }
   if (args.heads.length > GITHUB_CLOUDFLARE_MAX_HEADS) {
     return { state: "invalid_request", reason: "too_many_heads" };
   }
@@ -261,10 +370,14 @@ export async function fetchGitHubCloudflareBuildObservations(args: {
     return { state: "complete", observations: [] };
   }
 
+  const pullRequestIds = [...new Set(args.heads.map((head) => head.pullRequestNodeId))];
   const commitIds = [...new Set(args.heads.map((head) => head.headCommitNodeId))];
   let response: unknown;
   try {
     response = await args.requestGraphql(GITHUB_CLOUDFLARE_BUILD_OBSERVATIONS_QUERY, {
+      owner: repositoryInput.data.owner,
+      name: repositoryInput.data.name,
+      pullRequestIds,
       commitIds,
       checkRunType: "LATEST",
     });
@@ -276,13 +389,63 @@ export async function fetchGitHubCloudflareBuildObservations(args: {
   }
 
   const batch = batchSchema.safeParse(response);
-  if (!batch.success || batch.data.nodes.length > commitIds.length) {
+  if (
+    !batch.success ||
+    batch.data.pullRequests.length > pullRequestIds.length ||
+    batch.data.commits.length > commitIds.length
+  ) {
     return { state: "invalid_response" };
+  }
+
+  const repository = batch.data.repository;
+  if (repository === null) {
+    return { state: "repository_unavailable" };
+  }
+  if (
+    String(repository.databaseId) !== repositoryInput.data.expectedRepositoryDatabaseId ||
+    repository.nameWithOwner.toLowerCase() !==
+      `${repositoryInput.data.owner}/${repositoryInput.data.name}`.toLowerCase()
+  ) {
+    return { state: "repository_identity_mismatch" };
+  }
+
+  const pullRequestsByNodeId = new Map<string, z.infer<typeof pullRequestSchema>>();
+  const unavailablePullRequestNodeIds = new Set<string>();
+  for (const rawNode of batch.data.pullRequests) {
+    if (rawNode === null) {
+      continue;
+    }
+
+    const identity = nodeIdentitySchema.safeParse(rawNode);
+    if (
+      !identity.success ||
+      pullRequestsByNodeId.has(identity.data.id) ||
+      unavailablePullRequestNodeIds.has(identity.data.id)
+    ) {
+      return { state: "invalid_response" };
+    }
+
+    const pullRequest = pullRequestSchema.safeParse(rawNode);
+    if (!pullRequest.success) {
+      if (identity.data.__typename === "PullRequest") {
+        return { state: "invalid_response" };
+      }
+      unavailablePullRequestNodeIds.add(identity.data.id);
+      continue;
+    }
+    pullRequestsByNodeId.set(pullRequest.data.id, pullRequest.data);
+  }
+
+  const requestedPullRequestIds = new Set(pullRequestIds);
+  for (const nodeId of [...pullRequestsByNodeId.keys(), ...unavailablePullRequestNodeIds]) {
+    if (!requestedPullRequestIds.has(nodeId)) {
+      return { state: "invalid_response" };
+    }
   }
 
   const commitsByNodeId = new Map<string, z.infer<typeof commitSchema>>();
   const unavailableNodeIds = new Set<string>();
-  for (const rawNode of batch.data.nodes) {
+  for (const rawNode of batch.data.commits) {
     if (rawNode === null) {
       continue;
     }
@@ -317,11 +480,17 @@ export async function fetchGitHubCloudflareBuildObservations(args: {
   return {
     state: "complete",
     observations: args.heads.map((head) => {
+      const pullRequest = pullRequestsByNodeId.get(head.pullRequestNodeId);
       const commit = commitsByNodeId.get(head.headCommitNodeId);
-      if (commit === undefined) {
+      if (pullRequest === undefined || commit === undefined) {
         return { state: "head_unavailable", head };
       }
-      return observeCommitForHead({ commit, head });
+      return observeCommitForHead({
+        pullRequest,
+        commit,
+        head,
+        repositoryNodeId: repository.id,
+      });
     }),
   };
 }
