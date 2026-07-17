@@ -26,6 +26,7 @@ const successfulChecks = {
 } satisfies VaultPullRequestChecks;
 
 const defaultBranch = {
+  state: "ready",
   name: "main",
   githubUrl: "https://github.com/samebase/samebase/tree/main",
   samebaseUrl: "/vault/samebase/samebase/fs/main",

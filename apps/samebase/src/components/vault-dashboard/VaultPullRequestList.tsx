@@ -20,204 +20,64 @@ import {
   GitBranch,
   Loader2,
 } from "lucide-react";
+import type {
+  CheckSummary,
+  CloudflareBuild,
+  CloudflareBuildObservationResult,
+} from "../../../convex/repositoryObservations";
 
 export type VaultPullRequestLabel = {
   name: string;
   color?: string;
 };
 
-type VaultPullRequestCheckCounts = {
-  totalCount: number;
-  checkRunCount: number;
-  statusContextCount: number;
-  successCount: number;
-  failureCount: number;
-  runningCount: number;
-  neutralCount: number;
-  unknownCount: number;
-};
-
-export type VaultPullRequestChecks =
-  | {
-      state: "none";
-      totalCount: 0;
-      checkRunCount: 0;
-      statusContextCount: 0;
-      successCount: 0;
-      failureCount: 0;
-      runningCount: 0;
-      neutralCount: 0;
-      unknownCount: 0;
-    }
-  | ({ state: "success" } & VaultPullRequestCheckCounts)
-  | ({ state: "failure" } & VaultPullRequestCheckCounts)
-  | ({ state: "running" } & VaultPullRequestCheckCounts)
-  | ({ state: "neutral" } & VaultPullRequestCheckCounts)
-  | ({ state: "unknown" } & VaultPullRequestCheckCounts);
-
-type VaultCloudflarePreviewPending = {
-  state: "pending";
-};
-
-type VaultCloudflarePreviewReady = {
-  state: "ready";
-  versionUrl: string;
-  branchAlias:
-    | { state: "ready"; branchName: string; url: string }
-    | { state: "not_provided" }
-    | {
-        state: "provider_unknown";
-        reason: "branch_unavailable" | "conflicting_branch_evidence";
-        providerUrl: string;
-      };
-};
-
-type VaultCloudflarePreviewDisabled = {
-  state: "disabled";
-};
-
-type VaultCloudflarePreviewUnavailable = {
-  state: "unavailable";
-};
-
-type VaultCloudflarePreviewProviderUnknown = {
-  state: "provider_unknown";
-  reason: "configuration_unavailable" | "invalid_provider_output" | "unrecognized_build_state";
-};
-
-export type VaultCloudflarePreview =
-  | VaultCloudflarePreviewPending
-  | VaultCloudflarePreviewReady
-  | VaultCloudflarePreviewDisabled
-  | VaultCloudflarePreviewUnavailable
-  | VaultCloudflarePreviewProviderUnknown;
-
-type VaultCloudflareBuildFields = {
-  source:
-    | { state: "github_check_run"; checkRunId: string }
-    | { state: "cloudflare_build"; checkRunId: string; buildId: string };
-  checkName: string;
-  workerName: string;
-  rootDirectory: { state: "known"; value: string } | { state: "unknown" };
-  branch:
-    | { state: "known"; name: string }
-    | { state: "unknown" }
-    | { state: "conflicting_evidence"; suiteBranch: string | null };
-  providerStatus: string;
-  providerConclusion: { state: "provided"; value: string } | { state: "not_provided" };
-};
-
-export type VaultCloudflareBuild =
-  | ({
-      state: "queued";
-      preview:
-        | VaultCloudflarePreviewPending
-        | VaultCloudflarePreviewDisabled
-        | VaultCloudflarePreviewProviderUnknown;
-    } & VaultCloudflareBuildFields)
-  | ({
-      state: "running";
-      preview:
-        | VaultCloudflarePreviewPending
-        | VaultCloudflarePreviewReady
-        | VaultCloudflarePreviewDisabled
-        | VaultCloudflarePreviewProviderUnknown;
-    } & VaultCloudflareBuildFields)
-  | ({
-      state: "success";
-      preview:
-        | VaultCloudflarePreviewReady
-        | VaultCloudflarePreviewDisabled
-        | VaultCloudflarePreviewProviderUnknown;
-    } & VaultCloudflareBuildFields)
-  | ({
-      state: "failure";
-      preview:
-        | VaultCloudflarePreviewUnavailable
-        | VaultCloudflarePreviewReady
-        | VaultCloudflarePreviewDisabled
-        | VaultCloudflarePreviewProviderUnknown;
-    } & VaultCloudflareBuildFields)
-  | ({
-      state: "cancelled";
-      preview:
-        | VaultCloudflarePreviewUnavailable
-        | VaultCloudflarePreviewReady
-        | VaultCloudflarePreviewDisabled
-        | VaultCloudflarePreviewProviderUnknown;
-    } & VaultCloudflareBuildFields)
-  | ({
-      state: "skipped";
-      preview:
-        | VaultCloudflarePreviewUnavailable
-        | VaultCloudflarePreviewReady
-        | VaultCloudflarePreviewDisabled
-        | VaultCloudflarePreviewProviderUnknown;
-    } & VaultCloudflareBuildFields)
-  | ({
-      state: "provider_unknown";
-      preview:
-        | VaultCloudflarePreviewReady
-        | VaultCloudflarePreviewDisabled
-        | VaultCloudflarePreviewProviderUnknown;
-    } & VaultCloudflareBuildFields);
-
-export type VaultCloudflareBuilds = {
-  first: VaultCloudflareBuild;
-  rest: readonly VaultCloudflareBuild[];
-};
-
-type VaultCloudflarePreviousObservation =
-  | { state: "ready"; builds: VaultCloudflareBuilds }
-  | { state: "fresh_absence" };
-
-type VaultObservationBudgetReason = "rate_limit" | "request_budget";
-type VaultObservationUnavailableReason =
-  | "github_connection_unavailable"
-  | "repository_unavailable"
-  | "head_unavailable";
-type VaultObservationFailureReason = "request_failed" | "invalid_response" | "incomplete_response";
-
-type VaultObservationRefreshProblem =
-  | { state: "not_requested" }
-  | { state: "loading" }
-  | { state: "budget_deferred"; reason: VaultObservationBudgetReason; retryAt: number }
-  | { state: "provider_unavailable"; reason: VaultObservationUnavailableReason }
-  | { state: "provider_failure"; reason: VaultObservationFailureReason };
+export type VaultPullRequestChecks = CheckSummary;
+export type VaultCloudflareBuild = CloudflareBuild;
+export type VaultCloudflarePreview = CloudflareBuild["preview"];
+export type VaultCloudflareBuilds = Extract<
+  CloudflareBuildObservationResult,
+  { state: "ready" }
+>["builds"];
+type VaultObservationRefreshProblem = Extract<
+  CloudflareBuildObservationResult,
+  { state: "stale" }
+>["refresh"];
 
 export type VaultCloudflareObservation =
   | { state: "not_requested" }
   | { state: "loading" }
-  | { state: "ready"; builds: VaultCloudflareBuilds }
-  | { state: "fresh_absence" }
-  | {
-      state: "stale";
-      lastKnown: VaultCloudflarePreviousObservation;
-      refresh: VaultObservationRefreshProblem;
-    }
-  | { state: "budget_deferred"; reason: VaultObservationBudgetReason; retryAt: number }
-  | { state: "provider_unavailable"; reason: VaultObservationUnavailableReason }
-  | { state: "provider_failure"; reason: VaultObservationFailureReason };
+  | Omit<Extract<CloudflareBuildObservationResult, { state: "ready" }>, "head" | "observedAt">
+  | Omit<
+      Extract<CloudflareBuildObservationResult, { state: "fresh_absence" }>,
+      "head" | "observedAt"
+    >
+  | Omit<Extract<CloudflareBuildObservationResult, { state: "stale" }>, "head" | "observedAt">
+  | Omit<Extract<CloudflareBuildObservationResult, { state: "budget_deferred" }>, "head">
+  | Omit<Extract<CloudflareBuildObservationResult, { state: "provider_unavailable" }>, "head">
+  | Omit<Extract<CloudflareBuildObservationResult, { state: "provider_failure" }>, "head">;
 
-export type VaultDefaultBranchSummary = {
-  name: string;
-  githubUrl: string;
-  samebaseUrl: string;
-  headSha: string;
-  headUrl: string;
-  checks: VaultPullRequestChecks;
-};
+export type VaultDefaultBranchSummary =
+  | { state: "unavailable" }
+  | {
+      state: "ready";
+      name: string;
+      githubUrl: string;
+      samebaseUrl: string | null;
+      headSha: string;
+      headUrl: string;
+      checks: VaultPullRequestChecks;
+    };
 
 export type VaultPullRequestHead =
   | {
       kind: "local";
       branchName: string;
-      samebaseUrl: string;
+      samebaseUrl: string | null;
     }
   | {
       kind: "fork";
       branchName: string;
-      repositoryFullName: string;
+      repositoryFullName: string | null;
     };
 
 export type VaultPullRequestListItem = {
@@ -238,6 +98,7 @@ export type VaultPullRequestListItem = {
 
 export type VaultPullRequestListProps = {
   defaultBranch: VaultDefaultBranchSummary;
+  emptyPullRequestMessage?: string;
   pullRequests: readonly VaultPullRequestListItem[];
 };
 
@@ -459,7 +320,7 @@ function CloudflareBuildList({ builds }: { builds: VaultCloudflareBuilds }) {
               {build.rootDirectory.value}
             </span>
           ) : (
-            <span className="sr-only">Root directory unknown</span>
+            <span className="font-mono text-xs text-muted-foreground">root unknown</span>
           )}
           <BuildState state={build.state} />
           <span aria-hidden="true" className="text-muted-foreground/60">
@@ -611,7 +472,11 @@ function CloudflareObservation({ observation }: { observation: VaultCloudflareOb
   }
 }
 
-function DefaultBranchRow({ branch }: { branch: VaultDefaultBranchSummary }) {
+function DefaultBranchRow({
+  branch,
+}: {
+  branch: Extract<VaultDefaultBranchSummary, { state: "ready" }>;
+}) {
   return (
     <article
       data-default-branch-row=""
@@ -648,14 +513,16 @@ function DefaultBranchRow({ branch }: { branch: VaultDefaultBranchSummary }) {
             Head {branch.headSha.slice(0, 7)}
           </a>
           <CheckSummary checks={branch.checks} />
-          <Link
-            to={branch.samebaseUrl}
-            className={metadataLinkClassName}
-            title="Open branch in Samebase"
-          >
-            <SamebaseLogoMark />
-            Edit
-          </Link>
+          {branch.samebaseUrl ? (
+            <Link
+              to={branch.samebaseUrl}
+              className={metadataLinkClassName}
+              title="Open branch in Samebase"
+            >
+              <SamebaseLogoMark />
+              Edit
+            </Link>
+          ) : null}
         </div>
       </div>
     </article>
@@ -665,7 +532,9 @@ function DefaultBranchRow({ branch }: { branch: VaultDefaultBranchSummary }) {
 function PullRequestRow({ pullRequest }: { pullRequest: VaultPullRequestListItem }) {
   const headLabel =
     pullRequest.head.kind === "fork"
-      ? `${pullRequest.head.repositoryFullName}:${pullRequest.head.branchName}`
+      ? pullRequest.head.repositoryFullName
+        ? `${pullRequest.head.repositoryFullName}:${pullRequest.head.branchName}`
+        : `unavailable fork:${pullRequest.head.branchName}`
       : pullRequest.head.branchName;
   const changedFilesLabel = `${numberFormatter.format(pullRequest.changedFiles)} ${pullRequest.changedFiles === 1 ? "file" : "files"}`;
 
@@ -732,7 +601,7 @@ function PullRequestRow({ pullRequest }: { pullRequest: VaultPullRequestListItem
             +{numberFormatter.format(pullRequest.additions)} −
             {numberFormatter.format(pullRequest.deletions)} · {changedFilesLabel}
           </span>
-          {pullRequest.head.kind === "local" ? (
+          {pullRequest.head.kind === "local" && pullRequest.head.samebaseUrl ? (
             <Link
               to={pullRequest.head.samebaseUrl}
               className={metadataLinkClassName}
@@ -749,15 +618,25 @@ function PullRequestRow({ pullRequest }: { pullRequest: VaultPullRequestListItem
   );
 }
 
-export function VaultPullRequestList({ defaultBranch, pullRequests }: VaultPullRequestListProps) {
+export function VaultPullRequestList({
+  defaultBranch,
+  emptyPullRequestMessage = "No open pull requests",
+  pullRequests,
+}: VaultPullRequestListProps) {
   return (
     <section data-vault-pull-request-list="" aria-label="Repository overview">
-      <DefaultBranchRow branch={defaultBranch} />
+      {defaultBranch.state === "ready" ? (
+        <DefaultBranchRow branch={defaultBranch} />
+      ) : (
+        <div className="border-b border-border/40 px-3 py-3.5 text-sm text-muted-foreground">
+          Default branch unavailable
+        </div>
+      )}
       {pullRequests.map((pullRequest) => (
         <PullRequestRow key={pullRequest.id} pullRequest={pullRequest} />
       ))}
       {pullRequests.length === 0 ? (
-        <div className="px-3 py-3.5 text-sm text-muted-foreground">No open pull requests</div>
+        <div className="px-3 py-3.5 text-sm text-muted-foreground">{emptyPullRequestMessage}</div>
       ) : null}
     </section>
   );

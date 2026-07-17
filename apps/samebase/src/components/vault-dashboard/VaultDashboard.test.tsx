@@ -639,20 +639,16 @@ describe("VaultDashboardRepositoryCard", () => {
           now={0}
           viewModel={{
             vaults: [],
-            remoteBranchCatalogByVaultId: new Map(),
-            remoteBranchPagesByVaultId: new Map(),
-            stagedBranchSummariesByVaultId: new Map(),
+            repositoryObservationByVaultId: new Map(),
           }}
           logoRouteSearch={rootRouteSearch}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
           persistedVaultBranchFiltersByVaultId={new Map()}
           persistedVaultResourceLinksOpenByVaultId={new Map()}
-          schemaGraphAccessEnabled={false}
           rootRouteSearch={rootRouteSearch}
           onConnectCloudflareGithubRepository={() => {}}
           onOpenDeveloperToolsChange={() => {}}
-          onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}

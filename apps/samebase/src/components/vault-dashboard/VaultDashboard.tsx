@@ -6,9 +6,14 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
+import {
+  VaultPullRequestList,
+  type VaultCloudflareObservation,
+  type VaultDefaultBranchSummary,
+  type VaultPullRequestListItem,
+} from "@/components/vault-dashboard/VaultPullRequestList";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
@@ -27,14 +32,12 @@ import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-route
 import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
+import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import { highlightMatches, rankFuzzyPathMatches } from "@/lib/fuzzySearch.tsx";
-import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import { useNow } from "@/hooks/useNow";
 import {
   useAction,
   useMutation,
-  usePaginatedQuery,
   useQuery as useConvexQuery,
   type PaginationStatus,
 } from "convex/react";
@@ -106,15 +109,14 @@ import { applySearchPatch } from "@/routing/searchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   getDefaultVaultBranchFilters,
-  filterVaultRemoteBranches,
+  buildVaultPullRequestFilterOptions,
   normalizeVaultBranchFilters,
   type VaultBranchFilterOption,
   type VaultBranchFilters as VaultBranchFiltersState,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
-import {
-  buildVaultBranchSectionState,
-  type VaultBranchCommitChecksSummary,
-  type VaultRemoteBranchListItem,
+import type {
+  VaultBranchCommitChecksSummary,
+  VaultRemoteBranchListItem,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
   buildVaultBranchRowViewModel,
@@ -132,7 +134,10 @@ import {
   SamebaseLogoMark,
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand";
+import {
+  useRepositoryPullRequestObservations,
+  type RepositoryPullRequestObservation,
+} from "@/hooks/useRepositoryPullRequestObservations";
 import type {
   CloudflareWorkerOption,
   CloudflareWorkerRepositoryEvidence,
@@ -141,14 +146,12 @@ import {
   isSelectableCloudflareWorker,
   readDefaultCloudflareWorkerSelection,
 } from "@/components/vault-dashboard/vaultDashboardCloudflareWorkerSelection";
-import {
-  buildVaultProductionApps,
-  type VaultBranchProductionApp,
-  type VaultBranchProductionLinkProvider,
+import type {
+  VaultBranchProductionApp,
+  VaultBranchProductionLinkProvider,
 } from "@/components/vault-dashboard/vaultProductionApps";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
-const VAULT_BRANCH_INITIAL_PAGE_SIZE = 25;
 const VAULT_BRANCH_LOAD_MORE_PAGE_SIZE = 25;
 const VAULT_BRANCH_ROW_ESTIMATE_PX = 92;
 const VAULT_BRANCH_LOADER_ROW_KEY = "vault-branch-loader";
@@ -161,36 +164,15 @@ type VaultDashboardStagedBranchSummary = NonNullable<
   (typeof api.fileStaging.listStagedFilesBranchSummaries)["_returnType"]
 >[number];
 type VaultDashboardConvexDeployment = VaultDashboardVault["convexDeployments"][number];
-type VaultDashboardStagedBranchSummariesByVaultId = Map<
-  string,
-  readonly VaultDashboardStagedBranchSummary[]
->;
-type VaultDashboardRemoteBranchFilterMetadataItem = NonNullable<
-  (typeof api.vault.branches.listVaultRemoteBranchFilterMetadata)["_returnType"]
->[number];
-type VaultDashboardRemoteBranchCatalogByVaultId = Map<
-  string,
-  readonly VaultDashboardRemoteBranchFilterMetadataItem[]
->;
-type VaultDashboardRemoteBranchPage = {
-  remoteBranches: readonly VaultRemoteBranchListItem[];
-  status: PaginationStatus;
-  loadMore: (numItems: number) => void;
-};
-type VaultDashboardRemoteBranchPagesByVaultId = Map<string, VaultDashboardRemoteBranchPage>;
 export type VaultDashboardViewModel = {
   vaults: VaultDashboardVault[];
-  remoteBranchCatalogByVaultId: VaultDashboardRemoteBranchCatalogByVaultId;
-  remoteBranchPagesByVaultId: VaultDashboardRemoteBranchPagesByVaultId;
-  stagedBranchSummariesByVaultId: VaultDashboardStagedBranchSummariesByVaultId;
+  repositoryObservationByVaultId: ReadonlyMap<string, RepositoryPullRequestObservation>;
 };
 export type VaultDashboardProps = {
   selectedRepositoryFullName?: string;
 };
 
 type VaultDashboardLogoComponent = () => ReactNode;
-
-function ignoreVaultBranchLoadMore(_numItems: number): void {}
 
 export type VaultDeleteDialogTarget = {
   repositoryFullName: string;
@@ -2544,6 +2526,26 @@ export function VaultBranchHeaderControls({
   );
 }
 
+export function VaultPullRequestHeaderControls({
+  filterOptions,
+  filters,
+  onChangeFilters,
+}: {
+  filterOptions: VaultBranchFilterOption[];
+  filters: VaultBranchFiltersState;
+  onChangeFilters: (nextFilters: VaultBranchFiltersState) => void;
+}) {
+  return (
+    <div className="ml-auto flex flex-wrap items-center gap-2">
+      <VaultBranchFiltersControl
+        value={filters}
+        options={filterOptions}
+        onChange={onChangeFilters}
+      />
+    </div>
+  );
+}
+
 export function VaultBranchSection({
   convexDeployments,
   filteredBranchCount,
@@ -2586,102 +2588,245 @@ export function VaultBranchSection({
   );
 }
 
-function renderVaultDashboardCooldownStatus({
-  cooldownUntil,
-  label,
+function renderVaultDashboardRepositoryStatus({
   now,
-  title,
+  observation,
 }: {
-  cooldownUntil: number;
-  label: string;
   now: number;
-  title: string;
+  observation: RepositoryPullRequestObservation;
 }) {
-  return (
-    <>
-      <span className="text-amber-700" title={title}>
-        {label}
-      </span>
-      <span>·</span>
-      <span className="font-mono tabular-nums">{formatRelativeTimeUntil(cooldownUntil, now)}</span>
-    </>
-  );
+  switch (observation.state) {
+    case "not_requested":
+      return undefined;
+    case "loading":
+      return (
+        <>
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>Loading repository data</span>
+        </>
+      );
+    case "budget_deferred":
+      return (
+        <>
+          <span className="text-amber-700">GitHub request deferred</span>
+          <span>·</span>
+          <span className="font-mono tabular-nums">
+            {formatRelativeTimeUntil(observation.retryAt, now)}
+          </span>
+        </>
+      );
+    case "provider_unavailable":
+      return <span className="text-amber-700">Repository unavailable from GitHub</span>;
+    case "provider_failure":
+      return <span className="text-amber-700">GitHub request failed</span>;
+    case "current":
+    case "stale":
+      return (
+        <>
+          {observation.refresh.state === "loading" ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : observation.state === "stale" ? (
+            <CircleAlert className="h-3 w-3 text-amber-700" />
+          ) : null}
+          <span>
+            {observation.state === "stale"
+              ? `Showing data observed ${formatRelativeTimeAgo(observation.observedAt, now)}`
+              : observation.refresh.state === "loading"
+                ? `Updating data observed ${formatRelativeTimeAgo(observation.observedAt, now)}`
+                : `Observed ${formatRelativeTimeAgo(observation.observedAt, now)}`}
+          </span>
+        </>
+      );
+    default:
+      observation satisfies never;
+      return undefined;
+  }
 }
 
-function renderVaultDashboardRepositoryStatus({
-  isReady,
+type SettledRepositoryPullRequestObservation = Extract<
+  RepositoryPullRequestObservation,
+  { state: "current" | "stale" }
+>;
+
+function encodeGitHubPath(value: string): string {
+  return value.split("/").map(encodeURIComponent).join("/");
+}
+
+function buildVaultDefaultBranchSummary(args: {
+  observation: SettledRepositoryPullRequestObservation;
+  vault: VaultDashboardVault;
+}): VaultDefaultBranchSummary {
+  if (args.observation.defaultBranch.state === "absent") {
+    return { state: "unavailable" };
+  }
+
+  const branch = args.observation.defaultBranch;
+  const repositoryUrl = `https://github.com/${args.vault.repositoryFullName}`;
+  return {
+    state: "ready",
+    name: branch.name,
+    githubUrl: `${repositoryUrl}/tree/${encodeGitHubPath(branch.name)}`,
+    samebaseUrl: buildVaultDashboardBranchRoute({
+      repositoryFullName: args.vault.repositoryFullName,
+      branchName: branch.name,
+      openChangedFiles: false,
+    }),
+    headSha: branch.headOid,
+    headUrl: `${repositoryUrl}/commit/${encodeURIComponent(branch.headOid)}`,
+    checks: branch.checks,
+  };
+}
+
+function buildVaultPullRequestListItems(args: {
+  observation: SettledRepositoryPullRequestObservation;
+  vault: VaultDashboardVault;
+}): VaultPullRequestListItem[] {
+  return args.observation.pullRequests.map((pullRequest) => {
+    const cloudflare =
+      args.observation.cloudflareByPullRequestNodeId.get(pullRequest.nodeId) ??
+      ({ state: "not_requested" } satisfies VaultCloudflareObservation);
+    const head = pullRequest.isCrossRepository
+      ? {
+          kind: "fork" as const,
+          branchName: pullRequest.headRefName,
+          repositoryFullName:
+            pullRequest.headRepository.state === "available"
+              ? pullRequest.headRepository.nameWithOwner
+              : null,
+        }
+      : {
+          kind: "local" as const,
+          branchName: pullRequest.headRefName,
+          samebaseUrl: buildVaultDashboardBranchRoute({
+            repositoryFullName: args.vault.repositoryFullName,
+            branchName: pullRequest.headRefName,
+            openChangedFiles: true,
+          }),
+        };
+
+    return {
+      id: pullRequest.nodeId,
+      number: pullRequest.number,
+      title: pullRequest.title,
+      url: pullRequest.url,
+      isDraft: pullRequest.isDraft,
+      head,
+      baseBranchName: pullRequest.baseRefName,
+      labels: pullRequest.labels,
+      additions: pullRequest.additions,
+      deletions: pullRequest.deletions,
+      changedFiles: pullRequest.changedFiles,
+      checks: pullRequest.checks,
+      cloudflare,
+    };
+  });
+}
+
+function repositoryObservationProblemMessage(
+  observation: Exclude<
+    RepositoryPullRequestObservation,
+    { state: "not_requested" } | { state: "loading" } | SettledRepositoryPullRequestObservation
+  >,
+  now: number,
+): string {
+  switch (observation.state) {
+    case "budget_deferred":
+      return `GitHub request deferred ${formatRelativeTimeUntil(observation.retryAt, now)}`;
+    case "provider_unavailable":
+      return observation.reason === "github_connection_unavailable"
+        ? "GitHub connection unavailable"
+        : "Repository unavailable from GitHub";
+    case "provider_failure":
+      return observation.reason === "invalid_response"
+        ? "GitHub returned invalid repository data"
+        : "GitHub request failed";
+    default:
+      observation satisfies never;
+      return "Repository data unavailable";
+  }
+}
+
+function VaultRepositoryObservationContent({
   now,
-  onManualRepositoryRefresh,
-  sharedLastSyncedAt,
-  treeRefreshUiState,
+  observation,
   vault,
 }: {
-  isReady: boolean;
   now: number;
-  onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
-  sharedLastSyncedAt: number | undefined;
-  treeRefreshUiState: ReturnType<typeof getTreeRefreshUiState>;
-  vault: Pick<VaultDashboardVault, "_id"> & {
-    repositoryFullName: string;
-    treeRefreshFailureMessage?: string;
-  };
+  observation: RepositoryPullRequestObservation;
+  vault: VaultDashboardVault;
 }) {
-  if (!isReady) {
-    return undefined;
+  if (observation.state === "not_requested") {
+    return null;
   }
-
-  if (treeRefreshUiState.kind === "syncing") {
+  if (observation.state === "loading") {
     return (
-      <>
-        <UpdateIcon className="h-3 w-3 animate-spin" />
-        <span>Syncing...</span>
-      </>
-    );
-  }
-
-  if (treeRefreshUiState.kind === "rate_limited") {
-    return renderVaultDashboardCooldownStatus({
-      cooldownUntil: treeRefreshUiState.cooldownUntil,
-      label: "GitHub rate limited",
-      now,
-      title: vault.treeRefreshFailureMessage ?? "GitHub API rate limited. Auto-refresh paused.",
-    });
-  }
-
-  if (treeRefreshUiState.kind === "cooldown") {
-    return renderVaultDashboardCooldownStatus({
-      cooldownUntil: treeRefreshUiState.cooldownUntil,
-      label: "Paused",
-      now,
-      title: vault.treeRefreshFailureMessage ?? "Auto-refresh paused after a failed sync.",
-    });
-  }
-
-  if (treeRefreshUiState.kind === "failed") {
-    return (
-      <span
-        className="text-amber-700"
-        title={vault.treeRefreshFailureMessage ?? "Last sync failed. Showing cached state."}
+      <div
+        aria-busy="true"
+        className="flex min-h-16 items-center gap-2 px-3 text-sm text-muted-foreground"
       >
-        Last sync failed
-      </span>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading pull requests
+      </div>
     );
   }
-
-  if (typeof sharedLastSyncedAt === "number") {
+  if (
+    observation.state === "budget_deferred" ||
+    observation.state === "provider_unavailable" ||
+    observation.state === "provider_failure"
+  ) {
     return (
-      <VaultLastUpdatedStatus
-        lastSyncedAt={sharedLastSyncedAt}
-        now={now}
-        onRefresh={() => {
-          onManualRepositoryRefresh(vault._id);
-        }}
-        repositoryFullName={vault.repositoryFullName}
-      />
+      <div className="flex min-h-16 items-center gap-2 px-3 text-sm text-muted-foreground">
+        <CircleAlert className="h-4 w-4" />
+        {repositoryObservationProblemMessage(observation, now)}
+      </div>
     );
   }
 
-  return undefined;
+  const pullRequests = buildVaultPullRequestListItems({ observation, vault });
+  const defaultBranch = buildVaultDefaultBranchSummary({ observation, vault });
+  const emptyPullRequestMessage =
+    observation.providerOpenPullRequestCount > 0
+      ? "No open pull requests match these filters"
+      : "No open pull requests";
+
+  return (
+    <>
+      <VaultPullRequestList
+        defaultBranch={defaultBranch}
+        emptyPullRequestMessage={emptyPullRequestMessage}
+        pullRequests={pullRequests}
+      />
+      {observation.hasMore || observation.isLoadingMore || observation.loadMoreProblem ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/40 px-3 py-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={observation.isLoadingMore}
+            onClick={observation.loadMore}
+          >
+            {observation.isLoadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading
+              </>
+            ) : observation.loadMoreProblem ? (
+              "Try next page again"
+            ) : (
+              "Load more"
+            )}
+          </Button>
+          {observation.scanGuardrailReached ? (
+            <span className="text-xs text-muted-foreground">
+              More matching pull requests may remain beyond this bounded scan.
+            </span>
+          ) : observation.loadMoreProblem ? (
+            <span className="text-xs text-destructive">The next page could not be loaded.</span>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 export function VaultSourceSetupSection({
@@ -2884,11 +3029,9 @@ type VaultDashboardViewProps = {
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   persistedVaultResourceLinksOpenByVaultId: Map<string, boolean>;
-  schemaGraphAccessEnabled: boolean;
   rootRouteSearch: RootRouteSearch;
   onConnectCloudflareGithubRepository: (vaultId: Id<"vaults">, appRoot: string) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
-  onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
   onSaveVaultBranchFilters: (
@@ -3061,11 +3204,9 @@ export function VaultDashboardView({
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
   persistedVaultResourceLinksOpenByVaultId,
-  schemaGraphAccessEnabled,
   rootRouteSearch,
   onConnectCloudflareGithubRepository,
   onOpenDeveloperToolsChange,
-  onManualRepositoryRefresh,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
@@ -3077,12 +3218,7 @@ export function VaultDashboardView({
   const dashboardRoutePathname = useLocation({
     select: (location) => location.pathname,
   });
-  const {
-    remoteBranchCatalogByVaultId,
-    remoteBranchPagesByVaultId,
-    stagedBranchSummariesByVaultId,
-    vaults,
-  } = viewModel;
+  const { repositoryObservationByVaultId, vaults } = viewModel;
   const openProviderAddDialog = useCallback(
     ({ appRoot, provider }: { appRoot: string; provider: "cloudflare" | "convex" }) => {
       void navigate({
@@ -3131,18 +3267,21 @@ export function VaultDashboardView({
         const deletion = vault.deletion;
         const isDeletingVault = deletion.state !== "not_deleting";
         const isReady = vault.state === "ready" && !isDeletingVault;
-        const remoteBranchCatalog = remoteBranchCatalogByVaultId.get(vault._id) ?? [];
-        const remoteBranchPage = remoteBranchPagesByVaultId.get(vault._id);
-        const paginatedRemoteBranches = remoteBranchPage?.remoteBranches ?? [];
+        const repositoryObservation =
+          repositoryObservationByVaultId.get(vault._id) ??
+          ({ state: "not_requested" } satisfies RepositoryPullRequestObservation);
         const vaultBranchFilters =
           persistedVaultBranchFiltersByVaultId.get(vault._id) ?? getDefaultVaultBranchFilters();
         const vaultResourceLinksOpen =
           persistedVaultResourceLinksOpenByVaultId.get(vault._id) ?? false;
-        const activeRemoteBranches = remoteBranchCatalog.filter(
-          (branch) => branch.remoteState === "active",
-        );
-        const defaultBranch = activeRemoteBranches.find((branch) => branch.isDefault)?.name;
-        const primaryBranch = defaultBranch || activeRemoteBranches[0]?.name;
+        const settledRepositoryObservation =
+          repositoryObservation.state === "current" || repositoryObservation.state === "stale"
+            ? repositoryObservation
+            : null;
+        const primaryBranch =
+          settledRepositoryObservation?.defaultBranch.state === "ready"
+            ? settledRepositoryObservation.defaultBranch.name
+            : null;
         const chatRoute =
           primaryBranch && !isDeletingVault
             ? buildVaultCodespaceChatRoute({
@@ -3220,25 +3359,14 @@ export function VaultDashboardView({
               },
           vault,
         });
-        const productionApps = buildVaultProductionApps(vault);
-        const sharedLastSyncedAt = vault.lastTreeRefreshAt;
-        const treeRefreshUiState = getTreeRefreshUiState({
-          now,
-          treeRefreshStartedAt: vault.treeRefreshStartedAt,
-          lastTreeRefreshAt: vault.lastTreeRefreshAt,
-          lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-          treeRefreshFailureKind: vault.treeRefreshFailureKind,
-          treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+        const pullRequestFilterOptions = buildVaultPullRequestFilterOptions({
+          labels:
+            settledRepositoryObservation?.pullRequests.flatMap(
+              (pullRequest) => pullRequest.labels,
+            ) ?? [],
+          hiddenLabels: vaultBranchFilters.hiddenLabels,
+          includeNoLabel: vaultBranchFilters.includeNoLabel,
         });
-        const branchSectionState = buildVaultBranchSectionState({
-          filters: vaultBranchFilters,
-          remoteBranches: remoteBranchCatalog,
-        });
-        const filteredPaginatedRemoteBranches = filterVaultRemoteBranches(
-          paginatedRemoteBranches,
-          vaultBranchFilters,
-        );
-        const stagedBranchSummaries = stagedBranchSummariesByVaultId.get(vault._id) ?? [];
         const activeSourceSetup =
           vault.sourceSetup.status === "failed" || vault.sourceSetup.status === "running"
             ? vault.sourceSetup
@@ -3277,21 +3405,13 @@ export function VaultDashboardView({
           ) : undefined;
         const setupSection =
           deletionSection ?? deleteBlockedSection ?? sourceSetupSection ?? providerSetupSection;
-        const branchSection =
-          isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
-            <VaultBranchSection
-              convexDeployments={vault.convexDeployments}
-              filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-              loadMore={remoteBranchPage?.loadMore ?? ignoreVaultBranchLoadMore}
-              paginationStatus={remoteBranchPage?.status ?? "LoadingFirstPage"}
-              schemaGraphAccessEnabled={schemaGraphAccessEnabled}
-              vaultId={vault._id}
-              repositoryFullName={vault.repositoryFullName}
-              remoteBranches={filteredPaginatedRemoteBranches}
-              productionApps={productionApps}
-              stagedSummaries={stagedBranchSummaries}
-            />
-          ) : undefined;
+        const repositoryContent = isReady ? (
+          <VaultRepositoryObservationContent
+            now={now}
+            observation={repositoryObservation}
+            vault={vault}
+          />
+        ) : undefined;
         return (
           <div key={vault._id} data-vault-dashboard-repository-card="">
             <VaultDashboardRepositoryCard
@@ -3339,28 +3459,21 @@ export function VaultDashboardView({
                 ) : undefined
               }
               repositoryStatus={renderVaultDashboardRepositoryStatus({
-                isReady,
                 now,
-                onManualRepositoryRefresh,
-                sharedLastSyncedAt,
-                treeRefreshUiState,
-                vault,
+                observation: repositoryObservation,
               })}
               headerControls={
-                isReady && remoteBranchCatalog.length > 0 ? (
-                  <VaultBranchHeaderControls
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                    filterOptions={branchSectionState.filterOptions}
+                isReady ? (
+                  <VaultPullRequestHeaderControls
+                    filterOptions={pullRequestFilterOptions}
                     filters={vaultBranchFilters}
-                    hiddenBranchCount={branchSectionState.hiddenBranchCount}
                     onChangeFilters={(nextVaultBranchFilters) => {
                       onSaveVaultBranchFilters(vault._id, nextVaultBranchFilters);
                     }}
-                    remoteBranchCount={remoteBranchCatalog.length}
                   />
                 ) : undefined
               }
-              branchSection={branchSection}
+              branchSection={repositoryContent}
               developerToolsSection={
                 isReady || hasProvisioningLog
                   ? {
@@ -3438,68 +3551,42 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
     return vaults.find((vault) => vault.repositoryFullName === selectedRepositoryFullName) ?? null;
   }, [selectedRepositoryFullName, vaults]);
-  const selectedVaultRemoteBranchCatalog = useQuery(
-    api.vault.branches.listVaultRemoteBranchFilterMetadata,
-    selectedVault ? { vaultId: selectedVault._id } : "skip",
-  );
-  const selectedVaultRemoteBranchPage = usePaginatedQuery(
-    api.vault.branches.listVaultRemoteBranchesPage,
-    selectedVault ? { vaultId: selectedVault._id } : "skip",
-    { initialNumItems: VAULT_BRANCH_INITIAL_PAGE_SIZE },
-  );
-  const vaultIds = useMemo(() => (selectedVault ? [selectedVault._id] : null), [selectedVault]);
-  const stagedBranchSummariesByVault = useQuery(
-    api.fileStaging.listStagedFilesBranchSummariesByVault,
-    vaultIds ? { vaultIds } : "skip",
-  );
-  const stagedBranchSummariesByVaultId = useMemo(
-    () =>
-      new Map<string, readonly VaultDashboardStagedBranchSummary[]>(
-        (stagedBranchSummariesByVault ?? []).map((summary) => [
-          summary.vaultId,
-          summary.branchSummaries,
-        ]),
-      ),
-    [stagedBranchSummariesByVault],
-  );
-  const dashboardData = useMemo(
-    () =>
-      vaults
-        ? {
-            allVaults: vaults,
-            viewModel: {
-              vaults: selectedVault ? [selectedVault] : [],
-              remoteBranchCatalogByVaultId:
-                selectedVault && selectedVaultRemoteBranchCatalog
-                  ? new Map([[selectedVault._id, selectedVaultRemoteBranchCatalog]])
-                  : new Map(),
-              remoteBranchPagesByVaultId: selectedVault
-                ? new Map([
-                    [
-                      selectedVault._id,
-                      {
-                        remoteBranches: selectedVaultRemoteBranchPage.results,
-                        status: selectedVaultRemoteBranchPage.status,
-                        loadMore: selectedVaultRemoteBranchPage.loadMore,
-                      },
-                    ],
-                  ])
-                : new Map(),
-              stagedBranchSummariesByVaultId,
-            },
-          }
-        : null,
-    [
-      selectedVault,
-      selectedVaultRemoteBranchPage.loadMore,
-      selectedVaultRemoteBranchPage.results,
-      selectedVaultRemoteBranchPage.status,
-      selectedVaultRemoteBranchCatalog,
-      stagedBranchSummariesByVaultId,
-      vaults,
-    ],
-  );
+  const userVaultBranchFilters = useConvexQuery(api.vault.dashboard.getUserVaultBranchFilters);
+  const selectedVaultBranchFilters = useMemo(() => {
+    if (!selectedVault) {
+      return getDefaultVaultBranchFilters();
+    }
+    const persistedFilters = userVaultBranchFilters?.find(
+      (filters) => filters.vaultId === selectedVault._id,
+    );
+    return normalizeVaultBranchFilters(persistedFilters);
+  }, [selectedVault, userVaultBranchFilters]);
   const now = useNow();
+  const selectedRepositoryObservation = useRepositoryPullRequestObservations({
+    vaultId:
+      userVaultBranchFilters !== undefined &&
+      selectedVault?.state === "ready" &&
+      selectedVault.deletion.state === "not_deleting"
+        ? selectedVault._id
+        : null,
+    filters: selectedVaultBranchFilters,
+    now,
+  });
+  const displayedRepositoryObservation =
+    selectedVault && userVaultBranchFilters === undefined
+      ? ({ state: "loading" } satisfies RepositoryPullRequestObservation)
+      : selectedRepositoryObservation;
+  const dashboardData = vaults
+    ? {
+        allVaults: vaults,
+        viewModel: {
+          vaults: selectedVault ? [selectedVault] : [],
+          repositoryObservationByVaultId: selectedVault
+            ? new Map([[selectedVault._id, displayedRepositoryObservation]])
+            : new Map(),
+        },
+      }
+    : null;
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
   const retryInfrastructureProvisioning = useAction(
@@ -3542,13 +3629,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           },
     );
   });
-  const userVaultBranchFilters = useConvexQuery(api.vault.dashboard.getUserVaultBranchFilters);
   const userVaultResourceLinksState = useConvexQuery(
     api.vault.dashboard.getUserVaultResourceLinksState,
   );
-  const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
-  const schemaGraphAccessEnabled =
-    viewerAccess?.accessKeys.includes("access_schema_graph") === true;
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const connectedCloudflareConnection =
     cloudflareConnection?.connected === true ? cloudflareConnection : null;
@@ -3703,8 +3786,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setIsDeleting,
     setRetryingDeletionRunId,
   } = dashboardLocalStore.actions;
-
-  const { enqueueManualRepositoryRefresh } = useDashboardRepositoryRefreshDemand();
 
   const addAppRootDialogVault = addAppRootModeActive ? selectedVault : null;
   const vaultToAddAppRoot = useMemo(
@@ -4508,13 +4589,11 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
         persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
         persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
-        schemaGraphAccessEnabled={schemaGraphAccessEnabled}
         rootRouteSearch={rootRouteSearch}
         onConnectCloudflareGithubRepository={(vaultId, appRoot) => {
           void handleConnectCloudflareGithubRepository(vaultId, appRoot);
         }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
-        onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
         onRetryInfrastructureProvisioning={(vaultId) => {
           void handleRetryInfrastructureProvisioning(vaultId);
         }}
