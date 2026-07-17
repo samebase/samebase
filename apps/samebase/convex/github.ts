@@ -100,7 +100,7 @@ const exactRepositoryBranchRefreshResult = union(
   }),
   object({
     kind: literal("deferred"),
-    reason: union(literal("cooldown"), literal("recent_success"), literal("in_progress")),
+    reason: union(literal("cooldown"), literal("in_progress")),
   }),
   object({
     kind: literal("unavailable"),
@@ -183,10 +183,7 @@ const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
  */
 const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
-/**
- * Missing branch means "use the default branch"; an empty provided branch is a
- * caller bug and must not silently become default-branch work.
- */
+/** An omitted branch means default; a provided branch always remains exact. */
 function normalizeOptionalRepositoryBranch(branch: string | undefined): string | undefined {
   if (branch === undefined) {
     return undefined;
@@ -238,7 +235,10 @@ export async function readExactRepositoryBranch(args: {
       await args.confirmRepository();
       return { kind: "not_found" };
     } catch (repositoryError) {
-      return { kind: "unavailable", error: repositoryError };
+      const repositoryStatus = getErrorStatus(repositoryError);
+      return repositoryStatus === 401 || repositoryStatus === 403 || repositoryStatus === 404
+        ? { kind: "unavailable", error: repositoryError }
+        : { kind: "failed", error: repositoryError };
     }
   }
 
@@ -2314,10 +2314,18 @@ async function refreshExactRepositoryBranchForUser(
     skipRecentSuccessDebounce: true,
   });
   if (!claim.claimed) {
-    if (claim.reason) {
-      return { kind: "deferred", reason: claim.reason };
+    switch (claim.reason) {
+      case "cooldown":
+      case "in_progress":
+        return { kind: "deferred", reason: claim.reason };
+      case "recent_success":
+        throw new Error("Exact branch refresh unexpectedly used the vault success debounce.");
+      case undefined:
+        return { kind: "failed" };
+      default:
+        claim.reason satisfies never;
+        return { kind: "failed" };
     }
-    return { kind: "failed" };
   }
   if (typeof claim.startedAt !== "number") {
     throw new Error("Tree refresh claim missing start timestamp.");

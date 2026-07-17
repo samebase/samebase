@@ -89,6 +89,24 @@ describe("readExactRepositoryBranch", () => {
       }),
     ).resolves.toEqual({ kind: "unavailable", error: repositoryError });
   });
+
+  it("keeps repository confirmation failures distinct from access loss", async () => {
+    const repositoryError = Object.assign(new Error("Provider failed"), { status: 500 });
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => {
+          throw Object.assign(new Error("Not Found"), { status: 404 });
+        },
+        getTree: async () => {
+          throw new Error("Tree should not be read.");
+        },
+        confirmRepository: async () => {
+          throw repositoryError;
+        },
+      }),
+    ).resolves.toEqual({ kind: "failed", error: repositoryError });
+  });
 });
 
 const repositoryMetadataSyncRequest = {

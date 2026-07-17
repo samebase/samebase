@@ -111,7 +111,7 @@ type FileViewBranchHydrationState =
   | { kind: "not_found" }
   | {
       kind: "deferred";
-      reason: "cooldown" | "recent_success" | "in_progress";
+      reason: "cooldown" | "in_progress";
     }
   | { kind: "unavailable" }
   | { kind: "failed" };
@@ -265,6 +265,14 @@ function FileViewWrapper() {
       const key = `${owner}/${repoName}:branch:${branch}`;
       const hasTree = vault.branchTreeState === "ready";
       if (
+        !hasTree &&
+        typeof vault.treeRefreshStartedAt === "number" &&
+        branchHydrationInFlightKeyRef.current !== key
+      ) {
+        setBranchHydrationFeedback({ key, state: { kind: "deferred", reason: "in_progress" } });
+        return;
+      }
+      if (
         typeof vault.treeRefreshCooldownUntil === "number" &&
         vault.treeRefreshCooldownUntil > Date.now()
       ) {
@@ -332,6 +340,7 @@ function FileViewWrapper() {
       refreshTree,
       vault?.branchTreeState,
       vault?.treeRefreshCooldownUntil,
+      vault?.treeRefreshStartedAt,
     ],
   );
 
@@ -564,6 +573,7 @@ function FileViewWrapper() {
       />
     );
   }
+  const hydrationKey = `${owner}/${repoName}:branch:${branch}`;
 
   return (
     <FileViewInner
@@ -573,6 +583,9 @@ function FileViewWrapper() {
       owner={owner}
       repoName={repoName}
       stagedFile={stagedFile ?? null}
+      branchHydrationState={
+        branchHydrationFeedback?.key === hydrationKey ? branchHydrationFeedback.state : null
+      }
     />
   );
 }
@@ -599,8 +612,6 @@ function getFileViewRepositorySetupMessage(state: FileViewBranchHydrationState):
           return "GitHub refresh is paused. This branch will load after the cooldown.";
         case "in_progress":
           return "Waiting for another repository refresh to finish.";
-        case "recent_success":
-          return "Waiting for the branch cache to become available.";
         default:
           state.reason satisfies never;
           return "Branch loading is deferred.";
@@ -676,6 +687,7 @@ function FileViewInner({
   owner,
   repoName,
   stagedFile,
+  branchHydrationState,
 }: {
   vault: FileViewVault;
   branch: string;
@@ -683,6 +695,7 @@ function FileViewInner({
   owner: string;
   repoName: string;
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
+  branchHydrationState: FileViewBranchHydrationState | null;
 }) {
   const { setMobilePane } = useWorkspacePaneActions();
   const setMobilePaneRef = useRef(setMobilePane);
@@ -2538,6 +2551,16 @@ function FileViewInner({
               stagedFiles={stagedFiles}
               disableStagedFilesQuery
             />
+
+            {branchHydrationState?.kind === "not_found" ? (
+              <span className="text-xs text-muted-foreground">
+                Branch no longer exists on GitHub. Showing the cached tree.
+              </span>
+            ) : branchHydrationState?.kind === "unavailable" ? (
+              <span className="text-xs text-muted-foreground">
+                GitHub access is unavailable. Showing the cached tree.
+              </span>
+            ) : null}
 
             {viewMode === "editor" && (
               <Button
