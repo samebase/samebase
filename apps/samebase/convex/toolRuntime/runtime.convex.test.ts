@@ -13,7 +13,7 @@ mcp/http.convex.test.ts).
 describe("toolRuntime scope enforcement", () => {
   it("blocks every non-public catalog tool when the token grants no scopes", async () => {
     const t = makeConvexTest();
-    const { userId, vaultId } = await t.run(async (ctx) => {
+    const { appId, convexDeploymentId, userId, vaultId, workerId } = await t.run(async (ctx) => {
       const seededUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
@@ -24,7 +24,47 @@ describe("toolRuntime scope enforcement", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      return { userId: seededUserId, vaultId: seededVaultId };
+      const appId = await ctx.db.insert("vaultApps", {
+        vaultId: seededVaultId,
+        userId: seededUserId,
+        rootDirectory: "/",
+        createdAt: 1,
+      });
+      const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: seededVaultId,
+        userId: seededUserId,
+        appId,
+        projectId: "project_1",
+        teamSlug: "ada",
+        projectSlug: "project-1",
+        deploymentName: "project-1-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://project-1.convex.cloud",
+        siteUrl: "https://project-1.convex.site",
+        previewDeployment: { state: "not_ensured" },
+        origin: "selected_existing",
+        connectedAt: 1,
+        lastObservedAt: 1,
+      });
+      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: seededVaultId,
+        userId: seededUserId,
+        appId,
+        accountId: "account_1",
+        workerName: "worker-1",
+        workerTag: "worker-tag-1",
+        origin: "selected_existing",
+        builds: { state: "not_connected" },
+        connectedAt: 1,
+        lastObservedAt: 1,
+      });
+      return {
+        appId,
+        convexDeploymentId,
+        userId: seededUserId,
+        vaultId: seededVaultId,
+        workerId,
+      };
     });
     const grantedScopes: string[] = [];
 
@@ -82,7 +122,7 @@ describe("toolRuntime scope enforcement", () => {
       userId,
       grantedScopes,
       vaultId,
-      appRoot: ".",
+      appId,
       accountId: "account_1",
     });
     expect(listWorkers).toMatchObject({
@@ -96,7 +136,7 @@ describe("toolRuntime scope enforcement", () => {
         userId,
         grantedScopes,
         vaultId,
-        appRoot: ".",
+        appId,
         projectId: "project_1",
       },
     );
@@ -111,7 +151,7 @@ describe("toolRuntime scope enforcement", () => {
         userId,
         grantedScopes,
         vaultId,
-        appRoot: ".",
+        appId,
         accountId: "account_1",
         workerName: "worker-1",
       },
@@ -125,7 +165,7 @@ describe("toolRuntime scope enforcement", () => {
       userId,
       grantedScopes,
       vaultId,
-      appRoot: ".",
+      workerId,
     });
     expect(wireBuilds).toMatchObject({
       status: "blocked",
@@ -138,7 +178,8 @@ describe("toolRuntime scope enforcement", () => {
         userId,
         grantedScopes,
         vaultId,
-        appRoot: ".",
+        workerId,
+        convexDeploymentId,
       },
     );
     expect(wireConvexBuildAccess).toMatchObject({
@@ -152,7 +193,7 @@ describe("toolRuntime scope enforcement", () => {
         userId,
         grantedScopes,
         vaultId,
-        appRoot: ".",
+        workerId,
       },
     );
     expect(verifyInfrastructure).toMatchObject({

@@ -39,18 +39,19 @@ describe("vault records Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
-      expect.arrayContaining([
-        {
-          vaultId: existingRepository.vaultId,
-          resourceLinksOpen: true,
-        },
-        {
-          vaultId: samebaseManaged.vaultId,
-          resourceLinksOpen: true,
-        },
-      ]),
-    );
+    await expect(
+      Promise.all(
+        [existingRepository.vaultId, samebaseManaged.vaultId].map(
+          async (vaultId) =>
+            await asUser.query(api.vault.dashboard.getUserVaultResourceLinksState, {
+              vaultId,
+            }),
+        ),
+      ),
+    ).resolves.toEqual([
+      [{ vaultId: existingRepository.vaultId, resourceLinksOpen: true }],
+      [{ vaultId: samebaseManaged.vaultId, resourceLinksOpen: true }],
+    ]);
   });
 
   it("rejects case-insensitive duplicate Samebase-managed repository targets", async () => {

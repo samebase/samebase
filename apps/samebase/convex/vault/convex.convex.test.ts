@@ -3,8 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
-const appRoot = ".";
-
 function jsonResponse(body: string): Response {
   return new Response(body, {
     status: 200,
@@ -90,10 +88,10 @@ async function createConvexConnectedVault() {
       defaultBranch: "main",
       connectedAt: 12,
     });
-    await ctx.db.insert("vaultApps", {
+    const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot,
+      rootDirectory: "/",
       createdAt: 25,
     });
     const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -107,7 +105,7 @@ async function createConvexConnectedVault() {
       updatedAt: 30,
     });
 
-    return { runId, userId, vaultId };
+    return { appId, runId, userId, vaultId };
   });
 
   return { ids, t };
@@ -225,18 +223,19 @@ describe("vault Convex deployment connection actions", () => {
 
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
-      appRoot,
     });
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
+        runId: ids.runId,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         target: {
           mode: "connect_existing_project",
-          appRoot,
+          appId: ids.appId,
           projectId: "1001",
         },
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual(expect.any(String));
 
     const deployment = await t.run(
       async (ctx) =>
@@ -247,7 +246,7 @@ describe("vault Convex deployment connection actions", () => {
     );
 
     expect(deployment).toMatchObject({
-      appRoot,
+      appId: ids.appId,
       projectId: "1001",
       teamSlug: "samebase-team",
       projectSlug: "alpha",
@@ -263,7 +262,6 @@ describe("vault Convex deployment connection actions", () => {
     const { ids, t } = await createConvexConnectedVault();
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
-      appRoot,
     });
     vi.stubGlobal(
       "fetch",
@@ -314,10 +312,12 @@ describe("vault Convex deployment connection actions", () => {
 
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
+        runId: ids.runId,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         target: {
           mode: "connect_existing_project",
-          appRoot,
+          appId: ids.appId,
           projectId: "1001",
         },
       }),
@@ -398,19 +398,20 @@ describe("vault Convex deployment connection actions", () => {
     });
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
-      appRoot,
     });
 
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
+        runId: ids.runId,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         target: {
           mode: "create_project",
-          appRoot,
+          appId: ids.appId,
           projectName: "alpha-project",
         },
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual(expect.any(String));
 
     const deployment = await t.run(
       async (ctx) =>
@@ -420,7 +421,7 @@ describe("vault Convex deployment connection actions", () => {
           .first(),
     );
     expect(deployment).toMatchObject({
-      appRoot,
+      appId: ids.appId,
       projectId: "1001",
       projectSlug: "alpha-project",
       deploymentName: "alpha-prod",
@@ -505,19 +506,20 @@ describe("vault Convex deployment connection actions", () => {
     });
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
-      appRoot,
     });
 
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
+        runId: ids.runId,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         target: {
           mode: "create_project",
-          appRoot,
+          appId: ids.appId,
           projectName: "alpha-project",
         },
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual(expect.any(String));
 
     const deployment = await t.run(
       async (ctx) =>
@@ -527,7 +529,7 @@ describe("vault Convex deployment connection actions", () => {
           .first(),
     );
     expect(deployment).toMatchObject({
-      appRoot,
+      appId: ids.appId,
       projectId: "1002",
       projectSlug: "alpha-project-recreated",
       deploymentName: "alpha-recreated-prod",

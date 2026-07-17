@@ -3,14 +3,14 @@ import { v } from "convex/values";
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { id, string } = v;
+const { id } = v;
 
 export const cloudflareVerifyInfrastructureContract = {
   id: "verify_infrastructure",
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    workerId: id("vaultCloudflareWorkers"),
   },
   returns: v.null(),
   mcp: {
@@ -26,19 +26,17 @@ export const cloudflareVerifyInfrastructureContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app whose Cloudflare infrastructure should be verified.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      workerId: "Stable Samebase id of the Worker whose infrastructure should be verified.",
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `Checks Samebase's recorded Cloudflare Worker infrastructure against the caller's own
 Cloudflare account: recorded Workers Builds production and preview trigger ids must still exist on
-the Worker, and a Worker marked as having Convex build access must still expose both
-\`CONVEX_DEPLOY_KEY\` and \`PREVIEW_CONVEX_DEPLOY_KEY\` on each trigger.
+the Worker. When that Worker has a Convex deployment dependency, its production trigger must expose
+\`CONVEX_DEPLOY_KEY\` and its preview trigger must expose \`PREVIEW_CONVEX_DEPLOY_KEY\`.
 
-Convex build-access verification is all-or-nothing and name-only: production and preview trigger
-variable tables must each contain both deploy-key names. A split layout, such as
-\`CONVEX_DEPLOY_KEY\` only on production and \`PREVIEW_CONVEX_DEPLOY_KEY\` only on preview, is
-treated as missing. Cloudflare does not return secret values, so verification cannot prove that a
-present secret contains the current key; the repair action rotates and rewrites fresh values.
+Convex build-access verification checks both name and secret classification. Cloudflare does not
+return secret values, so verification cannot prove that a present secret contains the current key;
+the repair action rotates and rewrites fresh values for this dependency only.
 
 Provider access is read-only. Samebase only writes registry corrections: missing recorded triggers
 make the Worker repairable through \`wire_builds\`; missing deploy-key variables make it repairable

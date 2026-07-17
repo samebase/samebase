@@ -40,7 +40,13 @@ async function createConnectedVault() {
       defaultBranch: "main",
       connectedAt: 20,
     });
-    return { userId, vaultId };
+    const appId = await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      rootDirectory: "/",
+      createdAt: 20,
+    });
+    return { appId, userId, vaultId };
   });
   return { ids, t };
 }
@@ -52,7 +58,7 @@ describe("infra read app-root targeting", () => {
       await ctx.db.insert("vaultConvexDeployments", {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        appRoot: ".",
+        appId: ids.appId,
         projectId: "deleted-project",
         teamSlug: "ada-team",
         projectSlug: "deleted-project",
@@ -60,10 +66,6 @@ describe("infra read app-root targeting", () => {
         deploymentType: "prod",
         cloudUrl: "https://deleted.convex.cloud",
         siteUrl: "https://deleted.convex.site",
-        deployKeys: {
-          production: { state: "not_created" },
-          preview: { state: "not_created" },
-        },
         previewDeployment: { state: "not_ensured" },
         origin: "selected_existing",
         upstream: { state: "missing_upstream" },
@@ -85,16 +87,13 @@ describe("infra read app-root targeting", () => {
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        appRoot: ".",
+        appId: ids.appId,
         accountId: "cloudflare-account",
         workerName: "deleted-worker",
         workerTag: "deleted-worker-tag",
         origin: "selected_existing",
         upstream: { state: "missing_upstream" },
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
+        builds: { state: "not_connected" },
         connectedAt: 30,
         lastObservedAt: 30,
       });
@@ -111,10 +110,16 @@ describe("infra read app-root targeting", () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
       for (const appRoot of ["apps/api", "apps/web"]) {
+        const appId = await ctx.db.insert("vaultApps", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          rootDirectory: appRoot,
+          createdAt: 30,
+        });
         await ctx.db.insert("vaultConvexDeployments", {
           vaultId: ids.vaultId,
           userId: ids.userId,
-          appRoot,
+          appId,
           projectId: `${appRoot}-project`,
           teamSlug: "ada-team",
           projectSlug: appRoot.replace("/", "-"),
@@ -122,10 +127,6 @@ describe("infra read app-root targeting", () => {
           deploymentType: "prod",
           cloudUrl: `https://${appRoot.replace("/", "-")}.convex.cloud`,
           siteUrl: `https://${appRoot.replace("/", "-")}.convex.site`,
-          deployKeys: {
-            production: { state: "not_created" },
-            preview: { state: "not_created" },
-          },
           previewDeployment: { state: "not_ensured" },
           origin: "selected_existing",
           connectedAt: 30,
@@ -145,19 +146,22 @@ describe("infra read app-root targeting", () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
       for (const appRoot of ["apps/api", "apps/web"]) {
+        const appId = await ctx.db.insert("vaultApps", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          rootDirectory: appRoot,
+          createdAt: 30,
+        });
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId: ids.vaultId,
           userId: ids.userId,
-          appRoot,
+          appId,
           accountId: "cloudflare-account",
           workerName: appRoot.replace("/", "-"),
           workerTag: `${appRoot.replace("/", "-")}-tag`,
           workersDevUrl: `https://${appRoot.replace("/", "-")}.nicu.workers.dev`,
           origin: "selected_existing",
-          deployment: {
-            builds: { state: "not_connected" },
-            convexBuildAccess: { state: "not_wired" },
-          },
+          builds: { state: "not_connected" },
           connectedAt: 30,
           lastObservedAt: 30,
         });

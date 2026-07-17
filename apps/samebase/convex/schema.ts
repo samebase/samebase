@@ -7,10 +7,10 @@ import {
   vGitHubRepositoryVisibility,
   vTreeRefreshFailureKind,
   vVaultApp,
-  vVaultCloudflareBuildConfig,
   vVaultCloudflareWorker,
   vVaultConvexDeployment,
   vVaultRow,
+  vVaultWorkerDeploymentDependency,
 } from "./vault/model";
 import {
   vVaultDeletionEventLevel,
@@ -25,7 +25,22 @@ import {
   vMachineRegistrationBootstrapRateLimitRow,
   vMachineRegistrationRequestRow,
 } from "./connectedMachineModel";
-import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
+import { vGitHubGraphqlRateBudget } from "./githubGraphqlRateBudget";
+import { vGitHubObservationActionLease } from "./githubObservationActionLeaseModel";
+import {
+  vRepositoryInventoryFilterView,
+  vRepositoryInventoryFilterViewRow,
+  vRepositoryInventoryCloudflareBuildAssociation,
+  vRepositoryInventoryCloudflareBuildRow,
+  vRepositoryInventoryExcludedLabel,
+  vRepositoryInventoryLabelChunk,
+  vRepositoryInventorySnapshot,
+  vRepositoryInventoryState,
+  vStoredRepositoryInventoryFilter,
+  vStoredRepositoryInventoryItem,
+  vStoredRepositoryInventoryPullRequestLabelFacet,
+} from "./repositoryInventoryModel";
+import { vRepositorySummary, vRepositorySummaryDirectoryState } from "./repositorySummaryModel";
 import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 import { vVaultResourceLinksStateRow } from "./vault/resourceLinksStateModel";
@@ -60,15 +75,6 @@ const BillingCurrentPeriodEndAt = optional(number());
 const BillingPolarExternalCustomerId = optional(string());
 
 const PricingBillingCycle = optional(union(literal("monthly"), literal("annual")));
-
-export const vPullRequestLabel = union(
-  string(),
-  object({
-    name: string(),
-    color: optional(string()),
-  }),
-);
-export type PullRequestLabel = Infer<typeof vPullRequestLabel>;
 
 export type GithubTree = Infer<typeof vGithubTree>;
 export type GithubTreeData = Infer<typeof vGithubTreeData>;
@@ -145,47 +151,6 @@ export const vVaultDomainSource = union(
   literal("cloudflare_workers_custom"),
   literal("cloudflare_workers_preview"),
 );
-
-export const vVaultRemoteBranchState = union(literal("active"), literal("deleted_upstream"));
-export const vCommitCheckSource = union(literal("check_run"), literal("commit_status"));
-export type CommitCheckSource = Infer<typeof vCommitCheckSource>;
-export const vCommitCheckState = union(
-  literal("success"),
-  literal("failure"),
-  literal("running"),
-  literal("neutral"),
-  literal("unknown"),
-);
-export type CommitCheckState = Infer<typeof vCommitCheckState>;
-const vCommitChecksSummaryFields = {
-  state: vCommitCheckState,
-  totalCount: number(),
-  checkRunCount: number(),
-  statusContextCount: number(),
-  successCount: number(),
-  failureCount: number(),
-  runningCount: number(),
-  neutralCount: number(),
-  unknownCount: number(),
-  primaryTargetUrl: optional(string()),
-  primaryLogUrl: optional(string()),
-  syncedAt: number(),
-};
-export const vVaultBranchCommitChecksSummary = object(vCommitChecksSummaryFields);
-export type VaultBranchCommitChecksSummary = Infer<typeof vVaultBranchCommitChecksSummary>;
-export const vGithubCommitCheckSnapshot = object({
-  githubRepositoryId: string(),
-  commitSha: string(),
-  ...vCommitChecksSummaryFields,
-});
-export type GitHubCommitCheckSnapshot = Infer<typeof vGithubCommitCheckSnapshot>;
-export const vVaultBranchCommitSummary = object({
-  sha: string(),
-  title: optional(string()),
-  authoredAt: optional(number()),
-  checks: optional(vVaultBranchCommitChecksSummary),
-});
-export type VaultBranchCommitSummary = Infer<typeof vVaultBranchCommitSummary>;
 
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 export type VaultDeletionStep = Infer<typeof vVaultDeletionStep>;
@@ -299,6 +264,7 @@ export const vGithubProviderConnection = object({
   kind: literal("github"),
   userId: id("users"),
   auth: vStandardProviderAuth,
+  githubAccountId: number(),
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
@@ -396,7 +362,8 @@ export default defineSchema({
   providerConnections: defineTable(vProviderConnection)
     .index("by_user", ["userId"])
     .index("by_user_kind", ["userId", "kind"])
-    .index("by_kind_method", ["kind", "auth.method"]),
+    .index("by_kind_method", ["kind", "auth.method"])
+    .index("by_kind_and_githubAccountId", ["kind", "githubAccountId"]),
 
   connectedMachines: defineTable(vConnectedMachineRow)
     .index("by_user", ["userId"])
@@ -437,19 +404,6 @@ export default defineSchema({
     "workspaceKey",
   ]),
 
-  vaultBranchFilters: defineTable({
-    userId: id("users"),
-    vaultId: id("vaults"),
-    hiddenLabels: array(string()),
-    includeDrafts: boolean(),
-    // Keep this optional so rows saved before unlabeled-branch support remain
-    // readable until each user re-saves their filters.
-    includeNoLabel: optional(boolean()),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_and_vault", ["userId", "vaultId"])
-    .index("by_vault", ["vaultId"]),
-
   vaultResourceLinksState: defineTable(vVaultResourceLinksStateRow)
     .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"])
@@ -463,37 +417,46 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
-    .index("by_owner_and_name", ["owner", "name"])
-    .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
+    .index("by_userId_and_routeRepositoryKey", ["userId", "routeRepositoryKey"]),
 
   /**
-   * Deployable app roots inside a repo-backed vault. Provider resources attach
-   * to these rows; "." is an explicit root app, not a fallback target.
+   * Stable app identities inside a repo-backed vault. An app remains visible
+   * without a provider resource; "/" is the repository-root app.
    */
   vaultApps: defineTable(vVaultApp)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"]),
+    .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
 
   /**
-   * Cloudflare Worker targets connected to one repo-backed vault. App root is
-   * the monorepo path this Worker deploys; vault identity stays repository-only.
+   * Cloudflare Worker resources attached to stable app identities. More than
+   * one Worker may attach to the same app.
    */
   vaultCloudflareWorkers: defineTable(vVaultCloudflareWorker)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_app", ["appId"])
     .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
 
   /**
-   * Convex deployments connected to one repo-backed vault. App root is the
-   * monorepo path this deployment serves; vault identity stays repository-only.
+   * Convex deployment resources attached to stable app identities.
    */
   vaultConvexDeployments: defineTable(vVaultConvexDeployment)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_app", ["appId"])
     .index("by_vault_and_project", ["vaultId", "projectId"]),
+
+  /**
+   * An explicit build-time dependency from one Worker to one Convex
+   * deployment. A Worker has at most one dependency row; a Convex deployment
+   * may be shared by several Workers.
+   */
+  vaultWorkerDeploymentDependencies: defineTable(vVaultWorkerDeploymentDependency)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_worker", ["workerId"])
+    .index("by_convex_deployment", ["convexDeploymentId"]),
 
   /**
    * Live Convex deployment schema snapshots normalized into table graph data.
@@ -514,78 +477,6 @@ export default defineSchema({
     .index("by_user_vault_deployment_node", ["userId", "vaultId", "deploymentId", "nodeId"]),
 
   /**
-   * Remote Git branches mirrored from GitHub for a vault repository.
-   */
-  vaultRemoteBranches: defineTable({
-    vaultId: id("vaults"),
-    name: string(),
-    headCommitSha: string(),
-    lastCommitAt: optional(number()),
-    aheadBy: optional(number()),
-    behindBy: optional(number()),
-    pullRequestUrl: optional(string()),
-    pullRequestNumber: optional(number()),
-    pullRequestLabels: optional(array(vPullRequestLabel)),
-    pullRequestTitle: optional(string()),
-    pullRequestIsDraft: optional(boolean()),
-    isDefault: boolean(),
-    isProtected: boolean(),
-    remoteState: vVaultRemoteBranchState,
-    defaultRank: number(),
-    stateRank: number(),
-    commitRank: number(),
-    deletedUpstreamAt: optional(number()),
-    lastSyncedAt: number(),
-  })
-    .index("by_vault", ["vaultId"])
-    .index("by_vault_and_name", ["vaultId", "name"])
-    .index("by_vault_and_remote_state", ["vaultId", "remoteState"])
-    .index("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", [
-      "vaultId",
-      "defaultRank",
-      "stateRank",
-      "commitRank",
-      "name",
-    ]),
-
-  /**
-   * Current GitHub check/status summary for one commit in one GitHub repo.
-   *
-   * GitHub attaches checks to commits inside repositories. Branch and PR rows
-   * point at commits; they do not own check state.
-   */
-  githubCommitCheckSnapshots: defineTable(vGithubCommitCheckSnapshot).index(
-    "by_githubRepositoryId_and_commitSha",
-    ["githubRepositoryId", "commitSha"],
-  ),
-
-  /**
-   * Current GitHub check/status items for one commit in one GitHub repo.
-   */
-  githubCommitCheckItems: defineTable({
-    githubRepositoryId: string(),
-    commitSha: string(),
-    source: vCommitCheckSource,
-    sourceKey: string(),
-    name: string(),
-    providerName: optional(string()),
-    state: vCommitCheckState,
-    status: string(),
-    conclusion: optional(string()),
-    targetUrl: optional(string()),
-    detailsUrl: optional(string()),
-    githubUrl: optional(string()),
-    previewUrl: optional(string()),
-    previewAliasUrl: optional(string()),
-    previewStatus: optional(string()),
-    logUrl: optional(string()),
-    startedAt: optional(number()),
-    completedAt: optional(number()),
-    updatedAt: optional(number()),
-    syncedAt: number(),
-  }).index("by_githubRepositoryId_and_commitSha", ["githubRepositoryId", "commitSha"]),
-
-  /**
    * Branch-scoped Git trees for each vault.
    */
   vaultBranchTrees: defineTable({
@@ -599,66 +490,130 @@ export default defineSchema({
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
 
   /**
-   * Durable freshness demand and worker status. Each row is one repository- or
-   * branch-scoped demand; exact refresh steps stay backend execution policy.
+   * The single reactive row for one selected repository. Immutable snapshot
+   * pages never read this row, so polling lifecycle writes cannot fan out to
+   * every page the browser has loaded.
    */
-  repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
-    .index("by_userId_and_vaultId_and_dedupeKey", ["userId", "vaultId", "dedupeKey"])
-    .index("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", [
+  vaultRepositoryInventories: defineTable(vRepositoryInventoryState)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_lifecycle_state", ["userId", "lifecycle.state"]),
+
+  /**
+   * One fixed-size default-branch summary for every connected vault. Directory
+   * pages join at most one summary row per vault and never read inventory pages.
+   */
+  vaultRepositorySummaries: defineTable(vRepositorySummary)
+    .index("by_vault", ["vaultId"])
+    .index("by_userId_and_lifecycle_state_and_refreshEligibleAt", [
       "userId",
-      "vaultId",
-      "dedupeKey",
       "lifecycle.state",
-    ])
-    .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
-    .index("by_userId_and_lifecycle_state_and_updatedAt", [
-      "userId",
-      "lifecycle.state",
-      "updatedAt",
-    ])
-    .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
-    .index("by_lifecycle_state_and_lifecycle_notBefore", [
-      "lifecycle.state",
-      "lifecycle.notBefore",
+      "refreshEligibleAt",
     ]),
 
   /**
-   * User-selected app root, provider names, and early provider identities for
-   * Samebase-managed infrastructure. The single app root is shared across
-   * provider resources so one target cannot split Convex and Cloudflare.
+   * One reactive revision per user. Summary directory pages are point-in-time;
+   * this row tells the browser when its currently loaded pages should refetch.
    */
+  vaultRepositorySummaryDirectoryStates: defineTable(vRepositorySummaryDirectoryState).index(
+    "by_userId",
+    ["userId"],
+  ),
+
+  /**
+   * High-churn GitHub GraphQL budget state. GitHub-account-scoped leases serialize
+   * repository crawls across every connection for the same provider principal.
+   */
+  githubGraphqlRateBudgets: defineTable(vGitHubGraphqlRateBudget)
+    .index("by_githubAccountId", ["githubAccountId"])
+    .index("by_inventory_lease_vaultId", ["lease.owner.vaultId"]),
+
+  /** Provider-capable GitHub actions that account and vault deletion must outlive. */
+  githubObservationActionLeases: defineTable(vGitHubObservationActionLease)
+    .index("by_userId_and_expiresAt", ["userId", "expiresAt"])
+    .index("by_vaultId_and_expiresAt", ["vaultId", "expiresAt"])
+    .index("by_leaseGroupId", ["leaseGroupId"]),
+
+  /**
+   * Bounded counters for one immutable repository inventory snapshot.
+   */
+  vaultRepositoryInventorySnapshots: defineTable(vRepositoryInventorySnapshot).index("by_vault", [
+    "vaultId",
+  ]),
+
+  /**
+   * Branch and open pull request rows for one immutable inventory snapshot.
+   */
+  vaultRepositoryInventoryItems: defineTable(vStoredRepositoryInventoryItem)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_rowKey", ["snapshotId", "rowKey"])
+    .index("by_snapshot_and_kind_and_sortGroup_and_sortTime_and_rowKey", [
+      "snapshotId",
+      "kind",
+      "sortGroup",
+      "sortTime",
+      "rowKey",
+    ])
+    .index("by_snapshot_kind_localHeadRefName_sortTime_rowKey", [
+      "snapshotId",
+      "kind",
+      "localHeadRefName",
+      "sortTime",
+      "rowKey",
+    ]),
+
+  /** Each provider build is stored once per immutable inventory snapshot. */
+  vaultRepositoryInventoryCloudflareBuilds: defineTable(vRepositoryInventoryCloudflareBuildRow)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_build_sourceKey", ["snapshotId", "build.sourceKey"]),
+
+  /** Ordered branch and pull request membership for normalized provider builds. */
+  vaultRepositoryInventoryCloudflareBuildAssociations: defineTable(
+    vRepositoryInventoryCloudflareBuildAssociation,
+  )
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_rowKey_and_sortKey", ["snapshotId", "rowKey", "sortKey"]),
+
+  /**
+   * Bounded pull request label chunks for one immutable inventory snapshot.
+   */
+  vaultRepositoryInventoryLabelChunks: defineTable(vRepositoryInventoryLabelChunk)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_rowKey_and_chunkIndex", ["snapshotId", "rowKey", "chunkIndex"]),
+
+  /** Complete label counts for one immutable repository inventory snapshot. */
+  vaultRepositoryInventoryLabelFacets: defineTable(vStoredRepositoryInventoryPullRequestLabelFacet)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot_and_sortKey_and_labelKey", ["snapshotId", "sortKey", "labelKey"]),
+
+  /** Saved PR presentation settings for one user and vault. */
+  vaultRepositoryInventoryFilters: defineTable(vStoredRepositoryInventoryFilter)
+    .index("by_user", ["userId"])
+    .index("by_vault", ["vaultId"])
+    .index("by_user_and_vault", ["userId", "vaultId"]),
+
+  /** One bounded row per saved pull request label exclusion. */
+  vaultRepositoryInventoryExcludedLabels: defineTable(vRepositoryInventoryExcludedLabel)
+    .index("by_vault", ["vaultId"])
+    .index("by_filter_and_generation_and_labelKey", ["filterId", "generation", "labelKey"]),
+
+  /** A complete materialized PR result set for one snapshot and filter revision. */
+  vaultRepositoryInventoryFilterViews: defineTable(vRepositoryInventoryFilterView)
+    .index("by_vault", ["vaultId"])
+    .index("by_snapshot", ["snapshotId"])
+    .index("by_snapshot_and_filterRevision", ["snapshotId", "filterRevision"]),
+
+  /** Visible PR membership ordered independently from unfiltered branch rows. */
+  vaultRepositoryInventoryFilterViewRows: defineTable(vRepositoryInventoryFilterViewRow)
+    .index("by_vault", ["vaultId"])
+    .index("by_view_and_sortTime_and_rowKey", ["viewId", "sortTime", "rowKey"]),
+
+  /** Immutable provider-create plan for a Samebase-managed app. */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
-    appRoot: string(),
-    convex: union(
-      object({
-        state: literal("planned"),
-        projectName: string(),
-      }),
-      object({
-        state: literal("created"),
-        projectName: string(),
-        projectId: string(),
-      }),
-    ),
-    cloudflare: union(
-      object({
-        state: literal("planned"),
-        accountId: string(),
-        workerName: string(),
-        build: vVaultCloudflareBuildConfig,
-      }),
-      object({
-        state: literal("created"),
-        accountId: string(),
-        workerName: string(),
-        workerTag: string(),
-        workersDevUrl: optional(string()),
-        build: vVaultCloudflareBuildConfig,
-      }),
-    ),
+    appId: id("vaultApps"),
+    convex: object({ projectName: string() }),
+    cloudflare: object({ accountId: string(), workerName: string() }),
     createdAt: number(),
-    updatedAt: number(),
   }).index("by_vault", ["vaultId"]),
 
   /**

@@ -1,18 +1,10 @@
 import { v, type Infer } from "convex/values";
 
 import { vAppProvisioningRunStep } from "../../schema";
-import { vTreeRefreshFailureKind } from "../model";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-
-const treeRefreshFailureFields = {
-  lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
-  treeRefreshFailureMessage: optional(string()),
-  treeRefreshCooldownUntil: optional(number()),
-} as const;
 
 export const vSourceSetupSummary = union(
   object({
@@ -56,16 +48,13 @@ const vCloudflareWorkerGithubRepositoryConnection = union(
     nextAction: literal("wire_builds"),
   }),
 );
-const vCloudflareWorkerConvexDeployKeys = union(
+const vWorkerDeploymentDependencyWiring = union(
   object({
-    state: literal("missing"),
+    state: literal("not_wired"),
     nextAction: literal("wire_convex_build_access"),
   }),
   object({
-    state: literal("not_applicable"),
-  }),
-  object({
-    state: literal("set"),
+    state: literal("wired"),
   }),
 );
 const vProviderResourceMissingUpstreamNextAction = union(
@@ -150,62 +139,70 @@ export const vVaultDeletionSummary = union(
   }),
 );
 
-const vUserVaultsResult = array(
-  object({
-    _id: id("vaults"),
-    _creationTime: number(),
-    ghRepoOwner: string(),
-    ghRepoName: string(),
-    repositoryFullName: string(),
-    commitSHA: optional(string()),
-    fileCount: number(),
-    lastEditTime: optional(number()),
-    lastTreeRefreshAt: optional(number()),
-    treeRefreshStartedAt: optional(number()),
-    ...treeRefreshFailureFields,
-    state: union(literal("copying_files"), literal("ready"), literal("failed")),
-    sourceSetup: vSourceSetupSummary,
-    providerSetup: vProviderSetupSummary,
-    deletion: vVaultDeletionSummary,
-    isSamebaseManaged: boolean(),
-    hasConnectedGitHubRepository: boolean(),
-    hasConvexProvision: boolean(),
-    hasCloudflareProvision: boolean(),
-    canRemoveConvexProvision: boolean(),
-    canRemoveCloudflareProvision: boolean(),
-    appRoots: array(
-      object({
-        appRoot: string(),
-      }),
-    ),
-    cloudflareWorkers: array(
-      object({
-        appRoot: string(),
-        convexDeployKeys: vCloudflareWorkerConvexDeployKeys,
-        githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
-        upstream: vProviderResourceUpstream,
-        lastObservedAt: number(),
-        workerName: string(),
-        workersDevUrl: optional(string()),
-        projectDashboardUrl: optional(string()),
-      }),
-    ),
-    convexDeployments: array(
-      object({
-        appRoot: string(),
-        projectId: string(),
-        projectSlug: string(),
-        teamSlug: string(),
-        deploymentName: string(),
-        upstream: vProviderResourceUpstream,
-        cloudUrl: string(),
-        siteUrl: string(),
-        projectSettingsDashboardUrl: optional(string()),
-        deploymentDashboardUrl: optional(string()),
-      }),
-    ),
-  }),
-);
+export const vUserVaultResult = object({
+  _id: id("vaults"),
+  _creationTime: number(),
+  routeRepositoryFullName: string(),
+  githubRepositoryFullName: string(),
+  githubOwner: string(),
+  githubName: string(),
+  commitSHA: optional(string()),
+  fileCount: number(),
+  lastEditTime: optional(number()),
+  state: union(literal("copying_files"), literal("ready"), literal("failed")),
+  sourceSetup: vSourceSetupSummary,
+  providerSetup: vProviderSetupSummary,
+  deletion: vVaultDeletionSummary,
+  isSamebaseManaged: boolean(),
+  hasConnectedGitHubRepository: boolean(),
+  hasConvexProvision: boolean(),
+  hasCloudflareProvision: boolean(),
+  canRemoveConvexProvision: boolean(),
+  canRemoveCloudflareProvision: boolean(),
+  apps: array(
+    object({
+      appId: id("vaultApps"),
+      rootDirectory: string(),
+    }),
+  ),
+  cloudflareWorkers: array(
+    object({
+      workerId: id("vaultCloudflareWorkers"),
+      appId: id("vaultApps"),
+      githubRepositoryConnection: vCloudflareWorkerGithubRepositoryConnection,
+      upstream: vProviderResourceUpstream,
+      lastObservedAt: number(),
+      workerName: string(),
+      workersDevUrl: optional(string()),
+      projectDashboardUrl: optional(string()),
+    }),
+  ),
+  convexDeployments: array(
+    object({
+      convexDeploymentId: id("vaultConvexDeployments"),
+      appId: id("vaultApps"),
+      projectId: string(),
+      projectSlug: string(),
+      teamSlug: string(),
+      deploymentName: string(),
+      upstream: vProviderResourceUpstream,
+      cloudUrl: string(),
+      siteUrl: string(),
+      projectSettingsDashboardUrl: optional(string()),
+      deploymentDashboardUrl: optional(string()),
+    }),
+  ),
+  workerDeploymentDependencies: array(
+    object({
+      dependencyId: id("vaultWorkerDeploymentDependencies"),
+      workerId: id("vaultCloudflareWorkers"),
+      convexDeploymentId: id("vaultConvexDeployments"),
+      wiring: vWorkerDeploymentDependencyWiring,
+    }),
+  ),
+});
+
+const vUserVaultsResult = array(vUserVaultResult);
 
 export const getUserVaultsContract = {
   id: "get_user_vaults",
@@ -217,7 +214,7 @@ export const getUserVaultsContract = {
     title: "List Samebase apps",
     name: "vault_dashboard_getUserVaults",
     description:
-      "List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.",
+      "List Samebase repositories with durable apps, provider resources, explicit Worker-to-Convex deployment dependencies, and actionable provisioning state.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -226,10 +223,13 @@ export const getUserVaultsContract = {
     },
     inputDescriptions: {},
   } satisfies AppFunctionMcpMetadata,
-  doc: `Returns every app the authenticated account can see, with enough state to act on: source
-setup, provider setup, per-worker Workers Builds connection and Convex deploy-key state, deletion
-state, and the provider coordinates for going direct (Convex \`deploymentName\`, \`teamSlug\`,
-\`projectSlug\`, \`cloudUrl\`; Cloudflare \`workerName\`, \`workersDevUrl\`, dashboard URLs).
+  doc: `Returns every repository the authenticated account can see, including durable app ids and
+root directories, provider-resource ids, explicit Worker-to-Convex deployment dependencies, source
+and provider setup, deletion state, and provider-direct coordinates.
+
+Provider resources belong to apps through \`appId\`. A dependency connects one \`workerId\` to one
+\`convexDeploymentId\`; its \`wiring\` state reports whether that build access is ready or names
+\`wire_convex_build_access\` as the required action.
 
 Degraded provider and connection states name their own remedy in a \`nextAction\` field; the value
 is the snake_case name of the repairing action. Current vocabulary:
@@ -243,7 +243,11 @@ applicable.
 
 Read this before any repair or day-2 operation: the coordinates it returns are the inputs for
 provider-direct work (see the operate guides), and the \`nextAction\` values are the exact
-Samebase actions to call when the record itself is degraded.`,
+Samebase actions to call when the record itself is degraded.
+
+This legacy aggregate is not the Samebase dashboard directory. It fails explicitly above 25 vaults
+or above 1,000 staged-file rows in one vault; use the paginated repository summary directory for
+the multi-vault UI.`,
 } as const;
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;
@@ -251,8 +255,8 @@ export type ProviderSetupSummary = Infer<typeof vProviderSetupSummary>;
 export type CloudflareWorkerGithubRepositoryConnection = Infer<
   typeof vCloudflareWorkerGithubRepositoryConnection
 >;
-export type CloudflareWorkerConvexDeployKeys = Infer<typeof vCloudflareWorkerConvexDeployKeys>;
+export type WorkerDeploymentDependencyWiring = Infer<typeof vWorkerDeploymentDependencyWiring>;
 export type ProviderResourceUpstream = Infer<typeof vProviderResourceUpstream>;
 export type VaultDeletionSummary = Infer<typeof vVaultDeletionSummary>;
+export type UserVaultResult = Infer<typeof vUserVaultResult>;
 export type UserVaultsResult = Infer<typeof getUserVaultsContract.returns>;
-export type UserVaultResult = UserVaultsResult[number];

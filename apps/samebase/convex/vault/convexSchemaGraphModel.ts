@@ -62,7 +62,6 @@ export const vConvexSchemaSnapshot = object({
   userId: id("users"),
   vaultId: id("vaults"),
   deploymentId: id("vaultConvexDeployments"),
-  appRoot: string(),
   deploymentName: string(),
   schemaHash: string(),
   graph: vConvexSchemaGraph,

@@ -10,8 +10,14 @@ import { requestConvexManagementApi } from "../../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../../convexManagementApi/errors";
 import {
   deleteCloudflareResources,
+  deleteCloudflareWorkerBuildTriggers,
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
+import { deleteConvexDeployKey, deleteConvexPreviewDeployKey } from "../../infraProvisioning";
+import {
+  renameGitHubRepositoryForDeletion,
+  resolveGitHubRepositoryIdentity,
+} from "../../githubRepositoryInventory";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
 import { readRetainedSnapshot } from "./runs";
 import {
@@ -68,10 +74,10 @@ async function appendRunEvent(
   });
 }
 
-async function resolveGitHubOctokit(
+async function resolveGitHubClient(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
-): Promise<Octokit> {
+): Promise<{ credential: string; octokit: Octokit }> {
   const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
     userId,
     kind: "github",
@@ -80,9 +86,10 @@ async function resolveGitHubOctokit(
     throw new Error("GitHub is not connected.");
   }
 
-  return new Octokit({
-    auth: githubConnection.auth.credential,
-  });
+  return {
+    credential: githubConnection.auth.credential,
+    octokit: new Octokit({ auth: githubConnection.auth.credential }),
+  };
 }
 
 export const deleteConnectedCodespaces = internalAction({
@@ -115,7 +122,7 @@ export const deleteConnectedCodespaces = internalAction({
       return null;
     }
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const { octokit } = await resolveGitHubClient(ctx, args.userId);
     for (const codespace of codespaces) {
       await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
         codespaceId: codespace._id,
@@ -165,7 +172,7 @@ export const deleteCloudflare = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_cloudflare,
     });
-    if (plan.cloudflare.action === "skip") {
+    if (plan.cloudflare.action === "skip" && plan.cloudflareBuildTriggers.action === "skip") {
       return null;
     }
 
@@ -179,6 +186,21 @@ export const deleteCloudflare = internalAction({
       throw new Error("Cloudflare connection is required to remove resources.");
     }
     const cloudflareTransport = resolveCloudflareApiTransport(cloudflareConnection.auth.method);
+
+    if (plan.cloudflareBuildTriggers.action === "detach") {
+      for (const worker of plan.cloudflareBuildTriggers.workers) {
+        await deleteCloudflareWorkerBuildTriggers({
+          accountId: worker.accountId,
+          workerTag: worker.workerTag,
+          cloudflareToken: cloudflareConnection.auth.credential,
+          transport: cloudflareTransport,
+        });
+      }
+    }
+
+    if (plan.cloudflare.action === "skip") {
+      return null;
+    }
 
     const workers =
       plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
@@ -219,7 +241,7 @@ export const deleteConvex = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_convex,
     });
-    if (plan.convex.action === "skip") {
+    if (plan.convex.action === "skip" && plan.convexDependencyDeployKeys.action === "skip") {
       return null;
     }
 
@@ -229,6 +251,41 @@ export const deleteConvex = internalAction({
     });
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to remove resources.");
+    }
+
+    if (plan.convexDependencyDeployKeys.action === "revoke") {
+      for (const dependency of plan.convexDependencyDeployKeys.dependencies) {
+        if (dependency.deployKeys.production.state === "created") {
+          try {
+            await deleteConvexDeployKey({
+              convexToken: convexConnection.auth.credential,
+              deploymentName: dependency.deployKeys.production.deploymentName,
+              convexDeployKeyName: dependency.deployKeys.production.name,
+            });
+          } catch (error) {
+            if (!isConvexManagementNotFoundError(error)) {
+              throw error;
+            }
+          }
+        }
+        if (dependency.deployKeys.preview.state === "created") {
+          try {
+            await deleteConvexPreviewDeployKey({
+              convexToken: convexConnection.auth.credential,
+              projectId: dependency.deployKeys.preview.projectId,
+              convexDeployKeyName: dependency.deployKeys.preview.name,
+            });
+          } catch (error) {
+            if (!isConvexManagementNotFoundError(error)) {
+              throw error;
+            }
+          }
+        }
+      }
+    }
+
+    if (plan.convex.action === "skip") {
+      return null;
     }
 
     try {
@@ -297,21 +354,39 @@ export const deleteGitHubRepository = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_github_repo,
     });
-    if (plan.githubRepository.action !== "delete_repository") {
+    if (
+      plan.target.kind !== "samebase_managed_repository" ||
+      plan.githubRepository.action !== "delete_repository"
+    ) {
       return null;
     }
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
-    try {
-      await octokit.rest.repos.delete({
-        owner: plan.githubRepository.owner,
-        repo: plan.githubRepository.name,
-      });
-    } catch (error) {
-      if (!(error instanceof RequestError && error.status === 404)) {
-        throw error;
-      }
+    const { credential, octokit } = await resolveGitHubClient(ctx, args.userId);
+    await renameGitHubRepositoryForDeletion({
+      credential,
+      repositoryNodeId: plan.target.ghRepoNodeId,
+      expectedRepositoryDatabaseId: plan.target.ghRepoId,
+      deletionRepositoryName: plan.githubRepository.deletionRepositoryName,
+    });
+    const repositoryIdentity = await resolveGitHubRepositoryIdentity({
+      credential,
+      repositoryNodeId: plan.target.ghRepoNodeId,
+      expectedRepositoryDatabaseId: plan.target.ghRepoId,
+    });
+    if (repositoryIdentity.name !== plan.githubRepository.deletionRepositoryName) {
+      throw new Error("GitHub repository deletion tombstone changed before deletion.");
     }
+    const currentRepository = await octokit.rest.repos.get({
+      owner: repositoryIdentity.owner,
+      repo: repositoryIdentity.name,
+    });
+    if (String(currentRepository.data.id) !== plan.target.ghRepoId) {
+      throw new Error("GitHub returned another repository immediately before deletion.");
+    }
+    await octokit.rest.repos.delete({
+      owner: repositoryIdentity.owner,
+      repo: repositoryIdentity.name,
+    });
 
     return null;
   },
