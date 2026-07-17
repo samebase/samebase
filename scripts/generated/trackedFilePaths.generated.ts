@@ -1221,6 +1221,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/lib/publicLandingLogoPrehydration.ts",
   "apps/samebase/src/lib/pullRequestLabels.ts",
   "apps/samebase/src/lib/radixIcons.tsx",
+  "apps/samebase/src/lib/refreshDebounce.test.ts",
   "apps/samebase/src/lib/refreshDebounce.ts",
   "apps/samebase/src/lib/repositoryMedia.test.ts",
   "apps/samebase/src/lib/repositorySearch.test.ts",
