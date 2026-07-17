@@ -13,13 +13,83 @@ import {
   normalizeGitHubRepositoryListItem,
   readGitHubNextPageUrl,
   readPullRequestLabels,
+  readExactRepositoryBranch,
   resolveStagedRepositoryMediaAsset,
   resolveAheadBehindBaseBranch,
-  shouldBypassRecentSuccessDebounceForBranchRefresh,
   shouldRefreshBranchTree,
   shouldRefreshRepositoryMetadata,
   shouldSyncBranchHeadCommitCheckSnapshots,
 } from "./github";
+
+describe("readExactRepositoryBranch", () => {
+  it("reads the immutable tree named by the observed branch generation", async () => {
+    const requestedTreeShas: string[] = [];
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => ({
+          commitSha: "commit-2",
+          treeSha: "tree-2",
+        }),
+        getTree: async (treeSha) => {
+          requestedTreeShas.push(treeSha);
+          return {
+            sha: treeSha,
+            truncated: false,
+            tree: [],
+          };
+        },
+        confirmRepository: async () => undefined,
+      }),
+    ).resolves.toEqual({
+      kind: "ready",
+      commitSha: "commit-2",
+      treeData: {
+        sha: "tree-2",
+        truncated: false,
+        tree: [],
+      },
+    });
+    expect(requestedTreeShas).toEqual(["tree-2"]);
+  });
+
+  it("confirms the repository before reporting an absent branch", async () => {
+    let repositoryConfirmations = 0;
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => {
+          throw Object.assign(new Error("Not Found"), { status: 404 });
+        },
+        getTree: async () => {
+          throw new Error("Tree should not be read.");
+        },
+        confirmRepository: async () => {
+          repositoryConfirmations += 1;
+        },
+      }),
+    ).resolves.toEqual({ kind: "not_found" });
+    expect(repositoryConfirmations).toBe(1);
+  });
+
+  it("keeps repository access failure distinct from branch absence", async () => {
+    const repositoryError = Object.assign(new Error("Forbidden"), { status: 403 });
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => {
+          throw Object.assign(new Error("Not Found"), { status: 404 });
+        },
+        getTree: async () => {
+          throw new Error("Tree should not be read.");
+        },
+        confirmRepository: async () => {
+          throw repositoryError;
+        },
+      }),
+    ).resolves.toEqual({ kind: "unavailable", error: repositoryError });
+  });
+});
 
 const repositoryMetadataSyncRequest = {
   includeAheadBehind: false,
@@ -260,55 +330,6 @@ describe("describeRepositoryTreeRefreshFailure", () => {
   });
 });
 
-describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
-  it("bypasses debounce when branch metadata is stale", () => {
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "feature",
-        defaultBranch: "main",
-        branchNotFound: false,
-        hasResolvedBranchTree: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("only bypasses missing-branch refreshes when the missing branch was not confirmed recently", () => {
-    const now = Date.parse("2026-03-26T18:00:00Z");
-
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "feature",
-        defaultBranch: "main",
-        branchNotFound: true,
-        hasResolvedBranchTree: true,
-        now,
-        lastRepositoryMetadataRefreshAt: now - 31_000,
-      }),
-    ).toBe(true);
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "feature",
-        defaultBranch: "main",
-        branchNotFound: true,
-        hasResolvedBranchTree: true,
-        now,
-        lastRepositoryMetadataRefreshAt: now - 5_000,
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps default-branch refreshes on the repo debounce path", () => {
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "main",
-        defaultBranch: "main",
-        branchNotFound: false,
-        hasResolvedBranchTree: false,
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("resolveStagedRepositoryMediaAsset", () => {
   it("falls back to the staged blob cache for binary media without a direct storage id", async () => {
     const getUrl = async (storageId: string) =>
@@ -423,44 +444,15 @@ describe("shouldRefreshRepositoryMetadata", () => {
     expect(
       shouldRefreshRepositoryMetadata({
         intent: "manual",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
         now,
       }),
     ).toBe(true);
-  });
-
-  it("keeps branch file views on the tree-only path while repo metadata is fresh", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(false);
   });
 
   it("keeps passive repository metadata stale-gated", () => {
     expect(
       shouldRefreshRepositoryMetadata({
         intent: "passive",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps passive check snapshots on the repository metadata stale gate", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: true,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -471,22 +463,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
     expect(
       shouldRefreshRepositoryMetadata({
         intent: "source_setup",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: true,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("refreshes stale repo metadata from branch-scoped views", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
     ).toBe(true);
@@ -496,48 +473,20 @@ describe("shouldRefreshRepositoryMetadata", () => {
     expect(
       shouldRefreshRepositoryMetadata({
         intent: "passive",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
     ).toBe(true);
-  });
-
-  it("rechecks missing branches only after the missing-branch debounce expires", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 31_000,
-        now,
-      }),
-    ).toBe(true);
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 5_000,
-        now,
-      }),
-    ).toBe(false);
   });
 });
 
 describe("computeRepositoryRefreshPlan", () => {
   const now = Date.parse("2026-03-27T12:00:00Z");
 
-  it("re-enables branch tree refresh after metadata sync resolves a missing branch", () => {
+  it("keeps passive repository tree reads separate from metadata refresh", () => {
     expect(
       computeRepositoryRefreshPlan({
         intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
@@ -548,15 +497,12 @@ describe("computeRepositoryRefreshPlan", () => {
 
     expect(
       computeRepositoryRefreshPlan({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
+        intent: "source_setup",
         lastRepositoryMetadataRefreshAt: now,
         now,
       }),
     ).toEqual({
-      shouldSyncMetadata: false,
+      shouldSyncMetadata: true,
       shouldRefreshTreeData: true,
     });
   });
@@ -822,42 +768,16 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
 });
 
 describe("shouldRefreshBranchTree", () => {
-  it("refreshes branch views on passive activation", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("skips default-branch dashboard refreshes on passive activation", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "passive",
-        branchNotFound: false,
-      }),
-    ).toBe(false);
+  it("keeps passive repository refreshes metadata-only", () => {
+    expect(shouldRefreshBranchTree({ intent: "passive" })).toBe(false);
   });
 
   it("refreshes the default branch tree after source setup", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "source_setup",
-        branchNotFound: false,
-      }),
-    ).toBe(true);
+    expect(shouldRefreshBranchTree({ intent: "source_setup" })).toBe(true);
   });
 
-  it("skips tree refresh entirely while the requested branch is still missing", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "manual",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-      }),
-    ).toBe(false);
+  it("refreshes the default branch tree for manual repository work", () => {
+    expect(shouldRefreshBranchTree({ intent: "manual" })).toBe(true);
   });
 });
 describe("listGitHubRepositories", () => {

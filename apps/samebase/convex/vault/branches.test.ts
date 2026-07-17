@@ -10,7 +10,7 @@ import {
   countActiveRemoteBranches,
   hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
-  resolveVaultBranchSelection,
+  resolveVaultDefaultBranch,
   selectDeletedUpstreamBranchesToAutoPrune,
 } from "./branches";
 
@@ -58,88 +58,26 @@ describe("buildConvexProjectSettingsDashboardUrl", () => {
   });
 });
 
-describe("resolveVaultBranchSelection", () => {
-  it("resolves to requested branch when it exists remotely", () => {
+describe("resolveVaultDefaultBranch", () => {
+  it("uses the active provider default branch", () => {
     expect(
-      resolveVaultBranchSelection({
-        requestedBranch: "feature/login",
+      resolveVaultDefaultBranch({
         defaultBranch: "main",
         remoteBranches: [
-          { name: "main", isDefault: true, remoteState: "active" },
-          { name: "feature/login", isDefault: false, remoteState: "active" },
+          { name: "main", isDefault: false, remoteState: "active" },
+          { name: "trunk", isDefault: true, remoteState: "active" },
         ],
       }),
-    ).toEqual({
-      defaultBranch: "main",
-      resolvedBranch: "feature/login",
-      branchNotFound: false,
-    });
+    ).toBe("trunk");
   });
 
-  it("flags missing requested branch and falls back to default branch", () => {
+  it("uses the vault default when no active catalog observation exists", () => {
     expect(
-      resolveVaultBranchSelection({
-        requestedBranch: "src",
-        defaultBranch: "main",
-        remoteBranches: [
-          { name: "main", isDefault: true, remoteState: "active" },
-          { name: "feature/login", isDefault: false, remoteState: "active" },
-        ],
-      }),
-    ).toEqual({
-      defaultBranch: "main",
-      resolvedBranch: "main",
-      branchNotFound: true,
-    });
-  });
-
-  it("fails closed for requested non-default branches when remote branches are unavailable", () => {
-    expect(
-      resolveVaultBranchSelection({
-        requestedBranch: "feature/login",
-        defaultBranch: "main",
-        remoteBranches: [],
-      }),
-    ).toEqual({
-      defaultBranch: "main",
-      resolvedBranch: "main",
-      branchNotFound: true,
-    });
-  });
-
-  it("keeps requested deleted-upstream branches when they are still tracked locally", () => {
-    expect(
-      resolveVaultBranchSelection({
-        requestedBranch: "feature/local-work",
-        defaultBranch: "main",
-        remoteBranches: [
-          { name: "main", isDefault: true, remoteState: "active" },
-          {
-            name: "feature/local-work",
-            isDefault: false,
-            remoteState: "deleted_upstream",
-          },
-        ],
-      }),
-    ).toEqual({
-      defaultBranch: "main",
-      resolvedBranch: "feature/local-work",
-      branchNotFound: false,
-    });
-  });
-
-  it("uses the stored default branch when remote branches are unavailable", () => {
-    expect(
-      resolveVaultBranchSelection({
-        requestedBranch: undefined,
+      resolveVaultDefaultBranch({
         defaultBranch: "master",
-        remoteBranches: [],
+        remoteBranches: [{ name: "old-main", isDefault: true, remoteState: "deleted_upstream" }],
       }),
-    ).toEqual({
-      defaultBranch: "master",
-      resolvedBranch: "master",
-      branchNotFound: false,
-    });
+    ).toBe("master");
   });
 });
 

@@ -94,7 +94,10 @@ copying one branch's alias URL to another branch.
 
 A build exists only when a Cloudflare check run proves it started. Its state is one of queued,
 running, success, failure, cancelled, skipped, or provider unknown. Its preview result is an
-explicit compatible variant: pending, ready, disabled, unavailable, or provider unknown.
+explicit compatible variant: pending, ready, disabled, unavailable, or provider unknown. `disabled`
+requires explicit provider evidence that previews were disabled. Samebase does not infer it merely
+because a successful build has no URL. Until that evidence is available, the result is provider
+unknown.
 
 A ready preview preserves both URL types when Cloudflare supplies them:
 
@@ -140,6 +143,28 @@ Closing a pull request removes its PR row. A surviving local branch can then app
 branch; a deleted branch disappears. Closed pull requests and historical build attempts remain
 GitHub and Cloudflare's responsibility for now.
 
+## Editor branch hydration
+
+An explicit Samebase editor URL names the exact local repository branch to open. A missing row in a
+cached repository branch catalog is not proof that the branch is absent, and Samebase never
+substitutes the default branch beneath that URL.
+
+When the exact branch tree is not cached, Samebase performs one bounded hydration:
+
+1. Read the named branch from GitHub to observe its commit and immutable tree SHA.
+2. Read that immutable tree recursively.
+3. Publish the tree only while the hydration still owns the refresh claim.
+
+This path does not list repository branches, pull requests, checks, commit timestamps, or
+ahead/behind comparisons. A branch 404 becomes `not_found` only after GitHub separately confirms
+that the repository remains accessible. Repository access failure stays `unavailable`. Provider
+failure and refresh deferral remain distinct. A cached tree may remain visible after a failed
+background refresh, with the existing stale/failure status.
+
+Connecting an existing repository synchronously saves its default branch tree and then completes. It
+does not enqueue a second whole-repository discovery pass. Other local branches hydrate only when
+their exact editor route is opened.
+
 ## First implementation slice
 
 The first reviewable slice provides:
@@ -150,6 +175,7 @@ The first reviewable slice provides:
 - progressive exact-head Cloudflare observations for loaded pages;
 - visible loading, stale, deferred, unavailable, failed, and current-absence states;
 - diff statistics and local-head Samebase editor links;
+- exact, on-demand local branch hydration for those editor links;
 - short browser cache windows that prevent focus and render churn from repeating provider calls.
 
 It deliberately does not provide whole-repository snapshots, atomic generations, background focus

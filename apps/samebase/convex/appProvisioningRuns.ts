@@ -143,3 +143,66 @@ export const appendRunEvent = internalMutation({
     return null;
   },
 });
+
+/**
+ * Finishes the existing-repository workflow after its default branch tree was
+ * persisted. Repository discovery is deliberately not part of this boundary.
+ */
+export const completeExistingRepositoryConnection = internalMutation({
+  args: {
+    userId: id("users"),
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (
+      !run ||
+      run.userId !== args.userId ||
+      run.vaultId !== args.vaultId ||
+      run.trigger !== "connect_existing_repository"
+    ) {
+      throw new Error("Provisioning run does not match existing repository workflow.");
+    }
+    if (run.state === "failed" || run.state === "canceled") {
+      throw new Error("Terminal source setup run cannot be completed.");
+    }
+    if (run.state === "succeeded") {
+      return null;
+    }
+    if (run.state !== "running" || run.currentStep !== "sync_tree") {
+      throw new Error("Existing repository workflow has not reached the finish boundary.");
+    }
+
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !vault ||
+      vault.userId !== args.userId ||
+      vault.state !== "connected" ||
+      vault.deletion.state !== "not_deleting"
+    ) {
+      throw new Error("Existing repository vault is not connected.");
+    }
+
+    const now = Date.now();
+    await ctx.db.insert("appProvisioningEvents", {
+      userId: run.userId,
+      vaultId: run.vaultId,
+      repositoryFullName: run.repositoryFullName,
+      runId: args.runId,
+      step: "finish",
+      level: "info",
+      message: "Connected existing repository.",
+      createdAt: now,
+    });
+    await ctx.db.patch(args.runId, {
+      state: "succeeded",
+      currentStep: "finish",
+      updatedAt: now,
+      completedAt: now,
+    });
+
+    return null;
+  },
+});
