@@ -1,7 +1,21 @@
-import { useInfiniteQuery, useQueries, type Query } from "@tanstack/react-query";
+import {
+  focusManager,
+  infiniteQueryOptions,
+  onlineManager,
+  useInfiniteQuery,
+  useQueries,
+  useQueryClient,
+  type GetNextPageParamFunction,
+  type InfiniteData,
+  type Query,
+  type QueryClient,
+  type QueryFunction,
+  type QueryKey,
+} from "@tanstack/react-query";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { api } from "../../convex/_generated/api";
 import type {
@@ -42,6 +56,7 @@ type CloudflareBatchResult = FunctionReturnType<
 type ObservedCloudflareBatch = Extract<CloudflareBatchResult, { state: "observed" }>;
 type CloudflareBatchProblem = Exclude<CloudflareBatchResult, { state: "observed" }>;
 type CloudflareObservationQuery = Query<ObservedCloudflareBatch, Error, ObservedCloudflareBatch>;
+type RepositoryPullRequestInfiniteData = InfiniteData<CurrentPullRequestPage, string | null>;
 
 export type DisplayedCloudflareBuildObservation =
   | CloudflareBuildObservationResult
@@ -156,13 +171,9 @@ export function repositoryPullRequestRefetchDelay(args: {
 
 export function repositoryPullRequestCanRefetch(args: {
   failureObservedAt: number | null;
-  loadedPageCount: number;
   now: number;
   problem: PullRequestPageProblem | null;
 }): boolean {
-  if (args.loadedPageCount > 1) {
-    return false;
-  }
   switch (args.problem?.state) {
     case undefined:
       return true;
@@ -179,6 +190,28 @@ export function repositoryPullRequestCanRefetch(args: {
       args.problem satisfies never;
       return false;
   }
+}
+
+export async function refreshRepositoryPullRequestFirstPage<TQueryKey extends QueryKey>(args: {
+  queryClient: QueryClient;
+  queryKey: TQueryKey;
+  queryFn: QueryFunction<CurrentPullRequestPage, TQueryKey, string | null>;
+  getNextPageParam: GetNextPageParamFunction<string | null, CurrentPullRequestPage>;
+}): Promise<void> {
+  await args.queryClient.cancelQueries({ queryKey: args.queryKey, exact: true });
+  await args.queryClient.fetchInfiniteQuery({
+    queryKey: args.queryKey,
+    queryFn: args.queryFn,
+    initialPageParam: INITIAL_REPOSITORY_PULL_REQUEST_CURSOR,
+    getNextPageParam: args.getNextPageParam,
+    // The caller already proved that provider freshness expired or the query
+    // was invalidated. A positive staleTime would let a recent page-2 fetch
+    // suppress this page-1 refresh through the shared cache timestamp.
+    staleTime: 0,
+    gcTime: REPOSITORY_OBSERVATION_CACHE_MS,
+    retry: false,
+    pages: 1,
+  });
 }
 
 export function cloudflareRefetchDelay(args: {
@@ -210,13 +243,9 @@ export function cloudflareRefetchDelay(args: {
 export function cloudflareCanRefetch(args: {
   batch: ObservedCloudflareBatch | undefined;
   failureObservedAt: number | null;
-  loadedPageCount: number;
   now: number;
   problem: CloudflareBatchProblem | null;
 }): boolean {
-  if (args.loadedPageCount > 1) {
-    return false;
-  }
   switch (args.problem?.state) {
     case "budget_deferred":
       return args.problem.retryAt <= args.now;
@@ -422,18 +451,17 @@ export function useRepositoryPullRequestObservations(args: {
   filters: VaultBranchFilters;
   now: number;
 }): RepositoryPullRequestObservation {
+  const queryClient = useQueryClient();
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const observePullRequestHeads = useAction(api.repositoryCloudflareBuilds.observePullRequestHeads);
-  const filters = normalizeVaultBranchFilters(args.filters);
-  const pullRequestQuery = useInfiniteQuery({
-    queryKey: [
-      "repository-pull-request-observations",
-      args.vaultId,
-      githubConnection?.revision ?? null,
-      filters,
-    ],
-    queryFn: async ({ pageParam }): Promise<CurrentPullRequestPage> => {
+  const filters = useMemo(() => normalizeVaultBranchFilters(args.filters), [args.filters]);
+  const githubConnectionReady = githubConnection !== undefined;
+  const githubConnectionRevision = githubConnection?.revision ?? null;
+  const fetchPullRequestPage = useCallback<
+    QueryFunction<CurrentPullRequestPage, QueryKey, string | null>
+  >(
+    async ({ pageParam }) => {
       if (args.vaultId === null) {
         throw new Error("Repository observation was requested without a vault.");
       }
@@ -448,109 +476,159 @@ export function useRepositoryPullRequestObservations(args: {
       }
       return result;
     },
-    initialPageParam: INITIAL_REPOSITORY_PULL_REQUEST_CURSOR,
-    getNextPageParam: (lastPage) =>
-      lastPage.continuation.kind === "complete" ? undefined : lastPage.continuation.cursor,
-    enabled: args.vaultId !== null && githubConnection !== undefined,
-    staleTime: REPOSITORY_OBSERVATION_STALE_MS,
-    gcTime: REPOSITORY_OBSERVATION_CACHE_MS,
-    retry: false,
-    retryOnMount: false,
-    refetchOnMount: (query) =>
-      repositoryPullRequestCanRefetch({
+    [args.vaultId, filters, listOpenPullRequests],
+  );
+  const pullRequestQueryOptions = useMemo(
+    () =>
+      infiniteQueryOptions({
+        queryKey: [
+          "repository-pull-request-observations",
+          args.vaultId,
+          githubConnectionRevision,
+          filters,
+        ],
+        queryFn: fetchPullRequestPage,
+        initialPageParam: INITIAL_REPOSITORY_PULL_REQUEST_CURSOR,
+        getNextPageParam: (lastPage) =>
+          lastPage.continuation.kind === "complete" ? undefined : lastPage.continuation.cursor,
+        enabled: args.vaultId !== null && githubConnectionReady,
+        staleTime: REPOSITORY_OBSERVATION_STALE_MS,
+        gcTime: REPOSITORY_OBSERVATION_CACHE_MS,
+        retry: false,
+        retryOnMount: false,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        refetchInterval: (query) =>
+          repositoryPullRequestRefetchDelay({
+            loadedPageCount: query.state.data?.pages.length ?? 0,
+            now: Date.now(),
+            problem:
+              query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
+          }),
+        refetchIntervalInBackground: false,
+      }),
+    [args.vaultId, fetchPullRequestPage, filters, githubConnectionReady, githubConnectionRevision],
+  );
+  const pullRequestQuery = useInfiniteQuery(pullRequestQueryOptions);
+  const activeFirstPageRefresh = useRef<{ queryHash: string } | null>(null);
+  const refreshFirstPageIfStale = useCallback(() => {
+    const query = queryClient
+      .getQueryCache()
+      .find<CurrentPullRequestPage, Error, RepositoryPullRequestInfiniteData>({
+        queryKey: pullRequestQueryOptions.queryKey,
+        exact: true,
+      });
+    const data = query?.state.data;
+    const firstPage = data?.pages[0];
+    const now = Date.now();
+    if (
+      query === undefined ||
+      data === undefined ||
+      firstPage === undefined ||
+      (now <= firstPage.freshUntil && !query.isStaleByTime(REPOSITORY_OBSERVATION_STALE_MS))
+    ) {
+      return;
+    }
+    if (
+      !repositoryPullRequestCanRefetch({
         failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
-        loadedPageCount: query.state.data?.pages.length ?? 0,
-        now: Date.now(),
+        now,
         problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
-      }),
-    refetchOnWindowFocus: (query) =>
-      repositoryPullRequestCanRefetch({
-        failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
-        loadedPageCount: query.state.data?.pages.length ?? 0,
-        now: Date.now(),
-        problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
-      }),
-    refetchOnReconnect: (query) =>
-      repositoryPullRequestCanRefetch({
-        failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
-        loadedPageCount: query.state.data?.pages.length ?? 0,
-        now: Date.now(),
-        problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
-      }),
-    refetchInterval: (query) =>
-      repositoryPullRequestRefetchDelay({
-        loadedPageCount: query.state.data?.pages.length ?? 0,
-        now: Date.now(),
-        problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
-      }),
-    refetchIntervalInBackground: false,
-  });
+      }) ||
+      activeFirstPageRefresh.current?.queryHash === query.queryHash ||
+      (data.pages.length === 1 && query.state.fetchStatus !== "idle")
+    ) {
+      return;
+    }
+
+    const marker = { queryHash: query.queryHash };
+    activeFirstPageRefresh.current = marker;
+    void refreshRepositoryPullRequestFirstPage({
+      queryClient,
+      queryKey: pullRequestQueryOptions.queryKey,
+      queryFn: fetchPullRequestPage,
+      getNextPageParam: pullRequestQueryOptions.getNextPageParam,
+    })
+      .catch(() => undefined)
+      .finally(() => {
+        if (activeFirstPageRefresh.current === marker) {
+          activeFirstPageRefresh.current = null;
+        }
+      });
+  }, [fetchPullRequestPage, pullRequestQueryOptions, queryClient]);
+
+  useEffect(() => {
+    // Native infinite-query refetch replays every loaded page. This lifecycle
+    // refresh keeps provider work bounded to the newest page.
+    refreshFirstPageIfStale();
+    const unsubscribeFocus = focusManager.subscribe((focused) => {
+      if (focused) {
+        refreshFirstPageIfStale();
+      }
+    });
+    const unsubscribeOnline = onlineManager.subscribe((online) => {
+      if (online) {
+        refreshFirstPageIfStale();
+      }
+    });
+    return () => {
+      unsubscribeFocus();
+      unsubscribeOnline();
+    };
+  }, [refreshFirstPageIfStale]);
 
   const pages = pullRequestQuery.data?.pages ?? [];
   const headsByPage = uniqueHeadsByPage(pages);
   const cloudflareQueries = useQueries({
-    queries: headsByPage.map((heads) => ({
-      queryKey: [
-        "repository-cloudflare-build-observations",
-        args.vaultId,
-        githubConnection?.revision ?? null,
-        heads.map(cloudflareObservationKey),
-      ],
-      queryFn: async (): Promise<ObservedCloudflareBatch> => {
-        if (args.vaultId === null) {
-          throw new Error("Cloudflare observation was requested without a vault.");
-        }
-        const result = await observePullRequestHeads({
-          vaultId: args.vaultId,
-          heads,
+    queries: headsByPage.map((heads, pageIndex) => {
+      const lifecycleCanRefetch = (query: CloudflareObservationQuery): boolean =>
+        cloudflareCanRefetch({
+          batch: query.state.data,
+          failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
+          now: Date.now(),
+          problem:
+            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
         });
-        if (result.state !== "observed") {
-          throw new CloudflareBatchProblemError(result);
-        }
-        return result;
-      },
-      enabled: args.vaultId !== null && githubConnection !== undefined && heads.length > 0,
-      staleTime: REPOSITORY_OBSERVATION_STALE_MS,
-      gcTime: REPOSITORY_OBSERVATION_CACHE_MS,
-      retry: false,
-      retryOnMount: false,
-      refetchOnMount: (query: CloudflareObservationQuery) =>
-        cloudflareCanRefetch({
-          batch: query.state.data,
-          failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
-          loadedPageCount: headsByPage.length,
-          now: Date.now(),
-          problem:
-            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
-        }),
-      refetchOnWindowFocus: (query: CloudflareObservationQuery) =>
-        cloudflareCanRefetch({
-          batch: query.state.data,
-          failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
-          loadedPageCount: headsByPage.length,
-          now: Date.now(),
-          problem:
-            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
-        }),
-      refetchOnReconnect: (query: CloudflareObservationQuery) =>
-        cloudflareCanRefetch({
-          batch: query.state.data,
-          failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
-          loadedPageCount: headsByPage.length,
-          now: Date.now(),
-          problem:
-            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
-        }),
-      refetchInterval: (query: CloudflareObservationQuery) =>
-        cloudflareRefetchDelay({
-          batch: query.state.data,
-          loadedPageCount: headsByPage.length,
-          now: Date.now(),
-          problem:
-            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
-        }),
-      refetchIntervalInBackground: false,
-    })),
+      return {
+        queryKey: [
+          "repository-cloudflare-build-observations",
+          args.vaultId,
+          githubConnection?.revision ?? null,
+          heads.map(cloudflareObservationKey),
+        ],
+        queryFn: async (): Promise<ObservedCloudflareBatch> => {
+          if (args.vaultId === null) {
+            throw new Error("Cloudflare observation was requested without a vault.");
+          }
+          const result = await observePullRequestHeads({
+            vaultId: args.vaultId,
+            heads,
+          });
+          if (result.state !== "observed") {
+            throw new CloudflareBatchProblemError(result);
+          }
+          return result;
+        },
+        enabled: args.vaultId !== null && githubConnection !== undefined && heads.length > 0,
+        staleTime: REPOSITORY_OBSERVATION_STALE_MS,
+        gcTime: REPOSITORY_OBSERVATION_CACHE_MS,
+        retry: false,
+        retryOnMount: false,
+        refetchOnMount: pageIndex === 0 ? lifecycleCanRefetch : false,
+        refetchOnWindowFocus: pageIndex === 0 ? lifecycleCanRefetch : false,
+        refetchOnReconnect: pageIndex === 0 ? lifecycleCanRefetch : false,
+        refetchInterval: (query: CloudflareObservationQuery) =>
+          cloudflareRefetchDelay({
+            batch: query.state.data,
+            loadedPageCount: headsByPage.length,
+            now: Date.now(),
+            problem:
+              query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
+          }),
+        refetchIntervalInBackground: false,
+      };
+    }),
   });
 
   if (args.vaultId === null) {

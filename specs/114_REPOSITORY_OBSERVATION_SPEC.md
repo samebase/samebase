@@ -178,6 +178,12 @@ The first reviewable slice provides:
 - exact, on-demand local branch hydration for those editor links;
 - short browser cache windows that prevent focus and render churn from repeating provider calls.
 
+When more than one pull request page is open, Samebase stops background polling. A stale mount,
+focus, or reconnect refreshes only the newest page and its Cloudflare observations. A successful
+refresh replaces the older browsing pages, which the user can load again. A failed refresh keeps the
+stale pages visible. This keeps lifecycle refresh bounded instead of replaying every page the user
+previously expanded.
+
 It deliberately does not provide whole-repository snapshots, atomic generations, background focus
 crawls, manual reload, plain branches, ahead/behind counts, detailed checks, closed pull requests,
 all-vault summaries, or historical provider data. Those are separate decisions after this slice is

@@ -1,12 +1,15 @@
-import { describe, expect, it } from "vite-plus/test";
+import { QueryClient } from "@tanstack/react-query";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
   cloudflareCanRefetch,
   cloudflareRefetchDelay,
   mapCloudflarePageObservation,
+  refreshRepositoryPullRequestFirstPage,
   repositoryPullRequestCanRefetch,
   repositoryPullRequestRefetchDelay,
   selectCurrentRepositoryMetadata,
+  type CurrentPullRequestPage,
 } from "./useRepositoryPullRequestObservations";
 import type { PullRequestHeadIdentity } from "../../convex/repositoryObservations";
 
@@ -18,6 +21,115 @@ const head = {
   headCommitNodeId: "C_head",
   headOid: "head-sha",
 } satisfies PullRequestHeadIdentity;
+
+function repositoryPage(args: {
+  continuation: CurrentPullRequestPage["continuation"];
+  freshUntil: number;
+  observedAt: number;
+}): CurrentPullRequestPage {
+  return {
+    state: "current",
+    observedAt: args.observedAt,
+    freshUntil: args.freshUntil,
+    repositoryNodeId: "R_base",
+    repositoryDatabaseId: "42",
+    repositoryFullName: "samebase/samebase",
+    defaultBranch: { state: "absent" },
+    providerOpenPullRequestCount: 0,
+    scannedPullRequestCount: 0,
+    providerSequenceDrifted: false,
+    pullRequests: [],
+    continuation: args.continuation,
+    requestUsage: {
+      requestCount: 1,
+      cost: 1,
+      limit: 5_000,
+      remaining: 4_999,
+      resetAt: 1_800_000_000_000,
+    },
+  };
+}
+
+describe("refreshRepositoryPullRequestFirstPage", () => {
+  it("refreshes page one after a newer pagination request updated the cache timestamp", async () => {
+    const queryClient = new QueryClient();
+    const queryKey = ["repository-observation-test"] as const;
+    const now = Date.now();
+    const oldFirstPage = repositoryPage({
+      observedAt: now - 60_001,
+      freshUntil: now - 1,
+      continuation: { kind: "next_page", cursor: "page-2" },
+    });
+    const recentSecondPage = repositoryPage({
+      observedAt: now,
+      freshUntil: now + 60_000,
+      continuation: { kind: "complete" },
+    });
+    const refreshedFirstPage = repositoryPage({
+      observedAt: now + 1,
+      freshUntil: now + 60_001,
+      continuation: { kind: "complete" },
+    });
+    queryClient.setQueryData(
+      queryKey,
+      {
+        pages: [oldFirstPage, recentSecondPage],
+        pageParams: [null, "page-2"],
+      },
+      { updatedAt: now },
+    );
+    const queryFn = vi.fn(async () => refreshedFirstPage);
+
+    await refreshRepositoryPullRequestFirstPage({
+      queryClient,
+      queryKey,
+      queryFn,
+      getNextPageParam: (lastPage) =>
+        lastPage.continuation.kind === "complete" ? undefined : lastPage.continuation.cursor,
+    });
+
+    expect(queryFn).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(queryKey)).toEqual({
+      pages: [refreshedFirstPage],
+      pageParams: [null],
+    });
+  });
+
+  it("keeps stale browsing pages when the newest-page refresh fails", async () => {
+    const queryClient = new QueryClient();
+    const queryKey = ["repository-observation-failure-test"] as const;
+    const now = Date.now();
+    const staleData = {
+      pages: [
+        repositoryPage({
+          observedAt: now - 60_001,
+          freshUntil: now - 1,
+          continuation: { kind: "next_page", cursor: "page-2" },
+        }),
+        repositoryPage({
+          observedAt: now,
+          freshUntil: now + 60_000,
+          continuation: { kind: "complete" },
+        }),
+      ],
+      pageParams: [null, "page-2"],
+    };
+    queryClient.setQueryData(queryKey, staleData, { updatedAt: now });
+
+    await expect(
+      refreshRepositoryPullRequestFirstPage({
+        queryClient,
+        queryKey,
+        queryFn: async () => {
+          throw new Error("provider failed");
+        },
+        getNextPageParam: (lastPage) =>
+          lastPage.continuation.kind === "complete" ? undefined : lastPage.continuation.cursor,
+      }),
+    ).rejects.toThrow("provider failed");
+    expect(queryClient.getQueryData(queryKey)).toEqual(staleData);
+  });
+});
 
 describe("mapCloudflarePageObservation", () => {
   it("distinguishes a request that has not started from loading", () => {
@@ -117,7 +229,6 @@ describe("repository observation refetch policy", () => {
     expect(
       repositoryPullRequestCanRefetch({
         failureObservedAt: 5_000,
-        loadedPageCount: 0,
         now: 65_000,
         problem: { state: "provider_failure", reason: "request_failed" },
       }),
@@ -135,7 +246,6 @@ describe("repository observation refetch policy", () => {
     expect(
       repositoryPullRequestCanRefetch({
         failureObservedAt: null,
-        loadedPageCount: 0,
         now: 10_000,
         problem: { state: "budget_deferred", reason: "rate_limit", retryAt: 42_000 },
       }),
@@ -165,25 +275,23 @@ describe("repository observation refetch policy", () => {
       cloudflareCanRefetch({
         batch,
         failureObservedAt: null,
-        loadedPageCount: 1,
         now: 10_000,
         problem: null,
       }),
     ).toBe(false);
   });
 
-  it("stops automatic focus and polling work after more than one page is loaded", () => {
+  it("stops multi-page polling while keeping first-page refresh available", () => {
     expect(
       repositoryPullRequestRefetchDelay({ loadedPageCount: 2, now: 10_000, problem: null }),
     ).toBe(false);
     expect(
       repositoryPullRequestCanRefetch({
         failureObservedAt: null,
-        loadedPageCount: 2,
         now: 10_000,
         problem: null,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       cloudflareRefetchDelay({
         batch: undefined,
@@ -196,11 +304,10 @@ describe("repository observation refetch policy", () => {
       cloudflareCanRefetch({
         batch: undefined,
         failureObservedAt: null,
-        loadedPageCount: 2,
         now: 10_000,
         problem: null,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("allows unavailable providers to recover on focus or reconnect without polling", () => {
@@ -219,7 +326,6 @@ describe("repository observation refetch policy", () => {
     expect(
       repositoryPullRequestCanRefetch({
         failureObservedAt: null,
-        loadedPageCount: 0,
         now: 10_000,
         problem,
       }),
