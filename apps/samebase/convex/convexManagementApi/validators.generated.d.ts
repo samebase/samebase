@@ -22,7 +22,7 @@ export const convexManagementResponseValidators: {
     "/projects/{project_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["get project by id"]>
     >;
-    "/teams/{team_id}/list_projects": AjvStandaloneValidateFunction<
+    "/teams/{team_id}/projects": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["list projects"]>
     >;
     "/projects/{project_id}/list_deployments": AjvStandaloneValidateFunction<
@@ -135,7 +135,7 @@ export const convexManagementResponseValidators: {
 export const convexManagementResponseDecimalPaths: {
   GET: {
     "/projects/{project_id}": readonly ConvexManagementResponseDecimalPath[];
-    "/teams/{team_id}/list_projects": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/projects": readonly ConvexManagementResponseDecimalPath[];
     "/projects/{project_id}/list_deployments": readonly ConvexManagementResponseDecimalPath[];
     "/projects/{project_id}/deployment": readonly ConvexManagementResponseDecimalPath[];
     "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": readonly ConvexManagementResponseDecimalPath[];

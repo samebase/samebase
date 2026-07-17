@@ -4333,7 +4333,7 @@ export interface components {
        * @description Worker environment associated with the domain.
        * @example production
        */
-      environment: string;
+      environment?: $Read<string>;
       /**
        * @description Hostname of the domain. Can be either the zone apex or a subdomain of the zone. Requests to this hostname will be routed to the configured Worker.
        * @example app.example.com

@@ -186,7 +186,11 @@
         ],
         "summary": "Get account limits",
         "tags": ["Account"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds",
+        "x-fern-sdk-method-name": "get-account-limits",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/builds": {
@@ -241,7 +245,11 @@
         ],
         "summary": "Get builds by version IDs",
         "tags": ["Builds"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds",
+        "x-fern-sdk-method-name": "get-builds-by-version",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/builds/{build_uuid}": {
@@ -294,7 +302,11 @@
         ],
         "summary": "Get build by UUID",
         "tags": ["Builds"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.builds",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/builds/{build_uuid}/cancel": {
@@ -347,7 +359,11 @@
         ],
         "summary": "Cancel build",
         "tags": ["Builds"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.builds",
+        "x-fern-sdk-method-name": "cancel",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/builds/{build_uuid}/logs": {
@@ -407,7 +423,11 @@
         ],
         "summary": "Get build logs",
         "tags": ["Builds"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.builds.logs",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/builds/latest": {
@@ -462,7 +482,11 @@
         ],
         "summary": "Get latest builds by script IDs",
         "tags": ["Builds"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds",
+        "x-fern-sdk-method-name": "get-latest-builds",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/repos/{provider_type}/{provider_account_id}/{repo_id}/config_autofill": {
@@ -549,7 +573,11 @@
         ],
         "summary": "Get repository configuration autofill",
         "tags": ["GitHub Integration"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.repos.config-autofill",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/repos/connections": {
@@ -606,7 +634,11 @@
         ],
         "summary": "Create or update repository connection",
         "tags": ["Repository Connections"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.repos.connections",
+        "x-fern-sdk-method-name": "upsert",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/repos/connections/{repo_connection_uuid}": {
@@ -640,7 +672,11 @@
         ],
         "summary": "Delete repository connection",
         "tags": ["Repository Connections"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.repos.connections",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/tokens": {
@@ -699,7 +735,11 @@
         ],
         "summary": "List build tokens",
         "tags": ["Build Tokens"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.tokens",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "description": "Create a new build authentication token",
@@ -754,7 +794,11 @@
         ],
         "summary": "Create build token",
         "tags": ["Build Tokens"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.tokens",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/tokens/{build_token_uuid}": {
@@ -793,7 +837,11 @@
         ],
         "summary": "Delete build token",
         "tags": ["Build Tokens"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.tokens",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/triggers": {
@@ -850,7 +898,11 @@
         ],
         "summary": "Create trigger",
         "tags": ["Triggers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}": {
@@ -884,7 +936,11 @@
         ],
         "summary": "Delete trigger",
         "tags": ["Triggers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Update an existing CI/CD trigger",
@@ -945,7 +1001,11 @@
         ],
         "summary": "Update trigger",
         "tags": ["Triggers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds": {
@@ -1005,7 +1065,11 @@
         ],
         "summary": "Create manual build",
         "tags": ["Triggers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-method-name": "create-build",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables": {
@@ -1055,7 +1119,11 @@
         ],
         "summary": "List environment variables",
         "tags": ["Environment Variables"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers.environment-variables",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Create or update environment variables for a trigger",
@@ -1116,7 +1184,11 @@
         ],
         "summary": "Upsert environment variables",
         "tags": ["Environment Variables"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers.environment-variables",
+        "x-fern-sdk-method-name": "upsert",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables/{environment_variable_key}": {
@@ -1158,7 +1230,11 @@
         ],
         "summary": "Delete environment variable",
         "tags": ["Environment Variables"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers.environment-variables",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/purge_build_cache": {
@@ -1192,7 +1268,12 @@
         ],
         "summary": "Purge build cache",
         "tags": ["Triggers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-method-name": "purge-cache",
+        "x-forge-hidden": true,
+        "x-forge-require-confirmation": "This operation wipes the workers-build cache."
       }
     },
     "/accounts/{account_id}/builds/workers": {
@@ -1349,7 +1430,11 @@
         ],
         "summary": "List builds by script",
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.builds",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/workers/{external_script_id}/triggers": {
@@ -1407,7 +1492,11 @@
         ],
         "summary": "List triggers by script",
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks": {
@@ -1984,7 +2073,11 @@
           "Billing Read",
           "Account Settings Write",
           "Account Settings Read"
-        ]
+        ],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.account-settings",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Creates Worker account settings for an account.",
@@ -2055,7 +2148,11 @@
         ],
         "summary": "Create Worker Account Settings",
         "tags": ["Worker Account Settings"],
-        "x-api-token-group": ["Account Settings Write"]
+        "x-api-token-group": ["Account Settings Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.account-settings",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/assets/upload": {
@@ -2139,7 +2236,11 @@
           }
         ],
         "summary": "Upload Assets",
-        "tags": ["Worker Script"]
+        "tags": ["Worker Script"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.assets.upload",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces": {
@@ -2189,7 +2290,11 @@
         ],
         "summary": "List dispatch namespaces",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "description": "Create a new Workers for Platforms namespace.",
@@ -2255,7 +2360,11 @@
         ],
         "summary": "Create dispatch namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}": {
@@ -2313,7 +2422,11 @@
         ],
         "summary": "Delete dispatch namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Get a Workers for Platforms namespace.",
@@ -2369,7 +2482,11 @@
         ],
         "summary": "Get dispatch namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Patch a Workers for Platforms namespace. Omitted fields are left unchanged.",
@@ -2446,7 +2563,11 @@
         ],
         "summary": "Patch dispatch namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Update a Workers for Platforms namespace.",
@@ -2523,7 +2644,11 @@
         ],
         "summary": "Update dispatch namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts": {
@@ -2599,7 +2724,11 @@
         ],
         "summary": "Delete Scripts in Namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts",
+        "x-fern-sdk-method-name": "bulk-delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Fetch a list of scripts uploaded to a Workers for Platforms namespace.",
@@ -2680,7 +2809,11 @@
         ],
         "summary": "List Scripts in Namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}": {
@@ -2760,7 +2893,11 @@
         ],
         "summary": "Delete Worker",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Fetch information about a script uploaded to a Workers for Platforms namespace.",
@@ -2824,7 +2961,11 @@
         ],
         "summary": "Worker Details",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Upload a worker module to a Workers for Platforms namespace. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.",
@@ -2886,7 +3027,11 @@
         ],
         "summary": "Upload Worker Module",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/assets-upload-session": {
@@ -2961,7 +3106,11 @@
           }
         ],
         "summary": "Create Assets Upload Session",
-        "tags": ["Workers for Platforms"]
+        "tags": ["Workers for Platforms"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.asset-upload",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/bindings": {
@@ -3040,7 +3189,11 @@
         ],
         "summary": "Get Script Bindings",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.bindings",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/content": {
@@ -3107,7 +3260,11 @@
         ],
         "summary": "Get Script Content",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.content",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Put script content for a script uploaded to a Workers for Platforms namespace.",
@@ -3233,7 +3390,11 @@
         ],
         "summary": "Put Script Content",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.content",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets": {
@@ -3315,7 +3476,11 @@
         ],
         "summary": "List Script Secrets",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.secrets",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Add a secret to a script uploaded to a Workers for Platforms namespace.",
@@ -3412,7 +3577,11 @@
         ],
         "summary": "Add script secret",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.secrets",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets-bulk": {
@@ -3596,7 +3765,11 @@
         ],
         "summary": "Delete script secret",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.secrets",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Get a given secret binding (value omitted) on a script uploaded to a Workers for Platforms namespace.",
@@ -3688,7 +3861,11 @@
         ],
         "summary": "Get secret binding",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.secrets",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/settings": {
@@ -3766,7 +3943,11 @@
         ],
         "summary": "Get Script Settings",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.settings",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Patch script metadata, such as bindings.",
@@ -3862,7 +4043,11 @@
         ],
         "summary": "Patch Script Settings",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.settings",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/tags": {
@@ -3944,7 +4129,11 @@
         ],
         "summary": "Get Script Tags",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.tags",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Put script tags for a script uploaded to a Workers for Platforms namespace.",
@@ -4035,7 +4224,11 @@
         ],
         "summary": "Put Script Tags",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.tags",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/tags/{tag}": {
@@ -4109,7 +4302,11 @@
         ],
         "summary": "Delete Script Tag",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.tags",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Put a single tag on a script uploaded to a Workers for Platforms namespace.",
@@ -4181,7 +4378,11 @@
         ],
         "summary": "Put Script Tag",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.tags",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/domains": {
@@ -4293,7 +4494,11 @@
         ],
         "summary": "List Domains",
         "tags": ["Domains"],
-        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.domains",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Attaches a domain that routes traffic to a Worker.",
@@ -4372,7 +4577,11 @@
         ],
         "summary": "Attach Domain",
         "tags": ["Domains"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.domains",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/domains/{domain_id}": {
@@ -4432,7 +4641,11 @@
         ],
         "summary": "Detach Domain",
         "tags": ["Domains"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.domains",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Gets information about a domain.",
@@ -4503,7 +4716,11 @@
         ],
         "summary": "Get Domain",
         "tags": ["Domains"],
-        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.domains",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/durable_objects/namespaces": {
@@ -4611,7 +4828,11 @@
         ],
         "summary": "List Namespaces",
         "tags": ["Durable Objects Namespace"],
-        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "durable-objects.namespaces",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/durable_objects/namespaces/{id}/objects": {
@@ -4752,7 +4973,11 @@
         ],
         "summary": "List Objects",
         "tags": ["Durable Objects Namespace"],
-        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "durable-objects.namespaces.objects",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/destinations": {
@@ -5064,7 +5289,11 @@
         },
         "summary": "Get Destinations",
         "tags": ["Destinations"],
-        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.destinations",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "parameters": [
         {
@@ -5381,7 +5610,11 @@
         },
         "summary": "Create Destination",
         "tags": ["Destinations"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.destinations",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/destinations/{slug}": {
@@ -5642,7 +5875,11 @@
         },
         "summary": "Delete Destination",
         "tags": ["Destinations"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.destinations",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "parameters": [
         {
@@ -5991,7 +6228,11 @@
         },
         "summary": "Update Destination",
         "tags": ["Destinations"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.destinations",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/queries": {
@@ -6224,7 +6465,11 @@
         },
         "summary": "List queries",
         "tags": ["Saved Queries"],
-        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.queries",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "parameters": [
         {
@@ -6631,7 +6876,11 @@
         },
         "summary": "Save query",
         "tags": ["Saved Queries"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.queries",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/queries/{queryId}": {
@@ -6832,7 +7081,11 @@
         },
         "summary": "Delete query",
         "tags": ["Saved Queries"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.queries",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Retrieve a saved query.",
@@ -7031,7 +7284,11 @@
         },
         "summary": "Get query",
         "tags": ["Saved Queries"],
-        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.queries",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "parameters": [
         {
@@ -7448,7 +7705,11 @@
         },
         "summary": "Update query",
         "tags": ["Saved Queries"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.queries",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/shared/query": {
@@ -8564,7 +8825,11 @@
         },
         "summary": "List keys",
         "tags": ["Keys"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.telemetry",
+        "x-fern-sdk-method-name": "keys",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/live-tail": {
@@ -9488,7 +9753,11 @@
         },
         "summary": "Run a query",
         "tags": ["Query run"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.telemetry",
+        "x-fern-sdk-method-name": "query",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/values": {
@@ -9845,7 +10114,11 @@
         },
         "summary": "List values",
         "tags": ["Values"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.telemetry",
+        "x-fern-sdk-method-name": "values",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/usage": {
@@ -10163,7 +10436,11 @@
         ],
         "summary": "List Placement Regions",
         "tags": ["Worker Placement"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.placement.regions",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts": {
@@ -10222,7 +10499,11 @@
         ],
         "summary": "List Workers",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts-search": {
@@ -10368,7 +10649,11 @@
         ],
         "summary": "Search Workers",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts",
+        "x-fern-sdk-method-name": "search",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}": {
@@ -10440,7 +10725,11 @@
         ],
         "summary": "Delete Worker",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Fetch raw script content for your worker. Note this is the original script content, not JSON encoded.",
@@ -10507,7 +10796,11 @@
         ],
         "summary": "Download Worker",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Upload a worker module. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.",
@@ -10606,7 +10899,11 @@
         ],
         "summary": "Upload Worker Module",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/assets-upload-session": {
@@ -10681,7 +10978,11 @@
         ],
         "summary": "Create Assets Upload Session",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.assets.upload",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/content": {
@@ -10801,7 +11102,11 @@
         ],
         "summary": "Put script content",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.content",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/content/v2": {
@@ -10860,7 +11165,11 @@
         ],
         "summary": "Get script content",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.content",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/deployments": {
@@ -10940,7 +11249,11 @@
         ],
         "summary": "List Deployments",
         "tags": ["Worker Deployments"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.deployments",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "description": "Deployments configure how [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions) are deployed to traffic. A deployment can consist of one or two versions of a Worker.",
@@ -11027,7 +11340,11 @@
         ],
         "summary": "Create Deployment",
         "tags": ["Worker Deployments"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.deployments",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/deployments/{deployment_id}": {
@@ -11094,7 +11411,11 @@
         ],
         "summary": "Delete Deployment",
         "tags": ["Worker Deployments"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.deployments",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Get information about a Worker Deployment.",
@@ -11172,7 +11493,11 @@
         ],
         "summary": "Get Deployment",
         "tags": ["Worker Deployments"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.deployments",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/schedules": {
@@ -11252,7 +11577,11 @@
         ],
         "summary": "Get Cron Triggers",
         "tags": ["Worker Cron Trigger"],
-        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.schedules",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Updates Cron Triggers for a Worker.",
@@ -11343,7 +11672,11 @@
         ],
         "summary": "Update Cron Triggers",
         "tags": ["Worker Cron Trigger"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.schedules",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/script-settings": {
@@ -11401,7 +11734,11 @@
         ],
         "summary": "Get Script Settings",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.settings",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Patch script-level settings when using [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions). Including but not limited to Logpush and Tail Consumers.",
@@ -11467,7 +11804,11 @@
         ],
         "summary": "Patch Script Settings",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.settings",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/secrets": {
@@ -11540,7 +11881,11 @@
         ],
         "summary": "List script secrets",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.secrets",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Add a secret to a script.",
@@ -11628,7 +11973,17 @@
         ],
         "summary": "Add script secret",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.secrets",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true,
+        "x-forge-params": {
+          "name": {
+            "positional": true,
+            "required": true
+          }
+        }
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/secrets-bulk": {
@@ -11795,7 +12150,11 @@
         ],
         "summary": "Delete script secret",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.secrets",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Get a given secret binding (value omitted) on a script.",
@@ -11877,7 +12236,11 @@
           }
         ],
         "summary": "Get secret binding",
-        "tags": ["Worker Script"]
+        "tags": ["Worker Script"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.secrets",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/settings": {
@@ -11935,7 +12298,11 @@
         ],
         "summary": "Get Settings",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.script-and-version-settings",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Patch metadata or config, such as bindings or usage model.",
@@ -12011,7 +12378,11 @@
         ],
         "summary": "Patch Settings",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.script-and-version-settings",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/subdomain": {
@@ -12083,7 +12454,11 @@
         ],
         "summary": "Delete Worker subdomain",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.subdomain",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Get if the Worker is available on the workers.dev subdomain.",
@@ -12153,7 +12528,11 @@
         ],
         "summary": "Get Worker subdomain",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.subdomain",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "post": {
         "description": "Enable or disable the Worker on the workers.dev subdomain.",
@@ -12249,7 +12628,11 @@
         ],
         "summary": "Post Worker subdomain",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.subdomain",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/tails": {
@@ -12395,7 +12778,11 @@
         ],
         "summary": "Start Tail",
         "tags": ["Worker Tail Logs"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.tail",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/tails/{id}": {
@@ -12467,7 +12854,11 @@
         ],
         "summary": "Delete Tail",
         "tags": ["Worker Tail Logs"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.tail",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/usage-model": {
@@ -12525,7 +12916,11 @@
         ],
         "summary": "Fetch Usage Model",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.usage-model",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Updates the Usage Model for a given Worker. Requires a Workers Paid subscription.",
@@ -12599,7 +12994,11 @@
         ],
         "summary": "Update Usage Model",
         "tags": ["Worker Script"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.usage-model",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/versions": {
@@ -12690,7 +13089,11 @@
         ],
         "summary": "List Versions",
         "tags": ["Worker Versions"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.versions",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "description": "Upload a Worker Version without deploying to Cloudflare's network. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.",
@@ -12765,7 +13168,11 @@
         ],
         "summary": "Upload Version",
         "tags": ["Worker Versions"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.versions",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/versions/{version_id}": {
@@ -12838,7 +13245,11 @@
         ],
         "summary": "Get Version Detail",
         "tags": ["Worker Versions"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.versions",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/services/{service_name}/environments/{environment_name}/content": {
@@ -12905,7 +13316,11 @@
         ],
         "summary": "Get script content",
         "tags": ["Worker Environment"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.services.environments.content",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Put script content from a worker with an environment.",
@@ -13031,7 +13446,11 @@
         ],
         "summary": "Put script content",
         "tags": ["Worker Environment"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.services.environments.content",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/services/{service_name}/environments/{environment_name}/settings": {
@@ -13097,7 +13516,11 @@
         ],
         "summary": "Get Script Settings",
         "tags": ["Worker Environment"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.services.environments.settings",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Patch script metadata, such as bindings.",
@@ -13170,7 +13593,11 @@
           }
         ],
         "summary": "Patch Script Settings",
-        "tags": ["Worker Environment"]
+        "tags": ["Worker Environment"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.services.environments.settings",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/subdomain": {
@@ -13213,7 +13640,11 @@
         ],
         "summary": "Delete Subdomain",
         "tags": ["Worker Subdomain"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.subdomains",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Returns a Workers subdomain for an account.",
@@ -13274,7 +13705,11 @@
         ],
         "summary": "Get Subdomain",
         "tags": ["Worker Subdomain"],
-        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.subdomains",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Creates a Workers subdomain for an account.",
@@ -13345,7 +13780,11 @@
         ],
         "summary": "Create Subdomain",
         "tags": ["Worker Subdomain"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.subdomains",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/workers": {
@@ -13448,7 +13887,11 @@
         ],
         "summary": "List Workers",
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "description": "Create a new Worker.",
@@ -13663,7 +14106,11 @@
         ],
         "summary": "Create Worker",
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/workers/{worker_id}": {
@@ -13758,7 +14205,11 @@
         ],
         "summary": "Delete Worker",
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Get details about a specific Worker.",
@@ -13861,7 +14312,11 @@
         ],
         "summary": "Get Worker",
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "patch": {
         "description": "Perform a partial update on a Worker, where omitted properties are left unchanged from their current values.",
@@ -14102,7 +14557,11 @@
           }
         ],
         "summary": "Edit Worker",
-        "tags": ["Workers"]
+        "tags": ["Workers"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       },
       "put": {
         "description": "Perform a complete replacement of a Worker, where omitted properties are set to their default values. This is the exact same as the Create Worker endpoint, but operates on an existing Worker. To perform a partial update instead, use the Edit Worker endpoint.",
@@ -14333,7 +14792,11 @@
         ],
         "summary": "Update Worker",
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/workers/{worker_id}/versions": {
@@ -14429,7 +14892,11 @@
         ],
         "summary": "List Versions",
         "tags": ["Versions"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers.versions",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "description": "Create a new version.",
@@ -14518,7 +14985,11 @@
         ],
         "summary": "Create Version",
         "tags": ["Versions"],
-        "x-api-token-group": ["Workers Scripts Write"]
+        "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers.versions",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/workers/{worker_id}/versions/{version_id}": {
@@ -14585,7 +15056,11 @@
           }
         ],
         "summary": "Delete Version",
-        "tags": ["Versions"]
+        "tags": ["Versions"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers.versions",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "description": "Get details about a specific version.",
@@ -14673,7 +15148,11 @@
         ],
         "summary": "Get Version",
         "tags": ["Versions"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers.versions",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": {
@@ -19415,9 +19894,9 @@
             "deprecated": true,
             "description": "Worker environment associated with the domain.",
             "example": "production",
+            "readOnly": true,
             "type": "string",
-            "x-auditable": true,
-            "x-stainless-terraform-configurability": "computed_optional"
+            "x-auditable": true
           },
           "hostname": {
             "description": "Hostname of the domain. Can be either the zone apex or a subdomain of the zone. Requests to this hostname will be routed to the configured Worker.",
@@ -19453,7 +19932,7 @@
             "x-stainless-terraform-configurability": "computed_optional"
           }
         },
-        "required": ["id", "cert_id", "zone_id", "zone_name", "hostname", "service", "environment"],
+        "required": ["id", "cert_id", "zone_id", "zone_name", "hostname", "service"],
         "type": "object"
       },
       "workers_namespace": {

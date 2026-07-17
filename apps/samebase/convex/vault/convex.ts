@@ -5,13 +5,14 @@ import type { Id } from "../_generated/dataModel";
 import { action } from "../functions";
 import {
   isConvexCloudDeployment,
+  listConvexManagementProjects,
   requestConvexManagementApi,
   type ConvexCloudDeployment,
 } from "../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
 import type {
   PlatformDeploymentResponse,
-  PlatformProjectDetails,
+  ProjectResponse,
 } from "../convexManagementApi/types.generated";
 import { toErrorMessage } from "../jsonUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
@@ -99,20 +100,11 @@ function buildConvexSiteUrl(deployment: ConvexCloudDeployment): string {
   return `https://${deployment.name}.convex.site`;
 }
 
-async function listConvexProjects(args: {
-  token: string;
-  teamId: string;
-}): Promise<PlatformProjectDetails[]> {
-  return await requestConvexManagementApi(args.token, "GET", "/teams/{team_id}/list_projects", {
-    params: { path: { team_id: args.teamId } },
-  });
-}
-
 async function readConvexProjectDetails(args: {
   token: string;
   teamId: string;
   projectId: string;
-}): Promise<PlatformProjectDetails> {
+}): Promise<ProjectResponse> {
   const project = await requestConvexManagementApi(args.token, "GET", "/projects/{project_id}", {
     params: { path: { project_id: args.projectId } },
   });
@@ -182,7 +174,7 @@ async function readOrCreateDefaultConvexProductionDeployment(args: {
 }
 
 function toConvexInfrastructureRecord(args: {
-  project: PlatformProjectDetails;
+  project: ProjectResponse;
   deployment: ConvexCloudDeployment;
 }): ConvexInfrastructureRecord {
   return {
@@ -196,7 +188,7 @@ function toConvexInfrastructureRecord(args: {
   };
 }
 
-function toConvexProjectResult(project: PlatformProjectDetails): ConvexProjectResult {
+function toConvexProjectResult(project: ProjectResponse): ConvexProjectResult {
   return {
     projectId: project.id,
     projectName: project.name,
@@ -208,7 +200,8 @@ function toConvexProjectResult(project: PlatformProjectDetails): ConvexProjectRe
 async function listProjectsForConnection(
   connection: ConvexActionConnection,
 ): Promise<ConvexProjectResult[]> {
-  const projects = await listConvexProjects({
+  // TODO: Return provider pages incrementally once the project picker supports loading on scroll.
+  const projects = await listConvexManagementProjects({
     token: connection.token,
     teamId: connection.teamId,
   });
@@ -271,7 +264,7 @@ async function createConvexProjectDeployment(args: {
     }
   }
 
-  const projects = await listConvexProjects({
+  const projects = await listConvexManagementProjects({
     token: args.connection.token,
     teamId: args.connection.teamId,
   });

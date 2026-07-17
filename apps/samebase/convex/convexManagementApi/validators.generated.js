@@ -649,9 +649,21 @@ validate4.evaluated = {
 };
 export const ajvListProjectsResponse = validate7;
 const schema13 = {
-  $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_projects/get/responses/200/content/application~1json/schema",
+  $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1projects/get/responses/200/content/application~1json/schema",
 };
-const schema14 = { type: "array", items: { $ref: "#/components/schemas/PlatformProjectDetails" } };
+const schema14 = {
+  type: "object",
+  required: ["items", "pagination"],
+  properties: {
+    items: { type: "array", items: { $ref: "#/components/schemas/ProjectResponse" } },
+    pagination: { $ref: "#/components/schemas/PaginationMetadata" },
+  },
+};
+const schema21 = {
+  type: "object",
+  required: ["hasMore"],
+  properties: { hasMore: { type: "boolean" }, nextCursor: { type: ["string", "null"] } },
+};
 function validate9(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -974,41 +986,163 @@ function validate8(
   if (evaluated0.dynamicItems) {
     evaluated0.items = undefined;
   }
-  if (Array.isArray(data)) {
-    const len0 = data.length;
-    for (let i0 = 0; i0 < len0; i0++) {
-      if (
-        !validate9(data[i0], {
-          instancePath: instancePath + "/" + i0,
-          parentData: data,
-          parentDataProperty: i0,
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate9.errors : vErrors.concat(validate9.errors);
-        errors = vErrors.length;
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.items === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "items" },
+        message: "must have required property '" + "items" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.pagination === undefined) {
+      const err1 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "pagination" },
+        message: "must have required property '" + "pagination" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.items !== undefined) {
+      let data0 = data.items;
+      if (Array.isArray(data0)) {
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          if (
+            !validate9(data0[i0], {
+              instancePath: instancePath + "/items/" + i0,
+              parentData: data0,
+              parentDataProperty: i0,
+              rootData,
+              dynamicAnchors,
+            })
+          ) {
+            vErrors = vErrors === null ? validate9.errors : vErrors.concat(validate9.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err2 = {
+          instancePath: instancePath + "/items",
+          schemaPath: "#/properties/items/type",
+          keyword: "type",
+          params: { type: "array" },
+          message: "must be array",
+        };
+        if (vErrors === null) {
+          vErrors = [err2];
+        } else {
+          vErrors.push(err2);
+        }
+        errors++;
+      }
+    }
+    if (data.pagination !== undefined) {
+      let data2 = data.pagination;
+      if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
+        if (data2.hasMore === undefined) {
+          const err3 = {
+            instancePath: instancePath + "/pagination",
+            schemaPath: "#/components/schemas/PaginationMetadata/required",
+            keyword: "required",
+            params: { missingProperty: "hasMore" },
+            message: "must have required property '" + "hasMore" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err3];
+          } else {
+            vErrors.push(err3);
+          }
+          errors++;
+        }
+        if (data2.hasMore !== undefined) {
+          if (typeof data2.hasMore !== "boolean") {
+            const err4 = {
+              instancePath: instancePath + "/pagination/hasMore",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/hasMore/type",
+              keyword: "type",
+              params: { type: "boolean" },
+              message: "must be boolean",
+            };
+            if (vErrors === null) {
+              vErrors = [err4];
+            } else {
+              vErrors.push(err4);
+            }
+            errors++;
+          }
+        }
+        if (data2.nextCursor !== undefined) {
+          let data4 = data2.nextCursor;
+          if (typeof data4 !== "string" && data4 !== null) {
+            const err5 = {
+              instancePath: instancePath + "/pagination/nextCursor",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
+              keyword: "type",
+              params: { type: schema21.properties.nextCursor.type },
+              message: "must be string,null",
+            };
+            if (vErrors === null) {
+              vErrors = [err5];
+            } else {
+              vErrors.push(err5);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err6 = {
+          instancePath: instancePath + "/pagination",
+          schemaPath: "#/components/schemas/PaginationMetadata/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
       }
     }
   } else {
-    const err0 = {
+    const err7 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
-      params: { type: "array" },
-      message: "must be array",
+      params: { type: "object" },
+      message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err0];
+      vErrors = [err7];
     } else {
-      vErrors.push(err0);
+      vErrors.push(err7);
     }
     errors++;
   }
   validate8.errors = vErrors;
   return errors === 0;
 }
-validate8.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
+validate8.evaluated = {
+  props: { items: true, pagination: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
 function validate7(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -1031,16 +1165,20 @@ function validate7(
   validate7.errors = vErrors;
   return errors === 0;
 }
-validate7.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
+validate7.evaluated = {
+  props: { items: true, pagination: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
 export const ajvListDeploymentsResponse = validate12;
-const schema21 = {
+const schema22 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1list_deployments/get/responses/200/content/application~1json/schema",
 };
-const schema22 = {
+const schema23 = {
   type: "array",
   items: { $ref: "#/components/schemas/PlatformDeploymentResponse" },
 };
-const schema23 = {
+const schema24 = {
   oneOf: [
     {
       type: "object",
@@ -1201,21 +1339,21 @@ const schema23 = {
     },
   ],
 };
-const schema24 = { pattern: "^[0-9]+$", type: "string" };
-const schema25 = { type: "string", enum: ["dev", "prod", "preview", "custom"] };
-const schema26 = { pattern: "^[0-9]+$", type: "string" };
-const schema27 = {
+const schema25 = { pattern: "^[0-9]+$", type: "string" };
+const schema26 = { type: "string", enum: ["dev", "prod", "preview", "custom"] };
+const schema27 = { pattern: "^[0-9]+$", type: "string" };
+const schema28 = {
   type: "boolean",
   description:
     "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project.",
 };
-const schema28 = { type: "string" };
-const schema30 = {
+const schema29 = { type: "string" };
+const schema31 = {
   type: "string",
   description: "An identifier that uniquely identifies this deployment within the project.",
 };
-const schema31 = { type: "string", enum: ["aws-us-east-1", "aws-eu-west-1"] };
-const schema34 = { type: "string" };
+const schema32 = { type: "string", enum: ["aws-us-east-1", "aws-eu-west-1"] };
+const schema35 = { type: "string" };
 function validate14(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -1534,7 +1672,7 @@ function validate14(
           instancePath: instancePath + "/dashboardEditConfirmation",
           schemaPath: "#/oneOf/0/properties/dashboardEditConfirmation/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.dashboardEditConfirmation.type },
+          params: { type: schema24.oneOf[0].properties.dashboardEditConfirmation.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -1567,7 +1705,7 @@ function validate14(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -1602,7 +1740,7 @@ function validate14(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.expiresAt.type },
+          params: { type: schema24.oneOf[0].properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -1686,7 +1824,7 @@ function validate14(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[0].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -1704,7 +1842,7 @@ function validate14(
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.lastDeployTime.type },
+          params: { type: schema24.oneOf[0].properties.lastDeployTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -1882,7 +2020,7 @@ function validate14(
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
           keyword: "enum",
-          params: { allowedValues: schema31.enum },
+          params: { allowedValues: schema32.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -1900,7 +2038,7 @@ function validate14(
           instancePath: instancePath + "/sendLogsToClient",
           schemaPath: "#/oneOf/0/properties/sendLogsToClient/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.sendLogsToClient.type },
+          params: { type: schema24.oneOf[0].properties.sendLogsToClient.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -2160,7 +2298,7 @@ function validate14(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -2227,7 +2365,7 @@ function validate14(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/1/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[1].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[1].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -2540,7 +2678,7 @@ function validate12(
 }
 validate12.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
 export const ajvGetDeploymentInProjectByProjectIdResponse = validate17;
-const schema37 = {
+const schema38 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1deployment/get/responses/200/content/application~1json/schema",
 };
 function validate18(
@@ -2861,7 +2999,7 @@ function validate18(
           instancePath: instancePath + "/dashboardEditConfirmation",
           schemaPath: "#/oneOf/0/properties/dashboardEditConfirmation/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.dashboardEditConfirmation.type },
+          params: { type: schema24.oneOf[0].properties.dashboardEditConfirmation.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -2894,7 +3032,7 @@ function validate18(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -2929,7 +3067,7 @@ function validate18(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.expiresAt.type },
+          params: { type: schema24.oneOf[0].properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -3013,7 +3151,7 @@ function validate18(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[0].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -3031,7 +3169,7 @@ function validate18(
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.lastDeployTime.type },
+          params: { type: schema24.oneOf[0].properties.lastDeployTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -3209,7 +3347,7 @@ function validate18(
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
           keyword: "enum",
-          params: { allowedValues: schema31.enum },
+          params: { allowedValues: schema32.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -3227,7 +3365,7 @@ function validate18(
           instancePath: instancePath + "/sendLogsToClient",
           schemaPath: "#/oneOf/0/properties/sendLogsToClient/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.sendLogsToClient.type },
+          params: { type: schema24.oneOf[0].properties.sendLogsToClient.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -3487,7 +3625,7 @@ function validate18(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -3554,7 +3692,7 @@ function validate18(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/1/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[1].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[1].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -3822,7 +3960,7 @@ function validate17(
 }
 validate17.evaluated = { dynamicProps: true, dynamicItems: false };
 export const ajvGetDeploymentInProjectByProjectSlugResponse = validate20;
-const schema52 = {
+const schema53 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id_or_slug}~1projects~1{project_slug}~1deployment/get/responses/200/content/application~1json/schema",
 };
 function validate21(
@@ -4143,7 +4281,7 @@ function validate21(
           instancePath: instancePath + "/dashboardEditConfirmation",
           schemaPath: "#/oneOf/0/properties/dashboardEditConfirmation/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.dashboardEditConfirmation.type },
+          params: { type: schema24.oneOf[0].properties.dashboardEditConfirmation.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -4176,7 +4314,7 @@ function validate21(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -4211,7 +4349,7 @@ function validate21(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.expiresAt.type },
+          params: { type: schema24.oneOf[0].properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -4295,7 +4433,7 @@ function validate21(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[0].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -4313,7 +4451,7 @@ function validate21(
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.lastDeployTime.type },
+          params: { type: schema24.oneOf[0].properties.lastDeployTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -4491,7 +4629,7 @@ function validate21(
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
           keyword: "enum",
-          params: { allowedValues: schema31.enum },
+          params: { allowedValues: schema32.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -4509,7 +4647,7 @@ function validate21(
           instancePath: instancePath + "/sendLogsToClient",
           schemaPath: "#/oneOf/0/properties/sendLogsToClient/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.sendLogsToClient.type },
+          params: { type: schema24.oneOf[0].properties.sendLogsToClient.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -4769,7 +4907,7 @@ function validate21(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -4836,7 +4974,7 @@ function validate21(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/1/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[1].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[1].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -5104,7 +5242,7 @@ function validate20(
 }
 validate20.evaluated = { dynamicProps: true, dynamicItems: false };
 export const ajvGetProjectBySlugResponse = validate23;
-const schema67 = {
+const schema68 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id_or_slug}~1projects~1{project_slug}/get/responses/200/content/application~1json/schema",
 };
 function validate24(
@@ -5453,7 +5591,7 @@ validate23.evaluated = {
   dynamicItems: false,
 };
 export const ajvCreateDeploymentResponse = validate26;
-const schema74 = {
+const schema75 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1create_deployment/post/responses/200/content/application~1json/schema",
 };
 function validate27(
@@ -5774,7 +5912,7 @@ function validate27(
           instancePath: instancePath + "/dashboardEditConfirmation",
           schemaPath: "#/oneOf/0/properties/dashboardEditConfirmation/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.dashboardEditConfirmation.type },
+          params: { type: schema24.oneOf[0].properties.dashboardEditConfirmation.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -5807,7 +5945,7 @@ function validate27(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -5842,7 +5980,7 @@ function validate27(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.expiresAt.type },
+          params: { type: schema24.oneOf[0].properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -5926,7 +6064,7 @@ function validate27(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[0].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -5944,7 +6082,7 @@ function validate27(
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.lastDeployTime.type },
+          params: { type: schema24.oneOf[0].properties.lastDeployTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -6122,7 +6260,7 @@ function validate27(
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
           keyword: "enum",
-          params: { allowedValues: schema31.enum },
+          params: { allowedValues: schema32.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -6140,7 +6278,7 @@ function validate27(
           instancePath: instancePath + "/sendLogsToClient",
           schemaPath: "#/oneOf/0/properties/sendLogsToClient/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.sendLogsToClient.type },
+          params: { type: schema24.oneOf[0].properties.sendLogsToClient.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -6400,7 +6538,7 @@ function validate27(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -6467,7 +6605,7 @@ function validate27(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/1/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[1].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[1].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -6735,7 +6873,7 @@ function validate26(
 }
 validate26.evaluated = { dynamicProps: true, dynamicItems: false };
 export const ajvPlatformGetDeploymentResponse = validate29;
-const schema89 = {
+const schema90 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}/get/responses/200/content/application~1json/schema",
 };
 function validate30(
@@ -7056,7 +7194,7 @@ function validate30(
           instancePath: instancePath + "/dashboardEditConfirmation",
           schemaPath: "#/oneOf/0/properties/dashboardEditConfirmation/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.dashboardEditConfirmation.type },
+          params: { type: schema24.oneOf[0].properties.dashboardEditConfirmation.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -7089,7 +7227,7 @@ function validate30(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -7124,7 +7262,7 @@ function validate30(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.expiresAt.type },
+          params: { type: schema24.oneOf[0].properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -7208,7 +7346,7 @@ function validate30(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[0].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -7226,7 +7364,7 @@ function validate30(
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.lastDeployTime.type },
+          params: { type: schema24.oneOf[0].properties.lastDeployTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -7404,7 +7542,7 @@ function validate30(
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
           keyword: "enum",
-          params: { allowedValues: schema31.enum },
+          params: { allowedValues: schema32.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -7422,7 +7560,7 @@ function validate30(
           instancePath: instancePath + "/sendLogsToClient",
           schemaPath: "#/oneOf/0/properties/sendLogsToClient/type",
           keyword: "type",
-          params: { type: schema23.oneOf[0].properties.sendLogsToClient.type },
+          params: { type: schema24.oneOf[0].properties.sendLogsToClient.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -7682,7 +7820,7 @@ function validate30(
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
           keyword: "enum",
-          params: { allowedValues: schema25.enum },
+          params: { allowedValues: schema26.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -7749,7 +7887,7 @@ function validate30(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/1/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema23.oneOf[1].properties.kind.enum },
+          params: { allowedValues: schema24.oneOf[1].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -8017,17 +8155,17 @@ function validate29(
 }
 validate29.evaluated = { dynamicProps: true, dynamicItems: false };
 export const ajvListDeploymentClassesResponse = validate32;
-const schema104 = {
+const schema105 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_deployment_classes/get/responses/200/content/application~1json/schema",
 };
-const schema105 = {
+const schema106 = {
   type: "object",
   required: ["items"],
   properties: {
     items: { type: "array", items: { $ref: "#/components/schemas/DeploymentClassMetadata" } },
   },
 };
-const schema106 = {
+const schema107 = {
   type: "object",
   required: ["type", "available"],
   properties: {
@@ -8035,7 +8173,7 @@ const schema106 = {
     type: { $ref: "#/components/schemas/DeploymentClass" },
   },
 };
-const schema107 = { type: "string", enum: ["s16", "s256", "d1024", "d2048"] };
+const schema108 = { type: "string", enum: ["s16", "s256", "d1024", "d2048"] };
 function validate34(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -8119,7 +8257,7 @@ function validate34(
           instancePath: instancePath + "/type",
           schemaPath: "#/components/schemas/DeploymentClass/enum",
           keyword: "enum",
-          params: { allowedValues: schema107.enum },
+          params: { allowedValues: schema108.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -8259,17 +8397,17 @@ function validate32(
 }
 validate32.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
 export const ajvListDeploymentRegionsResponse = validate37;
-const schema108 = {
+const schema109 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_deployment_regions/get/responses/200/content/application~1json/schema",
 };
-const schema109 = {
+const schema110 = {
   type: "object",
   required: ["items"],
   properties: {
     items: { type: "array", items: { $ref: "#/components/schemas/DeploymentRegionMetadata" } },
   },
 };
-const schema110 = {
+const schema111 = {
   type: "object",
   required: ["name", "displayName", "available"],
   properties: {
@@ -8393,7 +8531,7 @@ function validate39(
           instancePath: instancePath + "/name",
           schemaPath: "#/components/schemas/RegionName/enum",
           keyword: "enum",
-          params: { allowedValues: schema31.enum },
+          params: { allowedValues: schema32.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -8533,21 +8671,16 @@ function validate37(
 }
 validate37.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
 export const ajvListDeploymentsForTeamResponse = validate42;
-const schema112 = {
+const schema113 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_deployments/get/responses/200/content/application~1json/schema",
 };
-const schema113 = {
+const schema114 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
     items: { type: "array", items: { $ref: "#/components/schemas/PlatformDeploymentResponse" } },
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
-};
-const schema114 = {
-  type: "object",
-  required: ["hasMore"],
-  properties: { hasMore: { type: "boolean" }, nextCursor: { type: ["string", "null"] } },
 };
 function validate43(
   data,
@@ -8669,7 +8802,7 @@ function validate43(
               instancePath: instancePath + "/pagination/nextCursor",
               schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
-              params: { type: schema114.properties.nextCursor.type },
+              params: { type: schema21.properties.nextCursor.type },
               message: "must be string,null",
             };
             if (vErrors === null) {
@@ -8747,10 +8880,10 @@ validate42.evaluated = {
   dynamicItems: false,
 };
 export const ajvListLocalDeploymentsForTeamResponse = validate46;
-const schema115 = {
+const schema116 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_local_deployments/get/responses/200/content/application~1json/schema",
 };
-const schema116 = {
+const schema117 = {
   type: "object",
   required: ["items"],
   properties: {
@@ -8863,17 +8996,17 @@ function validate46(
 }
 validate46.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
 export const ajvCreateDeployKeyResponse = validate50;
-const schema117 = {
+const schema118 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1create_deploy_key/post/responses/200/content/application~1json/schema",
 };
-const schema118 = {
+const schema119 = {
   type: "object",
   required: ["deployKey"],
   properties: {
     deployKey: { $ref: "#/components/schemas/AdminKey", description: "The generated deploy key." },
   },
 };
-const schema119 = { type: "string", description: "Encrypted admin key" };
+const schema120 = { type: "string", description: "Encrypted admin key" };
 function validate51(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -8963,14 +9096,14 @@ function validate50(
 }
 validate50.evaluated = { props: { deployKey: true }, dynamicProps: false, dynamicItems: false };
 export const ajvListDeployKeysResponse = validate53;
-const schema120 = {
+const schema121 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1list_deploy_keys/get/responses/200/content/application~1json/schema",
 };
-const schema121 = {
+const schema122 = {
   type: "array",
   items: { $ref: "#/components/schemas/PlatformDeployKeyResponse" },
 };
-const schema122 = {
+const schema123 = {
   type: "object",
   required: ["id", "name", "creationTime", "allowedActions"],
   properties: {
@@ -9003,6 +9136,8 @@ const schema122 = {
           "deployment:auditLog:view",
           "deployment:usageLimits:view",
           "deployment:usageLimits:write",
+          "deployment:usage:view",
+          "deployment:data:sync",
         ],
       },
     },
@@ -9046,8 +9181,8 @@ const schema122 = {
     name: { type: "string", description: "The name given to the deploy key at creation." },
   },
 };
-const schema124 = { pattern: "^[0-9]+$", type: "string" };
-const schema125 = {
+const schema125 = { pattern: "^[0-9]+$", type: "string" };
+const schema126 = {
   oneOf: [
     { type: "string", enum: ["vercel"] },
     { type: "object", required: ["oauthApp"], properties: { oauthApp: { type: "string" } } },
@@ -9173,14 +9308,16 @@ function validate55(
               data1 === "deployment:functions:runTestQuery" ||
               data1 === "deployment:auditLog:view" ||
               data1 === "deployment:usageLimits:view" ||
-              data1 === "deployment:usageLimits:write"
+              data1 === "deployment:usageLimits:write" ||
+              data1 === "deployment:usage:view" ||
+              data1 === "deployment:data:sync"
             )
           ) {
             const err5 = {
               instancePath: instancePath + "/allowedActions/" + i0,
               schemaPath: "#/properties/allowedActions/items/enum",
               keyword: "enum",
-              params: { allowedValues: schema122.properties.allowedActions.items.enum },
+              params: { allowedValues: schema123.properties.allowedActions.items.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -9325,7 +9462,7 @@ function validate55(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema122.properties.expiresAt.type },
+          params: { type: schema123.properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -9377,7 +9514,7 @@ function validate55(
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
           keyword: "type",
-          params: { type: schema122.properties.lastUsedTime.type },
+          params: { type: schema123.properties.lastUsedTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -9439,7 +9576,7 @@ function validate55(
           instancePath: instancePath + "/managedBy",
           schemaPath: "#/components/schemas/ManagedBy/oneOf/0/enum",
           keyword: "enum",
-          params: { allowedValues: schema125.oneOf[0].enum },
+          params: { allowedValues: schema126.oneOf[0].enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -9695,10 +9832,10 @@ function validate53(
 }
 validate53.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
 export const ajvCreatePreviewDeployKeyResponse = validate58;
-const schema126 = {
+const schema127 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1create_preview_deploy_key/post/responses/200/content/application~1json/schema",
 };
-const schema127 = {
+const schema128 = {
   type: "object",
   required: ["previewDeployKey"],
   properties: {
@@ -9805,10 +9942,10 @@ validate58.evaluated = {
   dynamicItems: false,
 };
 export const ajvListPreviewDeployKeysResponse = validate61;
-const schema129 = {
+const schema130 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1list_preview_deploy_keys/get/responses/200/content/application~1json/schema",
 };
-const schema130 = {
+const schema131 = {
   type: "object",
   required: ["items"],
   properties: {
@@ -9925,10 +10062,10 @@ function validate61(
 }
 validate61.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
 export const ajvListPersonalAccessTokensResponse = validate65;
-const schema131 = {
+const schema132 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1list_personal_access_tokens/get/responses/200/content/application~1json/schema",
 };
-const schema132 = {
+const schema133 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -9936,7 +10073,7 @@ const schema132 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema133 = {
+const schema134 = {
   type: "object",
   required: ["id", "name", "creationTime"],
   properties: {
@@ -10035,7 +10172,7 @@ function validate67(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema133.properties.expiresAt.type },
+          params: { type: schema134.properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10087,7 +10224,7 @@ function validate67(
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
           keyword: "type",
-          params: { type: schema133.properties.lastUsedTime.type },
+          params: { type: schema134.properties.lastUsedTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10358,7 +10495,7 @@ function validate66(
               instancePath: instancePath + "/pagination/nextCursor",
               schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
-              params: { type: schema114.properties.nextCursor.type },
+              params: { type: schema21.properties.nextCursor.type },
               message: "must be string,null",
             };
             if (vErrors === null) {
@@ -10436,10 +10573,10 @@ validate65.evaluated = {
   dynamicItems: false,
 };
 export const ajvCreatePersonalAccessTokenResponse = validate70;
-const schema138 = {
+const schema139 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1create_personal_access_token/post/responses/200/content/application~1json/schema",
 };
-const schema139 = {
+const schema140 = {
   type: "object",
   required: ["accessToken"],
   properties: {
@@ -10515,10 +10652,10 @@ function validate70(
 }
 validate70.evaluated = { props: { accessToken: true }, dynamicProps: false, dynamicItems: false };
 export const ajvListTeamAccessTokensResponse = validate71;
-const schema140 = {
+const schema141 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_access_tokens/get/responses/200/content/application~1json/schema",
 };
-const schema141 = {
+const schema142 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -10530,7 +10667,7 @@ const schema141 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema142 = {
+const schema143 = {
   type: "object",
   required: ["id", "name", "creationTime"],
   properties: {
@@ -10736,7 +10873,7 @@ function validate73(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema142.properties.expiresAt.type },
+          params: { type: schema143.properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10788,7 +10925,7 @@ function validate73(
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
           keyword: "type",
-          params: { type: schema142.properties.lastUsedTime.type },
+          params: { type: schema143.properties.lastUsedTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10966,7 +11103,7 @@ function validate72(
               instancePath: instancePath + "/pagination/nextCursor",
               schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
-              params: { type: schema114.properties.nextCursor.type },
+              params: { type: schema21.properties.nextCursor.type },
               message: "must be string,null",
             };
             if (vErrors === null) {
@@ -11044,10 +11181,10 @@ validate71.evaluated = {
   dynamicItems: false,
 };
 export const ajvGetTokenDetailsResponse = validate76;
-const schema146 = {
+const schema147 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1token_details/get/responses/200/content/application~1json/schema",
 };
-const schema147 = {
+const schema148 = {
   oneOf: [
     {
       type: "object",
@@ -11317,7 +11454,7 @@ function validate77(
           instancePath: instancePath + "/type",
           schemaPath: "#/oneOf/0/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema147.oneOf[0].properties.type.enum },
+          params: { allowedValues: schema148.oneOf[0].properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -11556,7 +11693,7 @@ function validate77(
           instancePath: instancePath + "/type",
           schemaPath: "#/oneOf/1/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema147.oneOf[1].properties.type.enum },
+          params: { allowedValues: schema148.oneOf[1].properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -11656,10 +11793,10 @@ function validate76(
 }
 validate76.evaluated = { dynamicProps: true, dynamicItems: false };
 export const ajvListCustomDomainsResponse = validate79;
-const schema154 = {
+const schema155 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1custom_domains/get/responses/200/content/application~1json/schema",
 };
-const schema155 = {
+const schema156 = {
   type: "object",
   required: ["domains"],
   properties: {
@@ -11670,7 +11807,7 @@ const schema155 = {
     },
   },
 };
-const schema156 = {
+const schema157 = {
   type: "object",
   required: ["creationTime", "deploymentName", "requestDestination", "domain"],
   properties: {
@@ -11696,7 +11833,7 @@ const schema156 = {
     },
   },
 };
-const schema157 = { type: "string", enum: ["convexCloud", "convexSite"] };
+const schema158 = { type: "string", enum: ["convexCloud", "convexSite"] };
 function validate81(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -11845,7 +11982,7 @@ function validate81(
           instancePath: instancePath + "/requestDestination",
           schemaPath: "#/components/schemas/RequestDestination/enum",
           keyword: "enum",
-          params: { allowedValues: schema157.enum },
+          params: { allowedValues: schema158.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -11863,7 +12000,7 @@ function validate81(
           instancePath: instancePath + "/verificationTime",
           schemaPath: "#/properties/verificationTime/type",
           keyword: "type",
-          params: { type: schema156.properties.verificationTime.type },
+          params: { type: schema157.properties.verificationTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -12009,15 +12146,15 @@ function validate79(
 }
 validate79.evaluated = { props: { domains: true }, dynamicProps: false, dynamicItems: false };
 export const ajvListTeamMembersResponse = validate84;
-const schema158 = {
+const schema159 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_members/get/responses/200/content/application~1json/schema",
 };
-const schema159 = {
+const schema160 = {
   type: "object",
   required: ["items"],
   properties: { items: { type: "array", items: { $ref: "#/components/schemas/TeamMember" } } },
 };
-const schema160 = {
+const schema161 = {
   type: "object",
   required: ["id", "email", "role"],
   properties: {
@@ -12037,15 +12174,15 @@ const schema160 = {
     },
   },
 };
-const schema164 = { type: "string", enum: ["admin", "developer", "custom"] };
-const schema161 = {
+const schema165 = { type: "string", enum: ["admin", "developer", "custom"] };
+const schema162 = {
   type: "object",
   description:
     "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
   required: ["id", "name"],
   properties: { id: { $ref: "#/components/schemas/CustomRoleId" }, name: { type: "string" } },
 };
-const schema162 = { pattern: "^[0-9]+$", type: "string" };
+const schema163 = { pattern: "^[0-9]+$", type: "string" };
 function validate87(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -12230,7 +12367,7 @@ function validate86(
           instancePath: instancePath + "/customRoles",
           schemaPath: "#/properties/customRoles/type",
           keyword: "type",
-          params: { type: schema160.properties.customRoles.type },
+          params: { type: schema161.properties.customRoles.type },
           message: "must be array,null",
         };
         if (vErrors === null) {
@@ -12316,7 +12453,7 @@ function validate86(
           instancePath: instancePath + "/name",
           schemaPath: "#/properties/name/type",
           keyword: "type",
-          params: { type: schema160.properties.name.type },
+          params: { type: schema161.properties.name.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -12349,7 +12486,7 @@ function validate86(
           instancePath: instancePath + "/role",
           schemaPath: "#/components/schemas/Role/enum",
           keyword: "enum",
-          params: { allowedValues: schema164.enum },
+          params: { allowedValues: schema165.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -12489,10 +12626,10 @@ function validate84(
 }
 validate84.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
 export const ajvCreateTeamResponse = validate91;
-const schema165 = {
+const schema166 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1create_team/post/responses/201/content/application~1json/schema",
 };
-const schema166 = {
+const schema167 = {
   type: "object",
   required: ["id", "name", "slug", "suspended", "referralCode"],
   properties: {
@@ -12509,8 +12646,8 @@ const schema166 = {
     suspended: { type: "boolean" },
   },
 };
-const schema171 = { type: "string" };
 const schema172 = { type: "string" };
+const schema173 = { type: "string" };
 function validate92(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -12740,7 +12877,7 @@ function validate92(
           instancePath: instancePath + "/defaultRegion",
           schemaPath: "#/components/schemas/RegionName/enum",
           keyword: "enum",
-          params: { allowedValues: schema31.enum },
+          params: { allowedValues: schema32.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -12870,7 +13007,7 @@ function validate92(
           instancePath: instancePath + "/managedBy",
           schemaPath: "#/components/schemas/ManagedBy/oneOf/0/enum",
           keyword: "enum",
-          params: { allowedValues: schema125.oneOf[0].enum },
+          params: { allowedValues: schema126.oneOf[0].enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -13012,7 +13149,7 @@ function validate92(
           instancePath: instancePath + "/managedByUrl",
           schemaPath: "#/properties/managedByUrl/type",
           keyword: "type",
-          params: { type: schema166.properties.managedByUrl.type },
+          params: { type: schema167.properties.managedByUrl.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -13174,7 +13311,7 @@ function validate92(
           instancePath: instancePath + "/ssoLoginId",
           schemaPath: "#/properties/ssoLoginId/type",
           keyword: "type",
-          params: { type: schema166.properties.ssoLoginId.type },
+          params: { type: schema167.properties.ssoLoginId.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -13277,10 +13414,10 @@ validate91.evaluated = {
   dynamicItems: false,
 };
 export const ajvCreateTeamAccessTokenResponse = validate94;
-const schema175 = {
+const schema176 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1create_access_token/post/responses/201/content/application~1json/schema",
 };
-const schema176 = {
+const schema177 = {
   type: "object",
   required: ["accessToken", "tokenType"],
   properties: { accessToken: { type: "string" }, tokenType: { type: "string" } },
@@ -13392,10 +13529,10 @@ validate94.evaluated = {
   dynamicItems: false,
 };
 export const ajvListAuditLogEventsResponse = validate95;
-const schema177 = {
+const schema178 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_audit_log_events/get/responses/200/content/application~1json/schema",
 };
-const schema178 = {
+const schema179 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -13403,7 +13540,7 @@ const schema178 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema179 = {
+const schema180 = {
   type: "object",
   required: ["teamId", "actor", "action", "createTime", "metadata"],
   properties: {
@@ -13507,8 +13644,8 @@ const schema179 = {
     teamId: { $ref: "#/components/schemas/TeamId", description: "Team ID" },
   },
 };
-const schema184 = {};
-const schema180 = {
+const schema185 = {};
+const schema181 = {
   oneOf: [
     {
       type: "object",
@@ -13620,7 +13757,7 @@ function validate98(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema180.oneOf[0].properties.kind.enum },
+          params: { allowedValues: schema181.oneOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -13707,7 +13844,7 @@ function validate98(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/1/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema180.oneOf[1].properties.kind.enum },
+          params: { allowedValues: schema181.oneOf[1].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -13820,7 +13957,7 @@ function validate98(
             instancePath: instancePath + "/client_id",
             schemaPath: "#/oneOf/2/properties/client_id/type",
             keyword: "type",
-            params: { type: schema180.oneOf[2].properties.client_id.type },
+            params: { type: schema181.oneOf[2].properties.client_id.type },
             message: "must be string,null",
           };
           if (vErrors === null) {
@@ -13853,7 +13990,7 @@ function validate98(
             instancePath: instancePath + "/kind",
             schemaPath: "#/oneOf/2/properties/kind/enum",
             keyword: "enum",
-            params: { allowedValues: schema180.oneOf[2].properties.kind.enum },
+            params: { allowedValues: schema181.oneOf[2].properties.kind.enum },
             message: "must be equal to one of the allowed values",
           };
           if (vErrors === null) {
@@ -14093,7 +14230,7 @@ function validate98(
               instancePath: instancePath + "/kind",
               schemaPath: "#/oneOf/3/properties/kind/enum",
               keyword: "enum",
-              params: { allowedValues: schema180.oneOf[3].properties.kind.enum },
+              params: { allowedValues: schema181.oneOf[3].properties.kind.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -14350,7 +14487,7 @@ function validate97(
           instancePath: instancePath + "/action",
           schemaPath: "#/properties/action/enum",
           keyword: "enum",
-          params: { allowedValues: schema179.properties.action.enum },
+          params: { allowedValues: schema180.properties.action.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -14382,7 +14519,7 @@ function validate97(
           instancePath: instancePath + "/clientIp",
           schemaPath: "#/properties/clientIp/type",
           keyword: "type",
-          params: { type: schema179.properties.clientIp.type },
+          params: { type: schema180.properties.clientIp.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -14400,7 +14537,7 @@ function validate97(
           instancePath: instancePath + "/clientUserAgent",
           schemaPath: "#/properties/clientUserAgent/type",
           keyword: "type",
-          params: { type: schema179.properties.clientUserAgent.type },
+          params: { type: schema180.properties.clientUserAgent.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -14614,7 +14751,7 @@ function validate96(
               instancePath: instancePath + "/pagination/nextCursor",
               schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
-              params: { type: schema114.properties.nextCursor.type },
+              params: { type: schema21.properties.nextCursor.type },
               message: "must be string,null",
             };
             if (vErrors === null) {
@@ -14692,17 +14829,17 @@ validate95.evaluated = {
   dynamicItems: false,
 };
 export const ajvListPendingTeamInvitesResponse = validate102;
-const schema187 = {
+const schema188 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_pending_invites/get/responses/200/content/application~1json/schema",
 };
-const schema188 = {
+const schema189 = {
   type: "object",
   required: ["items"],
   properties: {
     items: { type: "array", items: { $ref: "#/components/schemas/InvitationResponse" } },
   },
 };
-const schema189 = {
+const schema190 = {
   type: "object",
   required: ["email", "expired", "role"],
   properties: {
@@ -14782,7 +14919,7 @@ function validate104(
           instancePath: instancePath + "/customRoles",
           schemaPath: "#/properties/customRoles/type",
           keyword: "type",
-          params: { type: schema189.properties.customRoles.type },
+          params: { type: schema190.properties.customRoles.type },
           message: "must be array,null",
         };
         if (vErrors === null) {
@@ -14866,7 +15003,7 @@ function validate104(
           instancePath: instancePath + "/role",
           schemaPath: "#/components/schemas/Role/enum",
           keyword: "enum",
-          params: { allowedValues: schema164.enum },
+          params: { allowedValues: schema165.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -15006,10 +15143,10 @@ function validate102(
 }
 validate102.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
 export const ajvListDefaultEnvironmentVariablesResponse = validate108;
-const schema191 = {
+const schema192 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1list_default_environment_variables/get/responses/200/content/application~1json/schema",
 };
-const schema192 = {
+const schema193 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -15020,7 +15157,7 @@ const schema192 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema193 = {
+const schema194 = {
   type: "object",
   required: ["name", "value", "deploymentTypes"],
   properties: {
@@ -15119,7 +15256,7 @@ function validate110(
               instancePath: instancePath + "/deploymentTypes/" + i0,
               schemaPath: "#/components/schemas/DeploymentType/enum",
               keyword: "enum",
-              params: { allowedValues: schema25.enum },
+              params: { allowedValues: schema26.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -15323,7 +15460,7 @@ function validate109(
               instancePath: instancePath + "/pagination/nextCursor",
               schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
-              params: { type: schema114.properties.nextCursor.type },
+              params: { type: schema21.properties.nextCursor.type },
               message: "must be string,null",
             };
             if (vErrors === null) {
@@ -15401,10 +15538,10 @@ validate108.evaluated = {
   dynamicItems: false,
 };
 export const ajvCreateCustomRoleResponse = validate113;
-const schema196 = {
+const schema197 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1create_custom_role/post/responses/201/content/application~1json/schema",
 };
-const schema197 = {
+const schema198 = {
   type: "object",
   required: ["id", "teamId", "name", "statements", "createTime"],
   properties: {
@@ -15417,7 +15554,7 @@ const schema197 = {
     teamId: { $ref: "#/components/schemas/TeamId" },
   },
 };
-const schema200 = {
+const schema201 = {
   type: "object",
   description: "A single permission rule within a custom role.",
   required: ["effect", "actions", "resource"],
@@ -15432,19 +15569,19 @@ const schema200 = {
     },
   },
 };
-const schema204 = {
+const schema205 = {
   type: "string",
   description: "Whether a rule grants or revokes access.",
   enum: ["allow", "deny"],
 };
-const schema201 = {
+const schema202 = {
   oneOf: [
     { $ref: "#/components/schemas/RoleStatementWildcardAction" },
     { type: "array", items: { $ref: "#/components/schemas/RoleStatementAction" } },
   ],
 };
-const schema202 = { type: "string", enum: ["*"] };
-const schema203 = {
+const schema203 = { type: "string", enum: ["*"] };
+const schema204 = {
   type: "string",
   description: "An action that can be allowed or denied by a custom role statement.",
   enum: [
@@ -15534,6 +15671,7 @@ const schema203 = {
     "deployment:metrics:view",
     "deployment:data:view",
     "deployment:data:write",
+    "deployment:data:sync",
     "deployment:backups:download",
     "deployment:functions:actAsUser",
     "deployment:functions:runInternalQueries",
@@ -15543,6 +15681,7 @@ const schema203 = {
     "deployment:auditLog:view",
     "deployment:usageLimits:view",
     "deployment:usageLimits:write",
+    "deployment:usage:view",
   ],
 };
 function validate116(
@@ -15582,7 +15721,7 @@ function validate116(
       instancePath,
       schemaPath: "#/components/schemas/RoleStatementWildcardAction/enum",
       keyword: "enum",
-      params: { allowedValues: schema202.enum },
+      params: { allowedValues: schema203.enum },
       message: "must be equal to one of the allowed values",
     };
     if (vErrors === null) {
@@ -15705,6 +15844,7 @@ function validate116(
           data0 === "deployment:metrics:view" ||
           data0 === "deployment:data:view" ||
           data0 === "deployment:data:write" ||
+          data0 === "deployment:data:sync" ||
           data0 === "deployment:backups:download" ||
           data0 === "deployment:functions:actAsUser" ||
           data0 === "deployment:functions:runInternalQueries" ||
@@ -15713,14 +15853,15 @@ function validate116(
           data0 === "deployment:functions:runTestQuery" ||
           data0 === "deployment:auditLog:view" ||
           data0 === "deployment:usageLimits:view" ||
-          data0 === "deployment:usageLimits:write"
+          data0 === "deployment:usageLimits:write" ||
+          data0 === "deployment:usage:view"
         )
       ) {
         const err3 = {
           instancePath: instancePath + "/" + i0,
           schemaPath: "#/components/schemas/RoleStatementAction/enum",
           keyword: "enum",
-          params: { allowedValues: schema203.enum },
+          params: { allowedValues: schema204.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -15881,7 +16022,7 @@ function validate115(
           instancePath: instancePath + "/effect",
           schemaPath: "#/components/schemas/RoleStatementEffect/enum",
           keyword: "enum",
-          params: { allowedValues: schema204.enum },
+          params: { allowedValues: schema205.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -16139,7 +16280,7 @@ function validate114(
           instancePath: instancePath + "/description",
           schemaPath: "#/properties/description/type",
           keyword: "type",
-          params: { type: schema197.properties.description.type },
+          params: { type: schema198.properties.description.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -16336,10 +16477,10 @@ validate113.evaluated = {
   dynamicItems: false,
 };
 export const ajvListCustomRolesResponse = validate120;
-const schema206 = {
+const schema207 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_custom_roles/get/responses/200/content/application~1json/schema",
 };
-const schema207 = {
+const schema208 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -16554,7 +16695,7 @@ function validate122(
           instancePath: instancePath + "/description",
           schemaPath: "#/properties/description/type",
           keyword: "type",
-          params: { type: schema197.properties.description.type },
+          params: { type: schema198.properties.description.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -16835,7 +16976,7 @@ function validate121(
               instancePath: instancePath + "/pagination/nextCursor",
               schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
-              params: { type: schema114.properties.nextCursor.type },
+              params: { type: schema21.properties.nextCursor.type },
               message: "must be string,null",
             };
             if (vErrors === null) {
@@ -16913,7 +17054,7 @@ validate120.evaluated = {
   dynamicItems: false,
 };
 export const ajvUpdateCustomRoleResponse = validate126;
-const schema213 = {
+const schema214 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1update_custom_role/post/responses/200/content/application~1json/schema",
 };
 function validate127(
@@ -17123,7 +17264,7 @@ function validate127(
           instancePath: instancePath + "/description",
           schemaPath: "#/properties/description/type",
           keyword: "type",
-          params: { type: schema197.properties.description.type },
+          params: { type: schema198.properties.description.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -17322,7 +17463,7 @@ validate126.evaluated = {
 export const convexManagementResponseValidators = {
   GET: {
     "/projects/{project_id}": ajvGetProjectByIdResponse,
-    "/teams/{team_id}/list_projects": ajvListProjectsResponse,
+    "/teams/{team_id}/projects": ajvListProjectsResponse,
     "/projects/{project_id}/list_deployments": ajvListDeploymentsResponse,
     "/projects/{project_id}/deployment": ajvGetDeploymentInProjectByProjectIdResponse,
     "/teams/{team_id_or_slug}/projects/{project_slug}/deployment":
@@ -17377,9 +17518,9 @@ export const convexManagementResponseValidators = {
 export const convexManagementResponseDecimalPaths = {
   GET: {
     "/projects/{project_id}": [["id"], ["teamId"]],
-    "/teams/{team_id}/list_projects": [
-      ["*", "id"],
-      ["*", "teamId"],
+    "/teams/{team_id}/projects": [
+      ["items", "*", "id"],
+      ["items", "*", "teamId"],
     ],
     "/projects/{project_id}/list_deployments": [
       ["*", "creator"],

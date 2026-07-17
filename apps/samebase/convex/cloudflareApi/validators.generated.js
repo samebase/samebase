@@ -27996,9 +27996,9 @@ const schema385 = {
       deprecated: true,
       description: "Worker environment associated with the domain.",
       example: "production",
+      readOnly: true,
       type: "string",
       "x-auditable": true,
-      "x-stainless-terraform-configurability": "computed_optional",
     },
     hostname: {
       description:
@@ -28036,7 +28036,7 @@ const schema385 = {
       "x-stainless-terraform-configurability": "computed_optional",
     },
   },
-  required: ["id", "cert_id", "zone_id", "zone_name", "hostname", "service", "environment"],
+  required: ["id", "cert_id", "zone_id", "zone_name", "hostname", "service"],
   type: "object",
 };
 const schema384 = {
@@ -28374,26 +28374,28 @@ function validate405(
               }
               errors++;
             }
-            if (data1.environment === undefined) {
-              const err7 = {
-                instancePath: instancePath + "/result/" + i0,
-                schemaPath: "#/components/schemas/workers_Domain/required",
-                keyword: "required",
-                params: { missingProperty: "environment" },
-                message: "must have required property '" + "environment" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err7];
-              } else {
-                vErrors.push(err7);
-              }
-              errors++;
-            }
             if (data1.cert_id !== undefined) {
               if (!(typeof data1.cert_id === "string")) {
-                const err8 = {
+                const err7 = {
                   instancePath: instancePath + "/result/" + i0 + "/cert_id",
                   schemaPath: "#/components/schemas/workers_Domain/properties/cert_id/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err7];
+                } else {
+                  vErrors.push(err7);
+                }
+                errors++;
+              }
+            }
+            if (data1.environment !== undefined) {
+              if (typeof data1.environment !== "string") {
+                const err8 = {
+                  instancePath: instancePath + "/result/" + i0 + "/environment",
+                  schemaPath: "#/components/schemas/workers_Domain/properties/environment/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -28406,11 +28408,11 @@ function validate405(
                 errors++;
               }
             }
-            if (data1.environment !== undefined) {
-              if (typeof data1.environment !== "string") {
+            if (data1.hostname !== undefined) {
+              if (typeof data1.hostname !== "string") {
                 const err9 = {
-                  instancePath: instancePath + "/result/" + i0 + "/environment",
-                  schemaPath: "#/components/schemas/workers_Domain/properties/environment/type",
+                  instancePath: instancePath + "/result/" + i0 + "/hostname",
+                  schemaPath: "#/components/schemas/workers_Domain/properties/hostname/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -28423,11 +28425,11 @@ function validate405(
                 errors++;
               }
             }
-            if (data1.hostname !== undefined) {
-              if (typeof data1.hostname !== "string") {
+            if (data1.id !== undefined) {
+              if (typeof data1.id !== "string") {
                 const err10 = {
-                  instancePath: instancePath + "/result/" + i0 + "/hostname",
-                  schemaPath: "#/components/schemas/workers_Domain/properties/hostname/type",
+                  instancePath: instancePath + "/result/" + i0 + "/id",
+                  schemaPath: "#/components/schemas/workers_Domain/properties/id/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -28440,11 +28442,11 @@ function validate405(
                 errors++;
               }
             }
-            if (data1.id !== undefined) {
-              if (typeof data1.id !== "string") {
+            if (data1.service !== undefined) {
+              if (typeof data1.service !== "string") {
                 const err11 = {
-                  instancePath: instancePath + "/result/" + i0 + "/id",
-                  schemaPath: "#/components/schemas/workers_Domain/properties/id/type",
+                  instancePath: instancePath + "/result/" + i0 + "/service",
+                  schemaPath: "#/components/schemas/workers_Domain/properties/service/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -28457,11 +28459,11 @@ function validate405(
                 errors++;
               }
             }
-            if (data1.service !== undefined) {
-              if (typeof data1.service !== "string") {
+            if (data1.zone_id !== undefined) {
+              if (typeof data1.zone_id !== "string") {
                 const err12 = {
-                  instancePath: instancePath + "/result/" + i0 + "/service",
-                  schemaPath: "#/components/schemas/workers_Domain/properties/service/type",
+                  instancePath: instancePath + "/result/" + i0 + "/zone_id",
+                  schemaPath: "#/components/schemas/workers_Domain/properties/zone_id/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -28474,11 +28476,11 @@ function validate405(
                 errors++;
               }
             }
-            if (data1.zone_id !== undefined) {
-              if (typeof data1.zone_id !== "string") {
+            if (data1.zone_name !== undefined) {
+              if (typeof data1.zone_name !== "string") {
                 const err13 = {
-                  instancePath: instancePath + "/result/" + i0 + "/zone_id",
-                  schemaPath: "#/components/schemas/workers_Domain/properties/zone_id/type",
+                  instancePath: instancePath + "/result/" + i0 + "/zone_name",
+                  schemaPath: "#/components/schemas/workers_Domain/properties/zone_name/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -28491,25 +28493,8 @@ function validate405(
                 errors++;
               }
             }
-            if (data1.zone_name !== undefined) {
-              if (typeof data1.zone_name !== "string") {
-                const err14 = {
-                  instancePath: instancePath + "/result/" + i0 + "/zone_name",
-                  schemaPath: "#/components/schemas/workers_Domain/properties/zone_name/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err14];
-                } else {
-                  vErrors.push(err14);
-                }
-                errors++;
-              }
-            }
           } else {
-            const err15 = {
+            const err14 = {
               instancePath: instancePath + "/result/" + i0,
               schemaPath: "#/components/schemas/workers_Domain/type",
               keyword: "type",
@@ -28517,15 +28502,15 @@ function validate405(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err15];
+              vErrors = [err14];
             } else {
-              vErrors.push(err15);
+              vErrors.push(err14);
             }
             errors++;
           }
         }
       } else {
-        const err16 = {
+        const err15 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/allOf/1/properties/result/type",
           keyword: "type",
@@ -28533,15 +28518,15 @@ function validate405(
           message: "must be array",
         };
         if (vErrors === null) {
-          vErrors = [err16];
+          vErrors = [err15];
         } else {
-          vErrors.push(err16);
+          vErrors.push(err15);
         }
         errors++;
       }
     }
   } else {
-    const err17 = {
+    const err16 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -28549,9 +28534,9 @@ function validate405(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err17];
+      vErrors = [err16];
     } else {
-      vErrors.push(err17);
+      vErrors.push(err16);
     }
     errors++;
   }
@@ -28732,26 +28717,28 @@ function validate411(
           }
           errors++;
         }
-        if (data0.environment === undefined) {
-          const err7 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Domain/required",
-            keyword: "required",
-            params: { missingProperty: "environment" },
-            message: "must have required property '" + "environment" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err7];
-          } else {
-            vErrors.push(err7);
-          }
-          errors++;
-        }
         if (data0.cert_id !== undefined) {
           if (!(typeof data0.cert_id === "string")) {
-            const err8 = {
+            const err7 = {
               instancePath: instancePath + "/result/cert_id",
               schemaPath: "#/components/schemas/workers_Domain/properties/cert_id/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err7];
+            } else {
+              vErrors.push(err7);
+            }
+            errors++;
+          }
+        }
+        if (data0.environment !== undefined) {
+          if (typeof data0.environment !== "string") {
+            const err8 = {
+              instancePath: instancePath + "/result/environment",
+              schemaPath: "#/components/schemas/workers_Domain/properties/environment/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -28764,11 +28751,11 @@ function validate411(
             errors++;
           }
         }
-        if (data0.environment !== undefined) {
-          if (typeof data0.environment !== "string") {
+        if (data0.hostname !== undefined) {
+          if (typeof data0.hostname !== "string") {
             const err9 = {
-              instancePath: instancePath + "/result/environment",
-              schemaPath: "#/components/schemas/workers_Domain/properties/environment/type",
+              instancePath: instancePath + "/result/hostname",
+              schemaPath: "#/components/schemas/workers_Domain/properties/hostname/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -28781,11 +28768,11 @@ function validate411(
             errors++;
           }
         }
-        if (data0.hostname !== undefined) {
-          if (typeof data0.hostname !== "string") {
+        if (data0.id !== undefined) {
+          if (typeof data0.id !== "string") {
             const err10 = {
-              instancePath: instancePath + "/result/hostname",
-              schemaPath: "#/components/schemas/workers_Domain/properties/hostname/type",
+              instancePath: instancePath + "/result/id",
+              schemaPath: "#/components/schemas/workers_Domain/properties/id/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -28798,11 +28785,11 @@ function validate411(
             errors++;
           }
         }
-        if (data0.id !== undefined) {
-          if (typeof data0.id !== "string") {
+        if (data0.service !== undefined) {
+          if (typeof data0.service !== "string") {
             const err11 = {
-              instancePath: instancePath + "/result/id",
-              schemaPath: "#/components/schemas/workers_Domain/properties/id/type",
+              instancePath: instancePath + "/result/service",
+              schemaPath: "#/components/schemas/workers_Domain/properties/service/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -28815,11 +28802,11 @@ function validate411(
             errors++;
           }
         }
-        if (data0.service !== undefined) {
-          if (typeof data0.service !== "string") {
+        if (data0.zone_id !== undefined) {
+          if (typeof data0.zone_id !== "string") {
             const err12 = {
-              instancePath: instancePath + "/result/service",
-              schemaPath: "#/components/schemas/workers_Domain/properties/service/type",
+              instancePath: instancePath + "/result/zone_id",
+              schemaPath: "#/components/schemas/workers_Domain/properties/zone_id/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -28832,11 +28819,11 @@ function validate411(
             errors++;
           }
         }
-        if (data0.zone_id !== undefined) {
-          if (typeof data0.zone_id !== "string") {
+        if (data0.zone_name !== undefined) {
+          if (typeof data0.zone_name !== "string") {
             const err13 = {
-              instancePath: instancePath + "/result/zone_id",
-              schemaPath: "#/components/schemas/workers_Domain/properties/zone_id/type",
+              instancePath: instancePath + "/result/zone_name",
+              schemaPath: "#/components/schemas/workers_Domain/properties/zone_name/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -28849,25 +28836,8 @@ function validate411(
             errors++;
           }
         }
-        if (data0.zone_name !== undefined) {
-          if (typeof data0.zone_name !== "string") {
-            const err14 = {
-              instancePath: instancePath + "/result/zone_name",
-              schemaPath: "#/components/schemas/workers_Domain/properties/zone_name/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err14];
-            } else {
-              vErrors.push(err14);
-            }
-            errors++;
-          }
-        }
       } else {
-        const err15 = {
+        const err14 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/components/schemas/workers_Domain/type",
           keyword: "type",
@@ -28875,15 +28845,15 @@ function validate411(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err15];
+          vErrors = [err14];
         } else {
-          vErrors.push(err15);
+          vErrors.push(err14);
         }
         errors++;
       }
     }
   } else {
-    const err16 = {
+    const err15 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -28891,9 +28861,9 @@ function validate411(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err16];
+      vErrors = [err15];
     } else {
-      vErrors.push(err16);
+      vErrors.push(err15);
     }
     errors++;
   }
@@ -29636,26 +29606,28 @@ function validate418(
           }
           errors++;
         }
-        if (data0.environment === undefined) {
-          const err7 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Domain/required",
-            keyword: "required",
-            params: { missingProperty: "environment" },
-            message: "must have required property '" + "environment" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err7];
-          } else {
-            vErrors.push(err7);
-          }
-          errors++;
-        }
         if (data0.cert_id !== undefined) {
           if (!(typeof data0.cert_id === "string")) {
-            const err8 = {
+            const err7 = {
               instancePath: instancePath + "/result/cert_id",
               schemaPath: "#/components/schemas/workers_Domain/properties/cert_id/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err7];
+            } else {
+              vErrors.push(err7);
+            }
+            errors++;
+          }
+        }
+        if (data0.environment !== undefined) {
+          if (typeof data0.environment !== "string") {
+            const err8 = {
+              instancePath: instancePath + "/result/environment",
+              schemaPath: "#/components/schemas/workers_Domain/properties/environment/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -29668,11 +29640,11 @@ function validate418(
             errors++;
           }
         }
-        if (data0.environment !== undefined) {
-          if (typeof data0.environment !== "string") {
+        if (data0.hostname !== undefined) {
+          if (typeof data0.hostname !== "string") {
             const err9 = {
-              instancePath: instancePath + "/result/environment",
-              schemaPath: "#/components/schemas/workers_Domain/properties/environment/type",
+              instancePath: instancePath + "/result/hostname",
+              schemaPath: "#/components/schemas/workers_Domain/properties/hostname/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -29685,11 +29657,11 @@ function validate418(
             errors++;
           }
         }
-        if (data0.hostname !== undefined) {
-          if (typeof data0.hostname !== "string") {
+        if (data0.id !== undefined) {
+          if (typeof data0.id !== "string") {
             const err10 = {
-              instancePath: instancePath + "/result/hostname",
-              schemaPath: "#/components/schemas/workers_Domain/properties/hostname/type",
+              instancePath: instancePath + "/result/id",
+              schemaPath: "#/components/schemas/workers_Domain/properties/id/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -29702,11 +29674,11 @@ function validate418(
             errors++;
           }
         }
-        if (data0.id !== undefined) {
-          if (typeof data0.id !== "string") {
+        if (data0.service !== undefined) {
+          if (typeof data0.service !== "string") {
             const err11 = {
-              instancePath: instancePath + "/result/id",
-              schemaPath: "#/components/schemas/workers_Domain/properties/id/type",
+              instancePath: instancePath + "/result/service",
+              schemaPath: "#/components/schemas/workers_Domain/properties/service/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -29719,11 +29691,11 @@ function validate418(
             errors++;
           }
         }
-        if (data0.service !== undefined) {
-          if (typeof data0.service !== "string") {
+        if (data0.zone_id !== undefined) {
+          if (typeof data0.zone_id !== "string") {
             const err12 = {
-              instancePath: instancePath + "/result/service",
-              schemaPath: "#/components/schemas/workers_Domain/properties/service/type",
+              instancePath: instancePath + "/result/zone_id",
+              schemaPath: "#/components/schemas/workers_Domain/properties/zone_id/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -29736,11 +29708,11 @@ function validate418(
             errors++;
           }
         }
-        if (data0.zone_id !== undefined) {
-          if (typeof data0.zone_id !== "string") {
+        if (data0.zone_name !== undefined) {
+          if (typeof data0.zone_name !== "string") {
             const err13 = {
-              instancePath: instancePath + "/result/zone_id",
-              schemaPath: "#/components/schemas/workers_Domain/properties/zone_id/type",
+              instancePath: instancePath + "/result/zone_name",
+              schemaPath: "#/components/schemas/workers_Domain/properties/zone_name/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -29753,25 +29725,8 @@ function validate418(
             errors++;
           }
         }
-        if (data0.zone_name !== undefined) {
-          if (typeof data0.zone_name !== "string") {
-            const err14 = {
-              instancePath: instancePath + "/result/zone_name",
-              schemaPath: "#/components/schemas/workers_Domain/properties/zone_name/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err14];
-            } else {
-              vErrors.push(err14);
-            }
-            errors++;
-          }
-        }
       } else {
-        const err15 = {
+        const err14 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/components/schemas/workers_Domain/type",
           keyword: "type",
@@ -29779,15 +29734,15 @@ function validate418(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err15];
+          vErrors = [err14];
         } else {
-          vErrors.push(err15);
+          vErrors.push(err14);
         }
         errors++;
       }
     }
   } else {
-    const err16 = {
+    const err15 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -29795,9 +29750,9 @@ function validate418(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err16];
+      vErrors = [err15];
     } else {
-      vErrors.push(err16);
+      vErrors.push(err15);
     }
     errors++;
   }
