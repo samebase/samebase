@@ -147,11 +147,17 @@ proves the expected secret name and classification on each trigger and the absen
 trigger's key. It cannot prove the write-only value, so Samebase retains the provider key name on
 the dependency and relies on a real provider build to prove end-to-end deployment.
 
-Deleting a vault detaches Samebase-managed Workers Builds triggers from every retained Worker before
-revoking the relationship's Convex keys. Deleting an account performs the same trigger detach and
-key revocation before provider access is discarded. This prevents retained Workers from continuing
-to run with revoked Samebase secrets and prevents independent API-key-created Convex credentials
-from surviving local account deletion.
+Deleting a vault removes Samebase's local app, resource, and dependency rows. It writes to a
+provider only for a resource the user explicitly selected for deletion. A retained Worker keeps its
+Builds triggers, variables, repository connection, and builds unchanged. A retained Convex project
+or deployment keeps its production and preview deploy keys unchanged. When a Worker is explicitly
+selected for deletion, its Builds triggers are subordinate resources and are deleted immediately
+before the Worker itself.
+
+Account deletion follows `specs/113_ACCOUNT_DELETION_SPEC.md`: it may revoke Samebase's supported
+OAuth grants and removes local provider credentials, but it does not change Workers, Builds
+triggers, Convex projects or deployments, or Convex deploy keys. Previously distributed deploy keys
+can remain usable until the user revokes Samebase in Convex Authorized Applications.
 
 ### Shared-backend fixture trigger contract
 
@@ -206,7 +212,10 @@ Expo hosting, or another hosting provider. Convex-only and resource-empty apps r
 
 Provider-mocked tests must prove root-directory normalization, stable app/resource foreign keys,
 exact trigger payloads, least-privilege environment-variable payloads, dependency-owned deploy-key
-state, idempotent rewiring, drift detection, and cleanup after partial failure.
+state, idempotent rewiring, drift detection, and cleanup after partial failure. They must also prove
+that retained provider resources produce no Cloudflare or Convex calls during vault or account
+deletion, while an explicitly selected Worker deletion still removes its triggers and then the
+Worker.
 
 Live fixture validation must prove Cloudflare path filtering, root-relative build execution,
 write-only secret readback, branch preview creation, deployment URL injection, GitHub check counts,

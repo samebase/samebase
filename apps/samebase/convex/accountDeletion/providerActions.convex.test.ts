@@ -12,38 +12,6 @@ import { makeConvexTest } from "../test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 const workflowId = "account-deletion-workflow-1";
-const dependencyDeployKeys = [
-  {
-    suffix: "one",
-    deployKeys: {
-      production: {
-        state: "created",
-        name: "production-key-one",
-        deploymentName: "recorded-production-one",
-      },
-      preview: {
-        state: "created",
-        name: "preview-key-one",
-        projectId: "1001",
-      },
-    },
-  },
-  {
-    suffix: "two",
-    deployKeys: {
-      production: {
-        state: "created",
-        name: "production-key-two",
-        deploymentName: "recorded-production-two",
-      },
-      preview: {
-        state: "created",
-        name: "preview-key-two",
-        projectId: "1002",
-      },
-    },
-  },
-] as const;
 
 afterEach(() => {
   callCloudflareMcpToolMock.mockReset();
@@ -90,16 +58,8 @@ function readRequestUrl(input: RequestInfo | URL): string {
   return input instanceof URL ? input.toString() : input.url;
 }
 
-async function seedConvexDependencyDeployKeys(t: ConvexTest, userId: Id<"users">): Promise<void> {
-  await t.run(async (ctx) => {
-    await ctx.db.insert("providerConnections", {
-      kind: "convex",
-      userId,
-      auth: { method: "api_key", credential: "test-convex-credential" },
-      teamId: "test-team",
-      createdAt: 1,
-      updatedAt: 1,
-    });
+async function seedRetainedProviderResources(t: ConvexTest, userId: Id<"users">) {
+  return await t.run(async (ctx) => {
     const vaultId = await ctx.db.insert("vaults", {
       userId,
       deletion: { state: "not_deleting" },
@@ -117,80 +77,13 @@ async function seedConvexDependencyDeployKeys(t: ConvexTest, userId: Id<"users">
       rootDirectory: "packages/backend",
       createdAt: 1,
     });
-
-    for (const dependency of dependencyDeployKeys) {
-      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId,
-        userId,
-        appId: workerAppId,
-        accountId: "cloudflare-account",
-        workerName: `worker-${dependency.suffix}`,
-        workerTag: `worker-tag-${dependency.suffix}`,
-        origin: "selected_existing",
-        builds: { state: "not_connected" },
-        connectedAt: 1,
-        lastObservedAt: 1,
-      });
-      const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
-        vaultId,
-        userId,
-        appId: convexAppId,
-        projectId: `current-project-${dependency.suffix}`,
-        teamSlug: "test-team",
-        projectSlug: `project-${dependency.suffix}`,
-        deploymentName: `current-production-${dependency.suffix}`,
-        deploymentType: "prod",
-        cloudUrl: `https://current-production-${dependency.suffix}.convex.cloud`,
-        siteUrl: `https://current-production-${dependency.suffix}.convex.site`,
-        previewDeployment: { state: "not_ensured" },
-        origin: "selected_existing",
-        connectedAt: 1,
-        lastObservedAt: 1,
-      });
-      await ctx.db.insert("vaultWorkerDeploymentDependencies", {
-        vaultId,
-        userId,
-        workerId,
-        convexDeploymentId,
-        wiring: {
-          state: "wired",
-          deployKeys: dependency.deployKeys,
-        },
-        createdAt: 1,
-        updatedAt: 1,
-      });
-    }
-  });
-}
-
-async function seedCloudflareBuildTargets(t: ConvexTest, userId: Id<"users">) {
-  return await t.run(async (ctx) => {
-    await ctx.db.insert("providerConnections", {
-      kind: "cloudflare",
-      userId,
-      auth: { method: "api_key", credential: "test-cloudflare-credential" },
-      defaultAccount: { state: "not_selected" },
-      createdAt: 1,
-      updatedAt: 1,
-    });
-    const vaultId = await ctx.db.insert("vaults", {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "not_connected",
-    });
-    const appId = await ctx.db.insert("vaultApps", {
+    const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
       vaultId,
       userId,
-      rootDirectory: "apps/web",
-      createdAt: 1,
-    });
-    const connectedWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
-      vaultId,
-      userId,
-      appId,
-      accountId: "connected-account",
-      workerName: "connected-worker",
-      workerTag: "connected-worker-tag",
+      appId: workerAppId,
+      accountId: "cloudflare-account",
+      workerName: "retained-worker",
+      workerTag: "retained-worker-tag",
       origin: "selected_existing",
       builds: {
         state: "connected",
@@ -200,31 +93,58 @@ async function seedCloudflareBuildTargets(t: ConvexTest, userId: Id<"users">) {
         pathIncludes: ["apps/web/*"],
         pathExcludes: [],
         production: {
-          triggerUuid: "recorded-production-trigger",
+          triggerUuid: "production-trigger",
           buildTokenUuid: "recorded-build-token",
         },
         preview: {
-          triggerUuid: "recorded-preview-trigger",
+          triggerUuid: "preview-trigger",
           buildTokenUuid: "recorded-build-token",
         },
       },
       connectedAt: 1,
       lastObservedAt: 1,
     });
-    const notConnectedWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
+    const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
       vaultId,
       userId,
-      appId,
-      accountId: "not-connected-account",
-      workerName: "not-connected-worker",
-      workerTag: "not-connected-worker-tag",
+      appId: convexAppId,
+      projectId: "convex-project",
+      teamSlug: "test-team",
+      projectSlug: "backend",
+      deploymentName: "backend-production",
+      deploymentType: "prod",
+      cloudUrl: "https://backend-production.convex.cloud",
+      siteUrl: "https://backend-production.convex.site",
+      previewDeployment: { state: "not_ensured" },
       origin: "selected_existing",
-      builds: { state: "not_connected" },
       connectedAt: 1,
       lastObservedAt: 1,
     });
+    const dependencyId = await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+      vaultId,
+      userId,
+      workerId,
+      convexDeploymentId,
+      wiring: {
+        state: "wired",
+        deployKeys: {
+          production: {
+            state: "created",
+            name: "production-key",
+            deploymentName: "backend-production",
+          },
+          preview: {
+            state: "created",
+            name: "preview-key",
+            projectId: "convex-project",
+          },
+        },
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    });
 
-    return { connectedWorkerId, notConnectedWorkerId };
+    return { dependencyId, workerId };
   });
 }
 
@@ -276,6 +196,7 @@ describe("account deletion provider actions", () => {
         updatedAt: 1,
       });
     });
+    const resources = await seedRetainedProviderResources(t, userId);
     const fetch = vi.fn(async () => new Response(null, { status: 500 }));
     vi.stubGlobal("fetch", fetch);
 
@@ -290,230 +211,27 @@ describe("account deletion provider actions", () => {
       convex: { state: "local_delete_only" },
     });
     expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("paginates relation-owned Convex deploy keys without dropping a dependency", async () => {
-    const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
-    await seedConvexDependencyDeployKeys(t, userId);
-
-    const firstPage = await t.query(
-      internal.accountDeletion.providerActions.listConvexDependencyDeployKeys,
-      {
-        runId,
-        workflowId,
-        paginationOpts: { cursor: null, numItems: 1 },
-      },
-    );
-    expect(firstPage.page).toEqual([{ deployKeys: dependencyDeployKeys[0].deployKeys }]);
-    expect(firstPage.isDone).toBe(false);
-
-    const secondPage = await t.query(
-      internal.accountDeletion.providerActions.listConvexDependencyDeployKeys,
-      {
-        runId,
-        workflowId,
-        paginationOpts: { cursor: firstPage.continueCursor, numItems: 1 },
-      },
-    );
-    expect(secondPage.page).toEqual([{ deployKeys: dependencyDeployKeys[1].deployKeys }]);
-    expect(secondPage.isDone).toBe(true);
-  });
-
-  it("revokes created and creating relation-owned Convex deploy keys from their stored targets", async () => {
-    const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
-    await seedConvexDependencyDeployKeys(t, userId);
-    await t.run(async (ctx) => {
-      const dependencies = await ctx.db
-        .query("vaultWorkerDeploymentDependencies")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-      const dependency = dependencies.find(
-        (candidate) =>
-          candidate.wiring.deployKeys.production.state === "created" &&
-          candidate.wiring.deployKeys.production.name === "production-key-two",
-      );
-      if (!dependency) {
-        throw new Error("Expected second Worker dependency.");
-      }
-      const creatingRunId = await ctx.db.insert("appProvisioningRuns", {
-        userId,
-        vaultId: dependency.vaultId,
-        repositoryFullName: "ada/account-delete",
-        trigger: "wire_convex_build_access",
-        state: "failed",
-        currentStep: "wire_convex_build_access",
-        lastError: "Provider result was unknown.",
-        createdAt: 2,
-        updatedAt: 3,
-        completedAt: 3,
-      });
-      await ctx.db.patch(dependency._id, {
-        wiring: {
-          state: "not_wired",
-          deployKeys: {
-            production: {
-              state: "creating",
-              runId: creatingRunId,
-              name: "production-key-two",
-              deploymentName: "recorded-production-two",
-            },
-            preview: {
-              state: "creating",
-              runId: creatingRunId,
-              name: "preview-key-two",
-              projectId: "1002",
-            },
-          },
-        },
-      });
-    });
-    const requests: Array<{ body: string; url: string }> = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const request = input instanceof Request ? input : new Request(input, init);
-        requests.push({ body: await request.clone().text(), url: request.url });
-        return new Response("missing", { status: 404 });
-      }),
-    );
-
-    await expect(
-      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, {
-        runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({
-      github: { state: "not_connected" },
-      cloudflare: { state: "not_connected" },
-      convex: { state: "local_delete_only" },
-    });
-    expect(requests).toEqual([
-      {
-        body: JSON.stringify({ id: "production-key-one" }),
-        url: "https://api.convex.dev/v1/deployments/recorded-production-one/delete_deploy_key",
-      },
-      {
-        body: JSON.stringify({ id: "preview-key-one" }),
-        url: "https://api.convex.dev/v1/projects/1001/delete_preview_deploy_key",
-      },
-      {
-        body: JSON.stringify({ id: "production-key-two" }),
-        url: "https://api.convex.dev/v1/deployments/recorded-production-two/delete_deploy_key",
-      },
-      {
-        body: JSON.stringify({ id: "preview-key-two" }),
-        url: "https://api.convex.dev/v1/projects/1002/delete_preview_deploy_key",
-      },
-    ]);
-  });
-
-  it("detaches only connected Worker build triggers before locally deleting an API key", async () => {
-    const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
-    const workerIds = await seedCloudflareBuildTargets(t, userId);
-    callCloudflareMcpToolMock
-      .mockResolvedValueOnce(
-        JSON.stringify({
-          success: true,
-          errors: [],
-          messages: [],
-          result: [
-            { trigger_uuid: "provider-production-trigger" },
-            { trigger_uuid: "provider-preview-trigger" },
-          ],
-        }),
-      )
-      .mockResolvedValueOnce(
-        JSON.stringify({ success: true, errors: [], messages: [], result: null }),
-      )
-      .mockRejectedValueOnce(
-        new Error("Cloudflare MCP tool call failed: Error: Cloudflare API error: 12000: Not found"),
-      );
-
-    await expect(
-      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, {
-        runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({
-      github: { state: "not_connected" },
-      cloudflare: { state: "local_delete_only" },
-      convex: { state: "not_connected" },
-    });
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(3);
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toolArgs: {
-          code: expect.stringContaining(
-            "/accounts/connected-account/builds/workers/connected-worker-tag/triggers",
-          ),
-        },
-      }),
-    );
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toolArgs: {
-          code: expect.stringContaining(
-            "/accounts/connected-account/builds/triggers/provider-production-trigger",
-          ),
-        },
-      }),
-    );
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toolArgs: {
-          code: expect.stringContaining(
-            "/accounts/connected-account/builds/triggers/provider-preview-trigger",
-          ),
-        },
-      }),
-    );
-    expect(JSON.stringify(callCloudflareMcpToolMock.mock.calls)).not.toContain(
-      "not-connected-worker-tag",
-    );
-    expect(JSON.stringify(callCloudflareMcpToolMock.mock.calls)).not.toContain("/workers/workers/");
-
+    expect(callCloudflareMcpToolMock).not.toHaveBeenCalled();
     await expect(
       t.run(async (ctx) => ({
-        connected: await ctx.db.get(workerIds.connectedWorkerId),
-        notConnected: await ctx.db.get(workerIds.notConnectedWorkerId),
+        dependency: await ctx.db.get(resources.dependencyId),
+        worker: await ctx.db.get(resources.workerId),
       })),
     ).resolves.toMatchObject({
-      connected: { workerName: "connected-worker" },
-      notConnected: { workerName: "not-connected-worker" },
-    });
-  });
-
-  it("treats a missing connected Worker as already detached", async () => {
-    const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
-    await seedCloudflareBuildTargets(t, userId);
-    callCloudflareMcpToolMock.mockRejectedValueOnce(
-      new Error(
-        "Cloudflare MCP tool call failed: Error: Cloudflare API error: 10007: Worker not found",
-      ),
-    );
-
-    await expect(
-      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, {
-        runId,
-        workflowId,
-      }),
-    ).resolves.toMatchObject({
-      cloudflare: { state: "local_delete_only" },
-    });
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(1);
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toolArgs: {
-          code: expect.stringContaining(
-            "/accounts/connected-account/builds/workers/connected-worker-tag/triggers",
-          ),
+      dependency: {
+        wiring: {
+          state: "wired",
+          deployKeys: {
+            production: { name: "production-key" },
+            preview: { name: "preview-key" },
+          },
         },
-      }),
-    );
+      },
+      worker: {
+        workerName: "retained-worker",
+        builds: { state: "connected" },
+      },
+    });
   });
 
   it("revokes GitHub and native Cloudflare OAuth and flags Convex for manual revocation", async () => {
@@ -549,6 +267,7 @@ describe("account deletion provider actions", () => {
         updatedAt: 1,
       });
     });
+    await seedRetainedProviderResources(t, userId);
     vi.stubEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID", "github-client-test");
     vi.stubEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET", "github-secret-test");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client-test");
@@ -571,14 +290,16 @@ describe("account deletion provider actions", () => {
     expect(result.convex).toEqual({
       state: "manual_revocation_required",
       safeNotice:
-        "Convex OAuth cannot be revoked by Samebase. Samebase removed its recorded Worker deploy keys; revoke Samebase in Convex Authorized Applications to end the remaining OAuth grant.",
+        "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications.",
     });
+    expect(urls).toHaveLength(2);
     expect(urls).toEqual(
       expect.arrayContaining([
         expect.stringContaining("api.github.com/applications/github-client-test/grant"),
         "https://dash.cloudflare.com/oauth2/revoke",
       ]),
     );
+    expect(callCloudflareMcpToolMock).not.toHaveBeenCalled();
   });
 
   it("revokes a Cloudflare MCP OAuth refresh token through its advertised endpoint", async () => {

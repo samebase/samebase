@@ -43,7 +43,7 @@ export const GITHUB_REVOCATION_UNCONFIRMED_ERROR =
 export const CLOUDFLARE_REVOCATION_UNCONFIRMED_ERROR =
   "Cloudflare OAuth revocation could not be confirmed.";
 export const CONVEX_MANUAL_REVOCATION_NOTICE =
-  "Convex OAuth cannot be revoked by Samebase. Samebase removed its recorded Worker deploy keys; revoke Samebase in Convex Authorized Applications to end the remaining OAuth grant.";
+  "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications.";
 
 const vProviderNotConnected = object({ state: literal("not_connected") });
 const vProviderLocalDeleteOnly = object({ state: literal("local_delete_only") });

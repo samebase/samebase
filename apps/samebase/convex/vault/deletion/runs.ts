@@ -197,45 +197,6 @@ async function buildConvexPlan(
   return { action: "skip", reason: "not_recorded" };
 }
 
-async function buildConvexDependencyDeployKeyPlan(
-  ctx: MutationCtx,
-  args: {
-    vault: Doc<"vaults">;
-    convexDeployments: Doc<"vaultConvexDeployments">[];
-  },
-): Promise<VaultDeletionPlan["convexDependencyDeployKeys"]> {
-  const dependencies = await ctx.db
-    .query("vaultWorkerDeploymentDependencies")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vault._id))
-    .collect();
-  const deploymentIds = new Set(args.convexDeployments.map((deployment) => deployment._id));
-  const recorded = dependencies
-    .filter(
-      (dependency) =>
-        dependency.wiring.deployKeys.production.state !== "not_created" ||
-        dependency.wiring.deployKeys.preview.state !== "not_created",
-    )
-    .map((dependency) => {
-      if (!deploymentIds.has(dependency.convexDeploymentId)) {
-        throw new Error("Convex deploy-key dependency references a missing deployment.");
-      }
-      return {
-        dependencyId: dependency._id,
-        deployKeys: dependency.wiring.deployKeys,
-      };
-    })
-    .sort((left, right) => left.dependencyId.localeCompare(right.dependencyId));
-  if (recorded.length === 0) {
-    return { action: "skip", reason: "not_recorded" };
-  }
-
-  await requireProviderConnection(ctx, {
-    userId: args.vault.userId,
-    kind: "convex",
-  });
-  return { action: "revoke", dependencies: recorded };
-}
-
 async function buildCloudflarePlan(
   ctx: MutationCtx,
   args: {
@@ -290,52 +251,6 @@ async function buildCloudflarePlan(
   };
 }
 
-async function buildCloudflareBuildTriggerPlan(
-  ctx: MutationCtx,
-  args: {
-    vault: Doc<"vaults">;
-    cloudflare: VaultDeletionPlan["cloudflare"];
-  },
-): Promise<VaultDeletionPlan["cloudflareBuildTriggers"]> {
-  const deletedWorkers = new Set(
-    args.cloudflare.action === "delete_worker"
-      ? [`${args.cloudflare.accountId}\0${args.cloudflare.workerTag}`]
-      : args.cloudflare.action === "delete_workers"
-        ? args.cloudflare.workers.map((worker) => `${worker.accountId}\0${worker.workerTag}`)
-        : [],
-  );
-  const workers = await ctx.db
-    .query("vaultCloudflareWorkers")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vault._id))
-    .collect();
-  const retainedConnectedWorkers = workers
-    .filter(
-      (worker) =>
-        worker.builds.state === "connected" &&
-        !deletedWorkers.has(`${worker.accountId}\0${worker.workerTag}`),
-    )
-    .sort(
-      (left, right) =>
-        left.accountId.localeCompare(right.accountId) ||
-        left.workerTag.localeCompare(right.workerTag),
-    );
-  if (retainedConnectedWorkers.length === 0) {
-    return { action: "skip", reason: "not_recorded" };
-  }
-
-  await requireProviderConnection(ctx, {
-    userId: args.vault.userId,
-    kind: "cloudflare",
-  });
-  return {
-    action: "detach",
-    workers: retainedConnectedWorkers.map((worker) => ({
-      accountId: worker.accountId,
-      workerTag: worker.workerTag,
-    })),
-  };
-}
-
 async function buildDeletionPlan(
   ctx: MutationCtx,
   args: {
@@ -349,12 +264,7 @@ async function buildDeletionPlan(
     options: args.options,
   });
   const convex = await buildConvexPlan(ctx, args);
-  const convexDependencyDeployKeys = await buildConvexDependencyDeployKeyPlan(ctx, args);
   const cloudflare = await buildCloudflarePlan(ctx, args);
-  const cloudflareBuildTriggers = await buildCloudflareBuildTriggerPlan(ctx, {
-    vault: args.vault,
-    cloudflare,
-  });
   const repositoryFullName = getRepositoryFullName(args.vault);
 
   switch (args.vault.state) {
@@ -368,9 +278,7 @@ async function buildDeletionPlan(
         return {
           codespaces,
           convex,
-          convexDependencyDeployKeys,
           cloudflare,
-          cloudflareBuildTriggers,
           target: {
             kind: "existing_repository",
             ghRepoId: args.vault.ghRepoId,
@@ -395,9 +303,7 @@ async function buildDeletionPlan(
       return {
         codespaces,
         convex,
-        convexDependencyDeployKeys,
         cloudflare,
-        cloudflareBuildTriggers,
         target: {
           kind: "samebase_managed_repository",
           ghRepoId: args.vault.ghRepoId,
@@ -427,9 +333,7 @@ async function buildDeletionPlan(
       return {
         codespaces,
         convex,
-        convexDependencyDeployKeys,
         cloudflare,
-        cloudflareBuildTriggers,
         target: {
           kind: "failed_repository_setup",
           githubMode: args.vault.githubMode,
@@ -474,17 +378,9 @@ async function assertPlanProviderConnections(
     });
   }
 
-  if (args.plan.convexDependencyDeployKeys.action === "revoke") {
-    await requireProviderConnection(ctx, {
-      userId: args.userId,
-      kind: "convex",
-    });
-  }
-
   if (
     args.plan.cloudflare.action === "delete_worker" ||
-    args.plan.cloudflare.action === "delete_workers" ||
-    args.plan.cloudflareBuildTriggers.action === "detach"
+    args.plan.cloudflare.action === "delete_workers"
   ) {
     await requireProviderConnection(ctx, {
       userId: args.userId,

@@ -2830,7 +2830,7 @@ type DeleteCloudflareResourcesArgs = {
   transport: CloudflareApiTransport;
 };
 
-type DeleteCloudflareWorkerBuildTriggersArgs = {
+type DeleteCloudflareWorkerBuildTriggersBeforeWorkerDeletionArgs = {
   accountId: string;
   workerTag: string;
   cloudflareToken: string;
@@ -2866,7 +2866,7 @@ async function deleteCloudflareBuildTrigger(args: {
 export async function deleteCloudflareResources(
   args: DeleteCloudflareResourcesArgs,
 ): Promise<void> {
-  await deleteCloudflareWorkerBuildTriggers(args);
+  await deleteCloudflareWorkerBuildTriggersBeforeWorkerDeletion(args);
   await requestCloudflareApi({
     token: args.cloudflareToken,
     transport: args.transport,
@@ -2881,8 +2881,8 @@ export async function deleteCloudflareResources(
   });
 }
 
-export async function deleteCloudflareWorkerBuildTriggers(
-  args: DeleteCloudflareWorkerBuildTriggersArgs,
+async function deleteCloudflareWorkerBuildTriggersBeforeWorkerDeletion(
+  args: DeleteCloudflareWorkerBuildTriggersBeforeWorkerDeletionArgs,
 ): Promise<void> {
   const triggers = await listBuildTriggers({
     token: args.cloudflareToken,

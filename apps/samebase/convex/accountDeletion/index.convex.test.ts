@@ -371,7 +371,7 @@ describe("account deletion foundation", () => {
         convex: {
           state: "manual_revocation_required" as const,
           safeNotice:
-            "Convex OAuth cannot be revoked by Samebase. Samebase removed its recorded Worker deploy keys; revoke Samebase in Convex Authorized Applications to end the remaining OAuth grant." as const,
+            "Convex OAuth cannot be revoked by Samebase. Previously issued production and preview deploy keys remain usable until the user revokes Samebase in Convex Authorized Applications." as const,
         },
       },
       completionEmail: {

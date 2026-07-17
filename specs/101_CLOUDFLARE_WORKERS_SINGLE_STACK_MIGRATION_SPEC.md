@@ -243,7 +243,8 @@ Required Workers operations:
 9. trigger the first production build
 10. read build status and logs
 11. record production URL and Worker tag
-12. rediscover and delete Worker build triggers when deleting a Samebase-managed vault
+12. rediscover and delete Worker build triggers only when the user explicitly selects deleting that
+    Worker
 
 For generated single-repository apps, use these Workers Builds commands:
 
