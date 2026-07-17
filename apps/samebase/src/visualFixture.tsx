@@ -199,15 +199,12 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-cloudflare-build-trigger-missing",
   "vault-dashboard-provisioning-log",
   "vault-dashboard-sticky-header",
-  "vault-dashboard-large-branch-list",
   "vault-dashboard-root-picker",
   "vault-dashboard-sidebar-list",
   "vault-dashboard-list-spacing",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
-  "vault-last-updated-status",
   "vault-branch-filters",
-  "vault-branch-pr-labels",
   "vault-branch-mobile-alignment",
 ] as const satisfies readonly VaultDashboardVisualMode[];
 
@@ -405,15 +402,12 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-cloudflare-build-trigger-missing" ||
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-sticky-header" ||
-    mode === "vault-dashboard-large-branch-list" ||
     mode === "vault-dashboard-root-picker" ||
     mode === "vault-dashboard-sidebar-list" ||
     mode === "vault-dashboard-list-spacing" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||
-    mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
-    mode === "vault-branch-pr-labels" ||
     mode === "vault-branch-mobile-alignment"
   ) {
     return <VaultDashboardVisualFixture mode={mode} />;
