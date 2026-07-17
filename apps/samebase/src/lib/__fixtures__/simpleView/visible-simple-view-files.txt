@@ -83,7 +83,6 @@ apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg
 apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-vox.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-desktop.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-mobile.png
-apps/samebase/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-mobile.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-popover.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
