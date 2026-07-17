@@ -51,7 +51,10 @@ import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   type FileViewPushActionsVisualMode,
 } from "@/components/fileViewPushActionsVisualModes";
-import { VaultDashboardBranchVisualFixture } from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
+import {
+  VaultDashboardBranchVisualFixture,
+  type VaultDashboardBranchVisualMode,
+} from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
@@ -132,7 +135,7 @@ type VisualFixtureMode =
   | "machines-workspace"
   | "machine-connect"
   | "public-account-checking-login"
-  | "vault-dashboard-branch-pr-title"
+  | VaultDashboardBranchVisualMode
   | "button"
   | AppBootFailureStateVisualMode
   | "corner-notch"
@@ -252,6 +255,10 @@ const ROUTE_URL_EDITOR_VISUAL_MODES = [
 const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-connected",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
+const VAULT_DASHBOARD_BRANCH_VISUAL_MODES = [
+  "vault-pull-request-list-settled",
+  "vault-pull-request-list-operational-states",
+] as const satisfies readonly VaultDashboardBranchVisualMode[];
 const MISC_VISUAL_MODES = [
   "account-deletion-running",
   "account-deletion-attention",
@@ -263,7 +270,7 @@ const MISC_VISUAL_MODES = [
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   ...WORKSPACE_LAYOUT_V3_VISUAL_MODES,
   "machine-connect",
-  "vault-dashboard-branch-pr-title",
+  ...VAULT_DASHBOARD_BRANCH_VISUAL_MODES,
   "button",
   "app-boot-failure-stale",
   "app-boot-failure-generic",
@@ -448,8 +455,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <FileViewProsemarkHeightVisualFixture mode={mode} />;
   }
 
-  if (mode === "vault-dashboard-branch-pr-title") {
-    return <VaultDashboardBranchVisualFixture />;
+  if (includes(VAULT_DASHBOARD_BRANCH_VISUAL_MODES, mode)) {
+    return <VaultDashboardBranchVisualFixture mode={mode} />;
   }
 
   if (mode === "codex-thread-history") {
