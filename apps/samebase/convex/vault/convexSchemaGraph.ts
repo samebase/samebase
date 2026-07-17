@@ -35,6 +35,10 @@ type ConvexSchemaRefreshTarget = {
   deployment: Doc<"vaultConvexDeployments">;
   token: string;
 };
+type VaultConvexDeploymentContext = {
+  app: Doc<"vaultApps">;
+  deployment: Doc<"vaultConvexDeployments">;
+};
 type ConvexSystemQueryResponse = {
   value: unknown;
 };
@@ -96,7 +100,8 @@ const vConvexSchemaGraphLayoutPoint = object({
 
 const vConvexSchemaGraphDeploymentOption = object({
   _id: id("vaultConvexDeployments"),
-  appRoot: string(),
+  appId: id("vaultApps"),
+  rootDirectory: string(),
   deploymentName: string(),
   projectSlug: string(),
   teamSlug: string(),
@@ -118,16 +123,14 @@ const vConvexSchemaGraphStateResult = object({
 export type ConvexSchemaGraphStateResult = Infer<typeof vConvexSchemaGraphStateResult>;
 
 function compareDeploymentSortOrder(
-  left: Doc<"vaultConvexDeployments">,
-  right: Doc<"vaultConvexDeployments">,
+  left: VaultConvexDeploymentContext,
+  right: VaultConvexDeploymentContext,
 ): number {
-  const leftRootOrder = left.appRoot === "." ? 0 : 1;
-  const rightRootOrder = right.appRoot === "." ? 0 : 1;
   return (
-    leftRootOrder - rightRootOrder ||
-    left.appRoot.localeCompare(right.appRoot) ||
-    left.projectSlug.localeCompare(right.projectSlug) ||
-    left.projectId.localeCompare(right.projectId)
+    left.app.rootDirectory.localeCompare(right.app.rootDirectory) ||
+    left.deployment.projectSlug.localeCompare(right.deployment.projectSlug) ||
+    left.deployment.projectId.localeCompare(right.deployment.projectId) ||
+    left.deployment._id.localeCompare(right.deployment._id)
   );
 }
 
@@ -166,37 +169,37 @@ function readSchemaGraphLayoutTableName(nodeId: string): string {
   return tableName.length > 0 ? tableName : nodeId;
 }
 
-function readDeploymentOption(deployment: Doc<"vaultConvexDeployments">) {
-  return {
-    _id: deployment._id,
-    appRoot: deployment.appRoot,
-    deploymentName: deployment.deploymentName,
-    projectSlug: deployment.projectSlug,
-    teamSlug: deployment.teamSlug,
-  };
-}
-
 async function readDeploymentsForVault(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
-): Promise<Doc<"vaultConvexDeployments">[]> {
-  const deployments = await ctx.db
-    .query("vaultConvexDeployments")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .collect();
-  return deployments.sort(compareDeploymentSortOrder);
+): Promise<VaultConvexDeploymentContext[]> {
+  const [apps, deployments] = await Promise.all([
+    ctx.db
+      .query("vaultApps")
+      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+      .collect(),
+    ctx.db
+      .query("vaultConvexDeployments")
+      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+      .collect(),
+  ]);
+  const appsById = new Map(apps.map((app) => [app._id, app]));
+  const contexts = deployments.map((deployment) => {
+    const app = appsById.get(deployment.appId);
+    if (!app || app.userId !== deployment.userId) {
+      throw new Error("Convex deployment has inconsistent app ownership.");
+    }
+    return { app, deployment };
+  });
+  return contexts.sort(compareDeploymentSortOrder);
 }
 
 function selectDeployment(args: {
-  deployments: Doc<"vaultConvexDeployments">[];
-  appRoot?: string;
-  deploymentId?: Id<"vaultConvexDeployments">;
-}): Doc<"vaultConvexDeployments"> | null {
+  deployments: VaultConvexDeploymentContext[];
+  deploymentId?: string;
+}): VaultConvexDeploymentContext | null {
   if (args.deploymentId !== undefined) {
-    return args.deployments.find((deployment) => deployment._id === args.deploymentId) ?? null;
-  }
-  if (args.appRoot !== undefined) {
-    return args.deployments.find((deployment) => deployment.appRoot === args.appRoot) ?? null;
+    return args.deployments.find(({ deployment }) => deployment._id === args.deploymentId) ?? null;
   }
   return args.deployments[0] ?? null;
 }
@@ -1004,8 +1007,9 @@ export const get = query({
   access: "access_schema_graph",
   args: {
     vaultId: id("vaults"),
-    appRoot: optional(string()),
-    deploymentId: optional(id("vaultConvexDeployments")),
+    // Route parameters are untrusted strings. A match below promotes the value
+    // to the stored deployment document without asserting an Id.
+    deploymentId: optional(string()),
   },
   returns: union(vConvexSchemaGraphStateResult, nullValue()),
   handler: async (ctx, args): Promise<ConvexSchemaGraphStateResult | null> => {
@@ -1015,13 +1019,19 @@ export const get = query({
     }
 
     const deployments = await readDeploymentsForVault(ctx, args.vaultId);
-    const selectedDeployment = selectDeployment({
+    const selectedDeploymentContext = selectDeployment({
       deployments,
-      appRoot: args.appRoot,
       deploymentId: args.deploymentId,
     });
-    const deploymentOptions = deployments.map(readDeploymentOption);
-    if (!selectedDeployment) {
+    const deploymentOptions = deployments.map(({ app, deployment }) => ({
+      _id: deployment._id,
+      appId: app._id,
+      rootDirectory: app.rootDirectory,
+      deploymentName: deployment.deploymentName,
+      projectSlug: deployment.projectSlug,
+      teamSlug: deployment.teamSlug,
+    }));
+    if (!selectedDeploymentContext) {
       return {
         deployments: deploymentOptions,
         selectedDeploymentId: null,
@@ -1029,6 +1039,7 @@ export const get = query({
         layout: [],
       };
     }
+    const selectedDeployment = selectedDeploymentContext.deployment;
 
     const [snapshot, layoutRows] = await Promise.all([
       ctx.db
@@ -1169,7 +1180,6 @@ export const refresh = action({
         userId: ctx.viewer.userId,
         vaultId: args.vaultId,
         deploymentId: target.deployment._id,
-        appRoot: target.deployment.appRoot,
         deploymentName: target.deployment.deploymentName,
         schemaHash: buildSchemaHash(graph),
         graph,
@@ -1211,10 +1221,11 @@ export const readRefreshTarget = internalQuery({
     }
 
     const deployments = await readDeploymentsForVault(ctx, args.vaultId);
-    const deployment = selectDeployment({
+    const deploymentContext = selectDeployment({
       deployments,
       deploymentId: args.deploymentId,
     });
+    const deployment = deploymentContext?.deployment;
     if (!deployment || deployment.userId !== args.userId) {
       throw new Error("Convex deployment not found.");
     }
@@ -1258,7 +1269,6 @@ export const recordSnapshot = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     deploymentId: id("vaultConvexDeployments"),
-    appRoot: string(),
     deploymentName: string(),
     schemaHash: string(),
     graph: vConvexSchemaGraph,
@@ -1273,7 +1283,6 @@ export const recordSnapshot = internalMutation({
       !deployment ||
       deployment.userId !== args.userId ||
       deployment.vaultId !== args.vaultId ||
-      deployment.appRoot !== args.appRoot ||
       deployment.deploymentName !== args.deploymentName
     ) {
       throw new Error("Convex deployment not found.");
@@ -1299,7 +1308,6 @@ export const recordSnapshot = internalMutation({
       userId: args.userId,
       vaultId: args.vaultId,
       deploymentId: args.deploymentId,
-      appRoot: args.appRoot,
       deploymentName: args.deploymentName,
       schemaHash: args.schemaHash,
       graph: args.graph,

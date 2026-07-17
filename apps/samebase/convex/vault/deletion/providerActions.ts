@@ -10,8 +10,10 @@ import { requestConvexManagementApi } from "../../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../../convexManagementApi/errors";
 import {
   deleteCloudflareResources,
+  deleteCloudflareWorkerBuildTriggers,
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
+import { deleteConvexDeployKey, deleteConvexPreviewDeployKey } from "../../infraProvisioning";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
 import { readRetainedSnapshot } from "./runs";
 import {
@@ -165,7 +167,7 @@ export const deleteCloudflare = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_cloudflare,
     });
-    if (plan.cloudflare.action === "skip") {
+    if (plan.cloudflare.action === "skip" && plan.cloudflareBuildTriggers.action === "skip") {
       return null;
     }
 
@@ -179,6 +181,21 @@ export const deleteCloudflare = internalAction({
       throw new Error("Cloudflare connection is required to remove resources.");
     }
     const cloudflareTransport = resolveCloudflareApiTransport(cloudflareConnection.auth.method);
+
+    if (plan.cloudflareBuildTriggers.action === "detach") {
+      for (const worker of plan.cloudflareBuildTriggers.workers) {
+        await deleteCloudflareWorkerBuildTriggers({
+          accountId: worker.accountId,
+          workerTag: worker.workerTag,
+          cloudflareToken: cloudflareConnection.auth.credential,
+          transport: cloudflareTransport,
+        });
+      }
+    }
+
+    if (plan.cloudflare.action === "skip") {
+      return null;
+    }
 
     const workers =
       plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
@@ -219,7 +236,7 @@ export const deleteConvex = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_convex,
     });
-    if (plan.convex.action === "skip") {
+    if (plan.convex.action === "skip" && plan.convexDependencyDeployKeys.action === "skip") {
       return null;
     }
 
@@ -229,6 +246,41 @@ export const deleteConvex = internalAction({
     });
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to remove resources.");
+    }
+
+    if (plan.convexDependencyDeployKeys.action === "revoke") {
+      for (const dependency of plan.convexDependencyDeployKeys.dependencies) {
+        if (dependency.deployKeys.production.state === "created") {
+          try {
+            await deleteConvexDeployKey({
+              convexToken: convexConnection.auth.credential,
+              deploymentName: dependency.deployKeys.production.deploymentName,
+              convexDeployKeyName: dependency.deployKeys.production.name,
+            });
+          } catch (error) {
+            if (!isConvexManagementNotFoundError(error)) {
+              throw error;
+            }
+          }
+        }
+        if (dependency.deployKeys.preview.state === "created") {
+          try {
+            await deleteConvexPreviewDeployKey({
+              convexToken: convexConnection.auth.credential,
+              projectId: dependency.deployKeys.preview.projectId,
+              convexDeployKeyName: dependency.deployKeys.preview.name,
+            });
+          } catch (error) {
+            if (!isConvexManagementNotFoundError(error)) {
+              throw error;
+            }
+          }
+        }
+      }
+    }
+
+    if (plan.convex.action === "skip") {
+      return null;
     }
 
     try {

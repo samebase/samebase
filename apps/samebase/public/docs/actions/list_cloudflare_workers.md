@@ -14,7 +14,7 @@ connection bookkeeping (OAuth token refresh) when needed.
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app the Worker would attach to.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `appId` (string, required): Stable Samebase app id that will own the Worker.
 - `accountId` (string, required): Cloudflare account id from list_cloudflare_accounts.
 
 ## Returns

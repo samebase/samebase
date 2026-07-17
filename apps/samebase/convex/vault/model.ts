@@ -1,7 +1,17 @@
 import { Infer, v } from "convex/values";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
+import { parseRepositoryFullName } from "../../shared/repoName";
+import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import { vVaultDeletionState } from "./deletion/model";
-export { parseRepositoryFullName } from "../../shared/repoName";
+import { vConvexDeployKeys, vCreatedConvexDeployKeys } from "./deployKeyModel";
+export {
+  vConvexDeployKeys,
+  vConvexPreviewDeployKeyState,
+  vConvexProductionDeployKeyState,
+  type ConvexDeployKeys,
+  type ConvexPreviewDeployKeyState,
+  type ConvexProductionDeployKeyState,
+} from "./deployKeyModel";
+export { parseRepositoryFullName };
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -55,33 +65,16 @@ export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
 export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     projectId: string(),
   }),
   object({
     mode: literal("create_project"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     projectName: string(),
   }),
 );
 export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
-
-export const vConvexDeployKeyState = union(
-  object({
-    state: literal("not_created"),
-  }),
-  object({
-    state: literal("created"),
-    id: string(),
-  }),
-);
-export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
-
-export const vConvexDeployKeys = object({
-  production: vConvexDeployKeyState,
-  preview: vConvexDeployKeyState,
-});
-export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
 
 export const vConvexPreviewDeployment = union(
   object({
@@ -95,13 +88,13 @@ export const vConvexPreviewDeployment = union(
 );
 export type ConvexPreviewDeployment = Infer<typeof vConvexPreviewDeployment>;
 
-export const vVaultConvexAppRoot = string();
-export type VaultConvexAppRoot = Infer<typeof vVaultConvexAppRoot>;
+export const vVaultRootDirectory = string();
+export type VaultRootDirectory = Infer<typeof vVaultRootDirectory>;
 
 export const vVaultApp = object({
   vaultId: id("vaults"),
   userId: id("users"),
-  appRoot: string(),
+  rootDirectory: vVaultRootDirectory,
   createdAt: number(),
 });
 export type VaultApp = Infer<typeof vVaultApp>;
@@ -141,7 +134,7 @@ export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier
 export const vVaultConvexDeployment = object({
   vaultId: id("vaults"),
   userId: id("users"),
-  appRoot: vVaultConvexAppRoot,
+  appId: id("vaultApps"),
   projectId: string(),
   teamSlug: string(),
   projectSlug: string(),
@@ -150,7 +143,6 @@ export const vVaultConvexDeployment = object({
   cloudUrl: string(),
   siteUrl: string(),
   previewDeployment: vConvexPreviewDeployment,
-  deployKeys: vConvexDeployKeys,
   origin: vVaultConvexOrigin,
   upstream: optional(vVaultProviderUpstreamPresence),
   connectedAt: number(),
@@ -161,36 +153,43 @@ export type VaultConvexDeployment = Infer<typeof vVaultConvexDeployment>;
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
 
-export const vVaultCloudflareAppRoot = string();
-export type VaultCloudflareAppRoot = Infer<typeof vVaultCloudflareAppRoot>;
-
-const vaultCloudflareBuildConfigFields = {
-  rootDirectory: string(),
+const vaultCloudflareBuildSettingsFields = {
   buildCommand: string(),
   deployCommand: string(),
   previewDeployCommand: string(),
   pathIncludes: array(string()),
   pathExcludes: array(string()),
 } as const;
-export const vVaultCloudflareBuildConfig = object(vaultCloudflareBuildConfigFields);
+export const vVaultCloudflareBuildConfig = object({
+  rootDirectory: vVaultRootDirectory,
+  ...vaultCloudflareBuildSettingsFields,
+});
 export type VaultCloudflareBuildConfig = Infer<typeof vVaultCloudflareBuildConfig>;
 
-export function buildVaultCloudflareBuildConfigForAppRoot(args: {
-  appRoot: string;
+export function buildVaultCloudflareBuildConfig(args: {
+  rootDirectory: string;
+  dependencyRootDirectories: string[];
 }): VaultCloudflareBuildConfig {
-  const appRoot = normalizeVaultAppRoot(args.appRoot);
-  const rootDirectory = appRoot === "." ? "/" : appRoot;
-  const pathIncludes =
-    appRoot === "."
-      ? ["*"]
-      : [
-          `${appRoot}/*`,
-          "packages/dependent/*",
-          "pnpm-lock.yaml",
-          "pnpm-workspace.yaml",
-          "package.json",
-          ".nvmrc",
-        ];
+  const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
+  const dependencyRootDirectories = [
+    ...new Set(args.dependencyRootDirectories.map(normalizeVaultRootDirectory)),
+  ]
+    .filter((dependencyRootDirectory) => dependencyRootDirectory !== rootDirectory)
+    .sort();
+  const watchedRootDirectories = [rootDirectory, ...dependencyRootDirectories];
+  const pathIncludes = watchedRootDirectories.includes(VAULT_ROOT_DIRECTORY)
+    ? ["*"]
+    : [
+        `${rootDirectory}/*`,
+        ".node-version",
+        ".nvmrc",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        ...dependencyRootDirectories.map(
+          (dependencyRootDirectory) => `${dependencyRootDirectory}/*`,
+        ),
+      ];
 
   return {
     rootDirectory,
@@ -210,7 +209,7 @@ export type VaultCloudflareWorkersBuildTrigger = Infer<typeof vVaultCloudflareWo
 
 export const vVaultCloudflareConnectedBuilds = object({
   state: literal("connected"),
-  ...vaultCloudflareBuildConfigFields,
+  ...vaultCloudflareBuildSettingsFields,
   production: vVaultCloudflareWorkersBuildTrigger,
   preview: vVaultCloudflareWorkersBuildTrigger,
 });
@@ -224,54 +223,44 @@ export const vVaultCloudflareBuilds = union(
 );
 export type VaultCloudflareBuilds = Infer<typeof vVaultCloudflareBuilds>;
 
-export const vVaultCloudflareConvexBuildAccess = union(
-  object({
-    state: literal("not_wired"),
-  }),
-  object({
-    state: literal("wired"),
-  }),
-);
-export type VaultCloudflareConvexBuildAccess = Infer<typeof vVaultCloudflareConvexBuildAccess>;
-
-export const vVaultCloudflareDeployment = object({
-  builds: vVaultCloudflareBuilds,
-  convexBuildAccess: vVaultCloudflareConvexBuildAccess,
-});
-export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
-
-export function buildVaultCloudflareDeploymentNotConfigured(): VaultCloudflareDeployment {
-  return {
-    builds: { state: "not_connected" },
-    convexBuildAccess: { state: "not_wired" },
-  };
-}
-
-export function buildVaultCloudflareDeploymentWithConnectedBuilds(args: {
-  builds: VaultCloudflareConnectedBuilds;
-  convexBuildAccess: VaultCloudflareConvexBuildAccess;
-}): VaultCloudflareDeployment {
-  return {
-    builds: args.builds,
-    convexBuildAccess: args.convexBuildAccess,
-  };
-}
-
 export const vVaultCloudflareWorker = object({
   vaultId: id("vaults"),
   userId: id("users"),
-  appRoot: vVaultCloudflareAppRoot,
+  appId: id("vaultApps"),
   accountId: string(),
   workerName: string(),
   workerTag: string(),
   workersDevUrl: optional(string()),
   origin: vVaultCloudflareOrigin,
   upstream: optional(vVaultProviderUpstreamPresence),
-  deployment: vVaultCloudflareDeployment,
+  builds: vVaultCloudflareBuilds,
   connectedAt: number(),
   lastObservedAt: number(),
 });
 export type VaultCloudflareWorker = Infer<typeof vVaultCloudflareWorker>;
+
+export const vVaultWorkerDeploymentWiring = union(
+  object({
+    state: literal("not_wired"),
+    deployKeys: vConvexDeployKeys,
+  }),
+  object({
+    state: literal("wired"),
+    deployKeys: vCreatedConvexDeployKeys,
+  }),
+);
+export type VaultWorkerDeploymentWiring = Infer<typeof vVaultWorkerDeploymentWiring>;
+
+export const vVaultWorkerDeploymentDependency = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  workerId: id("vaultCloudflareWorkers"),
+  convexDeploymentId: id("vaultConvexDeployments"),
+  wiring: vVaultWorkerDeploymentWiring,
+  createdAt: number(),
+  updatedAt: number(),
+});
+export type VaultWorkerDeploymentDependency = Infer<typeof vVaultWorkerDeploymentDependency>;
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every

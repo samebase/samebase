@@ -7,10 +7,10 @@ import {
   vGitHubRepositoryVisibility,
   vTreeRefreshFailureKind,
   vVaultApp,
-  vVaultCloudflareBuildConfig,
   vVaultCloudflareWorker,
   vVaultConvexDeployment,
   vVaultRow,
+  vVaultWorkerDeploymentDependency,
 } from "./vault/model";
 import {
   vVaultDeletionEventLevel,
@@ -467,33 +467,41 @@ export default defineSchema({
     .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
   /**
-   * Deployable app roots inside a repo-backed vault. Provider resources attach
-   * to these rows; "." is an explicit root app, not a fallback target.
+   * Stable app identities inside a repo-backed vault. An app remains visible
+   * without a provider resource; "/" is the repository-root app.
    */
   vaultApps: defineTable(vVaultApp)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"]),
+    .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
 
   /**
-   * Cloudflare Worker targets connected to one repo-backed vault. App root is
-   * the monorepo path this Worker deploys; vault identity stays repository-only.
+   * Cloudflare Worker resources attached to stable app identities. More than
+   * one Worker may attach to the same app.
    */
   vaultCloudflareWorkers: defineTable(vVaultCloudflareWorker)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_app", ["appId"])
     .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
 
-  /**
-   * Convex deployments connected to one repo-backed vault. App root is the
-   * monorepo path this deployment serves; vault identity stays repository-only.
-   */
+  /** Convex deployment resources attached to stable app identities. */
   vaultConvexDeployments: defineTable(vVaultConvexDeployment)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_app", ["appId"])
     .index("by_vault_and_project", ["vaultId", "projectId"]),
+
+  /**
+   * An explicit build-time dependency from one Worker to one Convex
+   * deployment. A Worker has at most one dependency row; a Convex deployment
+   * may be shared by several Workers.
+   */
+  vaultWorkerDeploymentDependencies: defineTable(vVaultWorkerDeploymentDependency)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_worker", ["workerId"])
+    .index("by_convex_deployment", ["convexDeploymentId"]),
 
   /**
    * Live Convex deployment schema snapshots normalized into table graph data.
@@ -622,43 +630,13 @@ export default defineSchema({
       "lifecycle.notBefore",
     ]),
 
-  /**
-   * User-selected app root, provider names, and early provider identities for
-   * Samebase-managed infrastructure. The single app root is shared across
-   * provider resources so one target cannot split Convex and Cloudflare.
-   */
+  /** Immutable provider-create plan for a Samebase-managed app. */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
-    appRoot: string(),
-    convex: union(
-      object({
-        state: literal("planned"),
-        projectName: string(),
-      }),
-      object({
-        state: literal("created"),
-        projectName: string(),
-        projectId: string(),
-      }),
-    ),
-    cloudflare: union(
-      object({
-        state: literal("planned"),
-        accountId: string(),
-        workerName: string(),
-        build: vVaultCloudflareBuildConfig,
-      }),
-      object({
-        state: literal("created"),
-        accountId: string(),
-        workerName: string(),
-        workerTag: string(),
-        workersDevUrl: optional(string()),
-        build: vVaultCloudflareBuildConfig,
-      }),
-    ),
+    appId: id("vaultApps"),
+    convex: object({ projectName: string() }),
+    cloudflare: object({ accountId: string(), workerName: string() }),
     createdAt: number(),
-    updatedAt: number(),
   }).index("by_vault", ["vaultId"]),
 
   /**

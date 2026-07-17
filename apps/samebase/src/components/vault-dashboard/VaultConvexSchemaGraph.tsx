@@ -65,8 +65,8 @@ type VaultConvexSchemaGraphContentProps = {
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
 };
 export type VaultConvexSchemaGraphRouteContext = {
-  appRoot: string;
   branch: string;
+  deploymentId: string;
   repositoryFullName: string;
 };
 type VaultConvexSchemaGraphController = {
@@ -889,9 +889,9 @@ export function VaultConvexSchemaGraphContent({
               <AppSelectContent>
                 {state.deployments.map((deployment) => (
                   <AppSelectItem key={deployment._id} value={deployment._id}>
-                    {deployment.appRoot === "."
+                    {deployment.rootDirectory === "/"
                       ? deployment.deploymentName
-                      : `${deployment.appRoot}: ${deployment.deploymentName}`}
+                      : `${deployment.rootDirectory}: ${deployment.deploymentName}`}
                   </AppSelectItem>
                 ))}
               </AppSelectContent>
@@ -1005,9 +1005,9 @@ function VaultConvexSchemaGraphRouteSidebar({
                 <AppSelectContent>
                   {state.deployments.map((deployment) => (
                     <AppSelectItem key={deployment._id} value={deployment._id}>
-                      {deployment.appRoot === "."
+                      {deployment.rootDirectory === "/"
                         ? deployment.deploymentName
-                        : `${deployment.appRoot}: ${deployment.deploymentName}`}
+                        : `${deployment.rootDirectory}: ${deployment.deploymentName}`}
                     </AppSelectItem>
                   ))}
                 </AppSelectContent>
@@ -1037,7 +1037,9 @@ function VaultConvexSchemaGraphRouteSidebar({
           <div className="grid gap-1 text-xs text-muted-foreground">
             <div className="flex min-w-0 justify-between gap-2">
               <span>App root</span>
-              <span className="min-w-0 truncate font-mono text-foreground">{context.appRoot}</span>
+              <span className="min-w-0 truncate font-mono text-foreground">
+                {selectedDeployment?.rootDirectory ?? "Unknown"}
+              </span>
             </div>
             <div className="flex min-w-0 justify-between gap-2">
               <span>Tables</span>
@@ -1097,32 +1099,29 @@ function VaultConvexSchemaGraphRouteSidebar({
 }
 
 function useVaultConvexSchemaGraphController({
-  appRoot,
+  deploymentId,
   vaultId,
 }: {
-  appRoot?: string;
+  deploymentId?: string;
   vaultId: Id<"vaults">;
 }): VaultConvexSchemaGraphController {
-  const [selectedDeploymentId, setSelectedDeploymentId] = useState<Id<"vaultConvexDeployments">>();
+  const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | undefined>(
+    deploymentId,
+  );
   const [refreshPending, setRefreshPending] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [layoutError, setLayoutError] = useState<string | null>(null);
   const queryArgs = useMemo(
-    () =>
-      selectedDeploymentId
-        ? { vaultId, deploymentId: selectedDeploymentId }
-        : appRoot !== undefined
-          ? { vaultId, appRoot }
-          : { vaultId },
-    [appRoot, selectedDeploymentId, vaultId],
+    () => (selectedDeploymentId ? { vaultId, deploymentId: selectedDeploymentId } : { vaultId }),
+    [selectedDeploymentId, vaultId],
   );
   const state = useQuery(api.vault.convexSchemaGraph.get, queryArgs);
   const refresh = useAction(api.vault.convexSchemaGraph.refresh);
   const saveLayout = useMutation(api.vault.convexSchemaGraph.saveLayout);
 
   useEffect(() => {
-    setSelectedDeploymentId(undefined);
-  }, [appRoot, vaultId]);
+    setSelectedDeploymentId(deploymentId);
+  }, [deploymentId, vaultId]);
 
   const handleRefresh = useCallback(async () => {
     const deploymentId = state?.selectedDeploymentId;
@@ -1174,15 +1173,15 @@ function useVaultConvexSchemaGraphController({
 }
 
 export function VaultConvexSchemaGraph({
-  appRoot,
+  deploymentId,
   vaultId,
   variant = "dashboard",
 }: {
-  appRoot?: string;
+  deploymentId?: string;
   vaultId: Id<"vaults">;
   variant?: VaultConvexSchemaGraphVariant;
 }) {
-  const controller = useVaultConvexSchemaGraphController({ appRoot, vaultId });
+  const controller = useVaultConvexSchemaGraphController({ deploymentId, vaultId });
   const { state } = controller;
 
   if (state === undefined) {
@@ -1282,7 +1281,7 @@ export function VaultConvexSchemaGraphRouteWorkspace({
   vaultId: Id<"vaults">;
 }) {
   const controller = useVaultConvexSchemaGraphController({
-    appRoot: context.appRoot,
+    deploymentId: context.deploymentId,
     vaultId,
   });
 

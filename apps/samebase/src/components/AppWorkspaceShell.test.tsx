@@ -438,8 +438,8 @@ describe("AppWorkspaceShell", () => {
       "/test",
       "/vault/",
       "/vault/ada/demo/codespace/main/chat",
-      "/vault/ada/demo/db/main/root",
-      "/vault/ada/demo/db/main/mono/convex",
+      "/vault/ada/demo/db/main/deployment-root",
+      "/vault/ada/demo/db/main/deployment-convex",
     ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>

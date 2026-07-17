@@ -10,7 +10,7 @@ export const convexConnectExistingProjectContract = {
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     projectId: string(),
   },
   returns: v.null(),
@@ -27,7 +27,7 @@ export const convexConnectExistingProjectContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app to attach the Convex project to.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      appId: "Stable Samebase app id that will own the Convex deployment.",
       projectId: "Convex project id from list_convex_projects.",
     },
   } satisfies AppFunctionMcpMetadata,

@@ -898,7 +898,7 @@ describe("appRouter", () => {
   });
 
   it("renders the vault database route through the database route", async () => {
-    await renderRoute("/vault/samebase/samebase/db/main/root");
+    await renderRoute("/vault/samebase/samebase/db/main/deployment-123");
 
     expect(rootElement?.querySelector('[data-testid="vault-database-page"]')?.textContent).toBe(
       "Vault database page",

@@ -1,4 +1,5 @@
 import type { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import {
   type VaultResourceRailActionList,
   type VaultResourceRailAction,
@@ -6,18 +7,11 @@ import {
   type VaultResourceRailState,
 } from "./VaultResourceRail";
 import { type VaultDashboardSourceSetup } from "./vaultSourceSetup";
-import {
-  resolveVaultProviderSetupStatus,
-  resolveVaultProviderSetupStepProvider,
-} from "./vaultProviderSetup";
 
 type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
-type VaultDashboardProviderSetupStep = Extract<
-  VaultDashboardVault["providerSetup"],
-  { status: "failed" | "running" }
->["step"];
+type VaultDashboardApp = VaultDashboardVault["apps"][number];
 
 function resolveSourceSetupResourceProvider(
   sourceSetup: VaultDashboardSourceSetup,
@@ -73,36 +67,6 @@ function canRepairCloudflareWorker(vault: VaultDashboardVault): boolean {
   return vault.providerSetup.status !== "running";
 }
 
-function isCloudflareWorkerWiringStep(step: VaultDashboardProviderSetupStep | null): boolean {
-  if (step === null) {
-    return false;
-  }
-
-  switch (step) {
-    case "wire_builds":
-    case "wire_convex_build_access":
-    case "verify_infrastructure":
-      return true;
-    case "run_created":
-    case "initialize_vault":
-    case "validate_connections":
-    case "create_github_repo":
-    case "fetch_github_repo":
-    case "connect_github":
-    case "create_vault":
-    case "seed_starter":
-    case "sync_tree":
-    case "claim_infra":
-    case "attach_convex":
-    case "attach_worker":
-    case "record_domains":
-    case "finish":
-      return false;
-  }
-  step satisfies never;
-  return false;
-}
-
 function hasCurrentMissingCloudflareBuildsTriggerFailure(
   vault: VaultDashboardVault,
   worker: VaultDashboardVault["cloudflareWorkers"][number],
@@ -154,14 +118,14 @@ function resolveCloudflareWorkersSubdomain({
   return normalizeResourceScope(prefix.slice(workerPrefix.length));
 }
 
-function compareAppRoots(left: string, right: string): number {
+function compareRootDirectories(left: string, right: string): number {
   if (left === right) {
     return 0;
   }
-  if (left === ".") {
+  if (left === "/") {
     return -1;
   }
-  if (right === ".") {
+  if (right === "/") {
     return 1;
   }
   return left.localeCompare(right);
@@ -173,6 +137,7 @@ export function buildVaultDashboardResourceRailState({
   buildAddConvexHref,
   addConvexOnClick,
   connectCloudflareGithubRepoOnClick,
+  deployCloudflareConvexOnClick,
   buildAddAppRootHref,
   addAppRootOnClick,
   githubRepositoryUrl,
@@ -185,40 +150,40 @@ export function buildVaultDashboardResourceRailState({
   verifyCloudflareInfrastructureOnClick,
   vault,
 }: {
-  buildAddCloudflareWorkerHref?: (appRoot: string) => string;
-  addCloudflareWorkerOnClick?: (appRoot: string) => void;
-  buildAddConvexHref?: (appRoot: string) => string;
-  addConvexOnClick?: (appRoot: string) => void;
-  connectCloudflareGithubRepoOnClick?: (appRoot: string) => void;
+  buildAddCloudflareWorkerHref?: (app: VaultDashboardApp) => string;
+  addCloudflareWorkerOnClick?: (app: VaultDashboardApp) => void;
+  buildAddConvexHref?: (app: VaultDashboardApp) => string;
+  addConvexOnClick?: (app: VaultDashboardApp) => void;
+  connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  deployCloudflareConvexOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   buildAddAppRootHref?: () => string;
   addAppRootOnClick?: () => void;
   githubRepositoryUrl: string;
-  isConnectingCloudflareGithubRepo?: (appRoot: string) => boolean;
+  isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRetryingInfrastructure?: boolean;
-  isSettingCloudflareConvexDeployKeys?: (appRoot: string) => boolean;
-  isVerifyingCloudflareInfrastructure?: (appRoot: string) => boolean;
+  isSettingCloudflareConvexDeployKeys?: (args: {
+    workerId: Id<"vaultCloudflareWorkers">;
+    convexDeploymentId: Id<"vaultConvexDeployments">;
+  }) => boolean;
+  isVerifyingCloudflareInfrastructure?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   retryInfrastructureOnClick?: () => void;
-  setCloudflareConvexDeployKeysOnClick?: (appRoot: string) => void;
-  verifyCloudflareInfrastructureOnClick?: (appRoot: string) => void;
+  setCloudflareConvexDeployKeysOnClick?: (args: {
+    workerId: Id<"vaultCloudflareWorkers">;
+    convexDeploymentId: Id<"vaultConvexDeployments">;
+  }) => void;
+  verifyCloudflareInfrastructureOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
     vault.state === "ready" && !isVaultResourceSetupBlockingManualActions(vault);
   const canRepairCloudflareWorkers = canRepairCloudflareWorker(vault);
   const canVerifyCloudflareWorkers = canRepairCloudflareWorkers;
-  const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
-  const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
-  const providerSetupStep =
-    vault.providerSetup.status === "failed" || vault.providerSetup.status === "running"
-      ? vault.providerSetup.step
-      : null;
-  const appRootSet = new Set(vault.appRoots.map((app) => app.appRoot));
-  const canConfigureRootAppRoot = appRootSet.has(".");
   let githubRow: VaultResourceRailRowState<"github">;
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "github") {
     githubRow = {
       provider: "github",
+      rowId: `github:${vault._id}`,
       status: "failed",
       value: vault.repositoryFullName,
       actions: [{ kind: "retry", label: "Retry" }],
@@ -226,12 +191,14 @@ export function buildVaultDashboardResourceRailState({
   } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "github") {
     githubRow = {
       provider: "github",
+      rowId: `github:${vault._id}`,
       status: "running",
       value: vault.repositoryFullName,
     };
   } else if (vault.hasConnectedGitHubRepository) {
     githubRow = {
       provider: "github",
+      rowId: `github:${vault._id}`,
       status: "ready",
       value: vault.repositoryFullName,
       href: githubRepositoryUrl,
@@ -251,28 +218,29 @@ export function buildVaultDashboardResourceRailState({
   } else {
     githubRow = {
       provider: "github",
+      rowId: `github:${vault._id}`,
       status: "pending",
       value: vault.repositoryFullName,
     };
   }
 
-  function buildAddConvexAction(appRoot: string): VaultResourceRailAction {
+  function buildAddConvexAction(app: VaultDashboardApp): VaultResourceRailAction {
     return {
       kind: "add",
       label: "?add-convex",
       disabled: !buildAddConvexHref && !addConvexOnClick,
-      href: buildAddConvexHref?.(appRoot),
-      onClick: addConvexOnClick ? () => addConvexOnClick(appRoot) : undefined,
+      href: buildAddConvexHref?.(app),
+      onClick: addConvexOnClick ? () => addConvexOnClick(app) : undefined,
     };
   }
 
-  function buildAddCloudflareWorkerAction(appRoot: string): VaultResourceRailAction {
+  function buildAddCloudflareWorkerAction(app: VaultDashboardApp): VaultResourceRailAction {
     return {
       kind: "add",
       label: "?add-cloudflare",
       disabled: !buildAddCloudflareWorkerHref && !addCloudflareWorkerOnClick,
-      href: buildAddCloudflareWorkerHref?.(appRoot),
-      onClick: addCloudflareWorkerOnClick ? () => addCloudflareWorkerOnClick(appRoot) : undefined,
+      href: buildAddCloudflareWorkerHref?.(app),
+      onClick: addCloudflareWorkerOnClick ? () => addCloudflareWorkerOnClick(app) : undefined,
     };
   }
 
@@ -285,186 +253,175 @@ export function buildVaultDashboardResourceRailState({
     };
   }
 
-  function buildConnectCloudflareGithubRepoAction(appRoot: string): VaultResourceRailAction {
-    const isConnecting = isConnectingCloudflareGithubRepo?.(appRoot) ?? false;
+  function buildConnectCloudflareGithubRepoAction(
+    workerId: Id<"vaultCloudflareWorkers">,
+  ): VaultResourceRailAction {
+    const isConnecting = isConnectingCloudflareGithubRepo?.(workerId) ?? false;
     return {
       kind: "connect",
       label: isConnecting ? "Connecting GitHub repo..." : "Connect GitHub repo",
       disabled: isConnecting || !connectCloudflareGithubRepoOnClick,
       onClick: connectCloudflareGithubRepoOnClick
-        ? () => connectCloudflareGithubRepoOnClick(appRoot)
+        ? () => connectCloudflareGithubRepoOnClick(workerId)
         : undefined,
     };
   }
 
-  function buildSetCloudflareConvexDeployKeysAction(appRoot: string): VaultResourceRailAction {
-    const isSetting = isSettingCloudflareConvexDeployKeys?.(appRoot) ?? false;
+  function buildSetCloudflareConvexDeployKeysAction(args: {
+    workerId: Id<"vaultCloudflareWorkers">;
+    convexDeploymentId: Id<"vaultConvexDeployments">;
+  }): VaultResourceRailAction {
+    const isSetting = isSettingCloudflareConvexDeployKeys?.(args) ?? false;
     return {
       kind: "set",
       label: isSetting ? "Setting Convex deploy keys..." : "Set Convex deploy keys",
       disabled: isSetting || !setCloudflareConvexDeployKeysOnClick,
       onClick: setCloudflareConvexDeployKeysOnClick
-        ? () => setCloudflareConvexDeployKeysOnClick(appRoot)
+        ? () => setCloudflareConvexDeployKeysOnClick(args)
         : undefined,
     };
   }
 
-  function buildVerifyCloudflareInfrastructureAction(appRoot: string): VaultResourceRailAction {
-    const isVerifying = isVerifyingCloudflareInfrastructure?.(appRoot) ?? false;
+  function buildDeployCloudflareConvexAction(
+    workerId: Id<"vaultCloudflareWorkers">,
+  ): VaultResourceRailAction {
+    return {
+      kind: "connect",
+      label: "Deploy Convex",
+      ariaLabel: "Choose Convex deployment for Cloudflare Worker",
+      disabled: !deployCloudflareConvexOnClick,
+      onClick: deployCloudflareConvexOnClick
+        ? () => deployCloudflareConvexOnClick(workerId)
+        : undefined,
+    };
+  }
+
+  function buildVerifyCloudflareInfrastructureAction(
+    workerId: Id<"vaultCloudflareWorkers">,
+  ): VaultResourceRailAction {
+    const isVerifying = isVerifyingCloudflareInfrastructure?.(workerId) ?? false;
     return {
       kind: "verify",
       label: isVerifying ? "Verifying..." : "Verify infrastructure",
       disabled: isVerifying || !verifyCloudflareInfrastructureOnClick,
       onClick: verifyCloudflareInfrastructureOnClick
-        ? () => verifyCloudflareInfrastructureOnClick(appRoot)
+        ? () => verifyCloudflareInfrastructureOnClick(workerId)
         : undefined,
     };
   }
 
-  const convexRowsByAppRoot = new Map<string, VaultResourceRailRowState<"convex">>();
-  if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "convex") {
-    convexRowsByAppRoot.set(".", {
-      provider: "convex",
-      status: "failed",
-      value: vault.ghRepoName,
-      actions: [buildRetryInfrastructureAction()],
-    });
-  } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "convex") {
-    convexRowsByAppRoot.set(".", {
-      provider: "convex",
-      status: "running",
-      value: vault.ghRepoName,
-    });
-  } else if (
-    vault.providerSetup.status === "failed" &&
-    providerSetupProvider === "convex" &&
-    providerSetup?.status === "failed"
-  ) {
-    const rootConvexDeployment = vault.convexDeployments.find(
-      (deployment) => deployment.appRoot === ".",
-    );
-    convexRowsByAppRoot.set(".", {
-      provider: "convex",
-      status: "failed",
-      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
-      scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
-      actions:
-        vault.providerSetup.source === "manual" && canConfigureRootAppRoot
-          ? [buildAddConvexAction(".")]
-          : [buildRetryInfrastructureAction()],
-    });
-  } else if (
-    vault.providerSetup.status === "running" &&
-    providerSetupProvider === "convex" &&
-    providerSetup?.status === "running"
-  ) {
-    const rootConvexDeployment = vault.convexDeployments.find(
-      (deployment) => deployment.appRoot === ".",
-    );
-    convexRowsByAppRoot.set(".", {
-      provider: "convex",
-      status: "running",
-      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
-      scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
-    });
-  } else {
-    const sortedConvexDeployments = [...vault.convexDeployments].sort(
-      (left, right) =>
-        compareAppRoots(left.appRoot, right.appRoot) ||
-        left.projectSlug.localeCompare(right.projectSlug) ||
-        left.projectId.localeCompare(right.projectId),
-    );
-    for (const deployment of sortedConvexDeployments) {
-      if (deployment.upstream.state === "missing_upstream") {
-        convexRowsByAppRoot.set(deployment.appRoot, {
-          provider: "convex",
-          status: "failed",
-          value: deployment.projectSlug,
-          scope: normalizeResourceScope(deployment.teamSlug),
-          actions: [
-            deployment.upstream.nextAction === "retry_infrastructure_provisioning"
-              ? buildRetryInfrastructureAction()
-              : buildAddConvexAction(deployment.appRoot),
-          ],
-        });
-        continue;
-      }
-      convexRowsByAppRoot.set(deployment.appRoot, {
-        provider: "convex",
-        status: "ready",
-        value: deployment.projectSlug,
-        scope: normalizeResourceScope(deployment.teamSlug),
-        href: deployment.projectSettingsDashboardUrl,
-      });
+  const apps = [...vault.apps].sort(
+    (left, right) =>
+      compareRootDirectories(left.rootDirectory, right.rootDirectory) ||
+      left.appId.localeCompare(right.appId),
+  );
+  const appsById = new Map(apps.map((app) => [app.appId, app]));
+  const convexDeploymentsById = new Map(
+    vault.convexDeployments.map((deployment) => [deployment.convexDeploymentId, deployment]),
+  );
+  const dependenciesByWorkerId = new Map<
+    Id<"vaultCloudflareWorkers">,
+    VaultDashboardVault["workerDeploymentDependencies"][number]
+  >();
+  const workerIds = new Set(vault.cloudflareWorkers.map((worker) => worker.workerId));
+  for (const dependency of vault.workerDeploymentDependencies) {
+    if (dependenciesByWorkerId.has(dependency.workerId)) {
+      throw new Error("Cloudflare Worker has more than one Convex deployment dependency.");
     }
+    if (
+      !workerIds.has(dependency.workerId) ||
+      !convexDeploymentsById.has(dependency.convexDeploymentId)
+    ) {
+      throw new Error("Worker deployment dependency references an unknown resource.");
+    }
+    dependenciesByWorkerId.set(dependency.workerId, dependency);
   }
 
-  const cloudflareRowsByAppRoot = new Map<string, VaultResourceRailRowState<"cloudflare">>();
-  if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "cloudflare") {
-    cloudflareRowsByAppRoot.set(".", {
-      provider: "cloudflare",
-      status: "failed",
-      value: vault.ghRepoName,
-      actions: [buildRetryInfrastructureAction()],
-    });
-  } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "cloudflare") {
-    cloudflareRowsByAppRoot.set(".", {
-      provider: "cloudflare",
-      status: "running",
-      value: vault.ghRepoName,
-    });
-  } else if (
-    vault.providerSetup.status === "failed" &&
-    providerSetupProvider === "cloudflare" &&
-    providerSetup?.status === "failed" &&
-    !isCloudflareWorkerWiringStep(providerSetupStep)
-  ) {
-    cloudflareRowsByAppRoot.set(".", {
-      provider: "cloudflare",
-      status: "failed",
-      value: vault.ghRepoName,
-      actions:
-        vault.providerSetup.source === "manual" && canConfigureRootAppRoot
-          ? [buildAddCloudflareWorkerAction(".")]
-          : [buildRetryInfrastructureAction()],
-    });
-  } else if (
-    vault.providerSetup.status === "running" &&
-    providerSetupProvider === "cloudflare" &&
-    providerSetup?.status === "running"
-  ) {
-    cloudflareRowsByAppRoot.set(".", {
-      provider: "cloudflare",
-      status: "running",
-      value: vault.ghRepoName,
-    });
-  } else {
-    const sortedCloudflareWorkers = [...vault.cloudflareWorkers].sort(
-      (left, right) =>
-        compareAppRoots(left.appRoot, right.appRoot) ||
-        left.workerName.localeCompare(right.workerName),
-    );
-    for (const worker of sortedCloudflareWorkers) {
-      if (worker.upstream.state === "missing_upstream") {
-        cloudflareRowsByAppRoot.set(worker.appRoot, {
-          provider: "cloudflare",
-          status: "failed",
-          value: worker.workerName,
-          scope: resolveCloudflareWorkersSubdomain({
-            workersDevUrl: worker.workersDevUrl,
-            workerName: worker.workerName,
-          }),
-          actions: [
-            worker.upstream.nextAction === "retry_infrastructure_provisioning"
-              ? buildRetryInfrastructureAction()
-              : buildAddCloudflareWorkerAction(worker.appRoot),
-          ],
-        });
-        continue;
-      }
+  const convexRowsByAppId = new Map<Id<"vaultApps">, VaultResourceRailRowState<"convex">[]>();
+  const sortedConvexDeployments = [...vault.convexDeployments].sort(
+    (left, right) =>
+      left.projectSlug.localeCompare(right.projectSlug) ||
+      left.projectId.localeCompare(right.projectId) ||
+      left.convexDeploymentId.localeCompare(right.convexDeploymentId),
+  );
+  for (const deployment of sortedConvexDeployments) {
+    const app = appsById.get(deployment.appId);
+    if (!app) {
+      throw new Error("Convex deployment references an unknown app.");
+    }
+    const row: VaultResourceRailRowState<"convex"> =
+      deployment.upstream.state === "missing_upstream"
+        ? {
+            provider: "convex",
+            rowId: `convex:${deployment.convexDeploymentId}`,
+            status: "failed",
+            value: deployment.projectSlug,
+            scope: normalizeResourceScope(deployment.teamSlug),
+            actions: [
+              deployment.upstream.nextAction === "retry_infrastructure_provisioning"
+                ? buildRetryInfrastructureAction()
+                : buildAddConvexAction(app),
+            ],
+          }
+        : {
+            provider: "convex",
+            rowId: `convex:${deployment.convexDeploymentId}`,
+            status: "ready",
+            value: deployment.projectSlug,
+            scope: normalizeResourceScope(deployment.teamSlug),
+            href: deployment.projectSettingsDashboardUrl,
+          };
+    convexRowsByAppId.set(deployment.appId, [
+      ...(convexRowsByAppId.get(deployment.appId) ?? []),
+      row,
+    ]);
+  }
+
+  const cloudflareRowsByAppId = new Map<
+    Id<"vaultApps">,
+    VaultResourceRailRowState<"cloudflare">[]
+  >();
+  const sortedCloudflareWorkers = [...vault.cloudflareWorkers].sort(
+    (left, right) =>
+      left.workerName.localeCompare(right.workerName) ||
+      left.workerId.localeCompare(right.workerId),
+  );
+  for (const worker of sortedCloudflareWorkers) {
+    const app = appsById.get(worker.appId);
+    if (!app) {
+      throw new Error("Cloudflare Worker references an unknown app.");
+    }
+    const dependency = dependenciesByWorkerId.get(worker.workerId);
+    const deployment = dependency
+      ? convexDeploymentsById.get(dependency.convexDeploymentId)
+      : undefined;
+    const deploymentApp = deployment ? appsById.get(deployment.appId) : undefined;
+    const dependencyDescription =
+      deployment && deploymentApp
+        ? `Deploys Convex ${deployment.teamSlug}/${deployment.projectSlug} from ${deploymentApp.rootDirectory}.`
+        : undefined;
+
+    let row: VaultResourceRailRowState<"cloudflare">;
+    if (worker.upstream.state === "missing_upstream") {
+      row = {
+        provider: "cloudflare",
+        rowId: `cloudflare:${worker.workerId}`,
+        status: "failed",
+        value: worker.workerName,
+        scope: resolveCloudflareWorkersSubdomain({
+          workersDevUrl: worker.workersDevUrl,
+          workerName: worker.workerName,
+        }),
+        actions: [
+          worker.upstream.nextAction === "retry_infrastructure_provisioning"
+            ? buildRetryInfrastructureAction()
+            : buildAddCloudflareWorkerAction(app),
+        ],
+      };
+    } else {
       let cloudflareAction: VaultResourceRailAction | undefined;
       let verifyAction: VaultResourceRailAction | undefined;
-      let cloudflareDescription: string | undefined;
+      let cloudflareDescription = dependencyDescription;
       const missingBuildsTriggerFailure = hasCurrentMissingCloudflareBuildsTriggerFailure(
         vault,
         worker,
@@ -473,20 +430,36 @@ export function buildVaultDashboardResourceRailState({
         canRepairCloudflareWorkers &&
         (worker.githubRepositoryConnection.state === "not_connected" || missingBuildsTriggerFailure)
       ) {
-        cloudflareDescription = missingBuildsTriggerFailure
+        const repairDescription = missingBuildsTriggerFailure
           ? "Cloudflare's saved Workers Builds trigger is missing."
           : "Cloudflare is not connected to this GitHub repository.";
-        cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.appRoot);
-      } else if (canRepairCloudflareWorkers && worker.convexDeployKeys.state === "missing") {
-        cloudflareDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
-        cloudflareAction = buildSetCloudflareConvexDeployKeysAction(worker.appRoot);
+        cloudflareDescription = dependencyDescription
+          ? `${repairDescription} ${dependencyDescription}`
+          : repairDescription;
+        cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.workerId);
+      } else if (
+        canRepairCloudflareWorkers &&
+        dependency === undefined &&
+        deployCloudflareConvexOnClick &&
+        vault.convexDeployments.some((candidate) => candidate.upstream.state === "present")
+      ) {
+        cloudflareAction = buildDeployCloudflareConvexAction(worker.workerId);
+      } else if (canRepairCloudflareWorkers && dependency?.wiring.state === "not_wired") {
+        const repairDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
+        cloudflareDescription = dependencyDescription
+          ? `${repairDescription} ${dependencyDescription}`
+          : repairDescription;
+        cloudflareAction = buildSetCloudflareConvexDeployKeysAction({
+          workerId: worker.workerId,
+          convexDeploymentId: dependency.convexDeploymentId,
+        });
       }
       if (
         canVerifyCloudflareWorkers &&
         (verifyCloudflareInfrastructureOnClick ||
-          isVerifyingCloudflareInfrastructure?.(worker.appRoot))
+          isVerifyingCloudflareInfrastructure?.(worker.workerId))
       ) {
-        verifyAction = buildVerifyCloudflareInfrastructureAction(worker.appRoot);
+        verifyAction = buildVerifyCloudflareInfrastructureAction(worker.workerId);
       }
       let cloudflareActions: VaultResourceRailActionList | undefined;
       if (cloudflareAction && verifyAction) {
@@ -496,10 +469,11 @@ export function buildVaultDashboardResourceRailState({
       } else if (verifyAction) {
         cloudflareActions = [verifyAction];
       }
-      cloudflareRowsByAppRoot.set(worker.appRoot, {
+      row = {
         actions: cloudflareActions,
         description: cloudflareDescription,
         provider: "cloudflare",
+        rowId: `cloudflare:${worker.workerId}`,
         status: "ready",
         value: worker.workerName,
         scope: resolveCloudflareWorkersSubdomain({
@@ -507,67 +481,75 @@ export function buildVaultDashboardResourceRailState({
           workerName: worker.workerName,
         }),
         href: worker.projectDashboardUrl,
-      });
+      };
     }
-    if (!cloudflareRowsByAppRoot.has(".") && canConfigureRootAppRoot) {
-      if (!canConfigureMissingResources) {
-        cloudflareRowsByAppRoot.set(".", {
-          provider: "cloudflare",
-          status: "pending",
-          value: vault.ghRepoName,
-        });
-      } else {
-        cloudflareRowsByAppRoot.set(".", {
-          provider: "cloudflare",
-          status: "action_required",
-          actions: [buildAddCloudflareWorkerAction(".")],
-        });
-      }
-    }
+    cloudflareRowsByAppId.set(worker.appId, [
+      ...(cloudflareRowsByAppId.get(worker.appId) ?? []),
+      row,
+    ]);
   }
 
-  const appRoots = vault.appRoots.map((app) => app.appRoot).sort(compareAppRoots);
-  const apps = appRoots.flatMap((appRoot) => {
+  const appStates = apps.map((app) => {
     const rows: VaultResourceRailRowState<"cloudflare" | "convex">[] = [];
-    const convexRow = convexRowsByAppRoot.get(appRoot);
-    if (convexRow) {
-      rows.push(convexRow);
-    } else if (canConfigureMissingResources && (appRoot !== "." || canConfigureRootAppRoot)) {
+    const convexRows = convexRowsByAppId.get(app.appId) ?? [];
+    rows.push(...convexRows);
+    if (convexRows.length === 0) {
+      rows.push(
+        canConfigureMissingResources
+          ? {
+              provider: "convex",
+              rowId: `convex:${app.appId}:add`,
+              status: "action_required",
+              actions: [buildAddConvexAction(app)],
+            }
+          : {
+              provider: "convex",
+              rowId: `convex:${app.appId}:pending`,
+              status: "pending",
+              value: app.rootDirectory === "/" ? vault.ghRepoName : app.rootDirectory,
+            },
+      );
+    }
+
+    const cloudflareRows = cloudflareRowsByAppId.get(app.appId) ?? [];
+    rows.push(...cloudflareRows);
+    if (cloudflareRows.length === 0) {
+      rows.push(
+        canConfigureMissingResources
+          ? {
+              provider: "cloudflare",
+              rowId: `cloudflare:${app.appId}:add`,
+              status: "action_required",
+              actions: [buildAddCloudflareWorkerAction(app)],
+            }
+          : {
+              provider: "cloudflare",
+              rowId: `cloudflare:${app.appId}:pending`,
+              status: "pending",
+              value: app.rootDirectory === "/" ? vault.ghRepoName : app.rootDirectory,
+            },
+      );
+    } else if (
+      canConfigureMissingResources &&
+      (buildAddCloudflareWorkerHref || addCloudflareWorkerOnClick)
+    ) {
       rows.push({
-        provider: "convex",
+        provider: "cloudflare",
+        rowId: `cloudflare:${app.appId}:add`,
         status: "action_required",
-        actions: [buildAddConvexAction(appRoot)],
-      });
-    } else if (appRoot !== "." || canConfigureRootAppRoot) {
-      rows.push({
-        provider: "convex",
-        status: "pending",
-        value: appRoot === "." ? vault.ghRepoName : appRoot,
+        actions: [buildAddCloudflareWorkerAction(app)],
       });
     }
 
-    const cloudflareRow = cloudflareRowsByAppRoot.get(appRoot);
-    if (cloudflareRow) {
-      rows.push(cloudflareRow);
-    } else if (canConfigureMissingResources && (appRoot !== "." || canConfigureRootAppRoot)) {
-      rows.push({
-        provider: "cloudflare",
-        status: "action_required",
-        actions: [buildAddCloudflareWorkerAction(appRoot)],
-      });
-    } else if (appRoot !== "." || canConfigureRootAppRoot) {
-      rows.push({
-        provider: "cloudflare",
-        status: "pending",
-        value: appRoot === "." ? vault.ghRepoName : appRoot,
-      });
-    }
-
-    return rows.length > 0 ? [{ appRoot, rows }] : [];
+    return {
+      appId: app.appId,
+      rootDirectory: app.rootDirectory,
+      rows,
+    };
   });
 
   return {
-    apps,
+    apps: appStates,
     githubRow,
   } satisfies VaultResourceRailState;
 }

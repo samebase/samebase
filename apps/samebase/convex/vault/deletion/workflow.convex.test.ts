@@ -213,18 +213,21 @@ describe("vault deletion workflow", () => {
         visibility: "private",
         connectedAt: 8,
       });
+      const appId = await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        rootDirectory: "/",
+        createdAt: 6,
+      });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         userId,
-        appRoot: ".",
+        appId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
+        builds: { state: "not_connected" },
         connectedAt: 6,
         lastObservedAt: 7,
       });
@@ -427,20 +430,54 @@ describe("vault deletion workflow", () => {
           lastTreeRefreshAt: 5 + index,
         });
       }
-      await ctx.db.insert("vaultCloudflareWorkers", {
+      const appId = await ctx.db.insert("vaultApps", {
         vaultId,
         userId,
-        appRoot: ".",
+        rootDirectory: "/",
+        createdAt: 6,
+      });
+      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appId,
         accountId: "cloudflare-account",
         workerName: "delete-me-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
+        builds: { state: "not_connected" },
         connectedAt: 6,
         lastObservedAt: 7,
+      });
+      const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appId,
+        projectId: "convex-project",
+        teamSlug: "ada-team",
+        projectSlug: "delete-me",
+        deploymentName: "delete-me-production",
+        deploymentType: "prod",
+        cloudUrl: "https://delete-me-production.convex.cloud",
+        siteUrl: "https://delete-me-production.convex.site",
+        previewDeployment: { state: "not_ensured" },
+        origin: "selected_existing",
+        connectedAt: 6,
+        lastObservedAt: 7,
+      });
+      await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+        vaultId,
+        userId,
+        workerId,
+        convexDeploymentId,
+        wiring: {
+          state: "not_wired",
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: { state: "not_created" },
+          },
+        },
+        createdAt: 6,
+        updatedAt: 7,
       });
 
       return { userId, vaultId };
@@ -465,6 +502,7 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
     });
     let sourceCleanupBatches = 0;
+    const runtimeCleanupTables: string[] = [];
     for (const step of [
       "cleanup_editor_state",
       "cleanup_source_caches",
@@ -492,6 +530,9 @@ describe("vault deletion workflow", () => {
       if (step === "cleanup_source_caches") {
         sourceCleanupBatches += 1;
       }
+      if (step === "cleanup_runtime_state" && cleanupResult.state === "needs_more") {
+        runtimeCleanupTables.push(cleanupResult.table);
+      }
 
       for (; cleanupResult.state === "needs_more"; ) {
         cleanupResult = await t.mutation(
@@ -504,6 +545,9 @@ describe("vault deletion workflow", () => {
         );
         if (step === "cleanup_source_caches") {
           sourceCleanupBatches += 1;
+        }
+        if (step === "cleanup_runtime_state" && cleanupResult.state === "needs_more") {
+          runtimeCleanupTables.push(cleanupResult.table);
         }
       }
     }
@@ -534,6 +578,18 @@ describe("vault deletion workflow", () => {
           .query("vaultCloudflareWorkers")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
+        apps: await ctx.db
+          .query("vaultApps")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
+        convexDeployments: await ctx.db
+          .query("vaultConvexDeployments")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
+        workerDeploymentDependencies: await ctx.db
+          .query("vaultWorkerDeploymentDependencies")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
         events: await ctx.db
           .query("vaultDeletionEvents")
           .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRunId))
@@ -544,7 +600,16 @@ describe("vault deletion workflow", () => {
     expect(completed.vault).toBeNull();
     expect(completed.branchTrees).toHaveLength(0);
     expect(completed.cloudflareWorkers).toHaveLength(0);
+    expect(completed.apps).toHaveLength(0);
+    expect(completed.convexDeployments).toHaveLength(0);
+    expect(completed.workerDeploymentDependencies).toHaveLength(0);
     expect(sourceCleanupBatches).toBeGreaterThan(1);
+    expect(runtimeCleanupTables).toEqual([
+      "vaultWorkerDeploymentDependencies",
+      "vaultConvexDeployments",
+      "vaultCloudflareWorkers",
+      "vaultApps",
+    ]);
     expect(completed.run).toMatchObject({
       state: "succeeded",
       currentStep: "finish",

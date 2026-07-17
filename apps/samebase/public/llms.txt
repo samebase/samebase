@@ -6,10 +6,10 @@
 
 Samebase can create a new app in about a minute or connect an existing GitHub repository without
 touching its providers. A connected app can remain GitHub-only or attach Convex and Cloudflare
-later. One repository can contain several explicit app roots for a monorepo; humans configure those
-roots in the dashboard.
+later. One repository can contain several explicit root directories for a monorepo; humans
+configure those roots in the dashboard.
 
-The dashboard gives humans one inventory of every app they connect, its app roots, provider
+The dashboard gives humans one inventory of every app they connect, its root directory, provider
 resources, current state, direct provider coordinates, and provider or connection repair actions.
 Codex and Claude Code can install `samebase@samebase`, which packages the create or connect, local
 repository build, and Git-backed hosting workflows. Cursor and other MCP clients can call the same
@@ -41,7 +41,7 @@ Every operational action has one contract, and these are the same actions the da
 Degraded app states name their remedy in a `nextAction` field whose values are these action ids.
 
 - [Get authentication status](https://samebase.com/docs/actions/get_authentication_status.md): Read the caller's current Samebase MCP authentication state: account identity, role, access keys, and OAuth token scopes.
-- [List Samebase apps](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources. Degraded states carry a nextAction field naming the repair action that fixes them.
+- [List Samebase apps](https://samebase.com/docs/actions/get_user_vaults.md): List Samebase repositories with durable apps, provider resources, explicit Worker-to-Convex deployment dependencies, and actionable provisioning state.
 - [Create Samebase app](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.
 - [Connect existing repository](https://samebase.com/docs/actions/connect_existing_repository.md): Import an existing GitHub repository as a Samebase app. Creates the Samebase record and syncs the repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.
 - [List Convex projects](https://samebase.com/docs/actions/list_convex_projects.md): List the Convex projects available on the caller's connected Convex account, for choosing an attach target.
@@ -50,7 +50,7 @@ Degraded app states name their remedy in a `nextAction` field whose values are t
 - [Connect Convex deployment](https://samebase.com/docs/actions/connect_convex_deployment.md): Attach an existing Convex project to a Samebase app (manual attach): records the deployment and starts the connection run.
 - [Connect Cloudflare Worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Attach an existing Cloudflare Worker to a Samebase app (manual attach): validates the Worker against the repository and starts the connection run.
 - [Wire Workers Builds](https://samebase.com/docs/actions/wire_builds.md): Connect the app's Cloudflare Worker to its GitHub repository through Workers Builds: production and preview triggers, so pushes deploy and pull requests get previews.
-- [Wire Convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.
+- [Wire Convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint relationship-specific Convex deploy keys, then put the production key on the production trigger and the preview key on the preview trigger.
 - [Verify infrastructure](https://samebase.com/docs/actions/verify_infrastructure.md): Verify the app's recorded Cloudflare infrastructure: Workers Builds trigger IDs and Convex deploy-key variables, then mark stale Samebase records as repairable.
 - [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
 - [Create browser handoff](https://samebase.com/docs/actions/create_browser_handoff.md): Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.

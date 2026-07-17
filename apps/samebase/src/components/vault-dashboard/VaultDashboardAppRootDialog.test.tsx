@@ -34,7 +34,7 @@ function fakeVaultId(): Id<"vaults"> {
 }
 
 function renderAppRootDialog({
-  appRoot = ".",
+  appRoot = "/",
   folderSuggestions = [],
   mode = "app",
   onAppRootChange = vi.fn(),
@@ -68,8 +68,7 @@ function renderAppRootDialog({
         onSubmit={onSubmit}
         open
         vault={{
-          hasAppRoots: false,
-          hasRootAppRoot: false,
+          hasApps: false,
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
         }}

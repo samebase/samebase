@@ -28,16 +28,12 @@ function formatVaultDatabaseNotice(
     case "unsupported_branch":
       return `Production data is only available on ${result.defaultBranch} for now.`;
     case "missing_deployment":
-      return "No Convex deployment is connected for this app root.";
+      return "Convex deployment not found.";
     case "missing_connection":
       return "Connect Convex to open deployment data.";
   }
   result satisfies never;
   return "Data is unavailable.";
-}
-
-function formatAppRoot(appRoot: string): string {
-  return appRoot === "." ? "root" : appRoot;
 }
 
 function VaultDatabaseStatus({ children }: { children: ReactNode }) {
@@ -52,10 +48,15 @@ type VaultDatabaseViewProps = {
   owner: string;
   repoName: string;
   branch: string;
-  appRoot: string;
+  deploymentId: string;
 };
 
-export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDatabaseViewProps) {
+export function VaultDatabaseView({
+  owner,
+  repoName,
+  branch,
+  deploymentId,
+}: VaultDatabaseViewProps) {
   const createEmbeddedDashboardCredentials = useAction(
     api.vault.database.createEmbeddedDashboardCredentials,
   );
@@ -114,7 +115,7 @@ export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDat
       owner,
       repoName,
       branch,
-      appRoot,
+      deploymentId,
     };
     const revokeCredentials = (credentials: ReadyEmbeddedDashboardCredentials) => {
       void revokeEmbeddedDashboardCredentials({
@@ -153,15 +154,15 @@ export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDat
       }
     };
   }, [
-    appRoot,
     branch,
     createEmbeddedDashboardCredentials,
     owner,
     repoName,
+    deploymentId,
     revokeEmbeddedDashboardCredentials,
   ]);
 
-  const titleParts = [`${owner}/${repoName}`, branch, formatAppRoot(appRoot)];
+  const titleParts = [`${owner}/${repoName}`, branch];
 
   return (
     <AppWorkspaceRouteChrome rightToggleVisibility="all">

@@ -9,8 +9,8 @@ import { Database, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 type VaultConvexSchemaGraphViewProps = {
-  appRoot: string;
   branch: string;
+  deploymentId: string;
   owner: string;
   repoName: string;
 };
@@ -34,12 +34,6 @@ function VaultConvexSchemaGraphRouteStatusSidebar({
         </div>
         <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">
           {context.branch}
-        </div>
-      </div>
-      <div className="grid gap-1 text-xs text-muted-foreground">
-        <div className="flex min-w-0 justify-between gap-2">
-          <span>App root</span>
-          <span className="min-w-0 truncate font-mono text-foreground">{context.appRoot}</span>
         </div>
       </div>
       <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">{status}</div>
@@ -78,15 +72,15 @@ function VaultConvexSchemaGraphRouteStatusShell({
 }
 
 export function VaultConvexSchemaGraphView({
-  appRoot,
   branch,
+  deploymentId,
   owner,
   repoName,
 }: VaultConvexSchemaGraphViewProps) {
   const repositoryFullName = `${owner}/${repoName}`;
   const context = {
-    appRoot,
     branch,
+    deploymentId,
     repositoryFullName,
   } satisfies VaultConvexSchemaGraphRouteContext;
   const vault = useVaultQuery(api.vault.records.getVaultByRepository, {

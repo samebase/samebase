@@ -3,14 +3,14 @@ import { v } from "convex/values";
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { id, string } = v;
+const { id } = v;
 
 export const cloudflareWireBuildsContract = {
   id: "wire_builds",
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    workerId: id("vaultCloudflareWorkers"),
   },
   returns: v.null(),
   mcp: {
@@ -26,7 +26,7 @@ export const cloudflareWireBuildsContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app whose Worker needs Builds wiring.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      workerId: "Stable Samebase id of the Worker whose Builds triggers should be wired.",
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `The repair for a Worker that exists but is not connected to its repository: creates the

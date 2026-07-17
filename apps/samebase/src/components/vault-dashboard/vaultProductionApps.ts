@@ -1,4 +1,5 @@
 import type { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
@@ -14,12 +15,13 @@ export type VaultBranchProductionLink = {
 };
 
 export type VaultBranchProductionApp = {
-  appRoot: string;
+  appId: Id<"vaultApps">;
   links: readonly VaultBranchProductionLink[];
+  rootDirectory: string;
 };
 
 type VaultBranchProductionLinkInput = {
-  appRoot: string;
+  appId: Id<"vaultApps">;
   href: string;
   label: string;
   provider: VaultBranchProductionLinkProvider;
@@ -28,32 +30,49 @@ type VaultBranchProductionLinkInput = {
 };
 
 function buildVaultBranchProductionApps(
+  apps: VaultDashboardVault["apps"],
   links: VaultBranchProductionLinkInput[],
 ): VaultBranchProductionApp[] {
-  const linksByAppRoot = new Map<string, VaultBranchProductionLinkInput[]>();
+  const linksByAppId = new Map<Id<"vaultApps">, VaultBranchProductionLinkInput[]>();
 
   for (const link of links) {
-    linksByAppRoot.set(link.appRoot, [...(linksByAppRoot.get(link.appRoot) ?? []), link]);
+    linksByAppId.set(link.appId, [...(linksByAppId.get(link.appId) ?? []), link]);
   }
 
-  return [...linksByAppRoot.entries()]
-    .sort(([leftAppRoot], [rightAppRoot]) => leftAppRoot.localeCompare(rightAppRoot))
-    .map(([appRoot, appLinks]) => ({
-      appRoot,
-      links: [...appLinks]
-        .sort(
-          (left, right) =>
-            left.provider.localeCompare(right.provider) ||
-            left.sortKey.localeCompare(right.sortKey) ||
-            left.href.localeCompare(right.href),
-        )
-        .map((link) => ({
-          href: link.href,
-          label: link.label,
-          provider: link.provider,
-          title: link.title,
-        })),
-    }));
+  return [...apps]
+    .sort((left, right) => {
+      const leftRootOrder = left.rootDirectory === "/" ? 0 : 1;
+      const rightRootOrder = right.rootDirectory === "/" ? 0 : 1;
+      return (
+        leftRootOrder - rightRootOrder ||
+        left.rootDirectory.localeCompare(right.rootDirectory) ||
+        left.appId.localeCompare(right.appId)
+      );
+    })
+    .flatMap((app) => {
+      const appLinks = linksByAppId.get(app.appId);
+      return appLinks
+        ? [
+            {
+              appId: app.appId,
+              rootDirectory: app.rootDirectory,
+              links: [...appLinks]
+                .sort(
+                  (left, right) =>
+                    left.provider.localeCompare(right.provider) ||
+                    left.sortKey.localeCompare(right.sortKey) ||
+                    left.href.localeCompare(right.href),
+                )
+                .map((link) => ({
+                  href: link.href,
+                  label: link.label,
+                  provider: link.provider,
+                  title: link.title,
+                })),
+            },
+          ]
+        : [];
+    });
 }
 
 function buildVaultBranchProductionUrlLabel(url: string): string {
@@ -65,22 +84,27 @@ function buildVaultBranchProductionUrlLabel(url: string): string {
 }
 
 export function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
+  const appsById = new Map(vault.apps.map((app) => [app.appId, app]));
   const cloudflareLinks: VaultBranchProductionLinkInput[] = vault.cloudflareWorkers.flatMap(
     (worker) => {
       if (worker.upstream.state !== "present" || !worker.workersDevUrl) {
         return [];
       }
+      const app = appsById.get(worker.appId);
+      if (!app) {
+        throw new Error("Cloudflare Worker references an unknown app.");
+      }
       return [
         {
-          appRoot: worker.appRoot,
+          appId: worker.appId,
           href: worker.workersDevUrl,
           label: buildVaultBranchProductionUrlLabel(worker.workersDevUrl),
           provider: "cloudflare",
           sortKey: worker.workerName,
           title:
-            worker.appRoot === "."
+            app.rootDirectory === "/"
               ? "Open production app"
-              : `Open production app for ${worker.appRoot}`,
+              : `Open production app for ${app.rootDirectory}`,
         },
       ];
     },
@@ -90,9 +114,12 @@ export function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranc
       if (deployment.upstream.state !== "present" || !deployment.deploymentDashboardUrl) {
         return [];
       }
+      if (!appsById.has(deployment.appId)) {
+        throw new Error("Convex deployment references an unknown app.");
+      }
       return [
         {
-          appRoot: deployment.appRoot,
+          appId: deployment.appId,
           href: deployment.deploymentDashboardUrl,
           label: `Production: ${deployment.deploymentName}`,
           provider: "convex",
@@ -103,5 +130,5 @@ export function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranc
     },
   );
 
-  return buildVaultBranchProductionApps([...cloudflareLinks, ...convexLinks]);
+  return buildVaultBranchProductionApps(vault.apps, [...cloudflareLinks, ...convexLinks]);
 }

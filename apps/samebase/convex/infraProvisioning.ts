@@ -32,16 +32,8 @@ const CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS = [
 
 const infrastructurePatchResult = v.object({ applied: v.boolean() });
 
-function parseDeployKeyIdentifier(deployKey: string): string {
-  const pipeIdx = deployKey.indexOf("|");
-  if (pipeIdx === -1) {
-    return deployKey.slice(0, 64);
-  }
-  return deployKey.slice(0, pipeIdx);
-}
-
 type ConvexDeployKeyResult = {
-  convexDeployKeyId: string;
+  convexDeployKeyName: string;
   deployKey: string;
 };
 
@@ -226,7 +218,7 @@ export async function createConvexDeployKey(args: {
   );
 
   return {
-    convexDeployKeyId: parseDeployKeyIdentifier(deployKey),
+    convexDeployKeyName: args.name,
     deployKey,
   };
 }
@@ -234,7 +226,7 @@ export async function createConvexDeployKey(args: {
 export async function deleteConvexDeployKey(args: {
   convexToken: string;
   deploymentName: string;
-  convexDeployKeyId: string;
+  convexDeployKeyName: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   await requestConvexManagementApi(
@@ -243,7 +235,7 @@ export async function deleteConvexDeployKey(args: {
     "/deployments/{deployment_name}/delete_deploy_key",
     {
       params: { path: { deployment_name: args.deploymentName } },
-      body: { id: args.convexDeployKeyId },
+      body: { id: args.convexDeployKeyName },
       recordApiCall: args.recordApiCall,
     },
   );
@@ -271,7 +263,7 @@ export async function createConvexPreviewDeployKey(args: {
   );
 
   return {
-    convexDeployKeyId: parseDeployKeyIdentifier(previewDeployKey),
+    convexDeployKeyName: args.name,
     deployKey: previewDeployKey,
   };
 }
@@ -279,7 +271,7 @@ export async function createConvexPreviewDeployKey(args: {
 export async function deleteConvexPreviewDeployKey(args: {
   convexToken: string;
   projectId: string;
-  convexDeployKeyId: string;
+  convexDeployKeyName: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   await requestConvexManagementApi(
@@ -288,7 +280,7 @@ export async function deleteConvexPreviewDeployKey(args: {
     "/projects/{project_id}/delete_preview_deploy_key",
     {
       params: { path: { project_id: args.projectId } },
-      body: { id: args.convexDeployKeyId },
+      body: { id: args.convexDeployKeyName },
       recordApiCall: args.recordApiCall,
     },
   );

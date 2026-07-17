@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../../_generated/api";
 import { makeConvexTest } from "../../test.setup";
 
-const appRoot = ".";
+const rootDirectory = "/";
 
 async function createExistingRepositoryVaultWithConvex(args: {
   origin: "provisioned" | "selected_existing";
@@ -44,10 +44,16 @@ async function createExistingRepositoryVaultWithConvex(args: {
       defaultBranch: "main",
       connectedAt: 12,
     });
-    await ctx.db.insert("vaultConvexDeployments", {
+    const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot,
+      rootDirectory,
+      createdAt: 13,
+    });
+    const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+      vaultId,
+      userId,
+      appId,
       projectId: "convex-project",
       teamSlug: "ada-team",
       projectSlug: "manual-convex",
@@ -56,10 +62,6 @@ async function createExistingRepositoryVaultWithConvex(args: {
       cloudUrl: "https://manual-convex-prod.convex.cloud",
       siteUrl: "https://manual-convex-prod.convex.site",
       previewDeployment: { state: "not_ensured" },
-      deployKeys: {
-        production: { state: "not_created" },
-        preview: { state: "not_created" },
-      },
       origin: args.origin,
       connectedAt: 14,
       lastObservedAt: 14,
@@ -79,10 +81,14 @@ async function createExistingRepositoryVaultWithConvex(args: {
       });
     }
 
-    return { userId, vaultId };
+    return { appId, convexDeploymentId, userId, vaultId };
   });
 
-  return { ids, t };
+  return {
+    ids: { userId: ids.userId, vaultId: ids.vaultId },
+    resources: { appId: ids.appId, convexDeploymentId: ids.convexDeploymentId },
+    t,
+  };
 }
 
 async function createSamebaseManagedVaultWithConvex(args: { withDeployment: boolean }) {
@@ -134,11 +140,17 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
       createdAt: 15,
       updatedAt: 15,
     });
+    const appId = await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      rootDirectory,
+      createdAt: 13,
+    });
     if (args.withDeployment) {
       await ctx.db.insert("vaultConvexDeployments", {
         vaultId,
         userId,
-        appRoot,
+        appId,
         projectId: "convex-project",
         teamSlug: "ada-team",
         projectSlug: "managed-convex",
@@ -147,10 +159,6 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
         cloudUrl: "https://managed-convex-prod.convex.cloud",
         siteUrl: "https://managed-convex-prod.convex.site",
         previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "not_created" },
-          preview: { state: "not_created" },
-        },
         origin: "provisioned",
         connectedAt: 14,
         lastObservedAt: 14,
@@ -236,6 +244,60 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
   return { ids, t };
 }
 
+async function createExistingRepositoryVaultWithCloudflareWorker(args: {
+  origin: "provisioned" | "selected_existing";
+}) {
+  const { ids, resources, t } = await createExistingRepositoryVaultWithConvex({
+    origin: "selected_existing",
+  });
+  await t.run(async (ctx) => {
+    await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      userId: ids.userId,
+      auth: {
+        method: "api_key",
+        credential: "cloudflare-token",
+      },
+      defaultAccount: {
+        state: "selected",
+        accountId: "cloudflare-account",
+        accountName: "Ada Cloud",
+      },
+      createdAt: 15,
+      updatedAt: 15,
+    });
+    await ctx.db.insert("vaultCloudflareWorkers", {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      appId: resources.appId,
+      accountId: "cloudflare-account",
+      workerName: "manual-worker",
+      workerTag: "worker-tag",
+      origin: args.origin,
+      builds: {
+        state: "connected",
+        buildCommand: "pnpm run build",
+        deployCommand: "pnpm run deploy",
+        previewDeployCommand: "pnpm run deploy:preview",
+        pathIncludes: ["*"],
+        pathExcludes: [],
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-token",
+        },
+      },
+      connectedAt: 16,
+      lastObservedAt: 16,
+    });
+  });
+
+  return { ids, t };
+}
+
 const deleteConvexOptions = {
   removeCodespaces: false,
   removeGithubRepo: false,
@@ -286,6 +348,101 @@ describe("vault deletion Convex resource planning", () => {
           convex: {
             action: "skip",
             reason: "not_managed",
+          },
+        },
+      },
+    });
+  });
+
+  it("retains an existing Convex project while planning revocation for relation-owned deploy keys", async () => {
+    const { ids, resources, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "selected_existing",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        userId: ids.userId,
+        auth: {
+          method: "api_key",
+          credential: "convex-token",
+        },
+        teamId: "team-id",
+        teamSlug: "ada-team",
+        createdAt: 15,
+        updatedAt: 15,
+      });
+      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: resources.appId,
+        accountId: "cloudflare-account",
+        workerName: "manual-convex-worker",
+        workerTag: "worker-tag",
+        origin: "selected_existing",
+        builds: { state: "not_connected" },
+        connectedAt: 16,
+        lastObservedAt: 16,
+      });
+      await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        workerId,
+        convexDeploymentId: resources.convexDeploymentId,
+        wiring: {
+          state: "wired",
+          deployKeys: {
+            production: {
+              state: "created",
+              name: "production-key-name",
+              deploymentName: "existing-prod",
+            },
+            preview: {
+              state: "created",
+              name: "preview-key-name",
+              projectId: "existing-project",
+            },
+          },
+        },
+        createdAt: 17,
+        updatedAt: 17,
+      });
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      ...ids,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
+      },
+    });
+    const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
+
+    expect(run).toMatchObject({
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          convex: { action: "skip", reason: "not_requested" },
+          convexDependencyDeployKeys: {
+            action: "revoke",
+            dependencies: [
+              {
+                dependencyId: expect.any(String),
+                deployKeys: {
+                  production: {
+                    state: "created",
+                    name: "production-key-name",
+                    deploymentName: "existing-prod",
+                  },
+                  preview: {
+                    state: "created",
+                    name: "preview-key-name",
+                    projectId: "existing-project",
+                  },
+                },
+              },
+            ],
           },
         },
       },
@@ -403,6 +560,89 @@ describe("vault deletion Convex resource planning", () => {
             action: "skip",
             reason: "not_recorded",
           },
+        },
+      },
+    });
+  });
+});
+
+describe("vault deletion Cloudflare build-trigger planning", () => {
+  it.each([
+    {
+      description: "selected existing",
+      origin: "selected_existing",
+      removeCloudflareProvision: true,
+      cloudflareReason: "not_recorded",
+    },
+    {
+      description: "unrequested provisioned",
+      origin: "provisioned",
+      removeCloudflareProvision: false,
+      cloudflareReason: "not_requested",
+    },
+  ] as const)(
+    "detaches connected builds from a retained $description Worker",
+    async ({ cloudflareReason, origin, removeCloudflareProvision }) => {
+      const { ids, t } = await createExistingRepositoryVaultWithCloudflareWorker({ origin });
+
+      const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: {
+          removeCodespaces: false,
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision,
+        },
+      });
+      const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
+
+      expect(run).toMatchObject({
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            cloudflare: { action: "skip", reason: cloudflareReason },
+            cloudflareBuildTriggers: {
+              action: "detach",
+              workers: [
+                {
+                  accountId: "cloudflare-account",
+                  workerTag: "worker-tag",
+                },
+              ],
+            },
+          },
+        },
+      });
+    },
+  );
+
+  it("does not plan a second build-trigger detach for a Worker selected for deletion", async () => {
+    const { ids, t } = await createExistingRepositoryVaultWithCloudflareWorker({
+      origin: "provisioned",
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      ...ids,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: true,
+      },
+    });
+    const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
+
+    expect(run).toMatchObject({
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          cloudflare: {
+            action: "delete_worker",
+            accountId: "cloudflare-account",
+            workerName: "manual-worker",
+            workerTag: "worker-tag",
+          },
+          cloudflareBuildTriggers: { action: "skip", reason: "not_recorded" },
         },
       },
     });
