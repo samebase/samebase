@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   buildVaultBranchFilterOptions,
+  buildVaultPullRequestFilterOptions,
   filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
@@ -194,6 +195,47 @@ describe("vaultBranchFilters", () => {
         name: "No label",
         count: 1,
         included: true,
+        isNoLabel: true,
+      },
+    ]);
+  });
+
+  it("builds repository label choices without inventing pull request counts", () => {
+    expect(
+      buildVaultPullRequestFilterOptions({
+        labels: [
+          { name: "customer", color: "1a7f37" },
+          { name: "Bug", color: "d73a4a" },
+          { name: "bug", color: "000000" },
+        ],
+        hiddenLabels: ["research", "BUG"],
+        includeNoLabel: false,
+      }),
+    ).toEqual([
+      {
+        key: "bug",
+        name: "Bug",
+        color: "#d73a4a",
+        included: false,
+        isNoLabel: false,
+      },
+      {
+        key: "customer",
+        name: "customer",
+        color: "#1a7f37",
+        included: true,
+        isNoLabel: false,
+      },
+      {
+        key: "research",
+        name: "research",
+        included: false,
+        isNoLabel: false,
+      },
+      {
+        key: "\u0000no-label",
+        name: "No label",
+        included: false,
         isNoLabel: true,
       },
     ]);

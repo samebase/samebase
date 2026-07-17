@@ -131,9 +131,11 @@ function VaultBranchFiltersPanel({
                     <span className="truncate">{option.name}</span>
                   </Badge>
                 </div>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground/80">
-                  {option.count}
-                </span>
+                {option.count !== undefined ? (
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground/80">
+                    {option.count}
+                  </span>
+                ) : null}
               </label>
             ))}
           </div>

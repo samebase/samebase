@@ -15,7 +15,7 @@ export type VaultBranchFilterOption = {
   key: string;
   name: string;
   color?: string;
-  count: number;
+  count?: number;
   included: boolean;
   isNoLabel: boolean;
 };
@@ -157,7 +157,7 @@ export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(a
       seenBranchLabelKeys.add(labelKey);
       const existingOption = labelOptionsByKey.get(labelKey);
       if (existingOption) {
-        existingOption.count += 1;
+        existingOption.count = (existingOption.count ?? 0) + 1;
         if (!existingOption.color && label.color) {
           existingOption.color = label.color;
         }
@@ -199,6 +199,65 @@ export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(a
       key: NO_LABEL_FILTER_KEY,
       name: NO_LABEL_FILTER_NAME,
       count: noLabelCount,
+      included: normalizedFilters.includeNoLabel,
+      isNoLabel: true,
+    },
+  ];
+}
+
+/**
+ * Builds pull request filter choices from labels observed on loaded PR pages.
+ * The loaded labels have no repository-wide PR count, so the UI deliberately
+ * omits counts instead of presenting page-local counts as complete.
+ */
+export function buildVaultPullRequestFilterOptions(args: {
+  labels: readonly PullRequestLabelInput[];
+  hiddenLabels: string[];
+  includeNoLabel: boolean;
+}): VaultBranchFilterOption[] {
+  const normalizedFilters = normalizeVaultBranchFilters({
+    hiddenLabels: args.hiddenLabels,
+    includeDrafts: false,
+    includeNoLabel: args.includeNoLabel,
+  });
+  const hiddenLabelNamesByKey = new Map(
+    normalizedFilters.hiddenLabels.map((labelName) => [normalizeLabelKey(labelName), labelName]),
+  );
+  const optionsByKey = new Map<string, VaultBranchFilterOption>();
+
+  for (const label of normalizePullRequestLabels([...args.labels])) {
+    const key = normalizeLabelKey(label.name);
+    if (optionsByKey.has(key)) {
+      continue;
+    }
+    optionsByKey.set(key, {
+      key,
+      name: label.name,
+      color: label.color,
+      included: !hiddenLabelNamesByKey.has(key),
+      isNoLabel: false,
+    });
+  }
+
+  for (const [key, name] of hiddenLabelNamesByKey) {
+    if (optionsByKey.has(key)) {
+      continue;
+    }
+    optionsByKey.set(key, {
+      key,
+      name,
+      included: false,
+      isNoLabel: false,
+    });
+  }
+
+  return [
+    ...Array.from(optionsByKey.values()).sort((left, right) =>
+      compareLabelNames(left.name, right.name),
+    ),
+    {
+      key: NO_LABEL_FILTER_KEY,
+      name: NO_LABEL_FILTER_NAME,
       included: normalizedFilters.includeNoLabel,
       isNoLabel: true,
     },
