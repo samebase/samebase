@@ -44,6 +44,7 @@ function pullRequest(
     labelEndCursor?: string | null;
     headRefOid?: string;
     commitOid?: string;
+    commitRepositoryNodeId?: string;
     totalCheckCount?: number;
     nullRollup?: boolean;
   },
@@ -83,7 +84,7 @@ function pullRequest(
           commit: {
             id: `C_${number}`,
             oid: args?.commitOid ?? headRefOid,
-            repository: { id: "R_repo" },
+            repository: { id: args?.commitRepositoryNodeId ?? "R_repo" },
             statusCheckRollup: checks({
               totalCount: args?.totalCheckCount,
               nullRollup: args?.nullRollup,
@@ -339,6 +340,25 @@ describe("fetchGitHubPullRequestPage", () => {
       checkRunCountsByState: [],
       statusContextCountsByState: [],
     });
+  });
+
+  it("rejects a head commit that does not belong to the reported head repository", async () => {
+    const queue = responseQueue([
+      page({
+        nodes: [pullRequest(1, { commitRepositoryNodeId: "R_other" })],
+        totalCount: 1,
+        hasNextPage: false,
+        endCursor: null,
+      }),
+    ]);
+
+    await expect(
+      fetchGitHubPullRequestPage({
+        ...defaultArgs,
+        pageSize: 1,
+        fetchImpl: queue.fetchImpl,
+      }),
+    ).rejects.toThrow("head commit belongs to another repository");
   });
 
   it("fails when another provider page has no cursor", async () => {

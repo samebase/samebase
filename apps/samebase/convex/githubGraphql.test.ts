@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { createGitHubGraphqlClient, GitHubGraphqlRateLimitError } from "./githubGraphql";
+import {
+  createGitHubGraphqlClient,
+  GitHubGraphqlBudgetError,
+  GitHubGraphqlRateLimitError,
+} from "./githubGraphql";
 
 const now = 1_700_000_000_000;
 
@@ -75,9 +79,9 @@ describe("GitHub GraphQL transport", () => {
     await expect(client.request("query One { viewer { login } }", {})).resolves.toMatchObject({
       viewer: { login: "one" },
     });
-    await expect(client.request("query Two { viewer { login } }", {})).rejects.toThrow(
-      "request limit",
-    );
+    const error = await rejectionOf(client.request("query Two { viewer { login } }", {}));
+    expect(error).toBeInstanceOf(GitHubGraphqlBudgetError);
+    expect(error).toMatchObject({ reason: "request_limit" });
     expect(responses.callCount()).toBe(1);
     expect(client.getUsage()?.cost).toBe(2);
   });
@@ -96,9 +100,9 @@ describe("GitHub GraphQL transport", () => {
       },
     });
 
-    await expect(client.request("query One { viewer { login } }", {})).rejects.toThrow(
-      "cost limit",
-    );
+    const error = await rejectionOf(client.request("query One { viewer { login } }", {}));
+    expect(error).toBeInstanceOf(GitHubGraphqlBudgetError);
+    expect(error).toMatchObject({ reason: "cost_limit" });
   });
 
   it("classifies a primary rate limit and uses the reset timestamp", async () => {

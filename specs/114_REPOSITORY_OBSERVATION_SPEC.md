@@ -141,6 +141,7 @@ GitHub and Cloudflare's responsibility for now.
 
 The first reviewable slice provides:
 
+- one current default-branch summary and its Samebase editor link;
 - bounded, cursor-paginated open pull requests with truthful filters;
 - compact current check rollups, including explicit no-checks;
 - progressive exact-head Cloudflare observations for loaded pages;

@@ -218,6 +218,13 @@ export type GitHubPullRequestPage = {
   requestCount: number;
 };
 
+export class GitHubRepositoryUnavailableError extends Error {
+  constructor() {
+    super("GitHub repository was unavailable to the current connection.");
+    this.name = "GitHubRepositoryUnavailableError";
+  }
+}
+
 const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
   query RepositoryPullRequestPage(
     $owner: String!
@@ -454,6 +461,9 @@ function normalizePullRequest(args: {
   ) {
     throw new Error("GitHub returned inconsistent pull request repository identities.");
   }
+  if (headRepository !== null && latestCommit.repository.id !== headRepository.id) {
+    throw new Error("GitHub pull request head commit belongs to another repository.");
+  }
   if (headRepository !== null) {
     const separator = headRepository.nameWithOwner.indexOf("/");
     if (
@@ -573,7 +583,7 @@ export async function fetchGitHubPullRequestPage(args: {
     );
     const repository = response.repository;
     if (repository === null) {
-      throw new Error("GitHub repository was unavailable to the current connection.");
+      throw new GitHubRepositoryUnavailableError();
     }
     requireRepositoryCoordinates({
       nameWithOwner: repository.nameWithOwner,

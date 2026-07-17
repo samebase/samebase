@@ -61,6 +61,16 @@ export class GitHubGraphqlRateLimitError extends Error {
   }
 }
 
+export class GitHubGraphqlBudgetError extends Error {
+  constructor(
+    message: string,
+    readonly reason: "cost_limit" | "deadline" | "request_limit",
+  ) {
+    super(message);
+    this.name = "GitHubGraphqlBudgetError";
+  }
+}
+
 function rateSafetyFloor(limit: number): number {
   return Math.max(
     GITHUB_GRAPHQL_MINIMUM_RATE_SAFETY_FLOOR,
@@ -230,13 +240,19 @@ export function createGitHubGraphqlClient(args: {
   const request = async (query: string, variables: GitHubGraphqlVariables): Promise<unknown> => {
     const now = Date.now();
     if (now >= args.limits.deadlineAt) {
-      throw new Error("GitHub GraphQL exceeded its execution deadline.");
+      throw new GitHubGraphqlBudgetError(
+        "GitHub GraphQL exceeded its execution deadline.",
+        "deadline",
+      );
     }
     if (requestCount >= args.limits.maximumRequestCount) {
-      throw new Error("GitHub GraphQL exceeded its request limit.");
+      throw new GitHubGraphqlBudgetError(
+        "GitHub GraphQL exceeded its request limit.",
+        "request_limit",
+      );
     }
     if (usage !== undefined && usage.cost >= args.limits.maximumCost) {
-      throw new Error("GitHub GraphQL reached its cost limit.");
+      throw new GitHubGraphqlBudgetError("GitHub GraphQL reached its cost limit.", "cost_limit");
     }
     if (usage !== undefined && usage.remaining <= rateSafetyFloor(usage.limit)) {
       throw new GitHubGraphqlRateLimitError(
@@ -325,10 +341,13 @@ export function createGitHubGraphqlClient(args: {
       throw new Error("GitHub GraphQL did not return rate-limit accounting.");
     }
     if (Date.now() >= args.limits.deadlineAt) {
-      throw new Error("GitHub GraphQL exceeded its execution deadline.");
+      throw new GitHubGraphqlBudgetError(
+        "GitHub GraphQL exceeded its execution deadline.",
+        "deadline",
+      );
     }
     if (observedUsage.cost > args.limits.maximumCost) {
-      throw new Error("GitHub GraphQL exceeded its cost limit.");
+      throw new GitHubGraphqlBudgetError("GitHub GraphQL exceeded its cost limit.", "cost_limit");
     }
     return envelope.data.data;
   };
