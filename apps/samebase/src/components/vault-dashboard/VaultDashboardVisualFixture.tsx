@@ -22,7 +22,8 @@ import {
   VaultBranchSection,
   VaultBranchLinkRow,
   VaultDashboardView,
-  VaultDashboardAppRootDialog,
+  VaultDashboardAppDialog,
+  VaultDashboardCloudflareBuildsDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteControl,
@@ -47,9 +48,10 @@ import type { Id } from "../../../convex/_generated/dataModel";
 export type VaultDashboardVisualMode =
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
-  | "vault-dashboard-add-first-app-root-open"
-  | "vault-dashboard-add-app-root-open"
+  | "vault-dashboard-add-first-app-open"
+  | "vault-dashboard-add-app-open"
   | "vault-dashboard-connect-cloudflare-open"
+  | "vault-dashboard-connect-cloudflare-builds-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-connect-convex-open"
   | "vault-dashboard-delete-open"
@@ -1522,15 +1524,15 @@ function FixtureCloudflareConnectDialog() {
           accountName: "Samebase",
         },
       ]}
-      appRoot="apps/atelier"
-      appRootReadOnly={true}
+      rootDirectory="apps/atelier"
+      rootDirectoryReadOnly={true}
       createWorkerName="atelier"
       error={null}
       isLoading={false}
       isSubmitting={false}
       mode="existing"
       onAccountChange={() => {}}
-      onAppRootChange={() => {}}
+      onRootDirectoryChange={() => {}}
       onCreateWorkerNameChange={() => {}}
       onModeChange={() => {}}
       onOpenChange={() => {}}
@@ -1576,13 +1578,58 @@ function VaultDashboardConnectCloudflareOpenFixture() {
   );
 }
 
-function VaultDashboardAddAppRootConvertOpenFixture() {
-  const [appRoot, setAppRoot] = useState("");
+function VaultDashboardConnectCloudflareBuildsOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-connect-cloudflare-builds-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryName="shared-convex-monorepo-fixture"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardCloudflareBuildsDialog
+          isSubmitting={false}
+          onConvexDeploymentChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          open={true}
+          selection={{ state: "unselected" }}
+          target={{
+            allowWorkerOnly: true,
+            mode: "connect_repository",
+            workerName: "shared-convex-monorepo-fixture-web",
+            convexDeployments: [
+              {
+                convexDeploymentId: fakeConvexDeploymentId(),
+                projectSlug: "shared-convex-monorepo-fixture-backend",
+                rootDirectory: "packages/backend",
+                teamSlug: "samebase",
+              },
+            ],
+          }}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardAddAppOpenFixture() {
+  const [rootDirectory, setRootDirectory] = useState("");
 
   return (
     <div
       data-testid="vault-dashboard-visual-fixture"
-      data-mode="vault-dashboard-add-app-root-open"
+      data-mode="vault-dashboard-add-app-open"
       className="w-full bg-background p-4 text-foreground"
     >
       <TestRouterProvider>
@@ -1597,19 +1644,20 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
             repositoryStatus={<span>Updated 12s ago</span>}
           />
         </VaultDashboardRepositoryList>
-        <VaultDashboardAppRootDialog
-          appRoot={appRoot}
+        <VaultDashboardAppDialog
+          rootDirectory={rootDirectory}
           error={null}
           folderSuggestions={["apps/domain-router", "apps/samebase", "packages/sync"]}
           isSubmitting={false}
-          mode="monorepo"
-          onAppRootChange={setAppRoot}
-          onModeChange={() => {}}
+          location="folder"
+          onRootDirectoryChange={setRootDirectory}
+          onLocationChange={() => {}}
           onOpenChange={() => {}}
           onSubmit={() => {}}
           open={true}
           vault={{
             hasApps: true,
+            hasRepositoryRootApp: false,
             id: fakeVaultId(),
             repositoryFullName: "samebase/samebase",
           }}
@@ -1619,11 +1667,11 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
   );
 }
 
-function VaultDashboardAddFirstAppRootOpenFixture() {
+function VaultDashboardAddFirstAppOpenFixture() {
   return (
     <div
       data-testid="vault-dashboard-visual-fixture"
-      data-mode="vault-dashboard-add-first-app-root-open"
+      data-mode="vault-dashboard-add-first-app-open"
       className="w-full bg-background p-4 text-foreground"
     >
       <TestRouterProvider>
@@ -1638,19 +1686,20 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
             repositoryStatus={<span>Updated 12s ago</span>}
           />
         </VaultDashboardRepositoryList>
-        <VaultDashboardAppRootDialog
-          appRoot="/"
+        <VaultDashboardAppDialog
+          rootDirectory="/"
           error={null}
           folderSuggestions={[]}
           isSubmitting={false}
-          mode="app"
-          onAppRootChange={() => {}}
-          onModeChange={() => {}}
+          location="repository_root"
+          onRootDirectoryChange={() => {}}
+          onLocationChange={() => {}}
           onOpenChange={() => {}}
           onSubmit={() => {}}
           open={true}
           vault={{
             hasApps: false,
+            hasRepositoryRootApp: false,
             id: fakeVaultId(),
             repositoryFullName: "samebase/atelier",
           }}
@@ -1704,8 +1753,8 @@ function VaultDashboardConnectConvexOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
-          appRoot="/"
-          appRootReadOnly={false}
+          rootDirectory="/"
+          rootDirectoryReadOnly={false}
           createProjectName="samebase-app"
           projects={[
             {
@@ -1719,7 +1768,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           isLoading={false}
           isSubmitting={false}
           mode="existing"
-          onAppRootChange={() => {}}
+          onRootDirectoryChange={() => {}}
           onCreateProjectNameChange={() => {}}
           onProjectChange={() => {}}
           onModeChange={() => {}}
@@ -2076,16 +2125,20 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
   }
 
-  if (mode === "vault-dashboard-add-first-app-root-open") {
-    return <VaultDashboardAddFirstAppRootOpenFixture />;
+  if (mode === "vault-dashboard-add-first-app-open") {
+    return <VaultDashboardAddFirstAppOpenFixture />;
   }
 
-  if (mode === "vault-dashboard-add-app-root-open") {
-    return <VaultDashboardAddAppRootConvertOpenFixture />;
+  if (mode === "vault-dashboard-add-app-open") {
+    return <VaultDashboardAddAppOpenFixture />;
   }
 
   if (mode === "vault-dashboard-connect-cloudflare-open") {
     return <VaultDashboardConnectCloudflareOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-connect-cloudflare-builds-open") {
+    return <VaultDashboardConnectCloudflareBuildsOpenFixture />;
   }
 
   if (mode === "vault-dashboard-connect-cloudflare-mobile-shell-open") {

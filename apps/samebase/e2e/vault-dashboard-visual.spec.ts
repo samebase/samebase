@@ -409,31 +409,33 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (add app root dialog)", async ({ page }) => {
+test("vault dashboard fixture (add app dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-add-app-root-open");
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-add-app-open");
 
-  const appRootDialog = page.getByRole("dialog", {
-    name: "Add app root samebase/samebase",
+  const appDialog = page.getByRole("dialog", {
+    name: "Add app samebase/samebase",
   });
-  await expect(appRootDialog).toBeVisible();
-  await expect(appRootDialog.getByText("convert this repository to a monorepo")).toBeVisible();
-  await expect(appRootDialog.getByRole("textbox", { name: "App root" })).toBeVisible();
+  await expect(appDialog).toBeVisible();
   await expect(
-    appRootDialog.getByRole("button", {
-      name: "Add app root",
+    appDialog.getByText("Choose whether this app uses the repository root or a folder."),
+  ).toBeVisible();
+  await expect(appDialog.getByRole("textbox", { name: "Root directory" })).toBeVisible();
+  await expect(
+    appDialog.getByRole("button", {
+      name: "Add app",
     }),
   ).toBeDisabled();
-  await expect(page).toHaveScreenshot("vault-dashboard-add-app-root-dialog.png", {
+  await expect(page).toHaveScreenshot("vault-dashboard-add-app-dialog.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
 
-  await appRootDialog.getByRole("textbox", { name: "App root" }).fill("same");
-  await expect(appRootDialog.getByRole("option", { name: "apps/samebase" })).toBeVisible();
-  await expect(page).toHaveScreenshot("vault-dashboard-add-app-root-suggestions.png", {
+  await appDialog.getByRole("textbox", { name: "Root directory" }).fill("same");
+  await expect(appDialog.getByRole("option", { name: "apps/samebase" })).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-add-app-suggestions.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -441,26 +443,28 @@ test("vault dashboard fixture (add app root dialog)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (add first app root dialog)", async ({ page }) => {
+test("vault dashboard fixture (add first app dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-add-first-app-root-open");
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-add-first-app-open");
 
-  const appRootDialog = page.getByRole("dialog", {
-    name: "Add app root samebase/atelier",
+  const appDialog = page.getByRole("dialog", {
+    name: "Add app samebase/atelier",
   });
-  await expect(appRootDialog).toBeVisible();
-  await expect(appRootDialog.getByText("one app or a monorepo")).toBeVisible();
-  await expect(appRootDialog.getByRole("button", { name: "App", exact: true })).toHaveAttribute(
+  await expect(appDialog).toBeVisible();
+  await expect(
+    appDialog.getByText("Choose whether this app uses the repository root or a folder."),
+  ).toBeVisible();
+  await expect(appDialog.getByRole("button", { name: "Repository root" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await expect(appRootDialog.getByRole("textbox", { name: "App root" })).toHaveCount(0);
+  await expect(appDialog.getByRole("textbox", { name: "Root directory" })).toHaveCount(0);
   await expect(
-    appRootDialog.getByRole("button", {
-      name: "Use as app",
+    appDialog.getByRole("button", {
+      name: "Add app",
     }),
   ).toBeEnabled();
-  await expect(page).toHaveScreenshot("vault-dashboard-add-first-app-root-dialog.png", {
+  await expect(page).toHaveScreenshot("vault-dashboard-add-first-app-dialog.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -480,6 +484,32 @@ test("vault dashboard fixture (connect Cloudflare dialog)", async ({ page }) => 
   await expect(connectDialog.getByRole("button", { name: "Create" })).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Connect Worker" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (choose Worker Convex deployment)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-cloudflare-builds-open");
+
+  const connectDialog = page.getByRole("dialog", {
+    name: "Connect GitHub repo",
+  });
+  const deploymentSelect = connectDialog.getByRole("combobox", {
+    name: "Convex deployment",
+  });
+  await deploymentSelect.click();
+  await expect(page.getByRole("option", { name: "No Convex deployment" })).toBeVisible();
+  await expect(
+    page.getByRole("option", {
+      name: "packages/backend · samebase/shared-convex-monorepo-fixture-backend",
+    }),
+  ).toBeVisible();
+  await expect(connectDialog.getByRole("button", { name: "Connect" })).toBeDisabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-builds-dialog.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -694,7 +724,9 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
   await expect(fixture.getByText("Cloudflare setup failed.")).toBeVisible();
   await expect(fixture.getByText("Convex setup failed.")).toHaveCount(0);
   await expect(fixture.getByText("?add-convex")).toHaveCount(0);
-  await expect(fixture.getByText("nicu/tmp-my-super-app-2")).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Open Convex: nicu/tmp-my-super-app-2" }),
+  ).toBeVisible();
   await expect(fixture.getByText("pfp/tmp-my-super-app-234")).toBeVisible();
   await expect(
     fixture.getByText("Cloudflare's saved Workers Builds trigger is missing."),

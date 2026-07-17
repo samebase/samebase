@@ -141,10 +141,10 @@ const RESOURCE_LINK_VALUE_CLASS_NAME =
 const RESOURCE_ACTION_LINK_CLASS_NAME =
   "-mx-1 -my-0.5 inline-flex min-h-7 items-center px-1 py-0.5 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 const RESOURCE_VALUE_SCOPE_CLASS_NAME = "font-normal text-muted-foreground";
-const APP_ROOT_CLASS_NAME =
+const ROOT_DIRECTORY_CLASS_NAME =
   "grid min-h-7 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-sm leading-6 text-muted-foreground";
-const APP_ROOT_ICON_CLASS_NAME = "h-3.5 w-3.5 text-muted-foreground";
-const APP_ROOT_VALUE_CLASS_NAME = "min-w-0 max-w-full truncate font-mono";
+const ROOT_DIRECTORY_ICON_CLASS_NAME = "h-3.5 w-3.5 text-muted-foreground";
+const ROOT_DIRECTORY_VALUE_CLASS_NAME = "min-w-0 max-w-full truncate font-mono";
 const APP_PROVIDER_ROWS_CLASS_NAME = "grid min-w-0 gap-0.5 pl-6";
 
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
@@ -449,11 +449,11 @@ export function VaultResourceRail({ state }: { state: VaultResourceRailState }) 
             </div>
           ) : (
             <div key={app.appId} className="grid min-w-0 gap-0.5">
-              <div className={APP_ROOT_CLASS_NAME}>
+              <div className={ROOT_DIRECTORY_CLASS_NAME}>
                 <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
-                  <ChevronDown className={APP_ROOT_ICON_CLASS_NAME} aria-hidden="true" />
+                  <ChevronDown className={ROOT_DIRECTORY_ICON_CLASS_NAME} aria-hidden="true" />
                 </span>
-                <span className={APP_ROOT_VALUE_CLASS_NAME}>{app.rootDirectory}</span>
+                <span className={ROOT_DIRECTORY_VALUE_CLASS_NAME}>{app.rootDirectory}</span>
               </div>
               <div className={APP_PROVIDER_ROWS_CLASS_NAME}>
                 {app.rows.map((row) => (

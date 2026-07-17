@@ -283,7 +283,7 @@ describe("VaultResourceRail", () => {
             {
               kind: "add",
               label: "?add-convex",
-              href: "/vault/nicu-chiciuc/weight_tsx?add-convex&app-root=apps%2Fnoter",
+              href: "/vault/nicu-chiciuc/weight_tsx?add-convex&root-directory=apps%2Fnoter",
               onClick,
             },
           ],
@@ -297,7 +297,7 @@ describe("VaultResourceRail", () => {
       throw new Error("Expected add action link");
     }
     expect(link.getAttribute("href")).toBe(
-      "/vault/nicu-chiciuc/weight_tsx?add-convex&app-root=apps%2Fnoter",
+      "/vault/nicu-chiciuc/weight_tsx?add-convex&root-directory=apps%2Fnoter",
     );
 
     const click = new MouseEvent("click", {
@@ -323,7 +323,7 @@ describe("VaultResourceRail", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it("keeps root providers top-level and groups subfolder providers under app roots", () => {
+  it("keeps root providers top-level and groups folder providers by root directory", () => {
     const state = {
       githubRow: {
         provider: "github",

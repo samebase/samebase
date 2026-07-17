@@ -80,12 +80,12 @@ async function connectExistingTemporaryRepository(
   });
 }
 
-async function useExistingRepositoryAsRootApp(page: Page): Promise<void> {
-  await page.getByRole("link", { name: "Add app root" }).click();
+async function addRepositoryRootApp(page: Page): Promise<void> {
+  await page.getByRole("link", { name: "Add app" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible({ timeout: 30_000 });
-  await dialog.getByRole("button", { name: "Use as app" }).click();
+  await dialog.getByRole("button", { name: "Add app" }).click();
   await expect(dialog).not.toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("link", { name: "Add Convex" })).toBeVisible({
     timeout: 60_000,
@@ -411,7 +411,7 @@ test.describe("vault create app live flow", () => {
       vaultConnected = true;
       await selectTemporaryVault(page, repositoryName);
 
-      await useExistingRepositoryAsRootApp(page);
+      await addRepositoryRootApp(page);
       await createCloudflareWorkerFromDashboard(page, resourceName);
       await connectCloudflareWorkerToGithub(page);
       await createConvexProjectFromDashboard(page, resourceName);

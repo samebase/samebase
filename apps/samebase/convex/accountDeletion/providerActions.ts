@@ -113,7 +113,7 @@ async function revokeConvexDependencyDeployKeys(
     );
     for (const dependency of page.page) {
       const production = dependency.deployKeys.production;
-      if (production.state === "created") {
+      if (production.state !== "not_created") {
         try {
           await deleteConvexDeployKey({
             convexToken: connection.auth.credential,
@@ -127,7 +127,7 @@ async function revokeConvexDependencyDeployKeys(
         }
       }
       const preview = dependency.deployKeys.preview;
-      if (preview.state === "created") {
+      if (preview.state !== "not_created") {
         try {
           await deleteConvexPreviewDeployKey({
             convexToken: connection.auth.credential,

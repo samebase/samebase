@@ -76,7 +76,7 @@ function requireConvexDeploymentForInfraRead(
   }
   if (deployments.length > 1) {
     throw new Error(
-      "Multiple Convex deployments are connected. Choose an app root before reading production.",
+      "Production read is ambiguous because multiple Convex deployments are connected.",
     );
   }
   const deployment = deployments[0];
@@ -97,7 +97,7 @@ function requireCloudflareWorkerForInfraRead(
   }
   if (workers.length > 1) {
     throw new Error(
-      "Multiple Cloudflare Workers are connected. Choose an app root before reading production.",
+      "Production read is ambiguous because multiple Cloudflare Workers are connected.",
     );
   }
   const worker = workers[0];

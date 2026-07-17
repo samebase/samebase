@@ -53,7 +53,7 @@ export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
   {
     id: "vault",
     label: "Vault core",
-    description: "Durable app containers, app roots, and domains.",
+    description: "Durable app containers, root directories, and domains.",
     column: 1,
     order: 0,
   },

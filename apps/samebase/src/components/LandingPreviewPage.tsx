@@ -141,7 +141,7 @@ type LandingInventoryState =
 /**
 The demo rows must keep demonstrating every lifecycle state agents kept missing
 in the positioning probes: a full-stack app, an existing repo left GitHub-only,
-two app roots in one monorepo, and a drifted target with its repair action.
+two root directories in one monorepo, and a drifted target with its repair action.
 */
 const LANDING_INVENTORY_ROWS: readonly {
   app: string;
@@ -808,7 +808,7 @@ function LandingPreviewOverview() {
           <LandingInventory />
           <p className="mt-5 max-w-[92ch] font-mono text-[13px] leading-relaxed text-primary">
             and not only new apps: connect an existing repo and leave it GitHub-only · attach Convex
-            or Cloudflare later, per app root · several roots in one monorepo
+            or Cloudflare later, per root directory · several roots in one monorepo
           </p>
         </LandingSection>
 

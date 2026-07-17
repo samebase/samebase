@@ -8,7 +8,10 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
-import { markConvexDeploymentDependenciesNotWired } from "./deploymentDependencies";
+import {
+  isWorkerDeploymentDependencyCurrentlyWired,
+  readCurrentWorkerDeploymentDeployKeys,
+} from "./deploymentDependencies";
 import {
   buildVaultCloudflareBuildConfig,
   isVaultProviderUpstreamPresent,
@@ -74,6 +77,22 @@ const vConvexPreviewDeploymentReady = object({
   deploymentName: string(),
   cloudUrl: string(),
 });
+const vCloudflareConvexBuildAccessDeployKey = union(
+  object({
+    deployment: literal("production"),
+    value: object({
+      name: string(),
+      deploymentName: string(),
+    }),
+  }),
+  object({
+    deployment: literal("preview"),
+    value: object({
+      name: string(),
+      projectId: string(),
+    }),
+  }),
+);
 const cloudflareConvexBuildAccessWiringState = union(
   object({
     active: literal(false),
@@ -91,7 +110,6 @@ const cloudflareConvexBuildAccessWiringState = union(
       accountId: string(),
       workerName: string(),
       workerTag: string(),
-      builds: vVaultCloudflareConnectedBuilds,
     }),
     workerApp: vVaultAppReference,
     convex: object({
@@ -159,6 +177,7 @@ const cloudflareInfrastructureVerificationState = union(
     dependency: union(
       object({
         dependencyId: id("vaultWorkerDeploymentDependencies"),
+        currentlyWired: boolean(),
         wiring: vVaultWorkerDeploymentWiring,
         convexApp: vVaultAppReference,
         convexDeployment: object({
@@ -176,29 +195,13 @@ type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
 
-function applyCloudflareBuildConfig(
-  builds: VaultCloudflareConnectedBuilds,
-  buildConfig: VaultCloudflareBuildConfig,
-): VaultCloudflareConnectedBuilds {
-  return {
-    state: "connected",
-    buildCommand: buildConfig.buildCommand,
-    deployCommand: buildConfig.deployCommand,
-    previewDeployCommand: buildConfig.previewDeployCommand,
-    pathIncludes: buildConfig.pathIncludes,
-    pathExcludes: buildConfig.pathExcludes,
-    production: builds.production,
-    preview: builds.preview,
-  };
-}
-
 function haveEqualStringItems(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function haveEqualCloudflareBuildSettings(
+function matchesCloudflareBuildConfig(
   left: VaultCloudflareConnectedBuilds,
-  right: VaultCloudflareConnectedBuilds,
+  right: VaultCloudflareBuildConfig,
 ): boolean {
   return (
     left.buildCommand === right.buildCommand &&
@@ -1275,9 +1278,6 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
     if (!isVaultProviderUpstreamPresent(worker)) {
       throw new Error("Cloudflare Worker must be reconnected before wiring Convex build access.");
     }
-    if (worker.builds.state !== "connected") {
-      throw new Error("Cloudflare Workers Builds are required before wiring Convex build access.");
-    }
     const existingDependency = await readWorkerDeploymentDependency(ctx, worker._id);
     const now = Date.now();
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
@@ -1389,7 +1389,6 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
     if (
       !isVaultProviderUpstreamPresent(convexDeployment) ||
       !isVaultProviderUpstreamPresent(worker) ||
-      worker.builds.state !== "connected" ||
       !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })
     ) {
       return { active: false as const };
@@ -1425,7 +1424,6 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
         accountId: worker.accountId,
         workerName: worker.workerName,
         workerTag: worker.workerTag,
-        builds: applyCloudflareBuildConfig(worker.builds, buildConfig),
       },
       workerApp: {
         appId: workerApp._id,
@@ -1446,6 +1444,84 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
         wiring: dependency.wiring,
       },
     };
+  },
+});
+
+export const beginCloudflareConvexBuildAccessDeployKeyCreation = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    convexDeploymentId: id("vaultConvexDeployments"),
+    deployment: union(literal("production"), literal("preview")),
+    convexDeployKeyName: string(),
+  },
+  returns: object({ applied: boolean() }),
+  handler: async (ctx, args) => {
+    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      return { applied: false };
+    }
+
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return { applied: false };
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
+    }
+    const [, convexDeployment] = await Promise.all([
+      requireCloudflareWorker(ctx, args),
+      requireConvexDeployment(ctx, args),
+    ]);
+    const dependency = await requireWorkerDeploymentDependency(ctx, args);
+
+    if (args.deployment === "production") {
+      if (dependency.wiring.deployKeys.production.state !== "not_created") {
+        return { applied: false };
+      }
+      await ctx.db.patch(dependency._id, {
+        wiring: {
+          state: "not_wired",
+          deployKeys: {
+            production: {
+              state: "creating",
+              runId: args.runId,
+              name: args.convexDeployKeyName,
+              deploymentName: convexDeployment.deploymentName,
+            },
+            preview: dependency.wiring.deployKeys.preview,
+          },
+        },
+        updatedAt: Date.now(),
+      });
+      return { applied: true };
+    }
+
+    if (dependency.wiring.deployKeys.preview.state !== "not_created") {
+      return { applied: false };
+    }
+    await ctx.db.patch(dependency._id, {
+      wiring: {
+        state: "not_wired",
+        deployKeys: {
+          production: dependency.wiring.deployKeys.production,
+          preview: {
+            state: "creating",
+            runId: args.runId,
+            name: args.convexDeployKeyName,
+            projectId: convexDeployment.projectId,
+          },
+        },
+      },
+      updatedAt: Date.now(),
+    });
+    return { applied: true };
   },
 });
 
@@ -1483,32 +1559,56 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
     ]);
     const dependency = await requireWorkerDeploymentDependency(ctx, args);
 
-    const deployKeys =
-      args.deployment === "production"
-        ? {
+    if (args.deployment === "production") {
+      const current = dependency.wiring.deployKeys.production;
+      if (
+        current.state !== "creating" ||
+        current.runId !== args.runId ||
+        current.name !== args.convexDeployKeyName ||
+        current.deploymentName !== convexDeployment.deploymentName
+      ) {
+        return { applied: false };
+      }
+      await ctx.db.patch(dependency._id, {
+        wiring: {
+          state: "not_wired",
+          deployKeys: {
             production: {
-              state: "created" as const,
-              name: args.convexDeployKeyName,
-              deploymentName: convexDeployment.deploymentName,
+              state: "created",
+              name: current.name,
+              deploymentName: current.deploymentName,
             },
             preview: dependency.wiring.deployKeys.preview,
-          }
-        : {
+          },
+        },
+        updatedAt: Date.now(),
+      });
+    } else {
+      const current = dependency.wiring.deployKeys.preview;
+      if (
+        current.state !== "creating" ||
+        current.runId !== args.runId ||
+        current.name !== args.convexDeployKeyName ||
+        current.projectId !== convexDeployment.projectId
+      ) {
+        return { applied: false };
+      }
+      await ctx.db.patch(dependency._id, {
+        wiring: {
+          state: "not_wired",
+          deployKeys: {
             production: dependency.wiring.deployKeys.production,
             preview: {
-              state: "created" as const,
-              name: args.convexDeployKeyName,
-              projectId: convexDeployment.projectId,
+              state: "created",
+              name: current.name,
+              projectId: current.projectId,
             },
-          };
+          },
+        },
+        updatedAt: Date.now(),
+      });
+    }
 
-    await ctx.db.patch(dependency._id, {
-      wiring: {
-        state: "not_wired",
-        deployKeys,
-      },
-      updatedAt: Date.now(),
-    });
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
       step: "wire_convex_build_access",
@@ -1520,6 +1620,80 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
       state: "running",
     });
 
+    return { applied: true };
+  },
+});
+
+export const clearCloudflareConvexBuildAccessDeployKey = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    convexDeploymentId: id("vaultConvexDeployments"),
+    deployKey: vCloudflareConvexBuildAccessDeployKey,
+  },
+  returns: object({ applied: boolean() }),
+  handler: async (ctx, args) => {
+    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      return { applied: false };
+    }
+
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return { applied: false };
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
+    }
+    await Promise.all([requireCloudflareWorker(ctx, args), requireConvexDeployment(ctx, args)]);
+    const dependency = await requireWorkerDeploymentDependency(ctx, args);
+
+    if (args.deployKey.deployment === "production") {
+      const current = dependency.wiring.deployKeys.production;
+      if (
+        current.state === "not_created" ||
+        current.name !== args.deployKey.value.name ||
+        current.deploymentName !== args.deployKey.value.deploymentName
+      ) {
+        return { applied: false };
+      }
+      await ctx.db.patch(dependency._id, {
+        wiring: {
+          state: "not_wired",
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: dependency.wiring.deployKeys.preview,
+          },
+        },
+        updatedAt: Date.now(),
+      });
+      return { applied: true };
+    }
+
+    const current = dependency.wiring.deployKeys.preview;
+    if (
+      current.state === "not_created" ||
+      current.name !== args.deployKey.value.name ||
+      current.projectId !== args.deployKey.value.projectId
+    ) {
+      return { applied: false };
+    }
+    await ctx.db.patch(dependency._id, {
+      wiring: {
+        state: "not_wired",
+        deployKeys: {
+          production: dependency.wiring.deployKeys.production,
+          preview: { state: "not_created" },
+        },
+      },
+      updatedAt: Date.now(),
+    });
     return { applied: true };
   },
 });
@@ -1557,15 +1731,8 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
       requireWorkerDeploymentDependency(ctx, args),
       requireCloudflareWorker(ctx, args),
     ]);
-    if (worker.builds.state !== "connected") {
-      throw new Error(
-        "Cloudflare Workers Builds are required before recording Convex build access.",
-      );
-    }
-    if (
-      dependency.wiring.deployKeys.production.state !== "created" ||
-      dependency.wiring.deployKeys.preview.state !== "created"
-    ) {
+    const deployKeys = readCurrentWorkerDeploymentDeployKeys(dependency, convexDeployment);
+    if (!isVaultProviderUpstreamPresent(convexDeployment) || !deployKeys) {
       throw new Error("Convex deploy keys are required before recording Convex build access.");
     }
 
@@ -1585,8 +1752,7 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
       rootDirectory: workerApp.rootDirectory,
       dependencyRootDirectories: [convexApp.rootDirectory],
     });
-    const expectedBuilds = applyCloudflareBuildConfig(worker.builds, buildConfig);
-    if (!haveEqualCloudflareBuildSettings(args.builds, expectedBuilds)) {
+    if (!matchesCloudflareBuildConfig(args.builds, buildConfig)) {
       throw new Error("Cloudflare Workers Builds result does not match the deployment dependency.");
     }
 
@@ -1602,10 +1768,7 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
     await ctx.db.patch(dependency._id, {
       wiring: {
         state: "wired",
-        deployKeys: {
-          production: dependency.wiring.deployKeys.production,
-          preview: dependency.wiring.deployKeys.preview,
-        },
+        deployKeys,
       },
       updatedAt: now,
     });
@@ -1647,9 +1810,15 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
       }
       throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
-    await Promise.all([requireCloudflareWorker(ctx, args), requireConvexDeployment(ctx, args)]);
+    const [worker, convexDeployment] = await Promise.all([
+      requireCloudflareWorker(ctx, args),
+      requireConvexDeployment(ctx, args),
+    ]);
     const dependency = await requireWorkerDeploymentDependency(ctx, args);
-    if (dependency.wiring.state !== "wired") {
+    if (
+      worker.builds.state !== "connected" ||
+      !isWorkerDeploymentDependencyCurrentlyWired(dependency, convexDeployment)
+    ) {
       throw new Error("Convex build access was not recorded.");
     }
 
@@ -1692,10 +1861,10 @@ function buildNotWiredDependencyWiring(
 
 function resolveInfrastructureVerificationPatch(args: {
   rootDirectory: string;
-  hasConfirmedConvexDeployment: boolean;
   providerResult: CloudflareInfrastructureVerificationResult;
   worker: Doc<"vaultCloudflareWorkers">;
   dependency: Doc<"vaultWorkerDeploymentDependencies"> | null;
+  convexDeployment: Doc<"vaultConvexDeployments"> | null;
 }): {
   builds: Doc<"vaultCloudflareWorkers">["builds"];
   dependencyWiring: Doc<"vaultWorkerDeploymentDependencies">["wiring"] | null;
@@ -1704,6 +1873,11 @@ function resolveInfrastructureVerificationPatch(args: {
   shouldPatchDependency: boolean;
 } {
   const dependency = args.dependency;
+  const convexDeployment = args.convexDeployment;
+  const currentDeployKeys =
+    dependency && convexDeployment
+      ? readCurrentWorkerDeploymentDeployKeys(dependency, convexDeployment)
+      : null;
   const currentBuilds = args.worker.builds;
   const notWiredDependency = dependency ? buildNotWiredDependencyWiring(dependency) : null;
 
@@ -1732,23 +1906,23 @@ function resolveInfrastructureVerificationPatch(args: {
   if (
     providerBuilds.state === "connected" &&
     args.providerResult.convexBuildAccess === "confirmed" &&
-    args.hasConfirmedConvexDeployment &&
     dependency &&
-    dependency.wiring.deployKeys.production.state === "created" &&
-    dependency.wiring.deployKeys.preview.state === "created"
+    convexDeployment &&
+    args.providerResult.convexDeployment === "confirmed" &&
+    currentDeployKeys
   ) {
     return {
       builds: providerBuilds,
       dependencyWiring: {
         state: "wired",
-        deployKeys: {
-          production: dependency.wiring.deployKeys.production,
-          preview: dependency.wiring.deployKeys.preview,
-        },
+        deployKeys: currentDeployKeys,
       },
       message: `Cloudflare infrastructure verified for ${args.rootDirectory}.`,
       shouldPatchWorker: true,
-      shouldPatchDependency: dependency.wiring.state !== "wired",
+      shouldPatchDependency: !isWorkerDeploymentDependencyCurrentlyWired(
+        dependency,
+        convexDeployment,
+      ),
     };
   }
 
@@ -1770,16 +1944,6 @@ function resolveInfrastructureVerificationPatch(args: {
       builds: currentBuilds,
       dependencyWiring: notWiredDependency,
       message: `Cloudflare Workers Builds are not connected for ${args.rootDirectory}; marked deploy keys missing.`,
-      shouldPatchWorker: false,
-      shouldPatchDependency: true,
-    };
-  }
-
-  if (dependency?.wiring.state === "wired" && !args.hasConfirmedConvexDeployment) {
-    return {
-      builds: currentBuilds,
-      dependencyWiring: notWiredDependency,
-      message: `Cloudflare Convex build access has no connected Convex deployment for ${args.rootDirectory}; marked deploy keys missing.`,
       shouldPatchWorker: false,
       shouldPatchDependency: true,
     };
@@ -1948,6 +2112,10 @@ export const readActiveCloudflareInfrastructureVerification = internalQuery({
       dependency: dependencyContext
         ? {
             dependencyId: dependencyContext.dependency._id,
+            currentlyWired: isWorkerDeploymentDependencyCurrentlyWired(
+              dependencyContext.dependency,
+              dependencyContext.convexDeployment,
+            ),
             wiring: dependencyContext.dependency.wiring,
             convexApp: {
               appId: dependencyContext.convexApp._id,
@@ -1999,11 +2167,10 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
 
     const patch = resolveInfrastructureVerificationPatch({
       rootDirectory: app.rootDirectory,
-      hasConfirmedConvexDeployment:
-        dependencyContext !== null && args.providerResult.convexDeployment === "confirmed",
       providerResult: args.providerResult,
       worker,
       dependency: dependencyContext?.dependency ?? null,
+      convexDeployment: dependencyContext?.convexDeployment ?? null,
     });
     const workerUpstream =
       args.providerResult.worker === "missing_upstream"
@@ -2032,13 +2199,6 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
           ? VAULT_PROVIDER_UPSTREAM_MISSING
           : VAULT_PROVIDER_UPSTREAM_PRESENT;
       const observedAt = Date.now();
-      if (convexUpstream.state === "missing_upstream") {
-        await markConvexDeploymentDependenciesNotWired(
-          ctx,
-          dependencyContext.convexDeployment._id,
-          observedAt,
-        );
-      }
       await ctx.db.patch(dependencyContext.convexDeployment._id, {
         upstream: convexUpstream,
         lastObservedAt: observedAt,

@@ -212,8 +212,8 @@ async function buildConvexDependencyDeployKeyPlan(
   const recorded = dependencies
     .filter(
       (dependency) =>
-        dependency.wiring.deployKeys.production.state === "created" ||
-        dependency.wiring.deployKeys.preview.state === "created",
+        dependency.wiring.deployKeys.production.state !== "not_created" ||
+        dependency.wiring.deployKeys.preview.state !== "not_created",
     )
     .map((dependency) => {
       if (!deploymentIds.has(dependency.convexDeploymentId)) {

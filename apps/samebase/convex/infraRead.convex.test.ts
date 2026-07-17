@@ -139,7 +139,9 @@ describe("infra read app targeting", () => {
       t.action(internal.infraRead.getConvexDeploymentStatus, {
         vaultId: ids.vaultId,
       }),
-    ).rejects.toThrow("Multiple Convex deployments are connected.");
+    ).rejects.toThrow(
+      "Production read is ambiguous because multiple Convex deployments are connected.",
+    );
   });
 
   it("fails closed when multiple Cloudflare Workers are connected", async () => {
@@ -172,6 +174,8 @@ describe("infra read app targeting", () => {
       t.action(internal.infraRead.getCloudflareWorkerStatus, {
         vaultId: ids.vaultId,
       }),
-    ).rejects.toThrow("Multiple Cloudflare Workers are connected.");
+    ).rejects.toThrow(
+      "Production read is ambiguous because multiple Cloudflare Workers are connected.",
+    );
   });
 });

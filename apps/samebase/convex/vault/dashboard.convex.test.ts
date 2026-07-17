@@ -1698,12 +1698,12 @@ describe("vault dashboard Convex contract", () => {
             production: {
               state: "created",
               name: "fixture-production-key",
-              deploymentName: "convex-prod",
+              deploymentName: "fixture-backend-production",
             },
             preview: {
               state: "created",
               name: "fixture-preview-key",
-              projectId: "convex-project",
+              projectId: "fixture-backend-project",
             },
           },
         },

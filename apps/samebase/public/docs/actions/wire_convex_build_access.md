@@ -4,17 +4,20 @@
 
 MCP tool `vault_cloudflare_wireConvexBuildAccess` · scope `access_app_create` · write
 
-The repair for builds that cannot deploy the backend: mints production and preview deploy keys for
-one explicit Worker-to-Convex deployment dependency. It writes `CONVEX_DEPLOY_KEY` only to the
-production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` only to the preview trigger. This is the remedy
-behind `nextAction: "wire_convex_build_access"` on the Worker's `convexDeployKeys` axis and the
-dashboard's "Set Convex deploy keys" button. It is the same operation.
+Connects one Worker to one explicit Convex deployment dependency. It first creates or reconciles
+production and preview Workers Builds triggers without starting a build, then mints the two deploy
+keys. It writes `CONVEX_DEPLOY_KEY` only to the production trigger and `PREVIEW_CONVEX_DEPLOY_KEY`
+only to the preview trigger. This is the remedy behind
+`dependency.wiring.nextAction: "wire_convex_build_access"` and the dashboard's "Set Convex deploy
+keys" button. It is the same operation.
 
-Requires the Worker's Builds connection to exist first (`wire_builds` otherwise). This is a key
-rotation for this dependency only: its previously recorded deploy keys are deleted once replacements
-are installed, and its own new keys are cleaned up if the run fails. Another Worker using the same
-Convex deployment retains its own key pair. Writes deploy keys on Convex and trigger variables on
-Cloudflare, both in the caller's own accounts; no user data is touched.
+The initial build starts only after both trigger variables are installed and read back. Re-running
+the operation rotates keys for this dependency only: its previously recorded deploy keys are deleted
+before a fresh attempt-specific pair is minted. Before each provider request, Samebase records the
+exact name and target as `creating`, so a lost provider response remains recoverable. Fresh names
+prevent a superseded run from deleting a newer run's keys. Another Worker using the same Convex
+deployment retains its own key pair. Writes Builds triggers and variables on Cloudflare plus deploy
+keys on Convex, both in the caller's own accounts; no user data is touched.
 
 ## Arguments
 

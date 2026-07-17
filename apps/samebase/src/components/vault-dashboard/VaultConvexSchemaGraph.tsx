@@ -1036,7 +1036,7 @@ function VaultConvexSchemaGraphRouteSidebar({
 
           <div className="grid gap-1 text-xs text-muted-foreground">
             <div className="flex min-w-0 justify-between gap-2">
-              <span>App root</span>
+              <span>Root directory</span>
               <span className="min-w-0 truncate font-mono text-foreground">
                 {selectedDeployment?.rootDirectory ?? "Unknown"}
               </span>

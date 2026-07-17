@@ -1,15 +1,29 @@
 import { v, type Infer } from "convex/values";
 
-const { literal, object, string, union } = v;
+const { id, literal, object, string, union } = v;
 
 export const vConvexDeployKeyNotCreated = object({
   state: literal("not_created"),
+});
+
+export const vConvexProductionDeployKeyCreating = object({
+  state: literal("creating"),
+  runId: id("appProvisioningRuns"),
+  name: string(),
+  deploymentName: string(),
 });
 
 export const vConvexProductionDeployKeyCreated = object({
   state: literal("created"),
   name: string(),
   deploymentName: string(),
+});
+
+export const vConvexPreviewDeployKeyCreating = object({
+  state: literal("creating"),
+  runId: id("appProvisioningRuns"),
+  name: string(),
+  projectId: string(),
 });
 
 export const vConvexPreviewDeployKeyCreated = object({
@@ -20,12 +34,14 @@ export const vConvexPreviewDeployKeyCreated = object({
 
 export const vConvexProductionDeployKeyState = union(
   vConvexDeployKeyNotCreated,
+  vConvexProductionDeployKeyCreating,
   vConvexProductionDeployKeyCreated,
 );
 export type ConvexProductionDeployKeyState = Infer<typeof vConvexProductionDeployKeyState>;
 
 export const vConvexPreviewDeployKeyState = union(
   vConvexDeployKeyNotCreated,
+  vConvexPreviewDeployKeyCreating,
   vConvexPreviewDeployKeyCreated,
 );
 export type ConvexPreviewDeployKeyState = Infer<typeof vConvexPreviewDeployKeyState>;

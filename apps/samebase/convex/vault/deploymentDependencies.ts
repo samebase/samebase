@@ -1,30 +1,48 @@
-import type { Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { isVaultProviderUpstreamPresent } from "./model";
+
+type WorkerDeploymentDependencyIdentity = Pick<
+  Doc<"vaultWorkerDeploymentDependencies">,
+  "convexDeploymentId" | "wiring"
+>;
+type ConvexDeploymentIdentity = Pick<
+  Doc<"vaultConvexDeployments">,
+  "_id" | "deploymentName" | "projectId" | "upstream"
+>;
+type WorkerDeploymentDeployKeys = WorkerDeploymentDependencyIdentity["wiring"]["deployKeys"];
+type CurrentWorkerDeploymentDeployKeys = {
+  production: Extract<WorkerDeploymentDeployKeys["production"], { state: "created" }>;
+  preview: Extract<WorkerDeploymentDeployKeys["preview"], { state: "created" }>;
+};
+
+export function readCurrentWorkerDeploymentDeployKeys(
+  dependency: WorkerDeploymentDependencyIdentity,
+  deployment: ConvexDeploymentIdentity,
+): CurrentWorkerDeploymentDeployKeys | null {
+  const { production, preview } = dependency.wiring.deployKeys;
+  if (
+    dependency.convexDeploymentId !== deployment._id ||
+    production.state !== "created" ||
+    production.deploymentName !== deployment.deploymentName ||
+    preview.state !== "created" ||
+    preview.projectId !== deployment.projectId
+  ) {
+    return null;
+  }
+  return { production, preview };
+}
 
 /**
- * Preserve provider key names for later revocation while making every Worker
- * relationship visibly repairable after its shared Convex deployment changes.
+ * A wired row records the provider targets used by its last successful wiring.
+ * It is current only while those targets still identify the attached deployment.
  */
-export async function markConvexDeploymentDependenciesNotWired(
-  ctx: Pick<MutationCtx, "db">,
-  convexDeploymentId: Id<"vaultConvexDeployments">,
-  now: number,
-): Promise<void> {
-  const dependencies = await ctx.db
-    .query("vaultWorkerDeploymentDependencies")
-    .withIndex("by_convex_deployment", (q) => q.eq("convexDeploymentId", convexDeploymentId))
-    .collect();
-
-  for (const dependency of dependencies) {
-    if (dependency.wiring.state === "not_wired") {
-      continue;
-    }
-    await ctx.db.patch(dependency._id, {
-      wiring: {
-        state: "not_wired",
-        deployKeys: dependency.wiring.deployKeys,
-      },
-      updatedAt: now,
-    });
-  }
+export function isWorkerDeploymentDependencyCurrentlyWired(
+  dependency: WorkerDeploymentDependencyIdentity,
+  deployment: ConvexDeploymentIdentity,
+): boolean {
+  return (
+    dependency.wiring.state === "wired" &&
+    isVaultProviderUpstreamPresent(deployment) &&
+    readCurrentWorkerDeploymentDeployKeys(dependency, deployment) !== null
+  );
 }

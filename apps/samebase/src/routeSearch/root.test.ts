@@ -18,27 +18,27 @@ import {
 describe("rootRouteSearch", () => {
   it("clears only the selected vault dashboard dialog search", () => {
     const currentSearch = {
-      "add-app-root": true,
+      "add-app": true,
       "add-cloudflare": true,
       "add-convex": true,
-      "app-root": "apps/samebase",
+      "root-directory": "apps/samebase",
       delete: true,
       devtools: true,
     } satisfies RootRouteSearch;
 
-    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-app-root")).toEqual({
+    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-app")).toEqual({
       ...currentSearch,
-      "add-app-root": undefined,
+      "add-app": undefined,
     });
     expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-cloudflare")).toEqual({
       ...currentSearch,
       "add-cloudflare": undefined,
-      "app-root": undefined,
+      "root-directory": undefined,
     });
     expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-convex")).toEqual({
       ...currentSearch,
       "add-convex": undefined,
-      "app-root": undefined,
+      "root-directory": undefined,
     });
     expect(clearVaultDashboardQueryDialogSearch(currentSearch, "delete")).toEqual({
       ...currentSearch,
@@ -49,10 +49,10 @@ describe("rootRouteSearch", () => {
   it("drops conflicting dashboard modal flags while keeping independent root search", () => {
     expect(
       validateRootRouteSearch({
-        "add-app-root": "",
+        "add-app": "",
         "add-cloudflare": "",
         "add-convex": "",
-        "app-root": " apps/samebase ",
+        "root-directory": " apps/samebase ",
         auth: "google",
         "auth-return": "dashboard",
         "create-account": "",
@@ -137,11 +137,11 @@ describe("rootRouteSearch", () => {
     expect(
       validateRootRouteSearch({
         "add-convex": "",
-        "app-root": " apps/samebase ",
+        "root-directory": " apps/samebase ",
       }),
     ).toEqual({
       "add-convex": true,
-      "app-root": "apps/samebase",
+      "root-directory": "apps/samebase",
     });
   });
 
@@ -150,7 +150,7 @@ describe("rootRouteSearch", () => {
       validateRootRouteSearch({
         "add-cloudflare": "",
         "add-convex": "",
-        "app-root": " apps/samebase ",
+        "root-directory": " apps/samebase ",
       }),
     ).toEqual({});
     expect(validateRootRouteSearch({ "add-cloudflare": "" })).toEqual({});
@@ -159,7 +159,7 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete&add-app-root",
+        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete&add-app",
       ),
     ).toEqual({
       auth: "google",

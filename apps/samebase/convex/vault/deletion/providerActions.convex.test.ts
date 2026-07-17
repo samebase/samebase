@@ -104,7 +104,7 @@ describe("vault deletion Convex provider actions", () => {
     ]);
   });
 
-  it("revokes each relation-owned deploy key once while retaining the Convex project", async () => {
+  it("revokes each creating relation-owned deploy key once while retaining the Convex project", async () => {
     const requests: Array<{ body: string; url: string }> = [];
     vi.stubGlobal(
       "fetch",
@@ -145,6 +145,18 @@ describe("vault deletion Convex provider actions", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
+      const creatingRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "wire_convex_build_access",
+        state: "failed",
+        currentStep: "wire_convex_build_access",
+        lastError: "Provider result was unknown.",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
       const runId = await ctx.db.insert("vaultDeletionRuns", {
         userId,
         vaultId,
@@ -174,12 +186,14 @@ describe("vault deletion Convex provider actions", () => {
                   dependencyId: "dependency-1",
                   deployKeys: {
                     production: {
-                      state: "created",
+                      state: "creating",
+                      runId: creatingRunId,
                       name: "production-key-name",
                       deploymentName: "convex-production",
                     },
                     preview: {
-                      state: "created",
+                      state: "creating",
+                      runId: creatingRunId,
                       name: "preview-key-name",
                       projectId: "1001",
                     },

@@ -4,11 +4,21 @@
 
 - Status: Accepted
 - Owner: Samebase vault app and infrastructure model
-- Last updated: 2026-07-16
+- Last updated: 2026-07-17
 - Related docs:
+  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`
+  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
+  - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
+
+This spec supersedes those documents wherever they treat a root string as provider identity, assume
+same-root Worker and Convex ownership, name the field `appRoot`, expose `add-app-root` or `app-root`
+route parameters, address a deployment route by root string, or wire Builds automatically during
+Worker attachment. Their provider-specific connection details remain current where they do not
+conflict with this model.
 
 ## Nouns
 
@@ -44,7 +54,13 @@ when Samebase does not model its runtime hosting.
 
 Worker and Convex resources each belong to exactly one app. Different resource types can share the
 same root without colliding. More than one Worker may also use one root if the provider contains
-that configuration. Samebase never uses `rootDirectory` as a Worker or Convex deployment ID.
+that configuration. An app owns zero or one Convex production deployment and zero or more Workers.
+Samebase never uses `rootDirectory` as a Worker or Convex deployment ID.
+
+Creating an app and attaching a provider resource are separate operations. The repository-root app
+may be added before or after nested apps, but it can exist only once. Every other app identifies its
+own folder root. The UI asks the user to add an app and treats `rootDirectory` as that app's
+location; it does not model "app root" as another entity.
 
 ### Resource ownership and display
 
@@ -60,12 +76,31 @@ For the shared-backend fixture:
 | `packages/backend` | `shared-convex-monorepo-fixture-backend` Convex deployment |
 
 The UI shows all three apps. It shows the shared Convex deployment only under `packages/backend`.
+Deployment-specific schema and database routes address the selected Convex deployment by its stable
+Samebase deployment ID. A root directory is display and ownership context, not a deployment route
+identifier.
 
 ### Explicit deployment dependencies
 
 A Worker-to-Convex deployment dependency is stored only when the Worker build pipeline is intended
 to deploy that Convex deployment. The relation references the Worker resource ID and Convex
 deployment resource ID, so cross-root wiring does not rely on path equality.
+
+Attaching a Worker records only the Worker resource. It does not infer a Convex dependency, create
+Workers Builds triggers, or start a build. Connecting the Worker to its GitHub repository is a
+separate explicit operation. If Convex deployments are available, Samebase asks whether this Worker
+deploys none of them or one specifically selected deployment.
+
+When reconnecting a Worker that already has a dependency, the chooser shows that dependency
+explicitly and allows another Convex deployment to be selected. This slice does not detach an
+existing dependency, so it does not present a Worker-only choice that would leave the stored edge
+and deploy keys unchanged.
+
+Selecting a Convex deployment claims the explicit dependency, creates or reconciles both Workers
+Builds triggers without starting a build, rotates the dependency's two deploy keys, installs and
+reads back the least-privilege trigger secrets, and only then starts the initial production build.
+The dependency stays `not_wired` until that sequence completes. This prevents a deliberately created
+build from starting with missing or partially installed backend credentials.
 
 Importing a Convex API, using a Convex URL, sharing a commit, or living nearby in the repository
 does not create a deployment dependency. In particular, `apps/mobile` consumes the shared backend at
@@ -79,14 +114,26 @@ Workers to depend on one backend, and lets Samebase revoke an old relationship a
 row is reconnected to a different provider resource. Secret values are passed directly between
 provider operations and are never stored in Samebase.
 
-The provider key name contains the stable dependency ID, so two Workers using one Convex deployment
-cannot collide and a retry of the same relationship rotates the same named provider resource.
+Each wiring attempt mints fresh provider key names. Before asking Convex to create either key,
+Samebase records that exact name, provider target, and owning run on the dependency as `creating`.
+`creating` means the key may or may not exist at Convex because Samebase might have lost the
+provider response. Recovery deletes that exact identity and accepts a provider not-found response as
+success before minting a replacement. Only the same active run, name, and target may advance a key
+from `creating` to `created`.
 
-Rewiring a Worker to another Convex deployment keeps the same dependency identity, makes the
-relationship `not_wired`, revokes the old target-specific keys, and then creates new
-relation-specific keys. When a shared Convex deployment becomes unavailable or changes provider
-identity, every relationship pointing to it becomes `not_wired`; the UI must never report a
-relationship as wired while its Convex deployment is missing upstream.
+Attempts are therefore disjoint: a superseded action can clean up only its own names and cannot
+delete a newer action's provider keys. A retry deletes the dependency's recorded prior names before
+minting its new pair. Successful provider deletion clears only the exact matching `creating` or
+`created` identity. Failed deletion retains the identity for recovery.
+
+Rewiring a Worker to another Convex deployment keeps the same dependency identity and makes the
+relationship `not_wired`. Samebase revokes the old target-specific keys before minting replacements.
+A failure leaves the relationship visibly `not_wired`. When a shared Convex deployment becomes
+unavailable or changes provider identity, every relationship pointing to it reads as `not_wired`.
+Samebase derives that state from the stored key targets and current provider identity rather than
+rewriting every dependent relationship. The stored key identities remain available for exact
+cleanup, and the UI must never report a relationship as wired while its Convex deployment is missing
+upstream.
 
 Samebase-managed Cloudflare triggers use least privilege:
 
@@ -151,6 +198,9 @@ Expo hosting, or another hosting provider. Convex-only and resource-empty apps r
    replacing the other.
 8. A repository with no Cloudflare or Convex connection still exposes its complete GitHub monitoring
    UI.
+9. Attaching a Worker creates no Builds trigger. Choosing "No Convex deployment" connects ordinary
+   Worker Builds; choosing a specific deployment creates the explicit dependency and does not start
+   its initial build until both trigger secrets have been read back successfully.
 
 ## Validation
 
@@ -175,6 +225,7 @@ sufficient evidence for ownership placement or empty-app visibility.
 
 ## Rollout
 
-The development data may be reset and the fixtures reconnected. No legacy root-directory adapter,
-dual-read path, or data backfill is required. The implementation should replace the old same-root
-assumption directly and delete the obsolete shape.
+Development and production vault data must be reset before their deployments adopt this schema, then
+the fixtures and user vaults can be reconnected. This reset is a merge prerequisite, not a
+migration. No legacy root-directory adapter, dual-read path, or data backfill is required. The
+implementation replaces the old same-root assumption directly and deletes the obsolete shape.

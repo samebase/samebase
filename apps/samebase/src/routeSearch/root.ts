@@ -28,12 +28,12 @@ import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { FORCE_PROD_UI_QUERY_PARAM, isProdUiModeEnabled } from "@/lib/prodUiMode";
 
-export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
-export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
-export type VaultDashboardQueryDialog = "add-app-root" | "add-cloudflare" | "add-convex" | "delete";
+export const DASHBOARD_ADD_APP_QUERY_PARAM = "add-app";
+export const DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM = "root-directory";
+export type VaultDashboardQueryDialog = "add-app" | "add-cloudflare" | "add-convex" | "delete";
 
 const RouteSearchSchema_root = defineRouteSearchParams({
-  [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: routeSearchPresenceParam({
+  [DASHBOARD_ADD_APP_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_repo_connect",
     suggestion: "route",
   }),
@@ -68,12 +68,15 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     access: "access_public",
     suggestion: "route",
   }),
-  [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: routeSearchValueParam(routeSearchNonEmptyString, {
-    access: "access_repo_connect",
-    sampleValue: "apps/samebase",
-    suggestion: "hidden",
-    valueType: "freeform",
-  }),
+  [DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM]: routeSearchValueParam(
+    routeSearchNonEmptyString,
+    {
+      access: "access_repo_connect",
+      sampleValue: "apps/samebase",
+      suggestion: "hidden",
+      valueType: "freeform",
+    },
+  ),
   delete: routeSearchPresenceParam({
     access: "access_dashboard",
     suggestion: "route",
@@ -112,16 +115,16 @@ type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 const VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES = {
-  "add-app-root": {
-    [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
+  "add-app": {
+    [DASHBOARD_ADD_APP_QUERY_PARAM]: null,
   },
   "add-cloudflare": {
     "add-cloudflare": null,
-    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+    [DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM]: null,
   },
   "add-convex": {
     "add-convex": null,
-    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+    [DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM]: null,
   },
   delete: {
     delete: null,
@@ -146,16 +149,15 @@ const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(RouteSearch
 
 const rootRouteSearchParamMetadata = {
   ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
-  [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]:
-    rootRouteSearchOwnParamMetadata[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM],
+  [DASHBOARD_ADD_APP_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[DASHBOARD_ADD_APP_QUERY_PARAM],
   "add-cloudflare": rootRouteSearchOwnParamMetadata["add-cloudflare"],
   "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
   code: rootRouteSearchOwnParamMetadata.code,
   "create-account": rootRouteSearchOwnParamMetadata["create-account"],
-  [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]:
-    rootRouteSearchOwnParamMetadata[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM],
+  [DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM]:
+    rootRouteSearchOwnParamMetadata[DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM],
   background: globalLogoRouteSearchParam("background"),
   border: globalLogoRouteSearchParam("border"),
   dark: globalLogoRouteSearchParam("dark"),
@@ -180,7 +182,7 @@ const rootRouteSearchParamMetadata = {
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);
 const DASHBOARD_MODAL_SEARCH_KEYS = [
-  DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
+  DASHBOARD_ADD_APP_QUERY_PARAM,
   "add-cloudflare",
   "add-convex",
   "delete",
@@ -218,13 +220,13 @@ export function isRootRouteOwnedSearchKey(key: string): boolean {
 }
 
 function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootRouteSearchBase {
-  const providerAppRoot = parsedSearch[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM];
+  const providerRootDirectory = parsedSearch[DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM];
   const validModalKeys = DASHBOARD_MODAL_SEARCH_KEYS.filter((key) => {
     if (!parsedSearch[key]) {
       return false;
     }
     if (key === "add-cloudflare" || key === "add-convex") {
-      return typeof providerAppRoot === "string";
+      return typeof providerRootDirectory === "string";
     }
     return true;
   });
@@ -235,13 +237,13 @@ function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootR
     }
     return {
       ...parsedSearch,
-      [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: undefined,
+      [DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM]: undefined,
     };
   }
 
   const normalizedSearch = {
     ...parsedSearch,
-    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: undefined,
+    [DASHBOARD_PROVIDER_ROOT_DIRECTORY_QUERY_PARAM]: undefined,
   };
   for (const key of DASHBOARD_MODAL_SEARCH_KEYS) {
     normalizedSearch[key] = undefined;

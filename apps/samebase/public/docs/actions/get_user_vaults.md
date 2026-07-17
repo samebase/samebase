@@ -25,10 +25,6 @@ Read this before any repair or day-2 operation: the coordinates it returns are t
 provider-direct work (see the operate guides), and the `nextAction` values are the exact Samebase
 actions to call when the record itself is degraded.
 
-This legacy aggregate is not the Samebase dashboard directory. It fails explicitly above 25 vaults
-or above 1,000 staged-file rows in one vault; use the paginated repository summary directory for the
-multi-vault UI.
-
 ## Arguments
 
 None.
@@ -52,16 +48,13 @@ JSON Schema for the tool's `structuredContent`:
           "_creationTime": {
             "type": "number"
           },
-          "routeRepositoryFullName": {
+          "ghRepoOwner": {
             "type": "string"
           },
-          "githubRepositoryFullName": {
+          "ghRepoName": {
             "type": "string"
           },
-          "githubOwner": {
-            "type": "string"
-          },
-          "githubName": {
+          "repositoryFullName": {
             "type": "string"
           },
           "commitSHA": {
@@ -985,10 +978,9 @@ JSON Schema for the tool's `structuredContent`:
         "required": [
           "_id",
           "_creationTime",
-          "routeRepositoryFullName",
-          "githubRepositoryFullName",
-          "githubOwner",
-          "githubName",
+          "ghRepoOwner",
+          "ghRepoName",
+          "repositoryFullName",
           "fileCount",
           "state",
           "sourceSetup",

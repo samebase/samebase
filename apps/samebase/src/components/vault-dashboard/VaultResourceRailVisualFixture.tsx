@@ -26,7 +26,7 @@ function fakeVaultAppId(value: string): Id<"vaultApps"> {
   return value;
 }
 
-const ROOT_APP_ID = fakeVaultAppId("app-root");
+const ROOT_APP_ID = fakeVaultAppId("app-repository-root");
 const DOMAIN_ROUTER_APP_ID = fakeVaultAppId("app-domain-router");
 const SAMEBASE_APP_ID = fakeVaultAppId("app-samebase");
 const SHARED_BACKEND_APP_ID = fakeVaultAppId("app-shared-backend");

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import { isWorkerDeploymentDependencyCurrentlyWired } from "./deploymentDependencies";
 
 async function createConvexConnectionVault() {
   const t = makeConvexTest();
@@ -142,9 +143,9 @@ describe("vault Convex deployment connection mutations", () => {
     ]);
   });
 
-  it("replaces a missing-upstream Convex deployment row during a connection run", async () => {
+  it("retargets a missing-upstream deployment without rewriting dependent Worker rows", async () => {
     const { ids, t } = await createConvexConnectionVault();
-    const dependencyId = await t.run(async (ctx) => {
+    const dependencyIds = await t.run(async (ctx) => {
       const deploymentId = await ctx.db.insert("vaultConvexDeployments", {
         vaultId: ids.vaultId,
         userId: ids.userId,
@@ -175,7 +176,7 @@ describe("vault Convex deployment connection mutations", () => {
         connectedAt: 20,
         lastObservedAt: 20,
       });
-      return await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+      const dependencyId = await ctx.db.insert("vaultWorkerDeploymentDependencies", {
         vaultId: ids.vaultId,
         userId: ids.userId,
         workerId,
@@ -198,6 +199,43 @@ describe("vault Convex deployment connection mutations", () => {
         createdAt: 20,
         updatedAt: 20,
       });
+      const siblingWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: ids.appId,
+        accountId: "cloudflare-account",
+        workerName: "manual-convex-sibling",
+        workerTag: "manual-convex-sibling-tag",
+        origin: "selected_existing",
+        upstream: { state: "present" },
+        builds: { state: "not_connected" },
+        connectedAt: 20,
+        lastObservedAt: 20,
+      });
+      const siblingDependencyId = await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        workerId: siblingWorkerId,
+        convexDeploymentId: deploymentId,
+        wiring: {
+          state: "wired",
+          deployKeys: {
+            production: {
+              state: "created",
+              name: "old-sibling-production-key",
+              deploymentName: "old-prod",
+            },
+            preview: {
+              state: "created",
+              name: "old-sibling-preview-key",
+              projectId: "old-project",
+            },
+          },
+        },
+        createdAt: 20,
+        updatedAt: 20,
+      });
+      return [dependencyId, siblingDependencyId];
     });
 
     await expect(
@@ -233,7 +271,17 @@ describe("vault Convex deployment connection mutations", () => {
         .query("vaultConvexDeployments")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
-      return { dependency: await ctx.db.get(dependencyId), deployments };
+      const dependencies = await Promise.all(
+        dependencyIds.map(async (dependencyId) => await ctx.db.get(dependencyId)),
+      );
+      const deployment = deployments[0];
+      return {
+        currentlyWired: dependencies.map((dependency) =>
+          dependency ? isWorkerDeploymentDependencyCurrentlyWired(dependency, deployment) : null,
+        ),
+        dependencies,
+        deployments,
+      };
     });
 
     expect(persisted.deployments).toHaveLength(1);
@@ -242,23 +290,43 @@ describe("vault Convex deployment connection mutations", () => {
       deploymentName: "manual-convex-prod",
       upstream: { state: "present" },
     });
-    expect(persisted.dependency).toMatchObject({
-      wiring: {
-        state: "not_wired",
-        deployKeys: {
-          production: {
-            state: "created",
-            name: "old-production-key",
-            deploymentName: "old-prod",
-          },
-          preview: {
-            state: "created",
-            name: "old-preview-key",
-            projectId: "old-project",
+    expect(persisted.dependencies).toMatchObject([
+      {
+        wiring: {
+          state: "wired",
+          deployKeys: {
+            production: {
+              state: "created",
+              name: "old-production-key",
+              deploymentName: "old-prod",
+            },
+            preview: {
+              state: "created",
+              name: "old-preview-key",
+              projectId: "old-project",
+            },
           },
         },
       },
-    });
+      {
+        wiring: {
+          state: "wired",
+          deployKeys: {
+            production: {
+              state: "created",
+              name: "old-sibling-production-key",
+              deploymentName: "old-prod",
+            },
+            preview: {
+              state: "created",
+              name: "old-sibling-preview-key",
+              projectId: "old-project",
+            },
+          },
+        },
+      },
+    ]);
+    expect(persisted.currentlyWired).toEqual([false, false]);
   });
 
   it("rejects reconnecting a missing-upstream Convex row to a project held by a present row", async () => {

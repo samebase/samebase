@@ -320,10 +320,55 @@ describe("account deletion provider actions", () => {
     expect(secondPage.isDone).toBe(true);
   });
 
-  it("revokes every relation-owned Convex deploy key from its stored target", async () => {
+  it("revokes created and creating relation-owned Convex deploy keys from their stored targets", async () => {
     const t = makeConvexTest();
     const { runId, userId } = await seedUser(t);
     await seedConvexDependencyDeployKeys(t, userId);
+    await t.run(async (ctx) => {
+      const dependencies = await ctx.db
+        .query("vaultWorkerDeploymentDependencies")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      const dependency = dependencies.find(
+        (candidate) =>
+          candidate.wiring.deployKeys.production.state === "created" &&
+          candidate.wiring.deployKeys.production.name === "production-key-two",
+      );
+      if (!dependency) {
+        throw new Error("Expected second Worker dependency.");
+      }
+      const creatingRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId: dependency.vaultId,
+        repositoryFullName: "ada/account-delete",
+        trigger: "wire_convex_build_access",
+        state: "failed",
+        currentStep: "wire_convex_build_access",
+        lastError: "Provider result was unknown.",
+        createdAt: 2,
+        updatedAt: 3,
+        completedAt: 3,
+      });
+      await ctx.db.patch(dependency._id, {
+        wiring: {
+          state: "not_wired",
+          deployKeys: {
+            production: {
+              state: "creating",
+              runId: creatingRunId,
+              name: "production-key-two",
+              deploymentName: "recorded-production-two",
+            },
+            preview: {
+              state: "creating",
+              runId: creatingRunId,
+              name: "preview-key-two",
+              projectId: "1002",
+            },
+          },
+        },
+      });
+    });
     const requests: Array<{ body: string; url: string }> = [];
     vi.stubGlobal(
       "fetch",

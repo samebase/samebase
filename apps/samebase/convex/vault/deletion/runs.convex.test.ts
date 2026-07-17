@@ -354,11 +354,11 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
-  it("retains an existing Convex project while planning revocation for relation-owned deploy keys", async () => {
+  it("retains an existing Convex project while planning revocation for relation-owned keys that may exist", async () => {
     const { ids, resources, t } = await createExistingRepositoryVaultWithConvex({
       origin: "selected_existing",
     });
-    await t.run(async (ctx) => {
+    const creatingRunId = await t.run(async (ctx) => {
       await ctx.db.insert("providerConnections", {
         kind: "convex",
         userId: ids.userId,
@@ -383,21 +383,35 @@ describe("vault deletion Convex resource planning", () => {
         connectedAt: 16,
         lastObservedAt: 16,
       });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-convex",
+        trigger: "retry",
+        state: "failed",
+        currentStep: "wire_convex_build_access",
+        lastError: "Convex deploy-key creation outcome is unknown.",
+        createdAt: 17,
+        updatedAt: 17,
+        completedAt: 17,
+      });
       await ctx.db.insert("vaultWorkerDeploymentDependencies", {
         vaultId: ids.vaultId,
         userId: ids.userId,
         workerId,
         convexDeploymentId: resources.convexDeploymentId,
         wiring: {
-          state: "wired",
+          state: "not_wired",
           deployKeys: {
             production: {
-              state: "created",
+              state: "creating",
+              runId,
               name: "production-key-name",
               deploymentName: "existing-prod",
             },
             preview: {
-              state: "created",
+              state: "creating",
+              runId,
               name: "preview-key-name",
               projectId: "existing-project",
             },
@@ -406,6 +420,7 @@ describe("vault deletion Convex resource planning", () => {
         createdAt: 17,
         updatedAt: 17,
       });
+      return runId;
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
@@ -431,12 +446,14 @@ describe("vault deletion Convex resource planning", () => {
                 dependencyId: expect.any(String),
                 deployKeys: {
                   production: {
-                    state: "created",
+                    state: "creating",
+                    runId: creatingRunId,
                     name: "production-key-name",
                     deploymentName: "existing-prod",
                   },
                   preview: {
-                    state: "created",
+                    state: "creating",
+                    runId: creatingRunId,
                     name: "preview-key-name",
                     projectId: "existing-project",
                   },

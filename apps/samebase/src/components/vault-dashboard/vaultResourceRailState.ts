@@ -138,8 +138,8 @@ export function buildVaultDashboardResourceRailState({
   addConvexOnClick,
   connectCloudflareGithubRepoOnClick,
   deployCloudflareConvexOnClick,
-  buildAddAppRootHref,
-  addAppRootOnClick,
+  buildAddAppHref,
+  addAppOnClick,
   githubRepositoryUrl,
   isConnectingCloudflareGithubRepo,
   isRetryingInfrastructure,
@@ -156,8 +156,8 @@ export function buildVaultDashboardResourceRailState({
   addConvexOnClick?: (app: VaultDashboardApp) => void;
   connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   deployCloudflareConvexOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
-  buildAddAppRootHref?: () => string;
-  addAppRootOnClick?: () => void;
+  buildAddAppHref?: () => string;
+  addAppOnClick?: () => void;
   githubRepositoryUrl: string;
   isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRetryingInfrastructure?: boolean;
@@ -203,14 +203,14 @@ export function buildVaultDashboardResourceRailState({
       value: vault.repositoryFullName,
       href: githubRepositoryUrl,
       actions:
-        canConfigureMissingResources && (buildAddAppRootHref || addAppRootOnClick)
+        canConfigureMissingResources && (buildAddAppHref || addAppOnClick)
           ? [
               {
                 kind: "add",
-                label: "?add-app-root",
-                ariaLabel: "Add app root",
-                href: buildAddAppRootHref?.(),
-                onClick: addAppRootOnClick,
+                label: "?add-app",
+                ariaLabel: "Add app",
+                href: buildAddAppHref?.(),
+                onClick: addAppOnClick,
               },
             ]
           : undefined,

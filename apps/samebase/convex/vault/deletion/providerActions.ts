@@ -250,7 +250,7 @@ export const deleteConvex = internalAction({
 
     if (plan.convexDependencyDeployKeys.action === "revoke") {
       for (const dependency of plan.convexDependencyDeployKeys.dependencies) {
-        if (dependency.deployKeys.production.state === "created") {
+        if (dependency.deployKeys.production.state !== "not_created") {
           try {
             await deleteConvexDeployKey({
               convexToken: convexConnection.auth.credential,
@@ -263,7 +263,7 @@ export const deleteConvex = internalAction({
             }
           }
         }
-        if (dependency.deployKeys.preview.state === "created") {
+        if (dependency.deployKeys.preview.state !== "not_created") {
           try {
             await deleteConvexPreviewDeployKey({
               convexToken: convexConnection.auth.credential,

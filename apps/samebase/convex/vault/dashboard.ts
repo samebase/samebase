@@ -26,7 +26,8 @@ import {
   type VaultDeletionSummary,
   vProviderSetupSummary,
 } from "./contracts/getUserVaults";
-import { isVaultProviderUpstreamPresent, readVaultProviderUpstreamPresence } from "./model";
+import { readVaultProviderUpstreamPresence } from "./model";
+import { isWorkerDeploymentDependencyCurrentlyWired } from "./deploymentDependencies";
 
 const { array, boolean, id, object, optional, string } = v;
 type SourceSetupVault = Extract<
@@ -947,13 +948,12 @@ async function readUserVaults(
           dependencyId: dependency._id,
           workerId: dependency.workerId,
           convexDeploymentId: dependency.convexDeploymentId,
-          wiring:
-            dependency.wiring.state === "wired" && isVaultProviderUpstreamPresent(deployment)
-              ? { state: "wired" as const }
-              : {
-                  state: "not_wired" as const,
-                  nextAction: "wire_convex_build_access" as const,
-                },
+          wiring: isWorkerDeploymentDependencyCurrentlyWired(dependency, deployment)
+            ? { state: "wired" as const }
+            : {
+                state: "not_wired" as const,
+                nextAction: "wire_convex_build_access" as const,
+              },
         };
       });
       if (deletion.state !== "not_deleting") {

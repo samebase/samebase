@@ -6,7 +6,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import {
-  VaultDashboardAppRootDialog,
+  VaultDashboardAppDialog,
   VaultDashboardCloudflareBuildsDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
@@ -1063,22 +1063,23 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
   });
 });
 
-describe("VaultDashboardAppRootDialog", () => {
-  it("renders app mode as the readonly repository root", () => {
+describe("VaultDashboardAppDialog", () => {
+  it("renders the first app at the repository root", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardAppRootDialog
-        appRoot="/"
+      <VaultDashboardAppDialog
+        rootDirectory="/"
         error={null}
         folderSuggestions={[]}
         isSubmitting={false}
-        mode="app"
-        onAppRootChange={vi.fn()}
-        onModeChange={vi.fn()}
+        location="repository_root"
+        onRootDirectoryChange={vi.fn()}
+        onLocationChange={vi.fn()}
         onOpenChange={vi.fn()}
         onSubmit={vi.fn()}
         open
         vault={{
           hasApps: false,
+          hasRepositoryRootApp: false,
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
         }}
@@ -1086,29 +1087,30 @@ describe("VaultDashboardAppRootDialog", () => {
     );
 
     expect(markup).toContain("<form");
-    expect(markup).toContain("Choose whether this repository is one app or a monorepo.");
-    expect(markup).toContain("App");
-    expect(markup).toContain("Monorepo");
-    expect(markup).not.toContain('aria-label="App root"');
-    expect(markup).toContain("Use as app");
+    expect(markup).toContain("Choose whether this app uses the repository root or a folder.");
+    expect(markup).toContain("Repository root");
+    expect(markup).toContain("Folder");
+    expect(markup).not.toContain('aria-label="Root directory"');
+    expect(markup).toContain("Add app");
     expect(markup).toContain('type="submit"');
   });
 
-  it("renders monorepo mode with an editable app root", () => {
+  it("renders the first app in a folder with an editable root directory", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardAppRootDialog
-        appRoot="apps/domain-router"
+      <VaultDashboardAppDialog
+        rootDirectory="apps/domain-router"
         error={null}
         folderSuggestions={[]}
         isSubmitting={false}
-        mode="monorepo"
-        onAppRootChange={vi.fn()}
-        onModeChange={vi.fn()}
+        location="folder"
+        onRootDirectoryChange={vi.fn()}
+        onLocationChange={vi.fn()}
         onOpenChange={vi.fn()}
         onSubmit={vi.fn()}
         open
         vault={{
           hasApps: false,
+          hasRepositoryRootApp: false,
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
         }}
@@ -1116,44 +1118,73 @@ describe("VaultDashboardAppRootDialog", () => {
     );
 
     expect(markup).toContain("<form");
-    expect(markup).toContain("Add app root ada/demo");
+    expect(markup).toContain("Add app ada/demo");
     expect(markup).toContain("apps/domain-router");
     expect(markup).not.toContain("readOnly");
     expect(markup).toContain('type="button"');
     expect(markup).toContain('type="submit"');
   });
 
-  it("renders conversion copy for an existing root app", () => {
+  it("still offers the repository root after a folder app was created first", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardAppRootDialog
-        appRoot="apps/domain-router"
+      <VaultDashboardAppDialog
+        rootDirectory="apps/domain-router"
         error={null}
         folderSuggestions={[]}
         isSubmitting={false}
-        mode="monorepo"
-        onAppRootChange={vi.fn()}
-        onModeChange={vi.fn()}
+        location="folder"
+        onRootDirectoryChange={vi.fn()}
+        onLocationChange={vi.fn()}
         onOpenChange={vi.fn()}
         onSubmit={vi.fn()}
         open
         vault={{
           hasApps: true,
+          hasRepositoryRootApp: false,
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
         }}
       />,
     );
 
-    expect(markup).toContain("Add another folder app root.");
-    expect(markup).toContain("Add app root ada/demo");
-    expect(markup).not.toContain("App root mode");
+    expect(markup).toContain("Choose whether this app uses the repository root or a folder.");
+    expect(markup).toContain("Add app ada/demo");
+    expect(markup).toContain("App location");
     expect(markup).toContain("apps/domain-router");
-    expect(markup).toContain("Add app root");
+    expect(markup).toContain("Add app");
+  });
+
+  it("requires a folder once the repository-root app exists", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardAppDialog
+        rootDirectory="apps/domain-router"
+        error={null}
+        folderSuggestions={[]}
+        isSubmitting={false}
+        location="folder"
+        onRootDirectoryChange={vi.fn()}
+        onLocationChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+        vault={{
+          hasApps: true,
+          hasRepositoryRootApp: true,
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Choose the folder for this app.");
+    expect(markup).not.toContain("App location");
+    expect(markup).toContain("apps/domain-router");
   });
 });
 
 describe("VaultDashboardCloudflareBuildsDialog", () => {
   const target = {
+    allowWorkerOnly: true,
     mode: "connect_repository" as const,
     workerName: "demo-worker",
     convexDeployments: [
@@ -1211,14 +1242,34 @@ describe("VaultDashboardCloudflareBuildsDialog", () => {
     );
     expect(deploymentMarkup).toContain("packages/backend · demo-team/demo-project");
   });
+
+  it("shows an existing dependency without offering a false Worker-only transition", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareBuildsDialog
+        isSubmitting={false}
+        onConvexDeploymentChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        open
+        selection={{
+          state: "deploys_convex",
+          convexDeploymentId: fakeConvexDeploymentId(),
+        }}
+        target={{ ...target, allowWorkerOnly: false }}
+      />,
+    );
+
+    expect(markup).toContain("packages/backend · demo-team/demo-project");
+    expect(markup).not.toContain("No Convex deployment");
+  });
 });
 
 describe("VaultDashboardConvexDialog", () => {
-  it("hides the app root input for the repository root app", () => {
+  it("hides the root directory input for the repository root app", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        appRoot="/"
-        appRootReadOnly={true}
+        rootDirectory="/"
+        rootDirectoryReadOnly={true}
         createProjectName="demo"
         projects={[
           {
@@ -1232,7 +1283,7 @@ describe("VaultDashboardConvexDialog", () => {
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onAppRootChange={vi.fn()}
+        onRootDirectoryChange={vi.fn()}
         onCreateProjectNameChange={vi.fn()}
         onProjectChange={vi.fn()}
         onModeChange={vi.fn()}
@@ -1252,16 +1303,16 @@ describe("VaultDashboardConvexDialog", () => {
 
     expect(markup).toContain("Connect Convex ada/demo");
     expect(markup).toContain("Demo");
-    expect(markup).not.toContain('placeholder="App root"');
+    expect(markup).not.toContain('placeholder="Root directory"');
     expect(markup).not.toContain("readOnly");
     expect(markup).toContain("Connect Project");
   });
 
-  it("renders the app root input for monorepo app roots", () => {
+  it("renders the root directory for a folder app", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        appRoot="apps/samebase"
-        appRootReadOnly={true}
+        rootDirectory="apps/samebase"
+        rootDirectoryReadOnly={true}
         createProjectName="demo"
         projects={[
           {
@@ -1275,7 +1326,7 @@ describe("VaultDashboardConvexDialog", () => {
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onAppRootChange={vi.fn()}
+        onRootDirectoryChange={vi.fn()}
         onCreateProjectNameChange={vi.fn()}
         onProjectChange={vi.fn()}
         onModeChange={vi.fn()}
@@ -1294,8 +1345,8 @@ describe("VaultDashboardConvexDialog", () => {
     );
 
     expect(markup).toContain("apps/samebase");
-    expect(markup).toContain('aria-label="App root"');
-    expect(markup).toContain('placeholder="App root"');
+    expect(markup).toContain('aria-label="Root directory"');
+    expect(markup).toContain('placeholder="Root directory"');
     expect(markup).toContain("readOnly");
     expect(markup).toContain("Connect Project");
   });
@@ -1421,7 +1472,7 @@ describe("VaultDashboardCloudflareDialog", () => {
     ).toBe("manual-worker");
   });
 
-  it("hides the app root input for the repository root app", () => {
+  it("hides the root directory input for the repository root app", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog
         accounts={[
@@ -1430,15 +1481,15 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="/"
-        appRootReadOnly={true}
+        rootDirectory="/"
+        rootDirectoryReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
         onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
+        onRootDirectoryChange={vi.fn()}
         onCreateWorkerNameChange={vi.fn()}
         onModeChange={vi.fn()}
         onOpenChange={vi.fn()}
@@ -1460,11 +1511,11 @@ describe("VaultDashboardCloudflareDialog", () => {
 
     expect(markup).toContain("Connect Cloudflare ada/demo");
     expect(markup).toContain("demo-worker");
-    expect(markup).not.toContain('placeholder="App root"');
+    expect(markup).not.toContain('placeholder="Root directory"');
     expect(markup).not.toContain("readOnly");
   });
 
-  it("renders the app root input for monorepo app roots", () => {
+  it("renders the root directory for a folder app", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog
         accounts={[
@@ -1473,15 +1524,15 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="apps/samebase"
-        appRootReadOnly={true}
+        rootDirectory="apps/samebase"
+        rootDirectoryReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
         onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
+        onRootDirectoryChange={vi.fn()}
         onCreateWorkerNameChange={vi.fn()}
         onModeChange={vi.fn()}
         onOpenChange={vi.fn()}
@@ -1502,8 +1553,8 @@ describe("VaultDashboardCloudflareDialog", () => {
     );
 
     expect(markup).toContain("apps/samebase");
-    expect(markup).toContain('aria-label="App root"');
-    expect(markup).toContain('placeholder="App root"');
+    expect(markup).toContain('aria-label="Root directory"');
+    expect(markup).toContain('placeholder="Root directory"');
     expect(markup).toContain("readOnly");
   });
 
@@ -1516,15 +1567,15 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="/"
-        appRootReadOnly={true}
+        rootDirectory="/"
+        rootDirectoryReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
         onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
+        onRootDirectoryChange={vi.fn()}
         onCreateWorkerNameChange={vi.fn()}
         onModeChange={vi.fn()}
         onOpenChange={vi.fn()}
@@ -1582,15 +1633,15 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="apps/web"
-        appRootReadOnly={true}
+        rootDirectory="apps/web"
+        rootDirectoryReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
         onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
+        onRootDirectoryChange={vi.fn()}
         onCreateWorkerNameChange={vi.fn()}
         onModeChange={vi.fn()}
         onOpenChange={vi.fn()}
@@ -1645,15 +1696,15 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="/"
-        appRootReadOnly={true}
+        rootDirectory="/"
+        rootDirectoryReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
         onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
+        onRootDirectoryChange={vi.fn()}
         onCreateWorkerNameChange={vi.fn()}
         onModeChange={vi.fn()}
         onOpenChange={vi.fn()}
@@ -1693,11 +1744,11 @@ describe("VaultDashboardCloudflareDialog", () => {
 });
 
 describe("buildVaultDashboardResourceRailState", () => {
-  it("puts the add-app-root action on the GitHub row", () => {
-    const addAppRoot = vi.fn();
+  it("puts the add-app action on the GitHub row", () => {
+    const addApp = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      buildAddAppRootHref: () => "/vault/ada/demo?add-app-root",
-      addAppRootOnClick: addAppRoot,
+      buildAddAppHref: () => "/vault/ada/demo?add-app",
+      addAppOnClick: addApp,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({}),
     });
@@ -1708,17 +1759,17 @@ describe("buildVaultDashboardResourceRailState", () => {
       actions: [
         {
           kind: "add",
-          label: "?add-app-root",
-          ariaLabel: "Add app root",
-          href: "/vault/ada/demo?add-app-root",
+          label: "?add-app",
+          ariaLabel: "Add app",
+          href: "/vault/ada/demo?add-app",
         },
       ],
     });
     if (state.githubRow.status !== "ready" || !state.githubRow.actions) {
-      throw new Error("Expected GitHub add-app-root action.");
+      throw new Error("Expected GitHub add-app action.");
     }
     state.githubRow.actions[0].onClick?.();
-    expect(addAppRoot).toHaveBeenCalledOnce();
+    expect(addApp).toHaveBeenCalledOnce();
     expect(state.apps).toEqual([]);
   });
 
@@ -2577,7 +2628,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     const buildAddCloudflareWorkerHref = vi.fn((app: ResourceRailBuilderVault["apps"][number]) =>
       app.rootDirectory === "/"
         ? "/vault/ada/demo?add-cloudflare"
-        : `/vault/ada/demo?add-cloudflare&app-root=${app.rootDirectory}`,
+        : `/vault/ada/demo?add-cloudflare&root-directory=${app.rootDirectory}`,
     );
     const state = buildVaultDashboardResourceRailState({
       buildAddCloudflareWorkerHref,
@@ -2622,12 +2673,12 @@ describe("buildVaultDashboardResourceRailState", () => {
     });
   });
 
-  it("keeps real root resources with explicit root and subfolder app roots", () => {
+  it("keeps real root resources with explicit repository and folder locations", () => {
     const addCloudflareWorker = vi.fn();
     const buildAddCloudflareWorkerHref = vi.fn((app: ResourceRailBuilderVault["apps"][number]) =>
       app.rootDirectory === "/"
         ? "/vault/ada/demo?add-cloudflare"
-        : `/vault/ada/demo?add-cloudflare&app-root=${app.rootDirectory}`,
+        : `/vault/ada/demo?add-cloudflare&root-directory=${app.rootDirectory}`,
     );
     const state = buildVaultDashboardResourceRailState({
       buildAddCloudflareWorkerHref,
@@ -2725,12 +2776,12 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain("demo-team/");
   });
 
-  it("scopes missing provider add actions to their app root", () => {
+  it("scopes missing provider add actions to their root directory", () => {
     const addConvex = vi.fn();
     const buildAddConvexHref = vi.fn((app: ResourceRailBuilderVault["apps"][number]) =>
       app.rootDirectory === "/"
         ? "/vault/ada/demo?add-convex"
-        : `/vault/ada/demo?add-convex&app-root=${app.rootDirectory}`,
+        : `/vault/ada/demo?add-convex&root-directory=${app.rootDirectory}`,
     );
     const state = buildVaultDashboardResourceRailState({
       buildAddConvexHref,
@@ -2756,12 +2807,12 @@ describe("buildVaultDashboardResourceRailState", () => {
         {
           kind: "add",
           label: "?add-convex",
-          href: "/vault/ada/demo?add-convex&app-root=apps/samebase",
+          href: "/vault/ada/demo?add-convex&root-directory=apps/samebase",
         },
       ],
     });
     if (convexRow.status !== "action_required") {
-      throw new Error("Expected app-root Convex add row.");
+      throw new Error("Expected root-directory Convex add row.");
     }
     convexRow.actions[0].onClick?.();
     expect(addConvex).toHaveBeenCalledWith({

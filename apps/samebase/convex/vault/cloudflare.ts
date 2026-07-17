@@ -1,5 +1,6 @@
 "use node";
 
+import { randomUUID } from "node:crypto";
 import { Infer, v } from "convex/values";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -50,8 +51,6 @@ import {
   isConvexManagementNotFoundError,
 } from "../convexManagementApi/errors";
 import {
-  type ConvexPreviewDeployKeyState,
-  type ConvexProductionDeployKeyState,
   vVaultCloudflareOrigin,
   type VaultCloudflareBuildConfig,
   type VaultCloudflareConnectedBuilds,
@@ -213,34 +212,6 @@ async function deleteConvexBuildAccessPreviewDeployKey(args: {
     }
     throw error;
   }
-}
-
-async function deleteRecordedConvexBuildAccessDeployKey(args: {
-  deployKey: ConvexProductionDeployKeyState;
-  convexToken: string;
-}): Promise<void> {
-  if (args.deployKey.state !== "created") {
-    return;
-  }
-  await deleteConvexBuildAccessDeployKey({
-    convexToken: args.convexToken,
-    deploymentName: args.deployKey.deploymentName,
-    convexDeployKeyName: args.deployKey.name,
-  });
-}
-
-async function deleteRecordedConvexBuildAccessPreviewDeployKey(args: {
-  deployKey: ConvexPreviewDeployKeyState;
-  convexToken: string;
-}): Promise<void> {
-  if (args.deployKey.state !== "created") {
-    return;
-  }
-  await deleteConvexBuildAccessPreviewDeployKey({
-    convexToken: args.convexToken,
-    projectId: args.deployKey.projectId,
-    convexDeployKeyName: args.deployKey.name,
-  });
 }
 
 async function listAccountsForConnection(args: {
@@ -1320,28 +1291,108 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
       }),
     });
     const vaultBuilds = toVaultCloudflareConnectedBuilds(builds);
+    const dependencyArgs = {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      workerId: args.workerId,
+      convexDeploymentId: args.convexDeploymentId,
+    };
+    // Convex deletes keys by name, so a superseded action must not share a name with a newer run.
+    const deployKeyAttemptId = randomUUID();
+    const productionDeployKeyName = `samebase-${deployKeyAttemptId}`;
+    const previewDeployKeyName = `samebase-preview-${deployKeyAttemptId}`;
+    const productionDeployKeyIdentity = {
+      deployment: "production" as const,
+      value: {
+        name: productionDeployKeyName,
+        deploymentName: active.convex.deploymentName,
+      },
+    };
+    const previewDeployKeyIdentity = {
+      deployment: "preview" as const,
+      value: {
+        name: previewDeployKeyName,
+        projectId: active.convex.projectId,
+      },
+    };
+    let productionDeployKeyMayExist = false;
+    let previewDeployKeyMayExist = false;
     let productionDeployKey: Awaited<ReturnType<typeof createConvexDeployKey>> | null = null;
     let previewDeployKey: Awaited<ReturnType<typeof createConvexPreviewDeployKey>> | null = null;
     try {
-      await deleteRecordedConvexBuildAccessDeployKey({
-        convexToken: convexConnection.convexToken,
-        deployKey: active.dependency.wiring.deployKeys.production,
-      });
-      await deleteRecordedConvexBuildAccessPreviewDeployKey({
-        convexToken: convexConnection.convexToken,
-        deployKey: active.dependency.wiring.deployKeys.preview,
-      });
+      const recordedProductionDeployKey = active.dependency.wiring.deployKeys.production;
+      if (recordedProductionDeployKey.state !== "not_created") {
+        await deleteConvexBuildAccessDeployKey({
+          convexToken: convexConnection.convexToken,
+          deploymentName: recordedProductionDeployKey.deploymentName,
+          convexDeployKeyName: recordedProductionDeployKey.name,
+        });
+        const { applied } = await ctx.runMutation(
+          internal.vault.cloudflareMutations.clearCloudflareConvexBuildAccessDeployKey,
+          {
+            ...dependencyArgs,
+            deployKey: {
+              deployment: "production",
+              value: {
+                name: recordedProductionDeployKey.name,
+                deploymentName: recordedProductionDeployKey.deploymentName,
+              },
+            },
+          },
+        );
+        if (!applied) {
+          throw new Error("Convex build access wiring was superseded.");
+        }
+      }
+
+      const recordedPreviewDeployKey = active.dependency.wiring.deployKeys.preview;
+      if (recordedPreviewDeployKey.state !== "not_created") {
+        await deleteConvexBuildAccessPreviewDeployKey({
+          convexToken: convexConnection.convexToken,
+          projectId: recordedPreviewDeployKey.projectId,
+          convexDeployKeyName: recordedPreviewDeployKey.name,
+        });
+        const { applied } = await ctx.runMutation(
+          internal.vault.cloudflareMutations.clearCloudflareConvexBuildAccessDeployKey,
+          {
+            ...dependencyArgs,
+            deployKey: {
+              deployment: "preview",
+              value: {
+                name: recordedPreviewDeployKey.name,
+                projectId: recordedPreviewDeployKey.projectId,
+              },
+            },
+          },
+        );
+        if (!applied) {
+          throw new Error("Convex build access wiring was superseded.");
+        }
+      }
 
       const previewConvex = await ensureConvexPreviewResources({
         convexToken: convexConnection.convexToken,
         teamId: convexConnection.convexTeamId,
         projectId: active.convex.projectId,
       });
+      const productionDeployKeyCreation = await ctx.runMutation(
+        internal.vault.cloudflareMutations.beginCloudflareConvexBuildAccessDeployKeyCreation,
+        {
+          ...dependencyArgs,
+          deployment: "production",
+          convexDeployKeyName: productionDeployKeyName,
+        },
+      );
+      if (!productionDeployKeyCreation.applied) {
+        throw new Error("Convex build access wiring was superseded.");
+      }
+      productionDeployKeyMayExist = true;
       productionDeployKey = await createConvexDeployKey({
         convexToken: convexConnection.convexToken,
         convexAuthMethod: convexConnection.convexAuthMethod,
         deploymentName: active.convex.deploymentName,
-        name: `samebase-${active.dependency.dependencyId}`,
+        name: productionDeployKeyName,
       });
       const productionDeployKeyRecord = await ctx.runMutation(
         internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
@@ -1352,17 +1403,29 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
           workerId: args.workerId,
           convexDeploymentId: args.convexDeploymentId,
           deployment: "production",
-          convexDeployKeyName: productionDeployKey.convexDeployKeyName,
+          convexDeployKeyName: productionDeployKeyName,
         },
       );
       if (!productionDeployKeyRecord.applied) {
         throw new Error("Convex build access wiring was superseded.");
       }
 
+      const previewDeployKeyCreation = await ctx.runMutation(
+        internal.vault.cloudflareMutations.beginCloudflareConvexBuildAccessDeployKeyCreation,
+        {
+          ...dependencyArgs,
+          deployment: "preview",
+          convexDeployKeyName: previewDeployKeyName,
+        },
+      );
+      if (!previewDeployKeyCreation.applied) {
+        throw new Error("Convex build access wiring was superseded.");
+      }
+      previewDeployKeyMayExist = true;
       previewDeployKey = await createConvexPreviewDeployKey({
         convexToken: convexConnection.convexToken,
         projectId: active.convex.projectId,
-        name: `samebase-preview-${active.dependency.dependencyId}`,
+        name: previewDeployKeyName,
       });
       const previewDeployKeyRecord = await ctx.runMutation(
         internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
@@ -1373,7 +1436,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
           workerId: args.workerId,
           convexDeploymentId: args.convexDeploymentId,
           deployment: "preview",
-          convexDeployKeyName: previewDeployKey.convexDeployKeyName,
+          convexDeployKeyName: previewDeployKeyName,
         },
       );
       if (!previewDeployKeyRecord.applied) {
@@ -1430,29 +1493,47 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         throw new Error("Convex build access wiring was superseded.");
       }
     } catch (error) {
-      if (productionDeployKey) {
-        await deleteConvexBuildAccessDeployKey({
-          convexToken: convexConnection.convexToken,
-          deploymentName: active.convex.deploymentName,
-          convexDeployKeyName: productionDeployKey.convexDeployKeyName,
-        }).catch((cleanupError: unknown) => {
+      if (productionDeployKeyMayExist) {
+        try {
+          await deleteConvexBuildAccessDeployKey({
+            convexToken: convexConnection.convexToken,
+            deploymentName: productionDeployKeyIdentity.value.deploymentName,
+            convexDeployKeyName: productionDeployKeyIdentity.value.name,
+          });
+          await ctx.runMutation(
+            internal.vault.cloudflareMutations.clearCloudflareConvexBuildAccessDeployKey,
+            {
+              ...dependencyArgs,
+              deployKey: productionDeployKeyIdentity,
+            },
+          );
+        } catch (cleanupError) {
           console.warn("cloudflare:convex_build_access:production_key_cleanup_failed", {
             vaultId: args.vaultId,
             error: toErrorMessage(cleanupError),
           });
-        });
+        }
       }
-      if (previewDeployKey) {
-        await deleteConvexBuildAccessPreviewDeployKey({
-          convexToken: convexConnection.convexToken,
-          projectId: active.convex.projectId,
-          convexDeployKeyName: previewDeployKey.convexDeployKeyName,
-        }).catch((cleanupError: unknown) => {
+      if (previewDeployKeyMayExist) {
+        try {
+          await deleteConvexBuildAccessPreviewDeployKey({
+            convexToken: convexConnection.convexToken,
+            projectId: previewDeployKeyIdentity.value.projectId,
+            convexDeployKeyName: previewDeployKeyIdentity.value.name,
+          });
+          await ctx.runMutation(
+            internal.vault.cloudflareMutations.clearCloudflareConvexBuildAccessDeployKey,
+            {
+              ...dependencyArgs,
+              deployKey: previewDeployKeyIdentity,
+            },
+          );
+        } catch (cleanupError) {
           console.warn("cloudflare:convex_build_access:preview_key_cleanup_failed", {
             vaultId: args.vaultId,
             error: toErrorMessage(cleanupError),
           });
-        });
+        }
       }
       throw error;
     }
@@ -1516,8 +1597,7 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
                   rootDirectory: active.workerApp.rootDirectory,
                 },
           buildConfig: toCloudflareBuildConfig(active.buildConfig),
-          verifyConvexBuildAccess:
-            active.dependency !== null && active.dependency.wiring.state === "wired",
+          verifyConvexBuildAccess: active.dependency !== null && active.dependency.currentlyWired,
           recordApiCall,
         }),
         convexDeploymentVerification,

@@ -11,6 +11,7 @@ import {
   vVaultCloudflareOrigin,
   vVaultConvexConnectionTarget,
 } from "./vault/model";
+import { isWorkerDeploymentDependencyCurrentlyWired } from "./vault/deploymentDependencies";
 import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -46,7 +47,6 @@ const composedInfrastructureState = object({
       accountId: string(),
       workerName: string(),
       workerId: id("vaultCloudflareWorkers"),
-      buildsConnected: boolean(),
       convexBuildAccessWired: boolean(),
       workersDevUrl: union(string(), nullValue()),
     }),
@@ -125,9 +125,7 @@ export const readComposedInfrastructureState = internalQuery({
     const convexBuildAccessWired =
       dependency !== null &&
       convexDeployment !== null &&
-      isVaultProviderUpstreamPresent(convexDeployment) &&
-      dependency.convexDeploymentId === convexDeployment._id &&
-      dependency.wiring.state === "wired";
+      isWorkerDeploymentDependencyCurrentlyWired(dependency, convexDeployment);
 
     return {
       appId: app._id,
@@ -144,7 +142,6 @@ export const readComposedInfrastructureState = internalQuery({
             accountId: target.cloudflare.accountId,
             workerName: target.cloudflare.workerName,
             workerId: worker._id,
-            buildsConnected: worker.builds.state === "connected",
             convexBuildAccessWired,
             workersDevUrl: worker.workersDevUrl ?? null,
           }
@@ -470,53 +467,6 @@ async function runComposedCloudflareAttachment(
   }
 }
 
-async function runComposedCloudflareBuildsWiring(
-  step: WorkflowCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    parentRunId: Id<"appProvisioningRuns">;
-    userId: Id<"users">;
-    state: ComposedInfrastructureState;
-  },
-): Promise<void> {
-  if (args.state.cloudflare.state !== "attached") {
-    throw new Error("Cloudflare Worker must be attached before wiring Builds.");
-  }
-  if (args.state.cloudflare.buildsConnected) {
-    return;
-  }
-
-  try {
-    await step.runAction(
-      internal.vault.cloudflare.ensureCloudflareBuildsWiring,
-      {
-        vaultId: args.vaultId,
-        runId: args.parentRunId,
-        userId: args.userId,
-        workerId: args.state.cloudflare.workerId,
-      },
-      { name: "wire_builds", retry: false },
-    );
-    await step.runMutation(
-      internal.vault.cloudflareMutations.finishCloudflareBuildsWiring,
-      {
-        vaultId: args.vaultId,
-        runId: args.parentRunId,
-        userId: args.userId,
-        workerId: args.state.cloudflare.workerId,
-      },
-      { name: "finish_wire_builds" },
-    );
-  } catch (error) {
-    await markComposedInfrastructureRunFailed(step, {
-      runId: args.parentRunId,
-      name: "mark_wire_builds_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
 async function runComposedCloudflareConvexBuildAccessWiring(
   step: WorkflowCtx,
   args: {
@@ -528,6 +478,20 @@ async function runComposedCloudflareConvexBuildAccessWiring(
   },
 ): Promise<void> {
   try {
+    const { claimed } = await step.runMutation(
+      internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        workerId: args.workerId,
+        convexDeploymentId: args.convexDeploymentId,
+      },
+      { name: "claim_wire_convex_build_access" },
+    );
+    if (!claimed) {
+      return;
+    }
     await step.runAction(
       internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring,
       {
@@ -681,29 +645,10 @@ async function runComposedInfrastructure(
     userId: args.userId,
     name: "read_infra_after_worker",
   });
-  if (afterWorker.cloudflare.state === "attached" && !afterWorker.cloudflare.buildsConnected) {
-    await appendComposedInfrastructureParentEvent(step, {
-      runId: args.parentRunId,
-      step: "wire_builds",
-      message: "Wiring Cloudflare Workers Builds.",
-    });
-  }
-  await runComposedCloudflareBuildsWiring(step, {
-    vaultId: args.vaultId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    state: afterWorker,
-  });
-
-  const afterBuilds = await readCurrentComposedInfrastructureState(step, {
-    vaultId: args.vaultId,
-    userId: args.userId,
-    name: "read_infra_after_builds",
-  });
   if (
-    afterBuilds.convex.state === "attached" &&
-    afterBuilds.cloudflare.state === "attached" &&
-    !afterBuilds.cloudflare.convexBuildAccessWired
+    afterWorker.convex.state === "attached" &&
+    afterWorker.cloudflare.state === "attached" &&
+    !afterWorker.cloudflare.convexBuildAccessWired
   ) {
     await appendComposedInfrastructureParentEvent(step, {
       runId: args.parentRunId,
@@ -714,8 +659,8 @@ async function runComposedInfrastructure(
       vaultId: args.vaultId,
       runId: args.parentRunId,
       userId: args.userId,
-      workerId: afterBuilds.cloudflare.workerId,
-      convexDeploymentId: afterBuilds.convex.deploymentId,
+      workerId: afterWorker.cloudflare.workerId,
+      convexDeploymentId: afterWorker.convex.deploymentId,
     });
   }
 
@@ -981,82 +926,16 @@ export const connectCloudflareWorker = workflow.define({
     if (workerId === null) {
       return null;
     }
-    let buildRunId: typeof args.runId | null = null;
-    if (args.origin === "provisioned") {
-      buildRunId = await step.runMutation(
-        internal.appProvisioningRuns.createForVault,
-        {
-          vaultId: args.vaultId,
-          userId: args.userId,
-          trigger: "wire_builds",
-        },
-        { name: "create_wire_builds_run" },
-      );
-    }
-    try {
-      await step.runMutation(
-        internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
-        {
-          vaultId: args.vaultId,
-          runId: args.runId,
-          userId: args.userId,
-          workerId,
-        },
-        { name: "finish" },
-      );
-    } catch (error) {
-      if (buildRunId) {
-        await step.runMutation(
-          internal.infraProvisioning.markWorkflowStartupFailed,
-          {
-            runId: buildRunId,
-            message: "Cloudflare Worker connection did not finish.",
-          },
-          { name: "mark_wire_builds_blocked" },
-        );
-      }
-      throw error;
-    }
-
-    if (!buildRunId) {
-      return null;
-    }
-    try {
-      await step.runMutation(
-        internal.appProvisioningWorkflow.startCloudflareBuildsWiring,
-        {
-          vaultId: args.vaultId,
-          runId: buildRunId,
-          userId: args.userId,
-          workerId,
-        },
-        { name: "start_wire_builds" },
-      );
-    } catch (error) {
-      if (buildRunId) {
-        await step
-          .runMutation(
-            internal.infraProvisioning.markWorkflowStartupFailed,
-            {
-              runId: buildRunId,
-              message: toErrorMessage(error),
-            },
-            { name: "mark_wire_builds_start_failed" },
-          )
-          .catch((failureError: unknown) => {
-            console.warn("cloudflare:builds:follow_on_failure_record_failed", {
-              vaultId: args.vaultId,
-              workerId,
-              error: toErrorMessage(failureError),
-            });
-          });
-      }
-      console.warn("cloudflare:builds:follow_on_failed", {
+    await step.runMutation(
+      internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
+      {
         vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
         workerId,
-        error: toErrorMessage(error),
-      });
-    }
+      },
+      { name: "finish" },
+    );
 
     return null;
   },

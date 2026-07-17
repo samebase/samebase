@@ -8,7 +8,6 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
-import { markConvexDeploymentDependenciesNotWired } from "./deploymentDependencies";
 import {
   isVaultProviderUpstreamPresent,
   vVaultConvexOrigin,
@@ -397,7 +396,6 @@ export const attachDeploymentForRun = internalMutation({
 
     const now = Date.now();
     if (existingAppDeployment) {
-      await markConvexDeploymentDependenciesNotWired(ctx, existingAppDeployment._id, now);
       await ctx.db.patch(existingAppDeployment._id, {
         projectId: args.convex.convexProjectId,
         teamSlug: args.convex.convexTeamSlug,
