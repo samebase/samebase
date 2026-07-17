@@ -10,7 +10,7 @@ import {
 } from "openapi-fetch";
 import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
 import { guard } from "@samebase/dependent/main";
-import type { paths, PlatformDeploymentResponse } from "./types.generated";
+import type { paths, PlatformDeploymentResponse, ProjectResponse } from "./types.generated";
 import {
   convexManagementResponseDecimalPaths,
   convexManagementResponseValidators,
@@ -122,6 +122,32 @@ export async function fetchConvexTeamTokenDetails(token: string): Promise<{
     throw new Error("Convex token is missing team access.");
   }
   return { teamId: details.teamId };
+}
+
+export async function listConvexManagementProjects(args: {
+  token: string;
+  teamId: string;
+}): Promise<ProjectResponse[]> {
+  const projects: ProjectResponse[] = [];
+  let cursor: string | undefined;
+
+  for (;;) {
+    const page = await requestConvexManagementApi(args.token, "GET", "/teams/{team_id}/projects", {
+      params: {
+        path: { team_id: args.teamId },
+        query: { cursor, limit: 100 },
+      },
+    });
+    projects.push(...page.items);
+
+    if (!page.pagination.hasMore) {
+      return projects;
+    }
+    if (!page.pagination.nextCursor) {
+      throw new Error("Convex project pagination indicated more results without a cursor.");
+    }
+    cursor = page.pagination.nextCursor;
+  }
 }
 
 export function formatConvexManagementApiEndpoint<const Path extends ConvexManagementGetPath>(

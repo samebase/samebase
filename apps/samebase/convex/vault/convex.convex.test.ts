@@ -126,33 +126,36 @@ describe("vault Convex deployment connection actions", () => {
       vi.fn(async (input: Request) => {
         requests.push(input.url);
 
-        if (input.url.includes("/teams/1000/list_projects")) {
-          return jsonResponse(`[
-            {
-              "createTime": 1710000000000,
-              "id": 1001,
-              "name": "Alpha Project",
-              "slug": "alpha",
-              "teamId": 1000,
-              "teamSlug": "samebase-team"
-            },
-            {
-              "createTime": 1710000000001,
-              "id": 1002,
-              "name": "Beta Project",
-              "slug": "beta",
-              "teamId": 1000,
-              "teamSlug": "samebase-team"
-            },
-            {
-              "createTime": 1710000000002,
-              "id": 1003,
-              "name": "Samebase",
-              "slug": "samebase",
-              "teamId": 1000,
-              "teamSlug": "samebase-team"
-            }
-          ]`);
+        if (input.url.includes("/teams/1000/projects")) {
+          return jsonResponse(`{
+            "items": [
+              {
+                "createTime": 1710000000000,
+                "id": 1001,
+                "name": "Alpha Project",
+                "slug": "alpha",
+                "teamId": 1000,
+                "teamSlug": "samebase-team"
+              },
+              {
+                "createTime": 1710000000001,
+                "id": 1002,
+                "name": "Beta Project",
+                "slug": "beta",
+                "teamId": 1000,
+                "teamSlug": "samebase-team"
+              },
+              {
+                "createTime": 1710000000002,
+                "id": 1003,
+                "name": "Samebase",
+                "slug": "samebase",
+                "teamId": 1000,
+                "teamSlug": "samebase-team"
+              }
+            ],
+            "pagination": { "hasMore": false }
+          }`);
         }
 
         throw new Error(`Unexpected Convex request: ${input.url}`);
@@ -424,7 +427,7 @@ describe("vault Convex deployment connection actions", () => {
       origin: "provisioned",
     });
     expect(requests.some((url) => url.includes("/create_project"))).toBe(false);
-    expect(requests.some((url) => url.includes("/list_projects"))).toBe(false);
+    expect(requests.some((url) => url.includes("/teams/1000/projects"))).toBe(false);
   });
 
   it("recreates a previously created Convex project after the upstream project was deleted", async () => {
@@ -438,8 +441,8 @@ describe("vault Convex deployment connection actions", () => {
           return new Response("project not found", { status: 404 });
         }
 
-        if (input.url.includes("/teams/1000/list_projects")) {
-          return jsonResponse("[]");
+        if (input.url.includes("/teams/1000/projects")) {
+          return jsonResponse('{"items":[],"pagination":{"hasMore":false}}');
         }
 
         if (input.url.includes("/teams/1000/create_project")) {
@@ -530,7 +533,7 @@ describe("vault Convex deployment connection actions", () => {
       deploymentName: "alpha-recreated-prod",
       origin: "provisioned",
     });
-    expect(requests.some((url) => url.includes("/teams/1000/list_projects"))).toBe(true);
+    expect(requests.some((url) => url.includes("/teams/1000/projects"))).toBe(true);
     expect(requests.some((url) => url.includes("/teams/1000/create_project"))).toBe(true);
   });
 });

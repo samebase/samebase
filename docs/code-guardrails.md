@@ -211,7 +211,7 @@ declaring one.
   and prefer destructuring validator builders once instead of repeated `v.<fn>()` call sites.
 - Reserve the leading `v` prefix for reusable Convex value validators from `convex/values`, such as
   `vProviderAuth`; name the inferred type without the prefix, such as `ProviderAuth`. Runtime
-  validators from other systems use a system-specific prefix, such as `ajvPlatformProjectDetails`.
+  validators from other systems use a system-specific prefix, such as `ajvProjectResponse`.
 - Default to required properties and required function/mutation/action arguments. Treat every
   optional field or argument as another explicit state that must be justified by current behavior,
   data migration, external input, or patch semantics.

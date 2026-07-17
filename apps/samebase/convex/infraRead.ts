@@ -7,11 +7,12 @@ import { internal } from "./_generated/api";
 import { vAllowedInfraReadTable } from "./infraReadQueries";
 import {
   formatConvexManagementApiEndpoint,
+  listConvexManagementProjects,
   requestConvexManagementApi,
 } from "./convexManagementApi/client";
 import type {
   PlatformDeploymentResponse,
-  PlatformProjectDetails,
+  ProjectResponse,
 } from "./convexManagementApi/types.generated";
 import { readCloudflareBuildLogs, readCloudflareWorkerStatus } from "./cloudflareResources";
 import {
@@ -157,10 +158,7 @@ function compareConvexDeploymentActivity(
   return left.name.localeCompare(right.name);
 }
 
-function compareConvexProjectInventoryRow(
-  left: PlatformProjectDetails,
-  right: PlatformProjectDetails,
-): number {
+function compareConvexProjectInventoryRow(left: ProjectResponse, right: ProjectResponse): number {
   const nameDelta = left.name.localeCompare(right.name);
   if (nameDelta !== 0) {
     return nameDelta;
@@ -338,20 +336,16 @@ export const getConvexProjectInventory = internalAction({
     const convexToken = resolveConvexToken(convexConnection);
     const teamId = resolveConvexTeamId(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
-      path: "/teams/{team_id}/list_projects",
+      path: "/teams/{team_id}/projects",
       method: "GET",
       params: {
         path: {
           team_id: teamId,
         },
+        query: { limit: 100 },
       },
     });
-    const projects = await requestConvexManagementApi(
-      convexToken,
-      "GET",
-      "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: teamId } } },
-    );
+    const projects = await listConvexManagementProjects({ token: convexToken, teamId });
     const max = clamp(args.limit ?? 50, 1, 100);
     const rows = [...projects].sort(compareConvexProjectInventoryRow).slice(0, max);
 

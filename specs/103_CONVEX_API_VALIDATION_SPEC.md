@@ -11,8 +11,7 @@ Samebase guessed the wrong shape, or whether a missing field is a real product s
 
 The concrete bug is the Convex team slug. OAuth and API-key connection flows can resolve the team id
 from `/v1/token_details`, but the published token-details schema does not include `teamSlug`. The
-team slug is available from Management API project reads, especially
-`/v1/teams/{team_id}/list_projects`.
+team slug is available from Management API project reads, especially `/v1/teams/{team_id}/projects`.
 
 ## Research
 
@@ -67,10 +66,11 @@ Samebase pins Convex Management API validation to the published OpenAPI schema:
    generation.
 5. Expose a typed Convex Management client instead of a generic
    `request(path, method, body): Promise<unknown>` escape hatch. Internal requests must go through
-   `openapi-fetch` with literal OpenAPI path templates such as `/teams/{team_id}/list_projects`, an
+   `openapi-fetch` with literal OpenAPI path templates such as `/teams/{team_id}/projects`, an
    allowed method for that path, and typed `params.path` / `params.query` objects derived from the
-   generated `paths` interface. `openapi-fetch` is responsible for path/query serialization; feature
-   callsites must not build interpolated Management API URLs.
+   generated `paths` interface. Paginated endpoints must follow the returned cursor until complete.
+   `openapi-fetch` is responsible for path/query serialization; feature callsites must not build
+   interpolated Management API URLs.
 6. Generate per-endpoint decimal ID response paths from the same OpenAPI response schemas used for
    AJV validation. Parse successful Convex Management API JSON responses as text with a lossless
    JSON parser before validation, normalize only those generated schema paths to decimal strings,
@@ -104,7 +104,7 @@ Feature code should consume typed results and fail closed when a required provid
 
 `/v1/token_details` returns the token owner id and token metadata. It does not return a team slug.
 Team slug discovery must happen after a Management API project read that returns
-`PlatformProjectDetails.teamSlug`.
+`ProjectResponse.teamSlug`.
 
 Provisioning should persist `teamSlug` once it has a project list response for the connected team.
 Connection status may temporarily lack `teamSlug` until a project read has occurred.

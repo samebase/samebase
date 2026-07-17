@@ -12,7 +12,7 @@ import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { canAccess } from "../../shared/accessModel";
-import { requestConvexManagementApi } from "../convexManagementApi/client";
+import { listConvexManagementProjects } from "../convexManagementApi/client";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   resolveCloudflareProvisioningConnection,
@@ -447,12 +447,10 @@ async function checkConvexProjectNameAvailability(
       ctx,
       args.userId,
     );
-    const projects = await requestConvexManagementApi(
-      convexToken,
-      "GET",
-      "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: convexTeamId } } },
-    );
+    const projects = await listConvexManagementProjects({
+      token: convexToken,
+      teamId: convexTeamId,
+    });
     const unavailableNames = new Set<string>();
     for (const project of projects) {
       unavailableNames.add(project.name);

@@ -2,7 +2,10 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { requestConvexManagementApi } from "./convexManagementApi/client";
+import {
+  listConvexManagementProjects,
+  requestConvexManagementApi,
+} from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import { toErrorMessage } from "./jsonUtils";
 
@@ -131,18 +134,16 @@ export const checkConvexConnectionAccess = action({
         key: "projects",
         label: "Projects",
         run: async () => {
-          return await requestConvexManagementApi(token, "GET", "/teams/{team_id}/list_projects", {
-            params: { path: { team_id: teamId } },
-          });
+          return await listConvexManagementProjects({ token, teamId });
         },
         describe: (projects) => {
           if (projects.length === 0) {
-            return "Probe GET /teams/{team_id}/list_projects succeeded and returned no visible projects.";
+            return "Probe GET /teams/{team_id}/projects succeeded and returned no visible projects.";
           }
           if (projects.length === 1) {
-            return `Probe GET /teams/{team_id}/list_projects returned 1 visible project: ${projects[0].name}.`;
+            return `Probe GET /teams/{team_id}/projects returned 1 visible project: ${projects[0].name}.`;
           }
-          return `Probe GET /teams/{team_id}/list_projects returned ${projects.length} visible projects.`;
+          return `Probe GET /teams/{team_id}/projects returned ${projects.length} visible projects.`;
         },
       }),
       runConvexProbe({

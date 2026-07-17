@@ -62,8 +62,7 @@ for Convex's generated guidance.
   and destructure Convex validator builders once when that keeps callsites clear.
 - Reserve the leading `v` prefix for reusable Convex value validators from `convex/values`, such as
   `vProviderAuth`; name the inferred type without the prefix, such as `ProviderAuth`.
-- Runtime validators from other systems use a system-specific prefix, such as
-  `ajvPlatformProjectDetails`.
+- Runtime validators from other systems use a system-specific prefix, such as `ajvProjectResponse`.
 - Use the shared `notEmpty` predicate from `@samebase/dependent` when filtering nullable arrays.
 
 ## Tests

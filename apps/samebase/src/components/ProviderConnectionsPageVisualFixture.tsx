@@ -114,7 +114,7 @@ const providerConnectionsVisualFixtureState = {
       {
         key: "projects",
         label: "Projects",
-        message: "Probe GET /teams/{team_id}/list_projects returned 3 visible projects.",
+        message: "Probe GET /teams/{team_id}/projects returned 3 visible projects.",
         status: "ok",
       },
       {

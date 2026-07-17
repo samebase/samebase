@@ -456,7 +456,7 @@ describe("ProviderConnectionsPage", () => {
         {
           key: "projects",
           label: "Projects",
-          message: "Probe GET /teams/{team_id}/list_projects returned 2 visible projects.",
+          message: "Probe GET /teams/{team_id}/projects returned 2 visible projects.",
           status: "ok",
         },
         {
@@ -530,7 +530,7 @@ describe("ProviderConnectionsPage", () => {
       "Token details: OK - Probe GET /token_details returned team token Samebase OAuth grant.",
     );
     expect(container.textContent).toContain(
-      "Projects: OK - Probe GET /teams/{team_id}/list_projects returned 2 visible projects.",
+      "Projects: OK - Probe GET /teams/{team_id}/projects returned 2 visible projects.",
     );
     expect(container.textContent).toContain(
       "Deployments: OK - Probe GET /teams/{team_id}/list_deployments returned 4 visible deployments.",

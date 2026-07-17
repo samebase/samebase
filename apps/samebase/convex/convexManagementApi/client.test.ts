@@ -1,14 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Client, ClientPathsWithMethod } from "openapi-fetch";
 
-import { formatConvexManagementApiEndpoint, requestConvexManagementApi } from "./client";
+import {
+  formatConvexManagementApiEndpoint,
+  listConvexManagementProjects,
+  requestConvexManagementApi,
+} from "./client";
 import type {
   CustomRoleResponse,
   operations,
   paths,
   PlatformDeploymentResponse,
-  PlatformProjectDetails,
+  PlatformPaginatedProjectsResponse,
   PlatformTokenDetailsResponse,
+  ProjectResponse,
 } from "./types.generated";
 
 const LARGE_CONVEX_ID = "9223372036854775807";
@@ -29,16 +34,20 @@ function assertConvexManagementRequestTypes(): void {
   type ConvexManagementPostPath = ClientPathsWithMethod<Client<paths>, "post">;
   type ListProjectsPathParams = operations["list projects"]["parameters"]["path"];
 
-  const listProjectsGetPath: ConvexManagementGetPath = "/teams/{team_id}/list_projects";
+  const listProjectsGetPath: ConvexManagementGetPath = "/teams/{team_id}/projects";
   const listProjectsPathParams: ListProjectsPathParams = {
     team_id: LARGE_CONVEX_ID,
   };
 
   expectType<{ team_id: string }>()(listProjectsPathParams, true);
-  expectType<Promise<PlatformProjectDetails[]>>()(
-    requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_projects", {
+  expectType<Promise<PlatformPaginatedProjectsResponse>>()(
+    requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
       params: { path: { team_id: LARGE_CONVEX_ID } },
     }),
+    true,
+  );
+  expectType<Promise<ProjectResponse[]>>()(
+    listConvexManagementProjects({ token: "team-token", teamId: LARGE_CONVEX_ID }),
     true,
   );
   expectType<Promise<PlatformDeploymentResponse[]>>()(
@@ -85,7 +94,7 @@ function assertConvexManagementRequestTypes(): void {
   expectType<string>()(
     formatConvexManagementApiEndpoint({
       method: "GET",
-      path: "/teams/{team_id}/list_projects",
+      path: "/teams/{team_id}/projects",
       params: {
         path: {
           team_id: LARGE_CONVEX_ID,
@@ -98,7 +107,7 @@ function assertConvexManagementRequestTypes(): void {
   void listProjectsGetPath;
 
   // @ts-expect-error The list projects endpoint only allows GET.
-  const listProjectsPostPath: ConvexManagementPostPath = "/teams/{team_id}/list_projects";
+  const listProjectsPostPath: ConvexManagementPostPath = "/teams/{team_id}/projects";
   void listProjectsPostPath;
 
   const numericListProjectsPathParams: ListProjectsPathParams = {
@@ -112,7 +121,7 @@ function assertConvexManagementRequestTypes(): void {
   void missingListProjectsPathParams;
 
   // @ts-expect-error The list projects endpoint requires path parameters.
-  void requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_projects");
+  void requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects");
 }
 void assertConvexManagementRequestTypes;
 
@@ -128,14 +137,14 @@ describe("Convex Management API request helpers", () => {
       "fetch",
       vi.fn(async (input: Request) => {
         requests.push(input);
-        return new Response("[]", {
+        return new Response('{"items":[],"pagination":{"hasMore":false}}', {
           status: 200,
           headers: { "content-type": "application/json" },
         });
       }),
     );
 
-    await requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_projects", {
+    await requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
       params: { path: { team_id: LARGE_CONVEX_ID } },
     });
 
@@ -144,7 +153,7 @@ describe("Convex Management API request helpers", () => {
         authorization: "Bearer team-token",
         contentType: null,
         method: "GET",
-        url: `https://api.convex.dev/v1/teams/${LARGE_CONVEX_ID}/list_projects`,
+        url: `https://api.convex.dev/v1/teams/${LARGE_CONVEX_ID}/projects`,
       },
     ]);
   });
@@ -154,16 +163,19 @@ describe("Convex Management API request helpers", () => {
       "fetch",
       vi.fn(async () => {
         return new Response(
-          `[
-            {
-              "createTime": 1710000000000,
-              "id": ${LARGE_CONVEX_ID},
-              "name": "Samebase",
-              "slug": "samebase",
-              "teamId": ${LARGE_CONVEX_PARENT_ID},
-              "teamSlug": "samebase-team"
-            }
-          ]`,
+          `{
+            "items": [
+              {
+                "createTime": 1710000000000,
+                "id": ${LARGE_CONVEX_ID},
+                "name": "Samebase",
+                "slug": "samebase",
+                "teamId": ${LARGE_CONVEX_PARENT_ID},
+                "teamSlug": "samebase-team"
+              }
+            ],
+            "pagination": { "hasMore": false }
+          }`,
           {
             status: 200,
             headers: { "content-type": "application/json" },
@@ -173,19 +185,79 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_projects", {
+      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
         params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
       }),
-    ).resolves.toEqual([
-      {
-        createTime: 1710000000000,
-        id: LARGE_CONVEX_ID,
-        name: "Samebase",
-        slug: "samebase",
-        teamId: LARGE_CONVEX_PARENT_ID,
-        teamSlug: "samebase-team",
-      },
+    ).resolves.toEqual({
+      items: [
+        {
+          createTime: 1710000000000,
+          id: LARGE_CONVEX_ID,
+          name: "Samebase",
+          slug: "samebase",
+          teamId: LARGE_CONVEX_PARENT_ID,
+          teamSlug: "samebase-team",
+        },
+      ],
+      pagination: { hasMore: false },
+    });
+  });
+
+  it("follows every Convex project page", async () => {
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push(input.url);
+        if (input.url.includes("cursor=second-page")) {
+          return Response.json({
+            items: [
+              {
+                createTime: 1710000000001,
+                id: 2,
+                name: "Beta",
+                slug: "beta",
+                teamId: 10,
+                teamSlug: "samebase-team",
+              },
+            ],
+            pagination: { hasMore: false },
+          });
+        }
+        return Response.json({
+          items: [
+            {
+              createTime: 1710000000000,
+              id: 1,
+              name: "Alpha",
+              slug: "alpha",
+              teamId: 10,
+              teamSlug: "samebase-team",
+            },
+          ],
+          pagination: { hasMore: true, nextCursor: "second-page" },
+        });
+      }),
+    );
+
+    await expect(
+      listConvexManagementProjects({ token: "team-token", teamId: "10" }),
+    ).resolves.toMatchObject([{ id: "1" }, { id: "2" }]);
+    expect(requests).toEqual([
+      "https://api.convex.dev/v1/teams/10/projects?limit=100",
+      "https://api.convex.dev/v1/teams/10/projects?cursor=second-page&limit=100",
     ]);
+  });
+
+  it("rejects incomplete Convex project pagination metadata", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ items: [], pagination: { hasMore: true } })),
+    );
+
+    await expect(
+      listConvexManagementProjects({ token: "team-token", teamId: "10" }),
+    ).rejects.toThrow("Convex project pagination indicated more results without a cursor.");
   });
 
   it("preserves Convex deployment and member IDs from responses as decimal strings", async () => {
@@ -498,16 +570,19 @@ describe("Convex Management API request helpers", () => {
       "fetch",
       vi.fn(async () => {
         return new Response(
-          `[
-            {
-              "createTime": ${LARGE_CONVEX_ID},
-              "id": ${LARGE_CONVEX_ID},
-              "name": "Samebase",
-              "slug": "samebase",
-              "teamId": ${LARGE_CONVEX_PARENT_ID},
-              "teamSlug": "samebase-team"
-            }
-          ]`,
+          `{
+            "items": [
+              {
+                "createTime": ${LARGE_CONVEX_ID},
+                "id": ${LARGE_CONVEX_ID},
+                "name": "Samebase",
+                "slug": "samebase",
+                "teamId": ${LARGE_CONVEX_PARENT_ID},
+                "teamSlug": "samebase-team"
+              }
+            ],
+            "pagination": { "hasMore": false }
+          }`,
           {
             status: 200,
             headers: { "content-type": "application/json" },
@@ -517,11 +592,11 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_projects", {
+      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
         params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
       }),
     ).rejects.toThrow(
-      "Convex response field /*/createTime is outside JavaScript's safe numeric range.",
+      "Convex response field /items/*/createTime is outside JavaScript's safe numeric range.",
     );
   });
 
@@ -593,14 +668,14 @@ describe("Convex Management API request helpers", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        return new Response("[]", {
+        return new Response('{"items":[],"pagination":{"hasMore":false}}', {
           status: 200,
           headers: { "content-type": "application/json" },
         });
       }),
     );
 
-    await requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_projects", {
+    await requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
       params: { path: { team_id: ` ${LARGE_CONVEX_ID} ` } },
     });
 
@@ -615,7 +690,7 @@ describe("Convex Management API request helpers", () => {
     const fetch = vi.fn();
     const key = "team-token";
     const params = { params: { path: { team_id: 123 } } };
-    const route = "/teams/{team_id}/list_projects";
+    const route = "/teams/{team_id}/projects";
     const verb = "GET";
     vi.stubGlobal("fetch", fetch);
 
