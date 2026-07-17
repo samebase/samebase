@@ -1820,6 +1820,7 @@ function buildVaultDashboardBranchRoute(args: {
   repositoryFullName: string;
   branchName: string;
   openChangedFiles: boolean;
+  search?: Record<string, unknown>;
 }): string | null {
   const repository = tryParseRepositoryFullName(args.repositoryFullName);
   if (repository === null) {
@@ -1833,12 +1834,15 @@ function buildVaultDashboardBranchRoute(args: {
   });
 
   if (!args.openChangedFiles) {
-    return branchRoute;
+    return buildPathWithTanStackSearch({
+      pathname: branchRoute,
+      search: args.search,
+    });
   }
 
   return buildFileViewSearchHref({
     pathname: branchRoute,
-    search: {},
+    search: args.search ?? {},
     fileViewSearch: buildFileViewRouteSearch({ compare: true }),
   });
 }
@@ -2620,23 +2624,65 @@ function renderVaultDashboardRepositoryStatus({
     case "provider_failure":
       return <span className="text-amber-700">GitHub request failed</span>;
     case "current":
-    case "stale":
-      return (
-        <>
-          {observation.refresh.state === "loading" ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : observation.state === "stale" ? (
-            <CircleAlert className="h-3 w-3 text-amber-700" />
-          ) : null}
-          <span>
-            {observation.state === "stale"
-              ? `Showing data observed ${formatRelativeTimeAgo(observation.observedAt, now)}`
-              : observation.refresh.state === "loading"
-                ? `Updating data observed ${formatRelativeTimeAgo(observation.observedAt, now)}`
-                : `Observed ${formatRelativeTimeAgo(observation.observedAt, now)}`}
-          </span>
-        </>
-      );
+    case "stale": {
+      const observedLabel = formatRelativeTimeAgo(observation.observedAt, now);
+      switch (observation.refresh.state) {
+        case "loading":
+          return (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Updating data observed {observedLabel}</span>
+            </>
+          );
+        case "budget_deferred":
+          return (
+            <>
+              <CircleAlert className="h-3 w-3 text-amber-700" />
+              <span>Showing data observed {observedLabel}</span>
+              <span>·</span>
+              <span className="text-amber-700">
+                GitHub refresh deferred {formatRelativeTimeUntil(observation.refresh.retryAt, now)}
+              </span>
+            </>
+          );
+        case "provider_unavailable":
+          return (
+            <>
+              <CircleAlert className="h-3 w-3 text-amber-700" />
+              <span>Showing data observed {observedLabel}</span>
+              <span>·</span>
+              <span className="text-amber-700">GitHub refresh unavailable</span>
+            </>
+          );
+        case "provider_failure":
+          return (
+            <>
+              <CircleAlert className="h-3 w-3 text-amber-700" />
+              <span>Showing data observed {observedLabel}</span>
+              <span>·</span>
+              <span className="text-amber-700">GitHub refresh failed</span>
+            </>
+          );
+        case "idle":
+          return (
+            <>
+              {observation.state === "stale" ? (
+                <CircleAlert className="h-3 w-3 text-amber-700" />
+              ) : null}
+              <span>
+                {observation.providerSequenceDrifted || observation.duplicatePullRequestObserved
+                  ? `GitHub changed while this page loaded · observed ${observedLabel}`
+                  : observation.state === "stale"
+                    ? `Showing data observed ${observedLabel}`
+                    : `Observed ${observedLabel}`}
+              </span>
+            </>
+          );
+        default:
+          observation.refresh satisfies never;
+          return undefined;
+      }
+    }
     default:
       observation satisfies never;
       return undefined;
@@ -2654,6 +2700,7 @@ function encodeGitHubPath(value: string): string {
 
 function buildVaultDefaultBranchSummary(args: {
   observation: SettledRepositoryPullRequestObservation;
+  search: RootRouteSearch;
   vault: VaultDashboardVault;
 }): VaultDefaultBranchSummary {
   if (args.observation.defaultBranch.state === "absent") {
@@ -2670,6 +2717,7 @@ function buildVaultDefaultBranchSummary(args: {
       repositoryFullName: args.vault.repositoryFullName,
       branchName: branch.name,
       openChangedFiles: false,
+      search: args.search,
     }),
     headSha: branch.headOid,
     headUrl: `${repositoryUrl}/commit/${encodeURIComponent(branch.headOid)}`,
@@ -2679,6 +2727,7 @@ function buildVaultDefaultBranchSummary(args: {
 
 function buildVaultPullRequestListItems(args: {
   observation: SettledRepositoryPullRequestObservation;
+  search: RootRouteSearch;
   vault: VaultDashboardVault;
 }): VaultPullRequestListItem[] {
   return args.observation.pullRequests.map((pullRequest) => {
@@ -2701,6 +2750,7 @@ function buildVaultPullRequestListItems(args: {
             repositoryFullName: args.vault.repositoryFullName,
             branchName: pullRequest.headRefName,
             openChangedFiles: true,
+            search: args.search,
           }),
         };
 
@@ -2749,10 +2799,12 @@ function repositoryObservationProblemMessage(
 function VaultRepositoryObservationContent({
   now,
   observation,
+  rootRouteSearch,
   vault,
 }: {
   now: number;
   observation: RepositoryPullRequestObservation;
+  rootRouteSearch: RootRouteSearch;
   vault: VaultDashboardVault;
 }) {
   if (observation.state === "not_requested") {
@@ -2782,18 +2834,29 @@ function VaultRepositoryObservationContent({
     );
   }
 
-  const pullRequests = buildVaultPullRequestListItems({ observation, vault });
-  const defaultBranch = buildVaultDefaultBranchSummary({ observation, vault });
+  const pullRequests = buildVaultPullRequestListItems({
+    observation,
+    search: rootRouteSearch,
+    vault,
+  });
+  const defaultBranch = buildVaultDefaultBranchSummary({
+    observation,
+    search: rootRouteSearch,
+    vault,
+  });
   const emptyPullRequestMessage =
-    observation.providerOpenPullRequestCount > 0
-      ? "No open pull requests match these filters"
-      : "No open pull requests";
+    observation.scanGuardrailReached && pullRequests.length === 0
+      ? "No matching pull requests found in this bounded scan"
+      : observation.providerOpenPullRequestCount > 0
+        ? "No open pull requests match these filters"
+        : "No open pull requests";
 
   return (
     <>
       <VaultPullRequestList
         defaultBranch={defaultBranch}
         emptyPullRequestMessage={emptyPullRequestMessage}
+        now={now}
         pullRequests={pullRequests}
       />
       {observation.hasMore || observation.isLoadingMore || observation.loadMoreProblem ? (
@@ -2802,7 +2865,7 @@ function VaultRepositoryObservationContent({
             type="button"
             variant="outline"
             size="sm"
-            disabled={observation.isLoadingMore}
+            disabled={!observation.canLoadMore}
             onClick={observation.loadMore}
           >
             {observation.isLoadingMore ? (
@@ -2810,6 +2873,9 @@ function VaultRepositoryObservationContent({
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading
               </>
+            ) : observation.loadMoreProblem?.state === "budget_deferred" &&
+              observation.loadMoreProblem.retryAt > now ? (
+              `Retry ${formatRelativeTimeUntil(observation.loadMoreProblem.retryAt, now)}`
             ) : observation.loadMoreProblem ? (
               "Try next page again"
             ) : (
@@ -2820,8 +2886,11 @@ function VaultRepositoryObservationContent({
             <span className="text-xs text-muted-foreground">
               More matching pull requests may remain beyond this bounded scan.
             </span>
-          ) : observation.loadMoreProblem ? (
-            <span className="text-xs text-destructive">The next page could not be loaded.</span>
+          ) : null}
+          {observation.loadMoreProblem ? (
+            <span className="text-xs text-destructive">
+              {repositoryObservationProblemMessage(observation.loadMoreProblem, now)}
+            </span>
           ) : null}
         </div>
       ) : null}
@@ -3409,6 +3478,7 @@ export function VaultDashboardView({
           <VaultRepositoryObservationContent
             now={now}
             observation={repositoryObservation}
+            rootRouteSearch={rootRouteSearch}
             vault={vault}
           />
         ) : undefined;
@@ -3473,7 +3543,7 @@ export function VaultDashboardView({
                   />
                 ) : undefined
               }
-              branchSection={repositoryContent}
+              repositoryContent={repositoryContent}
               developerToolsSection={
                 isReady || hasProvisioningLog
                   ? {

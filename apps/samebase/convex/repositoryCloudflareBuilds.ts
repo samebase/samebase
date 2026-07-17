@@ -2,7 +2,10 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { fetchGitHubCloudflareBuildObservations } from "./githubCloudflareBuildObservations";
+import {
+  fetchGitHubCloudflareBuildObservations,
+  type GitHubCloudflareBuildHeadObservation,
+} from "./githubCloudflareBuildObservations";
 import { createGitHubGraphqlClient } from "./githubGraphql";
 import {
   normalizeCloudflareBuild,
@@ -13,7 +16,6 @@ import {
   vCloudflareBuildObservationResult,
   vPullRequestHeadIdentity,
 } from "./repositoryObservations";
-import type { RepositoryObservationContext } from "./repositoryPullRequests";
 
 const { array, id, literal, number, object, union } = v;
 
@@ -52,37 +54,6 @@ export type RepositoryCloudflareBuildBatchResult = Infer<
   typeof vRepositoryCloudflareBuildBatchResult
 >;
 
-function connectedWorkerRootDirectory(args: {
-  context: Extract<RepositoryObservationContext, { state: "ready" }>;
-  workerName: string;
-}): string | undefined {
-  const matches = args.context.cloudflareWorkers.filter(
-    (worker) => worker.workerName === args.workerName,
-  );
-  if (matches.length !== 1) {
-    return undefined;
-  }
-  const rootDirectory = matches[0].rootDirectory;
-  return rootDirectory.state === "known" ? rootDirectory.value : undefined;
-}
-
-function attachConnectedWorkerRoot(args: {
-  build: CloudflareBuild;
-  context: Extract<RepositoryObservationContext, { state: "ready" }>;
-}): CloudflareBuild {
-  const rootDirectory = connectedWorkerRootDirectory({
-    context: args.context,
-    workerName: args.build.workerName,
-  });
-  if (rootDirectory === undefined) {
-    return args.build;
-  }
-  return {
-    ...args.build,
-    rootDirectory: { state: "known", value: rootDirectory },
-  };
-}
-
 function compareCloudflareBuilds(left: CloudflareBuild, right: CloudflareBuild): number {
   return (
     left.workerName.localeCompare(right.workerName) ||
@@ -92,7 +63,6 @@ function compareCloudflareBuilds(left: CloudflareBuild, right: CloudflareBuild):
 }
 
 export function buildCompleteCloudflareBuildObservation(args: {
-  context: Extract<RepositoryObservationContext, { state: "ready" }>;
   head: PullRequestHeadIdentity;
   observedAt: number;
   checkRuns: ReadonlyArray<{
@@ -108,12 +78,7 @@ export function buildCompleteCloudflareBuildObservation(args: {
   }
 
   const builds = args.checkRuns
-    .map(({ checkRun }) =>
-      attachConnectedWorkerRoot({
-        context: args.context,
-        build: normalizeCloudflareBuild(checkRun),
-      }),
-    )
+    .map(({ checkRun }) => normalizeCloudflareBuild(checkRun))
     .sort(compareCloudflareBuilds);
   const [first, ...rest] = builds;
   return {
@@ -122,6 +87,48 @@ export function buildCompleteCloudflareBuildObservation(args: {
     observedAt: args.observedAt,
     builds: { first, rest },
   };
+}
+
+export function buildCloudflareHeadObservation(args: {
+  observation: GitHubCloudflareBuildHeadObservation;
+  observedAt: number;
+}): CloudflareBuildObservationResult {
+  const observation = args.observation;
+  switch (observation.state) {
+    case "complete":
+      return buildCompleteCloudflareBuildObservation({
+        head: observation.head,
+        observedAt: args.observedAt,
+        checkRuns: observation.checkRuns,
+      });
+    case "head_unavailable":
+      return {
+        state: "provider_unavailable",
+        head: observation.head,
+        reason: "head_unavailable",
+      };
+    case "identity_mismatch":
+      return {
+        state: "provider_unavailable",
+        head: observation.head,
+        reason: "head_changed",
+      };
+    case "incomplete":
+      return {
+        state: "provider_unavailable",
+        head: observation.head,
+        reason: "pagination_guardrail",
+      };
+    case "invalid_response":
+      return {
+        state: "provider_failure",
+        head: observation.head,
+        reason: "invalid_response",
+      };
+    default:
+      observation satisfies never;
+      throw new Error("Cloudflare head observation was not classified.");
+  }
 }
 
 export const observePullRequestHeads = action({
@@ -179,40 +186,12 @@ export const observePullRequestHeads = action({
         return {
           state: "observed",
           observedAt,
-          observations: batch.observations.map((observation) => {
-            switch (observation.state) {
-              case "complete":
-                return buildCompleteCloudflareBuildObservation({
-                  context: observationContext,
-                  head: observation.head,
-                  observedAt,
-                  checkRuns: observation.checkRuns,
-                });
-              case "head_unavailable":
-                return {
-                  state: "provider_unavailable",
-                  head: observation.head,
-                  reason: "head_unavailable",
-                };
-              case "incomplete":
-                return {
-                  state: "budget_deferred",
-                  head: observation.head,
-                  reason: "request_budget",
-                  retryAt: observedAt + CLOUDFLARE_OBSERVATION_BUDGET_RETRY_MS,
-                };
-              case "identity_mismatch":
-              case "invalid_response":
-                return {
-                  state: "provider_failure",
-                  head: observation.head,
-                  reason: "invalid_response",
-                };
-              default:
-                observation satisfies never;
-                throw new Error("Cloudflare head observation was not classified.");
-            }
-          }),
+          observations: batch.observations.map((observation) =>
+            buildCloudflareHeadObservation({
+              observation,
+              observedAt,
+            }),
+          ),
         };
       case "rate_limited":
         return {

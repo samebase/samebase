@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mapCloudflarePageObservation } from "./useRepositoryPullRequestObservations";
+import {
+  cloudflareCanRefetch,
+  cloudflareRefetchDelay,
+  mapCloudflarePageObservation,
+  repositoryPullRequestCanRefetch,
+  repositoryPullRequestRefetchDelay,
+  selectCurrentRepositoryMetadata,
+} from "./useRepositoryPullRequestObservations";
 import type { PullRequestHeadIdentity } from "../../convex/repositoryObservations";
 
 const head = {
@@ -95,5 +102,174 @@ describe("mapCloudflarePageObservation", () => {
         },
       ],
     ]);
+  });
+});
+
+describe("repository observation refetch policy", () => {
+  it("retries initial provider failures without hiding the visible failure state", () => {
+    expect(
+      repositoryPullRequestRefetchDelay({
+        loadedPageCount: 0,
+        now: 10_000,
+        problem: { state: "provider_failure", reason: "request_failed" },
+      }),
+    ).toBe(60_000);
+    expect(
+      repositoryPullRequestCanRefetch({
+        failureObservedAt: 5_000,
+        loadedPageCount: 0,
+        now: 65_000,
+        problem: { state: "provider_failure", reason: "request_failed" },
+      }),
+    ).toBe(true);
+  });
+
+  it("respects provider retry times for initial and per-head budget deferrals", () => {
+    expect(
+      repositoryPullRequestRefetchDelay({
+        loadedPageCount: 0,
+        now: 10_000,
+        problem: { state: "budget_deferred", reason: "rate_limit", retryAt: 42_000 },
+      }),
+    ).toBe(32_000);
+    expect(
+      repositoryPullRequestCanRefetch({
+        failureObservedAt: null,
+        loadedPageCount: 0,
+        now: 10_000,
+        problem: { state: "budget_deferred", reason: "rate_limit", retryAt: 42_000 },
+      }),
+    ).toBe(false);
+
+    const batch = {
+      state: "observed" as const,
+      observedAt: 9_000,
+      observations: [
+        {
+          state: "budget_deferred" as const,
+          head,
+          reason: "request_budget" as const,
+          retryAt: 35_000,
+        },
+      ],
+    };
+    expect(
+      cloudflareRefetchDelay({
+        batch,
+        loadedPageCount: 1,
+        now: 10_000,
+        problem: null,
+      }),
+    ).toBe(25_000);
+    expect(
+      cloudflareCanRefetch({
+        batch,
+        failureObservedAt: null,
+        loadedPageCount: 1,
+        now: 10_000,
+        problem: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("stops automatic focus and polling work after more than one page is loaded", () => {
+    expect(
+      repositoryPullRequestRefetchDelay({ loadedPageCount: 2, now: 10_000, problem: null }),
+    ).toBe(false);
+    expect(
+      repositoryPullRequestCanRefetch({
+        failureObservedAt: null,
+        loadedPageCount: 2,
+        now: 10_000,
+        problem: null,
+      }),
+    ).toBe(false);
+    expect(
+      cloudflareRefetchDelay({
+        batch: undefined,
+        loadedPageCount: 2,
+        now: 10_000,
+        problem: null,
+      }),
+    ).toBe(false);
+    expect(
+      cloudflareCanRefetch({
+        batch: undefined,
+        failureObservedAt: null,
+        loadedPageCount: 2,
+        now: 10_000,
+        problem: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("allows unavailable providers to recover on focus or reconnect without polling", () => {
+    const problem = {
+      state: "provider_unavailable",
+      reason: "github_connection_unavailable",
+    } as const;
+
+    expect(
+      repositoryPullRequestRefetchDelay({
+        loadedPageCount: 0,
+        now: 10_000,
+        problem,
+      }),
+    ).toBe(false);
+    expect(
+      repositoryPullRequestCanRefetch({
+        failureObservedAt: null,
+        loadedPageCount: 0,
+        now: 10_000,
+        problem,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("selectCurrentRepositoryMetadata", () => {
+  const noChecks = {
+    state: "none",
+    totalCount: 0,
+    checkRunCount: 0,
+    statusContextCount: 0,
+    successCount: 0,
+    failureCount: 0,
+    runningCount: 0,
+    neutralCount: 0,
+    unknownCount: 0,
+  } as const;
+
+  it("uses the newest loaded page metadata and reports cross-page drift", () => {
+    const firstPage = {
+      observedAt: 10_000,
+      repositoryNodeId: "R_repo",
+      repositoryDatabaseId: "42",
+      repositoryFullName: "samebase/samebase",
+      providerOpenPullRequestCount: 2,
+      defaultBranch: {
+        state: "ready",
+        name: "main",
+        headCommitNodeId: "C_old",
+        headOid: "old-sha",
+        checks: noChecks,
+      },
+    } as const;
+    const newestPage = {
+      ...firstPage,
+      observedAt: 20_000,
+      providerOpenPullRequestCount: 3,
+      defaultBranch: {
+        ...firstPage.defaultBranch,
+        headCommitNodeId: "C_new",
+        headOid: "new-sha",
+      },
+    } as const;
+
+    expect(selectCurrentRepositoryMetadata(firstPage, [newestPage])).toEqual({
+      defaultBranch: newestPage.defaultBranch,
+      drifted: true,
+      providerOpenPullRequestCount: 3,
+    });
   });
 });

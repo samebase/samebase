@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
+import type {
+  CloudflareBuild,
+  PullRequestHeadIdentity,
+} from "../../../convex/repositoryObservations";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import {
@@ -28,6 +32,10 @@ import {
 } from "./vaultProviderSetup";
 import { buildVaultProductionApps } from "./vaultProductionApps";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
+import type {
+  CurrentPullRequestPage,
+  RepositoryPullRequestObservation,
+} from "@/hooks/useRepositoryPullRequestObservations";
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -157,6 +165,171 @@ function makeResourceRailBuilderVault(
     convexDeployments: [],
   };
   return { ...vault, ...overrides };
+}
+
+const NO_REPOSITORY_CHECKS = {
+  state: "none",
+  totalCount: 0,
+  checkRunCount: 0,
+  statusContextCount: 0,
+  successCount: 0,
+  failureCount: 0,
+  runningCount: 0,
+  neutralCount: 0,
+  unknownCount: 0,
+} as const;
+
+function makePullRequestHead(args: {
+  pullRequestNodeId: string;
+  repositoryNodeId: string;
+  branchName: string;
+  sha: string;
+}): PullRequestHeadIdentity {
+  return {
+    baseRepositoryNodeId: "repository-base",
+    pullRequestNodeId: args.pullRequestNodeId,
+    headRepositoryNodeId: args.repositoryNodeId,
+    headRefName: args.branchName,
+    headCommitNodeId: `commit:${args.sha}`,
+    headOid: args.sha,
+  };
+}
+
+function makeWorkerBuild(workerName: string, checkRunId: string): CloudflareBuild {
+  return {
+    state: "success",
+    source: { state: "github_check_run", checkRunId },
+    checkName: `Workers Builds: ${workerName}`,
+    workerName,
+    rootDirectory: { state: "known", value: `apps/${workerName}` },
+    branch: { state: "known", name: "feature-local" },
+    providerStatus: "COMPLETED",
+    providerConclusion: { state: "provided", value: "SUCCESS" },
+    preview: { state: "disabled" },
+  };
+}
+
+function makeRepositoryObservation(): RepositoryPullRequestObservation {
+  const localHead = makePullRequestHead({
+    pullRequestNodeId: "pull-request-local",
+    repositoryNodeId: "repository-base",
+    branchName: "feature-local",
+    sha: "1111111111111111111111111111111111111111",
+  });
+  const forkHead = makePullRequestHead({
+    pullRequestNodeId: "pull-request-fork",
+    repositoryNodeId: "repository-fork",
+    branchName: "feature-fork",
+    sha: "2222222222222222222222222222222222222222",
+  });
+  const pullRequests = [
+    {
+      nodeId: localHead.pullRequestNodeId,
+      number: 12,
+      title: "Connect repository observations",
+      url: "https://github.com/ada/demo/pull/12",
+      isDraft: false,
+      isCrossRepository: false,
+      additions: 20,
+      deletions: 4,
+      changedFiles: 3,
+      updatedAt: 1_000,
+      baseRefName: "main",
+      headRefName: localHead.headRefName,
+      headRepository: {
+        state: "available",
+        nodeId: "repository-base",
+        nameWithOwner: "ada/demo",
+        owner: "ada",
+      },
+      labels: [{ name: "implementation", color: "1D76DB" }],
+      head: localHead,
+      checks: NO_REPOSITORY_CHECKS,
+    },
+    {
+      nodeId: forkHead.pullRequestNodeId,
+      number: 11,
+      title: "Contribute from a fork",
+      url: "https://github.com/ada/demo/pull/11",
+      isDraft: false,
+      isCrossRepository: true,
+      additions: 5,
+      deletions: 1,
+      changedFiles: 1,
+      updatedAt: 900,
+      baseRefName: "main",
+      headRefName: forkHead.headRefName,
+      headRepository: {
+        state: "available",
+        nodeId: "repository-fork",
+        nameWithOwner: "contributor/demo",
+        owner: "contributor",
+      },
+      labels: [],
+      head: forkHead,
+      checks: NO_REPOSITORY_CHECKS,
+    },
+  ] satisfies CurrentPullRequestPage["pullRequests"];
+  const page = {
+    state: "current",
+    observedAt: 1_000,
+    freshUntil: 61_000,
+    repositoryNodeId: "repository-base",
+    repositoryDatabaseId: "42",
+    repositoryFullName: "ada/demo",
+    defaultBranch: {
+      state: "ready",
+      name: "main",
+      headCommitNodeId: "commit-main",
+      headOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      checks: NO_REPOSITORY_CHECKS,
+    },
+    providerOpenPullRequestCount: 2,
+    scannedPullRequestCount: 2,
+    providerSequenceDrifted: false,
+    pullRequests,
+    continuation: { kind: "complete" },
+    requestUsage: {
+      requestCount: 1,
+      cost: 1,
+      limit: 5_000,
+      remaining: 4_999,
+      resetAt: 3_600_000,
+    },
+  } satisfies CurrentPullRequestPage;
+
+  return {
+    state: "current",
+    refresh: { state: "idle" },
+    observedAt: page.observedAt,
+    pages: [page],
+    pullRequests,
+    duplicatePullRequestObserved: false,
+    providerSequenceDrifted: false,
+    defaultBranch: page.defaultBranch,
+    providerOpenPullRequestCount: page.providerOpenPullRequestCount,
+    cloudflareByPullRequestNodeId: new Map([
+      [
+        localHead.pullRequestNodeId,
+        {
+          state: "ready",
+          head: localHead,
+          observedAt: 1_000,
+          builds: {
+            first: makeWorkerBuild("alpha", "check-alpha"),
+            rest: [makeWorkerBuild("beta", "check-beta")],
+          },
+        },
+      ],
+      [forkHead.pullRequestNodeId, { state: "fresh_absence", head: forkHead, observedAt: 1_000 }],
+    ]),
+    hasMore: false,
+    scanGuardrailReached: false,
+    isLoadingMore: false,
+    canLoadMore: true,
+    loadMoreProblem: null,
+    loadMore: () => {},
+  };
 }
 
 describe("VaultBranchLinkContent", () => {
@@ -663,6 +836,52 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(markup).not.toContain(
       "Select a vault from the left sidebar or add one from the right sidebar.",
     );
+  });
+
+  it("renders only pull request identities through the production dashboard boundary", () => {
+    const rootRouteSearch = validateRootRouteSearch({ dev: true });
+    const vault = makeResourceRailBuilderVault({});
+    const observation = makeRepositoryObservation();
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo?dev"]}>
+        <VaultDashboardView
+          deleteModeActive={false}
+          developerToolsVisible={false}
+          cloudflareWorkerRepairActionInFlight={null}
+          isRemovingVault={false}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          now={1_000}
+          viewModel={{
+            vaults: [vault],
+            repositoryObservationByVaultId: new Map([[vault._id, observation]]),
+          }}
+          logoRouteSearch={rootRouteSearch}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultBranchFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={new Map()}
+          rootRouteSearch={rootRouteSearch}
+          onConnectCloudflareGithubRepository={() => {}}
+          onOpenDeveloperToolsChange={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultBranchFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
+          onSetCloudflareConvexDeployKeys={() => {}}
+          onVerifyCloudflareInfrastructure={() => {}}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup.match(/data-default-branch-row=""/g)).toHaveLength(1);
+    expect(markup.match(/data-pull-request-row=""/g)).toHaveLength(2);
+    expect(markup).not.toContain("data-vault-dashboard-branch-row");
+    expect(markup.match(/View changes/g)).toHaveLength(1);
+    expect(markup).toContain("contributor/demo:feature-fork");
+    expect(markup).toContain("alpha");
+    expect(markup).toContain("beta");
+    expect(markup).toContain("/vault/ada/demo/fs/feature-local?dev&amp;compare");
   });
 
   it("omits production links for provider resources marked missing upstream", () => {

@@ -103,11 +103,14 @@ A ready preview preserves both URL types when Cloudflare supplies them:
 
 A Worker skipped by path rules produces no build record. A successful provider response with no
 Cloudflare check is current absence, not a failed build. If provider pagination cannot be completed
-within the request guardrail, the affected head is deferred rather than reported as having no build.
+by the bounded query, the affected head is unavailable with a pagination-guardrail reason rather
+than reported as having no build or given a retry time that cannot make progress.
 
 Worker name identifies the Worker. Root directory does not. More than one Worker using the same root
 directory remains representable, even though Samebase does not recommend that configuration. An
-unknown root directory is an explicit state.
+unknown root directory is an explicit state. Samebase does not attach a stored root directory to a
+build using only the Worker name. The root remains unknown until provider evidence proves both the
+Worker identity and its root.
 
 ## Apps and Convex ownership
 

@@ -216,6 +216,46 @@ describe("fetchGitHubCloudflareBuildObservations", () => {
     });
   });
 
+  it("ignores Cloudflare Pages checks from the shared GitHub App", async () => {
+    const head = makeHead("workers-only");
+    const workerCheck = makeCheckRun("worker-alpha");
+    const result = await fetchObservations({
+      requestGraphql: async () =>
+        makeBatch({
+          heads: [head],
+          commits: [
+            makeCommit({
+              head,
+              suites: [
+                makeSuite({
+                  id: "suite-workers-and-pages",
+                  branchName: head.headRefName,
+                  checkRuns: [
+                    workerCheck,
+                    {
+                      ...makeCheckRun("pages-site"),
+                      name: "Cloudflare Pages",
+                    },
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      heads: [head],
+    });
+
+    expect(result).toMatchObject({
+      state: "complete",
+      observations: [
+        {
+          state: "complete",
+          checkRuns: [{ checkRun: { id: workerCheck.id, name: workerCheck.name } }],
+        },
+      ],
+    });
+  });
+
   it("rejects a forged base repository even when the commit exists", async () => {
     const head = makeHead("forged-base", { baseRepositoryNodeId: "forged-repository" });
     const result = await fetchObservations({

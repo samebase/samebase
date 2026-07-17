@@ -108,6 +108,7 @@ function fixtureRepositoryObservation(
     },
     providerOpenPullRequestCount: 0,
     scannedPullRequestCount: 0,
+    providerSequenceDrifted: false,
     pullRequests: [],
     continuation: { kind: "complete" },
     requestUsage: {
@@ -126,12 +127,14 @@ function fixtureRepositoryObservation(
     pages: [page],
     pullRequests: [],
     duplicatePullRequestObserved: false,
+    providerSequenceDrifted: false,
     defaultBranch: page.defaultBranch,
     providerOpenPullRequestCount: 0,
     cloudflareByPullRequestNodeId: new Map(),
     hasMore: false,
     scanGuardrailReached: false,
     isLoadingMore: false,
+    canLoadMore: true,
     loadMoreProblem: null,
     loadMore: () => {},
   };
@@ -706,7 +709,7 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
-              branchSection={
+              repositoryContent={
                 <div className="space-y-1.5">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                     Branches
@@ -1645,7 +1648,7 @@ function VaultDashboardStickyHeaderFixture() {
                   remoteBranchCount={stickyHeaderBranches.length}
                 />
               }
-              branchSection={
+              repositoryContent={
                 <VaultBranchSection
                   filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
                   loadMore={ignoreFixtureLoadMore}
@@ -1719,7 +1722,7 @@ function VaultDashboardLargeBranchListFixture() {
                     remoteBranchCount={LARGE_BRANCHES.length}
                   />
                 }
-                branchSection={
+                repositoryContent={
                   <VaultBranchSection
                     filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
                     loadMore={loadMoreLargeBranches}
@@ -1878,7 +1881,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
               onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
               repositoryStatus={<span>Updated 12s ago</span>}
-              branchSection={
+              repositoryContent={
                 <div className="space-y-1.5">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                     Branches

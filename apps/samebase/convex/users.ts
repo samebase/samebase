@@ -715,17 +715,19 @@ export const getGithubConnectionStatus = query({
   args: {},
   returns: v.object({
     connected: boolean(),
+    revision: v.union(v.number(), v.null()),
     username: v.optional(v.string()),
     authMethod: v.optional(vProviderAuthMethod),
   }),
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
     if (connection?.kind !== "github") {
-      return { connected: false };
+      return { connected: false, revision: null };
     }
 
     return {
       connected: true,
+      revision: connection.updatedAt,
       username: connection.username,
       authMethod: connection.auth.method,
     };

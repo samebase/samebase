@@ -104,6 +104,7 @@ function page(args: {
   databaseId?: number;
   repositoryNodeId?: string;
   defaultBranchRepositoryNodeId?: string;
+  defaultBranchCheckCount?: number;
 }) {
   const repositoryNodeId = args.repositoryNodeId ?? "R_repo";
   return {
@@ -119,7 +120,7 @@ function page(args: {
             id: "C_main",
             oid: "sha-main",
             repository: { id: args.defaultBranchRepositoryNodeId ?? repositoryNodeId },
-            statusCheckRollup: checks(),
+            statusCheckRollup: checks({ totalCount: args.defaultBranchCheckCount }),
           },
         },
         pullRequests: {
@@ -371,22 +372,62 @@ describe("fetchGitHubPullRequestPage", () => {
     ).rejects.toThrow("without a cursor");
   });
 
-  it("fails when a pull request repeats during a filtered scan", async () => {
+  it("marks a filtered scan stale and continues when the provider sequence moves", async () => {
     const hidden = { name: "hidden", color: "ff0000" };
-    const duplicate = pullRequest(1, { labels: [hidden] });
+    const duplicate = pullRequest(2);
     const queue = responseQueue([
-      page({ nodes: [duplicate], totalCount: 2, hasNextPage: true, endCursor: "c1" }),
-      page({ nodes: [duplicate], totalCount: 2, hasNextPage: false, endCursor: null }),
+      page({
+        nodes: [pullRequest(3, { labels: [hidden] }), duplicate],
+        totalCount: 3,
+        hasNextPage: true,
+        endCursor: "c1",
+        defaultBranchCheckCount: 1,
+      }),
+      page({
+        nodes: [duplicate],
+        totalCount: 4,
+        hasNextPage: true,
+        endCursor: "c2",
+        defaultBranchCheckCount: 2,
+      }),
+      page({
+        nodes: [pullRequest(1)],
+        totalCount: 4,
+        hasNextPage: false,
+        endCursor: null,
+        defaultBranchCheckCount: 3,
+      }),
+    ]);
+
+    const result = await fetchGitHubPullRequestPage({
+      ...defaultArgs,
+      pageSize: 2,
+      filters: { ...defaultArgs.filters, hiddenLabels: ["hidden"] },
+      fetchImpl: queue.fetchImpl,
+    });
+
+    expect(result.pullRequests.map((pullRequest) => pullRequest.number)).toEqual([2, 1]);
+    expect(result.providerSequenceDrifted).toBe(true);
+    expect(result.providerOpenPullRequestCount).toBe(4);
+    expect(result.defaultBranch?.headCommit.checks.totalCount).toBe(3);
+    expect(queue.requests().map((request) => request.variables.pageSize)).toEqual([2, 1, 1]);
+  });
+
+  it("rejects inconsistent pull request identities during pagination", async () => {
+    const first = pullRequest(1);
+    const changedIdentity = { ...pullRequest(2), id: first.id };
+    const queue = responseQueue([
+      page({ nodes: [first], totalCount: 2, hasNextPage: true, endCursor: "c1" }),
+      page({ nodes: [changedIdentity], totalCount: 2, hasNextPage: false, endCursor: null }),
     ]);
 
     await expect(
       fetchGitHubPullRequestPage({
         ...defaultArgs,
         pageSize: 2,
-        filters: { ...defaultArgs.filters, hiddenLabels: ["hidden"] },
         fetchImpl: queue.fetchImpl,
       }),
-    ).rejects.toThrow("duplicate pull request");
+    ).rejects.toThrow("inconsistent pull request identities");
   });
 
   it("fails when the latest commit does not match the pull request head", async () => {

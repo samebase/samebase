@@ -17,11 +17,6 @@ const { array, boolean, id, literal, null: vNull, number, object, string, union 
 const REPOSITORY_OBSERVATION_FRESH_MS = 60_000;
 const REPOSITORY_OBSERVATION_BUDGET_RETRY_MS = 30_000;
 
-const vRepositoryRootDirectory = union(
-  object({ state: literal("known"), value: string() }),
-  object({ state: literal("unknown") }),
-);
-
 const vRepositoryObservationContext = union(
   object({ state: literal("repository_unavailable") }),
   object({
@@ -29,12 +24,6 @@ const vRepositoryObservationContext = union(
     owner: string(),
     name: string(),
     repositoryDatabaseId: string(),
-    cloudflareWorkers: array(
-      object({
-        workerName: string(),
-        rootDirectory: vRepositoryRootDirectory,
-      }),
-    ),
   }),
 );
 export type RepositoryObservationContext = Infer<typeof vRepositoryObservationContext>;
@@ -104,6 +93,7 @@ const vRepositoryPullRequestPage = object({
   defaultBranch: vRepositoryDefaultBranch,
   providerOpenPullRequestCount: number(),
   scannedPullRequestCount: number(),
+  providerSequenceDrifted: boolean(),
   pullRequests: array(vRepositoryPullRequestItem),
   continuation: vRepositoryPullRequestContinuation,
   requestUsage: object({
@@ -154,32 +144,11 @@ export const readRepositoryObservationContext = internalQuery({
       return { state: "repository_unavailable" };
     }
 
-    const cloudflareWorkers = (
-      await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault", (query) => query.eq("vaultId", args.vaultId))
-        .collect()
-    )
-      .filter((worker) => worker.userId === args.userId)
-      .map((worker) => ({
-        workerName: worker.workerName,
-        rootDirectory:
-          worker.deployment.builds.state === "connected"
-            ? { state: "known" as const, value: worker.deployment.builds.rootDirectory }
-            : { state: "unknown" as const },
-      }))
-      .sort(
-        (left, right) =>
-          left.workerName.localeCompare(right.workerName) ||
-          JSON.stringify(left.rootDirectory).localeCompare(JSON.stringify(right.rootDirectory)),
-      );
-
     return {
       state: "ready",
       owner: vault.owner,
       name: vault.name,
       repositoryDatabaseId: vault.ghRepoId,
-      cloudflareWorkers,
     };
   },
 });
@@ -215,6 +184,7 @@ export function buildRepositoryPullRequestPage(args: {
           },
     providerOpenPullRequestCount: args.page.providerOpenPullRequestCount,
     scannedPullRequestCount: args.page.scannedPullRequestCount,
+    providerSequenceDrifted: args.page.providerSequenceDrifted,
     pullRequests: args.page.pullRequests.map((pullRequest) => ({
       nodeId: pullRequest.nodeId,
       number: pullRequest.number,

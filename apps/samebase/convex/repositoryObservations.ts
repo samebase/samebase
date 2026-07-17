@@ -659,6 +659,8 @@ const vObservationUnavailableReason = union(
   literal("github_connection_unavailable"),
   literal("repository_unavailable"),
   literal("head_unavailable"),
+  literal("head_changed"),
+  literal("pagination_guardrail"),
 );
 const vObservationFailureReason = union(
   literal("request_failed"),

@@ -26,6 +26,7 @@ function providerPage(): GitHubPullRequestPage {
     },
     providerOpenPullRequestCount: 100,
     scannedPullRequestCount: 2,
+    providerSequenceDrifted: false,
     pullRequests: [
       {
         nodeId: "PR_1",
@@ -110,6 +111,7 @@ describe("buildRepositoryPullRequestPage", () => {
       scannedProviderPages: 4,
     });
     expect(result.freshUntil).toBe(1_700_000_060_000);
+    expect(result.providerSequenceDrifted).toBe(false);
   });
 
   it("represents an empty repository default branch explicitly", () => {

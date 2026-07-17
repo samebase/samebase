@@ -9,7 +9,8 @@ import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabelColor,
 } from "@/lib/pullRequestLabels";
-import { Link } from "@tanstack/react-router";
+import { formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
+import { useRouter } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import {
   CircleAlert,
@@ -99,6 +100,7 @@ export type VaultPullRequestListItem = {
 export type VaultPullRequestListProps = {
   defaultBranch: VaultDefaultBranchSummary;
   emptyPullRequestMessage?: string;
+  now: number;
   pullRequests: readonly VaultPullRequestListItem[];
 };
 
@@ -109,12 +111,52 @@ const metadataLinkClassName = clsx(
   linkStyle,
 );
 
+function SamebaseHrefLink({
+  href,
+  label,
+  title,
+}: {
+  href: string;
+  label: "Edit" | "View changes";
+  title: string;
+}) {
+  const router = useRouter();
+
+  // Preserve encoded branch slashes and the already merged route search while
+  // still giving ordinary left-clicks SPA navigation.
+  return (
+    <a
+      href={href}
+      onClick={(event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+        event.preventDefault();
+        void router.navigate({ href });
+      }}
+      className={metadataLinkClassName}
+      title={title}
+    >
+      <SamebaseLogoMark />
+      {label}
+    </a>
+  );
+}
+
 function formatChecksLabel(checks: VaultPullRequestChecks): string {
   switch (checks.state) {
     case "none":
       return "No checks";
     case "success":
-      return `${checks.successCount + checks.neutralCount} passed`;
+      return checks.neutralCount > 0
+        ? `${checks.successCount} passed · ${checks.neutralCount} neutral`
+        : `${checks.successCount} passed`;
     case "failure":
       return `${checks.failureCount} failed`;
     case "running":
@@ -343,6 +385,10 @@ function unavailableObservationLabel(
       return "Repository unavailable to GitHub";
     case "head_unavailable":
       return "Pull request head unavailable";
+    case "head_changed":
+      return "Pull request changed or closed";
+    case "pagination_guardrail":
+      return "Cloudflare checks exceed this bounded scan";
     default: {
       reason satisfies never;
       return "Preview information unavailable";
@@ -367,18 +413,18 @@ function failureObservationLabel(
   }
 }
 
-function staleObservationLabel(refresh: VaultObservationRefreshProblem): string {
+function staleObservationLabel(refresh: VaultObservationRefreshProblem, now: number): string {
   switch (refresh.state) {
     case "not_requested":
       return "Preview information is stale";
     case "loading":
       return "Preview information is stale: updating";
     case "budget_deferred":
-      return "Preview information is stale: refresh deferred";
+      return `Preview information is stale: refresh deferred ${formatRelativeTimeUntil(refresh.retryAt, now)}`;
     case "provider_unavailable":
-      return "Preview information is stale: provider unavailable";
+      return `Preview information is stale: ${unavailableObservationLabel(refresh.reason)}`;
     case "provider_failure":
-      return "Preview information is stale: refresh failed";
+      return `Preview information is stale: ${failureObservationLabel(refresh.reason)}`;
     default: {
       refresh satisfies never;
       return "Preview information is stale";
@@ -386,7 +432,13 @@ function staleObservationLabel(refresh: VaultObservationRefreshProblem): string 
   }
 }
 
-function CloudflareObservation({ observation }: { observation: VaultCloudflareObservation }) {
+function CloudflareObservation({
+  now,
+  observation,
+}: {
+  now: number;
+  observation: VaultCloudflareObservation;
+}) {
   const className = "min-w-0 flex-1 basis-[19rem] text-sm leading-6";
 
   switch (observation.state) {
@@ -418,7 +470,7 @@ function CloudflareObservation({ observation }: { observation: VaultCloudflareOb
       return (
         <div data-preview-observation-state={observation.state} className={className}>
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-            <CloudflareProviderLogo /> No Cloudflare build ran
+            <CloudflareProviderLogo /> No Cloudflare build observed for this commit
           </span>
         </div>
       );
@@ -430,12 +482,14 @@ function CloudflareObservation({ observation }: { observation: VaultCloudflareOb
         >
           <div className="inline-flex items-center gap-1.5 text-muted-foreground">
             <CircleAlert aria-hidden="true" className="h-3.5 w-3.5" />
-            {staleObservationLabel(observation.refresh)}
+            {staleObservationLabel(observation.refresh, now)}
           </div>
           {observation.lastKnown.state === "ready" ? (
             <CloudflareBuildList builds={observation.lastKnown.builds} />
           ) : (
-            <div className="text-muted-foreground">No Cloudflare build was seen</div>
+            <div className="text-muted-foreground">
+              No Cloudflare build observed for this commit
+            </div>
           )}
         </div>
       );
@@ -443,7 +497,8 @@ function CloudflareObservation({ observation }: { observation: VaultCloudflareOb
       return (
         <div data-preview-observation-state={observation.state} className={className}>
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-            <CircleDashed aria-hidden="true" className="h-3.5 w-3.5" /> Preview check deferred
+            <CircleDashed aria-hidden="true" className="h-3.5 w-3.5" /> Preview check deferred{" "}
+            {formatRelativeTimeUntil(observation.retryAt, now)}
           </span>
         </div>
       );
@@ -514,14 +569,11 @@ function DefaultBranchRow({
           </a>
           <CheckSummary checks={branch.checks} />
           {branch.samebaseUrl ? (
-            <Link
-              to={branch.samebaseUrl}
-              className={metadataLinkClassName}
+            <SamebaseHrefLink
+              href={branch.samebaseUrl}
+              label="Edit"
               title="Open branch in Samebase"
-            >
-              <SamebaseLogoMark />
-              Edit
-            </Link>
+            />
           ) : null}
         </div>
       </div>
@@ -529,7 +581,13 @@ function DefaultBranchRow({
   );
 }
 
-function PullRequestRow({ pullRequest }: { pullRequest: VaultPullRequestListItem }) {
+function PullRequestRow({
+  now,
+  pullRequest,
+}: {
+  now: number;
+  pullRequest: VaultPullRequestListItem;
+}) {
   const headLabel =
     pullRequest.head.kind === "fork"
       ? pullRequest.head.repositoryFullName
@@ -602,18 +660,15 @@ function PullRequestRow({ pullRequest }: { pullRequest: VaultPullRequestListItem
             {numberFormatter.format(pullRequest.deletions)} · {changedFilesLabel}
           </span>
           {pullRequest.head.kind === "local" && pullRequest.head.samebaseUrl ? (
-            <Link
-              to={pullRequest.head.samebaseUrl}
-              className={metadataLinkClassName}
+            <SamebaseHrefLink
+              href={pullRequest.head.samebaseUrl}
+              label="View changes"
               title="View this branch's changes in Samebase"
-            >
-              <SamebaseLogoMark />
-              View changes
-            </Link>
+            />
           ) : null}
         </div>
       </div>
-      <CloudflareObservation observation={pullRequest.cloudflare} />
+      <CloudflareObservation now={now} observation={pullRequest.cloudflare} />
     </article>
   );
 }
@@ -621,6 +676,7 @@ function PullRequestRow({ pullRequest }: { pullRequest: VaultPullRequestListItem
 export function VaultPullRequestList({
   defaultBranch,
   emptyPullRequestMessage = "No open pull requests",
+  now,
   pullRequests,
 }: VaultPullRequestListProps) {
   return (
@@ -633,7 +689,7 @@ export function VaultPullRequestList({
         </div>
       )}
       {pullRequests.map((pullRequest) => (
-        <PullRequestRow key={pullRequest.id} pullRequest={pullRequest} />
+        <PullRequestRow key={pullRequest.id} now={now} pullRequest={pullRequest} />
       ))}
       {pullRequests.length === 0 ? (
         <div className="px-3 py-3.5 text-sm text-muted-foreground">{emptyPullRequestMessage}</div>

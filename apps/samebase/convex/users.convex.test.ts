@@ -273,6 +273,7 @@ describe("users Convex contract", () => {
 
     await expect(asOwner.query(api.users.getGithubConnectionStatus)).resolves.toEqual({
       connected: true,
+      revision: expect.any(Number),
       username: "owner-login",
       authMethod: "api_key",
     });

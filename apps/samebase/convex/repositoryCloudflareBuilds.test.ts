@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildCompleteCloudflareBuildObservation } from "./repositoryCloudflareBuilds";
+import {
+  buildCloudflareHeadObservation,
+  buildCompleteCloudflareBuildObservation,
+} from "./repositoryCloudflareBuilds";
 import type { PullRequestHeadIdentity } from "./repositoryObservations";
-import type { RepositoryObservationContext } from "./repositoryPullRequests";
 
 const head = {
   baseRepositoryNodeId: "R_base",
@@ -12,18 +14,6 @@ const head = {
   headCommitNodeId: "C_head",
   headOid: "head-sha",
 } satisfies PullRequestHeadIdentity;
-
-function context(
-  cloudflareWorkers: Extract<RepositoryObservationContext, { state: "ready" }>["cloudflareWorkers"],
-): Extract<RepositoryObservationContext, { state: "ready" }> {
-  return {
-    state: "ready",
-    owner: "samebase",
-    name: "monorepo-fixture",
-    repositoryDatabaseId: "42",
-    cloudflareWorkers,
-  };
-}
 
 function successfulCheckRun(workerName: string, version: string) {
   return {
@@ -39,18 +29,8 @@ function successfulCheckRun(workerName: string, version: string) {
 }
 
 describe("buildCompleteCloudflareBuildObservation", () => {
-  it("keeps every Worker build and attaches only exact connected roots", () => {
+  it("keeps every Worker build without guessing roots from stored Worker names", () => {
     const result = buildCompleteCloudflareBuildObservation({
-      context: context([
-        {
-          workerName: "alpha",
-          rootDirectory: { state: "known", value: "apps/alpha" },
-        },
-        {
-          workerName: "beta",
-          rootDirectory: { state: "known", value: "apps/beta" },
-        },
-      ]),
       head,
       observedAt: 1_700_000_000_000,
       checkRuns: [successfulCheckRun("beta", "v2"), successfulCheckRun("alpha", "v1")],
@@ -61,7 +41,7 @@ describe("buildCompleteCloudflareBuildObservation", () => {
       builds: {
         first: {
           workerName: "alpha",
-          rootDirectory: { state: "known", value: "apps/alpha" },
+          rootDirectory: { state: "unknown" },
           preview: {
             state: "ready",
             versionUrl: "https://v1.alpha.workers.dev/",
@@ -75,40 +55,16 @@ describe("buildCompleteCloudflareBuildObservation", () => {
         rest: [
           {
             workerName: "beta",
-            rootDirectory: { state: "known", value: "apps/beta" },
+            rootDirectory: { state: "unknown" },
           },
         ],
       },
     });
   });
 
-  it("does not guess a root when two connected Workers share a name", () => {
-    const result = buildCompleteCloudflareBuildObservation({
-      context: context([
-        {
-          workerName: "alpha",
-          rootDirectory: { state: "known", value: "apps/one" },
-        },
-        {
-          workerName: "alpha",
-          rootDirectory: { state: "known", value: "apps/two" },
-        },
-      ]),
-      head,
-      observedAt: 1_700_000_000_000,
-      checkRuns: [successfulCheckRun("alpha", "v1")],
-    });
-
-    expect(result).toMatchObject({
-      state: "ready",
-      builds: { first: { rootDirectory: { state: "unknown" } } },
-    });
-  });
-
   it("represents a complete empty result as current absence", () => {
     expect(
       buildCompleteCloudflareBuildObservation({
-        context: context([]),
         head,
         observedAt: 1_700_000_000_000,
         checkRuns: [],
@@ -117,6 +73,51 @@ describe("buildCompleteCloudflareBuildObservation", () => {
       state: "fresh_absence",
       head,
       observedAt: 1_700_000_000_000,
+    });
+  });
+});
+
+describe("buildCloudflareHeadObservation", () => {
+  it("treats a moved or closed pull request head as unavailable, not invalid provider data", () => {
+    expect(
+      buildCloudflareHeadObservation({
+        observation: { state: "identity_mismatch", head },
+        observedAt: 1_700_000_000_000,
+      }),
+    ).toEqual({
+      state: "provider_unavailable",
+      head,
+      reason: "head_changed",
+    });
+  });
+
+  it("keeps malformed provider data distinct from a changed head", () => {
+    expect(
+      buildCloudflareHeadObservation({
+        observation: { state: "invalid_response", head },
+        observedAt: 1_700_000_000_000,
+      }),
+    ).toEqual({
+      state: "provider_failure",
+      head,
+      reason: "invalid_response",
+    });
+  });
+
+  it("does not promise that repeating the same bounded pagination request will make progress", () => {
+    expect(
+      buildCloudflareHeadObservation({
+        observation: {
+          state: "incomplete",
+          head,
+          reason: "check_run_pagination",
+        },
+        observedAt: 1_700_000_000_000,
+      }),
+    ).toEqual({
+      state: "provider_unavailable",
+      head,
+      reason: "pagination_guardrail",
     });
   });
 });

@@ -198,7 +198,9 @@ export function VaultBranchFiltersControl({
 
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverTrigger asChild nativeButton>
+        {trigger}
+      </PopoverTrigger>
       <PopoverContent align="end" className="w-[22rem] max-w-[calc(100vw-1rem)] p-0">
         <VaultBranchFiltersPanel value={value} options={options} onChange={onChange} />
       </PopoverContent>

@@ -92,6 +92,7 @@ function renderList(args: {
     <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
       <VaultPullRequestList
         defaultBranch={args.defaultBranch ?? defaultBranch}
+        now={0}
         pullRequests={args.pullRequests}
       />
     </TestRouterProvider>,
@@ -121,7 +122,7 @@ describe("VaultPullRequestList", () => {
     expect(row?.textContent).toContain("feature/42 → main");
     expect(row?.textContent).toContain("draft");
     expect(row?.textContent).toContain("preview");
-    expect(row?.textContent).toContain("6 passed");
+    expect(row?.textContent).toContain("5 passed · 1 neutral");
     expect(row?.textContent).toContain("+1,240 −318 · 17 files");
     expect(row?.textContent).toContain("View changes");
   });
@@ -141,6 +142,32 @@ describe("VaultPullRequestList", () => {
     expect(row?.textContent).toContain("contributor/samebase:preview-work → main");
     expect(row?.textContent).toContain("fork");
     expect(row?.textContent).not.toContain("View changes");
+  });
+
+  it("keeps an unavailable fork explicit without fabricating an editor link", () => {
+    const pullRequest = {
+      ...pullRequestWithObservation("44", { state: "fresh_absence" }),
+      head: {
+        kind: "fork",
+        branchName: "deleted-work",
+        repositoryFullName: null,
+      },
+    } satisfies VaultPullRequestListItem;
+    const root = renderList({ pullRequests: [pullRequest] });
+    const row = root.querySelector('[data-pull-request-number="44"]');
+
+    expect(row?.textContent).toContain("unavailable fork:deleted-work → main");
+    expect(row?.textContent).not.toContain("View changes");
+  });
+
+  it("keeps pull requests visible when the default branch is unavailable", () => {
+    const root = renderList({
+      defaultBranch: { state: "unavailable" },
+      pullRequests: [pullRequestWithObservation("45", { state: "fresh_absence" })],
+    });
+
+    expect(root.textContent).toContain("Default branch unavailable");
+    expect(root.querySelector('[data-pull-request-number="45"]')).not.toBeNull();
   });
 
   it("renders nonempty text for every preview observation state", () => {
@@ -214,11 +241,29 @@ describe("VaultPullRequestList", () => {
     }
     expect(root.textContent).toContain("Previews not checked");
     expect(root.textContent).toContain("Checking previews");
-    expect(root.textContent).toContain("No Cloudflare build ran");
+    expect(root.textContent).toContain("No Cloudflare build observed for this commit");
     expect(root.textContent).toContain("Preview information is stale: updating");
     expect(root.textContent).toContain("Preview check deferred");
     expect(root.textContent).toContain("GitHub connection unavailable");
     expect(root.textContent).toContain("Preview request failed");
+  });
+
+  it("distinguishes a changed pull request head from malformed provider data", () => {
+    const root = renderList({
+      pullRequests: [
+        pullRequestWithObservation("10", {
+          state: "provider_unavailable",
+          reason: "head_changed",
+        }),
+        pullRequestWithObservation("11", {
+          state: "provider_failure",
+          reason: "invalid_response",
+        }),
+      ],
+    });
+
+    expect(root.textContent).toContain("Pull request changed or closed");
+    expect(root.textContent).toContain("GitHub returned invalid preview data");
   });
 
   it("distinguishes expired preview data before its next refresh starts", () => {

@@ -7,6 +7,8 @@ import {
 } from "@/components/vault-dashboard/VaultPullRequestList";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
+const FIXTURE_NOW = Date.parse("2026-07-17T12:00:00.000Z");
+
 export type VaultDashboardBranchVisualMode =
   | "vault-pull-request-list-settled"
   | "vault-pull-request-list-operational-states";
@@ -283,7 +285,11 @@ export function VaultDashboardBranchVisualFixture({
     >
       <div className="mx-auto max-w-5xl overflow-hidden border bg-muted">
         <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
-          <VaultPullRequestList defaultBranch={settledDefaultBranch} pullRequests={pullRequests} />
+          <VaultPullRequestList
+            defaultBranch={settledDefaultBranch}
+            now={FIXTURE_NOW}
+            pullRequests={pullRequests}
+          />
         </TestRouterProvider>
       </div>
     </div>

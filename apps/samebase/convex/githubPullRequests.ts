@@ -212,6 +212,7 @@ export type GitHubPullRequestPage = {
   defaultBranch: GitHubDefaultBranchObservation | null;
   providerOpenPullRequestCount: number;
   scannedPullRequestCount: number;
+  providerSequenceDrifted: boolean;
   pullRequests: GitHubPullRequestPageItem[];
   continuation: GitHubPullRequestPageContinuation;
   rateUsage: GitHubGraphqlRateUsage;
@@ -508,13 +509,6 @@ function normalizePullRequest(args: {
   };
 }
 
-function sameDefaultBranch(
-  left: GitHubDefaultBranchObservation | null,
-  right: GitHubDefaultBranchObservation | null,
-): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
 export async function fetchGitHubPullRequestPage(args: {
   credential: string;
   owner: string;
@@ -561,14 +555,15 @@ export async function fetchGitHubPullRequestPage(args: {
   });
 
   const seenCursors = new Set<string>(cursor === null ? [] : [cursor]);
-  const seenPullRequestNodeIds = new Set<string>();
-  const seenPullRequestNumbers = new Set<number>();
+  const pullRequestNumberByNodeId = new Map<string, number>();
+  const pullRequestNodeIdByNumber = new Map<number, string>();
   const pullRequests: GitHubPullRequestPageItem[] = [];
   let repositoryNodeId: string | null = null;
   let repositoryFullName: string | null = null;
   let defaultBranch: GitHubDefaultBranchObservation | null | undefined;
   let providerOpenPullRequestCount: number | null = null;
   let scannedPullRequestCount = 0;
+  let providerSequenceDrifted = false;
   let requestCursor = cursor;
   let nextCursor: string | null = null;
 
@@ -609,11 +604,20 @@ export async function fetchGitHubPullRequestPage(args: {
       value: repository.defaultBranchRef,
       repositoryNodeId,
     });
-    if (defaultBranch !== undefined && !sameDefaultBranch(defaultBranch, pageDefaultBranch)) {
-      throw new Error("GitHub default branch changed during pull request pagination.");
+    if (
+      defaultBranch !== undefined &&
+      JSON.stringify(defaultBranch) !== JSON.stringify(pageDefaultBranch)
+    ) {
+      providerSequenceDrifted = true;
     }
     defaultBranch = pageDefaultBranch;
-    providerOpenPullRequestCount ??= repository.pullRequests.totalCount;
+    if (
+      providerOpenPullRequestCount !== null &&
+      providerOpenPullRequestCount !== repository.pullRequests.totalCount
+    ) {
+      providerSequenceDrifted = true;
+    }
+    providerOpenPullRequestCount = repository.pullRequests.totalCount;
 
     const remainingCapacity = pageSize - pullRequests.length;
     if (repository.pullRequests.nodes.length > remainingCapacity) {
@@ -625,14 +629,20 @@ export async function fetchGitHubPullRequestPage(args: {
         value: rawPullRequest,
         repositoryNodeId,
       });
-      if (
-        seenPullRequestNodeIds.has(pullRequest.nodeId) ||
-        seenPullRequestNumbers.has(pullRequest.number)
-      ) {
-        throw new Error("GitHub returned a duplicate pull request during pagination.");
+      const previousNumber = pullRequestNumberByNodeId.get(pullRequest.nodeId);
+      const previousNodeId = pullRequestNodeIdByNumber.get(pullRequest.number);
+      if (previousNumber !== undefined || previousNodeId !== undefined) {
+        if (previousNumber !== pullRequest.number || previousNodeId !== pullRequest.nodeId) {
+          throw new Error(
+            "GitHub returned inconsistent pull request identities during pagination.",
+          );
+        }
+
+        providerSequenceDrifted = true;
+        continue;
       }
-      seenPullRequestNodeIds.add(pullRequest.nodeId);
-      seenPullRequestNumbers.add(pullRequest.number);
+      pullRequestNumberByNodeId.set(pullRequest.nodeId, pullRequest.number);
+      pullRequestNodeIdByNumber.set(pullRequest.number, pullRequest.nodeId);
       if (
         (filters.includeDrafts || !pullRequest.isDraft) &&
         (filters.includeNoLabel || pullRequest.labels.length > 0) &&
@@ -684,6 +694,7 @@ export async function fetchGitHubPullRequestPage(args: {
     defaultBranch,
     providerOpenPullRequestCount,
     scannedPullRequestCount,
+    providerSequenceDrifted,
     pullRequests,
     continuation,
     rateUsage,

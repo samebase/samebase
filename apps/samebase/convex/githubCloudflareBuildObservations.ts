@@ -255,6 +255,10 @@ function connectionIsComplete(connection: {
   return !connection.pageInfo.hasNextPage && connection.nodes.length === connection.totalCount;
 }
 
+function isCloudflareWorkersBuildCheckRun(checkRun: z.infer<typeof checkRunSchema>): boolean {
+  return checkRun.name.toLowerCase().startsWith("workers builds:");
+}
+
 function toCheckRunObservation(args: {
   suite: z.infer<typeof checkSuiteSchema>;
   head: PullRequestHeadIdentity;
@@ -342,7 +346,9 @@ function observeCommitForHead(args: {
         return { state: "invalid_response", head: args.head };
       }
       seenCheckRunIds.add(checkRun.id);
-      checkRuns.push(toCheckRunObservation({ suite, head: args.head, checkRun }));
+      if (isCloudflareWorkersBuildCheckRun(checkRun)) {
+        checkRuns.push(toCheckRunObservation({ suite, head: args.head, checkRun }));
+      }
     }
   }
 

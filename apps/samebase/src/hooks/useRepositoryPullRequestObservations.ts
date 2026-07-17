@@ -1,7 +1,7 @@
-import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, type Query } from "@tanstack/react-query";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "../../convex/_generated/dataModel";
-import { useAction } from "convex/react";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 
 import { api } from "../../convex/_generated/api";
 import type {
@@ -16,6 +16,7 @@ import {
 const REPOSITORY_OBSERVATION_STALE_MS = 60_000;
 const REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS = 60_000;
 const REPOSITORY_OBSERVATION_CACHE_MS = 5 * 60_000;
+const REPOSITORY_OBSERVATION_MINIMUM_RETRY_MS = 1_000;
 const REPOSITORY_PULL_REQUEST_PAGE_SIZE = 25;
 const INITIAL_REPOSITORY_PULL_REQUEST_CURSOR: string | null = null;
 
@@ -25,12 +26,22 @@ type PullRequestPageResult = FunctionReturnType<
 export type CurrentPullRequestPage = Extract<PullRequestPageResult, { state: "current" }>;
 type PullRequestPageProblem = Exclude<PullRequestPageResult, { state: "current" }>;
 type PullRequestItem = CurrentPullRequestPage["pullRequests"][number];
+type RepositoryMetadataPage = Pick<
+  CurrentPullRequestPage,
+  | "defaultBranch"
+  | "observedAt"
+  | "providerOpenPullRequestCount"
+  | "repositoryDatabaseId"
+  | "repositoryFullName"
+  | "repositoryNodeId"
+>;
 
 type CloudflareBatchResult = FunctionReturnType<
   typeof api.repositoryCloudflareBuilds.observePullRequestHeads
 >;
 type ObservedCloudflareBatch = Extract<CloudflareBatchResult, { state: "observed" }>;
 type CloudflareBatchProblem = Exclude<CloudflareBatchResult, { state: "observed" }>;
+type CloudflareObservationQuery = Query<ObservedCloudflareBatch, Error, ObservedCloudflareBatch>;
 
 export type DisplayedCloudflareBuildObservation =
   | CloudflareBuildObservationResult
@@ -49,12 +60,14 @@ type RepositoryPullRequestSettledObservation = {
   pages: CurrentPullRequestPage[];
   pullRequests: PullRequestItem[];
   duplicatePullRequestObserved: boolean;
+  providerSequenceDrifted: boolean;
   defaultBranch: CurrentPullRequestPage["defaultBranch"];
   providerOpenPullRequestCount: number;
   cloudflareByPullRequestNodeId: ReadonlyMap<string, DisplayedCloudflareBuildObservation>;
   hasMore: boolean;
   scanGuardrailReached: boolean;
   isLoadingMore: boolean;
+  canLoadMore: boolean;
   loadMoreProblem: PullRequestPageProblem | null;
   loadMore: () => void;
 };
@@ -89,6 +102,144 @@ function cloudflareProblemFromError(error: unknown): CloudflareBatchProblem {
   return error instanceof CloudflareBatchProblemError
     ? error.problem
     : { state: "provider_failure", reason: "request_failed" };
+}
+
+function problemRefetchDelay(
+  problem: PullRequestPageProblem | CloudflareBatchProblem,
+  now: number,
+): number | false {
+  switch (problem.state) {
+    case "budget_deferred":
+      return Math.max(REPOSITORY_OBSERVATION_MINIMUM_RETRY_MS, problem.retryAt - now);
+    case "provider_failure":
+      return REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS;
+    case "provider_unavailable":
+      return false;
+    default:
+      problem satisfies never;
+      return false;
+  }
+}
+
+function earliestCloudflareBudgetRetryAt(
+  batch: ObservedCloudflareBatch | undefined,
+): number | null {
+  if (batch === undefined) {
+    return null;
+  }
+
+  let retryAt: number | null = null;
+  for (const observation of batch.observations) {
+    if (
+      observation.state === "budget_deferred" &&
+      (retryAt === null || observation.retryAt < retryAt)
+    ) {
+      retryAt = observation.retryAt;
+    }
+  }
+  return retryAt;
+}
+
+export function repositoryPullRequestRefetchDelay(args: {
+  loadedPageCount: number;
+  now: number;
+  problem: PullRequestPageProblem | null;
+}): number | false {
+  if (args.loadedPageCount > 1) {
+    return false;
+  }
+  if (args.problem !== null) {
+    return problemRefetchDelay(args.problem, args.now);
+  }
+  return args.loadedPageCount === 1 ? REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS : false;
+}
+
+export function repositoryPullRequestCanRefetch(args: {
+  failureObservedAt: number | null;
+  loadedPageCount: number;
+  now: number;
+  problem: PullRequestPageProblem | null;
+}): boolean {
+  if (args.loadedPageCount > 1) {
+    return false;
+  }
+  switch (args.problem?.state) {
+    case undefined:
+      return true;
+    case "budget_deferred":
+      return args.problem.retryAt <= args.now;
+    case "provider_failure":
+      return (
+        args.failureObservedAt !== null &&
+        args.failureObservedAt + REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS <= args.now
+      );
+    case "provider_unavailable":
+      return true;
+    default:
+      args.problem satisfies never;
+      return false;
+  }
+}
+
+export function cloudflareRefetchDelay(args: {
+  batch: ObservedCloudflareBatch | undefined;
+  loadedPageCount: number;
+  now: number;
+  problem: CloudflareBatchProblem | null;
+}): number | false {
+  if (args.loadedPageCount > 1) {
+    return false;
+  }
+  if (args.problem !== null) {
+    return problemRefetchDelay(args.problem, args.now);
+  }
+
+  const retryAt = earliestCloudflareBudgetRetryAt(args.batch);
+  if (retryAt !== null) {
+    return Math.max(REPOSITORY_OBSERVATION_MINIMUM_RETRY_MS, retryAt - args.now);
+  }
+  if (
+    args.batch === undefined ||
+    args.batch.observations.every((observation) => observation.state === "provider_unavailable")
+  ) {
+    return false;
+  }
+  return REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS;
+}
+
+export function cloudflareCanRefetch(args: {
+  batch: ObservedCloudflareBatch | undefined;
+  failureObservedAt: number | null;
+  loadedPageCount: number;
+  now: number;
+  problem: CloudflareBatchProblem | null;
+}): boolean {
+  if (args.loadedPageCount > 1) {
+    return false;
+  }
+  switch (args.problem?.state) {
+    case "budget_deferred":
+      return args.problem.retryAt <= args.now;
+    case "provider_failure":
+      return (
+        args.failureObservedAt !== null &&
+        args.failureObservedAt + REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS <= args.now
+      );
+    case "provider_unavailable":
+      return true;
+    case undefined:
+      break;
+    default:
+      args.problem satisfies never;
+      return false;
+  }
+  const retryAt = earliestCloudflareBudgetRetryAt(args.batch);
+  if (retryAt !== null) {
+    return retryAt <= args.now;
+  }
+  return !args.batch?.observations.every(
+    (observation) => observation.state === "provider_unavailable",
+  );
 }
 
 function cloudflareProblemForHead(args: {
@@ -174,6 +325,38 @@ function uniqueHeadsByPage(pages: readonly CurrentPullRequestPage[]): PullReques
   );
 }
 
+export function selectCurrentRepositoryMetadata(
+  firstPage: RepositoryMetadataPage,
+  remainingPages: readonly RepositoryMetadataPage[],
+): {
+  defaultBranch: CurrentPullRequestPage["defaultBranch"];
+  drifted: boolean;
+  providerOpenPullRequestCount: number;
+} {
+  let latestPage = firstPage;
+  let drifted = false;
+  for (const page of remainingPages) {
+    if (
+      page.repositoryNodeId !== firstPage.repositoryNodeId ||
+      page.repositoryDatabaseId !== firstPage.repositoryDatabaseId ||
+      page.repositoryFullName.toLowerCase() !== firstPage.repositoryFullName.toLowerCase() ||
+      page.providerOpenPullRequestCount !== firstPage.providerOpenPullRequestCount ||
+      JSON.stringify(page.defaultBranch) !== JSON.stringify(firstPage.defaultBranch)
+    ) {
+      drifted = true;
+    }
+    if (page.observedAt >= latestPage.observedAt) {
+      latestPage = page;
+    }
+  }
+
+  return {
+    defaultBranch: latestPage.defaultBranch,
+    drifted,
+    providerOpenPullRequestCount: latestPage.providerOpenPullRequestCount,
+  };
+}
+
 function cloudflareObservationKey(head: PullRequestHeadIdentity): string {
   return [
     head.baseRepositoryNodeId,
@@ -239,11 +422,17 @@ export function useRepositoryPullRequestObservations(args: {
   filters: VaultBranchFilters;
   now: number;
 }): RepositoryPullRequestObservation {
+  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const observePullRequestHeads = useAction(api.repositoryCloudflareBuilds.observePullRequestHeads);
   const filters = normalizeVaultBranchFilters(args.filters);
   const pullRequestQuery = useInfiniteQuery({
-    queryKey: ["repository-pull-request-observations", args.vaultId, filters],
+    queryKey: [
+      "repository-pull-request-observations",
+      args.vaultId,
+      githubConnection?.revision ?? null,
+      filters,
+    ],
     queryFn: async ({ pageParam }): Promise<CurrentPullRequestPage> => {
       if (args.vaultId === null) {
         throw new Error("Repository observation was requested without a vault.");
@@ -262,23 +451,49 @@ export function useRepositoryPullRequestObservations(args: {
     initialPageParam: INITIAL_REPOSITORY_PULL_REQUEST_CURSOR,
     getNextPageParam: (lastPage) =>
       lastPage.continuation.kind === "complete" ? undefined : lastPage.continuation.cursor,
-    enabled: args.vaultId !== null,
+    enabled: args.vaultId !== null && githubConnection !== undefined,
     staleTime: REPOSITORY_OBSERVATION_STALE_MS,
     gcTime: REPOSITORY_OBSERVATION_CACHE_MS,
     retry: false,
-    refetchOnWindowFocus: true,
+    retryOnMount: false,
+    refetchOnMount: (query) =>
+      repositoryPullRequestCanRefetch({
+        failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
+        loadedPageCount: query.state.data?.pages.length ?? 0,
+        now: Date.now(),
+        problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
+      }),
+    refetchOnWindowFocus: (query) =>
+      repositoryPullRequestCanRefetch({
+        failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
+        loadedPageCount: query.state.data?.pages.length ?? 0,
+        now: Date.now(),
+        problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
+      }),
+    refetchOnReconnect: (query) =>
+      repositoryPullRequestCanRefetch({
+        failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
+        loadedPageCount: query.state.data?.pages.length ?? 0,
+        now: Date.now(),
+        problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
+      }),
     refetchInterval: (query) =>
-      query.state.data?.pages.length === 1 ? REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS : false,
+      repositoryPullRequestRefetchDelay({
+        loadedPageCount: query.state.data?.pages.length ?? 0,
+        now: Date.now(),
+        problem: query.state.error === null ? null : pullRequestProblemFromError(query.state.error),
+      }),
     refetchIntervalInBackground: false,
   });
 
   const pages = pullRequestQuery.data?.pages ?? [];
   const headsByPage = uniqueHeadsByPage(pages);
   const cloudflareQueries = useQueries({
-    queries: headsByPage.map((heads, pageIndex) => ({
+    queries: headsByPage.map((heads) => ({
       queryKey: [
         "repository-cloudflare-build-observations",
         args.vaultId,
+        githubConnection?.revision ?? null,
         heads.map(cloudflareObservationKey),
       ],
       queryFn: async (): Promise<ObservedCloudflareBatch> => {
@@ -294,12 +509,46 @@ export function useRepositoryPullRequestObservations(args: {
         }
         return result;
       },
-      enabled: args.vaultId !== null && heads.length > 0,
+      enabled: args.vaultId !== null && githubConnection !== undefined && heads.length > 0,
       staleTime: REPOSITORY_OBSERVATION_STALE_MS,
       gcTime: REPOSITORY_OBSERVATION_CACHE_MS,
       retry: false,
-      refetchOnWindowFocus: true,
-      refetchInterval: pageIndex === 0 ? REPOSITORY_OBSERVATION_BACKGROUND_REFRESH_MS : false,
+      retryOnMount: false,
+      refetchOnMount: (query: CloudflareObservationQuery) =>
+        cloudflareCanRefetch({
+          batch: query.state.data,
+          failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
+          loadedPageCount: headsByPage.length,
+          now: Date.now(),
+          problem:
+            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
+        }),
+      refetchOnWindowFocus: (query: CloudflareObservationQuery) =>
+        cloudflareCanRefetch({
+          batch: query.state.data,
+          failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
+          loadedPageCount: headsByPage.length,
+          now: Date.now(),
+          problem:
+            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
+        }),
+      refetchOnReconnect: (query: CloudflareObservationQuery) =>
+        cloudflareCanRefetch({
+          batch: query.state.data,
+          failureObservedAt: query.state.error === null ? null : query.state.errorUpdatedAt,
+          loadedPageCount: headsByPage.length,
+          now: Date.now(),
+          problem:
+            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
+        }),
+      refetchInterval: (query: CloudflareObservationQuery) =>
+        cloudflareRefetchDelay({
+          batch: query.state.data,
+          loadedPageCount: headsByPage.length,
+          now: Date.now(),
+          problem:
+            query.state.error === null ? null : cloudflareProblemFromError(query.state.error),
+        }),
       refetchIntervalInBackground: false,
     })),
   });
@@ -331,10 +580,16 @@ export function useRepositoryPullRequestObservations(args: {
 
   const firstPage = pages[0];
   const lastPage = pages[pages.length - 1];
+  const repositoryMetadata = selectCurrentRepositoryMetadata(firstPage, pages.slice(1));
+  const providerSequenceDrifted =
+    repositoryMetadata.drifted || pages.some((page) => page.providerSequenceDrifted);
   const freshUntil = Math.min(...pages.map((page) => page.freshUntil));
   const loadMoreProblem = pullRequestQuery.isFetchNextPageError
     ? pullRequestProblemFromError(pullRequestQuery.error)
     : null;
+  const canLoadMore =
+    !pullRequestQuery.isFetchingNextPage &&
+    !(loadMoreProblem?.state === "budget_deferred" && loadMoreProblem.retryAt > args.now);
   const refresh =
     pullRequestQuery.error !== null && !pullRequestQuery.isFetchNextPageError
       ? pullRequestProblemFromError(pullRequestQuery.error)
@@ -346,6 +601,7 @@ export function useRepositoryPullRequestObservations(args: {
     state:
       args.now > freshUntil ||
       duplicatePullRequestObserved ||
+      providerSequenceDrifted ||
       (pullRequestQuery.error !== null && !pullRequestQuery.isFetchNextPageError)
         ? "stale"
         : "current",
@@ -354,14 +610,22 @@ export function useRepositoryPullRequestObservations(args: {
     pages,
     pullRequests,
     duplicatePullRequestObserved,
-    defaultBranch: firstPage.defaultBranch,
-    providerOpenPullRequestCount: firstPage.providerOpenPullRequestCount,
+    providerSequenceDrifted,
+    defaultBranch: repositoryMetadata.defaultBranch,
+    providerOpenPullRequestCount: repositoryMetadata.providerOpenPullRequestCount,
     cloudflareByPullRequestNodeId,
     hasMore: lastPage.continuation.kind !== "complete",
     scanGuardrailReached: lastPage.continuation.kind === "scan_guardrail",
     isLoadingMore: pullRequestQuery.isFetchingNextPage,
+    canLoadMore,
     loadMoreProblem,
     loadMore: () => {
+      if (
+        pullRequestQuery.isFetchingNextPage ||
+        (loadMoreProblem?.state === "budget_deferred" && loadMoreProblem.retryAt > Date.now())
+      ) {
+        return;
+      }
       void pullRequestQuery.fetchNextPage();
     },
   };

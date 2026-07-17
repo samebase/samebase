@@ -563,7 +563,7 @@ export function VaultDashboardSidebarContent({ children }: { children: ReactNode
 }
 
 export function VaultDashboardRepositoryCard({
-  branchSection,
+  repositoryContent,
   developerToolsSection,
   footerActions,
   headerControls,
@@ -577,7 +577,7 @@ export function VaultDashboardRepositoryCard({
   titleSuffix,
   topRightAction,
 }: {
-  branchSection?: ReactNode;
+  repositoryContent?: ReactNode;
   developerToolsSection?: {
     content: ReactNode;
     onOpenChange: (isOpen: boolean) => void;
@@ -597,14 +597,14 @@ export function VaultDashboardRepositoryCard({
   topRightAction?: ReactNode;
 }) {
   const hasBodyContent = Boolean(
-    branchSection || developerToolsSection || footerActions || setupSection,
+    repositoryContent || developerToolsSection || footerActions || setupSection,
   );
   const hasRepositoryLinks = Boolean(repositoryLinks);
   const hasTopRightAction = Boolean(topRightAction);
   const repositoryLinksLabel = repositoryLinksOpen ? "Hide resource links" : "Show resource links";
-  // Keep long branch lists anchored to their repository without taking over
+  // Keep long repository lists anchored to their repository without taking over
   // unrelated card content.
-  const shouldStickHeader = Boolean(branchSection);
+  const shouldStickHeader = Boolean(repositoryContent);
   const titleContent = (
     <h3 className="min-w-0 text-base font-semibold leading-6">
       <span className="flex min-w-0 items-start gap-2">
@@ -686,7 +686,7 @@ export function VaultDashboardRepositoryCard({
         <div className="space-y-3">
           {setupSection}
 
-          {branchSection}
+          {repositoryContent}
 
           {developerToolsSection ? (
             developerToolsSection.visible ? (
