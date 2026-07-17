@@ -682,6 +682,12 @@ const vObservationRefreshProblem = union(
   }),
 );
 
+const vObservationRefreshState = union(
+  object({ state: literal("not_requested") }),
+  object({ state: literal("loading") }),
+  vObservationRefreshProblem,
+);
+
 export const vCloudflareBuildObservationResult = union(
   object({
     state: literal("ready"),
@@ -699,7 +705,7 @@ export const vCloudflareBuildObservationResult = union(
     head: vPullRequestHeadIdentity,
     observedAt: number(),
     lastKnown: vLastKnownCloudflareBuildObservation,
-    refresh: vObservationRefreshProblem,
+    refresh: vObservationRefreshState,
   }),
   object({
     state: literal("budget_deferred"),

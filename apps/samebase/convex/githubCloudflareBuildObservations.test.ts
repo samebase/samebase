@@ -507,8 +507,17 @@ describe("fetchGitHubCloudflareBuildObservations", () => {
       },
       heads: [head],
     });
+    const deferred = await fetchObservations({
+      requestGraphql: async () => {
+        throw Object.assign(new Error("cost guardrail"), {
+          name: "GitHubGraphqlBudgetError",
+        });
+      },
+      heads: [head],
+    });
 
     expect(limited).toEqual({ state: "rate_limited", retryAt: 1_800_000_000_000 });
+    expect(deferred).toEqual({ state: "budget_deferred" });
     expect(failed).toEqual({ state: "request_failed" });
   });
 

@@ -88,6 +88,10 @@ const rateLimitErrorSchema = z.object({
   retryAt: z.number().int().nonnegative(),
 });
 
+const budgetErrorSchema = z.object({
+  name: z.literal("GitHubGraphqlBudgetError"),
+});
+
 const repositoryInputSchema = z.object({
   owner: z
     .string()
@@ -232,6 +236,9 @@ export type GitHubCloudflareBuildObservationBatch =
   | {
       state: "rate_limited";
       retryAt: number;
+    }
+  | {
+      state: "budget_deferred";
     }
   | {
       state: "request_failed";
@@ -383,8 +390,11 @@ export async function fetchGitHubCloudflareBuildObservations(args: {
     });
   } catch (error) {
     const rateLimit = rateLimitErrorSchema.safeParse(error);
-    return rateLimit.success
-      ? { state: "rate_limited", retryAt: rateLimit.data.retryAt }
+    if (rateLimit.success) {
+      return { state: "rate_limited", retryAt: rateLimit.data.retryAt };
+    }
+    return budgetErrorSchema.safeParse(error).success
+      ? { state: "budget_deferred" }
       : { state: "request_failed" };
   }
 
