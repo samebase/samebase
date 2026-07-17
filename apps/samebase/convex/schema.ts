@@ -564,7 +564,12 @@ export default defineSchema({
   /** Each provider build is stored once per immutable inventory snapshot. */
   vaultRepositoryInventoryCloudflareBuilds: defineTable(vRepositoryInventoryCloudflareBuildRow)
     .index("by_vault", ["vaultId"])
-    .index("by_snapshot_and_build_sourceKey", ["snapshotId", "build.sourceKey"]),
+    .index("by_snapshot_and_build_sourceKey", ["snapshotId", "build.sourceKey"])
+    .index("by_snapshot_and_associationCount_and_sortKey", [
+      "snapshotId",
+      "associationCount",
+      "sortKey",
+    ]),
 
   /** Ordered branch and pull request membership for normalized provider builds. */
   vaultRepositoryInventoryCloudflareBuildAssociations: defineTable(

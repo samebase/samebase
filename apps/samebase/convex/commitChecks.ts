@@ -76,7 +76,11 @@ export type GitHubCheckCountsSnapshotInput = {
 };
 
 export type GitHubCloudflareBuildSnapshotInput = GitHubCheckRunSnapshotInput & {
-  branchName?: string;
+  branch:
+    | { state: "known"; name: string }
+    | { state: "unknown" }
+    | { state: "conflicting_evidence"; suiteBranch: string | null };
+  rootDirectory?: string;
 };
 
 function parseGitTimestamp(value: string | undefined): number | undefined {
@@ -274,11 +278,14 @@ function readCloudflarePreviewEvidence(
       state: "ready",
       versionUrl,
       branchAlias: branchUrl
-        ? input.branchName
-          ? { state: "ready", branchName: input.branchName, url: branchUrl }
+        ? input.branch.state === "known"
+          ? { state: "ready", branchName: input.branch.name, url: branchUrl }
           : {
               state: "provider_unknown",
-              reason: "branch_unavailable",
+              reason:
+                input.branch.state === "conflicting_evidence"
+                  ? "conflicting_branch_evidence"
+                  : "branch_unavailable",
               providerUrl: branchUrl,
             }
         : { state: "not_provided" },
@@ -305,6 +312,7 @@ export function normalizeCloudflareBuildCheckRun(
   input: GitHubCloudflareBuildSnapshotInput,
 ): RepositoryInventoryCloudflareBuild {
   const state = classifyCloudflareBuildState(input);
+  const providerBuildId = readCloudflareSummaryIdentifier(input.outputSummary, "Build ID");
   const common: Pick<
     RepositoryInventoryCloudflareBuild,
     | "sourceKey"
@@ -320,14 +328,20 @@ export function normalizeCloudflareBuildCheckRun(
     | "startedAt"
     | "completedAt"
   > = {
-    sourceKey: String(input.id),
+    sourceKey:
+      providerBuildId === undefined
+        ? `github-check-run:${String(input.id)}`
+        : `cloudflare-build:${providerBuildId}`,
     checkName: input.name,
     workerName: readCloudflareWorkerName(input),
-    rootDirectory: { state: "unknown" },
-    branch: input.branchName ? { state: "known", name: input.branchName } : { state: "unknown" },
+    rootDirectory:
+      input.rootDirectory === undefined
+        ? { state: "unknown" }
+        : { state: "known", value: input.rootDirectory },
+    branch: input.branch,
     providerStatus: input.status,
     providerConclusion: toOptionalString(input.conclusion),
-    providerBuildId: readCloudflareSummaryIdentifier(input.outputSummary, "Build ID"),
+    providerBuildId,
     detailsUrl: readHttpsUrl(input.detailsUrl),
     githubUrl: readHttpsUrl(input.htmlUrl),
     startedAt: parseGitTimestamp(input.startedAt),

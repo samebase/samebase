@@ -752,6 +752,24 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
   });
 });
 
+test("vault dashboard fixture (build with unresolved branch)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 460 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-unresolved-build");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("1 build with unresolved branch")).toBeVisible();
+  await expect(
+    fixture.getByRole("button", { name: "1 build with unresolved branch" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(fixture.getByText("main", { exact: true })).toBeVisible();
+  await expect(fixture).toHaveScreenshot("vault-dashboard-unresolved-build.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1100 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");

@@ -581,7 +581,7 @@ async function recordComposedCloudflareDefaultDomain(
   );
 }
 
-async function runComposedInfrastructure(
+export async function runComposedInfrastructure(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;

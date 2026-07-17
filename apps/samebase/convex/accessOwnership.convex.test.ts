@@ -89,6 +89,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -133,6 +134,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
         publishedAt: 7,
         checkedAt: 7,
         fingerprint: "owner-inventory",
+        unattributedBuildCount: 0,
       },
     });
     const stagingId = await ctx.db.insert("fileStaging", {

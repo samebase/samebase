@@ -203,6 +203,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-provisioning-log",
   "vault-dashboard-sticky-header",
   "vault-dashboard-large-branch-list",
+  "vault-dashboard-unresolved-build",
   "vault-dashboard-root-picker",
   "vault-dashboard-sidebar-list",
   "vault-dashboard-list-spacing",
@@ -412,6 +413,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-sticky-header" ||
     mode === "vault-dashboard-large-branch-list" ||
+    mode === "vault-dashboard-unresolved-build" ||
     mode === "vault-dashboard-root-picker" ||
     mode === "vault-dashboard-sidebar-list" ||
     mode === "vault-dashboard-list-spacing" ||

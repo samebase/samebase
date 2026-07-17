@@ -735,7 +735,10 @@ const REPOSITORY_PULL_REQUEST_SIGNATURE_PAGE_QUERY = `
 `;
 
 const REPOSITORY_CLOUDFLARE_COMMIT_BATCH_QUERY = `
-  query RepositoryInventoryCloudflareCommitBatch($commitIds: [ID!]!) {
+  query RepositoryInventoryCloudflareCommitBatch(
+    $commitIds: [ID!]!
+    $checkRunType: CheckRunType!
+  ) {
     nodes(ids: $commitIds) {
       __typename
       ... on Commit {
@@ -751,7 +754,7 @@ const REPOSITORY_CLOUDFLARE_COMMIT_BATCH_QUERY = `
           nodes {
             id
             branch { name }
-            checkRuns(first: 100, filterBy: { checkType: LATEST }) {
+            checkRuns(first: 100, filterBy: { checkType: $checkRunType }) {
               totalCount
               pageInfo { hasNextPage endCursor }
               nodes {
@@ -791,7 +794,11 @@ const REPOSITORY_LABEL_CONTINUATION_QUERY = `
 `;
 
 const REPOSITORY_CLOUDFLARE_SUITE_CONTINUATION_QUERY = `
-  query RepositoryInventoryCloudflareSuiteContinuation($nodeId: ID!, $after: String!) {
+  query RepositoryInventoryCloudflareSuiteContinuation(
+    $nodeId: ID!
+    $after: String!
+    $checkRunType: CheckRunType!
+  ) {
     node(id: $nodeId) {
       __typename
       ... on Commit {
@@ -808,7 +815,7 @@ const REPOSITORY_CLOUDFLARE_SUITE_CONTINUATION_QUERY = `
           nodes {
             id
             branch { name }
-            checkRuns(first: 100, filterBy: { checkType: LATEST }) {
+            checkRuns(first: 100, filterBy: { checkType: $checkRunType }) {
               totalCount
               pageInfo { hasNextPage endCursor }
               nodes {
@@ -832,7 +839,11 @@ const REPOSITORY_CLOUDFLARE_SUITE_CONTINUATION_QUERY = `
 `;
 
 const REPOSITORY_CLOUDFLARE_CHECK_RUN_CONTINUATION_QUERY = `
-  query RepositoryInventoryCloudflareCheckRunContinuation($nodeId: ID!, $after: String!) {
+  query RepositoryInventoryCloudflareCheckRunContinuation(
+    $nodeId: ID!
+    $after: String!
+    $checkRunType: CheckRunType!
+  ) {
     node(id: $nodeId) {
       __typename
       ... on CheckSuite {
@@ -841,7 +852,7 @@ const REPOSITORY_CLOUDFLARE_CHECK_RUN_CONTINUATION_QUERY = `
         checkRuns(
           first: 100
           after: $after
-          filterBy: { checkType: LATEST }
+          filterBy: { checkType: $checkRunType }
         ) {
             totalCount
             pageInfo { hasNextPage endCursor }
@@ -895,6 +906,100 @@ export type GitHubGraphqlClient = {
   getRequestCount: () => number;
 };
 
+export type RepositoryInventoryCloudflareBuildResolutionRequest = {
+  sourceKey: string;
+  providerBuildId: string | null;
+  workerName: string;
+  detailsUrl: string | null;
+  commitRepositoryNodeId: string;
+  commitSha: string;
+  requiresBranchResolution: boolean;
+  priority: {
+    sortGroup: number;
+    sortTime: number;
+    rowKey: string;
+  };
+  candidateRefs: Array<{
+    repositoryNodeId: string | null;
+    branchName: string;
+    pullRequestUrls: string[];
+  }>;
+};
+
+export type RepositoryInventoryCloudflareBuildResolution = {
+  sourceKey: string;
+  providerBuildId: string | null;
+  accountId: string;
+  workerTag: string;
+  rootDirectory: string;
+  branch:
+    | { state: "unresolved" }
+    | {
+        state: "resolved";
+        refRepositoryNodeId: string;
+        branchName: string;
+        createdAt: number;
+      };
+};
+
+export type RepositoryInventoryCloudflareBuildResolver = (
+  requests: readonly RepositoryInventoryCloudflareBuildResolutionRequest[],
+) => Promise<readonly RepositoryInventoryCloudflareBuildResolution[]>;
+
+function samePullRequestUrl(left: string, right: string): boolean {
+  try {
+    const leftUrl = new URL(left);
+    const rightUrl = new URL(right);
+    return (
+      leftUrl.protocol === "https:" &&
+      rightUrl.protocol === "https:" &&
+      leftUrl.origin === rightUrl.origin &&
+      leftUrl.pathname.replace(/\/$/, "") === rightUrl.pathname.replace(/\/$/, "")
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function resolveCloudflareBuildCandidateRef(args: {
+  candidateRefs: RepositoryInventoryCloudflareBuildResolutionRequest["candidateRefs"];
+  branchName: string;
+  pullRequestUrl: string | null;
+}):
+  | { state: "unresolved" }
+  | { state: "resolved"; refRepositoryNodeId: string; branchName: string } {
+  const branchRefs = args.candidateRefs.filter(
+    (ref) => ref.repositoryNodeId !== null && ref.branchName === args.branchName,
+  );
+  const pullRequestUrl = args.pullRequestUrl;
+  const pullRequestRefs =
+    pullRequestUrl === null
+      ? []
+      : branchRefs.filter((ref) =>
+          ref.pullRequestUrls.some((url) => samePullRequestUrl(url, pullRequestUrl)),
+        );
+  const resolvedRef =
+    pullRequestRefs.length === 1
+      ? pullRequestRefs[0]
+      : branchRefs.length === 1
+        ? branchRefs[0]
+        : undefined;
+  if (resolvedRef?.repositoryNodeId === null || resolvedRef === undefined) {
+    return { state: "unresolved" };
+  }
+  return {
+    state: "resolved",
+    refRepositoryNodeId: resolvedRef.repositoryNodeId,
+    branchName: args.branchName,
+  };
+}
+
+export type CollectedRepositoryInventoryUnattributedCloudflareBuild = {
+  commitRepositoryNodeId: string;
+  commitSha: string;
+  build: RepositoryInventoryCloudflareBuild;
+};
+
 export type CollectedRepositoryInventory = {
   repositoryId: string;
   repositoryDatabaseId: string;
@@ -902,6 +1007,7 @@ export type CollectedRepositoryInventory = {
   defaultBranch: string | null;
   defaultBranchCheckState: RepositorySummaryCheckState | null;
   items: CollectedRepositoryInventoryItem[];
+  unattributedCloudflareBuilds: CollectedRepositoryInventoryUnattributedCloudflareBuild[];
   fingerprint: string;
   branchCount: number;
   pullRequestCount: number;
@@ -1001,6 +1107,12 @@ type RepositoryScopedCommit = {
   sha: string;
 };
 
+type CloudflareCheckRunType = "ALL" | "LATEST";
+
+type RepositoryScopedCommitRequest = RepositoryScopedCommit & {
+  checkRunType: CloudflareCheckRunType;
+};
+
 type CommitMetadataSignature = RepositoryScopedCommit & {
   statusCheckRollup: {
     state: (typeof GITHUB_STATUS_CHECK_ROLLUP_STATES)[number];
@@ -1039,6 +1151,8 @@ type CollectedItemWithoutCloudflareBuilds =
 type InventoryItemCommitAssociation = {
   rowKey: string;
   branchName: string;
+  refRepositoryNodeId: string | null;
+  pullRequestUrl: string | null;
   commit: RepositoryScopedCommit;
   signature: CommitMetadataSignature;
 };
@@ -1267,6 +1381,7 @@ function toCheckSummary(
 async function readCompleteCloudflareSuiteCheckRuns(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
   suite: z.infer<typeof cloudflareCheckSuiteSchema>;
+  checkRunType: CloudflareCheckRunType;
 }): Promise<z.infer<typeof cloudflareCheckRunSchema>[]> {
   const expectedTotalCount = args.suite.checkRuns.totalCount;
   const checkRuns = [...args.suite.checkRuns.nodes];
@@ -1291,6 +1406,7 @@ async function readCompleteCloudflareSuiteCheckRuns(args: {
       await args.requestGraphql(REPOSITORY_CLOUDFLARE_CHECK_RUN_CONTINUATION_QUERY, {
         nodeId: args.suite.id,
         after: cursor,
+        checkRunType: args.checkRunType,
       }),
     );
     const node = response.node;
@@ -1331,6 +1447,7 @@ async function readCompleteCloudflareSuiteCheckRuns(args: {
 async function readCompleteCloudflareCheckRuns(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
   value: z.infer<typeof cloudflareCommitObservationSchema>;
+  checkRunType: CloudflareCheckRunType;
 }): Promise<CollectedCloudflareCheckRun[]> {
   const initial = args.value.checkSuites;
   const expectedTotalCount = initial.totalCount;
@@ -1349,6 +1466,7 @@ async function readCompleteCloudflareCheckRuns(args: {
     for (const checkRun of await readCompleteCloudflareSuiteCheckRuns({
       requestGraphql: args.requestGraphql,
       suite,
+      checkRunType: args.checkRunType,
     })) {
       if (seenCheckRunIds.has(checkRun.id)) {
         throw new GitHubGraphqlRequestError(
@@ -1379,6 +1497,7 @@ async function readCompleteCloudflareCheckRuns(args: {
       await args.requestGraphql(REPOSITORY_CLOUDFLARE_SUITE_CONTINUATION_QUERY, {
         nodeId: args.value.id,
         after: cursor,
+        checkRunType: args.checkRunType,
       }),
     );
     const node = response.node;
@@ -1414,7 +1533,12 @@ async function readCompleteCloudflareCheckRuns(args: {
   );
 }
 
-function toCloudflareBuild(value: CollectedCloudflareCheckRun): RepositoryInventoryCloudflareBuild {
+function toCloudflareBuild(args: {
+  value: CollectedCloudflareCheckRun;
+  branch: RepositoryInventoryCloudflareBuild["branch"];
+  rootDirectory?: string;
+}): RepositoryInventoryCloudflareBuild {
+  const value = args.value;
   const input: GitHubCloudflareBuildSnapshotInput = {
     id: value.checkRun.id,
     name: value.checkRun.name,
@@ -1425,7 +1549,8 @@ function toCloudflareBuild(value: CollectedCloudflareCheckRun): RepositoryInvent
     outputSummary: optionalString(value.checkRun.summary),
     startedAt: optionalString(value.checkRun.startedAt),
     completedAt: optionalString(value.checkRun.completedAt),
-    branchName: optionalString(value.branchName),
+    branch: args.branch,
+    rootDirectory: args.rootDirectory,
   };
   return normalizeCloudflareBuildCheckRun(input);
 }
@@ -1506,10 +1631,12 @@ function sameCommitMetadataSignature(
 
 function uniqueRepositoryScopedCommits(
   associations: readonly InventoryItemCommitAssociation[],
-): RepositoryScopedCommit[] {
+): RepositoryScopedCommitRequest[] {
   const byKey = new Map<string, RepositoryScopedCommit>();
   const signatureByKey = new Map<string, CommitMetadataSignature>();
   const keyByNodeId = new Map<string, string>();
+  const refIdentitiesByKey = new Map<string, Set<string>>();
+  const requiresAuthoritativeBranchByKey = new Map<string, boolean>();
   for (const association of associations) {
     const key = repositoryScopedCommitKey(association.commit);
     const existing = byKey.get(key);
@@ -1539,85 +1666,115 @@ function uniqueRepositoryScopedCommits(
     byKey.set(key, association.commit);
     signatureByKey.set(key, association.signature);
     keyByNodeId.set(association.commit.nodeId, key);
+    const refIdentities = refIdentitiesByKey.get(key) ?? new Set<string>();
+    refIdentities.add(
+      association.refRepositoryNodeId === null
+        ? JSON.stringify(["unavailable", association.rowKey])
+        : JSON.stringify([association.refRepositoryNodeId, association.branchName]),
+    );
+    refIdentitiesByKey.set(key, refIdentities);
+    if (
+      association.refRepositoryNodeId === null ||
+      association.refRepositoryNodeId !== association.commit.repositoryNodeId
+    ) {
+      requiresAuthoritativeBranchByKey.set(key, true);
+    }
   }
-  return [...byKey.values()].sort(
-    (left, right) =>
-      left.repositoryNodeId.localeCompare(right.repositoryNodeId) ||
-      left.sha.localeCompare(right.sha),
-  );
+  return [...byKey]
+    .map(
+      ([key, commit]): RepositoryScopedCommitRequest => ({
+        ...commit,
+        checkRunType:
+          (refIdentitiesByKey.get(key)?.size ?? 0) > 1 ||
+          requiresAuthoritativeBranchByKey.get(key) === true
+            ? "ALL"
+            : "LATEST",
+      }),
+    )
+    .sort(
+      (left, right) =>
+        left.checkRunType.localeCompare(right.checkRunType) ||
+        left.repositoryNodeId.localeCompare(right.repositoryNodeId) ||
+        left.sha.localeCompare(right.sha),
+    );
 }
 
 async function collectCloudflareCommitObservations(args: {
   requestGraphql: RepositoryInventoryGraphqlRequest;
-  commits: readonly RepositoryScopedCommit[];
+  commits: readonly RepositoryScopedCommitRequest[];
   batchSize: number;
 }): Promise<ReadonlyMap<string, CloudflareCommitObservation>> {
   const observations = new Map<string, CloudflareCommitObservation>();
-  for (let start = 0; start < args.commits.length; start += args.batchSize) {
-    const batch = args.commits.slice(start, start + args.batchSize);
-    const expectedByNodeId = new Map(batch.map((commit) => [commit.nodeId, commit]));
-    if (expectedByNodeId.size !== batch.length) {
-      throw new GitHubGraphqlRequestError(
-        "GitHub repository commit batch contained duplicate node identities.",
-        true,
+  for (const checkRunType of ["LATEST", "ALL"] as const) {
+    const commits = args.commits.filter((commit) => commit.checkRunType === checkRunType);
+    for (let start = 0; start < commits.length; start += args.batchSize) {
+      const batch = commits.slice(start, start + args.batchSize);
+      const expectedByNodeId = new Map(batch.map((commit) => [commit.nodeId, commit]));
+      if (expectedByNodeId.size !== batch.length) {
+        throw new GitHubGraphqlRequestError(
+          "GitHub repository commit batch contained duplicate node identities.",
+          true,
+        );
+      }
+      const response = cloudflareCommitBatchSchema.parse(
+        await args.requestGraphql(REPOSITORY_CLOUDFLARE_COMMIT_BATCH_QUERY, {
+          commitIds: batch.map((commit) => commit.nodeId),
+          checkRunType,
+        }),
       );
-    }
-    const response = cloudflareCommitBatchSchema.parse(
-      await args.requestGraphql(REPOSITORY_CLOUDFLARE_COMMIT_BATCH_QUERY, {
-        commitIds: batch.map((commit) => commit.nodeId),
-      }),
-    );
-    if (response.nodes.length !== batch.length) {
-      throw new GitHubGraphqlRequestError(
-        "GitHub omitted a repository commit from Cloudflare observation.",
-        true,
-      );
-    }
-    const seenNodeIds = new Set<string>();
-    for (const rawNode of response.nodes) {
-      const parsed = cloudflareCommitObservationSchema.safeParse(rawNode);
-      if (!parsed.success) {
+      if (response.nodes.length !== batch.length) {
         throw new GitHubGraphqlRequestError(
-          "GitHub returned a non-commit Cloudflare observation.",
+          "GitHub omitted a repository commit from Cloudflare observation.",
           true,
         );
       }
-      const value = parsed.data;
-      const expected = expectedByNodeId.get(value.id);
-      if (expected === undefined || seenNodeIds.has(value.id)) {
+      const seenNodeIds = new Set<string>();
+      for (const rawNode of response.nodes) {
+        const parsed = cloudflareCommitObservationSchema.safeParse(rawNode);
+        if (!parsed.success) {
+          throw new GitHubGraphqlRequestError(
+            "GitHub returned a non-commit Cloudflare observation.",
+            true,
+          );
+        }
+        const value = parsed.data;
+        const expected = expectedByNodeId.get(value.id);
+        if (expected === undefined || seenNodeIds.has(value.id)) {
+          throw new GitHubGraphqlRequestError(
+            "GitHub returned an unexpected or duplicate Cloudflare commit observation.",
+            true,
+          );
+        }
+        if (value.oid !== expected.sha || value.repository.id !== expected.repositoryNodeId) {
+          throw new GitHubGraphqlRequestError(
+            "GitHub Cloudflare observation did not match its repository commit.",
+            true,
+          );
+        }
+        seenNodeIds.add(value.id);
+        const checkRuns = await readCompleteCloudflareCheckRuns({
+          requestGraphql: args.requestGraphql,
+          value,
+          checkRunType,
+        });
+        const key = repositoryScopedCommitKey(expected);
+        if (observations.has(key)) {
+          throw new GitHubGraphqlRequestError(
+            "GitHub returned a duplicate repository commit observation.",
+            true,
+          );
+        }
+        observations.set(key, {
+          checkRuns,
+          signature: cloudflareCommitSignature({ value, cloudflareCheckRuns: checkRuns }),
+        });
+      }
+      if (seenNodeIds.size !== batch.length) {
         throw new GitHubGraphqlRequestError(
-          "GitHub returned an unexpected or duplicate Cloudflare commit observation.",
+          "GitHub omitted a repository commit from Cloudflare observation.",
           true,
         );
       }
-      if (value.oid !== expected.sha || value.repository.id !== expected.repositoryNodeId) {
-        throw new GitHubGraphqlRequestError(
-          "GitHub Cloudflare observation did not match its repository commit.",
-          true,
-        );
-      }
-      seenNodeIds.add(value.id);
-      const checkRuns = await readCompleteCloudflareCheckRuns({
-        requestGraphql: args.requestGraphql,
-        value,
-      });
-      const key = repositoryScopedCommitKey(expected);
-      if (observations.has(key)) {
-        throw new GitHubGraphqlRequestError(
-          "GitHub returned a duplicate repository commit observation.",
-          true,
-        );
-      }
-      observations.set(key, {
-        checkRuns,
-        signature: cloudflareCommitSignature({ value, cloudflareCheckRuns: checkRuns }),
-      });
-    }
-    if (seenNodeIds.size !== batch.length) {
-      throw new GitHubGraphqlRequestError(
-        "GitHub omitted a repository commit from Cloudflare observation.",
-        true,
-      );
     }
   }
   return observations;
@@ -1654,32 +1811,406 @@ function assertSameCloudflareCommitObservations(args: {
   }
 }
 
-function attachCloudflareBuilds(args: {
+type CloudflareBuildCandidate = {
+  commit: RepositoryScopedCommitRequest;
+  source: CollectedCloudflareCheckRun;
+  build: RepositoryInventoryCloudflareBuild;
+  priority: RepositoryInventoryCloudflareBuildResolutionRequest["priority"];
+  candidateRefs: Array<{
+    repositoryNodeId: string | null;
+    branchName: string;
+    pullRequestUrls: string[];
+  }>;
+};
+
+function cloudflareBuildAliasUrl(build: RepositoryInventoryCloudflareBuild): string | undefined {
+  if (build.preview.state !== "ready") {
+    return undefined;
+  }
+  switch (build.preview.branchAlias.state) {
+    case "ready":
+      return build.preview.branchAlias.url;
+    case "provider_unknown":
+      return build.preview.branchAlias.providerUrl;
+    case "not_provided":
+      return undefined;
+    default: {
+      build.preview.branchAlias satisfies never;
+      return undefined;
+    }
+  }
+}
+
+function assertCompatibleCloudflareBuildObservations(
+  left: CloudflareBuildCandidate,
+  right: CloudflareBuildCandidate,
+): void {
+  const conflicting =
+    left.commit.repositoryNodeId !== right.commit.repositoryNodeId ||
+    left.commit.sha !== right.commit.sha ||
+    left.build.providerBuildId !== right.build.providerBuildId ||
+    left.build.workerName !== right.build.workerName ||
+    (left.build.detailsUrl !== undefined &&
+      right.build.detailsUrl !== undefined &&
+      left.build.detailsUrl !== right.build.detailsUrl) ||
+    (left.build.preview.state === "ready" &&
+      right.build.preview.state === "ready" &&
+      left.build.preview.versionUrl !== right.build.preview.versionUrl) ||
+    (cloudflareBuildAliasUrl(left.build) !== undefined &&
+      cloudflareBuildAliasUrl(right.build) !== undefined &&
+      cloudflareBuildAliasUrl(left.build) !== cloudflareBuildAliasUrl(right.build));
+  if (conflicting) {
+    throw new GitHubGraphqlRequestError(
+      "GitHub returned conflicting evidence for one Cloudflare build.",
+      true,
+    );
+  }
+}
+
+function cloudflareBuildObservationOrder(
+  left: CloudflareBuildCandidate,
+  right: CloudflareBuildCandidate,
+): number {
+  const leftTime = left.build.completedAt ?? left.build.startedAt ?? 0;
+  const rightTime = right.build.completedAt ?? right.build.startedAt ?? 0;
+  if (leftTime !== rightTime) {
+    return leftTime - rightTime;
+  }
+  const stateOrder: Record<RepositoryInventoryCloudflareBuild["state"], number> = {
+    queued: 0,
+    running: 1,
+    provider_unknown: 2,
+    skipped: 3,
+    cancelled: 4,
+    failure: 5,
+    success: 6,
+  };
+  return (
+    stateOrder[left.build.state] - stateOrder[right.build.state] ||
+    left.source.checkRun.id.localeCompare(right.source.checkRun.id)
+  );
+}
+
+function currentCloudflareBuildCandidates(
+  candidates: readonly CloudflareBuildCandidate[],
+): CloudflareBuildCandidate[] {
+  const bySourceKey = new Map<string, CloudflareBuildCandidate>();
+  for (const candidate of candidates) {
+    const existing = bySourceKey.get(candidate.build.sourceKey);
+    if (existing !== undefined) {
+      assertCompatibleCloudflareBuildObservations(existing, candidate);
+      if (cloudflareBuildObservationOrder(existing, candidate) < 0) {
+        bySourceKey.set(candidate.build.sourceKey, candidate);
+      }
+      continue;
+    }
+    bySourceKey.set(candidate.build.sourceKey, candidate);
+  }
+  return [...bySourceKey.values()];
+}
+
+async function attachCloudflareBuilds(args: {
   items: readonly CollectedItemWithoutCloudflareBuilds[];
   associations: readonly InventoryItemCommitAssociation[];
+  commits: readonly RepositoryScopedCommitRequest[];
   observations: ReadonlyMap<string, CloudflareCommitObservation>;
-}): CollectedRepositoryInventoryItem[] {
-  const associationByRowKey = new Map<string, InventoryItemCommitAssociation>();
+  resolveCloudflareBuilds?: RepositoryInventoryCloudflareBuildResolver;
+}): Promise<{
+  items: CollectedRepositoryInventoryItem[];
+  unattributedCloudflareBuilds: CollectedRepositoryInventoryUnattributedCloudflareBuild[];
+}> {
+  const associationsByRowKey = new Map<string, InventoryItemCommitAssociation>();
+  const associationsByCommitKey = new Map<string, InventoryItemCommitAssociation[]>();
   for (const association of args.associations) {
-    if (associationByRowKey.has(association.rowKey)) {
+    if (associationsByRowKey.has(association.rowKey)) {
       throw new Error("Repository inventory item has more than one commit association.");
     }
-    associationByRowKey.set(association.rowKey, association);
+    associationsByRowKey.set(association.rowKey, association);
+    const commitKey = repositoryScopedCommitKey(association.commit);
+    const commitAssociations = associationsByCommitKey.get(commitKey) ?? [];
+    commitAssociations.push(association);
+    associationsByCommitKey.set(commitKey, commitAssociations);
   }
-  return args.items.map((item) => {
-    const association = associationByRowKey.get(item.rowKey);
-    if (association === undefined) {
+  const commitByKey = new Map(
+    args.commits.map((commit) => [repositoryScopedCommitKey(commit), commit]),
+  );
+  const itemByRowKey = new Map(args.items.map((item) => [item.rowKey, item]));
+  const candidates: CloudflareBuildCandidate[] = [];
+  for (const [commitKey, observation] of args.observations) {
+    const commit = commitByKey.get(commitKey);
+    const commitAssociations = associationsByCommitKey.get(commitKey);
+    if (commit === undefined || commitAssociations === undefined) {
+      throw new Error("Repository inventory Cloudflare observation has no commit association.");
+    }
+    const candidateRefByIdentity = new Map<
+      string,
+      {
+        repositoryNodeId: string | null;
+        branchName: string;
+        pullRequestUrls: string[];
+      }
+    >();
+    for (const association of commitAssociations) {
+      const identity = JSON.stringify([association.refRepositoryNodeId, association.branchName]);
+      const candidateRef = candidateRefByIdentity.get(identity) ?? {
+        repositoryNodeId: association.refRepositoryNodeId,
+        branchName: association.branchName,
+        pullRequestUrls: [],
+      };
+      if (
+        association.pullRequestUrl !== null &&
+        !candidateRef.pullRequestUrls.includes(association.pullRequestUrl)
+      ) {
+        candidateRef.pullRequestUrls.push(association.pullRequestUrl);
+      }
+      candidateRefByIdentity.set(identity, candidateRef);
+    }
+    const candidateRefs = [...candidateRefByIdentity.values()].map((candidateRef) => ({
+      ...candidateRef,
+      pullRequestUrls: candidateRef.pullRequestUrls.sort(),
+    }));
+    candidateRefs.sort(
+      (left, right) =>
+        (left.repositoryNodeId ?? "").localeCompare(right.repositoryNodeId ?? "") ||
+        left.branchName.localeCompare(right.branchName),
+    );
+    const priority = commitAssociations
+      .map((association) => itemByRowKey.get(association.rowKey))
+      .filter((item) => item !== undefined)
+      .sort(
+        (left, right) =>
+          left.sortGroup - right.sortGroup ||
+          left.sortTime - right.sortTime ||
+          left.rowKey.localeCompare(right.rowKey),
+      )
+      .at(0);
+    if (priority === undefined) {
+      throw new Error("Repository inventory Cloudflare observation has no visible item.");
+    }
+    for (const source of observation.checkRuns) {
+      const onlyCandidateRef = candidateRefs.length === 1 ? candidateRefs[0] : undefined;
+      const exactRef =
+        commit.checkRunType === "LATEST" &&
+        source.branchName !== null &&
+        onlyCandidateRef?.repositoryNodeId === commit.repositoryNodeId &&
+        onlyCandidateRef.branchName === source.branchName;
+      let branch: RepositoryInventoryCloudflareBuild["branch"];
+      if (exactRef && source.branchName !== null) {
+        branch = { state: "known", name: source.branchName };
+      } else if (commit.checkRunType === "ALL" || source.branchName !== null) {
+        branch = { state: "conflicting_evidence", suiteBranch: source.branchName };
+      } else {
+        branch = { state: "unknown" };
+      }
+      candidates.push({
+        commit,
+        source,
+        build: toCloudflareBuild({ value: source, branch }),
+        priority: {
+          sortGroup: priority.sortGroup,
+          sortTime: priority.sortTime,
+          rowKey: priority.rowKey,
+        },
+        candidateRefs,
+      });
+    }
+  }
+
+  const currentCandidates = currentCloudflareBuildCandidates(candidates);
+  const resolutionRequests: RepositoryInventoryCloudflareBuildResolutionRequest[] =
+    currentCandidates
+      .map((candidate) => ({
+        sourceKey: candidate.build.sourceKey,
+        providerBuildId: candidate.build.providerBuildId ?? null,
+        workerName: candidate.build.workerName,
+        detailsUrl: candidate.build.detailsUrl ?? null,
+        commitRepositoryNodeId: candidate.commit.repositoryNodeId,
+        commitSha: candidate.commit.sha,
+        requiresBranchResolution: candidate.build.branch.state !== "known",
+        priority: candidate.priority,
+        candidateRefs: candidate.candidateRefs,
+      }))
+      .sort((left, right) => left.sourceKey.localeCompare(right.sourceKey));
+  const resolutions =
+    args.resolveCloudflareBuilds === undefined || resolutionRequests.length === 0
+      ? []
+      : await args.resolveCloudflareBuilds(resolutionRequests);
+  const requestBySourceKey = new Map(
+    resolutionRequests.map((request) => [request.sourceKey, request]),
+  );
+  const resolutionBySourceKey = new Map<string, RepositoryInventoryCloudflareBuildResolution>();
+  for (const resolution of resolutions) {
+    const request = requestBySourceKey.get(resolution.sourceKey);
+    const branchResolution = resolution.branch;
+    if (
+      request === undefined ||
+      resolutionBySourceKey.has(resolution.sourceKey) ||
+      request.providerBuildId !== resolution.providerBuildId ||
+      resolution.accountId.length === 0 ||
+      resolution.workerTag.length === 0 ||
+      resolution.rootDirectory.length === 0 ||
+      (branchResolution.state === "resolved" &&
+        (!request.requiresBranchResolution ||
+          !Number.isFinite(branchResolution.createdAt) ||
+          !request.candidateRefs.some(
+            (ref) =>
+              ref.repositoryNodeId === branchResolution.refRepositoryNodeId &&
+              ref.branchName === branchResolution.branchName,
+          )))
+    ) {
+      throw new Error("Cloudflare build resolution returned an invalid build identity.");
+    }
+    resolutionBySourceKey.set(resolution.sourceKey, resolution);
+  }
+
+  type CurrentBuildAssociation = {
+    candidate: CloudflareBuildCandidate;
+    build: RepositoryInventoryCloudflareBuild;
+    refRepositoryNodeId: string;
+    branchName: string;
+    createdAt: number;
+  };
+  const resolvedCurrentByRef = new Map<string, CurrentBuildAssociation>();
+  const unattributedBySourceKey = new Map<
+    string,
+    { candidate: CloudflareBuildCandidate; build: RepositoryInventoryCloudflareBuild }
+  >();
+  const unresolvedAmbiguousCandidates = currentCandidates.filter((candidate) => {
+    const resolution = resolutionBySourceKey.get(candidate.build.sourceKey);
+    return candidate.build.branch.state !== "known" && resolution?.branch.state !== "resolved";
+  });
+  const retainCurrentAssociation = (refKey: string, association: CurrentBuildAssociation): void => {
+    const existing = resolvedCurrentByRef.get(refKey);
+    if (
+      existing === undefined ||
+      existing.createdAt < association.createdAt ||
+      (existing.createdAt === association.createdAt &&
+        existing.candidate.build.sourceKey.localeCompare(association.candidate.build.sourceKey) < 0)
+    ) {
+      resolvedCurrentByRef.set(refKey, association);
+    }
+  };
+
+  for (const candidate of currentCandidates) {
+    const resolution = resolutionBySourceKey.get(candidate.build.sourceKey);
+    const rootDirectory = resolution?.rootDirectory;
+    const build =
+      rootDirectory === undefined
+        ? candidate.build
+        : toCloudflareBuild({
+            value: candidate.source,
+            branch: candidate.build.branch,
+            rootDirectory,
+          });
+    if (resolution?.branch.state === "resolved") {
+      const supersededByUnresolved = unresolvedAmbiguousCandidates.some(
+        (unresolved) =>
+          repositoryScopedCommitKey(unresolved.commit) ===
+            repositoryScopedCommitKey(candidate.commit) &&
+          unresolved.build.workerName === candidate.build.workerName &&
+          cloudflareBuildObservationOrder(candidate, unresolved) <= 0,
+      );
+      if (supersededByUnresolved) {
+        continue;
+      }
+      const resolvedBranch = resolution.branch;
+      const refKey = JSON.stringify([
+        resolution.accountId,
+        resolution.workerTag,
+        resolvedBranch.refRepositoryNodeId,
+        resolvedBranch.branchName,
+      ]);
+      retainCurrentAssociation(refKey, {
+        candidate,
+        build: toCloudflareBuild({
+          value: candidate.source,
+          branch: { state: "known", name: resolvedBranch.branchName },
+          rootDirectory: resolution.rootDirectory,
+        }),
+        refRepositoryNodeId: resolvedBranch.refRepositoryNodeId,
+        branchName: resolvedBranch.branchName,
+        createdAt: resolvedBranch.createdAt,
+      });
+      continue;
+    }
+    if (build.branch.state === "known") {
+      const branchName = build.branch.name;
+      const knownRef = candidate.candidateRefs.find(
+        (ref) =>
+          ref.repositoryNodeId === candidate.commit.repositoryNodeId &&
+          ref.branchName === branchName,
+      );
+      if (knownRef !== undefined) {
+        const refKey =
+          resolution === undefined
+            ? JSON.stringify([
+                "github",
+                candidate.commit.repositoryNodeId,
+                build.workerName,
+                knownRef.branchName,
+              ])
+            : JSON.stringify([
+                resolution.accountId,
+                resolution.workerTag,
+                candidate.commit.repositoryNodeId,
+                knownRef.branchName,
+              ]);
+        retainCurrentAssociation(refKey, {
+          candidate,
+          build,
+          refRepositoryNodeId: candidate.commit.repositoryNodeId,
+          branchName: knownRef.branchName,
+          createdAt: build.completedAt ?? build.startedAt ?? 0,
+        });
+        continue;
+      }
+    }
+    unattributedBySourceKey.set(build.sourceKey, { candidate, build });
+  }
+
+  const buildsByRowKey = new Map<string, RepositoryInventoryCloudflareBuild[]>();
+  for (const associationEvidence of resolvedCurrentByRef.values()) {
+    const { branchName, build, candidate, refRepositoryNodeId } = associationEvidence;
+    const commitAssociations = associationsByCommitKey.get(
+      repositoryScopedCommitKey(candidate.commit),
+    );
+    if (commitAssociations === undefined) {
+      throw new Error("Resolved Cloudflare build lost its commit association.");
+    }
+    for (const association of commitAssociations) {
+      if (
+        association.refRepositoryNodeId === refRepositoryNodeId &&
+        association.branchName === branchName
+      ) {
+        const rowBuilds = buildsByRowKey.get(association.rowKey) ?? [];
+        rowBuilds.push(build);
+        buildsByRowKey.set(association.rowKey, rowBuilds);
+      }
+    }
+  }
+
+  const items = args.items.map((item) => {
+    if (!associationsByRowKey.has(item.rowKey)) {
       throw new Error("Repository inventory item is missing its commit association.");
     }
-    const observation = args.observations.get(repositoryScopedCommitKey(association.commit));
-    if (observation === undefined) {
-      throw new Error("Repository inventory item is missing its Cloudflare commit observation.");
-    }
-    const cloudflareBuilds = observation.checkRuns
-      .filter((value) => value.branchName === null || value.branchName === association.branchName)
-      .map(toCloudflareBuild);
+    const cloudflareBuilds = (buildsByRowKey.get(item.rowKey) ?? []).sort((left, right) =>
+      left.sourceKey.localeCompare(right.sourceKey),
+    );
     return item.kind === "branch" ? { ...item, cloudflareBuilds } : { ...item, cloudflareBuilds };
   });
+  const unattributedCloudflareBuilds = [...unattributedBySourceKey.values()]
+    .map(({ build, candidate }) => ({
+      commitRepositoryNodeId: candidate.commit.repositoryNodeId,
+      commitSha: candidate.commit.sha,
+      build,
+    }))
+    .sort(
+      (left, right) =>
+        left.commitRepositoryNodeId.localeCompare(right.commitRepositoryNodeId) ||
+        left.commitSha.localeCompare(right.commitSha) ||
+        left.build.sourceKey.localeCompare(right.build.sourceKey),
+    );
+  return { items, unattributedCloudflareBuilds };
 }
 
 type PullRequestMetadataSignature = {
@@ -1916,6 +2447,8 @@ async function collectBranches(args: {
       associations.push({
         rowKey,
         branchName: ref.name,
+        refRepositoryNodeId: repository.id,
+        pullRequestUrl: null,
         commit: collectedCommit.identity,
         signature: collectedCommit.signature,
       });
@@ -2289,6 +2822,8 @@ async function collectPullRequests(args: {
       associations.push({
         rowKey,
         branchName: pullRequest.headRefName,
+        refRepositoryNodeId: pullRequest.headRepository?.id ?? null,
+        pullRequestUrl: pullRequest.url,
         commit: collectedCommit.identity,
         signature: collectedCommit.signature,
       });
@@ -2521,6 +3056,7 @@ async function repositoryInventoryFingerprint(args: {
   repositoryFullName: string;
   defaultBranch: string | null;
   items: readonly CollectedRepositoryInventoryItem[];
+  unattributedCloudflareBuilds: readonly CollectedRepositoryInventoryUnattributedCloudflareBuild[];
 }): Promise<string> {
   const providerItems = [...args.items].sort((left, right) =>
     left.rowKey.localeCompare(right.rowKey),
@@ -2532,6 +3068,7 @@ async function repositoryInventoryFingerprint(args: {
       repositoryFullName: args.repositoryFullName,
       defaultBranch: args.defaultBranch,
       items: providerItems,
+      unattributedCloudflareBuilds: args.unattributedCloudflareBuilds,
     }),
   );
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -2544,6 +3081,7 @@ export async function collectRepositoryInventory(args: {
   pageSize: number;
   requestGraphql: RepositoryInventoryGraphqlRequest;
   requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest;
+  resolveCloudflareBuilds?: RepositoryInventoryCloudflareBuildResolver;
 }): Promise<CollectedRepositoryInventory> {
   const branches = await collectBranches(args);
   const branchHeadShaByName = new Map(
@@ -2589,10 +3127,12 @@ export async function collectRepositoryInventory(args: {
     verified: verifiedCloudflareObservations,
   });
 
-  const items = attachCloudflareBuilds({
+  const { items, unattributedCloudflareBuilds } = await attachCloudflareBuilds({
     items: [...branches.items, ...pullRequests.items],
     associations,
+    commits,
     observations: collectedCloudflareObservations,
+    resolveCloudflareBuilds: args.resolveCloudflareBuilds,
   });
 
   return {
@@ -2602,12 +3142,14 @@ export async function collectRepositoryInventory(args: {
     defaultBranch: branches.defaultBranch,
     defaultBranchCheckState: branches.defaultBranchCheckState,
     items,
+    unattributedCloudflareBuilds,
     fingerprint: await repositoryInventoryFingerprint({
       repositoryId: branches.repositoryId,
       repositoryDatabaseId: branches.repositoryDatabaseId,
       repositoryFullName: branches.repositoryFullName,
       defaultBranch: branches.defaultBranch,
       items,
+      unattributedCloudflareBuilds,
     }),
     branchCount: branches.items.length,
     pullRequestCount: pullRequests.items.length,
@@ -2969,6 +3511,7 @@ export async function collectRepositoryInventoryWithRetry(args: {
   expectedRepositoryDatabaseId: string;
   requestGraphql: RepositoryInventoryGraphqlRequest;
   requestGraphqlPartial: RepositoryInventoryGraphqlPartialRequest;
+  resolveCloudflareBuilds?: RepositoryInventoryCloudflareBuildResolver;
 }): Promise<CollectedRepositoryInventory> {
   try {
     return await collectRepositoryInventory({

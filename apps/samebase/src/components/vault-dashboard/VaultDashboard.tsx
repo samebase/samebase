@@ -143,6 +143,7 @@ import {
   useRepositoryInventoryCloudflareBuilds,
   type RepositoryInventoryCloudflareBuild,
 } from "@/hooks/useRepositoryInventoryCloudflareBuilds";
+import { useRepositoryInventoryUnattributedCloudflareBuilds } from "@/hooks/useRepositoryInventoryUnattributedCloudflareBuilds";
 import { useRepositoryInventorySnapshot } from "@/hooks/useRepositoryInventorySnapshot";
 import { useRepositorySummaryDirectory } from "@/hooks/useRepositorySummaryDirectory";
 import type {
@@ -2358,8 +2359,16 @@ function CloudflareBuildPreviewResult({ build }: { build: RepositoryInventoryClo
           Version
         </a>
         {preview.branchAlias.state === "provider_unknown" ? (
-          <span title="GitHub did not identify the branch for this preview alias">
-            Branch unknown
+          <span
+            title={
+              preview.branchAlias.reason === "conflicting_branch_evidence"
+                ? "GitHub and Cloudflare identified different branches for this preview alias"
+                : "GitHub did not identify the branch for this preview alias"
+            }
+          >
+            {preview.branchAlias.reason === "conflicting_branch_evidence"
+              ? "Branch unresolved"
+              : "Branch unknown"}
           </span>
         ) : null}
       </>
@@ -2381,7 +2390,13 @@ function CloudflareBuildPreviewResult({ build }: { build: RepositoryInventoryClo
   }
 }
 
-function CloudflareBuildRow({ build }: { build: RepositoryInventoryCloudflareBuild }) {
+function CloudflareBuildRow({
+  build,
+  commitSha,
+}: {
+  build: RepositoryInventoryCloudflareBuild;
+  commitSha: string | null;
+}) {
   const providerLinkClassName = clsx(
     "-mx-1 inline-flex min-h-7 items-center rounded-sm px-1 font-mono text-sm underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
     linkStyle,
@@ -2396,6 +2411,11 @@ function CloudflareBuildRow({ build }: { build: RepositoryInventoryCloudflareBui
         <span className="font-mono text-xs">
           {build.rootDirectory.state === "known" ? build.rootDirectory.value : "Root unknown"}
         </span>
+        {commitSha ? (
+          <span className="font-mono text-xs" title={commitSha}>
+            Commit {commitSha.slice(0, 7)}
+          </span>
+        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         <CloudflareBuildPreviewResult build={build} />
@@ -2449,7 +2469,7 @@ function CloudflareBuildDetails({
     <div className="border-l border-border pl-3 text-muted-foreground">
       <ul>
         {builds.builds.map((build) => (
-          <CloudflareBuildRow key={build.sourceKey} build={build} />
+          <CloudflareBuildRow key={build.sourceKey} build={build} commitSha={null} />
         ))}
       </ul>
       {builds.hasNextPage ? (
@@ -2465,6 +2485,98 @@ function CloudflareBuildDetails({
           {builds.isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Load more builds
         </button>
+      ) : null}
+    </div>
+  );
+}
+
+function UnattributedCloudflareBuildDetails({
+  snapshotId,
+  vaultId,
+}: {
+  snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+  vaultId: Id<"vaults">;
+}) {
+  const builds = useRepositoryInventoryUnattributedCloudflareBuilds({ snapshotId, vaultId });
+  if (builds.isLoading) {
+    return (
+      <div role="status" className="flex min-h-8 items-center text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="sr-only">Loading builds with unresolved branches</span>
+      </div>
+    );
+  }
+  if (builds.error) {
+    return <div className="text-sm text-destructive">Builds unavailable</div>;
+  }
+  return (
+    <div className="border-l border-border pl-3 text-muted-foreground">
+      <ul>
+        {builds.builds.map(({ build, commitSha }) => (
+          <CloudflareBuildRow key={build.sourceKey} build={build} commitSha={commitSha} />
+        ))}
+      </ul>
+      {builds.hasNextPage ? (
+        <button
+          type="button"
+          className={clsx(
+            "-mx-1 mt-1 inline-flex min-h-8 items-center gap-1 rounded-sm px-1 text-sm underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current disabled:no-underline",
+            linkStyle,
+          )}
+          disabled={builds.isFetchingNextPage}
+          onClick={() => void builds.fetchNextPage()}
+        >
+          {builds.isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Load more builds
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function UnattributedCloudflareBuildDisclosure({
+  buildCount,
+  hasFollowingRows,
+  snapshotId,
+  vaultId,
+}: {
+  buildCount: number;
+  hasFollowingRows: boolean;
+  snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+  vaultId: Id<"vaults">;
+}) {
+  const [open, setOpen] = useState(false);
+  const detailsId = useId();
+  const label =
+    buildCount === 1
+      ? "1 build with unresolved branch"
+      : `${buildCount} builds with unresolved branches`;
+
+  return (
+    <div
+      className={clsx(
+        "-mx-4 space-y-1 border bg-muted px-4 py-2",
+        hasFollowingRows && "border-b-0",
+      )}
+    >
+      <button
+        type="button"
+        aria-controls={open ? detailsId : undefined}
+        aria-expanded={open}
+        className={clsx(
+          "-mx-1.5 inline-flex min-h-7 items-center gap-1.5 rounded-sm px-1.5 font-mono text-sm transition-colors hover:underline",
+          linkStyle,
+        )}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <CloudflareProviderLogo />
+        <span>{label}</span>
+        <ChevronDownIcon aria-hidden="true" className={clsx("h-3.5 w-3.5", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <div id={detailsId}>
+          <UnattributedCloudflareBuildDetails snapshotId={snapshotId} vaultId={vaultId} />
+        </div>
       ) : null}
     </div>
   );
@@ -3145,6 +3257,7 @@ export function VaultBranchSection({
   schemaGraphAccessEnabled,
   stagedSummaries,
   snapshotId,
+  unattributedBuildCount,
   vaultId,
   remoteBranches,
 }: {
@@ -3158,12 +3271,23 @@ export function VaultBranchSection({
   schemaGraphAccessEnabled: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   snapshotId?: Id<"vaultRepositoryInventorySnapshots">;
+  unattributedBuildCount: number;
   vaultId: Id<"vaults">;
   remoteBranches: readonly VaultRepositoryInventoryRow[];
 }) {
+  const hasBranchList = remoteBranches.length > 0 || paginationStatus === "LoadingFirstPage";
   return (
-    <>
-      {remoteBranches.length > 0 || paginationStatus === "LoadingFirstPage" ? (
+    <div>
+      {unattributedBuildCount > 0 && snapshotId ? (
+        <UnattributedCloudflareBuildDisclosure
+          key={snapshotId}
+          buildCount={unattributedBuildCount}
+          hasFollowingRows={hasBranchList}
+          snapshotId={snapshotId}
+          vaultId={vaultId}
+        />
+      ) : null}
+      {hasBranchList ? (
         <VaultBranchList
           vaultId={vaultId}
           snapshotId={snapshotId}
@@ -3179,7 +3303,7 @@ export function VaultBranchSection({
           stagedSummaries={stagedSummaries}
         />
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -3644,6 +3768,10 @@ export function VaultDashboardView({
         const paginatedRemoteBranches = remoteBranchPage?.remoteBranches ?? [];
         const pullRequestFilter = remoteBranchPage?.pullRequestFilter ?? null;
         const inventoryState = repositoryInventoryStatesByVaultId.get(vault._id);
+        const unattributedBuildCount =
+          inventoryState !== undefined && inventoryState.state !== "empty"
+            ? (inventoryState.unattributedBuildCount ?? 0)
+            : 0;
         const vaultResourceLinksOpen =
           persistedVaultResourceLinksOpenByVaultId.get(vault._id) ?? false;
         const snapshotDefaultBranch =
@@ -3785,7 +3913,8 @@ export function VaultDashboardView({
         const branchSection =
           isReady &&
           (paginatedRemoteBranches.length > 0 ||
-            remoteBranchPage?.status === "LoadingFirstPage") ? (
+            remoteBranchPage?.status === "LoadingFirstPage" ||
+            unattributedBuildCount > 0) ? (
             <VaultBranchSection
               apps={vault.apps}
               convexDeployments={vault.convexDeployments}
@@ -3798,6 +3927,7 @@ export function VaultDashboardView({
                   ? inventoryState.activeSnapshotId
                   : undefined
               }
+              unattributedBuildCount={unattributedBuildCount}
               vaultId={vault._id}
               repositoryFullName={vault.routeRepositoryFullName}
               remoteBranches={paginatedRemoteBranches}

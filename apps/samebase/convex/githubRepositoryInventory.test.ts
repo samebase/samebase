@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   collectRepositoryInventory,
+  resolveCloudflareBuildCandidateRef,
+  type RepositoryInventoryCloudflareBuildResolutionRequest,
   type RepositoryInventoryGraphqlPartialRequest,
   type RepositoryInventoryGraphqlRequest,
 } from "./githubRepositoryInventory";
@@ -109,6 +111,7 @@ type RepositoryFixture = {
   pullRequestVerificationPageWidth?: number;
   transformCloudflareBatch?: (args: {
     commitIds: readonly string[];
+    checkRunType: "ALL" | "LATEST";
     nodes: readonly unknown[];
     pass: "initial" | "verification";
   }) => unknown[];
@@ -117,6 +120,7 @@ type RepositoryFixture = {
 type RequestObservations = {
   branchPageSizes: number[];
   cloudflareCommitBatchIds: string[][];
+  cloudflareCommitBatchTypes: Array<"ALL" | "LATEST">;
   pullRequestComparisonBatchSizes: number[];
   branchVerificationPasses: number;
   pullRequestVerificationPasses: number;
@@ -306,15 +310,37 @@ function makeCloudflareCheckRun(run: FixtureCloudflareCheckRun) {
   };
 }
 
-function makeCloudflareCheckRunPage(suite: FixtureCloudflareCheckSuite, start: number) {
-  const end = Math.min(start + 100, suite.checkRuns.length);
+function cloudflareCheckRunsForType(
+  suite: FixtureCloudflareCheckSuite,
+  checkRunType: "ALL" | "LATEST",
+): FixtureCloudflareCheckRun[] {
+  if (checkRunType === "ALL") {
+    return suite.checkRuns;
+  }
+  const names = new Set<string>();
+  return suite.checkRuns.filter((checkRun) => {
+    if (names.has(checkRun.name)) {
+      return false;
+    }
+    names.add(checkRun.name);
+    return true;
+  });
+}
+
+function makeCloudflareCheckRunPage(
+  suite: FixtureCloudflareCheckSuite,
+  start: number,
+  checkRunType: "ALL" | "LATEST",
+) {
+  const checkRuns = cloudflareCheckRunsForType(suite, checkRunType);
+  const end = Math.min(start + 100, checkRuns.length);
   return {
-    totalCount: suite.totalCount ?? suite.checkRuns.length,
+    totalCount: suite.totalCount ?? checkRuns.length,
     pageInfo: pageInfo(
-      end < suite.checkRuns.length,
-      end < suite.checkRuns.length ? `cloudflare-runs-${suite.id}:${end}` : null,
+      end < checkRuns.length,
+      end < checkRuns.length ? `cloudflare-runs-${suite.id}:${end}` : null,
     ),
-    nodes: suite.checkRuns.slice(start, end).map(makeCloudflareCheckRun),
+    nodes: checkRuns.slice(start, end).map(makeCloudflareCheckRun),
   };
 }
 
@@ -324,6 +350,7 @@ function makeCloudflareSuitePage(args: {
   totalCount?: number;
   start: number;
   width: number;
+  checkRunType: "ALL" | "LATEST";
 }) {
   const end = Math.min(args.start + args.width, args.suites.length);
   return {
@@ -335,7 +362,7 @@ function makeCloudflareSuitePage(args: {
     nodes: args.suites.slice(args.start, end).map((suite) => ({
       id: suite.id,
       branch: suite.branchName === null ? null : { name: suite.branchName },
-      checkRuns: makeCloudflareCheckRunPage(suite, 0),
+      checkRuns: makeCloudflareCheckRunPage(suite, 0, args.checkRunType),
     })),
   };
 }
@@ -351,6 +378,8 @@ function makeWorkerBuild(args: {
   branchAliasUrl?: string;
   status?: string;
   conclusion?: string | null;
+  startedAt?: string;
+  completedAt?: string;
   summarySuffix?: string;
 }): FixtureCloudflareCheckRun {
   const versionUrl = args.versionUrl ?? `https://${args.id}.workers.dev/`;
@@ -362,6 +391,8 @@ function makeWorkerBuild(args: {
     name: `Workers Builds: ${args.workerName}`,
     status: args.status,
     conclusion: args.conclusion,
+    startedAt: args.startedAt,
+    completedAt: args.completedAt,
     summary: `Build ID: [build-${args.id}](https://dash.cloudflare.com/builds/${args.id})
 Script: [${args.workerName}](https://dash.cloudflare.com/workers/${args.workerName})
 Version ID: [version-${args.id}](https://dash.cloudflare.com/versions/${args.id})
@@ -621,7 +652,10 @@ function buildFixtureCommitObservations(args: {
   return observations;
 }
 
-function makeCloudflareCommitObservationNode(commit: FixtureCommitObservation) {
+function makeCloudflareCommitObservationNode(
+  commit: FixtureCommitObservation,
+  checkRunType: "ALL" | "LATEST",
+) {
   return {
     __typename: "Commit",
     id: commit.nodeId,
@@ -633,6 +667,7 @@ function makeCloudflareCommitObservationNode(commit: FixtureCommitObservation) {
       totalCount: commit.suiteTotalCount,
       start: 0,
       width: 3,
+      checkRunType,
     }),
   };
 }
@@ -645,6 +680,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
   const observations: RequestObservations = {
     branchPageSizes: [],
     cloudflareCommitBatchIds: [],
+    cloudflareCommitBatchTypes: [],
     pullRequestComparisonBatchSizes: [],
     branchVerificationPasses: 0,
     pullRequestVerificationPasses: 0,
@@ -980,7 +1016,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         "nodes(ids: $commitIds)",
         "first: 3",
         "filterBy: { appId: 85455 }",
-        "filterBy: { checkType: LATEST }",
+        "filterBy: { checkType: $checkRunType }",
         "repository { id }",
       ]) {
         if (!query.includes(field)) {
@@ -991,7 +1027,12 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         throw new Error("Cloudflare commit batches must not repeat aggregate check metadata.");
       }
       const commitIds = requireStringArrayVariable(variables, "commitIds");
+      const checkRunType = requireStringVariable(variables, "checkRunType");
+      if (checkRunType !== "ALL" && checkRunType !== "LATEST") {
+        throw new Error("Expected a supported Cloudflare check run type.");
+      }
       observations.cloudflareCommitBatchIds.push(commitIds);
+      observations.cloudflareCommitBatchTypes.push(checkRunType);
       const pass = observations.branchVerificationPasses > 0 ? "verification" : "initial";
       const source =
         pass === "verification" ? verificationCommitObservations : initialCommitObservations;
@@ -1001,10 +1042,11 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
           throw new Error(`Unknown commit node ${nodeId}.`);
         }
         activateCommit(commit);
-        return makeCloudflareCommitObservationNode(commit);
+        return makeCloudflareCommitObservationNode(commit, checkRunType);
       });
       return {
-        nodes: fixture.transformCloudflareBatch?.({ commitIds, nodes, pass }) ?? nodes,
+        nodes:
+          fixture.transformCloudflareBatch?.({ commitIds, checkRunType, nodes, pass }) ?? nodes,
       };
     }
 
@@ -1027,6 +1069,10 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         throw new Error("Expected complete Cloudflare suite continuation pagination.");
       }
       const nodeId = requireStringVariable(variables, "nodeId");
+      const checkRunType = requireStringVariable(variables, "checkRunType");
+      if (checkRunType !== "ALL" && checkRunType !== "LATEST") {
+        throw new Error("Expected a supported Cloudflare check run type.");
+      }
       const commit = activeCommits.get(nodeId);
       if (commit === undefined) {
         throw new Error(`Unknown commit node ${nodeId}.`);
@@ -1044,6 +1090,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
             totalCount: commit.suiteTotalCount,
             start: readCursor(variables, `cloudflare-suites-${nodeId}`),
             width: 100,
+            checkRunType,
           }),
         },
       };
@@ -1054,6 +1101,10 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
         throw new Error("Expected complete Cloudflare check run continuation pagination.");
       }
       const nodeId = requireStringVariable(variables, "nodeId");
+      const checkRunType = requireStringVariable(variables, "checkRunType");
+      if (checkRunType !== "ALL" && checkRunType !== "LATEST") {
+        throw new Error("Expected a supported Cloudflare check run type.");
+      }
       const suite = activeSuites.get(nodeId);
       if (suite === undefined) {
         throw new Error(`Unknown Cloudflare check suite ${nodeId}.`);
@@ -1067,6 +1118,7 @@ function createRepositoryRequest(fixture: RepositoryFixture): {
           checkRuns: makeCloudflareCheckRunPage(
             suite,
             readCursor(variables, `cloudflare-runs-${nodeId}`),
+            checkRunType,
           ),
         },
       };
@@ -1140,6 +1192,45 @@ function makeBaseFixture(): RepositoryFixture {
     pullRequests: [],
   };
 }
+
+describe("Cloudflare build ref evidence", () => {
+  const candidateRefs: RepositoryInventoryCloudflareBuildResolutionRequest["candidateRefs"] = [
+    {
+      repositoryNodeId: "R_base",
+      branchName: "main",
+      pullRequestUrls: [],
+    },
+    {
+      repositoryNodeId: "R_fork",
+      branchName: "main",
+      pullRequestUrls: ["https://github.com/samebase/samebase/pull/123"],
+    },
+  ];
+
+  it("uses the pull request URL to separate same-named base and fork refs", () => {
+    expect(
+      resolveCloudflareBuildCandidateRef({
+        candidateRefs,
+        branchName: "main",
+        pullRequestUrl: "https://github.com/samebase/samebase/pull/123/",
+      }),
+    ).toEqual({
+      state: "resolved",
+      refRepositoryNodeId: "R_fork",
+      branchName: "main",
+    });
+  });
+
+  it("leaves a same-named base and fork ref unresolved without pull request evidence", () => {
+    expect(
+      resolveCloudflareBuildCandidateRef({
+        candidateRefs,
+        branchName: "main",
+        pullRequestUrl: null,
+      }),
+    ).toEqual({ state: "unresolved" });
+  });
+});
 
 describe("GitHub repository inventory collection", () => {
   it("uses exact aggregate check counts without ordinary check pagination", async () => {
@@ -1301,18 +1392,24 @@ describe("GitHub repository inventory collection", () => {
     expect(observations.branchVerificationPasses).toBe(1);
     expect(observations.pullRequestVerificationPasses).toBe(1);
     expect(observations.pullRequestComparisonBatchSizes).toEqual([1, 1]);
-    expect(observations.cloudflareCommitBatchIds.map((batch) => batch.length)).toEqual([4, 4]);
+    expect(observations.cloudflareCommitBatchIds.map((batch) => batch.length)).toEqual([
+      3, 1, 3, 1,
+    ]);
+    expect(observations.cloudflareCommitBatchTypes).toEqual(["LATEST", "ALL", "LATEST", "ALL"]);
     expect(observations.cloudflareCommitBatchIds[0]).toEqual(
-      observations.cloudflareCommitBatchIds[1],
+      observations.cloudflareCommitBatchIds[2],
     );
-    expect(observations.cloudflareCommitBatchIds[0]).toContain(
-      fixtureCommitNodeId("R_base", "feature-sha"),
+    expect(observations.cloudflareCommitBatchIds[1]).toEqual(
+      observations.cloudflareCommitBatchIds[3],
+    );
+    expect(observations.cloudflareCommitBatchIds[1]).toContain(
+      fixtureCommitNodeId("R_base", "fork-sha"),
     );
     expect(observations.cloudflareSuiteContinuationRequests).toBe(0);
     expect(observations.cloudflareCheckRunContinuationRequests).toBe(0);
   });
 
-  it("keeps every Worker build and both preview URL types", async () => {
+  it("keeps every Worker build, enriches LATEST roots, and preserves both preview URL types", async () => {
     const alpha = makeWorkerBuild({
       id: "run-alpha",
       workerName: "alpha",
@@ -1342,6 +1439,7 @@ describe("GitHub repository inventory collection", () => {
       ],
     };
     const request = createRepositoryRequest(fixture);
+    const providerRequests: RepositoryInventoryCloudflareBuildResolutionRequest[] = [];
 
     const result = await collectRepositoryInventory({
       repositoryNodeId: fixture.repositoryId,
@@ -1349,6 +1447,17 @@ describe("GitHub repository inventory collection", () => {
       pageSize: 50,
       requestGraphql: request.requestGraphql,
       requestGraphqlPartial: request.requestGraphqlPartial,
+      resolveCloudflareBuilds: async (requests) => {
+        providerRequests.push(...requests);
+        return requests.map((providerRequest) => ({
+          sourceKey: providerRequest.sourceKey,
+          providerBuildId: providerRequest.providerBuildId,
+          accountId: "account",
+          workerTag: `${providerRequest.workerName}-tag`,
+          rootDirectory: `apps/${providerRequest.workerName}`,
+          branch: { state: "unresolved" as const },
+        }));
+      },
     });
 
     const main = result.items.find((item) => item.kind === "branch" && item.name === "main");
@@ -1357,8 +1466,9 @@ describe("GitHub repository inventory collection", () => {
     }
     expect(main.cloudflareBuilds).toMatchObject([
       {
-        sourceKey: "run-alpha",
+        sourceKey: "cloudflare-build:build-run-alpha",
         workerName: "alpha",
+        rootDirectory: { state: "known", value: "apps/alpha" },
         branch: { state: "known", name: "main" },
         state: "success",
         preview: {
@@ -1372,8 +1482,9 @@ describe("GitHub repository inventory collection", () => {
         },
       },
       {
-        sourceKey: "run-beta",
+        sourceKey: "cloudflare-build:build-run-beta",
         workerName: "beta",
+        rootDirectory: { state: "known", value: "apps/beta" },
         branch: { state: "known", name: "main" },
         state: "success",
         preview: {
@@ -1387,29 +1498,45 @@ describe("GitHub repository inventory collection", () => {
         },
       },
     ]);
+    expect(providerRequests).toHaveLength(2);
+    expect(providerRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workerName: "alpha",
+          requiresBranchResolution: false,
+          candidateRefs: [
+            {
+              repositoryNodeId: "R_base",
+              branchName: "main",
+              pullRequestUrls: [],
+            },
+          ],
+        }),
+        expect.objectContaining({
+          workerName: "beta",
+          requiresBranchResolution: false,
+        }),
+      ]),
+    );
+    expect(request.observations.cloudflareCommitBatchTypes).toEqual(["LATEST", "LATEST"]);
+    expect(result.unattributedCloudflareBuilds).toEqual([]);
   });
 
-  it("isolates branch aliases when two branches point at the same SHA", async () => {
+  it("resolves branch aliases when two branches share one GitHub check suite", async () => {
     const suites: FixtureCloudflareCheckSuite[] = [
       {
         id: "suite-main",
         branchName: "main",
         checkRuns: [
           makeWorkerBuild({
-            id: "run-main",
-            workerName: "web",
-            branchAliasUrl: "https://main-web.workers.dev/",
-          }),
-        ],
-      },
-      {
-        id: "suite-release",
-        branchName: "release",
-        checkRuns: [
-          makeWorkerBuild({
             id: "run-release",
             workerName: "web",
             branchAliasUrl: "https://release-web.workers.dev/",
+          }),
+          makeWorkerBuild({
+            id: "run-main",
+            workerName: "web",
+            branchAliasUrl: "https://main-web.workers.dev/",
           }),
         ],
       },
@@ -1441,20 +1568,198 @@ describe("GitHub repository inventory collection", () => {
       pageSize: 50,
       requestGraphql: request.requestGraphql,
       requestGraphqlPartial: request.requestGraphqlPartial,
+      resolveCloudflareBuilds: async (requests) =>
+        requests.map((resolutionRequest) => {
+          const providerBuildId = resolutionRequest.providerBuildId;
+          if (providerBuildId === null) {
+            throw new Error("Expected a Cloudflare Build ID.");
+          }
+          const branchName = providerBuildId.endsWith("run-main") ? "main" : "release";
+          return {
+            sourceKey: resolutionRequest.sourceKey,
+            providerBuildId,
+            accountId: "account",
+            workerTag: "worker-tag",
+            rootDirectory: "apps/web",
+            branch: {
+              state: "resolved" as const,
+              refRepositoryNodeId: "R_base",
+              branchName,
+              createdAt: Date.parse("2026-07-15T10:02:00Z"),
+            },
+          };
+        }),
     });
 
     const branches = result.items.filter((item) => item.kind === "branch");
     const main = branches.find((branch) => branch.name === "main");
     const release = branches.find((branch) => branch.name === "release");
-    expect(main?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-main"]);
-    expect(release?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-release"]);
+    expect(main?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual([
+      "cloudflare-build:build-run-main",
+    ]);
+    expect(release?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual([
+      "cloudflare-build:build-run-release",
+    ]);
     expect(request.observations.cloudflareCommitBatchIds).toEqual([
       [fixtureCommitNodeId("R_base", "shared-sha")],
       [fixtureCommitNodeId("R_base", "shared-sha")],
     ]);
   });
 
-  it("keeps fork identity separate from its base-scoped commit observation", async () => {
+  it("preserves distinct unresolved Build IDs even when their aliases collide", async () => {
+    const suites: FixtureCloudflareCheckSuite[] = [
+      {
+        id: "suite-main",
+        branchName: "main",
+        checkRuns: [
+          makeWorkerBuild({
+            id: "run-one",
+            workerName: "web",
+            branchAliasUrl: "https://shared-web.workers.dev/",
+          }),
+          makeWorkerBuild({
+            id: "run-two",
+            workerName: "web",
+            branchAliasUrl: "https://shared-web.workers.dev/",
+          }),
+        ],
+      },
+    ];
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          id: "REF_main",
+          name: "main",
+          sha: "shared-sha",
+          checkCount: 2,
+          cloudflareSuites: suites,
+        },
+        {
+          id: "REF_release",
+          name: "release",
+          sha: "shared-sha",
+          checkCount: 2,
+          cloudflareSuites: suites,
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+      resolveCloudflareBuilds: async (requests) =>
+        requests.map((providerRequest) => ({
+          sourceKey: providerRequest.sourceKey,
+          providerBuildId: providerRequest.providerBuildId,
+          accountId: "account",
+          workerTag: "worker-tag",
+          rootDirectory: "apps/web",
+          branch: { state: "unresolved" as const },
+        })),
+    });
+
+    expect(result.items.every((item) => item.cloudflareBuilds.length === 0)).toBe(true);
+    expect(result.unattributedCloudflareBuilds.map((item) => item.build.sourceKey)).toEqual([
+      "cloudflare-build:build-run-one",
+      "cloudflare-build:build-run-two",
+    ]);
+    expect(result.unattributedCloudflareBuilds).toMatchObject([
+      {
+        build: {
+          rootDirectory: { state: "known", value: "apps/web" },
+          preview: { state: "ready", branchAlias: { state: "provider_unknown" } },
+        },
+      },
+      {
+        build: {
+          rootDirectory: { state: "known", value: "apps/web" },
+          preview: { state: "ready", branchAlias: { state: "provider_unknown" } },
+        },
+      },
+    ]);
+  });
+
+  it("does not publish an older resolved build when a newer attempt is unresolved", async () => {
+    const suites: FixtureCloudflareCheckSuite[] = [
+      {
+        id: "suite-main",
+        branchName: "main",
+        checkRuns: [
+          makeWorkerBuild({
+            id: "run-old",
+            workerName: "web",
+            startedAt: "2026-07-15T10:00:00Z",
+            completedAt: "2026-07-15T10:01:00Z",
+          }),
+          makeWorkerBuild({
+            id: "run-new",
+            workerName: "web",
+            startedAt: "2026-07-15T10:02:00Z",
+            completedAt: "2026-07-15T10:03:00Z",
+          }),
+        ],
+      },
+    ];
+    const fixture: RepositoryFixture = {
+      ...makeBaseFixture(),
+      branches: [
+        {
+          id: "REF_main",
+          name: "main",
+          sha: "shared-sha",
+          checkCount: 2,
+          cloudflareSuites: suites,
+        },
+        {
+          id: "REF_release",
+          name: "release",
+          sha: "shared-sha",
+          checkCount: 2,
+          cloudflareSuites: suites,
+        },
+      ],
+    };
+    const request = createRepositoryRequest(fixture);
+
+    const result = await collectRepositoryInventory({
+      repositoryNodeId: fixture.repositoryId,
+      expectedRepositoryDatabaseId: fixture.repositoryDatabaseId,
+      pageSize: 50,
+      requestGraphql: request.requestGraphql,
+      requestGraphqlPartial: request.requestGraphqlPartial,
+      resolveCloudflareBuilds: async (requests) =>
+        requests.map((providerRequest) => {
+          const isOld = providerRequest.sourceKey.endsWith("run-old");
+          return {
+            sourceKey: providerRequest.sourceKey,
+            providerBuildId: providerRequest.providerBuildId,
+            accountId: "account",
+            workerTag: "worker-tag",
+            rootDirectory: "apps/web",
+            branch: isOld
+              ? {
+                  state: "resolved" as const,
+                  refRepositoryNodeId: "R_base",
+                  branchName: "main",
+                  createdAt: Date.parse("2026-07-15T10:01:00Z"),
+                }
+              : { state: "unresolved" as const },
+          };
+        }),
+    });
+
+    expect(result.items.every((item) => item.cloudflareBuilds.length === 0)).toBe(true);
+    expect(result.unattributedCloudflareBuilds.map((item) => item.build.sourceKey)).toEqual([
+      "cloudflare-build:build-run-new",
+    ]);
+  });
+
+  it("keeps a same-named fork ref separate from its base-scoped commit observation", async () => {
     const fixture: RepositoryFixture = {
       ...makeBaseFixture(),
       branches: [
@@ -1477,7 +1782,7 @@ describe("GitHub repository inventory collection", () => {
           id: "PR_fork",
           number: 1,
           title: "Fork commit with the same Git object",
-          headRefName: "contribution",
+          headRefName: "main",
           headRefOid: "shared-sha",
           headRepositoryId: "R_fork",
           headRepositoryFullName: "contributor/samebase",
@@ -1492,7 +1797,7 @@ describe("GitHub repository inventory collection", () => {
           cloudflareSuites: [
             {
               id: "suite-fork",
-              branchName: "contribution",
+              branchName: "main",
               checkRuns: [makeWorkerBuild({ id: "run-fork", workerName: "fork" })],
             },
           ],
@@ -1500,6 +1805,7 @@ describe("GitHub repository inventory collection", () => {
       ],
     };
     const request = createRepositoryRequest(fixture);
+    const providerRequests: RepositoryInventoryCloudflareBuildResolutionRequest[] = [];
 
     const result = await collectRepositoryInventory({
       repositoryNodeId: fixture.repositoryId,
@@ -1507,16 +1813,63 @@ describe("GitHub repository inventory collection", () => {
       pageSize: 50,
       requestGraphql: request.requestGraphql,
       requestGraphqlPartial: request.requestGraphqlPartial,
+      resolveCloudflareBuilds: async (requests) => {
+        providerRequests.push(...requests);
+        return requests.map((resolutionRequest) => {
+          const providerBuildId = resolutionRequest.providerBuildId;
+          if (providerBuildId === null) {
+            throw new Error("Expected a Cloudflare Build ID.");
+          }
+          const isBaseBuild = providerBuildId.endsWith("run-base");
+          return {
+            sourceKey: resolutionRequest.sourceKey,
+            providerBuildId,
+            accountId: "account",
+            workerTag: isBaseBuild ? "base-worker-tag" : "fork-worker-tag",
+            rootDirectory: isBaseBuild ? "apps/base" : "apps/fork",
+            branch: {
+              state: "resolved" as const,
+              refRepositoryNodeId: isBaseBuild ? "R_base" : "R_fork",
+              branchName: "main",
+              createdAt: Date.parse("2026-07-15T10:02:00Z"),
+            },
+          };
+        });
+      },
     });
 
     const branch = result.items.find((item) => item.kind === "branch");
     const pullRequest = result.items.find((item) => item.kind === "pull_request");
-    expect(branch?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-base"]);
-    expect(pullRequest?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual(["run-fork"]);
+    expect(branch?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual([
+      "cloudflare-build:build-run-base",
+    ]);
+    expect(pullRequest?.cloudflareBuilds.map((build) => build.sourceKey)).toEqual([
+      "cloudflare-build:build-run-fork",
+    ]);
     expect(pullRequest).toMatchObject({
       headRepository: { repositoryNodeId: "R_fork" },
       isCrossRepository: true,
     });
+    expect(providerRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          requiresBranchResolution: true,
+          candidateRefs: [
+            {
+              repositoryNodeId: "R_base",
+              branchName: "main",
+              pullRequestUrls: [],
+            },
+            {
+              repositoryNodeId: "R_fork",
+              branchName: "main",
+              pullRequestUrls: ["https://github.com/samebase/samebase/pull/1"],
+            },
+          ],
+        }),
+      ]),
+    );
+    expect(result.unattributedCloudflareBuilds).toEqual([]);
     expect(request.observations.cloudflareCommitBatchIds).toEqual([
       [fixtureCommitNodeId("R_base", "shared-sha")],
       [fixtureCommitNodeId("R_base", "shared-sha")],
@@ -1576,26 +1929,32 @@ describe("GitHub repository inventory collection", () => {
     {
       name: "wrong SHA",
       expected: "did not match its repository commit",
-      transform: ({ commitIds, nodes }) => [
-        makeCloudflareCommitObservationNode({
-          nodeId: commitIds[0] ?? "missing",
-          repositoryId: "R_base",
-          sha: "wrong-sha",
-          suites: [],
-        }),
+      transform: ({ checkRunType, commitIds, nodes }) => [
+        makeCloudflareCommitObservationNode(
+          {
+            nodeId: commitIds[0] ?? "missing",
+            repositoryId: "R_base",
+            sha: "wrong-sha",
+            suites: [],
+          },
+          checkRunType,
+        ),
         nodes[1],
       ],
     },
     {
       name: "wrong repository",
       expected: "did not match its repository commit",
-      transform: ({ commitIds, nodes }) => [
-        makeCloudflareCommitObservationNode({
-          nodeId: commitIds[0] ?? "missing",
-          repositoryId: "R_other",
-          sha: "feature-sha",
-          suites: [],
-        }),
+      transform: ({ checkRunType, commitIds, nodes }) => [
+        makeCloudflareCommitObservationNode(
+          {
+            nodeId: commitIds[0] ?? "missing",
+            repositoryId: "R_other",
+            sha: "feature-sha",
+            suites: [],
+          },
+          checkRunType,
+        ),
         nodes[1],
       ],
     },
@@ -1767,16 +2126,20 @@ describe("GitHub repository inventory collection", () => {
     if (main?.kind !== "branch") {
       throw new Error("Expected the main branch.");
     }
-    expect(main.cloudflareBuilds).toMatchObject([
+    expect(main.cloudflareBuilds).toEqual([]);
+    expect(result.unattributedCloudflareBuilds).toMatchObject([
       {
-        sourceKey: "run-unknown",
-        branch: { state: "unknown" },
-        preview: {
-          state: "ready",
-          branchAlias: {
-            state: "provider_unknown",
-            reason: "branch_unavailable",
-            providerUrl: "https://unattributed-web.workers.dev/",
+        commitSha: "main-sha",
+        build: {
+          sourceKey: "cloudflare-build:build-run-unknown",
+          branch: { state: "unknown" },
+          preview: {
+            state: "ready",
+            branchAlias: {
+              state: "provider_unknown",
+              reason: "branch_unavailable",
+              providerUrl: "https://unattributed-web.workers.dev/",
+            },
           },
         },
       },

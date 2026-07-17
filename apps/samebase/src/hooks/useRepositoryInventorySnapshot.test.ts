@@ -146,6 +146,7 @@ function readyInventoryState(
     activeFilterRevision: 1,
     repositoryFullName: "ada/inventory",
     defaultBranch,
+    unattributedBuildCount: 0,
     publishedAt: 1_000,
     checkedAt: 1_000,
   };

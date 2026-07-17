@@ -108,6 +108,7 @@ export const getVaultReadContext = internalQuery({
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
       return {
+        apps: [],
         convexDeployments: [],
         vault: null,
         cloudflareWorkers: [],
@@ -116,7 +117,11 @@ export const getVaultReadContext = internalQuery({
       };
     }
 
-    const [convexDeployments, cloudflareWorkers, convexConnectionRaw] = await Promise.all([
+    const [apps, convexDeployments, cloudflareWorkers, convexConnectionRaw] = await Promise.all([
+      ctx.db
+        .query("vaultApps")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .collect(),
       ctx.db
         .query("vaultConvexDeployments")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -132,6 +137,7 @@ export const getVaultReadContext = internalQuery({
     ]);
 
     return {
+      apps,
       convexDeployments,
       vault,
       cloudflareWorkers,

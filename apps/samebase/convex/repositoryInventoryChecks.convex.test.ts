@@ -156,6 +156,7 @@ async function createChecksTest() {
       branchCount: 1,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -205,6 +206,7 @@ async function createChecksTest() {
         publishedAt: now,
         checkedAt: now,
         fingerprint: "active",
+        unattributedBuildCount: 0,
       },
     });
     for (const [itemSnapshotId, itemHeadSha] of [

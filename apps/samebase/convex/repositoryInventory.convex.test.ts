@@ -4,9 +4,11 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   REPOSITORY_INVENTORY_FAILURE_MESSAGE_MAX_LENGTH,
+  REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE,
   repositoryInventoryCloudflareBuildSortKey,
   type RepositoryInventoryBranchComparison,
   type RepositoryInventoryCloudflareBuild,
+  type RepositoryInventoryCloudflareBuildRow,
   type RepositoryInventoryLifecycle,
   type RepositoryInventoryPublication,
   type RepositoryInventoryPullRequestComparison,
@@ -102,7 +104,9 @@ async function insertSnapshot(
     branchCount?: number;
     buildCount?: number;
     buildAssociationCount?: number;
+    unattributedBuildCount?: number;
     expectedBuildAssociationCount?: number;
+    expectedBuildAssociationCountFromBuilds?: number;
     pullRequestCount?: number;
     labelCount?: number;
     labelChunkCount?: number;
@@ -116,6 +120,7 @@ async function insertSnapshot(
       branchCount: args.branchCount ?? 0,
       buildCount: args.buildCount ?? 0,
       buildAssociationCount: args.buildAssociationCount ?? 0,
+      unattributedBuildCount: args.unattributedBuildCount ?? 0,
       pullRequestCount: args.pullRequestCount ?? 0,
       labelCount: args.labelCount ?? 0,
       labelChunkCount: args.labelChunkCount ?? 0,
@@ -129,6 +134,8 @@ async function insertSnapshot(
           ...counts,
           expectedBuildAssociationCount:
             args.expectedBuildAssociationCount ?? args.buildAssociationCount ?? 0,
+          expectedBuildAssociationCountFromBuilds:
+            args.expectedBuildAssociationCountFromBuilds ?? args.buildAssociationCount ?? 0,
         })
       : await ctx.db.insert("vaultRepositoryInventorySnapshots", {
           state: "ready",
@@ -207,6 +214,7 @@ async function handoffAndMaterializeSnapshot(
     branchCount: number;
     buildCount?: number;
     buildAssociationCount?: number;
+    unattributedBuildCount?: number;
     pullRequestCount: number;
     labelCount: number;
     labelChunkCount: number;
@@ -228,6 +236,7 @@ async function handoffAndMaterializeSnapshot(
     branchCount: args.branchCount,
     buildCount: args.buildCount ?? 0,
     buildAssociationCount: args.buildAssociationCount ?? 0,
+    unattributedBuildCount: args.unattributedBuildCount ?? 0,
     pullRequestCount: args.pullRequestCount,
     labelCount: args.labelCount,
     labelChunkCount: args.labelChunkCount,
@@ -258,6 +267,7 @@ function publication(
     publishedAt: now - 5_000,
     checkedAt: now - 5_000,
     fingerprint: "published-fingerprint",
+    unattributedBuildCount: 0,
     ...overrides,
   };
 }
@@ -433,6 +443,25 @@ function cloudflareBuild(workerName: string): RepositoryInventoryCloudflareBuild
         url: `https://feature-builds-${workerName}.example.workers.dev`,
       },
     },
+  };
+}
+
+function cloudflareBuildRow(args: {
+  vaultId: Id<"vaults">;
+  snapshotId: Id<"vaultRepositoryInventorySnapshots">;
+  build: RepositoryInventoryCloudflareBuild;
+  associationCount?: number;
+  commitSha?: string;
+}): RepositoryInventoryCloudflareBuildRow {
+  return {
+    vaultId: args.vaultId,
+    snapshotId: args.snapshotId,
+    commitRepositoryNodeId: "R_inventory",
+    commitSha: args.commitSha ?? "feature-builds-sha",
+    associationCount: args.associationCount ?? 1,
+    stagedAssociationCount: 0,
+    sortKey: repositoryInventoryCloudflareBuildSortKey(args.build),
+    build: args.build,
   };
 }
 
@@ -765,6 +794,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -864,6 +894,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -922,6 +953,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1033,6 +1065,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1100,6 +1133,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1154,6 +1188,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1209,6 +1244,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1272,6 +1308,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1355,6 +1392,7 @@ describe("repository inventory refresh state machine", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -1995,6 +2033,7 @@ describe("repository inventory refresh state machine", () => {
         branchCount: 1,
         buildCount: 0,
         buildAssociationCount: 0,
+        unattributedBuildCount: 0,
         pullRequestCount: 0,
         labelCount: 0,
         labelChunkCount: 0,
@@ -2115,8 +2154,8 @@ describe("repository inventory Cloudflare build storage", () => {
       vaultId: ids.vaultId,
       snapshotId,
       builds: [
-        { vaultId: ids.vaultId, snapshotId, build: alpha },
-        { vaultId: ids.vaultId, snapshotId, build: beta },
+        cloudflareBuildRow({ vaultId: ids.vaultId, snapshotId, build: alpha }),
+        cloudflareBuildRow({ vaultId: ids.vaultId, snapshotId, build: beta }),
       ],
     });
     await t.mutation(
@@ -2147,9 +2186,9 @@ describe("repository inventory Cloudflare build storage", () => {
     expect(state.snapshots).toMatchObject([
       { state: "collecting", buildCount: 2, buildAssociationCount: 2 },
     ]);
-    expect(state.builds.map((row) => row.build.sourceKey)).toEqual([
-      alpha.sourceKey,
-      beta.sourceKey,
+    expect(state.builds).toMatchObject([
+      { stagedAssociationCount: 1, build: { sourceKey: alpha.sourceKey } },
+      { stagedAssociationCount: 1, build: { sourceKey: beta.sourceKey } },
     ]);
     expect(state.buildAssociations.map((association) => association.buildSourceKey)).toEqual([
       alpha.sourceKey,
@@ -2185,7 +2224,7 @@ describe("repository inventory Cloudflare build storage", () => {
       stagedBuildCount: 0,
     });
     const alpha = cloudflareBuild("alpha");
-    const buildRow = { vaultId: ids.vaultId, snapshotId, build: alpha };
+    const buildRow = cloudflareBuildRow({ vaultId: ids.vaultId, snapshotId, build: alpha });
 
     await expect(
       t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
@@ -2238,8 +2277,150 @@ describe("repository inventory Cloudflare build storage", () => {
     );
     await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
       snapshots: [{ buildCount: 1, buildAssociationCount: 1 }],
-      builds: [{ build: { sourceKey: alpha.sourceKey } }],
+      builds: [{ stagedAssociationCount: 1, build: { sourceKey: alpha.sourceKey } }],
       buildAssociations: [{ buildSourceKey: alpha.sourceKey }],
+    });
+  });
+
+  it("rejects assigning a build that was explicitly stored with no branch associations", async () => {
+    const { ids, t } = await createConnectedVault();
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      state: "collecting",
+      branchCount: 1,
+      expectedBuildAssociationCount: 1,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-unattributed-build",
+      },
+    });
+    await insertBranch(t, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      name: "main",
+      isDefault: true,
+      buildCount: 1,
+      stagedBuildCount: 0,
+    });
+    const alpha = cloudflareBuild("alpha");
+    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      builds: [
+        cloudflareBuildRow({
+          vaultId: ids.vaultId,
+          snapshotId,
+          build: alpha,
+          associationCount: 0,
+        }),
+      ],
+    });
+
+    await expect(
+      t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: [
+          {
+            vaultId: ids.vaultId,
+            snapshotId,
+            rowKey: "branch:main",
+            buildSourceKey: alpha.sourceKey,
+            sortKey: repositoryInventoryCloudflareBuildSortKey(alpha),
+          },
+        ],
+      }),
+    ).rejects.toThrow("Repository inventory build has too many associations.");
+  });
+
+  it("tracks one high-fanout build across more than one staging batch", async () => {
+    const { ids, t } = await createConnectedVault();
+    const branchCount = REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE + 1;
+    const snapshotId = await insertSnapshot(t, {
+      vaultId: ids.vaultId,
+      state: "collecting",
+      branchCount,
+      expectedBuildAssociationCount: branchCount,
+    });
+    await insertInventory(t, {
+      ...ids,
+      lifecycle: {
+        state: "running",
+        snapshotId,
+        targetWriteVersion: 0,
+        required: false,
+        startedAt: now,
+        workpoolJobId: "job-high-fanout-build",
+      },
+    });
+    const branchNames = Array.from({ length: branchCount }, (_, index) => `branch-${index}`);
+    for (const [index, name] of branchNames.entries()) {
+      await insertBranch(t, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        name,
+        isDefault: index === 0,
+        buildCount: 1,
+        stagedBuildCount: 0,
+      });
+    }
+    const alpha = cloudflareBuild("alpha");
+    await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
+      vaultId: ids.vaultId,
+      snapshotId,
+      builds: [
+        cloudflareBuildRow({
+          vaultId: ids.vaultId,
+          snapshotId,
+          build: alpha,
+          associationCount: branchCount,
+        }),
+      ],
+    });
+    const associations = branchNames.map((name) => ({
+      vaultId: ids.vaultId,
+      snapshotId,
+      rowKey: `branch:${name}`,
+      buildSourceKey: alpha.sourceKey,
+      sortKey: repositoryInventoryCloudflareBuildSortKey(alpha),
+    }));
+
+    await t.mutation(
+      internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: associations.slice(
+          0,
+          REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE,
+        ),
+      },
+    );
+    await t.mutation(
+      internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
+      {
+        vaultId: ids.vaultId,
+        snapshotId,
+        associations: associations.slice(REPOSITORY_INVENTORY_STAGE_BUILD_ASSOCIATION_BATCH_SIZE),
+      },
+    );
+
+    await expect(readVaultInventory(t, ids.vaultId)).resolves.toMatchObject({
+      snapshots: [{ buildAssociationCount: branchCount }],
+      builds: [
+        {
+          associationCount: branchCount,
+          stagedAssociationCount: branchCount,
+          build: { sourceKey: alpha.sourceKey },
+        },
+      ],
     });
   });
 
@@ -2274,7 +2455,7 @@ describe("repository inventory Cloudflare build storage", () => {
     await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
       vaultId: ids.vaultId,
       snapshotId,
-      builds: [{ vaultId: ids.vaultId, snapshotId, build: alpha }],
+      builds: [cloudflareBuildRow({ vaultId: ids.vaultId, snapshotId, build: alpha })],
     });
     await t.mutation(
       internal.repositoryInventory.stageRepositoryInventoryCloudflareBuildAssociations,
@@ -2301,6 +2482,7 @@ describe("repository inventory Cloudflare build storage", () => {
       defaultBranch: "main",
       branchCount: 1,
       pullRequestCount: 0,
+      unattributedBuildCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
       labelFacetCount: 0,
@@ -2366,12 +2548,25 @@ describe("repository inventory Cloudflare build storage", () => {
     });
     const alpha = cloudflareBuild("alpha");
     const beta = cloudflareBuild("beta");
+    const gamma = cloudflareBuild("gamma");
     await t.mutation(internal.repositoryInventory.stageRepositoryInventoryCloudflareBuilds, {
       vaultId: ids.vaultId,
       snapshotId,
       builds: [
-        { vaultId: ids.vaultId, snapshotId, build: alpha },
-        { vaultId: ids.vaultId, snapshotId, build: beta },
+        cloudflareBuildRow({
+          vaultId: ids.vaultId,
+          snapshotId,
+          build: alpha,
+          associationCount: 2,
+        }),
+        cloudflareBuildRow({ vaultId: ids.vaultId, snapshotId, build: beta }),
+        cloudflareBuildRow({
+          vaultId: ids.vaultId,
+          snapshotId,
+          build: gamma,
+          associationCount: 0,
+          commitSha: "gamma-sha",
+        }),
       ],
     });
     await t.mutation(
@@ -2408,8 +2603,9 @@ describe("repository inventory Cloudflare build storage", () => {
       vaultId: ids.vaultId,
       snapshotId,
       branchCount: 2,
-      buildCount: 2,
+      buildCount: 3,
       buildAssociationCount: 3,
+      unattributedBuildCount: 1,
       pullRequestCount: 0,
       labelCount: 0,
       labelChunkCount: 0,
@@ -2419,6 +2615,18 @@ describe("repository inventory Cloudflare build storage", () => {
       crawlCost: 4,
     });
 
+    await expect(
+      asUser.query(api.repositoryInventory.listRepositoryInventoryUnattributedCloudflareBuildPage, {
+        vaultId: ids.vaultId,
+        snapshotId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({
+      state: "ready",
+      expectedBuildCount: 1,
+      isDone: true,
+      page: [{ commitSha: "gamma-sha", build: { sourceKey: gamma.sourceKey } }],
+    });
     await expect(
       asUser.query(api.repositoryInventory.listRepositoryInventoryCloudflareBuildPage, {
         vaultId: ids.vaultId,
@@ -2806,16 +3014,22 @@ describe("repository inventory snapshot reads", () => {
     const activeBuild = cloudflareBuild("active");
     const obsoleteBuild = cloudflareBuild("obsolete");
     await t.run(async (ctx) => {
-      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuilds", {
-        vaultId: ids.vaultId,
-        snapshotId: activeSnapshotId,
-        build: activeBuild,
-      });
-      await ctx.db.insert("vaultRepositoryInventoryCloudflareBuilds", {
-        vaultId: ids.vaultId,
-        snapshotId: obsoleteSnapshotId,
-        build: obsoleteBuild,
-      });
+      await ctx.db.insert(
+        "vaultRepositoryInventoryCloudflareBuilds",
+        cloudflareBuildRow({
+          vaultId: ids.vaultId,
+          snapshotId: activeSnapshotId,
+          build: activeBuild,
+        }),
+      );
+      await ctx.db.insert(
+        "vaultRepositoryInventoryCloudflareBuilds",
+        cloudflareBuildRow({
+          vaultId: ids.vaultId,
+          snapshotId: obsoleteSnapshotId,
+          build: obsoleteBuild,
+        }),
+      );
       await ctx.db.insert("vaultRepositoryInventoryCloudflareBuildAssociations", {
         vaultId: ids.vaultId,
         snapshotId: activeSnapshotId,
@@ -3406,6 +3620,7 @@ describe("repository inventory pull request filters", () => {
       branchCount: 0,
       buildCount: 0,
       buildAssociationCount: 0,
+      unattributedBuildCount: 0,
       pullRequestCount: 2,
       labelCount: 2,
       labelChunkCount: 2,

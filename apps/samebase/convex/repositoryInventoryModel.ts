@@ -59,7 +59,7 @@ const vRepositoryInventoryCloudflareBuildPreviewReady = object({
     object({ state: literal("ready"), branchName: string(), url: string() }),
     object({
       state: literal("provider_unknown"),
-      reason: literal("branch_unavailable"),
+      reason: union(literal("branch_unavailable"), literal("conflicting_branch_evidence")),
       providerUrl: string(),
     }),
   ),
@@ -101,6 +101,10 @@ const repositoryInventoryCloudflareBuildFields = {
   branch: union(
     object({ state: literal("known"), name: string() }),
     object({ state: literal("unknown") }),
+    object({
+      state: literal("conflicting_evidence"),
+      suiteBranch: union(string(), vNull()),
+    }),
   ),
   providerStatus: string(),
   providerConclusion: optional(string()),
@@ -431,6 +435,11 @@ export type CollectedRepositoryInventoryItem = Infer<typeof vCollectedRepository
 export const vRepositoryInventoryCloudflareBuildRow = object({
   vaultId: id("vaults"),
   snapshotId: id("vaultRepositoryInventorySnapshots"),
+  commitRepositoryNodeId: string(),
+  commitSha: string(),
+  associationCount: number(),
+  stagedAssociationCount: number(),
+  sortKey: string(),
   build: vRepositoryInventoryCloudflareBuild,
 });
 export type RepositoryInventoryCloudflareBuildRow = Infer<
@@ -465,6 +474,29 @@ export const vRepositoryInventoryCloudflareBuildPageResult = union(
 );
 export type RepositoryInventoryCloudflareBuildPageResult = Infer<
   typeof vRepositoryInventoryCloudflareBuildPageResult
+>;
+
+const vRepositoryInventoryUnattributedCloudflareBuild = object({
+  commitSha: string(),
+  build: vRepositoryInventoryCloudflareBuild,
+});
+const vRepositoryInventoryUnattributedCloudflareBuildPage = paginationResultValidator(
+  vRepositoryInventoryUnattributedCloudflareBuild,
+);
+export const vRepositoryInventoryUnattributedCloudflareBuildPageResult = union(
+  object({
+    state: literal("unavailable"),
+  }),
+  object({
+    state: literal("ready"),
+    expectedBuildCount: number(),
+    page: vRepositoryInventoryUnattributedCloudflareBuildPage.fields.page,
+    isDone: boolean(),
+    continueCursor: string(),
+  }),
+);
+export type RepositoryInventoryUnattributedCloudflareBuildPageResult = Infer<
+  typeof vRepositoryInventoryUnattributedCloudflareBuildPageResult
 >;
 
 export const vStoredRepositoryInventoryBranchItem = object({
@@ -684,6 +716,7 @@ export const vRepositoryInventoryPublication = object({
   publishedAt: number(),
   checkedAt: number(),
   fingerprint: string(),
+  unattributedBuildCount: number(),
 });
 export type RepositoryInventoryPublication = Infer<typeof vRepositoryInventoryPublication>;
 
@@ -708,6 +741,7 @@ const repositoryInventorySnapshotFields = {
   pullRequestCount: number(),
   buildCount: number(),
   buildAssociationCount: number(),
+  unattributedBuildCount: number(),
   labelCount: number(),
   labelChunkCount: number(),
   labelFacetCount: number(),
@@ -719,6 +753,7 @@ export const vRepositoryInventorySnapshot = union(
     state: literal("collecting"),
     ...repositoryInventorySnapshotFields,
     expectedBuildAssociationCount: number(),
+    expectedBuildAssociationCountFromBuilds: number(),
   }),
   object({
     state: literal("ready"),
@@ -741,6 +776,7 @@ const repositoryInventoryPublicPublicationFields = {
   defaultBranch: optional(union(string(), vNull())),
   publishedAt: optional(number()),
   checkedAt: optional(number()),
+  unattributedBuildCount: optional(number()),
 };
 
 export const vRepositoryInventoryPublicState = union(
@@ -767,6 +803,7 @@ export const vRepositoryInventoryPublicState = union(
     defaultBranch: union(string(), vNull()),
     publishedAt: number(),
     checkedAt: number(),
+    unattributedBuildCount: number(),
   }),
   object({
     state: literal("failed"),

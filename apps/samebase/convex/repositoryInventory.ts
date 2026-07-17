@@ -41,6 +41,7 @@ import {
   vRepositoryInventoryCloudflareBuildAssociation,
   vRepositoryInventoryCloudflareBuildPageResult,
   vRepositoryInventoryCloudflareBuildRow,
+  vRepositoryInventoryUnattributedCloudflareBuildPageResult,
   vRepositoryInventoryFilterState,
   vRepositoryInventoryFilterChange,
   vRepositoryInventoryExcludedLabelPageResult,
@@ -55,6 +56,7 @@ import {
   type RepositoryInventoryBranchPageResult,
   type RepositoryInventoryBranchContext,
   type RepositoryInventoryCloudflareBuildPageResult,
+  type RepositoryInventoryUnattributedCloudflareBuildPageResult,
   type RepositoryInventoryCommit,
   type RepositoryInventoryFilterState,
   type RepositoryInventoryFilterLabelCandidate,
@@ -368,7 +370,9 @@ async function scheduleRepositoryInventoryRefresh(
     pullRequestCount: 0,
     buildCount: 0,
     buildAssociationCount: 0,
+    unattributedBuildCount: 0,
     expectedBuildAssociationCount: 0,
+    expectedBuildAssociationCountFromBuilds: 0,
     labelCount: 0,
     labelChunkCount: 0,
     labelFacetCount: 0,
@@ -1087,7 +1091,9 @@ export const deferRepositoryInventoryRefresh = internalMutation({
       snapshot.pullRequestCount !== 0 ||
       snapshot.buildCount !== 0 ||
       snapshot.buildAssociationCount !== 0 ||
+      snapshot.unattributedBuildCount !== 0 ||
       snapshot.expectedBuildAssociationCount !== 0 ||
+      snapshot.expectedBuildAssociationCountFromBuilds !== 0 ||
       snapshot.labelCount !== 0 ||
       snapshot.labelChunkCount !== 0 ||
       snapshot.labelFacetCount !== 0 ||
@@ -1220,6 +1226,16 @@ export const stageRepositoryInventoryCloudflareBuilds = internalMutation({
       if (buildRow.vaultId !== args.vaultId || buildRow.snapshotId !== args.snapshotId) {
         throw new Error("Repository inventory build belongs to another snapshot.");
       }
+      if (
+        !Number.isSafeInteger(buildRow.associationCount) ||
+        buildRow.associationCount < 0 ||
+        buildRow.stagedAssociationCount !== 0 ||
+        buildRow.commitRepositoryNodeId.length === 0 ||
+        buildRow.commitSha.length === 0 ||
+        buildRow.sortKey !== repositoryInventoryCloudflareBuildSortKey(buildRow.build)
+      ) {
+        throw new Error("Repository inventory build row is invalid.");
+      }
       if (sourceKeys.has(buildRow.build.sourceKey)) {
         throw new Error("Repository inventory build staging batch contains a duplicate.");
       }
@@ -1241,7 +1257,20 @@ export const stageRepositoryInventoryCloudflareBuilds = internalMutation({
     }
 
     const nextBuildCount = snapshot.buildCount + args.builds.length;
-    if (!Number.isSafeInteger(nextBuildCount)) {
+    const nextUnattributedBuildCount =
+      snapshot.unattributedBuildCount +
+      args.builds.filter((build) => build.associationCount === 0).length;
+    const expectedBuildAssociationCount = args.builds.reduce(
+      (count, build) => count + build.associationCount,
+      0,
+    );
+    const nextExpectedBuildAssociationCountFromBuilds =
+      snapshot.expectedBuildAssociationCountFromBuilds + expectedBuildAssociationCount;
+    if (
+      !Number.isSafeInteger(nextBuildCount) ||
+      !Number.isSafeInteger(nextUnattributedBuildCount) ||
+      !Number.isSafeInteger(nextExpectedBuildAssociationCountFromBuilds)
+    ) {
       throw new Error("Repository inventory snapshot build count is too large.");
     }
     for (const build of args.builds) {
@@ -1249,6 +1278,8 @@ export const stageRepositoryInventoryCloudflareBuilds = internalMutation({
     }
     await ctx.db.patch(snapshot._id, {
       buildCount: nextBuildCount,
+      unattributedBuildCount: nextUnattributedBuildCount,
+      expectedBuildAssociationCountFromBuilds: nextExpectedBuildAssociationCountFromBuilds,
     });
     return null;
   },
@@ -1285,6 +1316,7 @@ export const stageRepositoryInventoryCloudflareBuildAssociations = internalMutat
     const sortKeysByRowKey = new Map<string, Set<string>>();
     const buildSourceKeysByRowKey = new Map<string, Set<string>>();
     const buildSourceKeys = new Set<string>();
+    const associationCountByBuildSourceKey = new Map<string, number>();
     for (const association of args.associations) {
       if (association.vaultId !== args.vaultId || association.snapshotId !== args.snapshotId) {
         throw new Error("Repository inventory build association belongs to another snapshot.");
@@ -1302,6 +1334,10 @@ export const stageRepositoryInventoryCloudflareBuildAssociations = internalMutat
       rowBuildSourceKeys.add(association.buildSourceKey);
       buildSourceKeysByRowKey.set(association.rowKey, rowBuildSourceKeys);
       buildSourceKeys.add(association.buildSourceKey);
+      associationCountByBuildSourceKey.set(
+        association.buildSourceKey,
+        (associationCountByBuildSourceKey.get(association.buildSourceKey) ?? 0) + 1,
+      );
       const rowAssociations = associationsByRowKey.get(association.rowKey) ?? [];
       rowAssociations.push(association);
       associationsByRowKey.set(association.rowKey, rowAssociations);
@@ -1363,6 +1399,16 @@ export const stageRepositoryInventoryCloudflareBuildAssociations = internalMutat
         throw new Error("Repository inventory build association has an invalid sort key.");
       }
     }
+    for (const sourceKey of buildSourceKeys) {
+      const buildRow = buildsBySourceKey.get(sourceKey);
+      if (!buildRow) {
+        throw new Error("Repository inventory build association references a missing build.");
+      }
+      const batchAssociationCount = associationCountByBuildSourceKey.get(sourceKey) ?? 0;
+      if (buildRow.stagedAssociationCount + batchAssociationCount > buildRow.associationCount) {
+        throw new Error("Repository inventory build has too many associations.");
+      }
+    }
 
     for (const [rowKey, associations] of associationsByRowKey) {
       const parentItem = parentItemsByRowKey.get(rowKey);
@@ -1380,6 +1426,16 @@ export const stageRepositoryInventoryCloudflareBuildAssociations = internalMutat
     }
     for (const association of args.associations) {
       await ctx.db.insert("vaultRepositoryInventoryCloudflareBuildAssociations", association);
+    }
+    for (const sourceKey of buildSourceKeys) {
+      const buildRow = buildsBySourceKey.get(sourceKey);
+      if (!buildRow) {
+        throw new Error("Repository inventory build association references a missing build.");
+      }
+      await ctx.db.patch(buildRow._id, {
+        stagedAssociationCount:
+          buildRow.stagedAssociationCount + (associationCountByBuildSourceKey.get(sourceKey) ?? 0),
+      });
     }
     for (const [rowKey, associations] of associationsByRowKey) {
       const parentItem = parentItemsByRowKey.get(rowKey);
@@ -1559,7 +1615,9 @@ export const completeUnchangedRepositoryInventoryRefresh = internalMutation({
       snapshot.pullRequestCount !== 0 ||
       snapshot.buildCount !== 0 ||
       snapshot.buildAssociationCount !== 0 ||
+      snapshot.unattributedBuildCount !== 0 ||
       snapshot.expectedBuildAssociationCount !== 0 ||
+      snapshot.expectedBuildAssociationCountFromBuilds !== 0 ||
       snapshot.labelCount !== 0 ||
       snapshot.labelChunkCount !== 0 ||
       snapshot.labelFacetCount !== 0 ||
@@ -1638,6 +1696,7 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
     pullRequestCount: number(),
     buildCount: number(),
     buildAssociationCount: number(),
+    unattributedBuildCount: number(),
     labelCount: number(),
     labelChunkCount: number(),
     labelFacetCount: number(),
@@ -1665,7 +1724,9 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
       snapshot.pullRequestCount !== args.pullRequestCount ||
       snapshot.buildCount !== args.buildCount ||
       snapshot.buildAssociationCount !== args.buildAssociationCount ||
+      snapshot.unattributedBuildCount !== args.unattributedBuildCount ||
       snapshot.buildAssociationCount !== snapshot.expectedBuildAssociationCount ||
+      snapshot.buildAssociationCount !== snapshot.expectedBuildAssociationCountFromBuilds ||
       snapshot.labelCount !== args.labelCount ||
       snapshot.labelChunkCount !== args.labelChunkCount ||
       snapshot.labelFacetCount !== args.labelFacetCount ||
@@ -1681,6 +1742,7 @@ export const handoffCompletedRepositoryInventorySnapshot = internalMutation({
       pullRequestCount: snapshot.pullRequestCount,
       buildCount: snapshot.buildCount,
       buildAssociationCount: snapshot.buildAssociationCount,
+      unattributedBuildCount: snapshot.unattributedBuildCount,
       labelCount: snapshot.labelCount,
       labelChunkCount: snapshot.labelChunkCount,
       labelFacetCount: snapshot.labelFacetCount,
@@ -2093,6 +2155,7 @@ export const advanceRepositoryInventoryFilterMaterialization = internalMutation(
           publishedAt,
           checkedAt: snapshot.observedAt,
           fingerprint: snapshot.fingerprint,
+          unattributedBuildCount: snapshot.unattributedBuildCount,
         };
       } else {
         if (!priorPublication) {
@@ -2470,6 +2533,7 @@ function publicPublicationFields(inventory: RepositoryInventoryStateDoc) {
         defaultBranch: publication.defaultBranch,
         publishedAt: publication.publishedAt,
         checkedAt: publication.checkedAt,
+        unattributedBuildCount: publication.unattributedBuildCount,
       }
     : {};
 }
@@ -2502,6 +2566,7 @@ export const getRepositoryInventoryState = query({
               defaultBranch: inventory.publication.defaultBranch,
               publishedAt: inventory.publication.publishedAt,
               checkedAt: inventory.publication.checkedAt,
+              unattributedBuildCount: inventory.publication.unattributedBuildCount,
             }
           : { state: "empty" };
       case "scheduled":
@@ -2780,6 +2845,65 @@ export const listRepositoryInventoryCloudflareBuildPage = query({
       page: builds,
       isDone: associationPage.isDone,
       continueCursor: associationPage.continueCursor,
+    };
+  },
+});
+
+export const listRepositoryInventoryUnattributedCloudflareBuildPage = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    snapshotId: id("vaultRepositoryInventorySnapshots"),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: vRepositoryInventoryUnattributedCloudflareBuildPageResult,
+  handler: async (ctx, args): Promise<RepositoryInventoryUnattributedCloudflareBuildPageResult> => {
+    if (
+      !Number.isInteger(args.paginationOpts.numItems) ||
+      args.paginationOpts.numItems < 1 ||
+      args.paginationOpts.numItems > REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE
+    ) {
+      throw new Error(
+        `Repository inventory build pages must request between 1 and ${REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE} items.`,
+      );
+    }
+    const maximumRowsRead = boundedMaximumRowsRead(
+      args.paginationOpts.maximumRowsRead,
+      REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE,
+      `Repository inventory build pages may read at most ${REPOSITORY_INVENTORY_PUBLIC_BUILD_PAGE_SIZE} rows.`,
+    );
+    const [vault, snapshot] = await Promise.all([
+      ctx.db.get(args.vaultId),
+      ctx.db.get(args.snapshotId),
+    ]);
+    if (
+      !vault ||
+      vault.userId !== ctx.viewer.userId ||
+      !isLiveConnectedVault(vault) ||
+      !snapshot ||
+      snapshot.state !== "ready" ||
+      snapshot.vaultId !== args.vaultId
+    ) {
+      return { state: "unavailable" };
+    }
+
+    const buildPage = await ctx.db
+      .query("vaultRepositoryInventoryCloudflareBuilds")
+      .withIndex("by_snapshot_and_associationCount_and_sortKey", (q) =>
+        q.eq("snapshotId", args.snapshotId).eq("associationCount", 0),
+      )
+      .paginate({ ...args.paginationOpts, maximumRowsRead });
+    return {
+      state: "ready",
+      expectedBuildCount: snapshot.unattributedBuildCount,
+      page: buildPage.page.map((buildRow) => {
+        if (buildRow.vaultId !== args.vaultId) {
+          throw new Error("Repository inventory build belongs to another vault.");
+        }
+        return { commitSha: buildRow.commitSha, build: buildRow.build };
+      }),
+      isDone: buildPage.isDone,
+      continueCursor: buildPage.continueCursor,
     };
   },
 });

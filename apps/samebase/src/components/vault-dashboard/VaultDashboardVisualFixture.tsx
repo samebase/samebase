@@ -59,6 +59,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-large-branch-list"
+  | "vault-dashboard-unresolved-build"
   | "vault-dashboard-root-picker"
   | "vault-dashboard-sidebar-list"
   | "vault-dashboard-list-spacing"
@@ -273,6 +274,7 @@ function fixtureReadyRepositoryInventoryState() {
     activeFilterRevision: 0,
     repositoryFullName: "samebase/samebase",
     defaultBranch: "main",
+    unattributedBuildCount: 0,
     publishedAt: FIXTURE_NOW - 12_000,
     checkedAt: FIXTURE_NOW - 12_000,
   };
@@ -2084,6 +2086,7 @@ function VaultDashboardStickyHeaderFixture() {
                   remoteBranches={stickyHeaderBranches}
                   schemaGraphAccessEnabled={false}
                   stagedSummaries={[]}
+                  unattributedBuildCount={0}
                   vaultId={fakeVaultId()}
                 />
               }
@@ -2139,6 +2142,7 @@ function VaultDashboardLargeBranchListFixture() {
                     remoteBranches={loadedLargeBranches}
                     schemaGraphAccessEnabled={false}
                     stagedSummaries={[]}
+                    unattributedBuildCount={0}
                     vaultId={fakeVaultId()}
                   />
                 }
@@ -2148,6 +2152,50 @@ function VaultDashboardLargeBranchListFixture() {
         </div>
       }
     />
+  );
+}
+
+function VaultDashboardUnresolvedBuildFixture() {
+  return (
+    <div className="min-h-screen bg-stone-100 p-4 text-foreground">
+      <div
+        data-testid="vault-dashboard-visual-fixture"
+        data-mode="vault-dashboard-unresolved-build"
+        className="mx-auto w-full max-w-[720px]"
+      >
+        <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryName="samebase"
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+            branchSection={
+              <VaultBranchSection
+                defaultBranchName="main"
+                loadMore={ignoreFixtureLoadMore}
+                paginationStatus="Exhausted"
+                repositoryFullName="samebase/samebase"
+                remoteBranches={[
+                  fixtureVaultBranch({
+                    kind: "branch",
+                    name: "main",
+                    headCommit: { sha: "1234567890abcdef1234567890abcdef12345678" },
+                    isDefault: true,
+                  }),
+                ]}
+                schemaGraphAccessEnabled={false}
+                snapshotId={fakeRepositoryInventorySnapshotId()}
+                stagedSummaries={[]}
+                unattributedBuildCount={1}
+                vaultId={fakeVaultId()}
+              />
+            }
+          />
+        </TestRouterProvider>
+      </div>
+    </div>
   );
 }
 
@@ -2347,6 +2395,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-large-branch-list") {
     return <VaultDashboardLargeBranchListFixture />;
+  }
+
+  if (mode === "vault-dashboard-unresolved-build") {
+    return <VaultDashboardUnresolvedBuildFixture />;
   }
 
   if (mode === "vault-pull-request-filters") {

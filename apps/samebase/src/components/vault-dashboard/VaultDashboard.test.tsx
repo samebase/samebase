@@ -14,6 +14,7 @@ import {
   VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
   VaultDashboardView,
+  VaultBranchSection,
   VaultBranchLinkContent,
   VaultPullRequestHeaderControls,
   VaultProviderSetupSection,
@@ -1002,6 +1003,38 @@ describe("VaultBranchLinkContent", () => {
   });
 });
 
+describe("VaultBranchSection", () => {
+  const commonProps = {
+    defaultBranchName: "main",
+    loadMore: vi.fn(),
+    paginationStatus: "Exhausted" as const,
+    repositoryFullName: "samebase/samebase",
+    remoteBranches: [],
+    schemaGraphAccessEnabled: false,
+    snapshotId: fakeInventorySnapshotId(),
+    stagedSummaries: [],
+    vaultId: fakeVaultId(),
+  };
+
+  it("does not render an unresolved-build section when every build has a branch", () => {
+    const markup = renderToStaticMarkup(
+      <VaultBranchSection {...commonProps} unattributedBuildCount={0} />,
+    );
+
+    expect(markup).not.toContain("unresolved branch");
+  });
+
+  it("keeps builds with unresolved branches visible when there are no branch rows", () => {
+    const markup = renderToStaticMarkup(
+      <VaultBranchSection {...commonProps} unattributedBuildCount={2} />,
+    );
+
+    expect(markup).toContain("2 builds with unresolved branches");
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).not.toContain("Loading builds with unresolved branches");
+  });
+});
+
 describe("VaultDashboardRepositoryCard", () => {
   it("always renders the exact pull request count", () => {
     const commonProps = {
@@ -1033,6 +1066,7 @@ describe("VaultDashboardRepositoryCard", () => {
         activeFilterRevision: 0,
         repositoryFullName: "grace/renamed-demo",
         defaultBranch: "main",
+        unattributedBuildCount: 0,
         publishedAt: 900_000,
         checkedAt: 900_000,
       },

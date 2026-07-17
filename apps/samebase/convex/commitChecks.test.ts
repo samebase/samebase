@@ -136,7 +136,7 @@ describe("normalizeCloudflareBuildCheckRun", () => {
         name: "Workers Builds: shared-convex-monorepo-fixture-web",
         status: "completed",
         conclusion: "success",
-        branchName: "codex-shared-backend-preview",
+        branch: { state: "known", name: "codex-shared-backend-preview" },
         detailsUrl: "https://dash.cloudflare.com/builds/cdf73184-dd02-48b3-9f2e-765d0ae872d0",
         htmlUrl: "https://github.com/samebase/shared-convex-monorepo-fixture/runs/87650938033",
         outputSummary: `Build ID: [cdf73184-dd02-48b3-9f2e-765d0ae872d0](https://dash.cloudflare.com/builds/cdf73184-dd02-48b3-9f2e-765d0ae872d0)
@@ -148,7 +148,7 @@ Preview Alias URL: https://codex-shared-backend-shared-convex-monorepo-fixture-w
         completedAt: "2026-07-16T14:34:31Z",
       }),
     ).toEqual({
-      sourceKey: "87650938033",
+      sourceKey: "cloudflare-build:cdf73184-dd02-48b3-9f2e-765d0ae872d0",
       checkName: "Workers Builds: shared-convex-monorepo-fixture-web",
       workerName: "shared-convex-monorepo-fixture-web",
       branch: { state: "known", name: "codex-shared-backend-preview" },
@@ -180,6 +180,7 @@ Preview Alias URL: https://codex-shared-backend-shared-convex-monorepo-fixture-w
         name: "Workers Builds: api",
         status: "completed",
         conclusion: "failure",
+        branch: { state: "unknown" },
       }),
     ).toMatchObject({
       state: "failure",
@@ -194,6 +195,7 @@ Preview Alias URL: https://codex-shared-backend-shared-convex-monorepo-fixture-w
         name: "Workers Builds: api",
         status: "completed",
         conclusion: "failure",
+        branch: { state: "unknown" },
         outputSummary: "Preview URL: https://immutable-api.example.workers.dev",
       }),
     ).toMatchObject({
@@ -213,6 +215,7 @@ Preview Alias URL: https://codex-shared-backend-shared-convex-monorepo-fixture-w
         name: "Workers Builds: api",
         status: "completed",
         conclusion: "success",
+        branch: { state: "unknown" },
         outputSummary: `Preview URL: https://immutable-api.example.workers.dev
 Preview Alias URL: https://unknown-branch-api.example.workers.dev`,
       }),
@@ -229,6 +232,51 @@ Preview Alias URL: https://unknown-branch-api.example.workers.dev`,
     });
   });
 
+  it("keeps the immutable version but suppresses a conflicting branch alias", () => {
+    expect(
+      normalizeCloudflareBuildCheckRun({
+        id: "shared-sha-run",
+        name: "Workers Builds: api",
+        status: "completed",
+        conclusion: "success",
+        branch: { state: "conflicting_evidence", suiteBranch: "main" },
+        rootDirectory: "apps/api",
+        outputSummary: `Build ID: build-shared-sha
+Preview URL: https://immutable-api.example.workers.dev
+Preview Alias URL: https://feature-api.example.workers.dev`,
+      }),
+    ).toMatchObject({
+      sourceKey: "cloudflare-build:build-shared-sha",
+      branch: { state: "conflicting_evidence", suiteBranch: "main" },
+      rootDirectory: { state: "known", value: "apps/api" },
+      state: "success",
+      preview: {
+        state: "ready",
+        versionUrl: "https://immutable-api.example.workers.dev/",
+        branchAlias: {
+          state: "provider_unknown",
+          reason: "conflicting_branch_evidence",
+          providerUrl: "https://feature-api.example.workers.dev/",
+        },
+      },
+    });
+  });
+
+  it("uses the GitHub check run as identity before Cloudflare provides a Build ID", () => {
+    expect(
+      normalizeCloudflareBuildCheckRun({
+        id: "queued-run",
+        name: "Workers Builds: api",
+        status: "queued",
+        branch: { state: "unknown" },
+      }),
+    ).toMatchObject({
+      sourceKey: "github-check-run:queued-run",
+      state: "queued",
+      preview: { state: "pending" },
+    });
+  });
+
   it("marks a successful build with no preview evidence as provider unknown", () => {
     expect(
       normalizeCloudflareBuildCheckRun({
@@ -236,6 +284,7 @@ Preview Alias URL: https://unknown-branch-api.example.workers.dev`,
         name: "Workers Builds: api",
         status: "completed",
         conclusion: "success",
+        branch: { state: "unknown" },
       }),
     ).toMatchObject({
       state: "success",
@@ -249,6 +298,7 @@ Preview Alias URL: https://unknown-branch-api.example.workers.dev`,
         id: "worker-name-fallback",
         name: "Workers Builds: fallback-worker",
         status: "queued",
+        branch: { state: "unknown" },
       }),
     ).toMatchObject({
       workerName: "fallback-worker",
