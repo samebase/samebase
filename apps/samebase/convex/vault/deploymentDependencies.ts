@@ -7,7 +7,7 @@ type WorkerDeploymentDependencyIdentity = Pick<
 >;
 type ConvexDeploymentIdentity = Pick<
   Doc<"vaultConvexDeployments">,
-  "_id" | "deploymentName" | "projectId" | "upstream"
+  "_id" | "teamId" | "deploymentName" | "projectId" | "upstream"
 >;
 type WorkerDeploymentDeployKeys = WorkerDeploymentDependencyIdentity["wiring"]["deployKeys"];
 type CurrentWorkerDeploymentDeployKeys = {
@@ -23,8 +23,10 @@ export function readCurrentWorkerDeploymentDeployKeys(
   if (
     dependency.convexDeploymentId !== deployment._id ||
     production.state !== "created" ||
+    production.teamId !== deployment.teamId ||
     production.deploymentName !== deployment.deploymentName ||
     preview.state !== "created" ||
+    preview.teamId !== deployment.teamId ||
     preview.projectId !== deployment.projectId
   ) {
     return null;

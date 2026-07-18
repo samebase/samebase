@@ -16,6 +16,7 @@ import {
   type ConvexDeployKeyAllowedAction,
   type ConvexDeployKeyAuthMethod,
 } from "./convexDeployKeys";
+import { requireActiveConvexTeam } from "./convexTeam";
 import {
   vConvexSchemaGraph,
   type ConvexSchemaGraph,
@@ -1241,6 +1242,10 @@ export const readRefreshTarget = internalQuery({
     if (!token || !connection.teamId.trim()) {
       throw new Error("Convex connection is required.");
     }
+    requireActiveConvexTeam({
+      activeTeamId: connection.teamId,
+      targetTeamId: deployment.teamId,
+    });
 
     return {
       token,

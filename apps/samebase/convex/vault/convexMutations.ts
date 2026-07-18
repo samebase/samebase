@@ -15,9 +15,9 @@ import {
   VAULT_PROVIDER_UPSTREAM_PRESENT,
 } from "./model";
 import { isLiveConnectedVault } from "./state";
+import { requireActiveConvexTeam } from "./convexTeam";
 
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
-const CONVEX_CONNECTION_STALE_MS = 10 * 60 * 1000;
 
 const convexProjectCreationClaim = object({
   claimId: id("vaultConvexProjectCreationClaims"),
@@ -339,24 +339,6 @@ async function requireConvexDeploymentConnectionRun(
   return run;
 }
 
-function hasFreshConvexDeploymentConnectionLock(args: {
-  ownership: VaultInfrastructureOwnership | null;
-  runId: Id<"appProvisioningRuns">;
-  now: number;
-}): boolean {
-  const ownership = args.ownership;
-  if (
-    ownership &&
-    ownership.state === "active" &&
-    ownership.runId !== args.runId &&
-    args.now - ownership.updatedAt < CONVEX_CONNECTION_STALE_MS
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
 export const requireConvexDeploymentConnectionVault = internalQuery({
   args: {
     vaultId: id("vaults"),
@@ -398,6 +380,17 @@ export const claimConvexDeploymentConnection = internalMutation({
     });
     let creationClaim: Doc<"vaultConvexProjectCreationClaims"> | null = null;
     try {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Convex connection is required.");
+      }
+      requireActiveConvexTeam({
+        activeTeamId: connection.teamId,
+        targetTeamId: args.target.teamId,
+      });
       await assertNoExistingConvexDeploymentTarget(ctx, {
         appId: args.target.appId,
       });
@@ -411,17 +404,7 @@ export const claimConvexDeploymentConnection = internalMutation({
           throw new Error("Convex project creation is already owned by another operation.");
         }
       } else {
-        const connection = await ctx.db
-          .query("providerConnections")
-          .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
-          .unique();
-        if (connection?.kind !== "convex") {
-          throw new Error("Convex connection is required.");
-        }
         const teamId = connection.teamId.trim();
-        if (!teamId || teamId !== args.target.teamId) {
-          throw new Error("Convex connection no longer matches the selected team.");
-        }
         const plannedCreationClaim = await readConvexProjectCreationClaimByPlannedIdentity(ctx, {
           teamId,
           projectName: args.target.projectName,
@@ -457,13 +440,7 @@ export const claimConvexDeploymentConnection = internalMutation({
 
     const now = Date.now();
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      hasFreshConvexDeploymentConnectionLock({
-        ownership,
-        runId: args.runId,
-        now,
-      })
-    ) {
+    if (ownership && ownership.state === "active" && ownership.runId !== args.runId) {
       await appendConvexDeploymentConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -473,13 +450,11 @@ export const claimConvexDeploymentConnection = internalMutation({
       });
       return { claimed: false };
     }
+    if (ownership && ownership.state !== "active" && ownership.runId === args.runId) {
+      return { claimed: false };
+    }
 
     if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededConvexDeploymentConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
         state: "active",
@@ -557,9 +532,47 @@ export const attachDeploymentForRun = internalMutation({
       throw new Error("Vault not found.");
     }
     const app = await requireVaultApp(ctx, args);
+    const connection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
+      .unique();
+    if (connection?.kind !== "convex") {
+      throw new Error("Convex connection is required.");
+    }
+    requireActiveConvexTeam({
+      activeTeamId: connection.teamId,
+      targetTeamId: args.convex.convexTeamId,
+    });
     const existingAppDeployment = await readConvexDeploymentForApp(ctx, {
       appId: args.appId,
     });
+    const infrastructureTarget = isComposedInfrastructureRun(run)
+      ? await ctx.db
+          .query("vaultInfrastructureTargets")
+          .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+          .unique()
+      : null;
+    if (isComposedInfrastructureRun(run)) {
+      if (
+        !infrastructureTarget ||
+        infrastructureTarget.appId !== args.appId ||
+        infrastructureTarget.convex.teamId !== args.convex.convexTeamId ||
+        infrastructureTarget.convex.projectName !== args.convex.convexProjectName
+      ) {
+        throw new Error("Convex deployment does not match the infrastructure target.");
+      }
+      if (infrastructureTarget.convex.state === "planned" && existingAppDeployment) {
+        throw new Error(
+          "Infrastructure target app already has a Convex deployment outside this provisioning target.",
+        );
+      }
+      if (
+        infrastructureTarget.convex.state === "attached" &&
+        existingAppDeployment?._id !== infrastructureTarget.convex.deploymentId
+      ) {
+        throw new Error("Infrastructure target references a different Convex deployment.");
+      }
+    }
     try {
       await assertNoExistingConvexDeploymentTarget(ctx, {
         appId: args.appId,
@@ -631,6 +644,22 @@ export const attachDeploymentForRun = internalMutation({
     const now = Date.now();
     let deploymentId: Id<"vaultConvexDeployments">;
     if (existingAppDeployment) {
+      if (existingAppDeployment.teamId !== args.convex.convexTeamId) {
+        for await (const dependency of ctx.db
+          .query("vaultWorkerDeploymentDependencies")
+          .withIndex("by_convex_deployment", (q) =>
+            q.eq("convexDeploymentId", existingAppDeployment._id),
+          )) {
+          if (
+            dependency.wiring.deployKeys.production.state !== "not_created" ||
+            dependency.wiring.deployKeys.preview.state !== "not_created"
+          ) {
+            throw new Error(
+              "Remove the existing Convex deploy keys before reconnecting this app to another team.",
+            );
+          }
+        }
+      }
       if (
         existingAppDeployment.projectId !== args.convex.convexProjectId ||
         existingAppDeployment.deploymentName !== args.convex.convexDeploymentName
@@ -677,6 +706,16 @@ export const attachDeploymentForRun = internalMutation({
         upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
         connectedAt: now,
         lastObservedAt: now,
+      });
+    }
+    if (infrastructureTarget?.convex.state === "planned") {
+      await ctx.db.patch(infrastructureTarget._id, {
+        convex: {
+          state: "attached",
+          teamId: infrastructureTarget.convex.teamId,
+          projectName: infrastructureTarget.convex.projectName,
+          deploymentId,
+        },
       });
     }
     await appendConvexDeploymentConnectionEvent(ctx, {
@@ -758,6 +797,17 @@ export const beginConvexProjectCreation = internalMutation({
       throw new Error("Vault not found.");
     }
     await requireVaultApp(ctx, args);
+    const connection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
+      .unique();
+    if (connection?.kind !== "convex") {
+      throw new Error("Convex connection is required.");
+    }
+    requireActiveConvexTeam({
+      activeTeamId: connection.teamId,
+      targetTeamId: args.teamId,
+    });
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId })) {
       throw new Error("Convex provisioning run no longer owns provider creation.");
@@ -954,6 +1004,19 @@ export const finishConvexDeploymentConnection = internalMutation({
         return null;
       }
       throw new Error("Composed infrastructure run no longer owns provisioning.");
+    }
+    if (isComposedInfrastructureRun(run)) {
+      const target = await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .unique();
+      if (
+        !target ||
+        target.convex.state !== "attached" ||
+        target.convex.deploymentId !== args.deploymentId
+      ) {
+        throw new Error("Infrastructure target references a different Convex deployment.");
+      }
     }
     const deployment = await ctx.db.get(args.deploymentId);
     if (

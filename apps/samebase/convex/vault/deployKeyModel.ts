@@ -9,12 +9,14 @@ export const vConvexDeployKeyNotCreated = object({
 export const vConvexProductionDeployKeyCreating = object({
   state: literal("creating"),
   runId: id("appProvisioningRuns"),
+  teamId: string(),
   name: string(),
   deploymentName: string(),
 });
 
 export const vConvexProductionDeployKeyCreated = object({
   state: literal("created"),
+  teamId: string(),
   name: string(),
   deploymentName: string(),
 });
@@ -22,12 +24,14 @@ export const vConvexProductionDeployKeyCreated = object({
 export const vConvexPreviewDeployKeyCreating = object({
   state: literal("creating"),
   runId: id("appProvisioningRuns"),
+  teamId: string(),
   name: string(),
   projectId: string(),
 });
 
 export const vConvexPreviewDeployKeyCreated = object({
   state: literal("created"),
+  teamId: string(),
   name: string(),
   projectId: string(),
 });

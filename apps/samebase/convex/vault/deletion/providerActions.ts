@@ -13,6 +13,7 @@ import {
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
+import { requireActiveConvexTeam } from "../convexTeam";
 import { readRetainedSnapshot } from "./runs";
 import {
   type VaultDeletionEventLevel,
@@ -243,6 +244,12 @@ export const deleteConvex = internalAction({
     });
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to remove resources.");
+    }
+    for (const target of plan.convex.projects) {
+      requireActiveConvexTeam({
+        activeTeamId: convexConnection.teamId,
+        targetTeamId: target.teamId,
+      });
     }
 
     const projectsToDelete: typeof plan.convex.projects = [];

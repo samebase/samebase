@@ -138,6 +138,9 @@ export async function listConvexManagementProjects(args: {
         query: { cursor, limit: 100 },
       },
     });
+    if (page.items.some((project) => project.teamId !== args.teamId)) {
+      throw new Error("Convex returned a project outside the requested team.");
+    }
     projects.push(...page.items);
 
     if (!page.pagination.hasMore) {

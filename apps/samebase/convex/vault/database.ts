@@ -9,6 +9,7 @@ import {
   deleteConvexDeploymentDeployKey,
   type ConvexDeployKeyAllowedAction,
 } from "./convexDeployKeys";
+import { requireActiveConvexTeam } from "./convexTeam";
 
 const { literal, null: nullValue, object, string, union } = v;
 
@@ -134,6 +135,10 @@ async function readVaultDatabaseDeploymentContext(
   if (!convexConnection) {
     return { kind: "missing_connection" };
   }
+  requireActiveConvexTeam({
+    activeTeamId: convexConnection.teamId,
+    targetTeamId: deployment.teamId,
+  });
 
   return {
     kind: "ready",

@@ -367,6 +367,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       vaultId,
       appId,
       convex: {
+        state: "planned",
         teamId: args.convexTeamId,
         projectName: args.convexProjectName,
       },

@@ -592,14 +592,23 @@ export default defineSchema({
       "lifecycle.notBefore",
     ]),
 
-  /** Managed create intent plus its resolved Cloudflare Worker pointer. */
+  /** Managed create intent plus its exact resolved provider-resource pointers. */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
     appId: id("vaultApps"),
-    convex: object({
-      teamId: string(),
-      projectName: string(),
-    }),
+    convex: union(
+      object({
+        state: literal("planned"),
+        teamId: string(),
+        projectName: string(),
+      }),
+      object({
+        state: literal("attached"),
+        teamId: string(),
+        projectName: string(),
+        deploymentId: id("vaultConvexDeployments"),
+      }),
+    ),
     cloudflare: union(
       object({
         state: literal("planned"),

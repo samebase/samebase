@@ -24,6 +24,7 @@ import {
 import { clamp } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isVaultProviderUpstreamPresent } from "./vault/model";
+import { requireActiveConvexTeam } from "./vault/convexTeam";
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -185,6 +186,10 @@ export const getConvexDeploymentStatus = internalAction({
     const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
     const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
 
+    requireActiveConvexTeam({
+      activeTeamId: resolveConvexTeamId(convexConnection),
+      targetTeamId: deployment.teamId,
+    });
     const convexToken = resolveConvexToken(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
       path: "/deployments/{deployment_name}",
@@ -222,6 +227,10 @@ export const getConvexLogs = internalAction({
     const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
     const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
 
+    requireActiveConvexTeam({
+      activeTeamId: resolveConvexTeamId(convexConnection),
+      targetTeamId: deployment.teamId,
+    });
     const convexToken = resolveConvexToken(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
       path: "/projects/{project_id}/list_deployments",

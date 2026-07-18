@@ -1320,12 +1320,26 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
     if (!active.active) {
       return null;
     }
+    const { production: recordedProduction, preview: recordedPreview } =
+      active.dependency.wiring.deployKeys;
+    if (
+      (recordedProduction.state !== "not_created" &&
+        recordedProduction.teamId !== active.convex.teamId) ||
+      (recordedPreview.state !== "not_created" && recordedPreview.teamId !== active.convex.teamId)
+    ) {
+      throw new Error(
+        "Reconnect the Convex team that owns the recorded deploy keys and remove them before rewiring access.",
+      );
+    }
 
     const [cloudflareConnection, convexConnection, githubConnection] = await Promise.all([
       resolveCloudflareConnection(ctx, args.userId),
       resolveConvexProvisioningConnection(ctx, args.userId),
       resolveGitHubConnection(ctx, args.userId),
     ]);
+    if (convexConnection.convexTeamId !== active.convex.teamId) {
+      throw new Error("Reconnect the Convex team that owns this deployment before wiring access.");
+    }
     const account = await resolveAccount(ctx, {
       token: cloudflareConnection.token,
       transport: cloudflareConnection.transport,
@@ -1341,9 +1355,6 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
       runId: args.runId,
       step: "wire_convex_build_access",
     });
-    if (convexConnection.convexTeamId !== active.convex.teamId) {
-      throw new Error("Reconnect the Convex team that owns this deployment before wiring access.");
-    }
     const convexDeploymentVerification = await verifyConvexDeploymentExistence({
       convexToken: convexConnection.convexToken,
       teamId: active.convex.teamId,
@@ -1385,6 +1396,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
     const productionDeployKeyIdentity = {
       deployment: "production" as const,
       value: {
+        teamId: active.convex.teamId,
         name: productionDeployKeyName,
         deploymentName: active.convex.deploymentName,
       },
@@ -1392,6 +1404,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
     const previewDeployKeyIdentity = {
       deployment: "preview" as const,
       value: {
+        teamId: active.convex.teamId,
         name: previewDeployKeyName,
         projectId: active.convex.projectId,
       },
@@ -1403,6 +1416,11 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
     try {
       const recordedProductionDeployKey = active.dependency.wiring.deployKeys.production;
       if (recordedProductionDeployKey.state !== "not_created") {
+        if (recordedProductionDeployKey.teamId !== convexConnection.convexTeamId) {
+          throw new Error(
+            "Reconnect the Convex team that owns the recorded production deploy key before rewiring access.",
+          );
+        }
         await deleteConvexBuildAccessDeployKey({
           convexToken: convexConnection.convexToken,
           deploymentName: recordedProductionDeployKey.deploymentName,
@@ -1415,6 +1433,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
             deployKey: {
               deployment: "production",
               value: {
+                teamId: recordedProductionDeployKey.teamId,
                 name: recordedProductionDeployKey.name,
                 deploymentName: recordedProductionDeployKey.deploymentName,
               },
@@ -1428,6 +1447,11 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
 
       const recordedPreviewDeployKey = active.dependency.wiring.deployKeys.preview;
       if (recordedPreviewDeployKey.state !== "not_created") {
+        if (recordedPreviewDeployKey.teamId !== convexConnection.convexTeamId) {
+          throw new Error(
+            "Reconnect the Convex team that owns the recorded preview deploy key before rewiring access.",
+          );
+        }
         await deleteConvexBuildAccessPreviewDeployKey({
           convexToken: convexConnection.convexToken,
           projectId: recordedPreviewDeployKey.projectId,
@@ -1440,6 +1464,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
             deployKey: {
               deployment: "preview",
               value: {
+                teamId: recordedPreviewDeployKey.teamId,
                 name: recordedPreviewDeployKey.name,
                 projectId: recordedPreviewDeployKey.projectId,
               },

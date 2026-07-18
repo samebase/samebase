@@ -500,6 +500,7 @@ export async function connectExistingConvexProjectForUser(
     userId,
     appId: args.appId,
   });
+  const connection = await resolveConvexConnection(ctx, userId);
   const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
     userId,
     vaultId: args.vaultId,
@@ -512,6 +513,7 @@ export async function connectExistingConvexProjectForUser(
     target: {
       mode: "connect_existing_project",
       appId: args.appId,
+      teamId: connection.teamId,
       projectId,
     },
   });
@@ -597,6 +599,9 @@ export const ensureConvexDeploymentConnection = internalAction({
     const connection = await resolveConvexConnection(ctx, args.userId);
     switch (args.target.mode) {
       case "connect_existing_project": {
+        if (connection.teamId !== args.target.teamId) {
+          throw new Error("Convex connection no longer matches the selected team.");
+        }
         const convex = await resolveExistingConvexProject({
           connection,
           projectId: args.target.projectId,

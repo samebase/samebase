@@ -30,7 +30,6 @@ import {
 import { isLiveConnectedVault } from "./state";
 
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
-const CLOUDFLARE_CONNECTION_STALE_MS = 10 * 60 * 1000;
 const CONVEX_DEPLOY_KEYS_NOT_CREATED = {
   production: { state: "not_created" },
   preview: { state: "not_created" },
@@ -98,6 +97,7 @@ const vCloudflareConvexBuildAccessDeployKey = union(
   object({
     deployment: literal("production"),
     value: object({
+      teamId: string(),
       name: string(),
       deploymentName: string(),
     }),
@@ -105,6 +105,7 @@ const vCloudflareConvexBuildAccessDeployKey = union(
   object({
     deployment: literal("preview"),
     value: object({
+      teamId: string(),
       name: string(),
       projectId: string(),
     }),
@@ -828,12 +829,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
 
     const now = Date.now();
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    if (ownership && ownership.state === "active" && ownership.runId !== args.runId) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -843,13 +839,11 @@ export const claimCloudflareWorkerConnection = internalMutation({
       });
       return { claimed: false };
     }
+    if (ownership && ownership.state !== "active" && ownership.runId === args.runId) {
+      return { claimed: false };
+    }
 
     if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
         state: "active",
@@ -1428,12 +1422,7 @@ export const claimCloudflareBuildsWiring = internalMutation({
 
     const now = Date.now();
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    if (ownership && ownership.state === "active" && ownership.runId !== args.runId) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -1443,13 +1432,11 @@ export const claimCloudflareBuildsWiring = internalMutation({
       });
       return { claimed: false };
     }
+    if (ownership && ownership.state !== "active" && ownership.runId === args.runId) {
+      return { claimed: false };
+    }
 
     if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
         state: "active",
@@ -1680,14 +1667,20 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       throw new Error("Cloudflare Worker must be reconnected before wiring Convex build access.");
     }
     const existingDependency = await readWorkerDeploymentDependency(ctx, worker._id);
+    if (existingDependency) {
+      const { production, preview } = existingDependency.wiring.deployKeys;
+      if (
+        (production.state !== "not_created" && production.teamId !== convexDeployment.teamId) ||
+        (preview.state !== "not_created" && preview.teamId !== convexDeployment.teamId)
+      ) {
+        throw new Error(
+          "Reconnect the Convex team that owns the recorded deploy keys and remove them before changing teams.",
+        );
+      }
+    }
     const now = Date.now();
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    if (ownership && ownership.state === "active" && ownership.runId !== args.runId) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -1697,13 +1690,11 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       });
       return { claimed: false };
     }
+    if (ownership && ownership.state !== "active" && ownership.runId === args.runId) {
+      return { claimed: false };
+    }
 
     if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
         state: "active",
@@ -1894,6 +1885,7 @@ export const beginCloudflareConvexBuildAccessDeployKeyCreation = internalMutatio
             production: {
               state: "creating",
               runId: args.runId,
+              teamId: convexDeployment.teamId,
               name: args.convexDeployKeyName,
               deploymentName: convexDeployment.deploymentName,
             },
@@ -1916,6 +1908,7 @@ export const beginCloudflareConvexBuildAccessDeployKeyCreation = internalMutatio
           preview: {
             state: "creating",
             runId: args.runId,
+            teamId: convexDeployment.teamId,
             name: args.convexDeployKeyName,
             projectId: convexDeployment.projectId,
           },
@@ -1966,6 +1959,7 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
       if (
         current.state !== "creating" ||
         current.runId !== args.runId ||
+        current.teamId !== convexDeployment.teamId ||
         current.name !== args.convexDeployKeyName ||
         current.deploymentName !== convexDeployment.deploymentName
       ) {
@@ -1977,6 +1971,7 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
           deployKeys: {
             production: {
               state: "created",
+              teamId: current.teamId,
               name: current.name,
               deploymentName: current.deploymentName,
             },
@@ -1990,6 +1985,7 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
       if (
         current.state !== "creating" ||
         current.runId !== args.runId ||
+        current.teamId !== convexDeployment.teamId ||
         current.name !== args.convexDeployKeyName ||
         current.projectId !== convexDeployment.projectId
       ) {
@@ -2002,6 +1998,7 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
             production: dependency.wiring.deployKeys.production,
             preview: {
               state: "created",
+              teamId: current.teamId,
               name: current.name,
               projectId: current.projectId,
             },
@@ -2060,6 +2057,7 @@ export const clearCloudflareConvexBuildAccessDeployKey = internalMutation({
       const current = dependency.wiring.deployKeys.production;
       if (
         current.state === "not_created" ||
+        current.teamId !== args.deployKey.value.teamId ||
         current.name !== args.deployKey.value.name ||
         current.deploymentName !== args.deployKey.value.deploymentName
       ) {
@@ -2081,6 +2079,7 @@ export const clearCloudflareConvexBuildAccessDeployKey = internalMutation({
     const current = dependency.wiring.deployKeys.preview;
     if (
       current.state === "not_created" ||
+      current.teamId !== args.deployKey.value.teamId ||
       current.name !== args.deployKey.value.name ||
       current.projectId !== args.deployKey.value.projectId
     ) {
@@ -2403,12 +2402,7 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
 
     const now = Date.now();
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
+    if (ownership && ownership.state === "active" && ownership.runId !== args.runId) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -2418,13 +2412,11 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
       });
       return { claimed: false };
     }
+    if (ownership && ownership.state !== "active" && ownership.runId === args.runId) {
+      return { claimed: false };
+    }
 
     if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
-        });
-      }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
         state: "active",

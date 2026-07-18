@@ -64,6 +64,7 @@ export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
     appId: id("vaultApps"),
+    teamId: string(),
     projectId: string(),
   }),
   object({
