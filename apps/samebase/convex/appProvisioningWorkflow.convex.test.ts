@@ -17,7 +17,7 @@ describe("app provisioning workflow composition", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId,
         vaultId,
         repositoryFullName: "ada/composed-app",
@@ -46,7 +46,7 @@ describe("app provisioning workflow composition", () => {
         appRoot: ".",
         createdAt: 25,
       });
-      await ctx.db.insert("vaultInfrastructureTargets", {
+      await ctx.db.insert("operations_vaultInfrastructureTargets", {
         vaultId,
         appRoot: ".",
         convex: {

@@ -273,9 +273,9 @@ branches.
 
 1. `providerConnections`
    - delete rows where `kind == "netlify"`
-2. `oauthStates`
+2. `operations_providerOauthStates`
    - delete rows where `provider == "netlify"`
-3. `aiProdAccessRequests`
+3. `operations_aiProdAccessRequests`
    - delete rows where `provider == "netlify"`
 4. `vaults`
    - if `hostingProvider` is being removed in this phase, unset it on all rows
@@ -297,7 +297,7 @@ branches.
 
 Notes:
 
-- `aiProdAccessAudit` does not store a provider enum and can remain.
+- `audit_aiProdAccessEvents` does not store a provider enum and can remain.
 - `chatMessageMetadata.payloadJson` is opaque historical text; old Netlify labels can remain.
 
 ### Cleanup verification gate

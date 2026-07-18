@@ -99,7 +99,7 @@ function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   return value;
 }
 
-function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
+function fakeProvisioningRunId(): Id<"operations_vaultProvisioningRuns"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
@@ -111,7 +111,7 @@ function fakeConvexDeploymentId(): Id<"vaultConvexDeployments"> {
   return "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-function fakeConvexSchemaSnapshotId(): Id<"vaultConvexSchemaSnapshots"> {
+function fakeConvexSchemaSnapshotId(): Id<"observations_vaultConvexSchemaSnapshots"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
@@ -1064,7 +1064,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "vaultRemoteBranches",
+            name: "observations_vaultRemoteBranches",
             source: "mixed",
             documentCount: 96,
             indexes: [{ name: "by_vault_branch", fields: ["vaultId", "branch"] }],
@@ -1091,7 +1091,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "vaultInfrastructureOwnership",
+            name: "operations_vaultInfrastructureOwnership",
             source: "declared",
             documentCount: 16,
             indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
@@ -1118,7 +1118,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "appProvisioningRuns",
+            name: "operations_vaultProvisioningRuns",
             source: "declared",
             documentCount: 24,
             indexes: [{ name: "by_vault", fields: ["vaultId"] }],
@@ -1145,7 +1145,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "fileStaging",
+            name: "operations_fileStaging",
             source: "mixed",
             documentCount: 318,
             indexes: [{ name: "by_vault_and_branch", fields: ["vaultId", "branch"] }],
@@ -1257,36 +1257,36 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             source: "declared",
           },
           {
-            id: "declared:vaultRemoteBranches:vaultId:vaults",
-            fromTable: "vaultRemoteBranches",
+            id: "declared:observations_vaultRemoteBranches:vaultId:vaults",
+            fromTable: "observations_vaultRemoteBranches",
             fromField: "vaultId",
             toTable: "vaults",
             source: "declared",
           },
           {
-            id: "declared:vaultInfrastructureOwnership:userId:users",
-            fromTable: "vaultInfrastructureOwnership",
+            id: "declared:operations_vaultInfrastructureOwnership:userId:users",
+            fromTable: "operations_vaultInfrastructureOwnership",
             fromField: "userId",
             toTable: "users",
             source: "declared",
           },
           {
-            id: "declared:appProvisioningRuns:vaultId:vaults",
-            fromTable: "appProvisioningRuns",
+            id: "declared:operations_vaultProvisioningRuns:vaultId:vaults",
+            fromTable: "operations_vaultProvisioningRuns",
             fromField: "vaultId",
             toTable: "vaults",
             source: "declared",
           },
           {
-            id: "declared:fileStaging:vaultId:vaults",
-            fromTable: "fileStaging",
+            id: "declared:operations_fileStaging:vaultId:vaults",
+            fromTable: "operations_fileStaging",
             fromField: "vaultId",
             toTable: "vaults",
             source: "declared",
           },
           {
-            id: "declared:fileStaging:lastEditUserId:users",
-            fromTable: "fileStaging",
+            id: "declared:operations_fileStaging:lastEditUserId:users",
+            fromTable: "operations_fileStaging",
             fromField: "lastEditUserId",
             toTable: "users",
             source: "declared",

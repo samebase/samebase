@@ -52,8 +52,8 @@ while keeping Noter’s existing approval-first flows.
    separate Noter table keyed by the agent message ID.
 5. Noter-specific thread context (vault, repo, branch, file path) is stored in a lightweight
    `agentThreadContext` table keyed by `threadId`.
-6. Approval flows continue to use `aiProdAccessRequests` and `aiProdAccessAudit`, but are updated to
-   reference `threadId` instead of `conversationId`.
+6. Approval flows continue to use `operations_aiProdAccessRequests` and `audit_aiProdAccessEvents`,
+   but are updated to reference `threadId` instead of `conversationId`.
 7. System prompts remain generated via `buildSystemPrompt`, but history/context is sourced from the
    agent thread.
 
@@ -86,7 +86,7 @@ while keeping Noter’s existing approval-first flows.
   - `type: v.union(v.literal("tool_activity"), v.literal("commit_proposal"), v.literal("prod_read_proposal"), v.literal("prod_read_result"))`
   - `payloadJson: v.string()` (typed JSON payload; keeps schema strict and avoids `any`)
   - Index on `messageId` and `threadId`.
-- Update `aiProdAccessRequests`:
+- Update `operations_aiProdAccessRequests`:
   - Replace `conversationId` with `threadId: v.string()`.
   - Add index by `threadId` for lookup.
 - Remove `chatConversations` and `chatMessages` tables after migration.

@@ -60,7 +60,7 @@ async function seedRunningDeletion(
       userId,
       expirationTime: Date.now() + 60_000,
     });
-    return await ctx.db.insert("accountDeletionRuns", {
+    return await ctx.db.insert("operations_accountDeletionRuns", {
       identity: { state: "active", userId, email: "owner@example.com" },
       completionCapability: "progress-test",
       state: "running",
@@ -88,7 +88,7 @@ describe("account-local deletion cleanup", () => {
     await seedVault(t, userId);
     const runId = await seedRunningDeletion(t, userId);
     await t.run(async (ctx) => {
-      await ctx.db.insert("fileStaging", {
+      await ctx.db.insert("operations_fileStaging", {
         ownerId: userId,
         vaultId: firstVaultId,
         fileDeleted: false,
@@ -218,7 +218,7 @@ describe("account-local deletion cleanup", () => {
     for (let start = 0; start < rowCount; start += 500) {
       await t.run(async (ctx) => {
         for (let index = start; index < Math.min(start + 500, rowCount); index += 1) {
-          await ctx.db.insert("folderExpansionState", {
+          await ctx.db.insert("ui_folderExpansionState", {
             userId,
             vaultId,
             folderPath: `folder-${index}`,
@@ -241,7 +241,7 @@ describe("account-local deletion cleanup", () => {
         .withIndex("by_userId", (query) => query.eq("userId", userId))
         .collect();
       const folderState = await ctx.db
-        .query("folderExpansionState")
+        .query("ui_folderExpansionState")
         .withIndex("by_vault", (query) => query.eq("vaultId", vaultId))
         .collect();
       const run = await ctx.db.get(runId);
@@ -261,7 +261,7 @@ describe("account-local deletion cleanup", () => {
   it("rejects workflow calls for scrubbed deletion receipts", async () => {
     const t = makeConvexTest();
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("accountDeletionRuns", {
+      return await ctx.db.insert("operations_accountDeletionRuns", {
         identity: { state: "scrubbed" },
         completionCapability: "cleanup-test",
         state: "succeeded",
@@ -300,7 +300,7 @@ describe("account-local deletion cleanup", () => {
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      return await ctx.db.insert("vaultDeletionRuns", {
+      return await ctx.db.insert("operations_vaultDeletionRuns", {
         userId,
         vaultId,
         repositoryFullName: "owner/repository",
@@ -345,7 +345,7 @@ describe("account-local deletion cleanup", () => {
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId,
         vaultId,
         repositoryFullName: "owner/repository",
@@ -374,7 +374,7 @@ describe("account-local deletion cleanup", () => {
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      await ctx.db.insert("appProvisioningRuns", {
+      await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId,
         vaultId,
         repositoryFullName: "owner/repository",
@@ -384,7 +384,7 @@ describe("account-local deletion cleanup", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      return await ctx.db.insert("dashboardSettings", {
+      return await ctx.db.insert("ui_dashboardSettings", {
         userId,
         providersPanelOpen: false,
         pricingBillingCycle: "monthly",
@@ -410,7 +410,7 @@ describe("account-local deletion cleanup", () => {
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      const seededRequestId = await ctx.db.insert("repositoryRefreshRequests", {
+      const seededRequestId = await ctx.db.insert("operations_vaultRepositoryRefreshRequests", {
         userId,
         vaultId,
         dedupeKey: `${vaultId}:main`,
@@ -425,7 +425,7 @@ describe("account-local deletion cleanup", () => {
 
     await expect(runCleanup(t, userId)).resolves.toEqual({
       state: "needs_more",
-      target: "repositoryRefreshRequests",
+      target: "operations_vaultRepositoryRefreshRequests",
       rowsChanged: 1,
     });
     await expect(t.run(async (ctx) => await ctx.db.get(requestId))).resolves.toBeNull();
@@ -435,20 +435,20 @@ describe("account-local deletion cleanup", () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "owner@example.com");
     await t.run(async (ctx) => {
-      await ctx.db.insert("machineCredentials", {
+      await ctx.db.insert("operations_machineCredentials", {
         userId,
         machineId: "machine-1",
         credentialHash: "credential-hash",
         createdAt: 1,
       });
-      await ctx.db.insert("machineControlTokens", {
+      await ctx.db.insert("operations_machineControlTokens", {
         userId,
         machineId: "machine-1",
         tokenHash: "control-token-hash",
         createdAt: 1,
         expiresAt: 2,
       });
-      await ctx.db.insert("machineRegistrationRequests", {
+      await ctx.db.insert("operations_machineRegistrationRequests", {
         requestId: "registration-1",
         credentialHash: "registration-hash",
         userId,
@@ -476,15 +476,15 @@ describe("account-local deletion cleanup", () => {
 
     await expect(runCleanup(t, userId)).resolves.toMatchObject({
       state: "needs_more",
-      target: "machineCredentials",
+      target: "operations_machineCredentials",
     });
     await expect(runCleanup(t, userId)).resolves.toMatchObject({
       state: "needs_more",
-      target: "machineControlTokens",
+      target: "operations_machineControlTokens",
     });
     await expect(runCleanup(t, userId)).resolves.toMatchObject({
       state: "needs_more",
-      target: "machineRegistrationRequests",
+      target: "operations_machineRegistrationRequests",
     });
     await expect(runCleanup(t, userId)).resolves.toMatchObject({
       state: "needs_more",
@@ -502,7 +502,7 @@ describe("account-local deletion cleanup", () => {
         deletion: { state: "not_deleting" },
       });
       const storageId = await ctx.storage.store(new Blob(["private draft"]));
-      await ctx.db.insert("fileStaging", {
+      await ctx.db.insert("operations_fileStaging", {
         ownerId: userId,
         vaultId,
         fileDeleted: false,
@@ -568,7 +568,7 @@ describe("account-local deletion cleanup", () => {
       const storageId = await t.run(async (ctx) => {
         const storageId = await ctx.storage.store(new Blob(["shared storage"]));
         if (deletedReference === "staging") {
-          await ctx.db.insert("fileStaging", {
+          await ctx.db.insert("operations_fileStaging", {
             ownerId: deletingUserId,
             vaultId: deletingVaultId,
             fileDeleted: false,
@@ -584,7 +584,7 @@ describe("account-local deletion cleanup", () => {
             branch: "main",
             version: 1,
           });
-          await ctx.db.insert("fileStaging", {
+          await ctx.db.insert("operations_fileStaging", {
             ownerId: deletingUserId,
             vaultId: deletingVaultId,
             fileDeleted: false,
@@ -601,13 +601,13 @@ describe("account-local deletion cleanup", () => {
             version: 1,
           });
         } else {
-          await ctx.db.insert("blobs", {
+          await ctx.db.insert("observations_vaultFileBlobs", {
             vaultId: deletingVaultId,
             sha: "deleting-sha",
             size: 14,
             storageId,
           });
-          await ctx.db.insert("blobs", {
+          await ctx.db.insert("observations_vaultFileBlobs", {
             vaultId: deletingVaultId,
             sha: "deleting-copy-sha",
             size: 14,
@@ -616,7 +616,7 @@ describe("account-local deletion cleanup", () => {
         }
 
         if (survivingReference === "staging") {
-          await ctx.db.insert("fileStaging", {
+          await ctx.db.insert("operations_fileStaging", {
             ownerId: survivingUserId,
             vaultId: survivingVaultId,
             fileDeleted: false,
@@ -633,7 +633,7 @@ describe("account-local deletion cleanup", () => {
             version: 1,
           });
         } else {
-          await ctx.db.insert("blobs", {
+          await ctx.db.insert("observations_vaultFileBlobs", {
             vaultId: survivingVaultId,
             sha: "surviving-sha",
             size: 14,
@@ -665,7 +665,7 @@ describe("account-local deletion cleanup", () => {
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId,
         vaultId,
         repositoryFullName: "owner/repository",
@@ -695,7 +695,7 @@ describe("account-local deletion cleanup", () => {
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      const survivingRunId = await ctx.db.insert("appProvisioningRuns", {
+      const survivingRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: survivingUserId,
         vaultId: survivingVaultId,
         repositoryFullName: "owner/repository",
@@ -743,8 +743,10 @@ describe("account-local deletion cleanup", () => {
     expect(result).toEqual({ state: "done" });
     await t.run(async (ctx) => {
       expect(await ctx.db.get(survivingVaultId)).not.toBeNull();
-      expect(await ctx.db.query("githubCommitCheckItems").collect()).toHaveLength(1);
-      expect(await ctx.db.query("githubCommitCheckSnapshots").collect()).toHaveLength(1);
+      expect(await ctx.db.query("observations_vaultCommitCheckItems").collect()).toHaveLength(1);
+      expect(await ctx.db.query("observations_vaultCommitCheckSnapshots").collect()).toHaveLength(
+        1,
+      );
     });
   });
 
@@ -762,7 +764,7 @@ describe("account-local deletion cleanup", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      await ctx.db.insert("mcpAccessTokens", {
+      await ctx.db.insert("operations_mcpAccessTokens", {
         tokenHash: "token-hash",
         grantId: "grant-1",
         clientId: "client-1",
@@ -776,7 +778,7 @@ describe("account-local deletion cleanup", () => {
 
     await expect(runCleanup(t, userId)).resolves.toEqual({
       state: "needs_more",
-      target: "mcpAccessTokens",
+      target: "operations_mcpAccessTokens",
       rowsChanged: 1,
     });
     await expect(runCleanup(t, userId)).resolves.toEqual({

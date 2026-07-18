@@ -64,8 +64,8 @@ users in the existing unresolved storage-backed file path.
 - `VaultDashboard` now uses the same shell, but its sidebar has no vault or branch target.
 - `/add` does not use the shared sidebar shell and has no upload destination context.
 - `RepositoryMediaViewer` already renders repository images.
-- `blobs` already supports two storage modes: inline text or Convex storage.
-- `fileStaging` is text-first. It requires `content` and `initialContent` as strings.
+- `observations_vaultFileBlobs` already supports two storage modes: inline text or Convex storage.
+- `operations_fileStaging` is text-first. It requires `content` and `initialContent` as strings.
 - The commit pipeline assumes text:
   - staged files are modeled as `content: string`
   - upstream reconciliation computes UTF-8 blob SHAs from text
@@ -186,18 +186,19 @@ However, the browser should not send multi-megabyte Base64 strings through the e
 mutations. The safer flow is:
 
 1. Browser uploads the file to Convex storage using an upload URL.
-2. A finalize mutation records staged binary metadata in `fileStaging`.
+2. A finalize mutation records staged binary metadata in `operations_fileStaging`.
 3. The UI renders the staged image directly from Convex storage.
 4. Commit code reads the staged bytes, creates a GitHub blob, inserts that blob into the Git tree,
    and advances the branch.
-5. The staged record is cleared after commit, but the committed blob remains cached in `blobs`.
+5. The staged record is cleared after commit, but the committed blob remains cached in
+   `observations_vaultFileBlobs`.
 
 This still satisfies the product requirement that persisted project assets live directly in GitHub.
 
-### 5. Extend `fileStaging` instead of creating a second staging table
+### 5. Extend `operations_fileStaging` instead of creating a second staging table
 
 The existing file tree, staged-file visibility, rename flow, delete flow, commit flow, and branch
-scoping already revolve around `fileStaging`.
+scoping already revolve around `operations_fileStaging`.
 
 Adding a second binary-only staging table would duplicate too much logic.
 
@@ -265,7 +266,7 @@ repository contents API path.
 
 After this work, committed image preview should prefer:
 
-- cached `blobs` storage when available
+- cached `observations_vaultFileBlobs` storage when available
 - otherwise GitHub `getBlob`, which supports blobs up to 100 MB
 
 That removes the current 1 MB preview ceiling for supported image types.
@@ -301,7 +302,7 @@ The right MVP path is to keep the existing Git database commit flow and add a bi
 
 ## Implementation Plan
 
-1. Add binary-aware fields to `fileStaging` and related validators/types.
+1. Add binary-aware fields to `operations_fileStaging` and related validators/types.
 2. Add upload-URL and finalize-upload mutations for vault-scoped image staging.
 3. Add a reusable sidebar footer upload component to `FileView` with tap-first mobile behavior.
 4. Add an explicit destination-folder picker seeded from the current selection but overridable
@@ -311,7 +312,7 @@ The right MVP path is to keep the existing Git database commit flow and add a bi
 6. Extend `RepositoryMediaViewer` so staged images render before commit.
 7. Teach the commit pipeline to partition text and binary rows, create GitHub blobs for binary rows,
    and use SHA-based binary conflict checks.
-8. Warm the `blobs` cache with committed binary metadata after commit.
+8. Warm the `observations_vaultFileBlobs` cache with committed binary metadata after commit.
 9. Switch committed media preview fallback from contents-only behavior to the Git blob path when
    needed.
 

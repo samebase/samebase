@@ -38,7 +38,7 @@ const vAccountDeletionRunState = union(
 );
 
 const vAccountDeletionStatus = object({
-  runId: id("accountDeletionRuns"),
+  runId: id("operations_accountDeletionRuns"),
   completionCapability: string(),
   state: vActiveAccountDeletionRunState,
   currentStep: vAccountDeletionStep,
@@ -97,7 +97,7 @@ const vAccountDeletionCompletion = object({
 });
 
 const adminAccountDeletionFields = {
-  runId: id("accountDeletionRuns"),
+  runId: id("operations_accountDeletionRuns"),
   state: vAccountDeletionRunState,
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
@@ -120,7 +120,7 @@ const vAdminAccountDeletionDetail = object({
   ),
 });
 
-function projectStatus(run: Doc<"accountDeletionRuns">) {
+function projectStatus(run: Doc<"operations_accountDeletionRuns">) {
   if (run.state === "succeeded") {
     throw new Error("Account deletion completion state is inconsistent.");
   }
@@ -136,7 +136,7 @@ function projectStatus(run: Doc<"accountDeletionRuns">) {
   };
 }
 
-function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
+function projectAdminListItem(run: Doc<"operations_accountDeletionRuns">) {
   return {
     runId: run._id,
     state: run.state,
@@ -154,7 +154,7 @@ function projectAdminListItem(run: Doc<"accountDeletionRuns">) {
 const STAKES_FILE_STAGING_READ_BATCH_SIZE = 200;
 
 /**
-Counts what deletion would destroy for the confirmation phrase. fileStaging
+Counts what deletion would destroy for the confirmation phrase. operations_fileStaging
 reads walk the by_vault index in take() batches cursored on _creationTime
 (unique per table), and stop at the cap so one huge vault cannot make the
 stakes read unbounded.
@@ -181,7 +181,7 @@ async function countAccountDeletionStakes(
 
     for (;;) {
       const batch = await db
-        .query("fileStaging")
+        .query("operations_fileStaging")
         .withIndex("by_vault", (q) =>
           cursorCreationTime === undefined
             ? q.eq("vaultId", vault._id)
@@ -304,7 +304,7 @@ export const request = mutation({
     }
 
     const existingCapability = await ctx.db
-      .query("accountDeletionRuns")
+      .query("operations_accountDeletionRuns")
       .withIndex("by_completion_capability", (query) =>
         query.eq("completionCapability", args.completionCapability),
       )
@@ -350,13 +350,13 @@ export const request = mutation({
       dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     } as const;
 
-    const runId = await ctx.db.insert("accountDeletionRuns", {
+    const runId = await ctx.db.insert("operations_accountDeletionRuns", {
       ...activeRunFields,
       state: "queued",
       workflow: { state: "not_started" },
     });
 
-    await ctx.db.insert("accountDeletionEvents", {
+    await ctx.db.insert("operations_accountDeletionEvents", {
       runId,
       step: "request_accepted",
       level: "info",
@@ -392,7 +392,7 @@ export const request = mutation({
 
 export const retry = mutation({
   access: "access_admin",
-  args: { runId: id("accountDeletionRuns") },
+  args: { runId: id("operations_accountDeletionRuns") },
   returns: vAccountDeletionStatus,
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
@@ -435,7 +435,7 @@ export const retry = mutation({
       },
     });
 
-    await ctx.db.insert("accountDeletionEvents", {
+    await ctx.db.insert("operations_accountDeletionEvents", {
       runId: run._id,
       step: run.currentStep,
       level: "info",
@@ -487,7 +487,7 @@ export const completion = query({
     }
 
     const run = await ctx.db
-      .query("accountDeletionRuns")
+      .query("operations_accountDeletionRuns")
       .withIndex("by_completion_capability", (query) =>
         query.eq("completionCapability", args.completionCapability),
       )
@@ -509,7 +509,7 @@ export const listForAdmin = query({
   returns: paginationResultValidator(vAdminAccountDeletionListItem),
   handler: async (ctx, args) => {
     const runs = await ctx.db
-      .query("accountDeletionRuns")
+      .query("operations_accountDeletionRuns")
       .withIndex("by_updated_at")
       .order("desc")
       .paginate(args.paginationOpts);
@@ -524,7 +524,7 @@ export const listForAdmin = query({
 export const detailForAdmin = query({
   access: "access_admin",
   args: {
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
   },
   returns: union(
     v.null(),
@@ -541,7 +541,7 @@ export const detailForAdmin = query({
     }
 
     const events = await ctx.db
-      .query("accountDeletionEvents")
+      .query("operations_accountDeletionEvents")
       .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
       .order("desc")
       .take(100);

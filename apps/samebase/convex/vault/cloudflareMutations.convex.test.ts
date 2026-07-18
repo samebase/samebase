@@ -58,7 +58,7 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       state: "not_connected",
     });
     const runState = args.ownershipState === "active" ? "running" : "failed";
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -88,7 +88,7 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       appRoot,
       createdAt: 25,
     });
-    await ctx.db.insert("vaultInfrastructureOwnership", {
+    await ctx.db.insert("operations_vaultInfrastructureOwnership", {
       vaultId,
       runId,
       state: args.ownershipState,
@@ -114,7 +114,7 @@ async function createCloudflareConnectionVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
+    const sourceRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -144,7 +144,7 @@ async function createCloudflareConnectionVault() {
       appRoot,
       createdAt: 25,
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -230,7 +230,7 @@ async function createClaimedInfrastructureVerification(args: { includeConvexConn
       connectedAt: 40,
       lastObservedAt: 40,
     });
-    return await ctx.db.insert("appProvisioningRuns", {
+    return await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId: ids.userId,
       vaultId: ids.vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -284,11 +284,11 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("operations_vaultInfrastructureOwnership")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const worker = await ctx.db
@@ -450,7 +450,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const events = await t.run(async (ctx) => {
       return await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
     });
@@ -486,7 +486,7 @@ describe("vault Cloudflare attachment mutations", () => {
         currentStep: "attach_worker",
         updatedAt: 40,
       });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "active",
@@ -576,11 +576,11 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("operations_vaultInfrastructureOwnership")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const worker = await ctx.db
@@ -665,7 +665,7 @@ describe("vault Cloudflare attachment mutations", () => {
         connectedAt: 30,
         lastObservedAt: 30,
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -675,7 +675,7 @@ describe("vault Cloudflare attachment mutations", () => {
         createdAt: 40,
         updatedAt: 40,
       });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: ids.vaultId,
         runId,
         state: "active",
@@ -740,7 +740,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -810,11 +810,11 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(runId);
       const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("operations_vaultInfrastructureOwnership")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const worker = await ctx.db
@@ -881,7 +881,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -962,7 +962,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1045,7 +1045,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const wireBuildsRunId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1253,7 +1253,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1308,11 +1308,11 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(runId);
       const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("operations_vaultInfrastructureOwnership")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const worker = await ctx.db
@@ -1426,7 +1426,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1470,7 +1470,7 @@ describe("vault Cloudflare attachment mutations", () => {
         )
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const domains = await ctx.db
@@ -1510,7 +1510,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const convexDeployment = await ctx.db
@@ -1545,7 +1545,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const convexDeployment = await ctx.db
@@ -1639,7 +1639,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1672,7 +1672,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const worker = await ctx.db
@@ -1782,7 +1782,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1868,7 +1868,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1975,7 +1975,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -2133,7 +2133,7 @@ describe("vault Cloudflare attachment mutations", () => {
   it("lets the durable claim supersede stale active ownership", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
     const staleRunId = await t.run(async (ctx) => {
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -2143,7 +2143,7 @@ describe("vault Cloudflare attachment mutations", () => {
         createdAt: 10,
         updatedAt: 20,
       });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: ids.vaultId,
         runId,
         state: "active",
@@ -2167,7 +2167,7 @@ describe("vault Cloudflare attachment mutations", () => {
       const [staleRun, ownership] = await Promise.all([
         ctx.db.get(staleRunId),
         ctx.db
-          .query("vaultInfrastructureOwnership")
+          .query("operations_vaultInfrastructureOwnership")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .first(),
       ]);
@@ -2196,7 +2196,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "provisioned",
     });
     await t.run(async (ctx) => {
-      const otherRunId = await ctx.db.insert("appProvisioningRuns", {
+      const otherRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -2207,7 +2207,7 @@ describe("vault Cloudflare attachment mutations", () => {
         updatedAt: 40,
       });
       const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("operations_vaultInfrastructureOwnership")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       if (!ownership) {

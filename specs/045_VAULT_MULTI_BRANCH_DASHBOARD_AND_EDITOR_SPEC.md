@@ -28,7 +28,7 @@ This spec focuses on GitHub remote branches as the source of truth.
 
 Current rollout note:
 
-1. `vaultBranchTrees` is now the branch-scoped source of truth for tree/commit data
+1. `observations_vaultBranchTrees` is now the branch-scoped source of truth for tree/commit data
 2. Runtime paths no longer read or write legacy `vault.treeData/treeSHA/commitSHA` as default-branch
    mirrors after the vault-first Phase 4 cleanup
 3. The vault-row mirror fields are removed from the target schema; production rows with those fields
@@ -45,11 +45,12 @@ Current workflow direction for Samebase:
 ## Current Runtime State
 
 1. Dashboard branch links are branch-aware and URL-safe for names containing `/`
-2. Vault branch resolution reads active `vaultRemoteBranches` and returns
+2. Vault branch resolution reads active `observations_vaultRemoteBranches` and returns
    `defaultBranch`/`resolvedBranch` from that catalog
-3. Tree refresh writes branch-scoped cache for any refreshed branch (`vaultBranchTrees`)
-4. Default-branch tree reads come from `vaultBranchTrees`; missing branch tree data is treated as
-   unavailable tree cache, not as GitHub disconnection
+3. Tree refresh writes branch-scoped cache for any refreshed branch
+   (`observations_vaultBranchTrees`)
+4. Default-branch tree reads come from `observations_vaultBranchTrees`; missing branch tree data is
+   treated as unavailable tree cache, not as GitHub disconnection
 5. The accepted target route surface for vault, filesystem, and database pages is defined in
    `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
 
@@ -74,7 +75,7 @@ The sections below describe the state before PR #174 and are kept for context.
 
 ### What is already branch-aware
 
-1. `fileStaging` and `collaborativeUpdates` data models are branch-scoped
+1. `operations_fileStaging` and `operations_collaborativeUpdates` data models are branch-scoped
 2. Staging read/write/commit actions accept `branch` and rebase on branch head
 3. Chat thread context stores an optional branch
 4. Many editor actions already pass branch through API calls
@@ -125,7 +126,7 @@ correctness for branch names that contain `/` (for example `feature/oauth/login`
 
 ### 1) Persist remote branch catalog per vault
 
-Add a new table `vaultRemoteBranches`:
+Add a new table `observations_vaultRemoteBranches`:
 
 1. `vaultId: Id<"vaults">`
 2. `name: string` (exact GitHub branch name)
@@ -152,7 +153,7 @@ Rationale:
 
 ### 2) Add branch-scoped tree cache
 
-Add a new table `vaultBranchTrees`:
+Add a new table `observations_vaultBranchTrees`:
 
 1. `vaultId: Id<"vaults">`
 2. `branch: string`
@@ -193,15 +194,15 @@ Add action:
 Behavior:
 
 1. Calls GitHub `repos.listBranches` with pagination (`per_page=100`)
-2. Upserts `vaultRemoteBranches`
+2. Upserts `observations_vaultRemoteBranches`
 3. Marks one branch as `isDefault=true` (from repo metadata)
 4. Computes default branch from active `isDefault` branch row
 5. For previously known branches missing upstream, set `remoteState="deleted_upstream"` and
    `deletedUpstreamAt`
 6. If a previously deleted-upstream branch reappears remotely, restore it to `remoteState="active"`
    and clear `deletedUpstreamAt`
-7. Garbage-collect deleted-upstream branch rows only when there are no `fileStaging` or
-   `collaborativeUpdates` rows for that branch
+7. Garbage-collect deleted-upstream branch rows only when there are no `operations_fileStaging` or
+   `operations_collaborativeUpdates` rows for that branch
 
 Add query:
 
@@ -227,7 +228,7 @@ Behavior:
 
 1. Resolve target branch from active branch catalog:
    `args.branch ?? activeDefaultBranch ?? firstActiveBranch ?? "main"`
-2. Read tree/commit from `vaultBranchTrees` for `resolvedBranch`
+2. Read tree/commit from `observations_vaultBranchTrees` for `resolvedBranch`
 3. Legacy fallback: if branch row missing, use existing `vault.treeData/commitSHA` only when
    `resolvedBranch` matches current default branch
 
@@ -243,7 +244,7 @@ Behavior:
 
 1. Refresh only the requested branch tree
 2. Use GitHub refs for branch-specific tree/commit reads
-3. Write to `vaultBranchTrees`
+3. Write to `observations_vaultBranchTrees`
 4. Keep legacy `vault.treeData/commitSHA` in sync for default branch only
 
 ### Commit pipeline propagation
@@ -287,7 +288,7 @@ Implementation note:
 
 For each ready vault card:
 
-1. Render a branch list section populated from `vaultRemoteBranches`
+1. Render a branch list section populated from `observations_vaultRemoteBranches`
 2. Show all remote branches in a scrollable list region
 3. Mark default branch with badge/label
 4. Clicking a branch opens `/vault/:owner/:repoName/:encodedBranch`
@@ -373,8 +374,8 @@ Pending:
 
 ### Step 1: additive schema
 
-1. Add `vaultRemoteBranches`
-2. Add `vaultBranchTrees`
+1. Add `observations_vaultRemoteBranches`
+2. Add `observations_vaultBranchTrees`
 
 ### Step 2: bootstrap existing vaults lazily
 

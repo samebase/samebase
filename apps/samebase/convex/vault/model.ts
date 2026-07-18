@@ -310,7 +310,7 @@ export const vVaultRow = union(
     ...vaultOperationalFields,
     state: literal("provisioning"),
     githubMode: literal("create_repository"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     startedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
@@ -319,7 +319,7 @@ export const vVaultRow = union(
     ...vaultOperationalFields,
     state: literal("provisioning"),
     githubMode: literal("connect_existing_repository"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     startedAt: number(),
 
     ...githubRepositoryCoordinatesFields,
@@ -328,7 +328,7 @@ export const vVaultRow = union(
     ...vaultOperationalFields,
     state: literal("connected"),
     githubMode: literal("create_repository"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     ...connectedRepositoryIdentityFields,
     connectedAt: number(),
 
@@ -338,7 +338,7 @@ export const vVaultRow = union(
     ...vaultOperationalFields,
     state: literal("connected"),
     githubMode: literal("connect_existing_repository"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
 
     ...connectedRepositoryIdentityFields,
     connectedAt: number(),
@@ -349,7 +349,7 @@ export const vVaultRow = union(
     ...vaultOperationalFields,
     state: literal("failed"),
     githubMode: literal("create_repository"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     failedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
@@ -358,7 +358,7 @@ export const vVaultRow = union(
     ...vaultOperationalFields,
     state: literal("failed"),
     githubMode: literal("connect_existing_repository"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     failedAt: number(),
 
     ...githubRepositoryCoordinatesFields,

@@ -329,7 +329,7 @@ export const proposeProdRead = mutation({
     allowRawFallback: optional(boolean()),
   },
   returns: object({
-    requestId: id("aiProdAccessRequests"),
+    requestId: id("operations_aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
@@ -344,7 +344,7 @@ export const proposeProdRead = mutation({
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
     const now = Date.now();
-    const requestId = await ctx.db.insert("aiProdAccessRequests", {
+    const requestId = await ctx.db.insert("operations_aiProdAccessRequests", {
       threadId: args.threadId,
       requesterUserId: userId,
       vaultId: args.vaultId,
@@ -362,7 +362,7 @@ export const proposeProdRead = mutation({
       error: undefined,
     });
 
-    await ctx.db.insert("aiProdAccessAudit", {
+    await ctx.db.insert("audit_aiProdAccessEvents", {
       requestId,
       actorUserId: userId,
       action: "proposed",
@@ -392,7 +392,7 @@ export const proposeProdReadInternal = internalMutation({
     allowRawFallback: optional(boolean()),
   },
   returns: object({
-    requestId: id("aiProdAccessRequests"),
+    requestId: id("operations_aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
     const thread = await getThreadById(ctx, args.threadId);
@@ -406,7 +406,7 @@ export const proposeProdReadInternal = internalMutation({
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
     const now = Date.now();
-    const requestId = await ctx.db.insert("aiProdAccessRequests", {
+    const requestId = await ctx.db.insert("operations_aiProdAccessRequests", {
       threadId: args.threadId,
       requesterUserId: args.requesterUserId,
       vaultId: args.vaultId,
@@ -424,7 +424,7 @@ export const proposeProdReadInternal = internalMutation({
       error: undefined,
     });
 
-    await ctx.db.insert("aiProdAccessAudit", {
+    await ctx.db.insert("audit_aiProdAccessEvents", {
       requestId,
       actorUserId: args.requesterUserId,
       action: "proposed",
@@ -444,7 +444,7 @@ export const proposeProdReadInternal = internalMutation({
 export const rejectProdRead = mutation({
   access: "access_admin",
   args: {
-    requestId: id("aiProdAccessRequests"),
+    requestId: id("operations_aiProdAccessRequests"),
     threadId: string(),
     messageId: string(),
   },
@@ -468,7 +468,7 @@ export const rejectProdRead = mutation({
       error: "Rejected by user",
     });
 
-    await ctx.db.insert("aiProdAccessAudit", {
+    await ctx.db.insert("audit_aiProdAccessEvents", {
       requestId: args.requestId,
       actorUserId: userId,
       action: "rejected",
@@ -494,7 +494,7 @@ export const rejectProdRead = mutation({
 export const confirmProdRead = mutation({
   access: "access_admin",
   args: {
-    requestId: id("aiProdAccessRequests"),
+    requestId: id("operations_aiProdAccessRequests"),
     threadId: string(),
     messageId: string(),
   },
@@ -524,7 +524,7 @@ export const confirmProdRead = mutation({
         error: "Request approval expired",
       });
 
-      await ctx.db.insert("aiProdAccessAudit", {
+      await ctx.db.insert("audit_aiProdAccessEvents", {
         requestId: args.requestId,
         actorUserId: userId,
         action: "expired",
@@ -552,7 +552,7 @@ export const confirmProdRead = mutation({
       error: undefined,
     });
 
-    await ctx.db.insert("aiProdAccessAudit", {
+    await ctx.db.insert("audit_aiProdAccessEvents", {
       requestId: args.requestId,
       actorUserId: userId,
       action: "approved",
@@ -679,11 +679,11 @@ export const claimCommitProposalExecutionInternal = internalMutation({
 
 export const getProdAccessRequestInternal = internalQuery({
   args: {
-    requestId: id("aiProdAccessRequests"),
+    requestId: id("operations_aiProdAccessRequests"),
   },
   returns: union(
     object({
-      _id: id("aiProdAccessRequests"),
+      _id: id("operations_aiProdAccessRequests"),
       _creationTime: number(),
       threadId: string(),
       requesterUserId: id("users"),
@@ -710,7 +710,7 @@ export const getProdAccessRequestInternal = internalQuery({
 
 export const setProdAccessRequestStatusInternal = internalMutation({
   args: {
-    requestId: id("aiProdAccessRequests"),
+    requestId: id("operations_aiProdAccessRequests"),
     status: vProdAccessStatus,
     error: optional(string()),
     approvedBy: optional(id("users")),
@@ -745,7 +745,7 @@ export const setProdAccessRequestStatusInternal = internalMutation({
 
 export const addProdAccessAuditInternal = internalMutation({
   args: {
-    requestId: id("aiProdAccessRequests"),
+    requestId: id("operations_aiProdAccessRequests"),
     actorUserId: id("users"),
     action: vProdAccessAuditAction,
     toolName: string(),
@@ -757,7 +757,7 @@ export const addProdAccessAuditInternal = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    await ctx.db.insert("aiProdAccessAudit", {
+    await ctx.db.insert("audit_aiProdAccessEvents", {
       requestId: args.requestId,
       actorUserId: args.actorUserId,
       action: args.action,

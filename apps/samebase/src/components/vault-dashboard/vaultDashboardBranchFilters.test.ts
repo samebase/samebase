@@ -7,7 +7,7 @@ import {
   setVaultBranchFilterLabelIncluded,
 } from "./vaultDashboardBranchFilters";
 
-describe("vaultBranchFilters", () => {
+describe("ui_vaultBranchFilters", () => {
   it("defaults to hidden drafts with all labels included", () => {
     expect(getDefaultVaultBranchFilters()).toEqual({
       hiddenLabels: [],

@@ -35,7 +35,7 @@ export async function revokeActiveMcpGrant(
     status: "revoked",
     updatedAt: args.now,
   });
-  await ctx.db.insert("mcpAccessAudit", {
+  await ctx.db.insert("audit_mcpAccessEvents", {
     action: args.action,
     clientId: args.grant.clientId,
     createdAt: args.now,

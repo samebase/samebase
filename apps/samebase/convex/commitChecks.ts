@@ -67,7 +67,7 @@ export async function getGitHubCommitCheckSnapshotsByCommitSha(
   const snapshots = await Promise.all(
     Array.from(new Set(args.commitShas)).map(async (commitSha) => {
       return await ctx.db
-        .query("githubCommitCheckSnapshots")
+        .query("observations_vaultCommitCheckSnapshots")
         .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
           q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
         )
@@ -440,7 +440,7 @@ async function deleteGitHubCommitCheckItems(
   },
 ): Promise<void> {
   const existingItems = await ctx.db
-    .query("githubCommitCheckItems")
+    .query("observations_vaultCommitCheckItems")
     .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
       q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
@@ -459,7 +459,7 @@ async function deleteGitHubCommitCheckSnapshots(
   },
 ): Promise<void> {
   const existingSnapshots = await ctx.db
-    .query("githubCommitCheckSnapshots")
+    .query("observations_vaultCommitCheckSnapshots")
     .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
       q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
@@ -478,7 +478,7 @@ export async function deleteGitHubCommitChecksUnreferencedByBranches(
   },
 ): Promise<void> {
   const existingSnapshots = await ctx.db
-    .query("githubCommitCheckSnapshots")
+    .query("observations_vaultCommitCheckSnapshots")
     .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
       q.eq("githubRepositoryId", args.githubRepositoryId),
     )
@@ -510,7 +510,7 @@ export const replaceGitHubCommitCheckSnapshot = internalMutation({
     await deleteGitHubCommitCheckItems(ctx, args);
     await deleteGitHubCommitCheckSnapshots(ctx, args);
     for (const item of args.items) {
-      await ctx.db.insert("githubCommitCheckItems", {
+      await ctx.db.insert("observations_vaultCommitCheckItems", {
         githubRepositoryId: args.githubRepositoryId,
         commitSha: args.commitSha,
         ...item,
@@ -518,7 +518,7 @@ export const replaceGitHubCommitCheckSnapshot = internalMutation({
       });
     }
 
-    await ctx.db.insert("githubCommitCheckSnapshots", summary);
+    await ctx.db.insert("observations_vaultCommitCheckSnapshots", summary);
 
     return summary;
   },

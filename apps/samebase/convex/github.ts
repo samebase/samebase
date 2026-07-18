@@ -117,7 +117,7 @@ const updateRepositoryTreeTarget = union(
  *
  * The include* fields are internal execution policy knobs. They are required so
  * callers must state the cost they are asking for; they are not stored on
- * repositoryRefreshRequests.
+ * operations_vaultRepositoryRefreshRequests.
  */
 const refreshRepositoryTreeForUserInput = union(
   object({

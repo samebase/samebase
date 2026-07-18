@@ -81,7 +81,7 @@ export type ManualRepositoryRefreshDemand = Infer<typeof vManualRepositoryRefres
 export const vSourceSetupRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("source_setup"),
-  runId: id("appProvisioningRuns"),
+  runId: id("operations_vaultProvisioningRuns"),
 });
 /**
  * Repository demand created by backend setup completion.
@@ -202,7 +202,7 @@ export const vRepositoryRefreshDemand = union(
   vBranchScopeRefreshDemand,
 );
 /**
- * Caller-facing freshness demand persisted on `repositoryRefreshRequests`.
+ * Caller-facing freshness demand persisted on `operations_vaultRepositoryRefreshRequests`.
  * Backend workers expand this into provider/API steps during execution.
  */
 export type RepositoryRefreshDemand = Infer<typeof vRepositoryRefreshDemand>;
@@ -339,7 +339,7 @@ export type RepositoryRefreshLifecycle = Infer<typeof vRepositoryRefreshLifecycl
 // internal execution steps without widening the caller-facing state space.
 
 /**
- * Persisted repositoryRefreshRequests row.
+ * Persisted operations_vaultRepositoryRefreshRequests row.
  *
  * The demand union forbids impossible states, such as dashboard branch fan-out
  * or source_setup without the provisioning run id.
@@ -354,7 +354,7 @@ export const vRepositoryRefreshRequest = object({
   updatedAt: number(),
 });
 /**
- * Full row shape stored in `repositoryRefreshRequests`.
+ * Full row shape stored in `operations_vaultRepositoryRefreshRequests`.
  * Use constructors/transitions below instead of assembling this by hand.
  */
 export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
@@ -386,23 +386,23 @@ export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 export const vEnqueueRepositoryRefreshResult = union(
   object({
     kind: literal("created"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("operations_vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("updated"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("operations_vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_queued"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("operations_vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_scheduled"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("operations_vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_running"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("operations_vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("blocked"),

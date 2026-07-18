@@ -178,7 +178,7 @@ type ReplaceInFileInput = {
 
 `replace_in_file` resolves against the same content source the current AI tools use:
 
-1. If the file already exists in `fileStaging`, use staged content.
+1. If the file already exists in `operations_fileStaging`, use staged content.
 2. Otherwise, read repository content for the current branch/path.
 
 This preserves the existing Noter behavior where staged edits are the live working copy seen by the
@@ -215,13 +215,13 @@ After all replacements are resolved:
 
 If the file is already staged/open:
 
-- Insert a `collaborativeUpdates` row with serialized `ChangeSet` JSON.
+- Insert a `operations_collaborativeUpdates` row with serialized `ChangeSet` JSON.
 - Increment `fileStaging.version`.
 - Update staged content by applying the same `ChangeSet`.
 
 If the file is not yet staged:
 
-- Create or update the `fileStaging` row with the final content.
+- Create or update the `operations_fileStaging` row with the final content.
 - Preserve the existing initial content and branch metadata.
 - Starting version remains `0` unless a collaborative stream already exists.
 

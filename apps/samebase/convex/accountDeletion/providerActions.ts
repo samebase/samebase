@@ -93,7 +93,7 @@ function classifyConvex(
 
 export const revokeForAccountDeletion = internalAction({
   args: {
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
     workflowId: string(),
   },
   returns: vRevokeProviderAccessResult,

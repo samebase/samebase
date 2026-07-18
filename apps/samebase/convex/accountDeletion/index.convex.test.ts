@@ -67,7 +67,7 @@ async function seedVault(
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: `ada/${name}`,
@@ -108,7 +108,7 @@ async function seedStagedFile(
   },
 ) {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert("fileStaging", {
+    return await ctx.db.insert("operations_fileStaging", {
       ownerId: args.userId,
       vaultId: args.vaultId,
       fileDeleted: false,
@@ -156,8 +156,8 @@ describe("account deletion foundation", () => {
 
     const stored = await t.run(async (ctx) => {
       const user = await ctx.db.get(ids.userId);
-      const runs = await ctx.db.query("accountDeletionRuns").collect();
-      const events = await ctx.db.query("accountDeletionEvents").collect();
+      const runs = await ctx.db.query("operations_accountDeletionRuns").collect();
+      const events = await ctx.db.query("operations_accountDeletionEvents").collect();
       return { user, runs, events };
     });
     expect(stored.user?.accountDeletion).toEqual({
@@ -412,7 +412,7 @@ describe("account deletion foundation", () => {
 
     await expect(
       t.run(async (ctx) => {
-        await ctx.db.insert("accountDeletionRuns", {
+        await ctx.db.insert("operations_accountDeletionRuns", {
           identity: { state: "active", userId: ids.userId, email: "ada@example.com" },
           completionCapability,
           state: "queued",
@@ -431,7 +431,7 @@ describe("account deletion foundation", () => {
     await expect(
       t.run(async (ctx) => {
         // @ts-expect-error A needs-attention run requires a safe error.
-        await ctx.db.insert("accountDeletionRuns", {
+        await ctx.db.insert("operations_accountDeletionRuns", {
           identity: { state: "active", userId: ids.userId, email: "ada@example.com" },
           completionCapability,
           state: "needs_attention",
@@ -460,7 +460,7 @@ describe("account deletion foundation", () => {
       completionEmail: { state: "sent" as const },
     };
     const legacyRunId = await staff.t.run(async (ctx) => {
-      return await ctx.db.insert("accountDeletionRuns", {
+      return await ctx.db.insert("operations_accountDeletionRuns", {
         identity: { state: "scrubbed" },
         state: "succeeded",
         currentStep: "finish",
@@ -491,7 +491,7 @@ describe("account deletion foundation", () => {
     await expect(
       t.run(async (ctx) => {
         // @ts-expect-error Active deletion runs always require the browser capability.
-        await ctx.db.insert("accountDeletionRuns", {
+        await ctx.db.insert("operations_accountDeletionRuns", {
           identity: { state: "active", userId: ids.userId, email: "ada@example.com" },
           state: "queued",
           workflow: { state: "not_started" },
@@ -626,7 +626,7 @@ describe("account deletion stakes and typed confirmation", () => {
     const vaultId = await seedVault(t, ids.userId);
     await t.run(async (ctx) => {
       for (let index = 0; index < ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP; index += 1) {
-        await ctx.db.insert("fileStaging", {
+        await ctx.db.insert("operations_fileStaging", {
           ownerId: ids.userId,
           vaultId,
           fileDeleted: false,
@@ -696,8 +696,8 @@ describe("account deletion stakes and typed confirmation", () => {
     expect(result).toEqual({ state: "stakes_changed" });
     const stored = await t.run(async (ctx) => ({
       user: await ctx.db.get(ids.userId),
-      runs: await ctx.db.query("accountDeletionRuns").collect(),
-      events: await ctx.db.query("accountDeletionEvents").collect(),
+      runs: await ctx.db.query("operations_accountDeletionRuns").collect(),
+      events: await ctx.db.query("operations_accountDeletionEvents").collect(),
     }));
     expect(stored.user?.accountDeletion).toBeUndefined();
     expect(stored.runs).toEqual([]);

@@ -309,7 +309,7 @@ describe("repository refresh model", () => {
   async function createMatrixContext() {
     const { ids, t } = await createVaultIds();
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/imported",
@@ -338,7 +338,10 @@ describe("repository refresh model", () => {
         expect(request.dedupeKey).toBe(row.expectedDedupeKey(context));
 
         const stored = await context.t.run(async (ctx) => {
-          const requestId = await ctx.db.insert("repositoryRefreshRequests", request);
+          const requestId = await ctx.db.insert(
+            "operations_vaultRepositoryRefreshRequests",
+            request,
+          );
           return await ctx.db.get(requestId);
         });
         expect(stored).toMatchObject(request);
@@ -396,7 +399,7 @@ describe("repository refresh model", () => {
     });
 
     const stored = await t.run(async (ctx) => {
-      const requestId = await ctx.db.insert("repositoryRefreshRequests", request);
+      const requestId = await ctx.db.insert("operations_vaultRepositoryRefreshRequests", request);
       return await ctx.db.get(requestId);
     });
     expect(stored).toMatchObject(request);
@@ -425,7 +428,7 @@ describe("repository refresh model", () => {
     });
 
     const stored = await t.run(async (ctx) => {
-      const requestId = await ctx.db.insert("repositoryRefreshRequests", request);
+      const requestId = await ctx.db.insert("operations_vaultRepositoryRefreshRequests", request);
       return await ctx.db.get(requestId);
     });
     expect(stored).toMatchObject(request);
@@ -434,7 +437,7 @@ describe("repository refresh model", () => {
   it("keeps source setup demand tied to the provisioning run", async () => {
     const { ids, t } = await createVaultIds();
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/imported",

@@ -17,7 +17,7 @@ describe("vault branch mutations", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId,
         vaultId,
         repositoryFullName: "ada/branch-checks",
@@ -242,13 +242,13 @@ describe("vault branch mutations", () => {
     await expect(
       t.run(async (ctx) => {
         const staleSnapshot = await ctx.db
-          .query("githubCommitCheckSnapshots")
+          .query("observations_vaultCommitCheckSnapshots")
           .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
             q.eq("githubRepositoryId", "123").eq("commitSha", "stale456"),
           )
           .first();
         const staleItems = await ctx.db
-          .query("githubCommitCheckItems")
+          .query("observations_vaultCommitCheckItems")
           .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
             q.eq("githubRepositoryId", "123").eq("commitSha", "stale456"),
           )
@@ -277,7 +277,7 @@ describe("vault branch mutations", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId,
         vaultId,
         repositoryFullName: "ada/branch-sort-fields",
@@ -337,7 +337,7 @@ describe("vault branch mutations", () => {
       ],
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert("fileStaging", {
+      await ctx.db.insert("operations_fileStaging", {
         ownerId: ids.userId,
         vaultId: ids.vaultId,
         fileDeleted: false,
@@ -378,7 +378,7 @@ describe("vault branch mutations", () => {
     await expect(
       t.run(async (ctx) => {
         const branches = await ctx.db
-          .query("vaultRemoteBranches")
+          .query("observations_vaultRemoteBranches")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect();
         return branches
@@ -478,7 +478,7 @@ describe("vault branch mutations", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ownerId,
         vaultId,
         repositoryFullName: "ada/secure-refresh",

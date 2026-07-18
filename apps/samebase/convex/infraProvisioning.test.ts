@@ -27,7 +27,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: `ada/${args.repoName}`,
@@ -56,7 +56,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     }
 
     if (args.activeOwnership) {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId,
         runId,
         state: "active",
@@ -75,7 +75,7 @@ async function readRunAndFirstEvent(
   return await t.run(async (ctx) => {
     const run = await ctx.db.get(runId);
     const event = await ctx.db
-      .query("appProvisioningEvents")
+      .query("operations_vaultProvisioningEvents")
       .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
       .first();
     return { event, run };
@@ -275,7 +275,7 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("operations_vaultInfrastructureOwnership")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       return { ownership, run };
@@ -311,11 +311,11 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("operations_vaultInfrastructureOwnership")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       const event = await ctx.db
-        .query("appProvisioningEvents")
+        .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .first();
       return { event, ownership, run };

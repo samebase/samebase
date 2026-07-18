@@ -251,7 +251,7 @@ Unknown tokens and repeated presentations of already-terminal tokens must return
 without inserting an audit row. Otherwise an attacker can turn random-token or replay traffic into
 an unbounded database write stream.
 
-Reuse `mcpAccessAudit` for these events with new `action` strings and reason details in
+Reuse `audit_mcpAccessEvents` for these events with new `action` strings and reason details in
 `detailsJson`. Do not add a parallel audit table. Audit rows should include `userId`, `clientId`,
 `grantId`, event time, and a reason code. Do not store raw tokens, full URLs, full user-agent
 strings, or provider credentials in audit fields.

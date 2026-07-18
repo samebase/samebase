@@ -304,7 +304,7 @@ type ProvisioningEventCtx = {
 async function appendProvisioningRunEvent(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
@@ -327,7 +327,7 @@ async function appendProvisioningRunEvent(
   }
 }
 
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
+type VaultInfrastructureOwnership = Doc<"operations_vaultInfrastructureOwnership">;
 type ProvisioningOwnershipCtx = Pick<MutationCtx, "db">;
 
 async function getVaultInfrastructureOwnership(
@@ -335,7 +335,7 @@ async function getVaultInfrastructureOwnership(
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
   return await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("operations_vaultInfrastructureOwnership")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -343,7 +343,7 @@ async function getVaultInfrastructureOwnership(
 function isActiveProvisioningOwner(
   ownership: VaultInfrastructureOwnership | null,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): boolean {
   return ownership?.runId === args.runId && ownership.state === "active";
@@ -352,7 +352,7 @@ function isActiveProvisioningOwner(
 async function cancelSupersededProvisioningRun(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     step: AppProvisioningStep;
   },
 ): Promise<void> {
@@ -496,7 +496,7 @@ export const upsertDomainRecord = internalMutation({
 
 export const markWorkflowStartupFailed = internalMutation({
   args: {
-    runId: v.id("appProvisioningRuns"),
+    runId: v.id("operations_vaultProvisioningRuns"),
     message: v.string(),
   },
   returns: v.null(),
@@ -537,7 +537,7 @@ export const markWorkflowStartupFailed = internalMutation({
 });
 
 function resolveWorkflowFailureEventStep(
-  run: Pick<Doc<"appProvisioningRuns">, "currentStep" | "trigger">,
+  run: Pick<Doc<"operations_vaultProvisioningRuns">, "currentStep" | "trigger">,
 ): AppProvisioningStep {
   if (run.currentStep !== "run_created") {
     return run.currentStep;
@@ -553,7 +553,7 @@ async function recordWorkflowRunFailure(
   args: {
     eventStep: AppProvisioningStep;
     now: number;
-    run: Doc<"appProvisioningRuns">;
+    run: Doc<"operations_vaultProvisioningRuns">;
     safeRunError: string;
   },
 ): Promise<void> {
@@ -668,7 +668,7 @@ function isCreateAppPreInfrastructureStep(step: string): boolean {
 
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
-    runId: v.id("appProvisioningRuns"),
+    runId: v.id("operations_vaultProvisioningRuns"),
     workflowId: v.string(),
     message: v.string(),
   },

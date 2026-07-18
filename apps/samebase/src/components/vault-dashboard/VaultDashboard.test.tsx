@@ -55,7 +55,7 @@ function fakeVaultId(): Id<"vaults"> {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-function fakeRunId(): Id<"appProvisioningRuns"> {
+function fakeRunId(): Id<"operations_vaultProvisioningRuns"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable run id for component props.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";

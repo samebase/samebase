@@ -59,7 +59,7 @@ async function seedDatabaseEditorVault(
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/demo",

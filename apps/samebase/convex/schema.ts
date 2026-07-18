@@ -374,13 +374,13 @@ export default defineSchema({
    * Durable account deletion operations. Active identity is removed when a
    * successful run becomes a scrubbed receipt.
    */
-  accountDeletionRuns: defineTable(vAccountDeletionRun)
+  operations_accountDeletionRuns: defineTable(vAccountDeletionRun)
     .index("by_completion_capability", ["completionCapability"])
     .index("by_updated_at", ["updatedAt"]),
 
   /** User-safe progress without account identity or provider payloads. */
-  accountDeletionEvents: defineTable({
-    runId: id("accountDeletionRuns"),
+  operations_accountDeletionEvents: defineTable({
+    runId: id("operations_accountDeletionRuns"),
     step: vAccountDeletionStep,
     level: vAccountDeletionEventLevel,
     message: string(),
@@ -388,7 +388,7 @@ export default defineSchema({
   }).index("by_run_and_created_at", ["runId", "createdAt"]),
 
   /** In-flight actions that can write to the Agent component. */
-  agentActionLeases: defineTable({
+  operations_agentActionLeases: defineTable({
     userId: id("users"),
     expiresAt: number(),
   }).index("by_user_and_expires_at", ["userId", "expiresAt"]),
@@ -403,26 +403,26 @@ export default defineSchema({
     .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"]),
 
-  machineRegistrationRequests: defineTable(vMachineRegistrationRequestRow)
+  operations_machineRegistrationRequests: defineTable(vMachineRegistrationRequestRow)
     .index("by_request_id", ["requestId"])
     .index("by_machine_id", ["machineId"])
     .index("by_user", ["userId"]),
 
-  machineRegistrationBootstrapRateLimits: defineTable(
+  operations_machineRegistrationBootstrapRateLimits: defineTable(
     vMachineRegistrationBootstrapRateLimitRow,
   ).index("by_fingerprint", ["fingerprint"]),
 
-  machineCredentials: defineTable(vMachineCredentialRow)
+  operations_machineCredentials: defineTable(vMachineCredentialRow)
     .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"])
     .index("by_credential_hash", ["credentialHash"]),
 
-  machineControlTokens: defineTable(vMachineControlTokenRow)
+  operations_machineControlTokens: defineTable(vMachineControlTokenRow)
     .index("by_token_hash", ["tokenHash"])
     .index("by_user_machine_id", ["userId", "machineId"])
     .index("by_expires_at", ["expiresAt"]),
 
-  dashboardSettings: defineTable({
+  ui_dashboardSettings: defineTable({
     userId: id("users"),
     accountPanelOpen: optional(boolean()),
     providersPanelOpen: boolean(),
@@ -432,12 +432,12 @@ export default defineSchema({
     globalChatOpen: optional(boolean()),
   }).index("by_user", ["userId"]),
 
-  workspaceSidebarState: defineTable(vWorkspaceSidebarStateRow).index("by_user_and_workspace_key", [
-    "userId",
-    "workspaceKey",
-  ]),
+  ui_workspaceSidebarState: defineTable(vWorkspaceSidebarStateRow).index(
+    "by_user_and_workspace_key",
+    ["userId", "workspaceKey"],
+  ),
 
-  vaultBranchFilters: defineTable({
+  ui_vaultBranchFilters: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     hiddenLabels: array(string()),
@@ -450,7 +450,7 @@ export default defineSchema({
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_vault", ["vaultId"]),
 
-  vaultResourceLinksState: defineTable(vVaultResourceLinksStateRow)
+  ui_vaultResourceLinksState: defineTable(vVaultResourceLinksStateRow)
     .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_vault", ["vaultId"]),
@@ -499,7 +499,7 @@ export default defineSchema({
    * Live Convex deployment schema snapshots normalized into table graph data.
    * Raw schema JSON is retained for export/debugging; deploy keys are never stored.
    */
-  vaultConvexSchemaSnapshots: defineTable(vConvexSchemaSnapshot)
+  observations_vaultConvexSchemaSnapshots: defineTable(vConvexSchemaSnapshot)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_deployment_and_fetched_at", ["deploymentId", "fetchedAt"]),
@@ -508,7 +508,7 @@ export default defineSchema({
    * Per-user Convex schema graph node positions. Layout is intentionally
    * separate from snapshots so refreshes do not reset manual arrangement.
    */
-  vaultConvexSchemaGraphLayouts: defineTable(vConvexSchemaGraphLayout)
+  ui_vaultConvexSchemaGraphLayouts: defineTable(vConvexSchemaGraphLayout)
     .index("by_vault", ["vaultId"])
     .index("by_user_vault_deployment", ["userId", "vaultId", "deploymentId"])
     .index("by_user_vault_deployment_node", ["userId", "vaultId", "deploymentId", "nodeId"]),
@@ -516,7 +516,7 @@ export default defineSchema({
   /**
    * Remote Git branches mirrored from GitHub for a vault repository.
    */
-  vaultRemoteBranches: defineTable({
+  observations_vaultRemoteBranches: defineTable({
     vaultId: id("vaults"),
     name: string(),
     headCommitSha: string(),
@@ -554,7 +554,7 @@ export default defineSchema({
    * GitHub attaches checks to commits inside repositories. Branch and PR rows
    * point at commits; they do not own check state.
    */
-  githubCommitCheckSnapshots: defineTable(vGithubCommitCheckSnapshot).index(
+  observations_vaultCommitCheckSnapshots: defineTable(vGithubCommitCheckSnapshot).index(
     "by_githubRepositoryId_and_commitSha",
     ["githubRepositoryId", "commitSha"],
   ),
@@ -562,7 +562,7 @@ export default defineSchema({
   /**
    * Current GitHub check/status items for one commit in one GitHub repo.
    */
-  githubCommitCheckItems: defineTable({
+  observations_vaultCommitCheckItems: defineTable({
     githubRepositoryId: string(),
     commitSha: string(),
     source: vCommitCheckSource,
@@ -588,7 +588,7 @@ export default defineSchema({
   /**
    * Branch-scoped Git trees for each vault.
    */
-  vaultBranchTrees: defineTable({
+  observations_vaultBranchTrees: defineTable({
     vaultId: id("vaults"),
     branch: string(),
     treeSHA: string(),
@@ -602,7 +602,7 @@ export default defineSchema({
    * Durable freshness demand and worker status. Each row is one repository- or
    * branch-scoped demand; exact refresh steps stay backend execution policy.
    */
-  repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
+  operations_vaultRepositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
     .index("by_userId_and_vaultId_and_dedupeKey", ["userId", "vaultId", "dedupeKey"])
     .index("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", [
       "userId",
@@ -627,7 +627,7 @@ export default defineSchema({
    * Samebase-managed infrastructure. The single app root is shared across
    * provider resources so one target cannot split Convex and Cloudflare.
    */
-  vaultInfrastructureTargets: defineTable({
+  operations_vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
     appRoot: string(),
     convex: union(
@@ -666,9 +666,9 @@ export default defineSchema({
    * Keeping the last owner after completion makes older in-flight workflows
    * fail closed instead of regaining ownership after a newer run finishes.
    */
-  vaultInfrastructureOwnership: defineTable({
+  operations_vaultInfrastructureOwnership: defineTable({
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     state: union(literal("active"), literal("succeeded"), literal("failed")),
     updatedAt: number(),
   })
@@ -679,7 +679,7 @@ export default defineSchema({
   /**
    * App-owned Workflow run identity for Samebase-managed provisioning.
    */
-  appProvisioningRuns: defineTable({
+  operations_vaultProvisioningRuns: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
@@ -710,11 +710,11 @@ export default defineSchema({
   /**
    * User-visible provisioning events for Samebase-managed app creation.
    */
-  appProvisioningEvents: defineTable({
+  operations_vaultProvisioningEvents: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     step: vAppProvisioningStep,
     level: vAppProvisioningEventLevel,
     message: string(),
@@ -727,7 +727,7 @@ export default defineSchema({
    * Durable operation runs for vault deletion. These rows intentionally outlive
    * the vault so failed and completed destructive work remains auditable.
    */
-  vaultDeletionRuns: defineTable(vVaultDeletionRun)
+  operations_vaultDeletionRuns: defineTable(vVaultDeletionRun)
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_user_and_updated_at", ["userId", "updatedAt"])
     .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
@@ -738,11 +738,11 @@ export default defineSchema({
    * User-safe deletion progress events. Events never store credentials,
    * provider request payloads, or response bodies.
    */
-  vaultDeletionEvents: defineTable({
+  operations_vaultDeletionEvents: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
     step: vVaultDeletionStep,
     level: vVaultDeletionEventLevel,
     message: string(),
@@ -772,7 +772,7 @@ export default defineSchema({
    * File staging for real-time collaborative editing.
    * Stores unsaved changes before they're committed to GitHub.
    */
-  fileStaging: defineTable({
+  operations_fileStaging: defineTable({
     ownerId: id("users"),
     vaultId: id("vaults"),
 
@@ -783,7 +783,7 @@ export default defineSchema({
     initialFilePath: string(),
 
     content: string(),
-    // TODO: Maybe remove and rely on blobs table instead?
+    // TODO: Maybe remove and rely on the observed blob cache instead?
     initialContent: string(),
     storageId: optional(id("_storage")),
     mime: optional(string()),
@@ -810,8 +810,8 @@ export default defineSchema({
     .index("by_user", ["lastEditUserId"]),
 
   // Unique content (dedup by sha)
-  blobs: defineTable({
-    // Even though it's not necessary. It can be used to easily cleanup files and unreferenced blobs.
+  observations_vaultFileBlobs: defineTable({
+    // Even though it's not necessary, this makes vault cleanup and orphan detection straightforward.
     vaultId: id("vaults"),
     sha: string(), // unique index
     size: number(),
@@ -831,7 +831,7 @@ export default defineSchema({
    * Folder expansion state for file tree sidebar.
    * Stores which folders are expanded/collapsed per user per vault.
    */
-  folderExpansionState: defineTable({
+  ui_folderExpansionState: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     folderPath: string(), // path to the folder
@@ -845,7 +845,7 @@ export default defineSchema({
    * Agent graph node layout for Graph View.
    * Stores per-user, per-vault node dimensions.
    */
-  agentGraphNodeLayout: defineTable({
+  ui_agentGraphNodeLayout: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     nodeId: string(),
@@ -904,7 +904,7 @@ export default defineSchema({
   /**
    * Approval-first requests for AI reads against production infrastructure/data.
    */
-  aiProdAccessRequests: defineTable({
+  operations_aiProdAccessRequests: defineTable({
     threadId: string(),
     requesterUserId: id("users"),
     vaultId: optional(id("vaults")),
@@ -933,8 +933,8 @@ export default defineSchema({
   /**
    * Immutable audit events for prod-access request lifecycle.
    */
-  aiProdAccessAudit: defineTable({
-    requestId: id("aiProdAccessRequests"),
+  audit_aiProdAccessEvents: defineTable({
+    requestId: id("operations_aiProdAccessRequests"),
     actorUserId: id("users"),
     action: vProdAccessAuditAction,
     toolName: string(),
@@ -952,7 +952,7 @@ export default defineSchema({
   /**
    * OAuth state records for provider integrations.
    */
-  oauthStates: defineTable({
+  operations_providerOauthStates: defineTable({
     provider: union(
       literal("github"),
       literal("convex"),
@@ -996,7 +996,7 @@ export default defineSchema({
   /**
    * Pending authorization requests for MCP OAuth consent.
    */
-  mcpAuthRequests: defineTable({
+  operations_mcpAuthRequests: defineTable({
     requestId: string(),
     clientId: string(),
     redirectUri: string(),
@@ -1019,7 +1019,7 @@ export default defineSchema({
   /**
    * One-time authorization codes for MCP OAuth.
    */
-  mcpAuthorizationCodes: defineTable({
+  operations_mcpAuthorizationCodes: defineTable({
     codeHash: string(),
     requestId: string(),
     grantId: string(),
@@ -1061,7 +1061,7 @@ export default defineSchema({
   /**
    * Opaque access tokens for MCP resource access.
    */
-  mcpAccessTokens: defineTable({
+  operations_mcpAccessTokens: defineTable({
     tokenHash: string(),
     grantId: string(),
     clientId: string(),
@@ -1081,7 +1081,7 @@ export default defineSchema({
   /**
    * Opaque refresh tokens for OAuth token rotation.
    */
-  mcpRefreshTokens: defineTable({
+  operations_mcpRefreshTokens: defineTable({
     grantId: string(),
     clientId: string(),
     userId: id("users"),
@@ -1101,7 +1101,7 @@ export default defineSchema({
   /**
    * Immutable audit events for MCP OAuth lifecycle.
    */
-  mcpAccessAudit: defineTable({
+  audit_mcpAccessEvents: defineTable({
     grantId: optional(string()),
     clientId: optional(string()),
     userId: optional(id("users")),
@@ -1114,7 +1114,7 @@ export default defineSchema({
     .index("by_user_id", ["userId"])
     .index("by_action", ["action"]),
 
-  agentBrowserHandoffs: defineTable({
+  operations_agentBrowserHandoffs: defineTable({
     tokenHash: string(),
     userId: id("users"),
     grantId: string(),
@@ -1129,7 +1129,7 @@ export default defineSchema({
     .index("by_user_id", ["userId"])
     .index("by_grant_id", ["grantId"]),
 
-  collaborativeUpdates: defineTable({
+  operations_collaborativeUpdates: defineTable({
     vaultId: id("vaults"),
     branch: optional(string()),
     filePath: string(),

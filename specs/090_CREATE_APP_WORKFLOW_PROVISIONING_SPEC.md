@@ -40,7 +40,7 @@ migration history; use `096` for the current create-app state model.
 2. creates the GitHub repository for the selected user/org owner
 3. connects the existing initializing vault to the created repository identity
 4. seeds the starter app
-5. syncs the initial branch tree into `vaultBranchTrees`
+5. syncs the initial branch tree into `observations_vaultBranchTrees`
 6. runs the composed infrastructure sequence:
    `attach_convex -> attach_worker -> wire_builds -> wire_convex_build_access -> record_domains`
 
@@ -49,7 +49,7 @@ migration history; use `096` for the current create-app state model.
 `vaultActions.createRepository` previously:
 
 1. validates GitHub, Convex, and Cloudflare provider connections
-2. creates an `appProvisioningRuns` row with explicit pre-vault target state
+2. creates an `operations_vaultProvisioningRuns` row with explicit pre-vault target state
 3. starts `internal.appProvisioningWorkflow.provisionApp`
 
 `appProvisioningWorkflow.provisionApp` previously:
@@ -87,9 +87,9 @@ and hosting should be separate provider states on the connected vault, dashboard
 derived from those states, and top-level `vaults.infra*` aggregate fields should be removed before
 provider retry UI is treated as proof of durability.
 
-Phase 1 shipped durable `appProvisioningEvents` and a dashboard log textarea. Phase 2 adds app-owned
-run identity and stores the Workflow id so the app can safely expose Workflow status, restart failed
-work, cancel work, or clean up completed component records.
+Phase 1 shipped durable `operations_vaultProvisioningEvents` and a dashboard log textarea. Phase 2
+adds app-owned run identity and stores the Workflow id so the app can safely expose Workflow status,
+restart failed work, cancel work, or clean up completed component records.
 
 ## Goals
 
@@ -171,7 +171,7 @@ Phase 2 stores the latest Workflow run allowed to write provider state for each 
 ```ts
 vaultInfrastructureOwnership: {
   vaultId: Id<"vaults">;
-  runId: Id<"appProvisioningRuns">;
+  runId: Id<"operations_vaultProvisioningRuns">;
   state: "active" | "succeeded" | "failed";
   updatedAt: number;
 }
@@ -192,7 +192,7 @@ appProvisioningEvents: {
   userId: Id<"users">;
   vaultId: Id<"vaults"> | null;
   repositoryFullName: string | null;
-  runId?: Id<"appProvisioningRuns">;
+  runId?: Id<"operations_vaultProvisioningRuns">;
   step:
     | "validate_connections"
     | "create_github_repo"
@@ -281,7 +281,7 @@ Workflow rules:
 
 Phase 1: Durable logs.
 
-1. Add `appProvisioningEvents`.
+1. Add `operations_vaultProvisioningEvents`.
 2. Add internal logging helpers.
 3. Add public vault-scoped log query.
 4. Instrument the current create/provision path with safe events.
@@ -291,10 +291,10 @@ Phase 2: Workflow component install and post-vault infra workflow.
 
 1. Add `@convex-dev/workflow`.
 2. Install the Workflow component in `convex.config.ts`.
-3. Add `appProvisioningRuns`; keep stored event `runId` temporarily optional for old rows, but
-   require it for new provisioning event writes.
-4. Add `vaultInfrastructureOwnership` so retries and stale in-flight steps have a durable owner to
-   check before provider writes.
+3. Add `operations_vaultProvisioningRuns`; keep stored event `runId` temporarily optional for old
+   rows, but require it for new provisioning event writes.
+4. Add `operations_vaultInfrastructureOwnership` so retries and stale in-flight steps have a durable
+   owner to check before provider writes.
 5. Create `appProvisioningWorkflow.ts`.
 6. Split the current infra action into a deterministic workflow handler plus narrow idempotent step
    functions. Provider side effects, env reads, and network calls must stay inside step actions, not

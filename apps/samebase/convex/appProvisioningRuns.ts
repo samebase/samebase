@@ -16,7 +16,7 @@ const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
 async function recordRepositoryFullNameForRun(
   ctx: MutationCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     repositoryFullName: string;
   },
 ): Promise<void> {
@@ -34,7 +34,7 @@ async function recordRepositoryFullNameForRun(
   });
 
   const events = await ctx.db
-    .query("appProvisioningEvents")
+    .query("operations_vaultProvisioningEvents")
     .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
     .take(MAX_EVENTS_TO_LINK_TO_VAULT);
   for (const event of events) {
@@ -46,7 +46,7 @@ async function recordRepositoryFullNameForRun(
 
 export const getById = internalQuery({
   args: {
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.runId);
@@ -59,7 +59,7 @@ export const createForVault = internalMutation({
     vaultId: id("vaults"),
     trigger: vAppProvisioningRunTrigger,
   },
-  returns: id("appProvisioningRuns"),
+  returns: id("operations_vaultProvisioningRuns"),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== args.userId) {
@@ -72,7 +72,7 @@ export const createForVault = internalMutation({
     const connectedVault = assertConnectedVault(vault);
 
     const now = Date.now();
-    return await ctx.db.insert("appProvisioningRuns", {
+    return await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
@@ -87,7 +87,7 @@ export const createForVault = internalMutation({
 
 export const recordRepositoryFullName = internalMutation({
   args: {
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     repositoryFullName: string(),
   },
   returns: v.null(),
@@ -100,7 +100,7 @@ export const recordRepositoryFullName = internalMutation({
 
 export const appendRunEvent = internalMutation({
   args: {
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     step: vAppProvisioningStep,
     level: vAppProvisioningEventLevel,
     message: string(),

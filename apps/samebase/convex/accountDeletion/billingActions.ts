@@ -122,7 +122,7 @@ async function listCancelablePolarSubscriptionIds(externalCustomerId: string): P
 
 export const cancelForAccountDeletion = internalAction({
   args: {
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
     workflowId: string(),
   },
   returns: vCancelBillingResult,

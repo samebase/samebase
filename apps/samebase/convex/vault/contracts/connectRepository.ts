@@ -6,7 +6,7 @@ const { id, object, string } = v;
 
 const vConnectRepositoryResult = object({
   vaultId: id("vaults"),
-  runId: id("appProvisioningRuns"),
+  runId: id("operations_vaultProvisioningRuns"),
 });
 
 export const connectRepositoryContract = {

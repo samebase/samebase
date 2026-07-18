@@ -65,7 +65,7 @@ type RepositoryScopeRefreshDemand =
   | {
       scope: "repository";
       source: "source_setup";
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"operations_vaultProvisioningRuns">;
     };
 
 type BranchScopeRefreshDemand =
@@ -265,7 +265,7 @@ database/provider/time facts.
 
 Add:
 
-- `repositoryRefreshRequests` table
+- `operations_vaultRepositoryRefreshRequests` table
 - demand validators
 - `makeRepositoryRefreshRequest`
 - dedupe-key derivation from demand scope
@@ -359,23 +359,23 @@ Return shape:
 type EnqueueRepositoryRefreshResult =
   | {
       kind: "created";
-      requestId: Id<"repositoryRefreshRequests">;
+      requestId: Id<"operations_vaultRepositoryRefreshRequests">;
     }
   | {
       kind: "updated";
-      requestId: Id<"repositoryRefreshRequests">;
+      requestId: Id<"operations_vaultRepositoryRefreshRequests">;
     }
   | {
       kind: "already_queued";
-      requestId: Id<"repositoryRefreshRequests">;
+      requestId: Id<"operations_vaultRepositoryRefreshRequests">;
     }
   | {
       kind: "already_scheduled";
-      requestId: Id<"repositoryRefreshRequests">;
+      requestId: Id<"operations_vaultRepositoryRefreshRequests">;
     }
   | {
       kind: "already_running";
-      requestId: Id<"repositoryRefreshRequests">;
+      requestId: Id<"operations_vaultRepositoryRefreshRequests">;
     }
   | {
       kind: "blocked";
@@ -454,7 +454,7 @@ Behavior:
   route-load, Page Visibility, or window-focus distinctions
 - `source_setup` uses distinct backend execution policy so the one-time create/connect finish path
   does not inherit passive dashboard large-repo caps
-- update `vaultRemoteBranches` through the existing metadata sync path
+- update `observations_vaultRemoteBranches` through the existing metadata sync path
 - refresh the default branch tree when backend policy requires it
 - finish the request as `succeeded`, `failed`, or `canceled`
 - Workpool `canceled` completion marks `worker_canceled`

@@ -13,7 +13,7 @@ async function seedRunningDeletion(t: ReturnType<typeof makeConvexTest>, userId:
       userId,
       expirationTime: now + 60_000,
     });
-    const runId = await ctx.db.insert("accountDeletionRuns", {
+    const runId = await ctx.db.insert("operations_accountDeletionRuns", {
       identity: { state: "active", userId, email: "deleting@example.com" },
       completionCapability: "agent-action-lease-test",
       state: "running",
@@ -56,7 +56,7 @@ describe("Agent action deletion quiescence", () => {
     await expect(
       t.run(async (ctx) => {
         return await ctx.db
-          .query("agentActionLeases")
+          .query("operations_agentActionLeases")
           .withIndex("by_user_and_expires_at", (query) => query.eq("userId", userId))
           .first();
       }),
@@ -108,7 +108,7 @@ describe("Agent action deletion quiescence", () => {
         userId,
         expirationTime: now + 60_000,
       });
-      const runId = await ctx.db.insert("accountDeletionRuns", {
+      const runId = await ctx.db.insert("operations_accountDeletionRuns", {
         identity: { state: "active", userId, email: "deleting@example.com" },
         completionCapability: "agent-action-lease-test",
         state: "running",
@@ -127,7 +127,7 @@ describe("Agent action deletion quiescence", () => {
       await ctx.db.patch(userId, {
         accountDeletion: { state: "deleting", runId, requestedAt: now },
       });
-      await ctx.db.insert("agentActionLeases", { userId, expiresAt: now - 1 });
+      await ctx.db.insert("operations_agentActionLeases", { userId, expiresAt: now - 1 });
       return { runId, userId };
     });
 
@@ -137,7 +137,7 @@ describe("Agent action deletion quiescence", () => {
     await expect(
       t.run(async (ctx) => {
         return await ctx.db
-          .query("agentActionLeases")
+          .query("operations_agentActionLeases")
           .withIndex("by_user_and_expires_at", (query) => query.eq("userId", userId))
           .first();
       }),

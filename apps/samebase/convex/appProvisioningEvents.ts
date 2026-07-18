@@ -8,12 +8,12 @@ const MAX_PROVISIONING_EVENTS = 80;
 const MAX_PROVISIONING_MESSAGE_LENGTH = 4000;
 
 const provisioningEventResult = object({
-  _id: id("appProvisioningEvents"),
+  _id: id("operations_vaultProvisioningEvents"),
   createdAt: number(),
   level: vAppProvisioningEventLevel,
   message: string(),
   repositoryFullName: string(),
-  runId: id("appProvisioningRuns"),
+  runId: id("operations_vaultProvisioningRuns"),
   step: vAppProvisioningStep,
 });
 type ProvisioningEventResult = Infer<typeof provisioningEventResult>;
@@ -29,7 +29,7 @@ export const append = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     step: vAppProvisioningStep,
     level: vAppProvisioningEventLevel,
     message: string(),
@@ -49,7 +49,7 @@ export const append = internalMutation({
       throw new Error("Provisioning event does not match its run.");
     }
 
-    await ctx.db.insert("appProvisioningEvents", {
+    await ctx.db.insert("operations_vaultProvisioningEvents", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: args.repositoryFullName,
@@ -76,7 +76,7 @@ export const listForVault = query({
     }
 
     const events = await ctx.db
-      .query("appProvisioningEvents")
+      .query("operations_vaultProvisioningEvents")
       .withIndex("by_vault_and_created_at", (q) => q.eq("vaultId", args.vaultId))
       .order("desc")
       .take(MAX_PROVISIONING_EVENTS);

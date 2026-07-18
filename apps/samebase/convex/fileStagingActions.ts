@@ -763,7 +763,7 @@ type StagedFileForCommit = {
 };
 type DraftSourceStagingSnapshot = Omit<StagedFileForCommit, "branch"> & {
   branch: string;
-  _id: Id<"fileStaging">;
+  _id: Id<"operations_fileStaging">;
   ownerId: Id<"users">;
   vaultId: Id<"vaults">;
   lastEditTime: number;
@@ -1889,7 +1889,7 @@ export const renameFileInStaging = action({
 
 /**
  * Initial request to get the file.
- * Will call GitHub and populate the fileStaging table
+ * Will call GitHub and populate the operations_fileStaging table.
  */
 export const getFileForEditing = action({
   access: "access_files_read",
@@ -2044,7 +2044,9 @@ export const getFileForEditing = action({
       });
 
       if (!savedBlob) {
-        throw new Error("File not found in blobs table after literally saving it there?!?");
+        throw new Error(
+          "File not found in observations_vaultFileBlobs table after literally saving it there?!?",
+        );
       }
 
       if (typeof savedBlob.text !== "string") {

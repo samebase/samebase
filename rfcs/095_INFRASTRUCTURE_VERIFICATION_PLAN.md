@@ -50,7 +50,7 @@ construction.
 ## The Rule: The Verifier Is Part Of The Block
 
 Each rfcs/090 block writes one durable registry axis (`source_setup` → the vault row and
-`vaultBranchTrees`, `wire_builds` → `deployment.builds`, `wire_convex_build_access` →
+`observations_vaultBranchTrees`, `wire_builds` → `deployment.builds`, `wire_convex_build_access` →
 `deployment.convexBuildAccess`, `attach_worker` → the Worker row, `attach_convex` → the deployment
 row). Verification pairs with that write, not with a central list:
 
@@ -144,11 +144,11 @@ row). Verification pairs with that write, not with a central list:
    refreshed today by Convex schema snapshot reads,
    `apps/samebase/convex/vault/convexSchemaGraph.ts:1291`). Phase 1 stamps it only on Worker rows a
    verifier confirmed or corrected — it means Cloudflare-trigger freshness, nothing broader.
-7. Existing run machinery. One `appProvisioningRuns` run per execution with trigger
+7. Existing run machinery. One `operations_vaultProvisioningRuns` run per execution with trigger
    `verify_infrastructure` — one new literal in `vAppProvisioningRunTrigger`
    (`apps/samebase/convex/schema.ts:108`), the only validator edit in Phase 1 — fenced by the same
-   `vaultInfrastructureOwnership` claim pattern the blocks use. Verification refuses to start while
-   another run for the vault is active.
+   `operations_vaultInfrastructureOwnership` claim pattern the blocks use. Verification refuses to
+   start while another run for the vault is active.
 8. One contract, every surface. The `verify_infrastructure` contract module registers in the action
    catalog (`apps/samebase/convex/toolRuntime/actionCatalog.ts`, shipped v1656), which renders the
    MCP tool, the generated `/docs/actions/verify_infrastructure.md` page, llms.txt, and usage

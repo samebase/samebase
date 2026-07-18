@@ -139,14 +139,15 @@ attached or unavailable.
 
 ## Durable Execution
 
-Manual Worker attach/create uses `appProvisioningRuns` with trigger `connect_cloudflare_worker`. The
-run is intentionally narrow: it claims Cloudflare provider work, ensures the selected or newly
-created Worker, writes `vaultCloudflareWorkers`, then marks the run complete.
+Manual Worker attach/create uses `operations_vaultProvisioningRuns` with trigger
+`connect_cloudflare_worker`. The run is intentionally narrow: it claims Cloudflare provider work,
+ensures the selected or newly created Worker, writes `vaultCloudflareWorkers`, then marks the run
+complete.
 
 Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
-run is active or failed, dashboard state is derived from `vaultInfrastructureOwnership` plus the run
-events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable resource
-identity.
+run is active or failed, dashboard state is derived from `operations_vaultInfrastructureOwnership`
+plus the run events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable
+resource identity.
 
 The modal submit action should return after the Workflow is queued. The modal then closes by
 clearing `add-cloudflare`, and the vault header/resource rail shows the Cloudflare row as running,

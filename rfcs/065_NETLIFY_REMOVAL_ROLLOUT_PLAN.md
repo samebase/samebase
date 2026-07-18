@@ -47,8 +47,8 @@ Turn the Netlify-removal RFC into a working implementation tracker with:
 
 1. Identify all deployments with Netlify-shaped data in:
    - `providerConnections`
-   - `oauthStates`
-   - `aiProdAccessRequests`
+   - `operations_providerOauthStates`
+   - `operations_aiProdAccessRequests`
    - `vaults.hostingProvider`
    - `vaultInfrastructure`
    - `vaultDomains`

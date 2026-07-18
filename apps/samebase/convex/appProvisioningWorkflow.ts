@@ -22,7 +22,7 @@ const idempotentProviderStepRetry = {
 } as const;
 
 const workflowCompletionContext = object({
-  runId: id("appProvisioningRuns"),
+  runId: id("operations_vaultProvisioningRuns"),
 });
 const createAppDescription = v.union(string(), v.null());
 const composedInfrastructureState = object({
@@ -76,7 +76,7 @@ export const readComposedInfrastructureState = internalQuery({
     }
 
     const target = await ctx.db
-      .query("vaultInfrastructureTargets")
+      .query("operations_vaultInfrastructureTargets")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
     if (!target) {
@@ -125,7 +125,7 @@ export const readComposedInfrastructureState = internalQuery({
 export const readComposedInfrastructureRetryContext = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
   },
   returns: composedInfrastructureRetryContext,
   handler: async (ctx, args): Promise<ComposedInfrastructureRetryContext> => {
@@ -148,7 +148,7 @@ export const readComposedInfrastructureRetryContext = internalQuery({
 export const claimComposedInfrastructureProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
   },
   returns: object({ claimed: boolean() }),
@@ -167,7 +167,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Vault not found.");
     }
     const target = await ctx.db
-      .query("vaultInfrastructureTargets")
+      .query("operations_vaultInfrastructureTargets")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
     if (!target) {
@@ -176,7 +176,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
 
     const now = Date.now();
     const ownership = await ctx.db
-      .query("vaultInfrastructureOwnership")
+      .query("operations_vaultInfrastructureOwnership")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
     if (
@@ -211,7 +211,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -234,7 +234,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
 export const finishComposedInfrastructureProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
   },
   returns: nullValue(),
@@ -249,7 +249,7 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Composed infrastructure run does not match vault.");
     }
     const ownership = await ctx.db
-      .query("vaultInfrastructureOwnership")
+      .query("operations_vaultInfrastructureOwnership")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
     if (!ownership || ownership.state !== "active" || ownership.runId !== args.runId) {
@@ -286,7 +286,7 @@ async function readCurrentComposedInfrastructureState(
 async function markComposedInfrastructureRunFailed(
   step: WorkflowCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     name: string;
     error: unknown;
   },
@@ -312,7 +312,7 @@ async function markComposedInfrastructureRunFailed(
 async function appendComposedInfrastructureParentEvent(
   step: WorkflowCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     step: AppProvisioningStep;
     message: string;
   },
@@ -334,7 +334,7 @@ async function runComposedConvexAttachment(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
-    parentRunId: Id<"appProvisioningRuns">;
+    parentRunId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
@@ -382,7 +382,7 @@ async function runComposedCloudflareAttachment(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
-    parentRunId: Id<"appProvisioningRuns">;
+    parentRunId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
@@ -429,7 +429,7 @@ async function runComposedCloudflareBuildsWiring(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
-    parentRunId: Id<"appProvisioningRuns">;
+    parentRunId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
@@ -475,7 +475,7 @@ async function runComposedCloudflareConvexBuildAccessWiring(
     vaultId: Id<"vaults">;
     userId: Id<"users">;
     appRoot: string;
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): Promise<void> {
   try {
@@ -512,7 +512,7 @@ async function runComposedCloudflareConvexBuildAccessWiring(
 async function recordComposedCloudflareDefaultDomain(
   step: WorkflowCtx,
   args: {
-    parentRunId: Id<"appProvisioningRuns">;
+    parentRunId: Id<"operations_vaultProvisioningRuns">;
     vaultId: Id<"vaults">;
     defaultBranch: string;
     state: ComposedInfrastructureState;
@@ -566,7 +566,7 @@ async function runComposedInfrastructure(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
-    parentRunId: Id<"appProvisioningRuns">;
+    parentRunId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     defaultBranch: string;
   },
@@ -696,7 +696,7 @@ async function runComposedInfrastructure(
 export const provisionVaultInfrastructure = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -722,7 +722,7 @@ export const provisionVaultInfrastructure = workflow.define({
 export const provisionApp = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
     repositoryOwner: string(),
@@ -807,7 +807,7 @@ export const provisionApp = workflow.define({
 export const connectExistingRepository = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     repositoryOwner: string(),
     repositoryName: string(),
@@ -879,7 +879,7 @@ export const connectExistingRepository = workflow.define({
 export const connectCloudflareWorker = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     accountId: string(),
@@ -999,7 +999,7 @@ export const connectCloudflareWorker = workflow.define({
 export const wireCloudflareBuilds = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1085,7 +1085,7 @@ export const wireCloudflareBuilds = workflow.define({
 export const wireCloudflareConvexBuildAccess = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1133,7 +1133,7 @@ export const wireCloudflareConvexBuildAccess = workflow.define({
 export const verifyCloudflareInfrastructure = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1185,7 +1185,7 @@ export const verifyCloudflareInfrastructure = workflow.define({
 export const connectConvexDeployment = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
   },
@@ -1238,7 +1238,7 @@ export const connectConvexDeployment = workflow.define({
 export const startCreateAppProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
     repositoryOwner: string(),
@@ -1279,7 +1279,7 @@ export const startCreateAppProvisioning = internalMutation({
 export const startConnectExistingRepositoryProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
     repositoryOwner: string(),
@@ -1318,7 +1318,7 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
 export const startVaultInfrastructureProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
@@ -1357,7 +1357,7 @@ export const startVaultInfrastructureProvisioning = internalMutation({
 export const startCloudflareWorkerConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     accountId: string(),
@@ -1398,7 +1398,7 @@ export const startCloudflareWorkerConnection = internalMutation({
 export const startCloudflareBuildsWiring = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1436,7 +1436,7 @@ export const startCloudflareBuildsWiring = internalMutation({
 export const startCloudflareConvexBuildAccessWiring = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1474,7 +1474,7 @@ export const startCloudflareConvexBuildAccessWiring = internalMutation({
 export const startCloudflareInfrastructureVerification = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1512,7 +1512,7 @@ export const startCloudflareInfrastructureVerification = internalMutation({
 export const startConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
   },

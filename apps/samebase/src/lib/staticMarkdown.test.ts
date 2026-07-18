@@ -6,7 +6,7 @@ describe("parseStaticMarkdownInline", () => {
   it("parses text and inline code in sequence", () => {
     expect(
       parseStaticMarkdownInline(
-        "Convex-backed `workspaceSidebarState` and [privacy page](/privacy).",
+        "Convex-backed `ui_workspaceSidebarState` and [privacy page](/privacy).",
       ),
     ).toEqual([
       {
@@ -15,7 +15,7 @@ describe("parseStaticMarkdownInline", () => {
       },
       {
         type: "code",
-        value: "workspaceSidebarState",
+        value: "ui_workspaceSidebarState",
       },
       {
         type: "text",

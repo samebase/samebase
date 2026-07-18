@@ -8,7 +8,7 @@ const { id, string } = v;
 
 export const cleanupDataDeletionGroup = internalAction({
   args: {
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
     workflowId: string(),
     group: vSimpleDataDeletionGroup,
   },
@@ -26,7 +26,7 @@ export const cleanupDataDeletionGroup = internalAction({
 
 export const cleanupVaultData = internalAction({
   args: {
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
     workflowId: string(),
   },
   returns: v.null(),

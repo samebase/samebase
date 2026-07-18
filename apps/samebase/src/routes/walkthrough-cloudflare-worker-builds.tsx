@@ -96,7 +96,7 @@ const entryPaths = [
 const runSteps = [
   {
     title: "1. Start the wire_builds workflow",
-    why: "startCloudflareBuildsWiring starts wireCloudflareBuilds asynchronously and writes the workflow id back to the appProvisioningRuns row.",
+    why: "startCloudflareBuildsWiring starts wireCloudflareBuilds asynchronously and writes the workflow id back to the operations_vaultProvisioningRuns row.",
     refs: [
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
@@ -112,7 +112,7 @@ const runSteps = [
   },
   {
     title: "2. Claim infrastructure ownership",
-    why: "claimCloudflareBuildsWiring checks that an attached Worker exists, exits if Builds are already connected, then claims vaultInfrastructureOwnership for this run.",
+    why: "claimCloudflareBuildsWiring checks that an attached Worker exists, exits if Builds are already connected, then claims operations_vaultInfrastructureOwnership for this run.",
     refs: [
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
@@ -856,9 +856,9 @@ function CloudflareWorkerBuildsWalkthrough() {
         </h2>
         <p>
           The actual implementation shape is: wireBuilds or the provisioned-Worker follow-on creates
-          an appProvisioningRuns row with trigger wire_builds; the workflow claims the vault
-          infrastructure lock; the action verifies GitHub repo identity with Octokit; the Cloudflare
-          helper connects the repo, triggers, and token; then Samebase patches
+          an operations_vaultProvisioningRuns row with trigger wire_builds; the workflow claims the
+          vault infrastructure lock; the action verifies GitHub repo identity with Octokit; the
+          Cloudflare helper connects the repo, triggers, and token; then Samebase patches
           vaultCloudflareWorkers.deployment.builds. If the app root has Convex,
           finishCloudflareBuildsWiring queues wire_convex_build_access; that action creates Convex
           deploy keys, patches the two Cloudflare trigger environments, starts the production build,

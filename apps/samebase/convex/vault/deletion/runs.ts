@@ -90,7 +90,7 @@ async function listCreatedConvexProjectIds(
   vaultId: Id<"vaults">,
 ): Promise<string[]> {
   const runs = await ctx.db
-    .query("appProvisioningRuns")
+    .query("operations_vaultProvisioningRuns")
     .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
     .collect();
   const projectIds = new Set<string>();
@@ -392,7 +392,7 @@ async function assertPlanProviderConnections(
 async function appendDeletionEvent(
   ctx: MutationCtx,
   args: {
-    run: Doc<"vaultDeletionRuns">;
+    run: Doc<"operations_vaultDeletionRuns">;
     step: VaultDeletionStep;
     level: VaultDeletionEventLevel;
     message: string;
@@ -413,7 +413,7 @@ async function appendDeletionEvent(
 
 export const getById = internalQuery({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.runId);
@@ -427,7 +427,7 @@ export const createInitialRun = internalMutation({
     options: deletionRequestOptions,
   },
   returns: object({
-    deletionRunId: id("vaultDeletionRuns"),
+    deletionRunId: id("operations_vaultDeletionRuns"),
   }),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
@@ -450,7 +450,7 @@ export const createInitialRun = internalMutation({
       options: args.options,
     });
     const now = Date.now();
-    const deletionRunId = await ctx.db.insert("vaultDeletionRuns", {
+    const deletionRunId = await ctx.db.insert("operations_vaultDeletionRuns", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: plan.target.repositoryFullName,
@@ -492,10 +492,10 @@ export const createInitialRun = internalMutation({
 export const createRetryRun = internalMutation({
   args: {
     userId: id("users"),
-    failedRunId: id("vaultDeletionRuns"),
+    failedRunId: id("operations_vaultDeletionRuns"),
   },
   returns: object({
-    deletionRunId: id("vaultDeletionRuns"),
+    deletionRunId: id("operations_vaultDeletionRuns"),
   }),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
@@ -526,7 +526,7 @@ export const createRetryRun = internalMutation({
     });
 
     const now = Date.now();
-    const deletionRunId = await ctx.db.insert("vaultDeletionRuns", {
+    const deletionRunId = await ctx.db.insert("operations_vaultDeletionRuns", {
       userId: args.userId,
       vaultId: failedRun.vaultId,
       repositoryFullName: failedRun.repositoryFullName,
@@ -569,7 +569,7 @@ export const createRetryRun = internalMutation({
 
 export const markWorkflowStarted = internalMutation({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
     workflowId: string(),
   },
   returns: v.null(),
@@ -596,7 +596,7 @@ export const markWorkflowStarted = internalMutation({
 
 export const appendRunEvent = internalMutation({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
     step: vVaultDeletionStep,
     level: vVaultDeletionEventLevel,
     message: string(),
@@ -642,7 +642,7 @@ export const appendRunEvent = internalMutation({
 
 export const claimWorkflowRun = internalMutation({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
     vaultId: id("vaults"),
     userId: id("users"),
   },
@@ -684,7 +684,7 @@ export const claimWorkflowRun = internalMutation({
 
 export const markWorkflowFailed = internalMutation({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
     message: string(),
   },
   returns: v.null(),
@@ -736,7 +736,7 @@ export const markWorkflowFailed = internalMutation({
 
 export const finishWorkflowRun = internalMutation({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -777,7 +777,9 @@ export const finishWorkflowRun = internalMutation({
   },
 });
 
-export function readRetainedSnapshot(run: Doc<"vaultDeletionRuns">): VaultDeletionRetainedSnapshot {
+export function readRetainedSnapshot(
+  run: Doc<"operations_vaultDeletionRuns">,
+): VaultDeletionRetainedSnapshot {
   if (run.snapshot.state !== "retained_for_retry") {
     throw new Error("Deletion retry snapshot is not available.");
   }

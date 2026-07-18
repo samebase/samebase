@@ -10,12 +10,12 @@ export type VaultDeletionNotDeleting = Infer<typeof vVaultDeletionNotDeleting>;
 export const vVaultDeletionGate = union(
   object({
     state: literal("deleting"),
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
     requestedAt: number(),
   }),
   object({
     state: literal("delete_failed"),
-    runId: id("vaultDeletionRuns"),
+    runId: id("operations_vaultDeletionRuns"),
     failedAt: number(),
   }),
 );
@@ -211,7 +211,7 @@ export const vVaultDeletionAttempt = union(
   }),
   object({
     kind: literal("retry"),
-    retryOf: id("vaultDeletionRuns"),
+    retryOf: id("operations_vaultDeletionRuns"),
   }),
 );
 export type VaultDeletionAttempt = Infer<typeof vVaultDeletionAttempt>;

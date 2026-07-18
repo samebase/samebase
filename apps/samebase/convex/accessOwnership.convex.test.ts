@@ -42,7 +42,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId: ownerId,
       vaultId,
       repositoryFullName: "owner/secure",
@@ -66,7 +66,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       visibility: "private",
       connectedAt: 4,
     });
-    await ctx.db.insert("vaultRemoteBranches", {
+    await ctx.db.insert("observations_vaultRemoteBranches", {
       vaultId,
       name: "main",
       headCommitSha: "abc123",
@@ -78,7 +78,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       commitRank: Number.MAX_SAFE_INTEGER,
       lastSyncedAt: 5,
     });
-    await ctx.db.insert("vaultBranchTrees", {
+    await ctx.db.insert("observations_vaultBranchTrees", {
       vaultId,
       branch: "main",
       treeSHA: "tree123",
@@ -90,7 +90,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       },
       lastTreeRefreshAt: 6,
     });
-    const stagingId = await ctx.db.insert("fileStaging", {
+    const stagingId = await ctx.db.insert("operations_fileStaging", {
       ownerId,
       vaultId,
       fileDeleted: false,
@@ -104,13 +104,13 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       branch: "main",
       version: 3,
     });
-    const folderExpansionId = await ctx.db.insert("folderExpansionState", {
+    const folderExpansionId = await ctx.db.insert("ui_folderExpansionState", {
       userId: ownerId,
       vaultId,
       folderPath: "notes",
       isExpanded: true,
     });
-    const layoutId = await ctx.db.insert("agentGraphNodeLayout", {
+    const layoutId = await ctx.db.insert("ui_agentGraphNodeLayout", {
       userId: ownerId,
       vaultId,
       nodeId: "agent-1",
@@ -118,7 +118,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       height: 180,
       updatedAt: 20,
     });
-    await ctx.db.insert("collaborativeUpdates", {
+    await ctx.db.insert("operations_collaborativeUpdates", {
       vaultId,
       branch: "main",
       filePath: "notes/plan.md",
@@ -128,7 +128,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       userId: ownerId,
       timestamp: now,
     });
-    const deletionRunId = await ctx.db.insert("vaultDeletionRuns", {
+    const deletionRunId = await ctx.db.insert("operations_vaultDeletionRuns", {
       userId: ownerId,
       vaultId,
       repositoryFullName: "owner/secure",
@@ -141,7 +141,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       snapshot: { state: "scrubbed_after_success" },
       completedAt: 32,
     });
-    const deletionEventId = await ctx.db.insert("vaultDeletionEvents", {
+    const deletionEventId = await ctx.db.insert("operations_vaultDeletionEvents", {
       userId: ownerId,
       vaultId,
       repositoryFullName: "owner/secure",
@@ -151,18 +151,21 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       message: "Owner deletion event.",
       createdAt: 33,
     });
-    const machineRegistrationRequestId = await ctx.db.insert("machineRegistrationRequests", {
-      requestId: "owner-registration",
-      credentialHash: "owner-registration-hash",
-      userId: ownerId,
-      machineId: "pending-machine",
-      displayName: "Pending owner machine",
-      hostname: "pending-owner",
-      os: "macos",
-      connectorVersion: "1.0.0",
-      createdAt: now,
-      expiresAt: now + 60_000,
-    });
+    const machineRegistrationRequestId = await ctx.db.insert(
+      "operations_machineRegistrationRequests",
+      {
+        requestId: "owner-registration",
+        credentialHash: "owner-registration-hash",
+        userId: ownerId,
+        machineId: "pending-machine",
+        displayName: "Pending owner machine",
+        hostname: "pending-owner",
+        os: "macos",
+        connectorVersion: "1.0.0",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      },
+    );
     await ctx.db.insert("connectedMachines", {
       userId: ownerId,
       machineId: "owner-machine",
@@ -365,7 +368,7 @@ describe("public Convex route ownership checks", () => {
         return {
           folderExpansion: await ctx.db.get(ids.folderExpansionId),
           layouts: await ctx.db
-            .query("agentGraphNodeLayout")
+            .query("ui_agentGraphNodeLayout")
             .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
             .collect(),
         };
@@ -431,7 +434,7 @@ describe("public Convex route ownership checks", () => {
     await expect(
       t.run(async (ctx) => {
         return await ctx.db
-          .query("fileStaging")
+          .query("operations_fileStaging")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect();
       }),
@@ -499,7 +502,7 @@ describe("public Convex route ownership checks", () => {
     await expect(
       t.run(async (ctx) => {
         return await ctx.db
-          .query("fileStaging")
+          .query("operations_fileStaging")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect();
       }),
@@ -539,7 +542,7 @@ describe("public Convex route ownership checks", () => {
       t.run(async (ctx) => {
         const staging = await ctx.db.get(ids.stagingId);
         const updates = await ctx.db
-          .query("collaborativeUpdates")
+          .query("operations_collaborativeUpdates")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect();
         return { staging, updates };
@@ -609,10 +612,10 @@ describe("public Convex route ownership checks", () => {
       t.run(async (ctx) => {
         const registrationRequest = await ctx.db.get(ids.machineRegistrationRequestId);
         return {
-          credentials: await ctx.db.query("machineCredentials").collect(),
+          credentials: await ctx.db.query("operations_machineCredentials").collect(),
           registrationRequestApprovedAt: registrationRequest?.approvedAt ?? null,
           registrationRequestUserId: registrationRequest?.userId,
-          tokens: await ctx.db.query("machineControlTokens").collect(),
+          tokens: await ctx.db.query("operations_machineControlTokens").collect(),
         };
       }),
     ).resolves.toEqual({

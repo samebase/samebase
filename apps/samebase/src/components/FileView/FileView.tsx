@@ -1764,7 +1764,7 @@ function FileViewInner({
   const selectedPreviewStagedFile = stagedFile ?? null;
   const sidebarSelectedFile = selectedFile;
   // Compare-only text files do not have staging rows, so their merge view has
-  // to come from the preview payload instead of fileStaging.
+  // to come from the preview payload instead of operations_fileStaging.
   const selectedPreviewHasRichTextDiff = Boolean(
     selectedPreviewFile &&
     typeof selectedPreviewFile.richOldContent === "string" &&

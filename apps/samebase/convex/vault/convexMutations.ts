@@ -42,15 +42,17 @@ const convexInfrastructureRecordValidator = object({
   convexSiteUrl: string(),
 });
 
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
+type VaultInfrastructureOwnership = Doc<"operations_vaultInfrastructureOwnership">;
 type ConvexDeploymentConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type ConvexDeploymentConnectionReadCtx = Pick<QueryCtx, "db">;
 
-function isComposedInfrastructureRun(run: Doc<"appProvisioningRuns">): boolean {
+function isComposedInfrastructureRun(run: Doc<"operations_vaultProvisioningRuns">): boolean {
   return run.trigger === "create" || run.trigger === "retry";
 }
 
-function isStandaloneConvexDeploymentConnectionRun(run: Doc<"appProvisioningRuns">): boolean {
+function isStandaloneConvexDeploymentConnectionRun(
+  run: Doc<"operations_vaultProvisioningRuns">,
+): boolean {
   return run.trigger === "connect_convex_deployment";
 }
 
@@ -59,7 +61,7 @@ async function getVaultInfrastructureOwnership(
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
   return await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("operations_vaultInfrastructureOwnership")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -143,7 +145,7 @@ async function assertNoExistingConvexDeploymentTarget(
 function isActiveConvexDeploymentConnectionOwner(
   ownership: VaultInfrastructureOwnership | null,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): boolean {
   return ownership?.state === "active" && ownership.runId === args.runId;
@@ -152,7 +154,7 @@ function isActiveConvexDeploymentConnectionOwner(
 async function appendConvexDeploymentConnectionEvent(
   ctx: ConvexDeploymentConnectionEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
@@ -165,7 +167,7 @@ async function appendConvexDeploymentConnectionEvent(
 async function cancelSupersededConvexDeploymentConnectionRun(
   ctx: ConvexDeploymentConnectionEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): Promise<void> {
   await appendConvexDeploymentConnectionEvent(ctx, {
@@ -180,11 +182,11 @@ async function cancelSupersededConvexDeploymentConnectionRun(
 async function requireConvexDeploymentConnectionRun(
   ctx: ConvexDeploymentConnectionReadCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"operations_vaultProvisioningRuns">> {
   const run = await ctx.db.get(args.runId);
   if (!run) {
     throw new Error("Convex deployment connection run not found.");
@@ -201,7 +203,7 @@ async function requireConvexDeploymentConnectionRun(
 
 function hasFreshConvexDeploymentConnectionLock(args: {
   ownership: VaultInfrastructureOwnership | null;
-  runId: Id<"appProvisioningRuns">;
+  runId: Id<"operations_vaultProvisioningRuns">;
   now: number;
 }): boolean {
   const ownership = args.ownership;
@@ -246,7 +248,7 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
 export const claimConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -309,7 +311,7 @@ export const claimConvexDeploymentConnection = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -332,7 +334,7 @@ export const claimConvexDeploymentConnection = internalMutation({
 export const readActiveConvexDeploymentConnection = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -366,7 +368,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
 export const attachDeploymentForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     convex: convexInfrastructureRecordValidator,
@@ -481,7 +483,7 @@ export const attachDeploymentForRun = internalMutation({
 export const recordCreatedProjectForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     projectName: string(),
     projectId: string(),
@@ -511,7 +513,7 @@ export const recordCreatedProjectForRun = internalMutation({
 export const readReusableCreatedProjectForRun = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     projectName: string(),
   },
@@ -524,7 +526,7 @@ export const readReusableCreatedProjectForRun = internalQuery({
     }
 
     const runs = await ctx.db
-      .query("appProvisioningRuns")
+      .query("operations_vaultProvisioningRuns")
       .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", args.vaultId))
       .collect();
     const reusableRuns = runs
@@ -548,7 +550,7 @@ export const readReusableCreatedProjectForRun = internalQuery({
 export const finishConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },

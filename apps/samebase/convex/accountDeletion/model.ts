@@ -5,12 +5,12 @@ const { id, literal, number, object, string, union } = v;
 export const vAccountDeletionMarker = union(
   object({
     state: literal("deleting"),
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
     requestedAt: number(),
   }),
   object({
     state: literal("finalizing"),
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
     requestedAt: number(),
   }),
 );

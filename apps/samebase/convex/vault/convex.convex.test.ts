@@ -66,7 +66,7 @@ async function createConvexConnectedVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
+    const sourceRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/demo",
@@ -96,7 +96,7 @@ async function createConvexConnectedVault() {
       appRoot,
       createdAt: 25,
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/demo",
@@ -271,7 +271,7 @@ describe("vault Convex deployment connection actions", () => {
         if (input.url.includes("/projects/1001/deployment")) {
           await t.run(async (ctx) => {
             const ownership = await ctx.db
-              .query("vaultInfrastructureOwnership")
+              .query("operations_vaultInfrastructureOwnership")
               .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
               .first();
             if (!ownership) {
@@ -378,7 +378,7 @@ describe("vault Convex deployment connection actions", () => {
     );
     const { ids, t } = await createConvexConnectedVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("appProvisioningRuns", {
+      await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/demo",
@@ -485,7 +485,7 @@ describe("vault Convex deployment connection actions", () => {
     );
     const { ids, t } = await createConvexConnectedVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("appProvisioningRuns", {
+      await ctx.db.insert("operations_vaultProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/demo",

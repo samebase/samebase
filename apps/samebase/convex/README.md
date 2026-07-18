@@ -35,7 +35,8 @@ flowchart LR
 
 - `agentThreadContext` - per-thread vault/repo/file context.
 - `chatMessageMetadata` - commit/prod-read/tool activity payloads keyed by agent message ID.
-- `aiProdAccessRequests` + `aiProdAccessAudit` - approval-first production read workflow.
+- `operations_aiProdAccessRequests` + `audit_aiProdAccessEvents` - approval-first production read
+  workflow.
 
 ## Chat Module Map
 
@@ -71,8 +72,8 @@ flowchart LR
 ### Infrastructure Provisioning
 
 - Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
-- State tracking: `vaultInfrastructureTargets`, `vaultInfrastructureOwnership`,
-  `vaultConvexDeployments`, and `vaultCloudflareWorkers`
+- State tracking: `operations_vaultInfrastructureTargets`,
+  `operations_vaultInfrastructureOwnership`, `vaultConvexDeployments`, and `vaultCloudflareWorkers`
 - Domain tracking: `vaultDomains` table
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`
 
@@ -80,7 +81,8 @@ flowchart LR
 
 - Commit proposals in chat
 - Production read proposals (Convex/Cloudflare/logs/data)
-- Explicit approve/reject with audit trails (`aiProdAccessRequests`, `aiProdAccessAudit`)
+- Explicit approve/reject with audit trails (`operations_aiProdAccessRequests`,
+  `audit_aiProdAccessEvents`)
 
 ## Useful Local Commands
 

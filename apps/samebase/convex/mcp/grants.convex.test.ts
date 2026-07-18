@@ -160,7 +160,7 @@ describe("MCP grant management", () => {
         .withIndex("by_grant_id", (q) => q.eq("grantId", "mcpg_older"))
         .unique();
       const audits = await ctx.db
-        .query("mcpAccessAudit")
+        .query("audit_mcpAccessEvents")
         .withIndex("by_grant_id", (q) => q.eq("grantId", "mcpg_older"))
         .collect();
       return { audits, grant };
@@ -181,7 +181,7 @@ describe("MCP grant management", () => {
     const { ids, t } = await seedGrants();
     const owner = asUser(t, ids.ownerId);
     await t.run(async (ctx) => {
-      await ctx.db.insert("mcpAccessTokens", {
+      await ctx.db.insert("operations_mcpAccessTokens", {
         clientId: "mcpc_named",
         createdAt: now,
         expiresAt: now + 60_000,
@@ -191,7 +191,7 @@ describe("MCP grant management", () => {
         tokenHash: "access_hash",
         userId: ids.ownerId,
       });
-      await ctx.db.insert("mcpRefreshTokens", {
+      await ctx.db.insert("operations_mcpRefreshTokens", {
         clientId: "mcpc_named",
         createdAt: now,
         expiresAt: now + 60_000,
@@ -200,7 +200,7 @@ describe("MCP grant management", () => {
         tokenHash: "refresh_hash",
         userId: ids.ownerId,
       });
-      await ctx.db.insert("agentBrowserHandoffs", {
+      await ctx.db.insert("operations_agentBrowserHandoffs", {
         clientId: "mcpc_named",
         createdAt: now,
         expiresAt: now + 60_000,

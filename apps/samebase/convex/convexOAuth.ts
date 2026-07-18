@@ -170,7 +170,7 @@ export const storeConvexOauthTokens = internalMutation({
     userId: v.id("users"),
     accessToken: v.string(),
     teamId: v.string(),
-    oauthStateId: v.id("oauthStates"),
+    oauthStateId: v.id("operations_providerOauthStates"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

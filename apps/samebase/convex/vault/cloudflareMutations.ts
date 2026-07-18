@@ -138,30 +138,34 @@ const cloudflareInfrastructureVerificationState = union(
   }),
 );
 
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
+type VaultInfrastructureOwnership = Doc<"operations_vaultInfrastructureOwnership">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
 
-function isComposedInfrastructureRun(run: Doc<"appProvisioningRuns">): boolean {
+function isComposedInfrastructureRun(run: Doc<"operations_vaultProvisioningRuns">): boolean {
   return run.trigger === "create" || run.trigger === "retry";
 }
 
-function isStandaloneCloudflareWorkerConnectionRun(run: Doc<"appProvisioningRuns">): boolean {
+function isStandaloneCloudflareWorkerConnectionRun(
+  run: Doc<"operations_vaultProvisioningRuns">,
+): boolean {
   return run.trigger === "connect_cloudflare_worker";
 }
 
-function isStandaloneCloudflareBuildsWiringRun(run: Doc<"appProvisioningRuns">): boolean {
+function isStandaloneCloudflareBuildsWiringRun(
+  run: Doc<"operations_vaultProvisioningRuns">,
+): boolean {
   return run.trigger === "wire_builds";
 }
 
 function isStandaloneCloudflareConvexBuildAccessWiringRun(
-  run: Doc<"appProvisioningRuns">,
+  run: Doc<"operations_vaultProvisioningRuns">,
 ): boolean {
   return run.trigger === "wire_convex_build_access";
 }
 
 function isStandaloneCloudflareInfrastructureVerificationRun(
-  run: Doc<"appProvisioningRuns">,
+  run: Doc<"operations_vaultProvisioningRuns">,
 ): boolean {
   return run.trigger === "verify_infrastructure";
 }
@@ -171,7 +175,7 @@ async function getVaultInfrastructureOwnership(
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
   return await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("operations_vaultInfrastructureOwnership")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -179,7 +183,7 @@ async function getVaultInfrastructureOwnership(
 function isActiveCloudflareProvisioningOwner(
   ownership: VaultInfrastructureOwnership | null,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): boolean {
   return ownership?.state === "active" && ownership.runId === args.runId;
@@ -285,7 +289,7 @@ async function assertNoExistingCloudflareWorkerTarget(
 async function appendCloudflareWorkerConnectionEvent(
   ctx: CloudflareWorkerConnectionEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
@@ -298,7 +302,7 @@ async function appendCloudflareWorkerConnectionEvent(
 async function cancelSupersededCloudflareWorkerConnectionRun(
   ctx: CloudflareWorkerConnectionEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): Promise<void> {
   await appendCloudflareWorkerConnectionEvent(ctx, {
@@ -313,11 +317,11 @@ async function cancelSupersededCloudflareWorkerConnectionRun(
 async function requireCloudflareWorkerConnectionRun(
   ctx: CloudflareWorkerConnectionReadCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"operations_vaultProvisioningRuns">> {
   const run = await ctx.db.get(args.runId);
   if (!run) {
     throw new Error("Cloudflare Worker connection run not found.");
@@ -335,11 +339,11 @@ async function requireCloudflareWorkerConnectionRun(
 async function requireCloudflareBuildsWiringRun(
   ctx: CloudflareWorkerConnectionReadCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"operations_vaultProvisioningRuns">> {
   const run = await ctx.db.get(args.runId);
   if (!run) {
     throw new Error("Cloudflare Workers Builds wiring run not found.");
@@ -357,11 +361,11 @@ async function requireCloudflareBuildsWiringRun(
 async function requireCloudflareConvexBuildAccessWiringRun(
   ctx: CloudflareWorkerConnectionReadCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"operations_vaultProvisioningRuns">> {
   const run = await ctx.db.get(args.runId);
   if (!run) {
     throw new Error("Cloudflare Convex build access wiring run not found.");
@@ -379,11 +383,11 @@ async function requireCloudflareConvexBuildAccessWiringRun(
 async function requireCloudflareInfrastructureVerificationRun(
   ctx: CloudflareWorkerConnectionReadCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"operations_vaultProvisioningRuns">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"operations_vaultProvisioningRuns">> {
   const run = await ctx.db.get(args.runId);
   if (!run) {
     throw new Error("Cloudflare infrastructure verification run not found.");
@@ -403,7 +407,7 @@ async function assertNoActiveCloudflareProvisioning(
   vaultId: Id<"vaults">,
 ): Promise<void> {
   const ownership = await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("operations_vaultInfrastructureOwnership")
     .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "active"))
     .first();
   if (ownership) {
@@ -596,7 +600,7 @@ export const attachWorker = internalMutation({
 export const claimCloudflareWorkerConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     accountId: string(),
@@ -663,7 +667,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -686,7 +690,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
 export const readActiveCloudflareWorkerConnection = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -720,7 +724,7 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
 export const attachWorkerForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     accountId: string(),
@@ -831,7 +835,7 @@ export const attachWorkerForRun = internalMutation({
 export const readCreatedWorkerRollbackSafety = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     accountId: string(),
@@ -860,7 +864,7 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
 export const finishCloudflareWorkerConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -922,7 +926,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
 export const claimCloudflareBuildsWiring = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -989,7 +993,7 @@ export const claimCloudflareBuildsWiring = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1012,7 +1016,7 @@ export const claimCloudflareBuildsWiring = internalMutation({
 export const readActiveCloudflareBuildsWiring = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1069,7 +1073,7 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
 export const recordCloudflareBuildsForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     builds: vVaultCloudflareConnectedBuilds,
@@ -1131,15 +1135,17 @@ export const recordCloudflareBuildsForRun = internalMutation({
 export const finishCloudflareBuildsWiring = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
-  returns: object({ convexBuildAccessRunId: union(id("appProvisioningRuns"), nullValue()) }),
+  returns: object({
+    convexBuildAccessRunId: union(id("operations_vaultProvisioningRuns"), nullValue()),
+  }),
   handler: async (
     ctx,
     args,
-  ): Promise<{ convexBuildAccessRunId: Id<"appProvisioningRuns"> | null }> => {
+  ): Promise<{ convexBuildAccessRunId: Id<"operations_vaultProvisioningRuns"> | null }> => {
     const run = await requireCloudflareBuildsWiringRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
@@ -1174,7 +1180,7 @@ export const finishCloudflareBuildsWiring = internalMutation({
       convexDeployment !== null &&
       isVaultProviderUpstreamPresent(convexDeployment) &&
       worker.deployment.convexBuildAccess.state !== "wired";
-    const convexBuildAccessRunId: Id<"appProvisioningRuns"> | null =
+    const convexBuildAccessRunId: Id<"operations_vaultProvisioningRuns"> | null =
       needsConvexBuildAccess && isStandaloneCloudflareBuildsWiringRun(run)
         ? await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
             vaultId: args.vaultId,
@@ -1214,7 +1220,7 @@ export const finishCloudflareBuildsWiring = internalMutation({
 export const claimCloudflareConvexBuildAccessWiring = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1296,7 +1302,7 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1319,7 +1325,7 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
 export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1382,7 +1388,7 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
 export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     deployment: union(literal("production"), literal("preview")),
@@ -1452,7 +1458,7 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
 export const recordCloudflareConvexBuildAccessForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     previewDeployment: vConvexPreviewDeploymentReady,
@@ -1528,7 +1534,7 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
 export const finishCloudflareConvexBuildAccessWiring = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1692,7 +1698,7 @@ function resolveInfrastructureVerificationPatch(args: {
 export const claimCloudflareInfrastructureVerification = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1746,7 +1752,7 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1769,7 +1775,7 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
 export const readActiveCloudflareInfrastructureVerification = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1826,7 +1832,7 @@ export const readActiveCloudflareInfrastructureVerification = internalQuery({
 export const recordCloudflareInfrastructureVerification = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     providerResult: cloudflareInfrastructureVerificationResult,
@@ -1916,7 +1922,7 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
 export const recordCloudflareInfrastructureVerificationUnverifiable = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
     message: string(),
@@ -1952,7 +1958,7 @@ export const recordCloudflareInfrastructureVerificationUnverifiable = internalMu
 export const finishCloudflareInfrastructureVerification = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("operations_vaultProvisioningRuns"),
     userId: id("users"),
     appRoot: string(),
   },

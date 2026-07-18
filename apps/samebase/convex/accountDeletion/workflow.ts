@@ -21,11 +21,11 @@ const workflow = new WorkflowManager(components.workflow);
 const { id, literal, object, string, union } = v;
 
 const workflowOwnershipArgs = {
-  runId: id("accountDeletionRuns"),
+  runId: id("operations_accountDeletionRuns"),
   workflowId: string(),
 };
 
-const workflowCompletionContext = object({ runId: id("accountDeletionRuns") });
+const workflowCompletionContext = object({ runId: id("operations_accountDeletionRuns") });
 
 const vClosedBillingOutcome = union(
   object({ state: literal("not_applicable") }),
@@ -71,7 +71,7 @@ function latestAccountDeletionStep(
 
 export async function startAccountDeletionWorkflow(
   ctx: MutationCtx,
-  runId: Id<"accountDeletionRuns">,
+  runId: Id<"operations_accountDeletionRuns">,
 ): Promise<string> {
   const run = await ctx.db.get(runId);
 
@@ -126,7 +126,7 @@ export const appendRunEvent = internalMutation({
     const run = await readOwnedActiveRun(ctx, args);
     const now = Date.now();
 
-    await ctx.db.insert("accountDeletionEvents", {
+    await ctx.db.insert("operations_accountDeletionEvents", {
       runId: run._id,
       step: args.step,
       level: args.level,
@@ -256,7 +256,7 @@ export const markFinalizing = internalMutation({
 
 export const deleteAccountWorkflow = workflow.define({
   args: {
-    runId: id("accountDeletionRuns"),
+    runId: id("operations_accountDeletionRuns"),
     // Persisted workflow input selects the journal shape without inserting a
     // compatibility-breaking discovery step into older runs.
     dataDeletionProgress: v.optional(literal(true)),
@@ -689,7 +689,7 @@ export const handleWorkflowComplete = internalMutation({
       updatedAt: now,
     });
 
-    await ctx.db.insert("accountDeletionEvents", {
+    await ctx.db.insert("operations_accountDeletionEvents", {
       runId: run._id,
       step: run.currentStep,
       level: "error",

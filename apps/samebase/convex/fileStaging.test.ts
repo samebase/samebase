@@ -74,7 +74,7 @@ function createClearAllStagingTestContext(args: {
             return {
               collect: async () => {
                 queriedScopes.push({ table, indexName, constraints });
-                if (table !== "fileStaging") {
+                if (table !== "operations_fileStaging") {
                   return [];
                 }
 
@@ -480,7 +480,7 @@ describe("buildClearAllStagingPlan", () => {
 
     expect(context.queriedScopes).toEqual([
       {
-        table: "fileStaging",
+        table: "operations_fileStaging",
         indexName: "by_vault_and_branch",
         constraints: [
           { field: "vaultId", value: targetVaultId },

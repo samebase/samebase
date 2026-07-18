@@ -22,7 +22,7 @@ async function seedRunningDeletion() {
       userId,
       expirationTime: Date.now() + 60_000,
     });
-    const runId = await ctx.db.insert("accountDeletionRuns", {
+    const runId = await ctx.db.insert("operations_accountDeletionRuns", {
       identity: { state: "active", userId, email: "deleting@example.com" },
       completionCapability: "auth-cleanup-test",
       state: "running",
@@ -372,7 +372,7 @@ describe("account deletion auth cleanup", () => {
 
     await t.run(async (ctx) => {
       await ctx.db.delete(providerConnectionId);
-      await ctx.db.insert("machineCredentials", {
+      await ctx.db.insert("operations_machineCredentials", {
         userId: ids.userId,
         machineId: "late-machine",
         credentialHash: "late-machine-credential",

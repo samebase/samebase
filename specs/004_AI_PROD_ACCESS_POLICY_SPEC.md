@@ -17,7 +17,8 @@ This spec is intentionally approval-first and read-only for MVP.
 ## Implementation Snapshot (2026-02-13)
 
 - Proposal -> explicit approval -> execution flow is live in `chat.ts` + `chat/actions.ts`.
-- Request/audit persistence is live via `aiProdAccessRequests` and `aiProdAccessAudit`.
+- Request/audit persistence is live via `operations_aiProdAccessRequests` and
+  `audit_aiProdAccessEvents`.
 - Admin-only enforcement is active via `isAdminUser`.
 - Request expiration (TTL) is active.
 - Redaction is active through `infraReadPolicy.ts` with default mode `MVP_OWNER_MODE`.
@@ -78,7 +79,7 @@ Mitigations in this spec:
 
 ## Data Model
 
-### 1. `aiProdAccessRequests`
+### 1. `operations_aiProdAccessRequests`
 
 Stores request lifecycle from proposal to execution.
 
@@ -107,13 +108,13 @@ Indexes:
 - `by_status`
 - `by_vault`
 
-### 2. `aiProdAccessAudit`
+### 2. `audit_aiProdAccessEvents`
 
 Immutable event log for each request state/action.
 
 Fields:
 
-- `requestId: Id<"aiProdAccessRequests">`
+- `requestId: Id<"operations_aiProdAccessRequests">`
 - `actorUserId: Id<"users">`
 - `action: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired"`
 - `toolName: string`
@@ -172,7 +173,7 @@ aiProdAccessRequests: defineTable({
   .index("by_vault", ["vaultId"]);
 
 aiProdAccessAudit: defineTable({
-  requestId: v.id("aiProdAccessRequests"),
+  requestId: v.id("operations_aiProdAccessRequests"),
   actorUserId: v.id("users"),
   action: v.union(
     v.literal("proposed"),
@@ -235,7 +236,7 @@ args: {
   toolName: string;
   paramsJson: string;
 }
-returns: { requestId: Id<"aiProdAccessRequests"> }
+returns: { requestId: Id<"operations_aiProdAccessRequests"> }
 ```
 
 Behavior:
@@ -252,7 +253,7 @@ Behavior:
 
 ```ts
 args: {
-  requestId: Id<"aiProdAccessRequests">;
+  requestId: Id<"operations_aiProdAccessRequests">;
   threadId: string;
 }
 returns: null;
@@ -352,7 +353,7 @@ Reference redaction pipeline order:
 
 ## Observability and Audit
 
-- Every request lifecycle transition emits `aiProdAccessAudit`.
+- Every request lifecycle transition emits `audit_aiProdAccessEvents`.
 - Include argument hash (not raw arguments) in audit.
 - Capture counts and truncated flags, not full payload copy in audit rows.
 - Add admin query for recent prod-read activity and failures.

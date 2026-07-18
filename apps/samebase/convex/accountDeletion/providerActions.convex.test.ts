@@ -14,7 +14,7 @@ afterEach(() => {
 
 async function seedUser(
   t: ConvexTest,
-): Promise<{ userId: Id<"users">; runId: Id<"accountDeletionRuns"> }> {
+): Promise<{ userId: Id<"users">; runId: Id<"operations_accountDeletionRuns"> }> {
   return await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       email: "test@example.invalid",
@@ -24,7 +24,7 @@ async function seedUser(
       userId,
       expirationTime: 2_000_000_000_000,
     });
-    const runId = await ctx.db.insert("accountDeletionRuns", {
+    const runId = await ctx.db.insert("operations_accountDeletionRuns", {
       identity: { state: "active", userId, email: "test@example.invalid" },
       completionCapability: "provider-actions-test",
       state: "running",

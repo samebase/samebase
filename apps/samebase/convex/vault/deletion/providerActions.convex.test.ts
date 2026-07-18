@@ -49,7 +49,7 @@ describe("vault deletion Convex provider actions", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("vaultDeletionRuns", {
+      const runId = await ctx.db.insert("operations_vaultDeletionRuns", {
         userId,
         vaultId,
         repositoryFullName: "ada/demo",
@@ -121,7 +121,7 @@ describe("vault deletion Convex provider actions", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("vaultDeletionRuns", {
+      const runId = await ctx.db.insert("operations_vaultDeletionRuns", {
         userId,
         vaultId,
         repositoryFullName: "ada/demo",

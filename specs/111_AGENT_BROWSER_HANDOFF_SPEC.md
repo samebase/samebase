@@ -46,11 +46,11 @@ the one-time handoff. A rejected handoff must reject the Convex Auth action inst
 empty credential result, because an empty result can clear a valid browser session. A different-user
 failure leaves that browser account signed in and displays the account-mismatch recovery message.
 
-Creation, consumption, and terminal rejection events write `mcpAccessAudit` events without raw
-tokens, provider credentials, emails, file paths, or the browser return path. The return path stays
-in the URL fragment and per-tab browser state only. Unknown tokens and repeated observations of
-already-consumed tokens do not write audit rows, so random-token spraying and replay do not create
-an unbounded database write stream. Each handoff schedules deletion at expiry; consumed rows
+Creation, consumption, and terminal rejection events write `audit_mcpAccessEvents` events without
+raw tokens, provider credentials, emails, file paths, or the browser return path. The return path
+stays in the URL fragment and per-tab browser state only. Unknown tokens and repeated observations
+of already-consumed tokens do not write audit rows, so random-token spraying and replay do not
+create an unbounded database write stream. Each handoff schedules deletion at expiry; consumed rows
 therefore remain available for the short audit window and are then removed.
 
 Handoff creation is limited to ten rows per MCP grant in a rolling five-minute window. The limit

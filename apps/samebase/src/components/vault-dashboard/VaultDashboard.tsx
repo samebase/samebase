@@ -409,7 +409,7 @@ type VaultDashboardLocalState = {
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
   removeCloudflareProvision: boolean;
-  retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
+  retryingDeletionRunId: Id<"operations_vaultDeletionRuns"> | null;
   shouldAutoFocusChatInput: boolean;
 };
 
@@ -737,7 +737,9 @@ function useVaultDashboardLocalStore() {
     setIsDeleting: (isDeleting: boolean) => {
       setState((state) => ({ ...state, isDeleting }));
     },
-    setRetryingDeletionRunId: (retryingDeletionRunId: Id<"vaultDeletionRuns"> | null) => {
+    setRetryingDeletionRunId: (
+      retryingDeletionRunId: Id<"operations_vaultDeletionRuns"> | null,
+    ) => {
       setState((state) => ({ ...state, retryingDeletionRunId }));
     },
   }));
@@ -2824,7 +2826,7 @@ export function VaultDeletionStatusSection({
 }: {
   deletion: Extract<VaultDashboardDeletion, { state: "deleting" | "delete_failed" }>;
   isRetrying: boolean;
-  onRetry: (runId: Id<"vaultDeletionRuns">) => void;
+  onRetry: (runId: Id<"operations_vaultDeletionRuns">) => void;
 }) {
   const stepLabel = formatVaultDeletionStep(deletion.currentStep);
   if (deletion.state === "deleting") {
@@ -2875,7 +2877,7 @@ type VaultDashboardViewProps = {
   developerToolsVisible: boolean;
   cloudflareWorkerRepairActionInFlight: CloudflareWorkerRepairActionInFlight | null;
   isRemovingVault: boolean;
-  retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
+  retryingDeletionRunId: Id<"operations_vaultDeletionRuns"> | null;
   retryingInfrastructureVaultId: Id<"vaults"> | null;
   now: number;
   viewModel: VaultDashboardViewModel;
@@ -2890,7 +2892,7 @@ type VaultDashboardViewProps = {
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
-  onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
+  onRetryVaultDeletion: (runId: Id<"operations_vaultDeletionRuns">) => void;
   onSaveVaultBranchFilters: (
     vaultId: Id<"vaults">,
     nextVaultBranchFilters: VaultBranchFiltersState,
@@ -4250,7 +4252,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
-  const handleRetryVaultDeletion = async (runId: Id<"vaultDeletionRuns">) => {
+  const handleRetryVaultDeletion = async (runId: Id<"operations_vaultDeletionRuns">) => {
     if (retryingDeletionRunId) {
       return;
     }

@@ -55,7 +55,7 @@ maintaining a parallel direct Cloudflare REST integration.
 
 1. Noter already models provider credentials in `providerConnections` with auth-method union
    (`oauth` or `api_key`).
-2. Noter already has OAuth state persistence via `oauthStates`.
+2. Noter already has OAuth state persistence via `operations_providerOauthStates`.
 3. Noter’s existing provider OAuth flows are direct for GitHub/Convex. Cloudflare differs:
    - Cloudflare’s “remote MCP server” provides OAuth consent and a stable hosted MCP endpoint.
    - Cloudflare also supports passing an API token as a bearer credential (useful for CI/dev seed,
@@ -151,8 +151,8 @@ Extend `oauthStates.provider` union with:
 
 Rationale:
 
-- We already key `oauthStates` by a `provider` label. Cloudflare MCP OAuth is a distinct flow vs any
-  future “direct Cloudflare OAuth” (if it ever exists).
+- We already key `operations_providerOauthStates` by a `provider` label. Cloudflare MCP OAuth is a
+  distinct flow vs any future “direct Cloudflare OAuth” (if it ever exists).
 
 ### Endpoints (conceptual)
 

@@ -103,7 +103,7 @@ const vConvexSchemaGraphDeploymentOption = object({
 });
 
 const vConvexSchemaGraphSnapshotResult = object({
-  _id: id("vaultConvexSchemaSnapshots"),
+  _id: id("observations_vaultConvexSchemaSnapshots"),
   fetchedAt: number(),
   schemaHash: string(),
   graph: vConvexSchemaGraph,
@@ -1032,14 +1032,14 @@ export const get = query({
 
     const [snapshot, layoutRows] = await Promise.all([
       ctx.db
-        .query("vaultConvexSchemaSnapshots")
+        .query("observations_vaultConvexSchemaSnapshots")
         .withIndex("by_deployment_and_fetched_at", (q) =>
           q.eq("deploymentId", selectedDeployment._id),
         )
         .order("desc")
         .first(),
       ctx.db
-        .query("vaultConvexSchemaGraphLayouts")
+        .query("ui_vaultConvexSchemaGraphLayouts")
         .withIndex("by_user_vault_deployment", (q) =>
           q
             .eq("userId", ctx.viewer.userId)
@@ -1095,7 +1095,7 @@ export const saveLayout = mutation({
     }
 
     const snapshot = await ctx.db
-      .query("vaultConvexSchemaSnapshots")
+      .query("observations_vaultConvexSchemaSnapshots")
       .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", args.deploymentId))
       .order("desc")
       .first();
@@ -1105,7 +1105,7 @@ export const saveLayout = mutation({
     }
 
     const existing = await ctx.db
-      .query("vaultConvexSchemaGraphLayouts")
+      .query("ui_vaultConvexSchemaGraphLayouts")
       .withIndex("by_user_vault_deployment_node", (q) =>
         q
           .eq("userId", ctx.viewer.userId)
@@ -1124,7 +1124,7 @@ export const saveLayout = mutation({
       return null;
     }
 
-    await ctx.db.insert("vaultConvexSchemaGraphLayouts", {
+    await ctx.db.insert("ui_vaultConvexSchemaGraphLayouts", {
       userId: ctx.viewer.userId,
       vaultId: args.vaultId,
       deploymentId: args.deploymentId,
@@ -1143,8 +1143,11 @@ export const refresh = action({
     vaultId: id("vaults"),
     deploymentId: optional(id("vaultConvexDeployments")),
   },
-  returns: object({ snapshotId: id("vaultConvexSchemaSnapshots") }),
-  handler: async (ctx, args): Promise<{ snapshotId: Id<"vaultConvexSchemaSnapshots"> }> => {
+  returns: object({ snapshotId: id("observations_vaultConvexSchemaSnapshots") }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ snapshotId: Id<"observations_vaultConvexSchemaSnapshots"> }> => {
     const target = await ctx.runQuery(internal.vault.convexSchemaGraph.readRefreshTarget, {
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
@@ -1244,7 +1247,7 @@ async function pruneSchemaSnapshots(
   deploymentId: Id<"vaultConvexDeployments">,
 ): Promise<void> {
   const snapshots = await ctx.db
-    .query("vaultConvexSchemaSnapshots")
+    .query("observations_vaultConvexSchemaSnapshots")
     .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", deploymentId))
     .order("desc")
     .take(CONVEX_SCHEMA_SNAPSHOT_RETENTION_COUNT + 1);
@@ -1266,8 +1269,8 @@ export const recordSnapshot = internalMutation({
     inferredSchemaJson: optional(string()),
     fetchedAt: number(),
   },
-  returns: id("vaultConvexSchemaSnapshots"),
-  handler: async (ctx, args): Promise<Id<"vaultConvexSchemaSnapshots">> => {
+  returns: id("observations_vaultConvexSchemaSnapshots"),
+  handler: async (ctx, args): Promise<Id<"observations_vaultConvexSchemaSnapshots">> => {
     const deployment = await ctx.db.get(args.deploymentId);
     if (
       !deployment ||
@@ -1280,7 +1283,7 @@ export const recordSnapshot = internalMutation({
     }
 
     const latestSnapshot = await ctx.db
-      .query("vaultConvexSchemaSnapshots")
+      .query("observations_vaultConvexSchemaSnapshots")
       .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", args.deploymentId))
       .order("desc")
       .first();
@@ -1295,7 +1298,7 @@ export const recordSnapshot = internalMutation({
       return latestSnapshot._id;
     }
 
-    const snapshotId = await ctx.db.insert("vaultConvexSchemaSnapshots", {
+    const snapshotId = await ctx.db.insert("observations_vaultConvexSchemaSnapshots", {
       userId: args.userId,
       vaultId: args.vaultId,
       deploymentId: args.deploymentId,

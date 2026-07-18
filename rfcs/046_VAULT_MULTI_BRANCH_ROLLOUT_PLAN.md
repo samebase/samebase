@@ -18,7 +18,7 @@
 
 Implemented highlights in PR #174:
 
-1. Added `vaultRemoteBranches` and `vaultBranchTrees` storage
+1. Added `observations_vaultRemoteBranches` and `observations_vaultBranchTrees` storage
 2. Added branch-aware vault read path (`getVaultByRepository(..., branch?)`)
 3. Hardened `updateRepositoryTree` to keep legacy `vault.treeData/treeSHA/commitSHA`
    default-branch-only while writing branch-scoped cache for all branches
@@ -42,7 +42,7 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 
 ### Scope
 
-1. Add `vaultRemoteBranches` table and sync action
+1. Add `observations_vaultRemoteBranches` table and sync action
 2. Add `vault.getVaultRemoteBranches`
 3. Show remote branch list in each ready vault card
 4. Clicking a branch navigates to vault URL for that branch
@@ -94,7 +94,7 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 
 ### Scope
 
-1. Add `vaultBranchTrees` table
+1. Add `observations_vaultBranchTrees` table
 2. Make tree refresh branch-aware and store by `(vaultId, branch)`
 3. Update vault read path to resolve branch-scoped tree/commit state
 4. Pass explicit branch through commit refresh paths
@@ -117,7 +117,7 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 
 ### Implementation Notes (Completed)
 
-1. Added `vaultBranchTrees` table with `by_vault_and_branch` index
+1. Added `observations_vaultBranchTrees` table with `by_vault_and_branch` index
 2. Added internal `vault.getVaultBranchTree` and `vault.upsertVaultBranchTree`
 3. `github.updateRepositoryTree` now:
    - resolves requested/default branch,
@@ -135,14 +135,15 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 1. Remove runtime fallback reads from legacy `vault.treeData/treeSHA/commitSHA` in branch-selection
    paths
 2. Stop writing legacy tree/commit fields from branch refresh flows
-3. Ensure default-branch reads refresh/backfill `vaultBranchTrees` instead of reading legacy fields
+3. Ensure default-branch reads refresh/backfill `observations_vaultBranchTrees` instead of reading
+   legacy fields
 4. Migrate remaining runtime call sites that still read legacy single-branch fields (for example
    infra config/read paths) to branch-scoped sources
 5. Drop legacy single-branch tree fields from `vaults` schema after runtime dependency is removed
 
 ### Validation
 
-1. Opening default/non-default branches works with only `vaultBranchTrees`
+1. Opening default/non-default branches works with only `observations_vaultBranchTrees`
 2. `updateRepositoryTree` no longer patches legacy tree/commit fields
 3. Search for runtime `vault.treeData`/`vault.treeSHA`/`vault.commitSHA` usage returns no legacy
    fallback dependencies

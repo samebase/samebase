@@ -140,7 +140,7 @@ export const getMachineRegistrationRequestForBrowser = query({
     const userId = ctx.viewer.userId;
 
     const request = await ctx.db
-      .query("machineRegistrationRequests")
+      .query("operations_machineRegistrationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .first();
     if (!request) {
@@ -170,7 +170,7 @@ export const approveMachineRegistrationRequest = mutation({
     const userId = ctx.viewer.userId;
     const now = Date.now();
     const request = await ctx.db
-      .query("machineRegistrationRequests")
+      .query("operations_machineRegistrationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .first();
     if (!request) {
@@ -191,7 +191,7 @@ export const approveMachineRegistrationRequest = mutation({
 
     const newerRequest = (
       await ctx.db
-        .query("machineRegistrationRequests")
+        .query("operations_machineRegistrationRequests")
         .withIndex("by_machine_id", (q) => q.eq("machineId", request.machineId))
         .collect()
     ).find((candidate) => candidate.createdAt > request.createdAt);
@@ -218,7 +218,7 @@ export const approveMachineRegistrationRequest = mutation({
     }
 
     const existingMachineCredentials = await ctx.db
-      .query("machineCredentials")
+      .query("operations_machineCredentials")
       .withIndex("by_machine_id", (q) => q.eq("machineId", request.machineId))
       .collect();
 
@@ -228,7 +228,7 @@ export const approveMachineRegistrationRequest = mutation({
       await ctx.db.delete(existingMachineCredential._id);
     }
 
-    await ctx.db.insert("machineCredentials", {
+    await ctx.db.insert("operations_machineCredentials", {
       userId,
       machineId: request.machineId,
       credentialHash: request.credentialHash,
@@ -254,7 +254,7 @@ export const createMachineRegistrationRequest = internalMutation({
       expiresAt: args.expiresAt,
     } satisfies MachineRegistrationRequestRow;
     const existingRateLimit = await ctx.db
-      .query("machineRegistrationBootstrapRateLimits")
+      .query("operations_machineRegistrationBootstrapRateLimits")
       .withIndex("by_fingerprint", (q) => q.eq("fingerprint", args.bootstrapFingerprint))
       .first();
     const existingWindowStillActive =
@@ -272,7 +272,7 @@ export const createMachineRegistrationRequest = internalMutation({
     }
 
     const existing = await ctx.db
-      .query("machineRegistrationRequests")
+      .query("operations_machineRegistrationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .first();
     if (existing) {
@@ -280,7 +280,7 @@ export const createMachineRegistrationRequest = internalMutation({
     }
 
     const machineRequests = await ctx.db
-      .query("machineRegistrationRequests")
+      .query("operations_machineRegistrationRequests")
       .withIndex("by_machine_id", (q) => q.eq("machineId", args.machineId))
       .collect();
 
@@ -292,7 +292,7 @@ export const createMachineRegistrationRequest = internalMutation({
           : args.createdAt,
       });
     } else {
-      await ctx.db.insert("machineRegistrationBootstrapRateLimits", {
+      await ctx.db.insert("operations_machineRegistrationBootstrapRateLimits", {
         fingerprint: args.bootstrapFingerprint,
         requestCount: 1,
         windowStartedAt: args.createdAt,
@@ -309,7 +309,7 @@ export const createMachineRegistrationRequest = internalMutation({
       });
     }
 
-    await ctx.db.insert("machineRegistrationRequests", requestRow);
+    await ctx.db.insert("operations_machineRegistrationRequests", requestRow);
     return null;
   },
 });
@@ -322,7 +322,7 @@ export const publishHeartbeatFromConnector = internalMutation({
     args: PublishHeartbeatFromConnectorArgs,
   ): Promise<ValidateMachineCredentialResult> => {
     const credential = await ctx.db
-      .query("machineCredentials")
+      .query("operations_machineCredentials")
       .withIndex("by_credential_hash", (q) => q.eq("credentialHash", args.credentialHash))
       .first();
     if (!credential) {
