@@ -2898,6 +2898,14 @@ export interface components {
       created_on?: components["schemas"]["workers_created_on"];
       etag?: components["schemas"]["workers_etag"];
       /**
+       * @description Declarative exports for the Worker's most recent version,
+       *     including Durable Object classes (with their `storage`
+       *     backend) and named Worker entrypoints. Tombstoned lifecycle
+       *     entries are omitted, so only live exports (`created` and
+       *     `expecting-transfer`) are returned.
+       */
+      exports?: $Read<components["schemas"]["workers_exports_config_map"]>;
+      /**
        * @description The names of handlers exported as part of the default export.
        * @example [
        *       "fetch",
@@ -2998,6 +3006,106 @@ export interface components {
      * @example ea95132c15732412d22c1476fa83f27a
      */
     workers_etag: string;
+    /**
+     * @description Declarative exports for the Worker, keyed by export name. Worker
+     *     entrypoint entries carry cache configuration for that entrypoint.
+     *     Durable Object entries are also configured here.
+     * @example {
+     *       "Admin": {
+     *         "cache": {
+     *           "enabled": true
+     *         },
+     *         "type": "worker"
+     *       },
+     *       "default": {
+     *         "cache": {
+     *           "enabled": false
+     *         },
+     *         "type": "worker"
+     *       }
+     *     }
+     */
+    workers_exports_config_map: {
+      [key: string]: components["schemas"]["workers_export_config"];
+    };
+    /**
+     * @description A single entry in the `exports` map, keyed by export name (a
+     *     `WorkerEntrypoint` class name, a Durable Object class name, or
+     *     `default` for the Worker's default export). Worker entrypoint
+     *     entries set `type: worker` and may carry `cache` configuration
+     *     for that entrypoint. Durable Object entries set
+     *     `type: durable-object` and carry additional provisioning fields.
+     */
+    workers_export_config: {
+      /**
+       * @description Cache override for this entrypoint. It applies only to
+       *     `type: worker` entries and overrides the Worker's global
+       *     `cache_options.enabled` for that entrypoint.
+       */
+      cache?: components["schemas"]["workers_entrypoint_cache_options"];
+      /**
+       * @description Destination class name for a `state: renamed` tombstone. The
+       *     target must appear as a live (`created`) entry in the same
+       *     `exports` map. Write-only: never present in GET responses.
+       */
+      renamed_to?: $Write<string>;
+      /**
+       * @description Lifecycle state of the export entry. Defaults to `created`
+       *     (a normal, live export) when omitted.
+       *
+       *     `deleted`, `renamed`, and `transferred` are tombstones:
+       *     write-only lifecycle operations that retire, rename, or hand
+       *     off a provisioned Durable Object namespace. They are applied
+       *     at upload and are filtered out of GET responses, so a read
+       *     only ever returns `created` or `expecting-transfer`.
+       *
+       *     `expecting-transfer` is a live export whose data is being
+       *     received from another script via the two-phase transfer flow;
+       *     it carries `storage` and `transfer_from`.
+       * @enum {string}
+       */
+      state?: "created" | "deleted" | "renamed" | "transferred" | "expecting-transfer";
+      /**
+       * @description Storage backend for a `type: durable-object` export. Required
+       *     for live Durable Object entries (`created` and
+       *     `expecting-transfer`). `sqlite` selects SQLite-backed storage;
+       *     `legacy-kv` selects the legacy key-value storage.
+       * @enum {string}
+       */
+      storage?: "sqlite" | "legacy-kv";
+      /**
+       * @description Source script for a `state: expecting-transfer` entry. The
+       *     namespace on this script is materialised from the source
+       *     script's data via the pending-transfer flow. Present on reads
+       *     for `expecting-transfer` entries.
+       */
+      transfer_from?: string;
+      /**
+       * @description Destination script for a `state: transferred` tombstone. Must
+       *     reference a script in the same account; cross-dispatch-namespace
+       *     transfers are rejected. Write-only: never present in GET
+       *     responses.
+       */
+      transferred_to?: $Write<string>;
+      /**
+       * @description The kind of export.
+       * @enum {string}
+       */
+      type: "worker" | "durable-object";
+    };
+    /**
+     * @description CacheW configuration for a single `type: worker` entrypoint.
+     *     When present it overrides the Worker's global
+     *     `cache_options.enabled` for that entrypoint, so a Worker can turn
+     *     caching on globally and opt one entrypoint out, or the reverse.
+     */
+    workers_entrypoint_cache_options: {
+      /**
+       * @description Whether caching is enabled for this entrypoint.
+       * @example true
+       */
+      enabled: boolean;
+    };
     /**
      * @description Whether a Worker contains assets.
      * @example false
@@ -4009,62 +4117,6 @@ export interface components {
        * @enum {string}
        */
       type: "vpc_network";
-    };
-    /**
-     * @description Declarative exports for the Worker, keyed by export name. Worker
-     *     entrypoint entries carry cache configuration for that entrypoint.
-     *     Durable Object entries are also configured here.
-     * @example {
-     *       "Admin": {
-     *         "cache": {
-     *           "enabled": true
-     *         },
-     *         "type": "worker"
-     *       },
-     *       "default": {
-     *         "cache": {
-     *           "enabled": false
-     *         },
-     *         "type": "worker"
-     *       }
-     *     }
-     */
-    workers_exports_config_map: {
-      [key: string]: components["schemas"]["workers_export_config"];
-    };
-    /**
-     * @description A single entry in the `exports` map, keyed by export name (a
-     *     `WorkerEntrypoint` class name, a Durable Object class name, or
-     *     `default` for the Worker's default export). Worker entrypoint
-     *     entries set `type: worker` and may carry `cache` configuration
-     *     for that entrypoint. Durable Object entries set
-     *     `type: durable-object` and carry additional provisioning fields.
-     */
-    workers_export_config: {
-      /**
-       * @description Cache override for this entrypoint. It applies only to
-       *     `type: worker` entries and overrides the Worker's global
-       *     `cache_options.enabled` for that entrypoint.
-       */
-      cache?: components["schemas"]["workers_entrypoint_cache_options"];
-      /**
-       * @description The kind of export.
-       * @enum {string}
-       */
-      type: "worker" | "durable-object";
-    };
-    /**
-     * @description CacheW configuration for a single `type: worker` entrypoint.
-     *     When present it overrides the Worker's global
-     *     `cache_options.enabled` for that entrypoint, so a Worker can turn
-     *     caching on globally and opt one entrypoint out, or the reverse.
-     */
-    workers_entrypoint_cache_options: {
-      /**
-       * @description Whether caching is enabled for this entrypoint.
-       * @example true
-       */
-      enabled: boolean;
     };
     /** @description Limits to apply for this Worker. */
     workers_limits: {
@@ -5276,6 +5328,14 @@ export interface components {
           /** @description Flags that enable or disable certain features in the Workers runtime. */
           compatibility_flags?: $Read<string[]>;
           /**
+           * @description Declarative exports for this version, including
+           *     Durable Object classes (with their `storage`
+           *     backend) and named Worker entrypoints. Tombstoned
+           *     lifecycle entries are omitted, so only live exports
+           *     (`created` and `expecting-transfer`) are returned.
+           */
+          exports?: $Read<components["schemas"]["workers_exports_config_map"]>;
+          /**
            * @description Resource limits for the Worker.
            * @example {
            *       "cpu_ms": 50
@@ -5750,6 +5810,15 @@ export interface components {
        * @description When the version was created.
        */
       created_on: $Read<string>;
+      /**
+       * @description Declarative exports for the version, including Durable Object
+       *     classes (with their `storage` backend) and named Worker
+       *     entrypoints. On reads, tombstoned lifecycle entries are
+       *     omitted, so only live exports (`created` and
+       *     `expecting-transfer`) are returned. `exports` and `migrations`
+       *     are mutually exclusive on upload.
+       */
+      exports?: components["schemas"]["workers_exports_config_map"];
       /**
        * Format: uuid
        * @description Version identifier.
@@ -6317,6 +6386,10 @@ export type WorkersCompatibilityDate = components["schemas"]["workers_compatibil
 export type WorkersCompatibilityFlags = components["schemas"]["workers_compatibility_flags"];
 export type WorkersCompatibilityFlag = components["schemas"]["workers_compatibility_flag"];
 export type WorkersEtag = components["schemas"]["workers_etag"];
+export type WorkersExportsConfigMap = components["schemas"]["workers_exports_config_map"];
+export type WorkersExportConfig = components["schemas"]["workers_export_config"];
+export type WorkersEntrypointCacheOptions =
+  components["schemas"]["workers_entrypoint_cache_options"];
 export type WorkersHasAssets = components["schemas"]["workers_has_assets"];
 export type WorkersHasModules = components["schemas"]["workers_has_modules"];
 export type WorkersLogpush = components["schemas"]["workers_logpush"];
@@ -6386,10 +6459,6 @@ export type WorkersBindingKindVpcService =
   components["schemas"]["workers_binding_kind_vpc_service"];
 export type WorkersBindingKindVpcNetwork =
   components["schemas"]["workers_binding_kind_vpc_network"];
-export type WorkersExportsConfigMap = components["schemas"]["workers_exports_config_map"];
-export type WorkersExportConfig = components["schemas"]["workers_export_config"];
-export type WorkersEntrypointCacheOptions =
-  components["schemas"]["workers_entrypoint_cache_options"];
 export type WorkersLimits = components["schemas"]["workers_limits"];
 export type WorkersSingleStepMigrations = components["schemas"]["workers_single_step_migrations"];
 export type WorkersMigrationTagConditions =
