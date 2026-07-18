@@ -21,7 +21,7 @@ This replaces the pre-vault run gap with a stable `vaultId` while preserving the
 that repository-backed behavior requires a connected GitHub repository. GitHub connection means
 durable repository identity, not a fresh branch tree. Branch tree data is cache state and
 repo-backed file/tree behavior must still fail closed until the relevant branch snapshot exists.
-Convex and Cloudflare app-root resource rows only exist for connected GitHub vaults, so those
+Convex and Cloudflare app resource rows only exist for connected GitHub vaults, so those
 integrations cannot exist while GitHub is still provisioning or failed.
 
 After the vault-first creation path is visible and understandable, remove the temporary
@@ -547,8 +547,9 @@ The current target state model is:
 
 1. GitHub/source state says whether the vault has durable repository identity and enough tree data
    for source-backed work
-2. `vaultConvexDeployments` stores connected Convex production deployments by `vaultId` + `appRoot`
-3. `vaultCloudflareWorkers` stores connected Cloudflare Workers by `vaultId` + `appRoot`
+2. `vaultApps` stores stable app identity and exact `rootDirectory`
+3. `vaultConvexDeployments` and `vaultCloudflareWorkers` reference stable app IDs, while their own
+   provider IDs remain resource identity
 4. dashboard labels such as creating, active, degraded, failed, or partial are derived from those
    resource rows, active ownership, and run/event state
 5. provider retry actions target the failed block run, not a generic aggregate infra status
@@ -556,8 +557,8 @@ The current target state model is:
 Top-level `vaults.infraState`, `vaults.infraLastError`, `vaults.infraLastProvisionedAt`, and
 `vaults.infraProvisioningStartedAt` are the current compatibility shortcut for dashboard and
 provisioning code. They should not gain new product meaning. Phase 5 should replace their reads and
-writes with explicit app-root resource rows and block-run state, then remove the aggregate fields
-from the vault row after production data is clean.
+writes with explicit app resource rows and block-run state, then remove the aggregate fields from
+the vault row after production data is clean.
 
 `vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultDomains`, and
 `vaultInfrastructureOwnership` keep the external resource metadata and operational details needed to
@@ -590,25 +591,10 @@ that type fallout would usually require separate widen, migrate, and narrow PRs.
 single-user reset path, the simpler implementation is one destructive schema-and-code PR after the
 operator has confirmed the cleanup scope.
 
-The reset must include dependent vault-scoped tables, not only `vaults`. Likely affected tables
-include:
-
-1. `vaultBranchFilters`
-2. `vaultRemoteBranches`
-3. `vaultBranchTrees`
-4. `vaultInfrastructure`
-5. `vaultInfrastructureOwnership`
-6. `appProvisioningRuns`
-7. `appProvisioningEvents`
-8. `vaultDomains`
-9. `codespaces`
-10. `fileStaging`
-11. `blobs`
-12. `folderExpansionState`
-13. `agentGraphNodeLayout`
-14. `agentThreadContext`
-15. `aiProdAccessRequests`
-16. `collaborativeUpdates`
+The reset must include every vault-owned table in the fail-closed local cleanup registry from
+`specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`, not only `vaults`. That includes the stable app rows,
+provider resources, dependencies, creation claims, schema snapshots and layouts, infrastructure
+target and ownership, source caches, editor state, agent context, access requests, runs, and events.
 
 The cleanup must fail closed: if the cleanup cannot prove it is targeting the intended vault-scoped
 tables and rows, it must abort before deletion and report the failure outside the product flow. The
@@ -840,8 +826,8 @@ requiring the user to understand provider steps.
 
 Scope:
 
-1. make app-root resource rows plus block-run state the product-facing source of truth for provider
-   setup progress, success, and failure
+1. make app resource rows plus block-run state the product-facing source of truth for provider setup
+   progress, success, and failure
 2. update provisioning code to compose Convex and Cloudflare blocks separately while preserving
    connected GitHub state
 3. replace dashboard and query reads of top-level `vaults.infra*` fields with summaries derived from
@@ -942,7 +928,7 @@ Backend:
 15. after compatibility cleanup, supported provisioning events require `runId` and supported
     provisioning runs require `vaultId`
 16. Phase 5 replaces top-level `vaults.infra*` dashboard/provisioning reads with summaries derived
-    from app-root provider resource rows and block-run state
+    from stable app provider resource rows and block-run state
 17. Phase 5 removes the top-level `vaults.infra*` mirrors after production data is clean
 18. when backend retries ship, retried provider steps prove idempotency and keep terminal failures
     visible through the same run/event summaries

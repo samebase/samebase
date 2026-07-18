@@ -720,11 +720,23 @@ JSON Schema for the tool's `structuredContent`:
           "hasCloudflareProvision": {
             "type": "boolean"
           },
+          "hasUnresolvedConvexCreation": {
+            "type": "boolean"
+          },
+          "hasUnresolvedCloudflareCreation": {
+            "type": "boolean"
+          },
           "canRemoveConvexProvision": {
             "type": "boolean"
           },
           "canRemoveCloudflareProvision": {
             "type": "boolean"
+          },
+          "removableConvexProjectCount": {
+            "type": "number"
+          },
+          "removableCloudflareWorkerCount": {
+            "type": "number"
           },
           "apps": {
             "type": "array",
@@ -823,8 +835,42 @@ JSON Schema for the tool's `structuredContent`:
                 "workerName": {
                   "type": "string"
                 },
-                "workersDevUrl": {
-                  "type": "string"
+                "workersDev": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "const": "available"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["state", "url"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "const": "disabled"
+                        }
+                      },
+                      "required": ["state"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "const": "unknown"
+                        }
+                      },
+                      "required": ["state"],
+                      "additionalProperties": false
+                    }
+                  ]
                 },
                 "projectDashboardUrl": {
                   "type": "string"
@@ -836,7 +882,8 @@ JSON Schema for the tool's `structuredContent`:
                 "githubRepositoryConnection",
                 "upstream",
                 "lastObservedAt",
-                "workerName"
+                "workerName",
+                "workersDev"
               ],
               "additionalProperties": false
             }
@@ -990,8 +1037,12 @@ JSON Schema for the tool's `structuredContent`:
           "hasConnectedGitHubRepository",
           "hasConvexProvision",
           "hasCloudflareProvision",
+          "hasUnresolvedConvexCreation",
+          "hasUnresolvedCloudflareCreation",
           "canRemoveConvexProvision",
           "canRemoveCloudflareProvision",
+          "removableConvexProjectCount",
+          "removableCloudflareWorkerCount",
           "apps",
           "cloudflareWorkers",
           "convexDeployments",

@@ -5,12 +5,14 @@
 - Status: Accepted next-phase implementation plan
 - Owner: Samebase vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
+- Last updated: 2026-07-18
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/115_VAULT_APP_RESOURCE_OWNERSHIP_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
   - [PR #724: Research vault deletion workflow failure](https://github.com/samebase/samebase/pull/724)
 
@@ -113,9 +115,10 @@ A vault is quiescent for deletion when:
 1. the vault has no active deletion gate
 2. source setup is not running: the vault is connected or failed, but not provisioning
 3. no `appProvisioningRuns` row for the vault is `queued` or `running`
-4. connected Convex state is `not_configured`, `connected`, or `failed`, but not `provisioning`
-5. connected Cloudflare state is `not_configured`, `connected`, or `failed`, but not `provisioning`
-6. no vault infrastructure ownership row is active for an in-flight provider workflow
+4. no vault infrastructure ownership row is active for an in-flight provider workflow
+5. an unresolved provider creation claim does not block local-only deletion, but it makes the
+   matching provider-deletion option unavailable because Samebase lacks stable identity and
+   ownership proof
 
 The dashboard should disable delete with a short reason while a vault is not quiescent. A direct
 selected-vault `?delete` URL, such as `/vault/samebase/samebase?delete`, for a non-quiescent vault
@@ -277,7 +280,7 @@ type VaultDeletionPlan = ProviderCleanupPlan &
   (
     | {
         target: {
-          kind: "noter_managed_repository";
+          kind: "samebase_managed_repository";
           ghRepoId: string;
           owner: string;
           name: string;
@@ -305,7 +308,7 @@ type VaultDeletionPlan = ProviderCleanupPlan &
         };
         githubRepository: {
           action: "skip";
-          reason: "not_requested" | "not_noter_managed";
+          reason: "not_requested" | "not_samebase_managed";
         };
       }
     | {
@@ -341,26 +344,33 @@ type ProviderCleanupPlan = {
   convex:
     | {
         action: "skip";
-        reason: "not_requested" | "not_noter_managed" | "not_recorded";
+        reason: "not_requested" | "not_managed" | "not_samebase_managed" | "not_recorded";
       }
     | {
-        action: "delete_project";
-        projectId: string;
-      }
-    | {
-        action: "delete_deployment";
-        deploymentName: string;
+        action: "delete_projects";
+        projects: Array<{
+          teamId: string;
+          projectId: string;
+        }>;
       };
   cloudflare:
     | {
         action: "skip";
-        reason: "not_requested" | "not_noter_managed" | "not_recorded";
+        reason: "not_requested" | "not_managed" | "not_samebase_managed" | "not_recorded";
       }
     | {
         action: "delete_worker";
         accountId: string;
         workerName: string;
         workerTag: string;
+      }
+    | {
+        action: "delete_workers";
+        workers: Array<{
+          accountId: string;
+          workerName: string;
+          workerTag: string;
+        }>;
       };
 };
 ```
@@ -623,28 +633,43 @@ deletion run only. It must not recreate the vault or any vault-scoped rows.
 
 ### Cloudflare
 
-1. Delete only a `delete_worker` plan's Cloudflare Worker and its build triggers.
+1. Delete only a `delete_worker` or `delete_workers` plan's response-confirmed, provisioned
+   Cloudflare Workers and their build triggers.
 2. Require a Cloudflare connection when Cloudflare teardown is requested.
 3. Treat provider not-found as success.
-4. Do not delete account-level or unrelated Cloudflare resources.
+4. Read and delete each Worker by account ID plus immutable Worker ID. The stored name is display
+   context and is never the destructive address.
+5. Never delete selected-existing Workers.
+6. Reject provider teardown while a `creating` Worker claim is unresolved. Local-only deletion may
+   continue and leaves any possible upstream Worker untouched.
+7. Do not delete account-level or unrelated Cloudflare resources.
 
 ### Convex
 
-1. Delete only a `delete_project` or `delete_deployment` plan's Convex resource.
-2. The queueing action chooses `delete_project` when project identity is recorded; otherwise it
-   chooses `delete_deployment` only when deployment identity is recorded.
-3. Require a Convex connection when Convex teardown is requested.
-4. Treat provider not-found as success.
-5. Do not store Convex deploy-key credentials or identifiers in the deletion plan unless
+1. Delete only a `delete_projects` plan's response-confirmed, provisioned Convex projects.
+2. Retain each project's stable provider project ID and immutable owning team ID in the deletion
+   snapshot. Deployment name alone never authorizes deletion.
+3. Never delete selected-existing projects.
+4. Reject provider teardown while a `creating` project claim is unresolved. Local-only deletion may
+   continue and leaves any possible upstream project untouched.
+5. Require a Convex connection when Convex teardown is requested.
+6. Before any deletion write, read every planned project and prove that its returned project and
+   team IDs match the retained plan. Any inaccessible, contradictory, or malformed result aborts
+   before provider writes. A provider not-found result means that project is already absent.
+7. Treat provider not-found during deletion as success.
+8. Do not store Convex deploy-key credentials or identifiers in the deletion plan unless
    implementation proves a current provider call needs them.
 
 ### GitHub Repository
 
-1. Delete the repository only from a `noter_managed_repository` plan whose `githubRepository.action`
-   is `delete_repository`.
-2. Treat provider not-found as success.
-3. Do not delete repositories for `connect_existing_repository` vaults.
-4. Do not delete repositories for failed create attempts without confirmed immutable GitHub
+1. Delete the repository only from a `samebase_managed_repository` plan whose
+   `githubRepository.action` is `delete_repository`.
+2. Resolve the retained immutable GitHub repository ID immediately before deletion, verify the
+   returned ID, and delete using only that repository's current owner and name. Never fall back to
+   stored coordinates when the stable-ID read is unavailable.
+3. Treat provider not-found as success.
+4. Do not delete repositories for `connect_existing_repository` vaults.
+5. Do not delete repositories for failed create attempts without confirmed immutable GitHub
    identity.
 
 ## Local Cleanup Registry
@@ -660,28 +685,38 @@ user's rows.
 Delete rows:
 
 1. `vaultBranchFilters` via `by_vault`
-2. `fileStaging` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
+2. `vaultResourceLinksState` via `by_vault`
+3. `fileStaging` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
    references and delete staged-only storage objects before rows
-3. `collaborativeUpdates` via `by_vault`
-4. `blobs` via `by_vault`, deleting storage objects before rows
-5. `folderExpansionState` via `by_vault`
-6. `vaultRemoteBranches` via `by_vault`
-7. `vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
-8. `vaultDomains` via `by_vault`
-9. `vaultInfrastructure` via `by_vault`, deleting all rows if more than one exists
-10. `vaultInfrastructureOwnership` via `by_vault`
-11. `codespaces` via `by_vault`
-12. `agentGraphNodeLayout` via `by_vault`
-13. `appProvisioningEvents` via `by_vault_and_created_at`
-14. `appProvisioningRuns` via `by_vault_and_updated_at`
+4. `collaborativeUpdates` via `by_vault`
+5. `blobs` via `by_vault`, deleting storage objects before rows
+6. `folderExpansionState` via `by_vault`
+7. `vaultRemoteBranches` via `by_vault`
+8. `vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
+9. `repositoryRefreshRequests` via `by_vaultId_and_updatedAt` with the `vaultId` prefix
+10. `vaultDomains` via `by_vault`
+11. `vaultWorkerDeploymentDependencies` via `by_vault`
+12. `vaultCloudflareWorkerCreationClaims` via `by_vault`
+13. `vaultConvexProjectCreationClaims` via `by_vault`
+14. `vaultConvexDeployments` via `by_vault`
+15. `vaultConvexSchemaSnapshots` via `by_vault`
+16. `vaultConvexSchemaGraphLayouts` via `by_vault`
+17. `vaultCloudflareWorkers` via `by_vault`
+18. `vaultInfrastructureTargets` via `by_vault`
+19. `vaultInfrastructureOwnership` via `by_vault`
+20. `vaultApps` via `by_vault`, after every app-owned resource row
+21. `codespaces` via `by_vault`
+22. `agentGraphNodeLayout` via `by_vault`
+23. `agentThreadContext` via `by_vault`, deleting associated `chatMessageMetadata` before each
+    context row
+24. `appProvisioningEvents` via `by_vault_and_created_at`
+25. `appProvisioningRuns` via `by_vault_and_updated_at`
 
-Patch or delete rows:
+Patch rows:
 
 1. `aiProdAccessRequests` via `by_vault`: clear `vaultId`; move `proposed` and `approved` requests
    to `expired`; preserve executed, failed, rejected, and already expired statuses for every
    matching request.
-2. `agentThreadContext` via `by_vault`: either clear `vaultId`, `repositoryFullName`, `branch`, and
-   `filePath`, or delete the row if the legacy chat cleanup/removal path makes deletion simpler.
 
 Preserve rows:
 
@@ -757,8 +792,9 @@ Workflow. Retry does not let the user edit teardown options in the first impleme
 4. Update `fileStaging.deletePendingUploadBlob` to use the same vault-scoped blob index instead of
    scanning `blobs`; if the implementation needs exact storage-reference checks, add vault-prefixed
    storage indexes instead of collecting all vault blobs or staged files.
-5. Include `collaborativeUpdates`, `vaultInfrastructureOwnership`, `agentGraphNodeLayout`,
-   `agentThreadContext`, `aiProdAccessRequests`, `appProvisioningRuns`, and `appProvisioningEvents`.
+5. Include every app, provider resource, dependency, creation claim, infrastructure target,
+   ownership, agent context, access request, run, and event table listed in the cleanup registry
+   above.
 6. Delete the vault row once, last.
 7. Add tests that force branch-heavy cleanup across multiple batches.
 

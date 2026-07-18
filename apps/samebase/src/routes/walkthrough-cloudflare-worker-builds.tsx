@@ -191,7 +191,7 @@ const runSteps = [
   },
   {
     title: "6. Record the connected Builds state",
-    why: "recordCloudflareBuildsForRun patches only the deployment.builds axis and preserves the existing deployment.convexBuildAccess axis.",
+    why: "recordCloudflareBuildsForRun patches the Worker's builds state. Any Worker-to-Convex dependency remains a separate row.",
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
@@ -211,8 +211,8 @@ const runSteps = [
     ],
   },
   {
-    title: "7. Queue Convex build access only when Convex exists",
-    why: "finishCloudflareBuildsWiring creates a wire_convex_build_access run only when the same app root has a connected Convex deployment and the Worker is not already marked wired.",
+    title: "7. Finish Builds wiring independently",
+    why: "finishCloudflareBuildsWiring completes only the GitHub-to-Cloudflare connection. Convex build access starts from a separate explicit action with a selected deployment.",
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
@@ -220,14 +220,9 @@ const runSteps = [
         symbol: "finishCloudflareBuildsWiring",
       },
       {
-        file: "apps/samebase/convex/vault/cloudflareMutations.ts",
-        line: 909,
-        symbol: "needsConvexBuildAccess",
-      },
-      {
-        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 447,
-        symbol: "startCloudflareConvexBuildAccessWiring",
+        file: "apps/samebase/convex/vault/cloudflare.ts",
+        line: 932,
+        symbol: "wireCloudflareConvexBuildAccessForUser",
       },
     ],
   },
@@ -303,8 +298,8 @@ const convexAccessSteps = [
     ],
   },
   {
-    title: "4. Mark the Worker wired",
-    why: "recordCloudflareConvexBuildAccessForRun records the preview deployment identity and flips vaultCloudflareWorkers.deployment.convexBuildAccess to wired.",
+    title: "4. Mark the dependency wired",
+    why: "recordCloudflareConvexBuildAccessForRun records connected builds on the Worker and marks its explicit Worker-to-Convex dependency wired.",
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
@@ -493,14 +488,15 @@ const guardCases = [
 
 const stateRows = [
   {
-    location: "Worker row schema",
-    exactName: "vVaultCloudflareDeployment",
-    meaning: "vaultCloudflareWorkers.deployment contains builds and convexBuildAccess.",
+    location: "App resource graph schema",
+    exactName: "vaultAppResourceTables",
+    meaning:
+      "vaultCloudflareWorkers stores Builds state; vaultWorkerDeploymentDependencies stores Convex wiring.",
     refs: [
       {
         file: "apps/samebase/convex/vault/model.ts",
-        line: 206,
-        symbol: "vVaultCloudflareDeployment",
+        line: 224,
+        symbol: "vaultAppResourceTables",
       },
     ],
   },
@@ -859,10 +855,10 @@ function CloudflareWorkerBuildsWalkthrough() {
           an appProvisioningRuns row with trigger wire_builds; the workflow claims the vault
           infrastructure lock; the action verifies GitHub repo identity with Octokit; the Cloudflare
           helper connects the repo, triggers, and token; then Samebase patches
-          vaultCloudflareWorkers.deployment.builds. If the app root has Convex,
-          finishCloudflareBuildsWiring queues wire_convex_build_access; that action creates Convex
-          deploy keys, patches the two Cloudflare trigger environments, starts the production build,
-          and marks deployment.convexBuildAccess as wired.
+          vaultCloudflareWorkers.builds. Convex build access is a separate explicit workflow for a
+          selected Worker-to-Convex dependency. That action creates dependency-owned Convex deploy
+          keys, patches the two Cloudflare trigger environments, starts the production build, and
+          marks vaultWorkerDeploymentDependencies.wiring as wired.
         </p>
       </section>
     </main>

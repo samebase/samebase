@@ -11,6 +11,7 @@
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
+  - `specs/115_VAULT_APP_RESOURCE_OWNERSHIP_SPEC.md`
   - `research/2026-05-19-existing-app-resource-adoption.md`
   - `research/2026-05-22-provider-resource-discovery-and-configuration.md`
 
@@ -25,8 +26,8 @@ The dashboard resource rail should let a ready GitHub-connected vault:
 - create a new Convex project with a production deployment
 
 Both flows attach the selected or created project's default production deployment to
-`vaultConvexDeployments`, keyed by vault and app root. That row stores dashboard links and later
-provider wiring metadata.
+`vaultConvexDeployments`, beneath a stable `vaultApps` row. That row stores provider identity and
+dashboard links. Worker-specific wiring lives in an explicit dependency row defined by spec 115.
 
 ## Goals
 
@@ -49,14 +50,15 @@ provider wiring metadata.
 
 ## State Model
 
-`vaultConvexDeployments` owns the attached Convex production resource identity for one vault app
-root:
+`vaultConvexDeployments` owns the attached Convex production resource identity beneath one stable
+app:
 
 ```ts
 type VaultConvexDeployment = {
   vaultId: Id<"vaults">;
   userId: Id<"users">;
-  appRoot: string;
+  appId: Id<"vaultApps">;
+  teamId: string;
   projectId: string;
   teamSlug: string;
   projectSlug: string;
@@ -65,6 +67,7 @@ type VaultConvexDeployment = {
   cloudUrl: string;
   siteUrl: string;
   origin: "provisioned" | "selected_existing";
+  upstream: { state: "present" } | { state: "missing_upstream" };
   connectedAt: number;
   lastObservedAt: number;
 };
@@ -73,10 +76,15 @@ type VaultConvexDeployment = {
 No internal backwards-compatibility adapter is kept for older connected-row shapes. Local/operator
 data can be cleared instead of carrying old `vault.convex` or `vaultInfrastructure` state forward.
 
-`origin` answers how this vault attached to the Convex production deployment:
+`projectId` is the stable provider identity. `teamId` is its immutable provider ownership and
+authorization scope, which must match provider reads and the active credentials before Samebase
+writes. Team and project slugs are mutable observations. `origin` answers how this app attached to
+the Convex production deployment:
 
-- `provisioned` means Samebase created the project/deployment during an explicit create flow.
-- `selected_existing` means the user chose an existing project from Convex inventory.
+- `provisioned` means Samebase received the create response, recorded its returned project ID, and
+  attached that exact project.
+- `selected_existing` means the user chose an existing project from Convex inventory, or Samebase
+  found a same-named project while recovering an unanswered create request.
 
 Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
 flows, while `selected_existing` projects are external.
@@ -117,15 +125,17 @@ Project creation should:
 
 1. validate the requested Convex project name
 2. ensure no visible project in the connected team already has that name or slug
-3. create the project with a production deployment
-4. immediately record the created project id on the Workflow run
-5. read the project and default production deployment back from Convex
-6. attach the resulting deployment with `origin: "provisioned"`
+3. insert a `creating` project claim before the provider request
+4. create the project with a production deployment
+5. change the claim to `created` with the response's project ID
+6. read the project and default production deployment back from Convex
+7. attach the resulting deployment with `origin: "provisioned"` and consume the claim in the same
+   mutation
 
-If a created project cannot be attached after the provider create call, the workflow should fail
-closed with the created project id retained on the run. Automatic rollback deletion is not part of
-this slice because project deletion is more destructive than deleting an empty Worker; cleanup
-remains available through the explicit vault delete path for provisioned resources.
+If Samebase never records the create response, the claim remains `creating`. A same-named project
+found during recovery is attached as selected existing because ownership is ambiguous. If a
+response-confirmed project cannot be attached, its stable ID remains in the `created` claim for
+exact recovery. Samebase does not automatically delete projects after attachment failure.
 
 ## Durable Execution
 
@@ -135,9 +145,8 @@ The run is intentionally narrow:
 
 1. claim provider work for the vault
 2. verify or create the Convex project/deployment
-3. write `vaultConvexDeployments`
-4. attach the deployment to the target app root
-5. mark the run complete
+3. write `vaultConvexDeployments` beneath the target app ID
+4. consume any creation claim and mark the run complete in the same mutation
 
 The modal submit action should return after the Workflow is queued. The modal closes by clearing
 `add-convex`, and the vault header/resource rail shows the Convex row as running, failed, or ready
@@ -162,12 +171,10 @@ Deployment wiring is separate from Convex attach/create. The two wiring relation
 - Cloudflare Workers Builds to Convex build access through deploy keys
 
 Attaching or creating a Convex production deployment does not imply either wiring relationship
-exists. If a Worker already has connected builds, Samebase can later run `wire_convex_build_access`
-to verify that the project still belongs to the connected Convex team, mint a production deploy key
-and a project-scoped preview deploy key, patch Cloudflare trigger environment variables, and mark
-the dependency as wired. The project-scoped key lets a later non-production branch build create or
-reuse its branch-named preview. Samebase does not read, create, or store a personal development
-deployment as preview infrastructure. Until this state is wired, the dashboard shows the Cloudflare
-row message `Cloudflare does not have this Convex deployment's deploy keys.` with a
-`Set Convex deploy keys` action when the same app root has both an attached Convex deployment and
-connected Cloudflare Builds.
+exists. A later explicit Worker-to-Convex dependency may connect any Worker in the vault to this
+deployment, regardless of whether their root directories match. Its deployment action verifies that
+the project still belongs to the connected Convex team, mints a production deploy key and a
+project-scoped preview deploy key, patches Cloudflare trigger environment variables, and marks the
+dependency as wired. The project-scoped key lets a later non-production branch build create or reuse
+its branch-named preview. Samebase does not read, create, or store a personal development deployment
+as preview infrastructure.

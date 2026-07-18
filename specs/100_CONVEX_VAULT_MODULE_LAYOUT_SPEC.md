@@ -68,10 +68,11 @@ The move touches roughly:
 - 54 relative imports such as `./vaultState` or `../vaultState`
 - 32 non-vault files outside the moved cluster
 
-No data migration is required. Convex function references are file-path based, but table names are
-schema names. The existing tables stay named `vaults`, `vaultRemoteBranches`, `vaultBranchTrees`,
-`vaultInfrastructure`, `vaultInfrastructureOwnership`, `vaultDeletionRuns`, `vaultDeletionEvents`,
-and `vaultDomains`.
+No data migration was required for the module move. Convex function references are file-path based,
+but table names are schema names. The current resource graph uses `vaultApps`,
+`vaultCloudflareWorkers`, `vaultConvexDeployments`, `vaultWorkerDeploymentDependencies`, provider
+creation-claim tables, `vaultInfrastructureTargets`, and `vaultInfrastructureOwnership` alongside
+the source, deletion, and domain tables.
 
 ## Accepted Module Shape
 

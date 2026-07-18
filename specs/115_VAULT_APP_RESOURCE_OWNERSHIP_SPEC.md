@@ -30,8 +30,17 @@ conflict with this model.
   `packages/backend`. Samebase uses Cloudflare's `root_directory` spelling and meaning.
 - **Provider resource**: an external resource attached to an app by stable provider identity. Its
   root directory is not its identity.
+- **Creation claim**: a temporary Samebase row written before a provider create request. It records
+  which vault, app, run, and planned provider identity own an unresolved external write.
+- **Provisioned origin**: Samebase received a successful create response, recorded the returned
+  stable provider ID, and then attached that exact resource.
+- **Selected-existing origin**: the user selected an existing resource, or Samebase found a
+  same-named resource while recovering a create request whose response was never recorded.
 - **Worker**: a Cloudflare Worker provider resource. Cloudflare Workers is the only hosting resource
   Samebase supports.
+- **Workers.dev availability**: Samebase's latest observation of a Worker's default production URL.
+  It is exactly one of `available` with a URL, `disabled`, or `unknown` when Cloudflare did not
+  provide a conclusive answer.
 - **Convex production deployment**: the project's shared live deployment. It belongs to the app
   selected as the Convex project's root.
 - **Convex development deployment**: a persistent personal deployment for one Convex team member.
@@ -56,10 +65,23 @@ An app remains visible when it has no Worker and no Convex deployment. This is a
 an incomplete provider record. An Expo app at `apps/mobile`, for example, remains a useful app even
 when Samebase does not model its runtime hosting.
 
-Worker and Convex resources each belong to exactly one app. Different resource types can share the
-same root without colliding. More than one Worker may also use one root if the provider contains
-that configuration. An app owns zero or one Convex production deployment and zero or more Workers.
-Samebase never uses `rootDirectory` as a Worker or Convex deployment ID.
+Worker and Convex resources each belong to exactly one app across the stored Samebase graph. A
+Cloudflare Worker's stable identity is its Cloudflare account ID plus immutable Worker ID, stored as
+`workerTag`. `workerName` is the current mutable provider name and the account-scoped reservation
+key used before creation returns an ID. Samebase forbids two rows or claims from splitting either
+the same account and Worker ID or the same account and current Worker name. Verification reads the
+Worker by immutable ID and refreshes its current name. A Convex project's provider project ID is its
+stable identity. Its immutable team ID is the ownership and authorization scope that must match
+provider reads and active credentials before Samebase writes; team and project slugs are mutable
+observations. Different resource types can share the same root without colliding. More than one
+Worker may also use one root if the provider contains that configuration. An app owns zero or one
+Convex production deployment and zero or more Workers. Samebase never uses `rootDirectory` as a
+Worker or Convex deployment ID.
+
+Every attached provider row explicitly records whether its upstream resource is `present` or
+`missing_upstream`. Omission never means present. Every Worker also records workers.dev availability
+as `available`, `disabled`, or `unknown`; a provider read failure is never stored as if workers.dev
+were intentionally disabled. Infrastructure verification refreshes both observations.
 
 `vaultConvexDeployments` stores only the attached production deployment. It has no nested
 development or preview deployment field. A missing branch preview remains missing, and provider
@@ -71,6 +93,56 @@ may be added before or after nested apps, but it can exist only once. Every othe
 own folder root. The UI asks the user to add an app and treats `rootDirectory` as that app's
 location; it does not model "app root" as another entity.
 
+### Provider creation claims and origins
+
+Samebase inserts a provider-specific creation claim immediately before asking Cloudflare to create a
+Worker or Convex to create a project. A `creating` claim means the provider request may not have
+started, may have failed, or may have succeeded without Samebase receiving its response. It does not
+prove that an upstream resource exists and does not authorize provider deletion.
+
+After Samebase receives a successful create response, it records the returned immutable Worker ID or
+Convex project ID by changing the claim to `created`. Attaching that exact provider resource and
+deleting its claim happen in one mutation. The attached row receives `origin: "provisioned"` only
+from this confirmed path.
+
+Recovery is deliberately conservative. If a `creating` claim finds a resource at the planned name,
+Samebase cannot prove whether its own unanswered request created it or whether it already belonged
+to the user. It attaches that resource with `origin: "selected_existing"` and consumes the claim.
+Selected-existing resources may participate in later explicit configuration actions, but Samebase
+never offers to delete them as part of vault deletion. If a `created` resource is renamed before
+attachment, Samebase follows its stable ID, records the current name, and preserves provisioned
+origin.
+
+Creation claims are operational write checkpoints, not a second resource inventory. Each vault may
+have at most one unconsumed Cloudflare creation claim and one unconsumed Convex creation claim. This
+vault-wide limit prevents an ambiguous external write for one app from being hidden behind a second
+create for another app. Once the first claim is consumed, the vault may create another Worker or
+Convex project for another app.
+
+A standalone provider connection becomes successful in the same mutation that attaches the provider
+row and consumes its claim. The following Workflow finish step is idempotent. Composed
+Samebase-managed creation remains active after attachment because it still has explicit build and
+deployment wiring steps to perform. Its terminal mutation marks both the composed ownership and its
+run successful and records the final event atomically; retrying that mutation is a no-op. The
+terminal mutation rejects incomplete state: provider creation claims must be consumed, the target
+Worker and target app's production deployment must both be present, Workers Builds must be
+connected, and the Worker's dependency on that deployment must be fully wired.
+
+The composed create target pins the selected Convex team ID and planned project name before provider
+writes. Changing the active Convex connection cannot redirect that create into another team. The
+same target retains the originally planned Cloudflare account and Worker name, then records the
+stable Samebase Worker row ID when attachment succeeds. Retries follow that row ID and read its
+current provider name. They never rediscover an attached Worker by the original mutable name. If the
+referenced Worker is confirmed missing upstream, the retained planned name remains the explicit
+intent for creating or recovering a replacement. Successful replacement updates that same Worker row
+with the replacement provider identity, so its app ownership and Convex dependency stay attached to
+one stable Samebase resource. The target pointer does not move to a second Worker row.
+
+Replacing the provider project or production deployment behind a stable Samebase Convex deployment
+row clears schema snapshots collected from the old provider identity in the same mutation. Schema
+graph layout rows remain attached to the stable app and deployment slot as user preferences; they
+are not evidence about the provider's current schema.
+
 ### Resource ownership and display
 
 A shared Convex deployment appears once beneath the app that owns its actual root. Samebase does not
@@ -80,11 +152,12 @@ For the shared-backend fixture:
 
 | Root directory     | Owned resources                                            |
 | ------------------ | ---------------------------------------------------------- |
+| `apps/admin`       | `shared-convex-monorepo-fixture-admin` Worker              |
 | `apps/web`         | `shared-convex-monorepo-fixture-web` Worker                |
 | `apps/mobile`      | none                                                       |
 | `packages/backend` | `shared-convex-monorepo-fixture-backend` Convex deployment |
 
-The UI shows all three apps. It shows the shared Convex deployment only under `packages/backend`.
+The UI shows all four apps. It shows the shared Convex deployment only under `packages/backend`.
 Deployment-specific schema and database routes address the selected Convex deployment by its stable
 Samebase deployment ID. A root directory is display and ownership context, not a deployment route
 identifier.
@@ -105,11 +178,14 @@ explicitly and allows another Convex deployment to be selected. This slice does 
 existing dependency, so it does not present a Worker-only choice that would leave the stored edge
 and deploy keys unchanged.
 
-Selecting a Convex deployment claims the explicit dependency, creates or reconciles both Workers
-Builds triggers without starting a build, rotates the dependency's two deploy keys, installs and
-reads back the least-privilege trigger secrets, and only then starts the initial production build.
-The dependency stays `not_wired` until that sequence completes. This prevents a deliberately created
-build from starting with missing or partially installed backend credentials.
+Submitting the explicit `Deploy Convex` action claims the dependency, validates that the selected
+Convex production deployment exists in the selected project and connected team, creates or
+reconciles both Workers Builds triggers without starting a build, rotates the dependency's two
+deploy keys, installs and reads back the least-privilege trigger secrets, and only then starts the
+initial production build. Provider target validation happens before trigger changes or deletion of
+old keys. The dependency stays `not_wired` until the sequence completes. This prevents a
+deliberately created build from starting with missing or partially installed backend credentials and
+prevents an invalid replacement target from destroying working credentials.
 
 Importing a Convex API, using a Convex URL, sharing a commit, or living nearby in the repository
 does not create a deployment dependency. In particular, `apps/mobile` consumes the shared backend at
@@ -156,35 +232,49 @@ proves the expected secret name and classification on each trigger and the absen
 trigger's key. It cannot prove the write-only value, so Samebase retains the provider key name on
 the dependency and relies on a real provider build to prove end-to-end deployment.
 
-Deleting a vault removes Samebase's local app, resource, and dependency rows. It writes to a
-provider only for a resource the user explicitly selected for deletion. A retained Worker keeps its
-Builds triggers, variables, repository connection, and builds unchanged. A retained Convex project
-or deployment keeps its production and preview deploy keys unchanged. When a Worker is explicitly
-selected for deletion, its Builds triggers are subordinate resources and are deleted immediately
-before the Worker itself.
+Deleting a vault removes Samebase's local app, resource, and dependency rows. Provider deletion is
+off by default. The confirmation names the operation as deleting all listed Samebase-provisioned
+resources of that provider and shows the exact count. Selecting it deletes every listed
+Samebase-provisioned Worker or Convex project in that vault, never selected-existing resources. A
+retained Worker keeps its Builds triggers, variables, repository connection, and builds unchanged. A
+retained Convex project or deployment keeps its production and preview deploy keys unchanged. When a
+Worker is explicitly selected through that all-listed confirmation, its Builds triggers are
+subordinate resources and are deleted immediately before the Worker itself.
+
+An unresolved `creating` claim disables provider deletion because Samebase lacks a stable resource
+ID and ownership proof. Local-only vault deletion remains available and removes the claim while
+leaving any possible upstream resource untouched. A `created` claim has a stable provider ID and is
+included in the explicit Samebase-provisioned deletion count even if attachment did not complete.
 
 Account deletion follows `specs/113_ACCOUNT_DELETION_SPEC.md`: it may revoke Samebase's supported
 OAuth grants and removes local provider credentials, but it does not change Workers, Builds
 triggers, Convex projects or deployments, or Convex deploy keys. Previously distributed deploy keys
 can remain usable until the user revokes Samebase in Convex Authorized Applications.
 
-### Shared-backend fixture trigger contract
+### Trigger policy and the shared-backend fixture
 
-The `apps/web` Worker has two triggers connected to the fixture repository. Both use:
+Workers Builds path filters are editable provider configuration, not app identity. Samebase's
+generated starting configuration watches the Worker's own root, selected dependency roots, and the
+repository-level package files needed by the current pnpm templates. A user or agent may replace
+that policy directly in Cloudflare when a repository needs different rebuild behavior.
 
-- `root_directory: "apps/web"`;
-- `build_command: "pnpm run build"`;
-- `path_includes`: `apps/web/*`, `.node-version`, `.nvmrc`, `package.json`, `pnpm-lock.yaml`,
-  `pnpm-workspace.yaml`, and `packages/backend/*`;
-- `path_excludes: []`.
+Verification does not silently adopt a custom build command or path-filter policy as
+Samebase-managed configuration. It reports the mismatch, and the explicit wiring action restores the
+generated Samebase configuration. Users remain free to keep custom provider configuration and
+operate it directly through Cloudflare.
 
-The production trigger includes only `main`, runs `pnpm run deploy`, and stores only
-`CONVEX_DEPLOY_KEY`. The preview trigger includes `*`, excludes `main`, runs
-`pnpm run deploy:preview`, and stores only `PREVIEW_CONVEX_DEPLOY_KEY`.
+The live shared-backend fixture deliberately uses `path_includes: ["*"]` and `path_excludes: []` for
+both `apps/admin` and `apps/web`. Every fixture PR therefore builds both Workers, even when only one
+frontend root changed, so a reviewer always receives a complete pair of previews backed by the same
+branch-named Convex preview deployment. This is a fixture product choice, not an inferred dependency
+algorithm Samebase must impose on every repository.
 
-The repository build script runs Convex from `packages/backend`, then builds `apps/web` with the
-selected deployment URL. The Worker's root remains `apps/web`; watching and deploying another root
-records a dependency rather than changing ownership.
+Each Worker still has its own `root_directory` (`apps/admin` or `apps/web`), build command,
+immutable version URL, and mutable branch alias. The production trigger includes only `main`, runs
+`pnpm run deploy`, and stores only `CONVEX_DEPLOY_KEY`. The preview trigger includes `*`, excludes
+`main`, runs `pnpm run deploy:preview`, and stores only `PREVIEW_CONVEX_DEPLOY_KEY`. Both preview
+scripts use the same branch-derived Convex preview name, so concurrent builds converge on one
+backend preview without treating either Worker as the backend owner.
 
 ### Provider-optional GitHub monitoring
 
@@ -198,17 +288,19 @@ Expo hosting, or another hosting provider. Convex-only and resource-empty apps r
 
 ## Fixture Acceptance Stories
 
-1. Connecting the shared-backend fixture produces three durable apps with different stable IDs.
-   Reloading or refreshing the repository does not recreate those app identities.
+1. After the four fixture roots are added and their resources connected, the fixture has four
+   durable apps with different stable IDs. Reloading or refreshing the repository does not recreate
+   those app identities.
 2. `apps/mobile` remains visible with no provider resource and no deployment dependency.
-3. The Worker appears under `apps/web`; the Convex deployment appears once under `packages/backend`;
-   the cross-root dependency is visible separately.
-4. A mobile-only commit creates no Worker check and no Worker build record.
-5. A web-only or backend-only commit creates exactly one web Worker build because both roots are in
-   that Worker's trigger paths.
-6. A preview build deploys `packages/backend` to the branch-named Convex preview, builds `apps/web`
-   with that deployment URL, and publishes one immutable Worker version URL plus one mutable branch
-   alias URL.
+3. Workers appear under `apps/admin` and `apps/web`; the Convex deployment appears once under
+   `packages/backend`; both cross-root dependencies are visible separately.
+4. Any current fixture PR creates one Admin Worker build and one Web Worker build because the live
+   fixture intentionally uses wildcard path filters.
+5. Both preview builds use the same branch-derived Convex preview name. An Admin-only, Web-only,
+   mobile-only, or backend-only change therefore still yields a complete two-frontend preview set.
+6. Each Worker build publishes its own immutable Worker version URL plus its own mutable branch
+   alias URL. The two Workers never share a preview URL merely because they share one Convex
+   preview.
 7. A same-root full-stack app can own both a Worker and a Convex deployment without either resource
    replacing the other.
 8. A repository with no Cloudflare or Convex connection still exposes its complete GitHub monitoring
@@ -216,6 +308,24 @@ Expo hosting, or another hosting provider. Convex-only and resource-empty apps r
 9. Attaching a Worker creates no Builds trigger. Choosing "No Convex deployment" connects ordinary
    Worker Builds; choosing a specific deployment creates the explicit dependency and does not start
    its initial build until both trigger secrets have been read back successfully.
+10. A provider create response recorded with its stable ID produces a provisioned attachment. A
+    same-named resource found while recovering an unanswered create request produces a
+    selected-existing attachment.
+11. A standalone connection cannot leave a ready provider row behind a failed connection run if its
+    final Workflow step is interrupted.
+12. An unresolved creation claim blocks a second create for that provider anywhere in the vault and
+    blocks provider deletion, but it does not block local-only vault deletion.
+13. Changing the connected Convex team after the create target is recorded stops provisioning before
+    the project create request.
+14. A composed run cannot finish while either provider claim remains, either provider resource is
+    missing, Workers Builds is not connected, or the target Worker dependency is absent or not
+    wired.
+15. Replacing a Convex provider identity preserves the stable Samebase deployment row and its graph
+    layout preferences, but clears every schema snapshot collected from the old provider identity.
+16. Switching the active Convex connection to another team does not make a deployment owned by the
+    previous team appear deleted. Samebase leaves its upstream state unchanged until that team can
+    be checked again, and operations that need provider access stop before changing triggers or
+    deploy keys.
 
 ## Validation
 
@@ -224,12 +334,14 @@ exact trigger payloads, least-privilege environment-variable payloads, dependenc
 state, idempotent rewiring, drift detection, and cleanup after partial failure. They must also prove
 that retained provider resources produce no Cloudflare or Convex calls during vault or account
 deletion, while an explicitly selected Worker deletion still removes its triggers and then the
-Worker.
+Worker. Creation tests must prove pre-write claims, response-confirmed origin, conservative
+same-name recovery, vault-wide claim cardinality, atomic standalone completion, and claim-aware
+deletion behavior.
 
-Live fixture validation must prove Cloudflare path filtering, root-relative build execution,
-write-only secret readback, branch preview creation, deployment URL injection, GitHub check counts,
-and the immutable versus branch-alias preview URLs. It must include mobile-only, web-only, and
-backend-only commits.
+Live fixture validation must prove the intentional wildcard trigger policy, root-relative build
+execution, write-only secret readback, one shared branch-named Convex preview, deployment URL
+injection into both frontends, GitHub check counts, and each Worker's immutable versus branch-alias
+preview URLs. It must include Admin-only, Web-only, mobile-only, and backend-only commits.
 
 The app dashboard must be checked against the real connected fixture. Unit-only fixture UI is not
 sufficient evidence for ownership placement or empty-app visibility.
@@ -245,7 +357,9 @@ sufficient evidence for ownership placement or empty-app visibility.
 
 ## Rollout
 
-Development and production vault data must be reset before their deployments adopt this schema, then
-the fixtures and user vaults can be reconnected. This reset is a merge prerequisite, not a
-migration. No legacy root-directory adapter, dual-read path, or data backfill is required. The
-implementation replaces the old same-root assumption directly and deletes the obsolete shape.
+Before this schema is deployed, delete every existing vault and all vault-owned rows from the
+production deployment and from any development deployment that will be reused. Verify those tables
+are empty, then deploy the schema and reconnect the fixture and user vaults. This reset is a merge
+prerequisite, not a migration. No legacy root-directory adapter, dual-read path, or data backfill is
+required. The implementation replaces the old same-root assumption directly and deletes the obsolete
+shape.

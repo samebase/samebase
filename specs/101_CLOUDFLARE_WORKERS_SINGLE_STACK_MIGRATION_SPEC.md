@@ -313,8 +313,10 @@ Before deploying the Workers-only provisioning path, choose one rollout data str
 3. keep a temporary Pages cleanup path for one deploy, then remove it
 
 Do not design the runtime model around indefinite Pages compatibility. Do not keep duplicate
-infrastructure status fields that can disagree with the vault provider states. `vaultInfrastructure`
-is only the Convex resource record; Cloudflare state belongs on `vaults.cloudflare`.
+infrastructure status fields that can disagree. Stable app rows own root directories, stable Worker
+and Convex deployment rows own provider identity and observed provider state, and explicit
+dependency rows connect Workers to Convex deployments. Neither `vaultInfrastructure` nor
+`vaults.cloudflare` is part of the current resource model.
 
 Rollout checklist:
 
@@ -325,7 +327,8 @@ Rollout checklist:
 5. generated Workers app preview deploy verified
 6. Convex production and preview deploy keys verified
 7. dashboard branch preview links verified
-8. cleanup/deletion verified
+8. ordinary vault deletion verified to retain provider resources by default, with explicit
+   all-listed provider deletion verified separately
 
 ## Validation
 
@@ -353,7 +356,8 @@ Generated app provisioning validation:
 5. confirm production URL opens
 6. open a PR and confirm its build creates the branch-named Convex preview
 7. confirm preview URL/status/logs
-8. delete the vault and confirm Samebase-managed resources are removed
+8. delete the vault with both explicit provider-deletion options selected, then confirm every listed
+   Samebase-provisioned resource is removed
 
 Use Chrome to verify Cloudflare dashboard behavior where API responses are not enough to prove the
 user/operator flow.
