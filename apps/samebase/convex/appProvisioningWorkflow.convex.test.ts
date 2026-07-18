@@ -74,11 +74,6 @@ async function createFinishableComposedInfrastructure() {
       origin: "provisioned",
       builds: {
         state: "connected",
-        buildCommand: "pnpm run build",
-        deployCommand: "pnpm run deploy",
-        previewDeployCommand: "pnpm run deploy:preview",
-        pathIncludes: ["*"],
-        pathExcludes: [],
         production: {
           triggerUuid: "production-trigger",
           buildTokenUuid: "build-token",
@@ -282,11 +277,6 @@ describe("app provisioning workflow composition", () => {
         origin: "provisioned",
         builds: {
           state: "connected",
-          buildCommand: "pnpm run build",
-          deployCommand: "pnpm run deploy",
-          previewDeployCommand: "pnpm run deploy:preview",
-          pathIncludes: ["*"],
-          pathExcludes: [],
           production: {
             triggerUuid: "production-trigger",
             buildTokenUuid: "build-token",

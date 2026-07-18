@@ -22,13 +22,13 @@ import { validateAppResourceName } from "../../shared/appResourceNames";
 import {
   CloudflareApiError,
   type CloudflareBuildConfig,
-  type CloudflareConnectedWorkersBuilds,
+  type CloudflareWorkersBuildConnection,
   createOrRecoverCloudflareWorker,
   isCloudflareWorkerNameAvailable,
   isCloudflareWorkerNotFoundError,
   listCloudflareWorkersWithRepositoryDiscovery,
   readConfirmedCloudflareWorker,
-  readCloudflareWorkerRepositoryDiscovery,
+  readCloudflareWorkerBuildConnectionDiscovery,
   readWorkersDevAvailability,
   type CloudflareWorkerRepositoryDiscovery,
   verifyCloudflareWorkerInfrastructure,
@@ -162,15 +162,10 @@ function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareB
 }
 
 function toVaultCloudflareConnectedBuilds(
-  builds: CloudflareConnectedWorkersBuilds,
+  builds: CloudflareWorkersBuildConnection,
 ): VaultCloudflareConnectedBuilds {
   return {
     state: "connected",
-    buildCommand: builds.buildCommand,
-    deployCommand: builds.deployCommand,
-    previewDeployCommand: builds.previewDeployCommand,
-    pathIncludes: builds.pathIncludes,
-    pathExcludes: builds.pathExcludes,
     production: builds.production,
     preview: builds.preview,
   };
@@ -262,6 +257,7 @@ type CloudflareWorkerDiscoveryContext = {
   ghRepoId: string;
   repositoryFullName: string;
   expectedRootDirectory: string;
+  defaultBranch: string;
 };
 
 function formatCloudflareWorkerDiscoveryTriggerName(triggerName: string | null): string {
@@ -347,14 +343,16 @@ async function resolveSelectableExistingWorker(args: {
   repositoryFullName: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
+  defaultBranch: string;
 }) {
-  const worker = await readCloudflareWorkerRepositoryDiscovery({
+  const worker = await readCloudflareWorkerBuildConnectionDiscovery({
     token: args.token,
     transport: args.transport,
     accountId: args.accountId,
     workerName: args.workerName,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.expectedRootDirectory,
+    defaultBranch: args.defaultBranch,
   });
   const blockMessage = buildCloudflareWorkerDiscoveryBlockMessage({
     workerName: worker.workerName,
@@ -373,6 +371,7 @@ async function resolveSelectableExistingWorker(args: {
       accountId: args.accountId,
       workerName: worker.workerName,
     }),
+    builds: worker.builds,
   };
 }
 
@@ -829,6 +828,7 @@ export async function connectExistingCloudflareWorkerForUser(
     repositoryFullName: discoveryContext.repositoryFullName,
     expectedRepoId: discoveryContext.ghRepoId,
     expectedRootDirectory: discoveryContext.expectedRootDirectory,
+    defaultBranch: discoveryContext.defaultBranch,
   });
   const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
     userId,
@@ -1063,6 +1063,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
           repositoryFullName: discoveryContext.repositoryFullName,
           expectedRepoId: discoveryContext.ghRepoId,
           expectedRootDirectory: discoveryContext.expectedRootDirectory,
+          defaultBranch: discoveryContext.defaultBranch,
         });
         await rememberDefaultAccount(ctx, {
           userId: args.userId,
@@ -1081,7 +1082,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
             workerName: worker.workerName,
             workerTag: worker.workerTag,
             workersDev: worker.workersDev,
-            provenance: { state: "selected_existing" },
+            provenance: { state: "selected_existing", builds: worker.builds },
           },
         );
         if (attachment.state === "not_attached") {
@@ -1180,25 +1181,40 @@ export const ensureCloudflareWorkerConnection = internalAction({
             workerTag: worker.workerTag,
           });
         }
-        const recoveryDiscoveryContext =
+        const attachmentInput =
           worker.outcome === "recovered_existing"
-            ? await readCloudflareWorkerDiscoveryContext(ctx, {
-                vaultId: args.vaultId,
-                userId: args.userId,
-                appId: args.appId,
-              })
-            : null;
-        const attachmentWorker = recoveryDiscoveryContext
-          ? await resolveSelectableExistingWorker({
-              token: connection.token,
-              transport: connection.transport,
-              accountId: account.accountId,
-              workerName: worker.workerName,
-              repositoryFullName: recoveryDiscoveryContext.repositoryFullName,
-              expectedRepoId: recoveryDiscoveryContext.ghRepoId,
-              expectedRootDirectory: recoveryDiscoveryContext.expectedRootDirectory,
-            })
-          : worker;
+            ? await (async () => {
+                const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
+                  vaultId: args.vaultId,
+                  userId: args.userId,
+                  appId: args.appId,
+                });
+                const recoveredWorker = await resolveSelectableExistingWorker({
+                  token: connection.token,
+                  transport: connection.transport,
+                  accountId: account.accountId,
+                  workerName: worker.workerName,
+                  repositoryFullName: discoveryContext.repositoryFullName,
+                  expectedRepoId: discoveryContext.ghRepoId,
+                  expectedRootDirectory: discoveryContext.expectedRootDirectory,
+                  defaultBranch: discoveryContext.defaultBranch,
+                });
+                return {
+                  worker: recoveredWorker,
+                  provenance: {
+                    state: "recovered_existing" as const,
+                    creationClaimId: creationClaim.claimId,
+                    builds: recoveredWorker.builds,
+                  },
+                };
+              })()
+            : {
+                worker,
+                provenance: {
+                  state: "provisioned" as const,
+                  creationClaimId: creationClaim.claimId,
+                },
+              };
         await rememberDefaultAccount(ctx, {
           userId: args.userId,
           auth: connection.auth,
@@ -1213,13 +1229,10 @@ export const ensureCloudflareWorkerConnection = internalAction({
             userId: args.userId,
             appId: args.appId,
             accountId: account.accountId,
-            workerName: attachmentWorker.workerName,
-            workerTag: attachmentWorker.workerTag,
-            workersDev: attachmentWorker.workersDev,
-            provenance: {
-              state: worker.outcome === "confirmed_created" ? "provisioned" : "recovered_existing",
-              creationClaimId: creationClaim.claimId,
-            },
+            workerName: attachmentInput.worker.workerName,
+            workerTag: attachmentInput.worker.workerTag,
+            workersDev: attachmentInput.worker.workersDev,
+            provenance: attachmentInput.provenance,
           },
         );
         if (attachment.state === "not_attached") {
@@ -1582,6 +1595,14 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
           workerId: args.workerId,
           convexDeploymentId: args.convexDeploymentId,
           builds: vaultBuilds,
+          buildConfig: {
+            rootDirectory: builds.rootDirectory,
+            buildCommand: builds.buildCommand,
+            deployCommand: builds.deployCommand,
+            previewDeployCommand: builds.previewDeployCommand,
+            pathIncludes: builds.pathIncludes,
+            pathExcludes: builds.pathExcludes,
+          },
         },
       );
       if (!applied) {
@@ -1686,13 +1707,7 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
             accountId: account.accountId,
             defaultBranch: active.defaultBranch,
             expectedRepoId: active.ghRepoId,
-            build:
-              active.worker.builds.state === "not_connected"
-                ? active.worker.builds
-                : {
-                    ...active.worker.builds,
-                    rootDirectory: active.workerApp.rootDirectory,
-                  },
+            build: active.worker.builds,
             buildConfig: toCloudflareBuildConfig(active.buildConfig),
             verifyConvexBuildAccess: active.dependency !== null && active.dependency.currentlyWired,
             recordApiCall,

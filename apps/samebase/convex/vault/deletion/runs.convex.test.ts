@@ -299,11 +299,6 @@ async function createExistingRepositoryVaultWithCloudflareWorker(args: {
       origin: args.origin,
       builds: {
         state: "connected",
-        buildCommand: "pnpm run build",
-        deployCommand: "pnpm run deploy",
-        previewDeployCommand: "pnpm run deploy:preview",
-        pathIncludes: ["*"],
-        pathExcludes: [],
         production: {
           triggerUuid: "production-trigger",
           buildTokenUuid: "production-token",

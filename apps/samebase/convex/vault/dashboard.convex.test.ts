@@ -1740,11 +1740,6 @@ describe("vault dashboard Convex contract", () => {
         origin: "selected_existing",
         builds: {
           state: "connected",
-          buildCommand: "pnpm run build",
-          deployCommand: "pnpm run deploy",
-          previewDeployCommand: "pnpm run deploy:preview",
-          pathIncludes: ["apps/web/*", "packages/backend/*"],
-          pathExcludes: [],
           production: {
             triggerUuid: "fixture-production-trigger",
             buildTokenUuid: "fixture-production-token",
@@ -2120,11 +2115,6 @@ describe("vault dashboard Convex contract", () => {
       });
       const connectedBuilds = {
         state: "connected" as const,
-        buildCommand: "pnpm run build",
-        deployCommand: "pnpm run deploy",
-        previewDeployCommand: "pnpm run deploy:preview",
-        pathIncludes: ["apps/api/*"],
-        pathExcludes: [],
         production: {
           triggerUuid: "production-trigger",
           buildTokenUuid: "production-token",
@@ -2180,7 +2170,6 @@ describe("vault dashboard Convex contract", () => {
         origin: "provisioned",
         builds: {
           ...connectedBuilds,
-          pathIncludes: ["apps/web/*"],
           production: {
             triggerUuid: "web-production-trigger",
             buildTokenUuid: "web-production-token",

@@ -169,10 +169,13 @@ A Worker-to-Convex deployment dependency is stored only when the Worker build pi
 to deploy that Convex deployment. The relation references the Worker resource ID and Convex
 deployment resource ID, so cross-root wiring does not rely on path equality.
 
-Attaching a Worker records only the Worker resource. It does not infer a Convex dependency, create
-Workers Builds triggers, or start a build. Connecting the Worker to its GitHub repository is a
-separate explicit operation. If Convex deployments are available, Samebase asks whether this Worker
-deploys none of them or one specifically selected deployment.
+Attaching a selected-existing Worker records the Worker resource and reads its Builds triggers. If
+Cloudflare returns one production trigger and one preview trigger for the vault repository and app
+root, Samebase records those trigger identities as an existing repository connection in the same
+transition. This observation does not change Cloudflare, infer a Convex dependency, or start a
+build. If that complete pair is absent, Workers Builds remains explicitly not connected and wiring
+is a separate action. If Convex deployments are available, Samebase asks whether this Worker deploys
+none of them or one specifically selected deployment.
 
 When reconnecting a Worker that already has a dependency, the chooser shows that dependency
 explicitly and allows another Convex deployment to be selected. This slice does not detach an
@@ -264,10 +267,12 @@ generated starting configuration watches the Worker's own root, selected depende
 repository-level package files needed by the current pnpm templates. A user or agent may replace
 that policy directly in Cloudflare when a repository needs different rebuild behavior.
 
-Verification does not silently adopt a custom build command or path-filter policy as
-Samebase-managed configuration. It reports the mismatch, and the explicit wiring action restores the
-generated Samebase configuration. Users remain free to keep custom provider configuration and
-operate it directly through Cloudflare.
+Build commands and path filters are not stored as repository-connection identity. Attachment and
+verification may adopt the identities of an existing production and preview trigger even when their
+editable policy differs from Samebase's generated starting configuration. The explicit wiring action
+applies the generated Samebase configuration. Users remain free to change that provider
+configuration directly through Cloudflare afterward without making the repository connection
+disappear in Samebase.
 
 The live shared-backend fixture deliberately uses `path_includes: ["*"]` and `path_excludes: []` for
 both `apps/admin` and `apps/web`. Every fixture PR therefore builds both Workers, even when only one
@@ -311,7 +316,9 @@ Expo hosting, or another hosting provider. Convex-only and resource-empty apps r
    replacing the other.
 8. A repository with no Cloudflare or Convex connection still exposes its complete GitHub monitoring
    UI.
-9. Attaching a Worker creates no Builds trigger. Choosing "No Convex deployment" connects ordinary
+9. Attaching a Worker creates no Builds trigger. A complete existing production and preview trigger
+   pair for the same repository and root is immediately shown as connected, including when it uses
+   the fixture's wildcard path policy. Otherwise, choosing "No Convex deployment" connects ordinary
    Worker Builds; choosing a specific deployment creates the explicit dependency and does not start
    its initial build until both trigger secrets have been read back successfully.
 10. A provider create response recorded with its stable ID produces a provisioned attachment. A

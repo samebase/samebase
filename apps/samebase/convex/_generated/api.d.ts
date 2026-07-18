@@ -132,6 +132,7 @@ import type * as vault_convexDeployKeys from "../vault/convexDeployKeys.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
 import type * as vault_convexSchemaGraph from "../vault/convexSchemaGraph.js";
 import type * as vault_convexSchemaGraphModel from "../vault/convexSchemaGraphModel.js";
+import type * as vault_convexTeam from "../vault/convexTeam.js";
 import type * as vault_dashboard from "../vault/dashboard.js";
 import type * as vault_database from "../vault/database.js";
 import type * as vault_deletion_cleanup from "../vault/deletion/cleanup.js";
@@ -283,6 +284,7 @@ declare const fullApi: ApiFromModules<{
   "vault/convexMutations": typeof vault_convexMutations;
   "vault/convexSchemaGraph": typeof vault_convexSchemaGraph;
   "vault/convexSchemaGraphModel": typeof vault_convexSchemaGraphModel;
+  "vault/convexTeam": typeof vault_convexTeam;
   "vault/dashboard": typeof vault_dashboard;
   "vault/database": typeof vault_database;
   "vault/deletion/cleanup": typeof vault_deletion_cleanup;

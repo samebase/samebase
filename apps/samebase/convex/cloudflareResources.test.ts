@@ -19,7 +19,7 @@ import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNotFoundError,
   isWorkersBuildsInvalidTokenMessage,
-  readCloudflareWorkerRepositoryDiscovery,
+  readCloudflareWorkerBuildConnectionDiscovery,
   readCloudflareWorkerTag,
   readWorkersDevAvailability,
   selectCurrentBuildTokenUuid,
@@ -142,12 +142,6 @@ function buildTestVerifyCloudflareWorkerInfrastructureArgs(): Parameters<
     },
     build: {
       state: "connected",
-      rootDirectory: "/",
-      buildCommand: "pnpm build",
-      deployCommand: "pnpm deploy",
-      previewDeployCommand: "pnpm deploy:preview",
-      pathIncludes: ["**/*"],
-      pathExcludes: [],
       production: {
         triggerUuid: "production-trigger",
         buildTokenUuid: "build-token",
@@ -690,12 +684,6 @@ describe("cloudflare resources", () => {
       builds: "adopted",
       connectedBuilds: {
         state: "connected",
-        rootDirectory: "/",
-        buildCommand: "pnpm build",
-        deployCommand: "pnpm deploy",
-        previewDeployCommand: "pnpm deploy:preview",
-        pathIncludes: ["**/*"],
-        pathExcludes: [],
         production: {
           triggerUuid: "production-trigger",
           buildTokenUuid: "production-build-token",
@@ -754,7 +742,7 @@ describe("cloudflare resources", () => {
     ).toHaveLength(2);
   });
 
-  it("does not adopt Workers Builds triggers with unexpected commands", async () => {
+  it("adopts a repository connection without treating custom commands as app identity", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -802,13 +790,24 @@ describe("cloudflare resources", () => {
       }),
     ).resolves.toEqual({
       ...confirmedWorkerVerification,
-      builds: "not_checked",
+      builds: "adopted",
+      connectedBuilds: {
+        state: "connected",
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-build-token",
+        },
+      },
       convexBuildAccess: "not_checked",
     });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
-  it("does not adopt a trigger pair whose shared build configuration differs", async () => {
+  it("adopts a repository connection when its two triggers use different commands", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -826,7 +825,18 @@ describe("cloudflare resources", () => {
       }),
     ).resolves.toEqual({
       ...confirmedWorkerVerification,
-      builds: "not_checked",
+      builds: "adopted",
+      connectedBuilds: {
+        state: "connected",
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "build-token",
+        },
+      },
       convexBuildAccess: "not_checked",
     });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
@@ -932,7 +942,7 @@ describe("cloudflare resources", () => {
     ).rejects.toThrow("Cloudflare MCP tool call timed out");
   });
 
-  it("contradicts connected Builds with drifted commands and path filters", async () => {
+  it("keeps Builds connected when editable commands and path filters drift", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -959,7 +969,7 @@ describe("cloudflare resources", () => {
       }),
     ).resolves.toEqual({
       ...confirmedWorkerVerification,
-      builds: "contradicted",
+      builds: "confirmed",
       convexBuildAccess: "not_checked",
     });
   });
@@ -2409,7 +2419,7 @@ describe("cloudflare resources", () => {
     });
   });
 
-  it("discovers a selected Worker from inventory without reading Worker detail", async () => {
+  it("discovers a selected Worker's existing Builds connection without reading Worker detail", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     vi.stubGlobal(
       "fetch",
@@ -2425,7 +2435,24 @@ describe("cloudflare resources", () => {
           case "/client/v4/accounts/account-id/builds/workers/worker-tag/triggers":
             return cloudflareSuccessResponse([
               {
+                trigger_uuid: "production-trigger",
+                build_token_uuid: "production-build-token",
                 trigger_name: "Production Deploy",
+                branch_includes: ["main"],
+                branch_excludes: [],
+                root_directory: "apps/samebase",
+                repo_connection: {
+                  repo_connection_uuid: "repo-connection",
+                  repo_id: "123",
+                  repo_name: "samebase/samebase",
+                },
+              },
+              {
+                trigger_uuid: "preview-trigger",
+                build_token_uuid: "preview-build-token",
+                trigger_name: "Preview Deploy",
+                branch_includes: ["*"],
+                branch_excludes: ["main"],
                 root_directory: "apps/samebase",
                 repo_connection: {
                   repo_connection_uuid: "repo-connection",
@@ -2448,13 +2475,14 @@ describe("cloudflare resources", () => {
     );
 
     await expect(
-      readCloudflareWorkerRepositoryDiscovery({
+      readCloudflareWorkerBuildConnectionDiscovery({
         token: "oauth-token",
         transport: "direct",
         accountId: "account-id",
         workerName: "samebase-app",
         expectedRepoId: "123",
         expectedRootDirectory: "apps/samebase",
+        defaultBranch: "main",
       }),
     ).resolves.toEqual({
       workerName: "samebase-app",
@@ -2469,11 +2497,23 @@ describe("cloudflare resources", () => {
           rootDirectory: "apps/samebase",
         },
       },
+      builds: {
+        state: "connected",
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-build-token",
+        },
+      },
     });
 
     expect(requests.map((request) => request.path)).not.toContain(
       "/client/v4/accounts/account-id/workers/workers/samebase-app",
     );
+    expect(requests.every((request) => request.method === "GET")).toBe(true);
   });
 
   it("selects the only Cloudflare account exposed to OAuth", () => {

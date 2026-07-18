@@ -141,16 +141,13 @@ export const vVaultConvexProjectCreationLifecycle = union(
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
 
-const vaultCloudflareBuildSettingsFields = {
+export const vVaultCloudflareBuildConfig = object({
+  rootDirectory: vVaultRootDirectory,
   buildCommand: string(),
   deployCommand: string(),
   previewDeployCommand: string(),
   pathIncludes: array(string()),
   pathExcludes: array(string()),
-} as const;
-export const vVaultCloudflareBuildConfig = object({
-  rootDirectory: vVaultRootDirectory,
-  ...vaultCloudflareBuildSettingsFields,
 });
 export type VaultCloudflareBuildConfig = Infer<typeof vVaultCloudflareBuildConfig>;
 
@@ -194,9 +191,13 @@ export const vVaultCloudflareWorkersBuildTrigger = object({
   buildTokenUuid: string(),
 });
 
+/**
+ * Provider identities proving that the app has a production and preview
+ * Builds connection. Editable commands and filters remain Cloudflare policy,
+ * not durable repository-connection identity.
+ */
 export const vVaultCloudflareConnectedBuilds = object({
   state: literal("connected"),
-  ...vaultCloudflareBuildSettingsFields,
   production: vVaultCloudflareWorkersBuildTrigger,
   preview: vVaultCloudflareWorkersBuildTrigger,
 });

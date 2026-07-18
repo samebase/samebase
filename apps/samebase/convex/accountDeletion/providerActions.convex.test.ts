@@ -89,11 +89,6 @@ async function seedRetainedProviderResources(t: ConvexTest, userId: Id<"users">)
       origin: "selected_existing",
       builds: {
         state: "connected",
-        buildCommand: "pnpm run build",
-        deployCommand: "pnpm run deploy",
-        previewDeployCommand: "pnpm run deploy:preview",
-        pathIncludes: ["apps/web/*"],
-        pathExcludes: [],
         production: {
           triggerUuid: "production-trigger",
           buildTokenUuid: "recorded-build-token",

@@ -16,7 +16,6 @@ import {
   buildVaultCloudflareBuildConfig,
   isVaultProviderUpstreamPresent,
   type VaultCloudflareBuildConfig,
-  type VaultCloudflareConnectedBuilds,
   vVaultCloudflareBuildConfig,
   vVaultCloudflareBuilds,
   vVaultCloudflareConnectedBuilds,
@@ -66,6 +65,7 @@ const cloudflareWorkerDiscoveryContext = object({
   ghRepoId: string(),
   repositoryFullName: string(),
   expectedRootDirectory: string(),
+  defaultBranch: string(),
 });
 const cloudflareWorkerAttachmentResult = union(
   object({ state: literal("attached"), workerId: id("vaultCloudflareWorkers") }),
@@ -73,10 +73,11 @@ const cloudflareWorkerAttachmentResult = union(
 );
 type CloudflareWorkerAttachmentResult = Infer<typeof cloudflareWorkerAttachmentResult>;
 const cloudflareWorkerAttachmentProvenance = union(
-  object({ state: literal("selected_existing") }),
+  object({ state: literal("selected_existing"), builds: vVaultCloudflareBuilds }),
   object({
     state: literal("recovered_existing"),
     creationClaimId: id("vaultCloudflareWorkerCreationClaims"),
+    builds: vVaultCloudflareBuilds,
   }),
   object({
     state: literal("provisioned"),
@@ -219,20 +220,19 @@ type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
 
-function haveEqualStringItems(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
 function matchesCloudflareBuildConfig(
-  left: VaultCloudflareConnectedBuilds,
+  left: VaultCloudflareBuildConfig,
   right: VaultCloudflareBuildConfig,
 ): boolean {
   return (
+    left.rootDirectory === right.rootDirectory &&
     left.buildCommand === right.buildCommand &&
     left.deployCommand === right.deployCommand &&
     left.previewDeployCommand === right.previewDeployCommand &&
-    haveEqualStringItems(left.pathIncludes, right.pathIncludes) &&
-    haveEqualStringItems(left.pathExcludes, right.pathExcludes)
+    left.pathIncludes.length === right.pathIncludes.length &&
+    left.pathIncludes.every((value, index) => value === right.pathIncludes[index]) &&
+    left.pathExcludes.length === right.pathExcludes.length &&
+    left.pathExcludes.every((value, index) => value === right.pathExcludes[index])
   );
 }
 
@@ -781,6 +781,7 @@ export const readCloudflareWorkerDiscoveryContext = internalQuery({
       ghRepoId: vault.ghRepoId,
       repositoryFullName: `${vault.owner}/${vault.name}`,
       expectedRootDirectory: app.rootDirectory,
+      defaultBranch: vault.defaultBranch,
     };
   },
 });
@@ -1237,6 +1238,10 @@ export const attachWorkerForRun = internalMutation({
       );
     }
     const origin = args.provenance.state === "provisioned" ? "provisioned" : "selected_existing";
+    const builds =
+      args.provenance.state === "provisioned"
+        ? ({ state: "not_connected" } as const)
+        : args.provenance.builds;
     const now = Date.now();
     let workerId: Id<"vaultCloudflareWorkers">;
     const workerToUpdate = infrastructureTargetWorker ?? existingWorker;
@@ -1249,7 +1254,7 @@ export const attachWorkerForRun = internalMutation({
         workersDev: args.workersDev,
         origin,
         upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
-        builds: { state: "not_connected" },
+        builds,
         connectedAt: now,
         lastObservedAt: now,
       });
@@ -1266,7 +1271,7 @@ export const attachWorkerForRun = internalMutation({
         workersDev: args.workersDev,
         origin,
         upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
-        builds: { state: "not_connected" },
+        builds,
         connectedAt: now,
         lastObservedAt: now,
       });
@@ -2107,6 +2112,7 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
     workerId: id("vaultCloudflareWorkers"),
     convexDeploymentId: id("vaultConvexDeployments"),
     builds: vVaultCloudflareConnectedBuilds,
+    buildConfig: vVaultCloudflareBuildConfig,
   },
   returns: object({ applied: boolean() }),
   handler: async (ctx, args) => {
@@ -2148,14 +2154,13 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
         appId: convexDeployment.appId,
       }),
     ]);
-    const buildConfig = buildVaultCloudflareBuildConfig({
+    const expectedBuildConfig = buildVaultCloudflareBuildConfig({
       rootDirectory: workerApp.rootDirectory,
       dependencyRootDirectories: [convexApp.rootDirectory],
     });
-    if (!matchesCloudflareBuildConfig(args.builds, buildConfig)) {
+    if (!matchesCloudflareBuildConfig(args.buildConfig, expectedBuildConfig)) {
       throw new Error("Cloudflare Workers Builds result does not match the deployment dependency.");
     }
-
     const now = Date.now();
     await ctx.db.patch(convexDeployment._id, {
       lastObservedAt: now,

@@ -339,6 +339,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/vault/convexSchemaGraph.convex.test.ts",
   "apps/samebase/convex/vault/convexSchemaGraph.ts",
   "apps/samebase/convex/vault/convexSchemaGraphModel.ts",
+  "apps/samebase/convex/vault/convexTeam.ts",
   "apps/samebase/convex/vault/dashboard.convex.test.ts",
   "apps/samebase/convex/vault/dashboard.ts",
   "apps/samebase/convex/vault/database.convex.test.ts",

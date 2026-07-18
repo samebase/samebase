@@ -130,13 +130,16 @@ async function createCloudflareConnectionVault() {
 type TestBackend = ReturnType<typeof makeConvexTest>;
 type ConnectionVaultIds = Awaited<ReturnType<typeof createCloudflareConnectionVault>>["ids"];
 
-const rootBuilds = {
-  state: "connected" as const,
+const rootBuildConfig = {
+  rootDirectory,
   buildCommand: "pnpm run build",
   deployCommand: "pnpm run deploy",
   previewDeployCommand: "pnpm run deploy:preview",
   pathIncludes: ["*"],
   pathExcludes: [],
+};
+const rootBuilds = {
+  state: "connected" as const,
   production: {
     triggerUuid: "production-trigger",
     buildTokenUuid: "build-token",
@@ -149,8 +152,9 @@ const rootBuilds = {
 
 const webRootDirectory = "apps/web";
 const backendRootDirectory = "packages/backend";
-const webBuilds = {
-  ...rootBuilds,
+const webBuildConfig = {
+  ...rootBuildConfig,
+  rootDirectory: webRootDirectory,
   pathIncludes: [
     "apps/web/*",
     ".node-version",
@@ -160,9 +164,9 @@ const webBuilds = {
     "pnpm-workspace.yaml",
   ],
 };
-const dependencyAwareWebBuilds = {
-  ...webBuilds,
-  pathIncludes: [...webBuilds.pathIncludes, "packages/backend/*"],
+const dependencyAwareWebBuildConfig = {
+  ...webBuildConfig,
+  pathIncludes: [...webBuildConfig.pathIncludes, "packages/backend/*"],
 };
 
 async function createMonorepoApps(t: TestBackend, ids: ConnectionVaultIds) {
@@ -558,7 +562,7 @@ describe("vault Cloudflare attachment mutations", () => {
     );
   });
 
-  it("claims, attaches, and finishes a durable Cloudflare Worker connection run", async () => {
+  it("preserves verified existing Builds while attaching a durable Cloudflare Worker", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
     const connectionArgs = {
       vaultId: ids.vaultId,
@@ -585,7 +589,7 @@ describe("vault Cloudflare attachment mutations", () => {
       accountId: "cloudflare-account",
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
-      provenance: { state: "selected_existing" },
+      provenance: { state: "selected_existing", builds: rootBuilds },
     });
     if (attachment.state !== "attached") {
       throw new Error("Expected Worker attachment.");
@@ -639,7 +643,7 @@ describe("vault Cloudflare attachment mutations", () => {
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
       origin: "selected_existing",
-      builds: { state: "not_connected" },
+      builds: rootBuilds,
     });
     expect(result.events.map((event) => event.step)).toEqual([
       "claim_infra",
@@ -692,7 +696,7 @@ describe("vault Cloudflare attachment mutations", () => {
       accountId: "cloudflare-account",
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
-      provenance: { state: "selected_existing" },
+      provenance: { state: "selected_existing", builds: { state: "not_connected" } },
     });
     expect(attachment).toEqual({ state: "attached", workerId: missingWorkerId });
     await expect(
@@ -854,7 +858,7 @@ describe("vault Cloudflare attachment mutations", () => {
         workerName: "renamed-shared-worker",
         workerTag: "shared-worker-tag",
         workersDev: { state: "unknown" },
-        provenance: { state: "selected_existing" },
+        provenance: { state: "selected_existing", builds: { state: "not_connected" } },
       }),
     ).resolves.toEqual({ state: "not_attached" });
 
@@ -1088,6 +1092,7 @@ describe("vault Cloudflare attachment mutations", () => {
     await t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
       ...accessArgs,
       builds: rootBuilds,
+      buildConfig: rootBuildConfig,
     });
     await expect(
       t.mutation(
@@ -1425,7 +1430,7 @@ describe("vault Cloudflare attachment mutations", () => {
       defaultBranch: "main",
       buildConfig: {
         rootDirectory,
-        pathIncludes: rootBuilds.pathIncludes,
+        pathIncludes: rootBuildConfig.pathIncludes,
       },
       workerApp: { appId: ids.appId, rootDirectory },
       convexApp: { appId: ids.appId, rootDirectory },
@@ -1453,6 +1458,7 @@ describe("vault Cloudflare attachment mutations", () => {
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
         ...accessIds,
         builds: rootBuilds,
+        buildConfig: rootBuildConfig,
       }),
     ).resolves.toEqual({ applied: true });
     await expect(
@@ -2419,7 +2425,11 @@ describe("vault Cloudflare attachment mutations", () => {
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
       workersDev: { state: "unknown" },
-      provenance: { state: "recovered_existing", creationClaimId: claim.claimId },
+      provenance: {
+        state: "recovered_existing",
+        creationClaimId: claim.claimId,
+        builds: { state: "not_connected" },
+      },
     });
     if (attachment.state !== "attached") {
       throw new Error("Expected recovered Worker attachment.");
@@ -2516,13 +2526,13 @@ describe("stable app resource ownership", () => {
       worker: { workerId },
       buildConfig: {
         rootDirectory: webRootDirectory,
-        pathIncludes: dependencyAwareWebBuilds.pathIncludes,
+        pathIncludes: dependencyAwareWebBuildConfig.pathIncludes,
       },
     });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
         ...runArgs,
-        builds: dependencyAwareWebBuilds,
+        builds: rootBuilds,
       }),
     ).resolves.toEqual({ applied: true });
     await expect(
@@ -2530,7 +2540,7 @@ describe("stable app resource ownership", () => {
     ).resolves.toBeNull();
     await expect(t.run(async (ctx) => await ctx.db.get(workerId))).resolves.toMatchObject({
       appId: webAppId,
-      builds: dependencyAwareWebBuilds,
+      builds: rootBuilds,
     });
   });
 });
@@ -2565,7 +2575,7 @@ describe("explicit Worker to Convex dependencies", () => {
       active: true,
       buildConfig: {
         rootDirectory: webRootDirectory,
-        pathIncludes: dependencyAwareWebBuilds.pathIncludes,
+        pathIncludes: dependencyAwareWebBuildConfig.pathIncludes,
       },
       workerApp: { appId: webAppId, rootDirectory: webRootDirectory },
       convexApp: { appId: backendAppId, rootDirectory: backendRootDirectory },
@@ -2611,7 +2621,8 @@ describe("explicit Worker to Convex dependencies", () => {
     await beginAndRecordConvexBuildAccessDeployKey(t, runArgs, "preview", "preview-key-name");
     await t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
       ...runArgs,
-      builds: dependencyAwareWebBuilds,
+      builds: rootBuilds,
+      buildConfig: dependencyAwareWebBuildConfig,
     });
     await t.mutation(
       internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
@@ -2636,7 +2647,7 @@ describe("explicit Worker to Convex dependencies", () => {
     });
 
     const secondWorkerId = await insertWorkerForApp(t, ids, webAppId, "second-web-worker");
-    await t.run(async (ctx) => await ctx.db.patch(secondWorkerId, { builds: webBuilds }));
+    await t.run(async (ctx) => await ctx.db.patch(secondWorkerId, { builds: rootBuilds }));
     const secondRunId = await createCloudflareRun(t, ids, "wire_convex_build_access");
     await expect(
       t.mutation(internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring, {
@@ -3102,7 +3113,7 @@ describe("explicit Worker to Convex dependencies", () => {
     const { ids, t } = await createCloudflareConnectionVault();
     const { backendAppId, webAppId } = await createMonorepoApps(t, ids);
     const workerId = await insertWorkerForApp(t, ids, webAppId, "web-worker");
-    await t.run(async (ctx) => await ctx.db.patch(workerId, { builds: dependencyAwareWebBuilds }));
+    await t.run(async (ctx) => await ctx.db.patch(workerId, { builds: rootBuilds }));
     const firstDeploymentId = await insertConvexDeploymentForApp(t, ids, backendAppId);
     const dependencyId = await insertWorkerDeploymentDependency(
       t,
@@ -3317,8 +3328,8 @@ describe("dependency verification and run ownership", () => {
     const firstWorkerId = await insertWorkerForApp(t, ids, webAppId, "first-worker");
     const secondWorkerId = await insertWorkerForApp(t, ids, webAppId, "second-worker");
     await t.run(async (ctx) => {
-      await ctx.db.patch(firstWorkerId, { builds: dependencyAwareWebBuilds });
-      await ctx.db.patch(secondWorkerId, { builds: dependencyAwareWebBuilds });
+      await ctx.db.patch(firstWorkerId, { builds: rootBuilds });
+      await ctx.db.patch(secondWorkerId, { builds: rootBuilds });
     });
     const wiring = {
       state: "wired" as const,
@@ -3426,7 +3437,7 @@ describe("dependency verification and run ownership", () => {
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
         ...runArgs,
-        builds: webBuilds,
+        builds: rootBuilds,
       }),
     ).resolves.toEqual({ applied: false });
     const persisted = await t.run(async (ctx) => ({
