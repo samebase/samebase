@@ -2,6 +2,7 @@
 
 import { RequestError } from "@octokit/request-error";
 import { Octokit } from "@octokit/rest";
+import { number, object, string } from "@samebase/sure";
 import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
@@ -22,6 +23,14 @@ import {
 } from "./model";
 
 const { id } = v;
+
+const githubRepositoryByIdSchema = object({
+  id: number,
+  name: string,
+  owner: object({
+    login: string,
+  }),
+});
 
 const providerStepRetryMessage = {
   delete_codespaces: "Removing connected Codespaces.",
@@ -91,7 +100,12 @@ async function readGitHubRepositoryById(octokit: Octokit, repositoryId: number) 
     const response = await octokit.request("GET /repositories/{repository_id}", {
       repository_id: repositoryId,
     });
-    return response.data;
+    const responseData: unknown = response.data;
+    const [valid, repository] = githubRepositoryByIdSchema(responseData);
+    if (!valid) {
+      throw new Error("GitHub returned an invalid repository identity response.");
+    }
+    return repository;
   } catch (error) {
     if (error instanceof RequestError && error.status === 404) {
       return null;

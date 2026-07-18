@@ -258,6 +258,31 @@ describe("vault deletion Convex provider actions", () => {
     expect(requests).not.toContain("DELETE /repos/ada/old-name");
   });
 
+  it("does not delete when GitHub returns an invalid repository identity", async () => {
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        const { pathname } = new URL(request.url);
+        requests.push(`${request.method} ${pathname}`);
+        return Response.json({
+          id: 123,
+          name: "renamed-repository",
+          owner: null,
+        });
+      }),
+    );
+    const { ids, t } = await createGitHubDeletionRun();
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteGitHubRepository, ids),
+    ).rejects.toThrow("GitHub returned an invalid repository identity response.");
+
+    expect(requests).toEqual(["GET /repositories/123"]);
+    expect(requests.some((request) => request.startsWith("DELETE "))).toBe(false);
+  });
+
   it("does not delete a reused GitHub name when the retained repository ID is gone", async () => {
     const requests: string[] = [];
     vi.stubGlobal(
