@@ -16,11 +16,7 @@ import type {
 } from "../convexManagementApi/types.generated";
 import { toErrorMessage } from "../jsonUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
-import {
-  vVaultConvexConnectionTarget,
-  type VaultConvexConnectionTarget,
-  type VaultConvexOrigin,
-} from "./model";
+import { vVaultConvexConnectionTarget, type VaultConvexConnectionTarget } from "./model";
 import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
 import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
 
@@ -33,6 +29,8 @@ type ConvexActionConnection = {
 };
 type ConvexInfrastructureRecord = {
   convexProjectId: string;
+  convexProjectName: string;
+  convexTeamId: string;
   convexTeamSlug: string;
   convexProjectSlug: string;
   convexDeploymentName: string;
@@ -178,6 +176,8 @@ function toConvexInfrastructureRecord(args: {
 }): ConvexInfrastructureRecord {
   return {
     convexProjectId: args.project.id,
+    convexProjectName: args.project.name,
+    convexTeamId: args.project.teamId,
     convexTeamSlug: args.project.teamSlug,
     convexProjectSlug: args.project.slug,
     convexDeploymentName: args.deployment.name,
@@ -228,53 +228,126 @@ async function resolveExistingConvexProject(args: {
 
 async function createConvexProjectDeployment(args: {
   ctx: Pick<ActionCtx, "runMutation" | "runQuery">;
+  appId: Id<"vaultApps">;
   connection: ConvexActionConnection;
   projectName: string;
   runId: Id<"appProvisioningRuns">;
   userId: Id<"users">;
   vaultId: Id<"vaults">;
-}): Promise<ConvexInfrastructureRecord> {
-  const reusableProject = await args.ctx.runQuery(
-    internal.vault.convexMutations.readReusableCreatedProjectForRun,
+}): Promise<{
+  convex: ConvexInfrastructureRecord;
+  provenance:
+    | {
+        state: "provisioned";
+        creationClaimId: Id<"vaultConvexProjectCreationClaims">;
+      }
+    | {
+        state: "recovered_existing";
+        creationClaimId: Id<"vaultConvexProjectCreationClaims">;
+      };
+}> {
+  let creationClaim = await args.ctx.runQuery(
+    internal.vault.convexMutations.readConvexProjectCreationClaimForRun,
     {
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
-      projectName: args.projectName,
+      appId: args.appId,
     },
   );
-  if (reusableProject) {
+  if (
+    creationClaim &&
+    (creationClaim.teamId !== args.connection.teamId ||
+      creationClaim.projectName !== args.projectName)
+  ) {
+    throw new Error("Convex project creation claim does not match this connection.");
+  }
+  if (creationClaim?.lifecycle.state === "created") {
     const project = await readConvexProjectDetails({
       token: args.connection.token,
       teamId: args.connection.teamId,
-      projectId: reusableProject.projectId,
+      projectId: creationClaim.lifecycle.projectId,
     }).catch((error: unknown) => {
-      if (!isConvexManagementNotFoundError(error)) {
-        throw error;
+      if (isConvexManagementNotFoundError(error)) {
+        return null;
       }
-      return null;
+      throw error;
     });
     if (project) {
       const deployment = await readOrCreateDefaultConvexProductionDeployment({
         token: args.connection.token,
         projectId: project.id,
       });
-      return toConvexInfrastructureRecord({ project, deployment });
+      return {
+        convex: toConvexInfrastructureRecord({ project, deployment }),
+        provenance: { state: "provisioned", creationClaimId: creationClaim.claimId },
+      };
     }
+    creationClaim = await args.ctx.runMutation(
+      internal.vault.convexMutations.resetMissingConvexProjectCreation,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appId: args.appId,
+        creationClaimId: creationClaim.claimId,
+        teamId: creationClaim.teamId,
+        projectId: creationClaim.lifecycle.projectId,
+      },
+    );
   }
 
   const projects = await listConvexManagementProjects({
     token: args.connection.token,
     teamId: args.connection.teamId,
   });
-  if (
-    projects.some(
-      (project) => project.name === args.projectName || project.slug === args.projectName,
-    )
-  ) {
+  const existingProject = projects.find((project) => project.name === args.projectName);
+  if (creationClaim && existingProject) {
+    const deployment = await readOrCreateDefaultConvexProductionDeployment({
+      token: args.connection.token,
+      projectId: existingProject.id,
+    });
+    return {
+      convex: toConvexInfrastructureRecord({ project: existingProject, deployment }),
+      provenance: {
+        state: "recovered_existing",
+        creationClaimId: creationClaim.claimId,
+      },
+    };
+  }
+  if (existingProject) {
     throw new Error(
       `Convex project name ${args.projectName} already exists. Choose another project name and try again.`,
     );
+  }
+
+  creationClaim =
+    creationClaim ??
+    (await args.ctx.runMutation(internal.vault.convexMutations.beginConvexProjectCreation, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      appId: args.appId,
+      teamId: args.connection.teamId,
+      projectName: args.projectName,
+    }));
+  if (creationClaim.lifecycle.state === "created") {
+    const project = await readConvexProjectDetails({
+      token: args.connection.token,
+      teamId: args.connection.teamId,
+      projectId: creationClaim.lifecycle.projectId,
+    });
+    const deployment = await readOrCreateDefaultConvexProductionDeployment({
+      token: args.connection.token,
+      projectId: project.id,
+    });
+    return {
+      convex: toConvexInfrastructureRecord({ project, deployment }),
+      provenance: {
+        state: "provisioned",
+        creationClaimId: creationClaim.claimId,
+      },
+    };
   }
 
   const createResponse = await requestConvexManagementApi(
@@ -289,13 +362,15 @@ async function createConvexProjectDeployment(args: {
       },
     },
   );
-  await args.ctx.runMutation(internal.vault.convexMutations.recordCreatedProjectForRun, {
+  await args.ctx.runMutation(internal.vault.convexMutations.recordCreatedConvexProject, {
     vaultId: args.vaultId,
     runId: args.runId,
     userId: args.userId,
+    appId: args.appId,
+    creationClaimId: creationClaim.claimId,
+    teamId: args.connection.teamId,
     projectName: args.projectName,
     projectId: createResponse.id,
-    projectSlug: createResponse.slug,
   });
   const project = await readConvexProjectDetails({
     token: args.connection.token,
@@ -307,7 +382,10 @@ async function createConvexProjectDeployment(args: {
     projectId: project.id,
   });
 
-  return toConvexInfrastructureRecord({ project, deployment });
+  return {
+    convex: toConvexInfrastructureRecord({ project, deployment }),
+    provenance: { state: "provisioned", creationClaimId: creationClaim.claimId },
+  };
 }
 
 async function startConvexDeploymentConnectionOrFail(
@@ -360,7 +438,13 @@ async function recordConvexDeployment(
     appId: Id<"vaultApps">;
     teamId: string;
     convex: ConvexInfrastructureRecord;
-    origin: VaultConvexOrigin;
+    provenance:
+      | { state: "selected_existing" }
+      | {
+          state: "recovered_existing";
+          creationClaimId: Id<"vaultConvexProjectCreationClaims">;
+        }
+      | { state: "provisioned"; creationClaimId: Id<"vaultConvexProjectCreationClaims"> };
   },
 ): Promise<Id<"vaultConvexDeployments"> | null> {
   await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
@@ -374,7 +458,7 @@ async function recordConvexDeployment(
     userId: args.userId,
     appId: args.appId,
     convex: args.convex,
-    origin: args.origin,
+    provenance: args.provenance,
   });
   return result.state === "attached" ? result.deploymentId : null;
 }
@@ -468,6 +552,7 @@ export const createProject = action({
       userId,
       appId: args.appId,
     });
+    const connection = await resolveConvexConnection(ctx, userId);
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
       vaultId: args.vaultId,
@@ -480,6 +565,7 @@ export const createProject = action({
       target: {
         mode: "create_project",
         appId: args.appId,
+        teamId: connection.teamId,
         projectName: validation.value,
       },
     });
@@ -522,11 +608,14 @@ export const ensureConvexDeploymentConnection = internalAction({
           appId: args.target.appId,
           teamId: connection.teamId,
           convex,
-          origin: "selected_existing",
+          provenance: { state: "selected_existing" },
         });
         return deploymentId;
       }
       case "create_project": {
+        if (connection.teamId !== args.target.teamId) {
+          throw new Error("Convex connection no longer matches the selected team.");
+        }
         const validation = validateAppResourceName(args.target.projectName, "convex");
         if (!validation.valid) {
           throw new Error(validation.message);
@@ -541,8 +630,9 @@ export const ensureConvexDeploymentConnection = internalAction({
         ) {
           return null;
         }
-        const convex = await createConvexProjectDeployment({
+        const created = await createConvexProjectDeployment({
           ctx,
+          appId: args.target.appId,
           connection,
           projectName: validation.value,
           runId: args.runId,
@@ -565,8 +655,8 @@ export const ensureConvexDeploymentConnection = internalAction({
           userId: args.userId,
           appId: args.target.appId,
           teamId: connection.teamId,
-          convex,
-          origin: "provisioned",
+          convex: created.convex,
+          provenance: created.provenance,
         });
         return deploymentId;
       }

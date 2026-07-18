@@ -85,6 +85,20 @@ async function resolveGitHubOctokit(
   });
 }
 
+async function readGitHubRepositoryById(octokit: Octokit, repositoryId: number) {
+  try {
+    const response = await octokit.request("GET /repositories/{repository_id}", {
+      repository_id: repositoryId,
+    });
+    return response.data;
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export const deleteConnectedCodespaces = internalAction({
   args: {
     vaultId: id("vaults"),
@@ -231,51 +245,38 @@ export const deleteConvex = internalAction({
       throw new Error("Convex connection is required to remove resources.");
     }
 
-    try {
-      switch (plan.convex.action) {
-        case "delete_project": {
-          await requestConvexManagementApi(
-            convexConnection.auth.credential,
-            "POST",
-            "/projects/{project_id}/delete",
-            { params: { path: { project_id: plan.convex.projectId } } },
-          );
-          break;
+    const projectsToDelete: typeof plan.convex.projects = [];
+    for (const target of plan.convex.projects) {
+      try {
+        const project = await requestConvexManagementApi(
+          convexConnection.auth.credential,
+          "GET",
+          "/projects/{project_id}",
+          { params: { path: { project_id: target.projectId } } },
+        );
+        if (project.id !== target.projectId || project.teamId !== target.teamId) {
+          throw new Error("Convex project identity no longer matches the deletion plan.");
         }
-        case "delete_projects": {
-          for (const projectId of plan.convex.projectIds) {
-            try {
-              await requestConvexManagementApi(
-                convexConnection.auth.credential,
-                "POST",
-                "/projects/{project_id}/delete",
-                { params: { path: { project_id: projectId } } },
-              );
-            } catch (error) {
-              if (!isConvexManagementNotFoundError(error)) {
-                throw error;
-              }
-            }
-          }
-          break;
-        }
-        case "delete_deployment": {
-          await requestConvexManagementApi(
-            convexConnection.auth.credential,
-            "POST",
-            "/deployments/{deployment_name}/delete",
-            { params: { path: { deployment_name: plan.convex.deploymentName } } },
-          );
-          break;
-        }
-        default: {
-          plan.convex satisfies never;
-          throw new Error("Unsupported Convex deletion action.");
+        projectsToDelete.push(target);
+      } catch (error) {
+        if (!isConvexManagementNotFoundError(error)) {
+          throw error;
         }
       }
-    } catch (error) {
-      if (!isConvexManagementNotFoundError(error)) {
-        throw error;
+    }
+
+    for (const target of projectsToDelete) {
+      try {
+        await requestConvexManagementApi(
+          convexConnection.auth.credential,
+          "POST",
+          "/projects/{project_id}/delete",
+          { params: { path: { project_id: target.projectId } } },
+        );
+      } catch (error) {
+        if (!isConvexManagementNotFoundError(error)) {
+          throw error;
+        }
       }
     }
 
@@ -302,15 +303,28 @@ export const deleteGitHubRepository = internalAction({
     }
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const repositoryId = Number(plan.githubRepository.ghRepoId);
+    if (!Number.isSafeInteger(repositoryId) || repositoryId <= 0) {
+      throw new Error("GitHub repository identity is invalid.");
+    }
+    const repository = await readGitHubRepositoryById(octokit, repositoryId);
+    if (!repository) {
+      return null;
+    }
+    if (String(repository.id) !== plan.githubRepository.ghRepoId) {
+      throw new Error("GitHub repository identity no longer matches the deletion plan.");
+    }
+
     try {
       await octokit.rest.repos.delete({
-        owner: plan.githubRepository.owner,
-        repo: plan.githubRepository.name,
+        owner: repository.owner.login,
+        repo: repository.name,
       });
     } catch (error) {
-      if (!(error instanceof RequestError && error.status === 404)) {
-        throw error;
+      if (error instanceof RequestError && error.status === 404) {
+        return null;
       }
+      throw error;
     }
 
     return null;

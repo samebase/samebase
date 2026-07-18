@@ -10,6 +10,7 @@ import {
   isVaultProviderUpstreamPresent,
   vVaultCloudflareOrigin,
   vVaultConvexConnectionTarget,
+  vVaultWorkersDevAvailability,
 } from "./vault/model";
 import { isWorkerDeploymentDependencyCurrentlyWired } from "./vault/deploymentDependencies";
 import { isLiveConnectedVault } from "./vault/state";
@@ -29,9 +30,14 @@ const createAppDescription = v.union(string(), v.null());
 const composedInfrastructureState = object({
   appId: id("vaultApps"),
   convex: union(
-    object({ state: v.literal("not_attached"), projectName: string() }),
+    object({
+      state: v.literal("not_attached"),
+      teamId: string(),
+      projectName: string(),
+    }),
     object({
       state: v.literal("attached"),
+      teamId: string(),
       projectName: string(),
       deploymentId: id("vaultConvexDeployments"),
     }),
@@ -48,7 +54,7 @@ const composedInfrastructureState = object({
       workerName: string(),
       workerId: id("vaultCloudflareWorkers"),
       convexBuildAccessWired: boolean(),
-      workersDevUrl: union(string(), nullValue()),
+      workersDev: vVaultWorkersDevAvailability,
     }),
   ),
 });
@@ -90,28 +96,34 @@ export const readComposedInfrastructureState = internalQuery({
     const target = await ctx.db
       .query("vaultInfrastructureTargets")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
+      .unique();
     if (!target) {
       throw new Error("Infrastructure target not found for vault.");
     }
+    const workerPromise =
+      target.cloudflare.state === "attached"
+        ? ctx.db.get(target.cloudflare.workerId)
+        : Promise.resolve(null);
     const [app, convexDeployment, worker] = await Promise.all([
       ctx.db.get(target.appId),
       ctx.db
         .query("vaultConvexDeployments")
         .withIndex("by_app", (q) => q.eq("appId", target.appId))
         .unique(),
-      ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_account_and_worker", (q) =>
-          q
-            .eq("vaultId", args.vaultId)
-            .eq("accountId", target.cloudflare.accountId)
-            .eq("workerName", target.cloudflare.workerName),
-        )
-        .unique(),
+      workerPromise,
     ]);
     if (!app || app.vaultId !== args.vaultId || app.userId !== args.userId) {
       throw new Error("Infrastructure target references an invalid app.");
+    }
+    if (target.cloudflare.state === "attached") {
+      if (
+        !worker ||
+        worker.vaultId !== args.vaultId ||
+        worker.userId !== args.userId ||
+        worker.appId !== target.appId
+      ) {
+        throw new Error("Infrastructure target references an invalid Worker.");
+      }
     }
     const convexDeploymentAttached =
       convexDeployment !== null && isVaultProviderUpstreamPresent(convexDeployment);
@@ -132,18 +144,23 @@ export const readComposedInfrastructureState = internalQuery({
       convex: convexDeploymentAttached
         ? {
             state: "attached",
+            teamId: target.convex.teamId,
             projectName: target.convex.projectName,
             deploymentId: convexDeployment._id,
           }
-        : { state: "not_attached", projectName: target.convex.projectName },
+        : {
+            state: "not_attached",
+            teamId: target.convex.teamId,
+            projectName: target.convex.projectName,
+          },
       cloudflare: cloudflareWorkerAttached
         ? {
             state: "attached",
-            accountId: target.cloudflare.accountId,
-            workerName: target.cloudflare.workerName,
+            accountId: worker.accountId,
+            workerName: worker.workerName,
             workerId: worker._id,
             convexBuildAccessWired,
-            workersDevUrl: worker.workersDevUrl ?? null,
+            workersDev: worker.workersDev,
           }
         : {
             state: "not_attached",
@@ -201,13 +218,41 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
     const target = await ctx.db
       .query("vaultInfrastructureTargets")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
+      .unique();
     if (!target) {
       throw new Error("Infrastructure target not found for vault.");
     }
     const app = await ctx.db.get(target.appId);
     if (!app || app.vaultId !== args.vaultId || app.userId !== args.userId) {
       throw new Error("Infrastructure target references an invalid app.");
+    }
+    const [convexCreationClaim, cloudflareCreationClaim] = await Promise.all([
+      ctx.db
+        .query("vaultConvexProjectCreationClaims")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .unique(),
+      ctx.db
+        .query("vaultCloudflareWorkerCreationClaims")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .unique(),
+    ]);
+    if (
+      convexCreationClaim &&
+      (convexCreationClaim.userId !== args.userId ||
+        convexCreationClaim.appId !== target.appId ||
+        convexCreationClaim.teamId !== target.convex.teamId ||
+        convexCreationClaim.projectName !== target.convex.projectName)
+    ) {
+      throw new Error("Convex project creation claim does not match the infrastructure target.");
+    }
+    if (
+      cloudflareCreationClaim &&
+      (cloudflareCreationClaim.userId !== args.userId ||
+        cloudflareCreationClaim.appId !== target.appId ||
+        cloudflareCreationClaim.accountId !== target.cloudflare.accountId ||
+        cloudflareCreationClaim.workerName !== target.cloudflare.workerName)
+    ) {
+      throw new Error("Cloudflare Worker creation claim does not match the infrastructure target.");
     }
 
     const now = Date.now();
@@ -254,6 +299,18 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
         updatedAt: now,
       });
     }
+    if (convexCreationClaim) {
+      await ctx.db.patch(convexCreationClaim._id, {
+        runId: args.runId,
+        updatedAt: now,
+      });
+    }
+    if (cloudflareCreationClaim) {
+      await ctx.db.patch(cloudflareCreationClaim._id, {
+        runId: args.runId,
+        updatedAt: now,
+      });
+    }
 
     await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
       runId: args.runId,
@@ -287,14 +344,102 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     const ownership = await ctx.db
       .query("vaultInfrastructureOwnership")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (!ownership || ownership.state !== "active" || ownership.runId !== args.runId) {
+      .unique();
+    if (!ownership || ownership.runId !== args.runId) {
       throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
+    if (ownership.state === "succeeded" && run.state === "succeeded") {
+      return null;
+    }
+    if (ownership.state !== "active" || run.state !== "running") {
+      throw new Error("Composed infrastructure run is not active.");
+    }
 
+    const [target, convexCreationClaim, cloudflareCreationClaim] = await Promise.all([
+      ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .unique(),
+      ctx.db
+        .query("vaultConvexProjectCreationClaims")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .unique(),
+      ctx.db
+        .query("vaultCloudflareWorkerCreationClaims")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .unique(),
+    ]);
+    if (convexCreationClaim || cloudflareCreationClaim) {
+      throw new Error("Provider creation claims must be consumed before infrastructure finishes.");
+    }
+    if (!target || target.cloudflare.state !== "attached") {
+      throw new Error("Infrastructure target does not reference an attached Worker.");
+    }
+    const [app, worker, convexDeployment] = await Promise.all([
+      ctx.db.get(target.appId),
+      ctx.db.get(target.cloudflare.workerId),
+      ctx.db
+        .query("vaultConvexDeployments")
+        .withIndex("by_app", (q) => q.eq("appId", target.appId))
+        .unique(),
+    ]);
+    if (!app || app.vaultId !== args.vaultId || app.userId !== args.userId) {
+      throw new Error("Infrastructure target references an invalid app.");
+    }
+    if (
+      !worker ||
+      worker.vaultId !== args.vaultId ||
+      worker.userId !== args.userId ||
+      worker.appId !== target.appId ||
+      !isVaultProviderUpstreamPresent(worker)
+    ) {
+      throw new Error("Infrastructure target does not reference a present Worker.");
+    }
+    if (worker.builds.state !== "connected") {
+      throw new Error("Infrastructure Worker Builds are not connected.");
+    }
+    if (
+      !convexDeployment ||
+      convexDeployment.vaultId !== args.vaultId ||
+      convexDeployment.userId !== args.userId ||
+      !isVaultProviderUpstreamPresent(convexDeployment)
+    ) {
+      throw new Error("Infrastructure target app does not have a present Convex deployment.");
+    }
+    const dependency = await ctx.db
+      .query("vaultWorkerDeploymentDependencies")
+      .withIndex("by_worker", (q) => q.eq("workerId", worker._id))
+      .unique();
+    if (
+      !dependency ||
+      dependency.vaultId !== args.vaultId ||
+      dependency.userId !== args.userId ||
+      dependency.convexDeploymentId !== convexDeployment._id ||
+      !isWorkerDeploymentDependencyCurrentlyWired(dependency, convexDeployment)
+    ) {
+      throw new Error("Infrastructure Worker is not wired to the app's Convex deployment.");
+    }
+
+    const now = Date.now();
     await ctx.db.patch(ownership._id, {
       state: "succeeded",
-      updatedAt: Date.now(),
+      updatedAt: now,
+    });
+    await ctx.db.insert("appProvisioningEvents", {
+      userId: run.userId,
+      vaultId: run.vaultId,
+      repositoryFullName: run.repositoryFullName,
+      runId: run._id,
+      step: "finish",
+      level: "info",
+      message: "App infrastructure is ready.",
+      createdAt: now,
+    });
+    await ctx.db.patch(run._id, {
+      state: "succeeded",
+      currentStep: "finish",
+      updatedAt: now,
+      completedAt: now,
     });
 
     return null;
@@ -389,6 +534,7 @@ async function runComposedConvexAttachment(
         target: {
           mode: "create_project",
           appId: args.state.appId,
+          teamId: args.state.convex.teamId,
           projectName: args.state.convex.projectName,
         },
       },
@@ -536,8 +682,8 @@ async function recordComposedCloudflareDefaultDomain(
   if (args.state.cloudflare.state !== "attached") {
     throw new Error("Cloudflare Worker must be attached before recording its domain.");
   }
-  const workersDevUrl = args.state.cloudflare.workersDevUrl;
-  if (!workersDevUrl) {
+  const workersDev = args.state.cloudflare.workersDev;
+  if (workersDev.state !== "available") {
     await step.runMutation(
       internal.appProvisioningRuns.appendRunEvent,
       {
@@ -558,7 +704,7 @@ async function recordComposedCloudflareDefaultDomain(
       vaultId: args.vaultId,
       branch: args.defaultBranch,
       kind: "main",
-      url: workersDevUrl,
+      url: workersDev.url,
       source: "cloudflare_workers_default",
       active: true,
     },
@@ -573,7 +719,7 @@ async function recordComposedCloudflareDefaultDomain(
       runId: args.parentRunId,
       step: "record_domains",
       level: "info",
-      message: `Recorded production URL: ${workersDevUrl}.`,
+      message: `Recorded production URL: ${workersDev.url}.`,
       state: "running",
     },
     { name: "record_workers_dev_domain" },
@@ -681,17 +827,6 @@ async function runComposedInfrastructure(
       vaultId: args.vaultId,
       runId: args.parentRunId,
       userId: args.userId,
-    },
-    { name: "finish_composed_infrastructure_ownership" },
-  );
-  await step.runMutation(
-    internal.appProvisioningRuns.appendRunEvent,
-    {
-      runId: args.parentRunId,
-      step: "finish",
-      level: "info",
-      message: "App infrastructure is ready.",
-      state: "succeeded",
     },
     { name: "finish_composed_infra" },
   );
@@ -1088,7 +1223,7 @@ export const connectConvexDeployment = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        appId: args.target.appId,
+        target: args.target,
       },
       { name: "claim_infra" },
     );

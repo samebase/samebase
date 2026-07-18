@@ -60,9 +60,6 @@ const githubRepositoryWithVisibilityFields = {
   visibility: vGitHubRepositoryVisibility,
 } as const;
 
-export const vVaultConvexOrigin = union(literal("provisioned"), literal("selected_existing"));
-export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
-
 export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
@@ -72,6 +69,7 @@ export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("create_project"),
     appId: id("vaultApps"),
+    teamId: string(),
     projectName: string(),
   }),
 );
@@ -98,18 +96,46 @@ export const VAULT_PROVIDER_UPSTREAM_MISSING = {
 } as const satisfies VaultProviderUpstreamPresence;
 
 type VaultProviderUpstreamCarrier = {
-  upstream?: VaultProviderUpstreamPresence;
+  upstream: VaultProviderUpstreamPresence;
 };
 
-export function readVaultProviderUpstreamPresence(
-  row: VaultProviderUpstreamCarrier,
-): VaultProviderUpstreamPresence {
-  return row.upstream ?? VAULT_PROVIDER_UPSTREAM_PRESENT;
+export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
+  return row.upstream.state === "present";
 }
 
-export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
-  return readVaultProviderUpstreamPresence(row).state === "present";
-}
+export const vVaultWorkersDevAvailability = union(
+  object({
+    state: literal("available"),
+    url: string(),
+  }),
+  object({
+    state: literal("disabled"),
+  }),
+  object({
+    state: literal("unknown"),
+  }),
+);
+export type VaultWorkersDevAvailability = Infer<typeof vVaultWorkersDevAvailability>;
+
+export const vVaultCloudflareWorkerCreationLifecycle = union(
+  object({
+    state: literal("creating"),
+  }),
+  object({
+    state: literal("created"),
+    workerTag: string(),
+  }),
+);
+
+export const vVaultConvexProjectCreationLifecycle = union(
+  object({
+    state: literal("creating"),
+  }),
+  object({
+    state: literal("created"),
+    projectId: string(),
+  }),
+);
 
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
@@ -182,6 +208,12 @@ export const vVaultCloudflareBuilds = union(
   vVaultCloudflareConnectedBuilds,
 );
 
+/**
+ * Whether the stored deploy-key pair finished applying to its recorded
+ * provider targets. This is provider cleanup evidence, not current
+ * relationship truth. Call `isWorkerDeploymentDependencyCurrentlyWired` with
+ * the attached deployment before presenting the relationship as wired.
+ */
 export const vVaultWorkerDeploymentWiring = union(
   object({
     state: literal("not_wired"),
@@ -214,6 +246,51 @@ export const vaultAppResourceTables = {
     .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
 
   /**
+   * Durable ownership reserved before Samebase asks Cloudflare to create a
+   * Worker. `creating` deliberately means the provider call may or may not
+   * have succeeded. A validated provider response advances the claim to
+   * `created`; successful Worker attachment consumes the claim atomically.
+   */
+  vaultCloudflareWorkerCreationClaims: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+    runId: id("appProvisioningRuns"),
+    accountId: string(),
+    workerName: string(),
+    lifecycle: vVaultCloudflareWorkerCreationLifecycle,
+    createdAt: number(),
+    updatedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_run", ["runId"])
+    .index("by_account_and_worker", ["accountId", "workerName"])
+    .index("by_account_and_worker_tag", ["accountId", "lifecycle.workerTag"]),
+
+  /**
+   * Durable ownership reserved before Samebase asks Convex to create a
+   * project. The claim remains separate from an attached production
+   * deployment and is consumed only when that deployment is attached.
+   */
+  vaultConvexProjectCreationClaims: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+    runId: id("appProvisioningRuns"),
+    teamId: string(),
+    projectName: string(),
+    lifecycle: vVaultConvexProjectCreationLifecycle,
+    createdAt: number(),
+    updatedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_run", ["runId"])
+    .index("by_team_and_project_name", ["teamId", "projectName"])
+    .index("by_project", ["lifecycle.projectId"]),
+
+  /**
    * Cloudflare Worker resources attached to stable app identities. More than
    * one Worker may attach to the same app.
    */
@@ -224,9 +301,9 @@ export const vaultAppResourceTables = {
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    workersDevUrl: optional(string()),
+    workersDev: vVaultWorkersDevAvailability,
     origin: vVaultCloudflareOrigin,
-    upstream: optional(vVaultProviderUpstreamPresence),
+    upstream: vVaultProviderUpstreamPresence,
     builds: vVaultCloudflareBuilds,
     connectedAt: number(),
     lastObservedAt: number(),
@@ -234,7 +311,8 @@ export const vaultAppResourceTables = {
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_app", ["appId"])
-    .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
+    .index("by_account_and_worker", ["accountId", "workerName"])
+    .index("by_account_and_worker_tag", ["accountId", "workerTag"]),
 
   /**
    * Convex production deployment resources attached to stable app identities.
@@ -248,6 +326,7 @@ export const vaultAppResourceTables = {
     vaultId: id("vaults"),
     userId: id("users"),
     appId: id("vaultApps"),
+    teamId: string(),
     projectId: string(),
     teamSlug: string(),
     projectSlug: string(),
@@ -255,15 +334,15 @@ export const vaultAppResourceTables = {
     deploymentType: literal("prod"),
     cloudUrl: string(),
     siteUrl: string(),
-    origin: vVaultConvexOrigin,
-    upstream: optional(vVaultProviderUpstreamPresence),
+    origin: union(literal("provisioned"), literal("selected_existing")),
+    upstream: vVaultProviderUpstreamPresence,
     connectedAt: number(),
     lastObservedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_app", ["appId"])
-    .index("by_vault_and_project", ["vaultId", "projectId"]),
+    .index("by_project", ["projectId"]),
 
   /**
    * An explicit build-time dependency from one Worker to one Convex

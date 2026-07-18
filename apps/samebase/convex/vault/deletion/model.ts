@@ -100,16 +100,13 @@ const providerCleanupPlan = {
       ),
     }),
     object({
-      action: literal("delete_project"),
-      projectId: string(),
-    }),
-    object({
       action: literal("delete_projects"),
-      projectIds: array(string()),
-    }),
-    object({
-      action: literal("delete_deployment"),
-      deploymentName: string(),
+      projects: array(
+        object({
+          teamId: string(),
+          projectId: string(),
+        }),
+      ),
     }),
   ),
   cloudflare: union(

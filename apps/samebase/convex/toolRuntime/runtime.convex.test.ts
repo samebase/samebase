@@ -31,9 +31,11 @@ describe("toolRuntime scope enforcement", () => {
         createdAt: 1,
       });
       const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId: seededVaultId,
         userId: seededUserId,
         appId,
+        teamId: "convex-team",
         projectId: "project_1",
         teamSlug: "ada",
         projectSlug: "project-1",
@@ -46,6 +48,8 @@ describe("toolRuntime scope enforcement", () => {
         lastObservedAt: 1,
       });
       const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        workersDev: { state: "unknown" },
+        upstream: { state: "present" },
         vaultId: seededVaultId,
         userId: seededUserId,
         appId,

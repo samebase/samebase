@@ -258,8 +258,12 @@ const fixtureDeleteDialogTarget = {
   canRemoveGithubRepo: true,
   hasConvexProvision: true,
   hasCloudflareProvision: true,
+  hasUnresolvedConvexCreation: false,
+  hasUnresolvedCloudflareCreation: false,
   canRemoveConvexProvision: true,
   canRemoveCloudflareProvision: true,
+  removableConvexProjectCount: 1,
+  removableCloudflareWorkerCount: 3,
 } satisfies VaultDeleteDialogTarget;
 
 function FixtureVaultLastUpdatedStatusCard() {
@@ -567,8 +571,12 @@ const LIST_SPACING_VAULT = {
   hasConnectedGitHubRepository: true,
   hasConvexProvision: true,
   hasCloudflareProvision: true,
+  hasUnresolvedConvexCreation: false,
+  hasUnresolvedCloudflareCreation: false,
   canRemoveConvexProvision: true,
   canRemoveCloudflareProvision: true,
+  removableConvexProjectCount: 1,
+  removableCloudflareWorkerCount: 3,
   apps: [
     { appId: DOMAIN_ROUTER_APP_ID, rootDirectory: "apps/domain-router" },
     { appId: MOBILE_APP_ID, rootDirectory: "apps/mobile" },
@@ -583,7 +591,7 @@ const LIST_SPACING_VAULT = {
       upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "domain-router",
-      workersDevUrl: "https://domain-router.nicu.workers.dev",
+      workersDev: { state: "available", url: "https://domain-router.nicu.workers.dev" },
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/deployments",
     },
@@ -594,7 +602,7 @@ const LIST_SPACING_VAULT = {
       upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "samebase-worker",
-      workersDevUrl: "https://samebase-worker.nicu.workers.dev",
+      workersDev: { state: "available", url: "https://samebase-worker.nicu.workers.dev" },
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/deployments",
     },
@@ -605,7 +613,10 @@ const LIST_SPACING_VAULT = {
       upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 12_000,
       workerName: "samebase-posthog-proxy",
-      workersDevUrl: "https://samebase-posthog-proxy.nicu.workers.dev",
+      workersDev: {
+        state: "available",
+        url: "https://samebase-posthog-proxy.nicu.workers.dev",
+      },
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-posthog-proxy/production/deployments",
     },
@@ -687,7 +698,10 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
       upstream: { state: "present" },
       lastObservedAt: FIXTURE_NOW - 2_000,
       workerName: "tmp-my-super-app-234",
-      workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
+      workersDev: {
+        state: "available",
+        url: "https://tmp-my-super-app-234.pfp.workers.dev",
+      },
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/tmp-my-super-app-234/production/deployments",
     },

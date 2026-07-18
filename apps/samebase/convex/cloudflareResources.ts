@@ -9,6 +9,7 @@ import {
 import type { components, Readable, Writable } from "./cloudflareApi/types.generated";
 import { clamp, toErrorMessage } from "./jsonUtils";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
+import type { VaultWorkersDevAvailability } from "./vault/model";
 
 export {
   CloudflareApiError,
@@ -173,7 +174,7 @@ export function buildCloudflareWorkerDeploymentEnvVars(
 type CloudflareWorkerIdentity = {
   workerName: string;
   workerTag: string;
-  workersDevUrl?: string;
+  workersDev: VaultWorkersDevAvailability;
 };
 
 export type CloudflareWorkerInventoryItem = {
@@ -236,9 +237,9 @@ export type CloudflareWorkerDiscoveryItem = CloudflareWorkerInventoryItem & {
   discovery: CloudflareWorkerRepositoryDiscovery;
 };
 
-export type ExistingCloudflareWorkerIdentity =
-  | { state: "planned" }
-  | { state: "created"; workerTag: string };
+export type CloudflareWorkerCreationResult = CloudflareWorkerIdentity & {
+  outcome: "confirmed_created" | "recovered_existing";
+};
 
 export function buildCloudflareWorkerCreateBody(workerName: string): CloudflareWorkerCreateBody {
   return {
@@ -410,21 +411,24 @@ async function readWorker(
   }
 }
 
-export async function readOptionalWorkersDevUrl(
+export async function readWorkersDevAvailability(
   args: {
     token: string;
     accountId: string;
     workerName: string;
   } & CloudflareApiCallOptions,
-): Promise<string | undefined> {
+): Promise<VaultWorkersDevAvailability> {
   try {
     if (!(await readWorkerSubdomainEnabled(args))) {
-      return undefined;
+      return { state: "disabled" };
     }
     const accountSubdomain = await readAccountSubdomain(args);
-    return `https://${args.workerName}.${accountSubdomain}.workers.dev`;
+    return {
+      state: "available",
+      url: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
+    };
   } catch {
-    return undefined;
+    return { state: "unknown" };
   }
 }
 
@@ -445,7 +449,8 @@ export function readCloudflareWorkerTag(
   // New Workers services do not appear in /workers/scripts until they have a
   // script version, but the Workers service id is the same external_script_id
   // that Workers Builds calls the worker tag.
-  const workerTag = worker.id ?? worker.external_script_id ?? worker.tag;
+  const workerTag =
+    worker.id && worker.id !== workerName ? worker.id : (worker.external_script_id ?? worker.tag);
   if (workerTag) {
     return workerTag;
   }
@@ -730,53 +735,25 @@ export async function readCloudflareWorkerRepositoryDiscovery(
   });
 }
 
-export async function createCloudflareWorker(args: {
-  token: string;
-  accountId: string;
-  workerName: string;
-  transport: CloudflareApiTransport;
-}): Promise<CloudflareWorkerIdentity> {
-  return await ensureWorker({
-    token: args.token,
-    accountId: args.accountId,
-    workerName: args.workerName,
-    transport: args.transport,
-    existingWorker: {
-      state: "created",
-      workerTag: "",
-    },
-  });
-}
-
-async function ensureWorker(
+export async function createOrRecoverCloudflareWorker(
   args: {
     token: string;
     accountId: string;
     workerName: string;
-    existingWorker: ExistingCloudflareWorkerIdentity;
   } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkerIdentity> {
+): Promise<CloudflareWorkerCreationResult> {
   const existing = await readWorker({
     token: args.token,
     accountId: args.accountId,
     workerName: args.workerName,
     transport: args.transport,
-    recordApiCall: args.recordApiCall,
   });
   if (existing) {
-    const workerTag = readCloudflareWorkerTag(existing, args.workerName);
-    if (args.existingWorker.state === "created" && args.existingWorker.workerTag !== workerTag) {
-      throw new Error(
-        `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
-      );
-    }
-    // The planned target owns the Worker name before provider writes. If the
-    // previous run created the Worker but failed before recording its tag, retry
-    // uses Cloudflare's identity as the missing checkpoint.
     return {
       workerName: args.workerName,
-      workerTag,
-      workersDevUrl: await readOptionalWorkersDevUrl(args),
+      workerTag: readCloudflareWorkerTag(existing, args.workerName),
+      workersDev: await readWorkersDevAvailability(args),
+      outcome: "recovered_existing",
     };
   }
 
@@ -801,7 +778,45 @@ async function ensureWorker(
   return {
     workerName: args.workerName,
     workerTag,
-    workersDevUrl: await readOptionalWorkersDevUrl(args),
+    workersDev: await readWorkersDevAvailability(args),
+    outcome: "confirmed_created",
+  };
+}
+
+export async function readConfirmedCloudflareWorker(args: {
+  token: string;
+  accountId: string;
+  workerName: string;
+  workerTag: string;
+  transport: CloudflareApiTransport;
+}): Promise<CloudflareWorkerCreationResult | null> {
+  const existing = await readWorker({
+    token: args.token,
+    accountId: args.accountId,
+    workerName: args.workerTag,
+    transport: args.transport,
+  });
+  if (!existing) {
+    return null;
+  }
+  const currentWorkerName = existing.name.trim();
+  if (!currentWorkerName) {
+    throw new Error(
+      `Cloudflare Worker ${args.workerTag} response did not include the current Worker name.`,
+    );
+  }
+  const currentWorkerTag = readCloudflareWorkerTag(existing, currentWorkerName);
+  if (currentWorkerTag !== args.workerTag) {
+    throw new Error(`Cloudflare Worker ${args.workerTag} returned a different Worker identity.`);
+  }
+  return {
+    workerName: currentWorkerName,
+    workerTag: currentWorkerTag,
+    workersDev: await readWorkersDevAvailability({
+      ...args,
+      workerName: currentWorkerName,
+    }),
+    outcome: "confirmed_created",
   };
 }
 
@@ -1815,12 +1830,16 @@ type BlockVerification =
 export type CloudflareWorkerInfrastructureVerificationResult =
   | {
       worker: "confirmed";
+      workerName: string;
+      workersDev: VaultWorkersDevAvailability;
       builds: "adopted";
       connectedBuilds: CloudflareConnectedWorkersBuilds;
       convexBuildAccess: CloudflareInfrastructureVerificationConvexBuildAccessResult;
     }
   | {
       worker: "confirmed" | "missing_upstream";
+      workerName: string;
+      workersDev: VaultWorkersDevAvailability;
       builds: "confirmed" | "contradicted" | "not_checked";
       convexBuildAccess: CloudflareInfrastructureVerificationConvexBuildAccessResult;
     };
@@ -2347,8 +2366,52 @@ export async function verifyCloudflareWorkerInfrastructure(
   });
 
   const transport = resolveCloudflareApiTransport(args.cloudflareAuthMethod);
-  let step = "read_build_triggers";
+  let step = "read_worker";
+  let confirmedWorker: {
+    worker: "confirmed";
+    workerName: string;
+    workersDev: VaultWorkersDevAvailability;
+  } | null = null;
   try {
+    const worker = await readWorker({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      workerName: args.workerTag,
+      transport,
+      recordApiCall: args.recordApiCall,
+    });
+    if (!worker) {
+      return {
+        worker: "missing_upstream",
+        workerName: args.workerName,
+        workersDev: { state: "unknown" },
+        builds: "not_checked",
+        convexBuildAccess: "not_checked",
+      };
+    }
+    const workerName = worker.name.trim();
+    if (!workerName) {
+      throw new Error(
+        `Cloudflare Worker ${args.workerTag} response did not include the current Worker name.`,
+      );
+    }
+    const workerTag = readCloudflareWorkerTag(worker, workerName);
+    if (workerTag !== args.workerTag) {
+      throw new Error(`Cloudflare Worker ${args.workerTag} returned a different Worker identity.`);
+    }
+    const workersDev = await readWorkersDevAvailability({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      workerName,
+      transport,
+      recordApiCall: args.recordApiCall,
+    });
+    confirmedWorker = {
+      worker: "confirmed" as const,
+      workerName,
+      workersDev,
+    };
+    step = "read_build_triggers";
     const triggers = await listBuildTriggers({
       token: args.cloudflareToken,
       accountId: args.accountId,
@@ -2374,7 +2437,7 @@ export async function verifyCloudflareWorkerInfrastructure(
           workerTag: args.workerTag,
         });
         return {
-          worker: "confirmed",
+          ...confirmedWorker,
           builds: "not_checked",
           convexBuildAccess: "not_checked",
         };
@@ -2386,7 +2449,7 @@ export async function verifyCloudflareWorkerInfrastructure(
           workerTag: args.workerTag,
         });
         return {
-          worker: "confirmed",
+          ...confirmedWorker,
           builds: "contradicted",
           convexBuildAccess: "not_checked",
         };
@@ -2404,14 +2467,14 @@ export async function verifyCloudflareWorkerInfrastructure(
       });
       if (buildsResult.builds === "adopted") {
         return {
-          worker: "confirmed",
+          ...confirmedWorker,
           builds: "adopted",
           connectedBuilds: buildsResult.build,
           convexBuildAccess: "not_checked",
         };
       }
       return {
-        worker: "confirmed",
+        ...confirmedWorker,
         builds: "confirmed",
         convexBuildAccess: "not_checked",
       };
@@ -2448,14 +2511,14 @@ export async function verifyCloudflareWorkerInfrastructure(
     });
     if (buildsResult.builds === "adopted") {
       return {
-        worker: "confirmed",
+        ...confirmedWorker,
         builds: "adopted",
         connectedBuilds: buildsResult.build,
         convexBuildAccess,
       };
     }
     return {
-      worker: "confirmed",
+      ...confirmedWorker,
       builds: "confirmed",
       convexBuildAccess,
     };
@@ -2464,6 +2527,9 @@ export async function verifyCloudflareWorkerInfrastructure(
       step === "read_build_environment_variables" &&
       isCloudflareBuildTriggerNotFoundError(error)
     ) {
+      if (!confirmedWorker) {
+        throw error;
+      }
       console.log("infra:cloudflare:verify:build_trigger_missing_upstream", {
         vaultId: args.vaultId,
         accountId: args.accountId,
@@ -2471,7 +2537,7 @@ export async function verifyCloudflareWorkerInfrastructure(
         workerTag: args.workerTag,
       });
       return {
-        worker: "confirmed",
+        ...confirmedWorker,
         builds: "contradicted",
         convexBuildAccess: "not_checked",
       };
@@ -2485,6 +2551,8 @@ export async function verifyCloudflareWorkerInfrastructure(
       });
       return {
         worker: verifyAttachedCloudflareWorker({ workerExists: false }),
+        workerName: args.workerName,
+        workersDev: { state: "unknown" },
         builds: "not_checked",
         convexBuildAccess: "not_checked",
       };
@@ -2866,6 +2934,22 @@ async function deleteCloudflareBuildTrigger(args: {
 export async function deleteCloudflareResources(
   args: DeleteCloudflareResourcesArgs,
 ): Promise<void> {
+  const worker = await readWorker({
+    token: args.cloudflareToken,
+    transport: args.transport,
+    accountId: args.accountId,
+    workerName: args.workerTag,
+  });
+  if (!worker) {
+    return;
+  }
+  const currentWorkerName = worker.name.trim() || args.workerName;
+  const currentWorkerTag = readCloudflareWorkerTag(worker, currentWorkerName);
+  if (currentWorkerTag !== args.workerTag) {
+    throw new Error(
+      `Cloudflare Worker ${args.workerTag} returned tag ${currentWorkerTag}. Refusing to delete a different Worker.`,
+    );
+  }
   await deleteCloudflareWorkerBuildTriggersBeforeWorkerDeletion(args);
   await requestCloudflareApi({
     token: args.cloudflareToken,
@@ -2875,7 +2959,7 @@ export async function deleteCloudflareResources(
     params: {
       path: {
         account_id: args.accountId,
-        worker_id: args.workerName,
+        worker_id: args.workerTag,
       },
     },
   });

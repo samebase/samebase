@@ -592,12 +592,27 @@ export default defineSchema({
       "lifecycle.notBefore",
     ]),
 
-  /** Immutable provider-create plan for a Samebase-managed app. */
+  /** Managed create intent plus its resolved Cloudflare Worker pointer. */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
     appId: id("vaultApps"),
-    convex: object({ projectName: string() }),
-    cloudflare: object({ accountId: string(), workerName: string() }),
+    convex: object({
+      teamId: string(),
+      projectName: string(),
+    }),
+    cloudflare: union(
+      object({
+        state: literal("planned"),
+        accountId: string(),
+        workerName: string(),
+      }),
+      object({
+        state: literal("attached"),
+        accountId: string(),
+        workerName: string(),
+        workerId: id("vaultCloudflareWorkers"),
+      }),
+    ),
     createdAt: number(),
   }).index("by_vault", ["vaultId"]),
 
@@ -627,13 +642,6 @@ export default defineSchema({
     // exists first so early events can still be linked deterministically.
     workflowId: optional(string()),
     trigger: vAppProvisioningRunTrigger,
-    createdConvexProject: optional(
-      object({
-        projectName: string(),
-        projectId: string(),
-        projectSlug: string(),
-      }),
-    ),
     state: vAppProvisioningRunState,
     currentStep: vAppProvisioningRunStep,
     lastError: optional(string()),

@@ -59,6 +59,7 @@ describe("infra read app targeting", () => {
         vaultId: ids.vaultId,
         userId: ids.userId,
         appId: ids.appId,
+        teamId: "convex-team",
         projectId: "deleted-project",
         teamSlug: "ada-team",
         projectSlug: "deleted-project",
@@ -84,6 +85,7 @@ describe("infra read app targeting", () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
       await ctx.db.insert("vaultCloudflareWorkers", {
+        workersDev: { state: "unknown" },
         vaultId: ids.vaultId,
         userId: ids.userId,
         appId: ids.appId,
@@ -116,9 +118,11 @@ describe("infra read app targeting", () => {
           createdAt: 30,
         });
         await ctx.db.insert("vaultConvexDeployments", {
+          upstream: { state: "present" },
           vaultId: ids.vaultId,
           userId: ids.userId,
           appId,
+          teamId: "convex-team",
           projectId: `${rootDirectory}-project`,
           teamSlug: "ada-team",
           projectSlug: rootDirectory.replace("/", "-"),
@@ -153,13 +157,17 @@ describe("infra read app targeting", () => {
           createdAt: 30,
         });
         await ctx.db.insert("vaultCloudflareWorkers", {
+          upstream: { state: "present" },
           vaultId: ids.vaultId,
           userId: ids.userId,
           appId,
           accountId: "cloudflare-account",
           workerName: rootDirectory.replace("/", "-"),
           workerTag: `${rootDirectory.replace("/", "-")}-tag`,
-          workersDevUrl: `https://${rootDirectory.replace("/", "-")}.nicu.workers.dev`,
+          workersDev: {
+            state: "available",
+            url: `https://${rootDirectory.replace("/", "-")}.nicu.workers.dev`,
+          },
           origin: "selected_existing",
           builds: { state: "not_connected" },
           connectedAt: 30,

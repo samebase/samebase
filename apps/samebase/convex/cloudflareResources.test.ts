@@ -13,6 +13,7 @@ import {
   CloudflareApiError,
   type CloudflareConnectedWorkersBuilds,
   classifyCloudflareWorkerRepositoryDiscovery,
+  deleteCloudflareResources,
   isCloudflareGitHubAppRepositoryAuthorizationError,
   isCloudflareBuildTriggerNotFoundError,
   isCloudflareMcpInvalidAccessTokenError,
@@ -20,6 +21,7 @@ import {
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerRepositoryDiscovery,
   readCloudflareWorkerTag,
+  readWorkersDevAvailability,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
   verifyCloudflareWorkerInfrastructure,
@@ -83,8 +85,13 @@ const cloudflareWorkerSubdomainDisabledEnvelope = JSON.stringify({
   success: true,
   errors: [],
   messages: [],
-  result: { enabled: false },
+  result: { enabled: false, previews_enabled: false },
 });
+const confirmedWorkerVerification = {
+  worker: "confirmed",
+  workerName: "samebase-app",
+  workersDev: { state: "disabled" },
+} as const;
 
 function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
   typeof wireCloudflareWorkerBuilds
@@ -371,6 +378,22 @@ function stubEnsureCloudflareResourcesFetch(args: {
       }
 
       switch (endpoint) {
+        case "/client/v4/accounts/account-id/workers/workers/worker-tag":
+          if (args.missingWorker) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                errors: [{ code: 10007, message: "Worker not found" }],
+                messages: [],
+                result: null,
+              }),
+              { status: 404, headers: { "Content-Type": "application/json" } },
+            );
+          }
+          return new Response(cloudflareWorkerReadEnvelope, {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
         case "/client/v4/accounts/account-id/workers/workers/samebase-app":
           return new Response(cloudflareWorkerReadEnvelope, {
             status: 200,
@@ -454,6 +477,55 @@ afterEach(() => {
 });
 
 describe("cloudflare resources", () => {
+  it("distinguishes an intentionally disabled workers.dev URL", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(cloudflareWorkerSubdomainDisabledEnvelope, {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+
+    await expect(
+      readWorkersDevAvailability({
+        token: "oauth-token",
+        accountId: "account-id",
+        workerName: "samebase-app",
+        transport: "direct",
+      }),
+    ).resolves.toEqual({ state: "disabled" });
+  });
+
+  it("records workers.dev availability as unknown when Cloudflare cannot answer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              errors: [{ code: 10000, message: "Authentication error" }],
+              messages: [],
+              result: null,
+            }),
+            { status: 403, headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+
+    await expect(
+      readWorkersDevAvailability({
+        token: "oauth-token",
+        accountId: "account-id",
+        workerName: "samebase-app",
+        transport: "direct",
+      }),
+    ).resolves.toEqual({ state: "unknown" });
+  });
+
   it("classifies trigger not-found errors separately from Worker not-found errors", () => {
     const triggerError = new CloudflareApiError({
       method: "GET",
@@ -558,7 +630,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "confirmed",
       convexBuildAccess: "confirmed",
     });
@@ -614,7 +686,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: false,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "adopted",
       connectedBuilds: {
         state: "connected",
@@ -673,7 +745,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toMatchObject({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "adopted",
       convexBuildAccess: "contradicted",
     });
@@ -729,7 +801,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: false,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "not_checked",
       convexBuildAccess: "not_checked",
     });
@@ -753,7 +825,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: false,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "not_checked",
       convexBuildAccess: "not_checked",
     });
@@ -775,6 +847,8 @@ describe("cloudflare resources", () => {
       }),
     ).resolves.toEqual({
       worker: "missing_upstream",
+      workerName: "samebase-app",
+      workersDev: { state: "unknown" },
       builds: "not_checked",
       convexBuildAccess: "not_checked",
     });
@@ -795,7 +869,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "contradicted",
       convexBuildAccess: "not_checked",
     });
@@ -803,6 +877,10 @@ describe("cloudflare resources", () => {
 
   it("contradicts Builds when MCP reports a missing trigger", async () => {
     callCloudflareMcpToolMock
+      .mockResolvedValueOnce(cloudflareMcpSuccessResult(buildCloudflareWorkerListItem()))
+      .mockResolvedValueOnce(
+        cloudflareMcpSuccessResult({ enabled: false, previews_enabled: false }),
+      )
       .mockResolvedValueOnce(
         cloudflareMcpSuccessResult([
           buildMatchingProductionTrigger(),
@@ -822,15 +900,19 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "contradicted",
       convexBuildAccess: "not_checked",
     });
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(3);
+    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(5);
   });
 
   it("does not classify an MCP timeout as a missing trigger", async () => {
     callCloudflareMcpToolMock
+      .mockResolvedValueOnce(cloudflareMcpSuccessResult(buildCloudflareWorkerListItem()))
+      .mockResolvedValueOnce(
+        cloudflareMcpSuccessResult({ enabled: false, previews_enabled: false }),
+      )
       .mockResolvedValueOnce(
         cloudflareMcpSuccessResult([
           buildMatchingProductionTrigger(),
@@ -876,7 +958,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: false,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "contradicted",
       convexBuildAccess: "not_checked",
     });
@@ -895,7 +977,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "contradicted",
       convexBuildAccess: "not_checked",
     });
@@ -924,7 +1006,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "contradicted",
       convexBuildAccess: "not_checked",
     });
@@ -965,7 +1047,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "confirmed",
       convexBuildAccess: "contradicted",
     });
@@ -998,7 +1080,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "confirmed",
       convexBuildAccess: "contradicted",
     });
@@ -1033,7 +1115,7 @@ describe("cloudflare resources", () => {
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
-      worker: "confirmed",
+      ...confirmedWorkerVerification,
       builds: "confirmed",
       convexBuildAccess: "confirmed",
     });
@@ -1445,6 +1527,131 @@ describe("cloudflare resources", () => {
         "samebase-app",
       ),
     ).toBe("worker-tag");
+  });
+
+  it("uses the immutable tag when a Worker list item id is its name", () => {
+    expect(
+      readCloudflareWorkerTag(
+        {
+          id: "samebase-app",
+          name: "samebase-app",
+          tag: "worker-tag",
+        },
+        "samebase-app",
+      ),
+    ).toBe("worker-tag");
+  });
+
+  it("deletes only the Cloudflare Worker with the recorded immutable id", async () => {
+    const requests: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+        const path = new URL(url).pathname;
+        requests.push({ method, path });
+        if (method === "GET" && path.endsWith("/workers/workers/worker-tag")) {
+          return new Response(cloudflareWorkerReadEnvelope, {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (method === "GET" && path.endsWith("/builds/workers/worker-tag/triggers")) {
+          return cloudflareSuccessResponse([{ trigger_uuid: "trigger-1" }]);
+        }
+        if (method === "DELETE") {
+          return cloudflareSuccessResponse(null);
+        }
+        return new Response("unexpected request", { status: 500 });
+      }),
+    );
+
+    await deleteCloudflareResources({
+      accountId: "account-id",
+      workerName: "stale-name-is-not-used-for-deletion",
+      workerTag: "worker-tag",
+      cloudflareToken: "oauth-token",
+      transport: "direct",
+    });
+
+    expect(requests).toContainEqual({
+      method: "DELETE",
+      path: "/client/v4/accounts/account-id/builds/triggers/trigger-1",
+    });
+    expect(requests).toContainEqual({
+      method: "DELETE",
+      path: "/client/v4/accounts/account-id/workers/workers/worker-tag",
+    });
+  });
+
+  it("treats a missing immutable Worker id as already deleted", async () => {
+    const requests: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+        const path = new URL(url).pathname;
+        requests.push({ method, path });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          }),
+          { status: 404, headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
+
+    await expect(
+      deleteCloudflareResources({
+        accountId: "account-id",
+        workerName: "replacement-with-reused-name",
+        workerTag: "deleted-worker-tag",
+        cloudflareToken: "oauth-token",
+        transport: "direct",
+      }),
+    ).resolves.toBeUndefined();
+    expect(requests).toEqual([
+      {
+        method: "GET",
+        path: "/client/v4/accounts/account-id/workers/workers/deleted-worker-tag",
+      },
+    ]);
+  });
+
+  it("refuses deletion when Cloudflare returns a different immutable Worker id", async () => {
+    const requests: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+        const path = new URL(url).pathname;
+        requests.push({ method, path });
+        return cloudflareSuccessResponse(
+          buildCloudflareWorkerListItem({
+            id: "different-worker-tag",
+            name: "replacement-worker",
+            tag: "different-worker-tag",
+          }),
+        );
+      }),
+    );
+
+    await expect(
+      deleteCloudflareResources({
+        accountId: "account-id",
+        workerName: "samebase-app",
+        workerTag: "worker-tag",
+        cloudflareToken: "oauth-token",
+        transport: "direct",
+      }),
+    ).rejects.toThrow("Refusing to delete a different Worker");
+    expect(requests.every((request) => request.method === "GET")).toBe(true);
   });
 
   it("recognizes Workers Builds invalid token failures from MCP errors", () => {

@@ -435,10 +435,10 @@ async function checkConvexProjectNameAvailability(
     userId: Id<"users">;
     projectName: string;
   },
-): Promise<AppResourceNameAvailability> {
+): Promise<{ availability: AppResourceNameAvailability; teamId: string | null }> {
   const validation = validateCreateResourceName("convex", args.projectName);
   if (!validation.valid) {
-    return validation.availability;
+    return { availability: validation.availability, teamId: null };
   }
   const projectName = validation.value;
 
@@ -458,22 +458,28 @@ async function checkConvexProjectNameAvailability(
     }
 
     if (!unavailableNames.has(projectName)) {
-      return buildAvailableResult();
+      return { availability: buildAvailableResult(), teamId: convexTeamId };
     }
 
-    return buildTakenResult({
-      providerLabel: "Convex project",
-      suggestion: buildNumberedSuggestionFromUnavailableNames({
-        provider: "convex",
-        baseName: projectName,
-        unavailableNames,
+    return {
+      availability: buildTakenResult({
+        providerLabel: "Convex project",
+        suggestion: buildNumberedSuggestionFromUnavailableNames({
+          provider: "convex",
+          baseName: projectName,
+          unavailableNames,
+        }),
       }),
-    });
+      teamId: convexTeamId,
+    };
   } catch (error) {
     console.warn("vault:create:convex_name_check_failed", {
       message: toErrorMessage(error),
     });
-    return buildUnknownResult("Could not check Convex project name.");
+    return {
+      availability: buildUnknownResult("Could not check Convex project name."),
+      teamId: null,
+    };
   }
 }
 
@@ -588,8 +594,9 @@ async function checkCreateResourceNameAvailabilityForUser(
   github: AppResourceNameAvailability;
   convex: AppResourceNameAvailability;
   cloudflare: AppResourceNameAvailability;
+  convexTeamId: string | null;
 }> {
-  const [github, convex, cloudflare] = await Promise.all([
+  const [github, convexResult, cloudflare] = await Promise.all([
     checkGitHubRepositoryNameAvailability(ctx, {
       userId: args.userId,
       owner: args.githubRepositoryOwner,
@@ -605,7 +612,12 @@ async function checkCreateResourceNameAvailabilityForUser(
     }),
   ]);
 
-  return { github, convex, cloudflare };
+  return {
+    github,
+    convex: convexResult.availability,
+    cloudflare,
+    convexTeamId: convexResult.teamId,
+  };
 }
 
 async function resolveGithubConnectionUsername(
@@ -776,6 +788,9 @@ export async function createAppForUser(
   assertResourceNameAvailable("GitHub repository name", resourceNameAvailability.github);
   assertResourceNameAvailable("Convex project name", resourceNameAvailability.convex);
   assertResourceNameAvailable("Cloudflare Worker name", resourceNameAvailability.cloudflare);
+  if (!resourceNameAvailability.convexTeamId) {
+    throw new Error("Convex connection is required to create the project.");
+  }
   const { cloudflareAccountId } = await resolveCloudflareProvisioningConnection(ctx, args.userId);
 
   const visibility = args.private === false ? "public" : "private";
@@ -786,6 +801,7 @@ export async function createAppForUser(
       ghRepoOwner,
       ghRepoName: repoName,
       visibility,
+      convexTeamId: resourceNameAvailability.convexTeamId,
       convexProjectName: convexNameValidation.value,
       cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation.value,
@@ -833,13 +849,18 @@ export const checkCreateRepositoryResourceNames = action({
   }),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    return await checkCreateResourceNameAvailabilityForUser(ctx, {
+    const result = await checkCreateResourceNameAvailabilityForUser(ctx, {
       userId,
       githubRepositoryOwner: args.githubRepositoryOwner,
       githubRepositoryName: args.githubRepositoryName,
       convexProjectName: args.convexProjectName,
       cloudflareWorkerName: args.cloudflareWorkerName,
     });
+    return {
+      github: result.github,
+      convex: result.convex,
+      cloudflare: result.cloudflare,
+    };
   },
 });
 

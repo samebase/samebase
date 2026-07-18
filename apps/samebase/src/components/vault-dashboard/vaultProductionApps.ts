@@ -87,7 +87,7 @@ export function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranc
   const appsById = new Map(vault.apps.map((app) => [app.appId, app]));
   const cloudflareLinks: VaultBranchProductionLinkInput[] = vault.cloudflareWorkers.flatMap(
     (worker) => {
-      if (worker.upstream.state !== "present" || !worker.workersDevUrl) {
+      if (worker.upstream.state !== "present" || worker.workersDev.state !== "available") {
         return [];
       }
       const app = appsById.get(worker.appId);
@@ -97,8 +97,8 @@ export function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranc
       return [
         {
           appId: worker.appId,
-          href: worker.workersDevUrl,
-          label: buildVaultBranchProductionUrlLabel(worker.workersDevUrl),
+          href: worker.workersDev.url,
+          label: buildVaultBranchProductionUrlLabel(worker.workersDev.url),
           provider: "cloudflare",
           sortKey: worker.workerName,
           title:

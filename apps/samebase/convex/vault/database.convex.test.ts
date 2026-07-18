@@ -89,9 +89,11 @@ async function seedDatabaseEditorVault(
       createdAt: 25,
     });
     const deploymentId = await ctx.db.insert("vaultConvexDeployments", {
+      upstream: { state: "present" },
       vaultId,
       userId,
       appId,
+      teamId: "convex-team",
       projectId: "convex-project-id",
       teamSlug: "ada-team",
       projectSlug: "demo",

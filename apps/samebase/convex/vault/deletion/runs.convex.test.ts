@@ -51,9 +51,11 @@ async function createExistingRepositoryVaultWithConvex(args: {
       createdAt: 13,
     });
     const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+      upstream: { state: "present" },
       vaultId,
       userId,
       appId,
+      teamId: "convex-team",
       projectId: "convex-project",
       teamSlug: "ada-team",
       projectSlug: "manual-convex",
@@ -147,9 +149,11 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
     });
     if (args.withDeployment) {
       await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
+        teamId: "convex-team",
         projectId: "convex-project",
         teamSlug: "ada-team",
         projectSlug: "managed-convex",
@@ -163,10 +167,14 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
       });
     }
 
-    return { userId, vaultId };
+    return { appId, userId, vaultId };
   });
 
-  return { ids, t };
+  return {
+    ids: { userId: ids.userId, vaultId: ids.vaultId },
+    resources: { appId: ids.appId },
+    t,
+  };
 }
 
 async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
@@ -193,16 +201,11 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
       updatedAt: 20,
       completedAt: 20,
     });
-    await ctx.db.insert("appProvisioningRuns", {
+    const failedRunId = await ctx.db.insert("appProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
       trigger: "connect_convex_deployment",
-      createdConvexProject: {
-        projectName: "manual-convex",
-        projectId: "created-convex-project",
-        projectSlug: "manual-convex",
-      },
       state: "failed",
       currentStep: "attach_convex",
       lastError: "Convex project attach failed.",
@@ -222,6 +225,26 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
+    });
+    const appId = await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      rootDirectory,
+      createdAt: 13,
+    });
+    await ctx.db.insert("vaultConvexProjectCreationClaims", {
+      vaultId,
+      userId,
+      appId,
+      runId: failedRunId,
+      teamId: "team-id",
+      projectName: "manual-convex",
+      lifecycle: {
+        state: "created",
+        projectId: "created-convex-project",
+      },
+      createdAt: 30,
+      updatedAt: 40,
     });
     await ctx.db.insert("providerConnections", {
       kind: "convex",
@@ -265,6 +288,8 @@ async function createExistingRepositoryVaultWithCloudflareWorker(args: {
       updatedAt: 15,
     });
     await ctx.db.insert("vaultCloudflareWorkers", {
+      workersDev: { state: "unknown" },
+      upstream: { state: "present" },
       vaultId: ids.vaultId,
       userId: ids.userId,
       appId: resources.appId,
@@ -320,8 +345,8 @@ describe("vault deletion Convex resource planning", () => {
         state: "retained_for_retry",
         plan: {
           convex: {
-            action: "delete_project",
-            projectId: "convex-project",
+            action: "delete_projects",
+            projects: [{ teamId: "convex-team", projectId: "convex-project" }],
           },
         },
       },
@@ -358,6 +383,8 @@ describe("vault deletion Convex resource planning", () => {
     });
     await t.run(async (ctx) => {
       const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        workersDev: { state: "unknown" },
+        upstream: { state: "present" },
         vaultId: ids.vaultId,
         userId: ids.userId,
         appId: resources.appId,
@@ -475,8 +502,8 @@ describe("vault deletion Convex resource planning", () => {
         state: "retained_for_retry",
         plan: {
           convex: {
-            action: "delete_project",
-            projectId: "created-convex-project",
+            action: "delete_projects",
+            projects: [{ teamId: "team-id", projectId: "created-convex-project" }],
           },
         },
       },
@@ -484,26 +511,35 @@ describe("vault deletion Convex resource planning", () => {
   });
 
   it("deletes recorded created Convex projects before deployment ownership checks", async () => {
-    const { ids, t } = await createSamebaseManagedVaultWithConvex({
+    const { ids, resources, t } = await createSamebaseManagedVaultWithConvex({
       withDeployment: false,
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert("appProvisioningRuns", {
+      const failedRunId = await ctx.db.insert("appProvisioningRuns", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/managed-convex",
         trigger: "connect_convex_deployment",
-        createdConvexProject: {
-          projectName: "manual-convex",
-          projectId: "created-convex-project",
-          projectSlug: "manual-convex",
-        },
         state: "failed",
         currentStep: "attach_convex",
         lastError: "Convex project attach failed.",
         createdAt: 30,
         updatedAt: 40,
         completedAt: 40,
+      });
+      await ctx.db.insert("vaultConvexProjectCreationClaims", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: resources.appId,
+        runId: failedRunId,
+        teamId: "team-id",
+        projectName: "manual-convex",
+        lifecycle: {
+          state: "created",
+          projectId: "created-convex-project",
+        },
+        createdAt: 30,
+        updatedAt: 40,
       });
     });
 
@@ -518,8 +554,8 @@ describe("vault deletion Convex resource planning", () => {
         state: "retained_for_retry",
         plan: {
           convex: {
-            action: "delete_project",
-            projectId: "created-convex-project",
+            action: "delete_projects",
+            projects: [{ teamId: "team-id", projectId: "created-convex-project" }],
           },
         },
       },
@@ -558,8 +594,8 @@ describe("vault deletion Convex resource planning", () => {
         state: "retained_for_retry",
         plan: {
           convex: {
-            action: "delete_project",
-            projectId: "convex-project",
+            action: "delete_projects",
+            projects: [{ teamId: "convex-team", projectId: "convex-project" }],
           },
         },
       },

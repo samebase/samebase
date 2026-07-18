@@ -387,6 +387,8 @@ export function buildVaultDashboardResourceRailState({
       left.workerId.localeCompare(right.workerId),
   );
   for (const worker of sortedCloudflareWorkers) {
+    const workersDevUrl =
+      worker.workersDev.state === "available" ? worker.workersDev.url : undefined;
     const app = appsById.get(worker.appId);
     if (!app) {
       throw new Error("Cloudflare Worker references an unknown app.");
@@ -409,7 +411,7 @@ export function buildVaultDashboardResourceRailState({
         status: "failed",
         value: worker.workerName,
         scope: resolveCloudflareWorkersSubdomain({
-          workersDevUrl: worker.workersDevUrl,
+          workersDevUrl,
           workerName: worker.workerName,
         }),
         actions: [
@@ -477,7 +479,7 @@ export function buildVaultDashboardResourceRailState({
         status: "ready",
         value: worker.workerName,
         scope: resolveCloudflareWorkersSubdomain({
-          workersDevUrl: worker.workersDevUrl,
+          workersDevUrl,
           workerName: worker.workerName,
         }),
         href: worker.projectDashboardUrl,

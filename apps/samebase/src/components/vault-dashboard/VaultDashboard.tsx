@@ -199,8 +199,12 @@ export type VaultDeleteDialogTarget = {
   canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
   hasCloudflareProvision: boolean;
+  hasUnresolvedConvexCreation: boolean;
+  hasUnresolvedCloudflareCreation: boolean;
   canRemoveConvexProvision: boolean;
   canRemoveCloudflareProvision: boolean;
+  removableConvexProjectCount: number;
+  removableCloudflareWorkerCount: number;
 };
 
 type VaultDeleteIntent = VaultDeleteDialogTarget & {
@@ -793,8 +797,12 @@ function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
     canRemoveGithubRepo: vault.isSamebaseManaged && vault.hasConnectedGitHubRepository,
     hasConvexProvision: vault.hasConvexProvision,
     hasCloudflareProvision: vault.hasCloudflareProvision,
+    hasUnresolvedConvexCreation: vault.hasUnresolvedConvexCreation,
+    hasUnresolvedCloudflareCreation: vault.hasUnresolvedCloudflareCreation,
     canRemoveConvexProvision: vault.canRemoveConvexProvision,
     canRemoveCloudflareProvision: vault.canRemoveCloudflareProvision,
+    removableConvexProjectCount: vault.removableConvexProjectCount,
+    removableCloudflareWorkerCount: vault.removableCloudflareWorkerCount,
   };
 }
 
@@ -1001,7 +1009,16 @@ export function VaultDashboardDeleteDialog({
 }) {
   const hasStagedChanges = stagedChangesCount > 0;
   const removeCloudflareCheckboxId = "remove-cloudflare-provision";
-  const removeCloudflareLabel = "Also remove Cloudflare Worker";
+  const removableCloudflareWorkerCount = vaultToDelete?.removableCloudflareWorkerCount ?? 0;
+  const removableConvexProjectCount = vaultToDelete?.removableConvexProjectCount ?? 0;
+  const removeCloudflareLabel =
+    removableCloudflareWorkerCount > 0
+      ? `Also remove all ${removableCloudflareWorkerCount} Samebase-provisioned Cloudflare Worker${removableCloudflareWorkerCount === 1 ? "" : "s"}`
+      : "Also remove Samebase-provisioned Cloudflare Workers";
+  const removeConvexLabel =
+    removableConvexProjectCount > 0
+      ? `Also remove all ${removableConvexProjectCount} Samebase-provisioned Convex project${removableConvexProjectCount === 1 ? "" : "s"}`
+      : "Also remove Samebase-provisioned Convex projects";
   const showCodespacesCleanup =
     CODESPACES_ENABLED && connectedCodespacesCount !== undefined && connectedCodespacesCount > 0;
   const isCodespacesCleanupPending = CODESPACES_ENABLED && connectedCodespacesCount === undefined;
@@ -1068,10 +1085,12 @@ export function VaultDashboardDeleteDialog({
                   className="mt-0.5"
                 />
                 <label htmlFor="remove-convex-provision" className="text-sm text-muted-foreground">
-                  Also remove Convex project/deployment
+                  {removeConvexLabel}
                   {!vaultToDelete.canRemoveConvexProvision ? (
                     <div className="text-xs text-muted-foreground">
-                      Only available for infrastructure provisioned by Samebase.
+                      {vaultToDelete.hasUnresolvedConvexCreation
+                        ? "The project creation result is unresolved. Removing the vault keeps any upstream project that may exist."
+                        : "Only available for infrastructure provisioned by Samebase."}
                     </div>
                   ) : null}
                 </label>
@@ -1097,7 +1116,9 @@ export function VaultDashboardDeleteDialog({
                   {removeCloudflareLabel}
                   {!vaultToDelete.canRemoveCloudflareProvision ? (
                     <div className="text-xs text-muted-foreground">
-                      Only available for Workers created from this app.
+                      {vaultToDelete.hasUnresolvedCloudflareCreation
+                        ? "The Worker creation result is unresolved. Removing the vault keeps any upstream Worker that may exist."
+                        : "Only available for Workers created from this app."}
                     </div>
                   ) : null}
                 </label>

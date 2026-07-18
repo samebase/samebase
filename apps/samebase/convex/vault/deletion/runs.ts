@@ -85,21 +85,32 @@ async function listVaultConvexDeployments(
     .collect();
 }
 
-async function listCreatedConvexProjectIds(
+type ConvexProjectDeletionTarget = {
+  teamId: string;
+  projectId: string;
+};
+
+async function listCreatedConvexProjects(
   ctx: MutationCtx,
   vaultId: Id<"vaults">,
-): Promise<string[]> {
-  const runs = await ctx.db
-    .query("appProvisioningRuns")
-    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
+): Promise<ConvexProjectDeletionTarget[]> {
+  const claims = await ctx.db
+    .query("vaultConvexProjectCreationClaims")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .collect();
-  const projectIds = new Set<string>();
-  for (const run of runs) {
-    if (run.trigger === "connect_convex_deployment" && run.createdConvexProject) {
-      projectIds.add(run.createdConvexProject.projectId);
+  const projects: ConvexProjectDeletionTarget[] = [];
+  for (const claim of claims) {
+    if (claim.lifecycle.state === "creating") {
+      throw new Error(
+        "Convex project creation must be reconciled before the vault can be deleted.",
+      );
     }
+    projects.push({
+      teamId: claim.teamId,
+      projectId: claim.lifecycle.projectId,
+    });
   }
-  return [...projectIds];
+  return projects;
 }
 
 async function assertVaultIsQuiescentForDeletion(
@@ -143,16 +154,24 @@ async function buildCodespacesPlan(
   };
 }
 
-function buildConvexProjectDeletionPlan(projectIds: string[]): VaultDeletionPlan["convex"] | null {
-  const uniqueProjectIds = [...new Set(projectIds)];
-  const [projectId, secondProjectId] = uniqueProjectIds;
-  if (!projectId) {
+function buildConvexProjectDeletionPlan(
+  projects: ConvexProjectDeletionTarget[],
+): VaultDeletionPlan["convex"] | null {
+  const projectsById = new Map<string, ConvexProjectDeletionTarget>();
+  for (const project of projects) {
+    const existing = projectsById.get(project.projectId);
+    if (existing && existing.teamId !== project.teamId) {
+      throw new Error("Convex project ownership evidence has conflicting team IDs.");
+    }
+    projectsById.set(project.projectId, project);
+  }
+  const uniqueProjects = [...projectsById.values()].sort((left, right) =>
+    left.projectId.localeCompare(right.projectId),
+  );
+  if (uniqueProjects.length === 0) {
     return null;
   }
-  if (!secondProjectId) {
-    return { action: "delete_project", projectId };
-  }
-  return { action: "delete_projects", projectIds: uniqueProjectIds };
+  return { action: "delete_projects", projects: uniqueProjects };
 }
 
 async function buildConvexPlan(
@@ -168,8 +187,8 @@ async function buildConvexPlan(
     return { action: "skip", reason: "not_requested" };
   }
 
-  const createdProjectIds = isConnectedVault(vault)
-    ? await listCreatedConvexProjectIds(ctx, vault._id)
+  const createdProjects = isConnectedVault(vault)
+    ? await listCreatedConvexProjects(ctx, vault._id)
     : [];
   if (!isConnectedVault(vault)) {
     return { action: "skip", reason: "not_recorded" };
@@ -177,11 +196,14 @@ async function buildConvexPlan(
 
   for (const deployment of convexDeployments) {
     if (deployment.origin === "provisioned") {
-      createdProjectIds.push(deployment.projectId);
+      createdProjects.push({
+        teamId: deployment.teamId,
+        projectId: deployment.projectId,
+      });
     }
   }
 
-  const projectPlan = buildConvexProjectDeletionPlan(createdProjectIds);
+  const projectPlan = buildConvexProjectDeletionPlan(createdProjects);
   if (projectPlan) {
     await requireProviderConnection(ctx, {
       userId: vault.userId,
@@ -212,18 +234,43 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  const workers = await ctx.db
-    .query("vaultCloudflareWorkers")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-    .collect();
-  const provisionedWorkers = workers
-    .filter((worker) => worker.origin === "provisioned")
-    .sort(
-      (left, right) =>
-        left.workerName.localeCompare(right.workerName) ||
-        left.accountId.localeCompare(right.accountId) ||
-        left.workerTag.localeCompare(right.workerTag),
-    );
+  const [workers, creationClaims] = await Promise.all([
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+      .collect(),
+    ctx.db
+      .query("vaultCloudflareWorkerCreationClaims")
+      .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+      .collect(),
+  ]);
+  const provisionedWorkersByIdentity = new Map<
+    string,
+    { accountId: string; workerName: string; workerTag: string }
+  >();
+  for (const worker of workers) {
+    if (worker.origin === "provisioned") {
+      provisionedWorkersByIdentity.set(`${worker.accountId}\n${worker.workerTag}`, worker);
+    }
+  }
+  for (const claim of creationClaims) {
+    if (claim.lifecycle.state === "creating") {
+      throw new Error(
+        "Cloudflare Worker creation must be reconciled before the vault can be deleted.",
+      );
+    }
+    provisionedWorkersByIdentity.set(`${claim.accountId}\n${claim.lifecycle.workerTag}`, {
+      accountId: claim.accountId,
+      workerName: claim.workerName,
+      workerTag: claim.lifecycle.workerTag,
+    });
+  }
+  const provisionedWorkers = [...provisionedWorkersByIdentity.values()].sort(
+    (left, right) =>
+      left.workerName.localeCompare(right.workerName) ||
+      left.accountId.localeCompare(right.accountId) ||
+      left.workerTag.localeCompare(right.workerTag),
+  );
   if (provisionedWorkers.length === 0) {
     return { action: "skip", reason: "not_recorded" };
   }

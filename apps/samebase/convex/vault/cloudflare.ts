@@ -23,12 +23,13 @@ import {
   CloudflareApiError,
   type CloudflareBuildConfig,
   type CloudflareConnectedWorkersBuilds,
-  createCloudflareWorker,
-  deleteCloudflareResources,
+  createOrRecoverCloudflareWorker,
+  isCloudflareWorkerNameAvailable,
   isCloudflareWorkerNotFoundError,
   listCloudflareWorkersWithRepositoryDiscovery,
+  readConfirmedCloudflareWorker,
   readCloudflareWorkerRepositoryDiscovery,
-  readOptionalWorkersDevUrl,
+  readWorkersDevAvailability,
   type CloudflareWorkerRepositoryDiscovery,
   verifyCloudflareWorkerInfrastructure,
   type CloudflareWorkerInfrastructureVerificationResult,
@@ -42,7 +43,6 @@ import {
   deleteConvexDeployKey,
   deleteConvexPreviewDeployKey,
   ConvexProvisioningConnectionRequiredError,
-  verifyConvexProjectBelongsToTeam,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
 import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
@@ -367,7 +367,7 @@ async function resolveSelectableExistingWorker(args: {
   return {
     workerName: worker.workerName,
     workerTag: worker.workerTag,
-    workersDevUrl: await readOptionalWorkersDevUrl({
+    workersDev: await readWorkersDevAvailability({
       token: args.token,
       transport: args.transport,
       accountId: args.accountId,
@@ -660,15 +660,19 @@ async function verifyActiveConvexDeploymentInfrastructure(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
+    teamId: string;
     projectId: string;
     deploymentName: string;
     recordApiCall?: ProviderApiCallRecorder;
   },
 ): Promise<ConvexDeploymentInfrastructureVerificationResult> {
   const convexConnection = await resolveConvexProvisioningConnection(ctx, args.userId);
+  if (convexConnection.convexTeamId !== args.teamId) {
+    return "not_checked";
+  }
   return await verifyConvexDeploymentExistence({
     convexToken: convexConnection.convexToken,
-    teamId: convexConnection.convexTeamId,
+    teamId: args.teamId,
     projectId: args.projectId,
     deploymentName: args.deploymentName,
     recordApiCall: args.recordApiCall,
@@ -1076,8 +1080,8 @@ export const ensureCloudflareWorkerConnection = internalAction({
             accountId: account.accountId,
             workerName: worker.workerName,
             workerTag: worker.workerTag,
-            workersDevUrl: worker.workersDevUrl,
-            origin: args.origin,
+            workersDev: worker.workersDev,
+            provenance: { state: "selected_existing" },
           },
         );
         if (attachment.state === "not_attached") {
@@ -1094,72 +1098,134 @@ export const ensureCloudflareWorkerConnection = internalAction({
           return null;
         }
 
-        let worker: Awaited<ReturnType<typeof createCloudflareWorker>>;
-        try {
-          worker = await createCloudflareWorker({
-            token: connection.token,
-            transport: connection.transport,
+        const existingCreationClaim = await ctx.runQuery(
+          internal.vault.cloudflareMutations.readCloudflareWorkerCreationClaimForRun,
+          {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            appId: args.appId,
+          },
+        );
+        const available = existingCreationClaim
+          ? true
+          : await isCloudflareWorkerNameAvailable({
+              token: connection.token,
+              transport: connection.transport,
+              accountId: account.accountId,
+              workerName: validation.value,
+            });
+        if (!available) {
+          throw new Error(
+            `Cloudflare Worker name ${validation.value} already exists. Choose another Worker name and try again.`,
+          );
+        }
+        let creationClaim =
+          existingCreationClaim ??
+          (await ctx.runMutation(internal.vault.cloudflareMutations.beginCloudflareWorkerCreation, {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            appId: args.appId,
             accountId: account.accountId,
             workerName: validation.value,
-          });
-        } catch (error) {
-          throw new Error(toErrorMessage(error));
+          }));
+        if (
+          creationClaim.accountId !== account.accountId ||
+          creationClaim.workerName !== validation.value
+        ) {
+          throw new Error("Cloudflare Worker creation claim does not match this connection.");
         }
-
-        try {
-          await rememberDefaultAccount(ctx, {
+        let worker =
+          creationClaim.lifecycle.state === "created"
+            ? await readConfirmedCloudflareWorker({
+                token: connection.token,
+                transport: connection.transport,
+                accountId: creationClaim.accountId,
+                workerName: creationClaim.workerName,
+                workerTag: creationClaim.lifecycle.workerTag,
+              })
+            : null;
+        if (creationClaim.lifecycle.state === "created" && !worker) {
+          creationClaim = await ctx.runMutation(
+            internal.vault.cloudflareMutations.resetMissingCloudflareWorkerCreation,
+            {
+              vaultId: args.vaultId,
+              runId: args.runId,
+              userId: args.userId,
+              appId: args.appId,
+              creationClaimId: creationClaim.claimId,
+              accountId: creationClaim.accountId,
+              workerTag: creationClaim.lifecycle.workerTag,
+            },
+          );
+        }
+        worker ??= await createOrRecoverCloudflareWorker({
+          token: connection.token,
+          transport: connection.transport,
+          accountId: creationClaim.accountId,
+          workerName: creationClaim.workerName,
+        }).catch((error: unknown) => {
+          throw new Error(toErrorMessage(error));
+        });
+        if (worker.outcome === "confirmed_created") {
+          await ctx.runMutation(internal.vault.cloudflareMutations.recordCreatedCloudflareWorker, {
+            vaultId: args.vaultId,
+            runId: args.runId,
             userId: args.userId,
-            auth: connection.auth,
-            account,
-            tokenHealth: connection.tokenHealth,
+            appId: args.appId,
+            creationClaimId: creationClaim.claimId,
+            accountId: creationClaim.accountId,
+            workerName: creationClaim.workerName,
+            workerTag: worker.workerTag,
           });
-          const attachment: CloudflareWorkerAttachment = await ctx.runMutation(
-            internal.vault.cloudflareMutations.attachWorkerForRun,
-            {
-              vaultId: args.vaultId,
-              runId: args.runId,
-              userId: args.userId,
-              appId: args.appId,
-              accountId: account.accountId,
-              workerName: worker.workerName,
-              workerTag: worker.workerTag,
-              workersDevUrl: worker.workersDevUrl,
-              origin: args.origin,
-            },
-          );
-          if (attachment.state === "not_attached") {
-            return null;
-          }
-          return attachment.workerId;
-        } catch (error) {
-          const { shouldDelete } = await ctx.runQuery(
-            internal.vault.cloudflareMutations.readCreatedWorkerRollbackSafety,
-            {
-              vaultId: args.vaultId,
-              runId: args.runId,
-              userId: args.userId,
-              appId: args.appId,
-              accountId: account.accountId,
-              workerName: worker.workerName,
-            },
-          );
-          if (shouldDelete) {
-            await deleteCloudflareResources({
-              cloudflareToken: connection.token,
+        }
+        const recoveryDiscoveryContext =
+          worker.outcome === "recovered_existing"
+            ? await readCloudflareWorkerDiscoveryContext(ctx, {
+                vaultId: args.vaultId,
+                userId: args.userId,
+                appId: args.appId,
+              })
+            : null;
+        const attachmentWorker = recoveryDiscoveryContext
+          ? await resolveSelectableExistingWorker({
+              token: connection.token,
               transport: connection.transport,
               accountId: account.accountId,
               workerName: worker.workerName,
-              workerTag: worker.workerTag,
-            }).catch((cleanupError: unknown) => {
-              console.warn("cloudflare:create:rollback_failed", {
-                accountId: account.accountId,
-                workerName: worker.workerName,
-                error: toErrorMessage(cleanupError),
-              });
-            });
-          }
-          throw error;
+              repositoryFullName: recoveryDiscoveryContext.repositoryFullName,
+              expectedRepoId: recoveryDiscoveryContext.ghRepoId,
+              expectedRootDirectory: recoveryDiscoveryContext.expectedRootDirectory,
+            })
+          : worker;
+        await rememberDefaultAccount(ctx, {
+          userId: args.userId,
+          auth: connection.auth,
+          account,
+          tokenHealth: connection.tokenHealth,
+        });
+        const attachment: CloudflareWorkerAttachment = await ctx.runMutation(
+          internal.vault.cloudflareMutations.attachWorkerForRun,
+          {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            appId: args.appId,
+            accountId: account.accountId,
+            workerName: attachmentWorker.workerName,
+            workerTag: attachmentWorker.workerTag,
+            workersDev: attachmentWorker.workersDev,
+            provenance: {
+              state: worker.outcome === "confirmed_created" ? "provisioned" : "recovered_existing",
+              creationClaimId: creationClaim.claimId,
+            },
+          },
+        );
+        if (attachment.state === "not_attached") {
+          return null;
         }
+        return attachment.workerId;
       }
     }
 
@@ -1271,6 +1337,23 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
       repo: active.repo,
       expectedRepoId: active.ghRepoId,
     });
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "wire_convex_build_access",
+    });
+    if (convexConnection.convexTeamId !== active.convex.teamId) {
+      throw new Error("Reconnect the Convex team that owns this deployment before wiring access.");
+    }
+    const convexDeploymentVerification = await verifyConvexDeploymentExistence({
+      convexToken: convexConnection.convexToken,
+      teamId: active.convex.teamId,
+      projectId: active.convex.projectId,
+      deploymentName: active.convex.deploymentName,
+      recordApiCall,
+    });
+    if (convexDeploymentVerification !== "confirmed") {
+      throw new Error("Selected Convex production deployment is unavailable.");
+    }
     const builds = await wireCloudflareWorkerBuilds({
       owner: active.owner,
       repo: active.repo,
@@ -1285,10 +1368,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
       cloudflareAuthMethod: cloudflareConnection.auth.method,
       accountId: account.accountId,
       buildConfig: toCloudflareBuildConfig(active.buildConfig),
-      recordApiCall: createProviderApiCallRecorder(ctx, {
-        runId: args.runId,
-        step: "wire_convex_build_access",
-      }),
+      recordApiCall,
     });
     const vaultBuilds = toVaultCloudflareConnectedBuilds(builds);
     const dependencyArgs = {
@@ -1371,11 +1451,6 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         }
       }
 
-      await verifyConvexProjectBelongsToTeam({
-        convexToken: convexConnection.convexToken,
-        teamId: convexConnection.convexTeamId,
-        projectId: active.convex.projectId,
-      });
       const productionDeployKeyCreation = await ctx.runMutation(
         internal.vault.cloudflareMutations.beginCloudflareConvexBuildAccessDeployKeyCreation,
         {
@@ -1569,37 +1644,46 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
         active.dependency
           ? verifyActiveConvexDeploymentInfrastructure(ctx, {
               userId: args.userId,
+              teamId: active.dependency.convexDeployment.teamId,
               projectId: active.dependency.convexDeployment.projectId,
               deploymentName: active.dependency.convexDeployment.deploymentName,
               recordApiCall,
             })
           : Promise.resolve("not_checked");
-      const [cloudflareResult, convexDeployment] = await Promise.all([
-        verifyCloudflareWorkerInfrastructure({
-          vaultId: args.vaultId,
-          workerName: active.worker.workerName,
-          workerTag: active.worker.workerTag,
-          cloudflareToken: cloudflareConnection.token,
-          cloudflareAuthMethod: cloudflareConnection.auth.method,
-          accountId: account.accountId,
-          defaultBranch: active.defaultBranch,
-          expectedRepoId: active.ghRepoId,
-          build:
-            active.worker.builds.state === "not_connected"
-              ? active.worker.builds
-              : {
-                  ...active.worker.builds,
-                  rootDirectory: active.workerApp.rootDirectory,
-                },
-          buildConfig: toCloudflareBuildConfig(active.buildConfig),
-          verifyConvexBuildAccess: active.dependency !== null && active.dependency.currentlyWired,
-          recordApiCall,
-        }),
-        convexDeploymentVerification,
-      ]);
+      const [cloudflareVerification, convexDeploymentVerificationResult] = await Promise.allSettled(
+        [
+          verifyCloudflareWorkerInfrastructure({
+            vaultId: args.vaultId,
+            workerName: active.worker.workerName,
+            workerTag: active.worker.workerTag,
+            cloudflareToken: cloudflareConnection.token,
+            cloudflareAuthMethod: cloudflareConnection.auth.method,
+            accountId: account.accountId,
+            defaultBranch: active.defaultBranch,
+            expectedRepoId: active.ghRepoId,
+            build:
+              active.worker.builds.state === "not_connected"
+                ? active.worker.builds
+                : {
+                    ...active.worker.builds,
+                    rootDirectory: active.workerApp.rootDirectory,
+                  },
+            buildConfig: toCloudflareBuildConfig(active.buildConfig),
+            verifyConvexBuildAccess: active.dependency !== null && active.dependency.currentlyWired,
+            recordApiCall,
+          }),
+          convexDeploymentVerification,
+        ],
+      );
+      if (cloudflareVerification.status === "rejected") {
+        throw cloudflareVerification.reason;
+      }
+      if (convexDeploymentVerificationResult.status === "rejected") {
+        throw convexDeploymentVerificationResult.reason;
+      }
       providerResult = {
-        ...cloudflareResult,
-        convexDeployment,
+        ...cloudflareVerification.value,
+        convexDeployment: convexDeploymentVerificationResult.value,
       };
     } catch (error) {
       const message = resolveInfrastructureVerificationUnverifiableMessage(error);

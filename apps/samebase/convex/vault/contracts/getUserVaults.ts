@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 
 import { vAppProvisioningRunStep } from "../../schema";
-import { vTreeRefreshFailureKind } from "../model";
+import { vTreeRefreshFailureKind, vVaultWorkersDevAvailability } from "../model";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
@@ -168,8 +168,12 @@ const vUserVaultsResult = array(
     hasConnectedGitHubRepository: boolean(),
     hasConvexProvision: boolean(),
     hasCloudflareProvision: boolean(),
+    hasUnresolvedConvexCreation: boolean(),
+    hasUnresolvedCloudflareCreation: boolean(),
     canRemoveConvexProvision: boolean(),
     canRemoveCloudflareProvision: boolean(),
+    removableConvexProjectCount: number(),
+    removableCloudflareWorkerCount: number(),
     apps: array(
       object({
         appId: id("vaultApps"),
@@ -184,7 +188,7 @@ const vUserVaultsResult = array(
         upstream: vProviderResourceUpstream,
         lastObservedAt: number(),
         workerName: string(),
-        workersDevUrl: optional(string()),
+        workersDev: vVaultWorkersDevAvailability,
         projectDashboardUrl: optional(string()),
       }),
     ),

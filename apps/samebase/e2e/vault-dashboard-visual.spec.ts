@@ -393,12 +393,12 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   );
   await expect(
     deleteDialog.getByRole("checkbox", {
-      name: "Also remove Convex project/deployment",
+      name: "Also remove all 1 Samebase-provisioned Convex project",
     }),
   ).not.toBeChecked();
   await expect(
     deleteDialog.getByRole("checkbox", {
-      name: "Also remove Cloudflare Worker",
+      name: "Also remove all 3 Samebase-provisioned Cloudflare Workers",
     }),
   ).not.toBeChecked();
   await expect(page).toHaveScreenshot("vault-dashboard-delete-dialog.png", {
@@ -643,12 +643,12 @@ test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testI
   );
   await expect(
     deleteDialog.getByRole("checkbox", {
-      name: "Also remove Convex project/deployment",
+      name: "Also remove all 1 Samebase-provisioned Convex project",
     }),
   ).not.toBeChecked();
   await expect(
     deleteDialog.getByRole("checkbox", {
-      name: "Also remove Cloudflare Worker",
+      name: "Also remove all 3 Samebase-provisioned Cloudflare Workers",
     }),
   ).not.toBeChecked();
   await expect(page).toHaveScreenshot("vault-dashboard-delete-dialog-mobile.png", {

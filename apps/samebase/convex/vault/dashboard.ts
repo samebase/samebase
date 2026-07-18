@@ -26,7 +26,6 @@ import {
   type VaultDeletionSummary,
   vProviderSetupSummary,
 } from "./contracts/getUserVaults";
-import { readVaultProviderUpstreamPresence } from "./model";
 import { isWorkerDeploymentDependencyCurrentlyWired } from "./deploymentDependencies";
 
 const { array, boolean, id, object, optional, string } = v;
@@ -49,7 +48,7 @@ function canRemoveConvexProvisionForDeployment(deployment: ConnectedConvexDeploy
 function resolveConvexDeploymentUpstream(
   deployment: ConnectedConvexDeployment,
 ): ProviderResourceUpstream {
-  const upstream = readVaultProviderUpstreamPresence(deployment);
+  const upstream = deployment.upstream;
   if (upstream.state === "present") {
     return { state: "present" };
   }
@@ -65,7 +64,7 @@ function resolveConvexDeploymentUpstream(
 function resolveCloudflareWorkerUpstream(
   worker: ConnectedCloudflareWorker,
 ): ProviderResourceUpstream {
-  const upstream = readVaultProviderUpstreamPresence(worker);
+  const upstream = worker.upstream;
   if (upstream.state === "present") {
     return { state: "present" };
   }
@@ -333,17 +332,28 @@ async function readVaultInfrastructureOwnership(
     .first();
 }
 
-async function hasCreatedConvexProjectForVault(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<boolean> {
-  const runs = await ctx.db
-    .query("appProvisioningRuns")
-    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
-    .collect();
-  return runs.some(
-    (run) => run.trigger === "connect_convex_deployment" && run.createdConvexProject,
-  );
+function summarizeConvexProjectCreations(claims: Doc<"vaultConvexProjectCreationClaims">[]) {
+  return {
+    createdProjectIds: [
+      ...new Set(
+        claims.flatMap((claim) =>
+          claim.lifecycle.state === "created" ? [claim.lifecycle.projectId] : [],
+        ),
+      ),
+    ],
+    hasUnresolvedCreation: claims.some((claim) => claim.lifecycle.state === "creating"),
+  };
+}
+
+function summarizeCloudflareWorkerCreations(claims: Doc<"vaultCloudflareWorkerCreationClaims">[]) {
+  return {
+    createdWorkerIdentities: claims.flatMap((claim) =>
+      claim.lifecycle.state === "created"
+        ? [`${claim.accountId}\n${claim.lifecycle.workerTag}`]
+        : [],
+    ),
+    hasUnresolvedCreation: claims.some((claim) => claim.lifecycle.state === "creating"),
+  };
 }
 
 function readManualProviderFromRun(
@@ -427,12 +437,12 @@ async function resolveProviderSetupSummary(
     });
     return runningCreateRun ?? { status: "not_applicable" };
   }
-  if (ownership?.state === "active") {
+  if (ownership?.state === "active" || ownership?.state === "failed") {
     return await readProviderRunSummary(ctx, {
       provider: "cloudflare",
       source: "managed",
       runId: ownership.runId,
-      status: "running",
+      status: ownership.state === "failed" ? "failed" : "running",
       fallbackUpdatedAt: ownership.updatedAt,
     });
   }
@@ -801,33 +811,50 @@ async function readUserVaults(
   ctx: Pick<QueryCtx, "db">,
   userId: Id<"users">,
 ): Promise<UserVaultsResult> {
-  const [vaults, userApps, userConvexDeployments, userCloudflareWorkers, userDependencies] =
-    await Promise.all([
-      ctx.db
-        .query("vaults")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultApps")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultWorkerDeploymentDependencies")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-    ]);
+  const [
+    vaults,
+    userApps,
+    userConvexDeployments,
+    userCloudflareWorkers,
+    userDependencies,
+    userConvexCreationClaims,
+    userCloudflareCreationClaims,
+  ] = await Promise.all([
+    ctx.db
+      .query("vaults")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultApps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultConvexDeployments")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultWorkerDeploymentDependencies")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultConvexProjectCreationClaims")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultCloudflareWorkerCreationClaims")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+  ]);
   const appsByVault = groupVaultRows(userApps);
   const convexDeploymentsByVault = groupVaultRows(userConvexDeployments);
   const cloudflareWorkersByVault = groupVaultRows(userCloudflareWorkers);
   const dependenciesByVault = groupVaultRows(userDependencies);
+  const convexCreationClaimsByVault = groupVaultRows(userConvexCreationClaims);
+  const cloudflareCreationClaimsByVault = groupVaultRows(userCloudflareCreationClaims);
   // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
   // gated until a connected vault has branch data.
   const connectedVaults = vaults.filter(isConnectedVault);
@@ -863,8 +890,12 @@ async function readUserVaults(
       hasConnectedGitHubRepository: false,
       hasConvexProvision: false,
       hasCloudflareProvision: false,
+      hasUnresolvedConvexCreation: false,
+      hasUnresolvedCloudflareCreation: false,
       canRemoveConvexProvision: false,
       canRemoveCloudflareProvision: false,
+      removableConvexProjectCount: 0,
+      removableCloudflareWorkerCount: 0,
       apps: [],
       cloudflareWorkers: [],
       convexDeployments: [],
@@ -903,8 +934,32 @@ async function readUserVaults(
       ) {
         throw new Error("Vault provider resources have inconsistent ownership.");
       }
-      const hasConvexProvision = convexDeployments.length > 0;
-      const hasCloudflareProvision = cloudflareWorkers.length > 0;
+      const convexCreation = summarizeConvexProjectCreations(
+        convexCreationClaimsByVault.get(vault._id) ?? [],
+      );
+      const cloudflareCreation = summarizeCloudflareWorkerCreations(
+        cloudflareCreationClaimsByVault.get(vault._id) ?? [],
+      );
+      const removableConvexProjectCount = new Set([
+        ...convexCreation.createdProjectIds,
+        ...convexDeployments
+          .filter(canRemoveConvexProvisionForDeployment)
+          .map((deployment) => deployment.projectId),
+      ]).size;
+      const removableCloudflareWorkerCount = new Set([
+        ...cloudflareCreation.createdWorkerIdentities,
+        ...cloudflareWorkers
+          .filter((worker) => worker.origin === "provisioned")
+          .map((worker) => `${worker.accountId}\n${worker.workerTag}`),
+      ]).size;
+      const hasConvexProvision =
+        convexDeployments.length > 0 ||
+        removableConvexProjectCount > 0 ||
+        convexCreation.hasUnresolvedCreation;
+      const hasCloudflareProvision =
+        cloudflareWorkers.length > 0 ||
+        removableCloudflareWorkerCount > 0 ||
+        cloudflareCreation.hasUnresolvedCreation;
       const convexDeploymentSummaries = convexDeployments.map((deployment) => ({
         convexDeploymentId: deployment._id,
         appId: deployment.appId,
@@ -925,9 +980,8 @@ async function readUserVaults(
           teamSlug: deployment.teamSlug,
         }),
       }));
-      const canRemoveCloudflareProvision = cloudflareWorkers.some(
-        (worker) => worker.origin === "provisioned",
-      );
+      const canRemoveCloudflareProvision =
+        removableCloudflareWorkerCount > 0 && !cloudflareCreation.hasUnresolvedCreation;
       const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
         workerId: worker._id,
         appId: worker.appId,
@@ -935,7 +989,7 @@ async function readUserVaults(
         upstream: resolveCloudflareWorkerUpstream(worker),
         lastObservedAt: worker.lastObservedAt,
         workerName: worker.workerName,
-        workersDevUrl: worker.workersDevUrl,
+        workersDev: worker.workersDev,
         projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),
       }));
       const workerDeploymentDependencySummaries = workerDeploymentDependencies.map((dependency) => {
@@ -980,8 +1034,12 @@ async function readUserVaults(
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
+          hasUnresolvedConvexCreation: convexCreation.hasUnresolvedCreation,
+          hasUnresolvedCloudflareCreation: cloudflareCreation.hasUnresolvedCreation,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision,
+          removableConvexProjectCount: 0,
+          removableCloudflareWorkerCount,
           apps: apps.map((app) => ({ appId: app._id, rootDirectory: app.rootDirectory })),
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexDeployments: convexDeploymentSummaries,
@@ -989,7 +1047,7 @@ async function readUserVaults(
         };
       }
 
-      const [stagingData, defaultBranchTree, hasCreatedConvexProject] = await Promise.all([
+      const [stagingData, defaultBranchTree] = await Promise.all([
         ctx.db
           .query("fileStaging")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
@@ -1000,7 +1058,6 @@ async function readUserVaults(
             q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
           )
           .first(),
-        hasCreatedConvexProjectForVault(ctx, vault._id),
       ]);
 
       const fileCount = stagingData.filter(hasBranchStagingChanges).length;
@@ -1018,8 +1075,7 @@ async function readUserVaults(
         ? await resolveProviderSetupSummary(ctx, vault, convexDeployments, cloudflareWorkers)
         : { status: "not_applicable" as const };
       const canRemoveConvexProvision =
-        hasCreatedConvexProject ||
-        convexDeployments.some((deployment) => canRemoveConvexProvisionForDeployment(deployment));
+        removableConvexProjectCount > 0 && !convexCreation.hasUnresolvedCreation;
       return {
         _id: vault._id,
         _creationTime: vault._creationTime,
@@ -1043,8 +1099,12 @@ async function readUserVaults(
         hasConnectedGitHubRepository: true,
         hasConvexProvision,
         hasCloudflareProvision,
+        hasUnresolvedConvexCreation: convexCreation.hasUnresolvedCreation,
+        hasUnresolvedCloudflareCreation: cloudflareCreation.hasUnresolvedCreation,
         canRemoveConvexProvision,
         canRemoveCloudflareProvision,
+        removableConvexProjectCount,
+        removableCloudflareWorkerCount,
         apps: apps.map((app) => ({ appId: app._id, rootDirectory: app.rootDirectory })),
         cloudflareWorkers: cloudflareWorkerSummaries,
         convexDeployments: convexDeploymentSummaries,

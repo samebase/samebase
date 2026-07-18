@@ -78,6 +78,8 @@ async function seedRetainedProviderResources(t: ConvexTest, userId: Id<"users">)
       createdAt: 1,
     });
     const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+      workersDev: { state: "unknown" },
+      upstream: { state: "present" },
       vaultId,
       userId,
       appId: workerAppId,
@@ -105,9 +107,11 @@ async function seedRetainedProviderResources(t: ConvexTest, userId: Id<"users">)
       lastObservedAt: 1,
     });
     const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+      upstream: { state: "present" },
       vaultId,
       userId,
       appId: convexAppId,
+      teamId: "convex-team",
       projectId: "convex-project",
       teamSlug: "test-team",
       projectSlug: "backend",

@@ -13,6 +13,8 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultRemoteBranches"),
   literal("vaultDomains"),
   literal("vaultWorkerDeploymentDependencies"),
+  literal("vaultCloudflareWorkerCreationClaims"),
+  literal("vaultConvexProjectCreationClaims"),
   literal("vaultApps"),
   literal("vaultConvexDeployments"),
   literal("vaultConvexSchemaSnapshots"),
@@ -293,6 +295,14 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultWorkerDeploymentDependencies"),
   },
   {
+    table: "vaultCloudflareWorkerCreationClaims",
+    cleanup: deleteByVaultBatch("vaultCloudflareWorkerCreationClaims"),
+  },
+  {
+    table: "vaultConvexProjectCreationClaims",
+    cleanup: deleteByVaultBatch("vaultConvexProjectCreationClaims"),
+  },
+  {
     table: "vaultConvexDeployments",
     cleanup: deleteByVaultBatch("vaultConvexDeployments"),
   },
@@ -366,6 +376,8 @@ const vaultLocalCleanupRegistryByStep = {
   cleanup_runtime_state: [
     "vaultDomains",
     "vaultWorkerDeploymentDependencies",
+    "vaultCloudflareWorkerCreationClaims",
+    "vaultConvexProjectCreationClaims",
     "vaultConvexDeployments",
     "vaultConvexSchemaSnapshots",
     "vaultConvexSchemaGraphLayouts",

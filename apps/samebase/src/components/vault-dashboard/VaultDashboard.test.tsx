@@ -160,6 +160,7 @@ function makeResourceRailCloudflareWorker(
     lastObservedAt: 0,
     workerId: fakeCloudflareWorkerId(),
     workerName: "demo-worker",
+    workersDev: { state: "unknown" },
     ...overrides,
   };
 }
@@ -214,8 +215,12 @@ function makeResourceRailBuilderVault(
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
+    hasUnresolvedConvexCreation: false,
+    hasUnresolvedCloudflareCreation: false,
     canRemoveConvexProvision: false,
     canRemoveCloudflareProvision: false,
+    removableConvexProjectCount: 0,
+    removableCloudflareWorkerCount: 0,
     apps: [],
     cloudflareWorkers: [],
     convexDeployments: [],
@@ -753,7 +758,7 @@ describe("VaultDashboardRepositoryCard", () => {
             state: "missing_upstream",
             nextAction: "connect_cloudflare_worker",
           },
-          workersDevUrl: "https://stale-worker.ada.workers.dev",
+          workersDev: { state: "available", url: "https://stale-worker.ada.workers.dev" },
         }),
       ],
       convexDeployments: [
@@ -1010,13 +1015,17 @@ describe("VaultDashboardDeleteDialog", () => {
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
           hasCloudflareProvision: true,
+          hasUnresolvedConvexCreation: false,
+          hasUnresolvedCloudflareCreation: false,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision: true,
+          removableConvexProjectCount: 0,
+          removableCloudflareWorkerCount: 2,
         }}
       />,
     );
 
-    expect(markup).toContain("Also remove Cloudflare Worker");
+    expect(markup).toContain("Also remove all 2 Samebase-provisioned Cloudflare Workers");
     expect(markup).not.toContain("Only available for Workers created from this app.");
   });
 
@@ -1030,13 +1039,17 @@ describe("VaultDashboardDeleteDialog", () => {
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
           hasCloudflareProvision: false,
+          hasUnresolvedConvexCreation: false,
+          hasUnresolvedCloudflareCreation: false,
           canRemoveConvexProvision: true,
           canRemoveCloudflareProvision: false,
+          removableConvexProjectCount: 1,
+          removableCloudflareWorkerCount: 0,
         }}
       />,
     );
 
-    expect(markup).toContain("Also remove Convex project/deployment");
+    expect(markup).toContain("Also remove all 1 Samebase-provisioned Convex project");
     expect(markup).not.toContain("Only available for infrastructure provisioned by Samebase.");
   });
 });
@@ -2190,7 +2203,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             githubRepositoryConnection: { state: "connected" },
             lastObservedAt: 40,
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
         ],
         workerDeploymentDependencies: [
@@ -2246,7 +2259,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appId: fakeAppId(),
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
             projectDashboardUrl:
               "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
           }),
@@ -2286,7 +2299,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             appId: fakeAppId(),
             githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
         ],
       }),
@@ -2344,7 +2357,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             githubRepositoryConnection: { state: "connected" },
             lastObservedAt: 40,
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
         ],
         workerDeploymentDependencies: [
@@ -2395,7 +2408,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             appId: fakeAppId(),
             githubRepositoryConnection: { state: "connected" },
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
         ],
       }),
@@ -2485,7 +2498,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             appId: fakeAppId(),
             githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
         ],
         workerDeploymentDependencies: [
@@ -2570,7 +2583,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             githubRepositoryConnection: { state: "connected" },
             lastObservedAt: 40,
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
         ],
         workerDeploymentDependencies: [
@@ -2640,7 +2653,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appId: fakeAppId(),
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
         ],
       }),
@@ -2693,13 +2706,13 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appId: fakeAppId(),
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://demo-worker.ada.workers.dev" },
           }),
           makeResourceRailCloudflareWorker({
             appId: fakeSecondAppId(),
             workerId: fakeSecondCloudflareWorkerId(),
             workerName: "admin-worker",
-            workersDevUrl: "https://admin-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://admin-worker.ada.workers.dev" },
           }),
         ],
       }),
@@ -2793,7 +2806,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appId: fakeAppId(),
             workerName: "samebase-worker",
-            workersDevUrl: "https://samebase-worker.ada.workers.dev",
+            workersDev: { state: "available", url: "https://samebase-worker.ada.workers.dev" },
           }),
         ],
       }),
@@ -2839,13 +2852,13 @@ describe("buildVaultDashboardResourceRailState", () => {
           appId: fakeAppId(),
           workerId: fakeCloudflareWorkerId(),
           workerName: "web-worker",
-          workersDevUrl: "https://web-worker.ada.workers.dev",
+          workersDev: { state: "available", url: "https://web-worker.ada.workers.dev" },
         }),
         makeResourceRailCloudflareWorker({
           appId: fakeAppId(),
           workerId: fakeSecondCloudflareWorkerId(),
           workerName: "web-admin-worker",
-          workersDevUrl: "https://web-admin-worker.ada.workers.dev",
+          workersDev: { state: "available", url: "https://web-admin-worker.ada.workers.dev" },
         }),
       ],
       convexDeployments: [

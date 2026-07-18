@@ -220,6 +220,8 @@ describe("vault deletion workflow", () => {
         createdAt: 6,
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
+        workersDev: { state: "unknown" },
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
@@ -437,6 +439,8 @@ describe("vault deletion workflow", () => {
         createdAt: 6,
       });
       const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        workersDev: { state: "unknown" },
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
@@ -449,9 +453,11 @@ describe("vault deletion workflow", () => {
         lastObservedAt: 7,
       });
       const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
+        teamId: "convex-team",
         projectId: "convex-project",
         teamSlug: "ada-team",
         projectSlug: "delete-me",

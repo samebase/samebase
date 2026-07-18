@@ -491,6 +491,7 @@ describe("vault dashboard Convex contract", () => {
         ghRepoOwner: "ada",
         ghRepoName: "early-vault",
         visibility: "private",
+        convexTeamId: "convex-team",
         convexProjectName: "early-vault",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "early-vault",
@@ -723,9 +724,11 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 23,
       });
       await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
+        teamId: "convex-team",
         projectId: "convex-project",
         teamSlug: "provider-state-team",
         projectSlug: "provider-state-project",
@@ -753,6 +756,8 @@ describe("vault dashboard Convex contract", () => {
       state: "ready",
       hasConvexProvision: true,
       hasCloudflareProvision: false,
+      removableConvexProjectCount: 1,
+      removableCloudflareWorkerCount: 0,
       providerSetup: {
         status: "running",
         provider: "cloudflare",
@@ -821,9 +826,11 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 23,
       });
       await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
+        teamId: "convex-team",
         projectId: "convex-project",
         teamSlug: "cloudflare-retry-team",
         projectSlug: "cloudflare-retry-project",
@@ -936,9 +943,11 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 23,
       });
       await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
+        teamId: "convex-team",
         projectId: "convex-project",
         teamSlug: "cloudflare-retry-team",
         projectSlug: "cloudflare-retry-project",
@@ -1186,7 +1195,7 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
-  it("keeps active provider ownership visible but lets connected resources recover failed ownership", async () => {
+  it("keeps active and failed provider ownership visible when resources exist", async () => {
     const cases = [
       {
         label: "active",
@@ -1203,7 +1212,9 @@ describe("vault dashboard Convex contract", () => {
         ownershipState: "failed",
         runState: "failed",
         expectedSetup: {
-          status: "ready",
+          status: "failed",
+          provider: "cloudflare",
+          source: "managed",
         },
       },
       {
@@ -1270,9 +1281,11 @@ describe("vault dashboard Convex contract", () => {
           createdAt: 23,
         });
         await ctx.db.insert("vaultConvexDeployments", {
+          upstream: { state: "present" },
           vaultId,
           userId,
           appId,
+          teamId: "convex-team",
           projectId: "convex-project",
           teamSlug: `provider-${testCase.label}-team`,
           projectSlug: `provider-${testCase.label}-project`,
@@ -1285,13 +1298,17 @@ describe("vault dashboard Convex contract", () => {
           lastObservedAt: 24,
         });
         await ctx.db.insert("vaultCloudflareWorkers", {
+          upstream: { state: "present" },
           vaultId,
           userId,
           appId,
           accountId: "cloudflare-account",
           workerName: `provider-${testCase.label}-worker`,
           workerTag: `provider-${testCase.label}-worker-tag`,
-          workersDevUrl: `https://provider-${testCase.label}.example.workers.dev`,
+          workersDev: {
+            state: "available",
+            url: `https://provider-${testCase.label}.example.workers.dev`,
+          },
           origin: "provisioned",
           builds: { state: "not_connected" },
           connectedAt: 26,
@@ -1535,9 +1552,11 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 24,
       });
       await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
+        teamId: "convex-team",
         projectId: "project-1",
         teamSlug: "demo-team",
         projectSlug: "demo-project",
@@ -1639,13 +1658,14 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 23,
       });
       const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId: webAppId,
         accountId: "cloudflare-account",
         workerName: "fixture-web",
         workerTag: "fixture-web-tag",
-        workersDevUrl: "https://fixture-web.example.workers.dev",
+        workersDev: { state: "available", url: "https://fixture-web.example.workers.dev" },
         origin: "selected_existing",
         builds: {
           state: "connected",
@@ -1667,9 +1687,11 @@ describe("vault dashboard Convex contract", () => {
         lastObservedAt: 24,
       });
       const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId: backendAppId,
+        teamId: "convex-team",
         projectId: "fixture-backend-project",
         teamSlug: "samebase",
         projectSlug: "fixture-backend",
@@ -1834,6 +1856,7 @@ describe("vault dashboard Convex contract", () => {
           vaultId,
           userId,
           appId,
+          teamId: "convex-team",
           projectId: `${rootDirectory}-project`,
           teamSlug: "ada-team",
           projectSlug: rootDirectory.replace("/", "-"),
@@ -1858,7 +1881,10 @@ describe("vault dashboard Convex contract", () => {
           accountId: "cloudflare-account",
           workerName: `${rootDirectory.replace("/", "-")}-worker`,
           workerTag: `${rootDirectory.replace("/", "-")}-tag`,
-          workersDevUrl: `https://${rootDirectory.replace("/", "-")}.example.workers.dev`,
+          workersDev: {
+            state: "available",
+            url: `https://${rootDirectory.replace("/", "-")}.example.workers.dev`,
+          },
           origin: rootDirectory === "apps/managed-worker" ? "provisioned" : "selected_existing",
           upstream: { state: "missing_upstream" },
           builds: { state: "not_connected" },
@@ -1986,9 +2012,11 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 21,
       });
       const apiDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId: apiAppId,
+        teamId: "convex-team",
         projectId: "api-project",
         teamSlug: "ada-team",
         projectSlug: "api-project",
@@ -2004,6 +2032,7 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         userId,
         appId: webAppId,
+        teamId: "convex-team",
         projectId: "web-project",
         teamSlug: "ada-team",
         projectSlug: "web-project",
@@ -2033,39 +2062,48 @@ describe("vault dashboard Convex contract", () => {
         },
       };
       const notConnectedWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId: rootAppId,
         accountId: "cloudflare-account",
         workerName: "not-connected-worker",
         workerTag: "not-connected-worker-tag",
-        workersDevUrl: "https://not-connected-worker.example.workers.dev",
+        workersDev: {
+          state: "available",
+          url: "https://not-connected-worker.example.workers.dev",
+        },
         origin: "provisioned",
         builds: { state: "not_connected" },
         connectedAt: 26,
         lastObservedAt: 26,
       });
       const missingKeysWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId: apiAppId,
         accountId: "cloudflare-account",
         workerName: "missing-keys-worker",
         workerTag: "missing-keys-worker-tag",
-        workersDevUrl: "https://missing-keys-worker.example.workers.dev",
+        workersDev: {
+          state: "available",
+          url: "https://missing-keys-worker.example.workers.dev",
+        },
         origin: "provisioned",
         builds: connectedBuilds,
         connectedAt: 27,
         lastObservedAt: 27,
       });
       const setKeysWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId: webAppId,
         accountId: "cloudflare-account",
         workerName: "set-keys-worker",
         workerTag: "set-keys-worker-tag",
-        workersDevUrl: "https://set-keys-worker.example.workers.dev",
+        workersDev: { state: "available", url: "https://set-keys-worker.example.workers.dev" },
         origin: "provisioned",
         builds: {
           ...connectedBuilds,
@@ -2228,13 +2266,14 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 25,
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
         accountId: "cloudflare-account",
         workerName: "domain-order-worker",
         workerTag: "domain-order-worker-tag",
-        workersDevUrl: "https://domain-order.example.workers.dev",
+        workersDev: { state: "available", url: "https://domain-order.example.workers.dev" },
         origin: "provisioned",
         builds: { state: "not_connected" },
         connectedAt: 26,
@@ -2515,9 +2554,11 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 9,
       });
       await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
         vaultId,
         userId,
         appId,
+        teamId: "convex-team",
         projectId: "delete-convex-project",
         teamSlug: "delete-team",
         projectSlug: "delete-convex",

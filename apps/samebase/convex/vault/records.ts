@@ -279,6 +279,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     ghRepoOwner: string(),
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
+    convexTeamId: string(),
     convexProjectName: string(),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
@@ -365,8 +366,12 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     await ctx.db.insert("vaultInfrastructureTargets", {
       vaultId,
       appId,
-      convex: { projectName: args.convexProjectName },
+      convex: {
+        teamId: args.convexTeamId,
+        projectName: args.convexProjectName,
+      },
       cloudflare: {
+        state: "planned",
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
       },

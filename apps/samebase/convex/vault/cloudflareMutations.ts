@@ -15,20 +15,21 @@ import {
 import {
   buildVaultCloudflareBuildConfig,
   isVaultProviderUpstreamPresent,
-  readVaultProviderUpstreamPresence,
   type VaultCloudflareBuildConfig,
   type VaultCloudflareConnectedBuilds,
   vVaultCloudflareBuildConfig,
   vVaultCloudflareBuilds,
   vVaultCloudflareConnectedBuilds,
+  vVaultCloudflareWorkerCreationLifecycle,
   vVaultCloudflareOrigin,
+  vVaultWorkersDevAvailability,
   vVaultWorkerDeploymentWiring,
   VAULT_PROVIDER_UPSTREAM_MISSING,
   VAULT_PROVIDER_UPSTREAM_PRESENT,
 } from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, literal, null: nullValue, object, optional, string, union } = v;
+const { boolean, id, literal, null: nullValue, object, string, union } = v;
 const CLOUDFLARE_CONNECTION_STALE_MS = 10 * 60 * 1000;
 const CONVEX_DEPLOY_KEYS_NOT_CREATED = {
   production: { state: "not_created" },
@@ -72,6 +73,27 @@ const cloudflareWorkerAttachmentResult = union(
   object({ state: literal("not_attached") }),
 );
 type CloudflareWorkerAttachmentResult = Infer<typeof cloudflareWorkerAttachmentResult>;
+const cloudflareWorkerAttachmentProvenance = union(
+  object({ state: literal("selected_existing") }),
+  object({
+    state: literal("recovered_existing"),
+    creationClaimId: id("vaultCloudflareWorkerCreationClaims"),
+  }),
+  object({
+    state: literal("provisioned"),
+    creationClaimId: id("vaultCloudflareWorkerCreationClaims"),
+  }),
+);
+const cloudflareWorkerCreationClaim = object({
+  claimId: id("vaultCloudflareWorkerCreationClaims"),
+  accountId: string(),
+  workerName: string(),
+  lifecycle: vVaultCloudflareWorkerCreationLifecycle,
+});
+type AllowedCloudflareWorkerCreationClaim =
+  | { state: "none" }
+  | { state: "same_app" }
+  | { state: "exact"; claimId: Id<"vaultCloudflareWorkerCreationClaims"> };
 const vCloudflareConvexBuildAccessDeployKey = union(
   object({
     deployment: literal("production"),
@@ -109,6 +131,7 @@ const cloudflareConvexBuildAccessWiringState = union(
     workerApp: vVaultAppReference,
     convex: object({
       convexDeploymentId: id("vaultConvexDeployments"),
+      teamId: string(),
       projectId: string(),
       deploymentName: string(),
       cloudUrl: string(),
@@ -137,6 +160,8 @@ const cloudflareInfrastructureVerificationConvexDeployment = union(
 const cloudflareInfrastructureVerificationResult = union(
   object({
     worker: literal("confirmed"),
+    workerName: string(),
+    workersDev: vVaultWorkersDevAvailability,
     builds: literal("adopted"),
     connectedBuilds: vVaultCloudflareConnectedBuilds,
     convexDeployment: cloudflareInfrastructureVerificationConvexDeployment,
@@ -144,6 +169,8 @@ const cloudflareInfrastructureVerificationResult = union(
   }),
   object({
     worker: cloudflareInfrastructureVerificationWorker,
+    workerName: string(),
+    workersDev: vVaultWorkersDevAvailability,
     builds: union(literal("confirmed"), literal("contradicted"), literal("not_checked")),
     convexDeployment: cloudflareInfrastructureVerificationConvexDeployment,
     convexBuildAccess: cloudflareInfrastructureVerificationConvexBuildAccess,
@@ -177,6 +204,7 @@ const cloudflareInfrastructureVerificationState = union(
         convexApp: vVaultAppReference,
         convexDeployment: object({
           convexDeploymentId: id("vaultConvexDeployments"),
+          teamId: string(),
           projectId: string(),
           deploymentName: string(),
         }),
@@ -382,19 +410,72 @@ async function readWorkerDeploymentDependencyContext(
 async function readCloudflareWorkerByProviderIdentity(
   ctx: CloudflareWorkerConnectionReadCtx,
   args: {
-    vaultId: Id<"vaults">;
     accountId: string;
     workerName: string;
+    workerTag?: string;
   },
 ): Promise<Doc<"vaultCloudflareWorkers"> | null> {
+  const workerTag = args.workerTag;
+  const [workerByName, workerByTag] = await Promise.all([
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_account_and_worker", (q) =>
+        q.eq("accountId", args.accountId).eq("workerName", args.workerName),
+      )
+      .unique(),
+    workerTag
+      ? ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_account_and_worker_tag", (q) =>
+            q.eq("accountId", args.accountId).eq("workerTag", workerTag),
+          )
+          .unique()
+      : null,
+  ]);
+  if (workerByName && workerByTag && workerByName._id !== workerByTag._id) {
+    throw new Error("Cloudflare Worker name and stable identity are attached separately.");
+  }
+  return workerByTag ?? workerByName;
+}
+
+async function readCloudflareWorkerCreationClaimByProviderIdentity(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    accountId: string;
+    workerName: string;
+    workerTag?: string;
+  },
+): Promise<Doc<"vaultCloudflareWorkerCreationClaims"> | null> {
+  const workerTag = args.workerTag;
+  const [claimByName, claimByTag] = await Promise.all([
+    ctx.db
+      .query("vaultCloudflareWorkerCreationClaims")
+      .withIndex("by_account_and_worker", (q) =>
+        q.eq("accountId", args.accountId).eq("workerName", args.workerName),
+      )
+      .unique(),
+    workerTag
+      ? ctx.db
+          .query("vaultCloudflareWorkerCreationClaims")
+          .withIndex("by_account_and_worker_tag", (q) =>
+            q.eq("accountId", args.accountId).eq("lifecycle.workerTag", workerTag),
+          )
+          .unique()
+      : null,
+  ]);
+  if (claimByName && claimByTag && claimByName._id !== claimByTag._id) {
+    throw new Error("Cloudflare Worker identities are owned by different creation claims.");
+  }
+  return claimByTag ?? claimByName;
+}
+
+async function readCloudflareWorkerCreationClaimByVault(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  vaultId: Id<"vaults">,
+): Promise<Doc<"vaultCloudflareWorkerCreationClaims"> | null> {
   return await ctx.db
-    .query("vaultCloudflareWorkers")
-    .withIndex("by_vault_and_account_and_worker", (q) =>
-      q
-        .eq("vaultId", args.vaultId)
-        .eq("accountId", args.accountId)
-        .eq("workerName", args.workerName),
-    )
+    .query("vaultCloudflareWorkerCreationClaims")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .unique();
 }
 
@@ -405,15 +486,114 @@ async function assertNoExistingCloudflareWorkerTarget(
     appId: Id<"vaultApps">;
     accountId: string;
     workerName: string;
+    workerTag?: string;
+    allowedCreationClaim: AllowedCloudflareWorkerCreationClaim;
   },
 ): Promise<void> {
-  const existingWorker = await readCloudflareWorkerByProviderIdentity(ctx, args);
+  const [existingWorker, vaultCreationClaim, providerCreationClaim] = await Promise.all([
+    readCloudflareWorkerByProviderIdentity(ctx, args),
+    readCloudflareWorkerCreationClaimByVault(ctx, args.vaultId),
+    readCloudflareWorkerCreationClaimByProviderIdentity(ctx, args),
+  ]);
+  if (
+    existingWorker &&
+    (existingWorker.vaultId !== args.vaultId || existingWorker.appId !== args.appId)
+  ) {
+    throw new Error("Cloudflare Worker is already attached to another app.");
+  }
   if (existingWorker && isVaultProviderUpstreamPresent(existingWorker)) {
-    throw new Error("Cloudflare Worker is already attached to this vault.");
+    throw new Error("Cloudflare Worker is already attached.");
   }
-  if (existingWorker && existingWorker.appId !== args.appId) {
-    throw new Error("Cloudflare Worker is already recorded for another app.");
+  if (
+    vaultCreationClaim &&
+    providerCreationClaim &&
+    vaultCreationClaim._id !== providerCreationClaim._id
+  ) {
+    throw new Error("Cloudflare Worker identities are owned by different creation claims.");
   }
+  const creationClaim = vaultCreationClaim ?? providerCreationClaim;
+  if (!creationClaim) {
+    return;
+  }
+  const sameApp = creationClaim.vaultId === args.vaultId && creationClaim.appId === args.appId;
+  switch (args.allowedCreationClaim.state) {
+    case "none":
+      throw new Error("Cloudflare Worker creation is already owned by another operation.");
+    case "same_app":
+      if (
+        sameApp &&
+        creationClaim.accountId === args.accountId &&
+        creationClaim.workerName === args.workerName
+      ) {
+        return;
+      }
+      throw new Error("Cloudflare Worker creation is already owned by another app.");
+    case "exact":
+      if (sameApp && creationClaim._id === args.allowedCreationClaim.claimId) {
+        return;
+      }
+      throw new Error("Cloudflare Worker creation claim does not match this app.");
+    default:
+      args.allowedCreationClaim satisfies never;
+  }
+}
+
+async function requireCreatedCloudflareWorkerClaim(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appId: Id<"vaultApps">;
+    accountId: string;
+    workerName: string;
+    workerTag: string;
+    creationClaimId: Id<"vaultCloudflareWorkerCreationClaims">;
+  },
+): Promise<Doc<"vaultCloudflareWorkerCreationClaims">> {
+  const claim = await ctx.db.get(args.creationClaimId);
+  if (
+    !claim ||
+    claim.vaultId !== args.vaultId ||
+    claim.runId !== args.runId ||
+    claim.userId !== args.userId ||
+    claim.appId !== args.appId ||
+    claim.accountId !== args.accountId ||
+    claim.lifecycle.state !== "created" ||
+    claim.lifecycle.workerTag !== args.workerTag
+  ) {
+    throw new Error("Cloudflare Worker creation claim does not match the created Worker.");
+  }
+  return claim;
+}
+
+async function requireRecoverableCloudflareWorkerClaim(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appId: Id<"vaultApps">;
+    accountId: string;
+    workerName: string;
+    workerTag: string;
+    creationClaimId: Id<"vaultCloudflareWorkerCreationClaims">;
+  },
+): Promise<Doc<"vaultCloudflareWorkerCreationClaims">> {
+  const claim = await ctx.db.get(args.creationClaimId);
+  if (
+    !claim ||
+    claim.vaultId !== args.vaultId ||
+    claim.runId !== args.runId ||
+    claim.userId !== args.userId ||
+    claim.appId !== args.appId ||
+    claim.accountId !== args.accountId ||
+    claim.workerName !== args.workerName ||
+    claim.lifecycle.state !== "creating"
+  ) {
+    throw new Error("Cloudflare Worker creation claim does not match the recovered Worker.");
+  }
+  return claim;
 }
 
 async function appendCloudflareWorkerConnectionEvent(
@@ -545,25 +725,6 @@ async function assertNoActiveCloudflareProvisioning(
   }
 }
 
-export const requireAttachableVault = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-    appId: id("vaultApps"),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    await requireVaultApp(ctx, args);
-    await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
-
-    return null;
-  },
-});
-
 export const requireCloudflareWorkerConnectionVault = internalQuery({
   args: {
     vaultId: id("vaults"),
@@ -623,68 +784,6 @@ export const readCloudflareWorkerDiscoveryContext = internalQuery({
   },
 });
 
-export const attachWorker = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-    appId: id("vaultApps"),
-    accountId: string(),
-    workerName: string(),
-    workerTag: string(),
-    workersDevUrl: optional(string()),
-    origin: vVaultCloudflareOrigin,
-  },
-  returns: id("vaultCloudflareWorkers"),
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    await requireVaultApp(ctx, args);
-    const existingWorker = await readCloudflareWorkerByProviderIdentity(ctx, args);
-    await assertNoExistingCloudflareWorkerTarget(ctx, {
-      vaultId: args.vaultId,
-      appId: args.appId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-    });
-    await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
-
-    const now = Date.now();
-    if (existingWorker) {
-      await ctx.db.patch(existingWorker._id, {
-        appId: args.appId,
-        accountId: args.accountId,
-        workerName: args.workerName,
-        workerTag: args.workerTag,
-        workersDevUrl: args.workersDevUrl,
-        origin: args.origin,
-        upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
-        builds: { state: "not_connected" },
-        connectedAt: now,
-        lastObservedAt: now,
-      });
-      await markWorkerDeploymentDependencyNotWired(ctx, existingWorker._id, now);
-      return existingWorker._id;
-    }
-
-    return await ctx.db.insert("vaultCloudflareWorkers", {
-      vaultId: args.vaultId,
-      userId: args.userId,
-      appId: args.appId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      workersDevUrl: args.workersDevUrl,
-      origin: args.origin,
-      upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
-      builds: { state: "not_connected" },
-      connectedAt: now,
-      lastObservedAt: now,
-    });
-  },
-});
-
 export const claimCloudflareWorkerConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -703,13 +802,19 @@ export const claimCloudflareWorkerConnection = internalMutation({
       throw new Error("Vault not found.");
     }
     const app = await requireVaultApp(ctx, args);
+    let creationClaim: Doc<"vaultCloudflareWorkerCreationClaims"> | null = null;
     try {
       await assertNoExistingCloudflareWorkerTarget(ctx, {
         vaultId: args.vaultId,
         appId: args.appId,
         accountId: args.accountId,
         workerName: args.workerName,
+        allowedCreationClaim:
+          args.origin === "provisioned" ? { state: "same_app" } : { state: "none" },
       });
+      if (args.origin === "provisioned") {
+        creationClaim = await readCloudflareWorkerCreationClaimByProviderIdentity(ctx, args);
+      }
     } catch (error) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
@@ -759,6 +864,15 @@ export const claimCloudflareWorkerConnection = internalMutation({
       });
     }
 
+    if (args.origin === "provisioned") {
+      if (creationClaim) {
+        await ctx.db.patch(creationClaim._id, {
+          runId: args.runId,
+          updatedAt: now,
+        });
+      }
+    }
+
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
       step: "claim_infra",
@@ -768,6 +882,216 @@ export const claimCloudflareWorkerConnection = internalMutation({
     });
 
     return { claimed: true };
+  },
+});
+
+export const readCloudflareWorkerCreationClaimForRun = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+  },
+  returns: union(cloudflareWorkerCreationClaim, nullValue()),
+  handler: async (ctx, args) => {
+    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const claim = await ctx.db
+      .query("vaultCloudflareWorkerCreationClaims")
+      .withIndex("by_run", (q) => q.eq("runId", args.runId))
+      .unique();
+    if (!claim) {
+      return null;
+    }
+    if (
+      claim.vaultId !== args.vaultId ||
+      claim.userId !== args.userId ||
+      claim.appId !== args.appId
+    ) {
+      throw new Error("Cloudflare Worker creation claim does not match the run.");
+    }
+    return {
+      claimId: claim._id,
+      accountId: claim.accountId,
+      workerName: claim.workerName,
+      lifecycle: claim.lifecycle,
+    };
+  },
+});
+
+export const beginCloudflareWorkerCreation = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+    accountId: string(),
+    workerName: string(),
+  },
+  returns: cloudflareWorkerCreationClaim,
+  handler: async (ctx, args) => {
+    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    await requireVaultApp(ctx, args);
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+      throw new Error("Cloudflare provisioning run no longer owns provider creation.");
+    }
+
+    const [vaultCreationClaim, providerCreationClaim] = await Promise.all([
+      readCloudflareWorkerCreationClaimByVault(ctx, args.vaultId),
+      readCloudflareWorkerCreationClaimByProviderIdentity(ctx, args),
+    ]);
+    if (
+      vaultCreationClaim &&
+      providerCreationClaim &&
+      vaultCreationClaim._id !== providerCreationClaim._id
+    ) {
+      throw new Error("Cloudflare Worker identities are owned by different creation claims.");
+    }
+    const existingClaim = vaultCreationClaim ?? providerCreationClaim;
+    if (existingClaim) {
+      if (
+        existingClaim.vaultId !== args.vaultId ||
+        existingClaim.userId !== args.userId ||
+        existingClaim.appId !== args.appId ||
+        existingClaim.accountId !== args.accountId ||
+        existingClaim.workerName !== args.workerName
+      ) {
+        throw new Error("Cloudflare Worker creation does not match this app and target.");
+      }
+      await ctx.db.patch(existingClaim._id, {
+        runId: args.runId,
+        updatedAt: Date.now(),
+      });
+      return {
+        claimId: existingClaim._id,
+        accountId: existingClaim.accountId,
+        workerName: existingClaim.workerName,
+        lifecycle: existingClaim.lifecycle,
+      };
+    }
+
+    await assertNoExistingCloudflareWorkerTarget(ctx, {
+      vaultId: args.vaultId,
+      appId: args.appId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      allowedCreationClaim: { state: "none" },
+    });
+    const now = Date.now();
+    const lifecycle = { state: "creating" } as const;
+    const claimId = await ctx.db.insert("vaultCloudflareWorkerCreationClaims", {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appId: args.appId,
+      runId: args.runId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      lifecycle,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return {
+      claimId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      lifecycle,
+    };
+  },
+});
+
+export const recordCreatedCloudflareWorker = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+    creationClaimId: id("vaultCloudflareWorkerCreationClaims"),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const claim = await ctx.db.get(args.creationClaimId);
+    if (
+      !claim ||
+      claim.vaultId !== args.vaultId ||
+      claim.runId !== args.runId ||
+      claim.userId !== args.userId ||
+      claim.appId !== args.appId ||
+      claim.accountId !== args.accountId ||
+      claim.workerName !== args.workerName
+    ) {
+      throw new Error("Cloudflare Worker creation claim does not match the run.");
+    }
+    if (claim.lifecycle.state === "created") {
+      if (claim.lifecycle.workerTag !== args.workerTag) {
+        throw new Error("Cloudflare returned a different Worker for the creation claim.");
+      }
+      return null;
+    }
+    await assertNoExistingCloudflareWorkerTarget(ctx, {
+      vaultId: args.vaultId,
+      appId: args.appId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+      allowedCreationClaim: { state: "exact", claimId: claim._id },
+    });
+    await ctx.db.patch(claim._id, {
+      lifecycle: {
+        state: "created",
+        workerTag: args.workerTag,
+      },
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const resetMissingCloudflareWorkerCreation = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+    creationClaimId: id("vaultCloudflareWorkerCreationClaims"),
+    accountId: string(),
+    workerTag: string(),
+  },
+  returns: cloudflareWorkerCreationClaim,
+  handler: async (ctx, args) => {
+    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+      throw new Error("Cloudflare provisioning run no longer owns provider recovery.");
+    }
+    const claim = await ctx.db.get(args.creationClaimId);
+    if (
+      !claim ||
+      claim.vaultId !== args.vaultId ||
+      claim.runId !== args.runId ||
+      claim.userId !== args.userId ||
+      claim.appId !== args.appId ||
+      claim.accountId !== args.accountId ||
+      claim.lifecycle.state !== "created" ||
+      claim.lifecycle.workerTag !== args.workerTag
+    ) {
+      throw new Error("Cloudflare Worker creation claim does not match the missing Worker.");
+    }
+    const lifecycle = { state: "creating" } as const;
+    await ctx.db.patch(claim._id, { lifecycle, updatedAt: Date.now() });
+    return {
+      claimId: claim._id,
+      accountId: claim.accountId,
+      workerName: claim.workerName,
+      lifecycle,
+    };
   },
 });
 
@@ -802,8 +1126,8 @@ export const attachWorkerForRun = internalMutation({
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    workersDevUrl: optional(string()),
-    origin: vVaultCloudflareOrigin,
+    workersDev: vVaultWorkersDevAvailability,
+    provenance: cloudflareWorkerAttachmentProvenance,
   },
   returns: cloudflareWorkerAttachmentResult,
   handler: async (ctx, args): Promise<CloudflareWorkerAttachmentResult> => {
@@ -813,6 +1137,35 @@ export const attachWorkerForRun = internalMutation({
       throw new Error("Vault not found.");
     }
     const app = await requireVaultApp(ctx, args);
+    let infrastructureTarget: Doc<"vaultInfrastructureTargets"> | null = null;
+    let infrastructureTargetWorker: Doc<"vaultCloudflareWorkers"> | null = null;
+    if (isComposedInfrastructureRun(run)) {
+      infrastructureTarget = await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .unique();
+      if (
+        !infrastructureTarget ||
+        infrastructureTarget.appId !== args.appId ||
+        infrastructureTarget.cloudflare.accountId !== args.accountId
+      ) {
+        throw new Error("Infrastructure target does not match the attached Worker.");
+      }
+      if (infrastructureTarget.cloudflare.state === "attached") {
+        infrastructureTargetWorker = await ctx.db.get(infrastructureTarget.cloudflare.workerId);
+        if (
+          !infrastructureTargetWorker ||
+          infrastructureTargetWorker.vaultId !== args.vaultId ||
+          infrastructureTargetWorker.userId !== args.userId ||
+          infrastructureTargetWorker.appId !== args.appId
+        ) {
+          throw new Error("Infrastructure target references an invalid Worker.");
+        }
+        if (isVaultProviderUpstreamPresent(infrastructureTargetWorker)) {
+          throw new Error("Infrastructure target already references a present Worker.");
+        }
+      }
+    }
     const existingWorker = await readCloudflareWorkerByProviderIdentity(ctx, args);
     try {
       await assertNoExistingCloudflareWorkerTarget(ctx, {
@@ -820,9 +1173,24 @@ export const attachWorkerForRun = internalMutation({
         appId: args.appId,
         accountId: args.accountId,
         workerName: args.workerName,
+        workerTag: args.workerTag,
+        allowedCreationClaim:
+          args.provenance.state !== "selected_existing"
+            ? {
+                state: "exact",
+                claimId: args.provenance.creationClaimId,
+              }
+            : { state: "none" },
       });
     } catch (error) {
       if (isStandaloneCloudflareWorkerConnectionRun(run)) {
+        const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+        if (ownership && isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+          await ctx.db.patch(ownership._id, {
+            state: "failed",
+            updatedAt: Date.now(),
+          });
+        }
         await appendCloudflareWorkerConnectionEvent(ctx, {
           runId: args.runId,
           step: "attach_worker",
@@ -847,46 +1215,68 @@ export const attachWorkerForRun = internalMutation({
       throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
 
+    const creationClaim =
+      args.provenance.state === "selected_existing"
+        ? null
+        : args.provenance.state === "provisioned"
+          ? await requireCreatedCloudflareWorkerClaim(ctx, {
+              ...args,
+              creationClaimId: args.provenance.creationClaimId,
+            })
+          : await requireRecoverableCloudflareWorkerClaim(ctx, {
+              ...args,
+              creationClaimId: args.provenance.creationClaimId,
+            });
+    if (
+      infrastructureTarget &&
+      infrastructureTarget.cloudflare.workerName !== (creationClaim?.workerName ?? args.workerName)
+    ) {
+      throw new Error("Infrastructure target does not match the attached Worker.");
+    }
+    if (
+      infrastructureTargetWorker &&
+      existingWorker &&
+      infrastructureTargetWorker._id !== existingWorker._id
+    ) {
+      throw new Error(
+        "Cloudflare Worker provider identity is already represented by another Worker row.",
+      );
+    }
+    const origin = args.provenance.state === "provisioned" ? "provisioned" : "selected_existing";
     const now = Date.now();
-    if (existingWorker) {
-      await ctx.db.patch(existingWorker._id, {
+    let workerId: Id<"vaultCloudflareWorkers">;
+    const workerToUpdate = infrastructureTargetWorker ?? existingWorker;
+    if (workerToUpdate) {
+      await ctx.db.patch(workerToUpdate._id, {
         appId: args.appId,
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
-        workersDevUrl: args.workersDevUrl,
-        origin: args.origin,
+        workersDev: args.workersDev,
+        origin,
         upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
         builds: { state: "not_connected" },
         connectedAt: now,
         lastObservedAt: now,
       });
-      await markWorkerDeploymentDependencyNotWired(ctx, existingWorker._id, now);
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "attach_worker",
-        level: "info",
-        message: `Cloudflare Worker ready for ${app.rootDirectory}: ${args.workerName}.`,
-        state: "running",
+      await markWorkerDeploymentDependencyNotWired(ctx, workerToUpdate._id, now);
+      workerId = workerToUpdate._id;
+    } else {
+      workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: args.vaultId,
+        userId: args.userId,
+        appId: args.appId,
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+        workersDev: args.workersDev,
+        origin,
+        upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
+        builds: { state: "not_connected" },
+        connectedAt: now,
+        lastObservedAt: now,
       });
-
-      return { state: "attached", workerId: existingWorker._id };
     }
-
-    const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
-      vaultId: args.vaultId,
-      userId: args.userId,
-      appId: args.appId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      workersDevUrl: args.workersDevUrl,
-      origin: args.origin,
-      upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
-      builds: { state: "not_connected" },
-      connectedAt: now,
-      lastObservedAt: now,
-    });
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
       step: "attach_worker",
@@ -895,36 +1285,41 @@ export const attachWorkerForRun = internalMutation({
       state: "running",
     });
 
-    return { state: "attached", workerId };
-  },
-});
-
-export const readCreatedWorkerRollbackSafety = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
-    userId: id("users"),
-    appId: id("vaultApps"),
-    accountId: string(),
-    workerName: string(),
-  },
-  returns: object({ shouldDelete: boolean() }),
-  handler: async (ctx, args) => {
-    await requireCloudflareWorkerConnectionRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      return { shouldDelete: true };
+    if (infrastructureTarget) {
+      if (
+        infrastructureTarget.cloudflare.state === "attached" &&
+        infrastructureTarget.cloudflare.workerId !== workerId
+      ) {
+        throw new Error("Infrastructure target already references another Worker.");
+      }
+      await ctx.db.patch(infrastructureTarget._id, {
+        cloudflare: {
+          state: "attached",
+          accountId: infrastructureTarget.cloudflare.accountId,
+          workerName: infrastructureTarget.cloudflare.workerName,
+          workerId,
+        },
+      });
     }
 
-    const worker = await readCloudflareWorkerByProviderIdentity(ctx, {
-      vaultId: args.vaultId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-    });
-    return {
-      shouldDelete:
-        !worker || worker.appId !== args.appId || !isVaultProviderUpstreamPresent(worker),
-    };
+    if (creationClaim) {
+      await ctx.db.delete(creationClaim._id);
+    }
+    if (isStandaloneCloudflareWorkerConnectionRun(run)) {
+      await ctx.db.patch(ownership._id, {
+        state: "succeeded",
+        updatedAt: now,
+      });
+      await appendCloudflareWorkerConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "finish",
+        level: "info",
+        message: "Cloudflare Worker is connected.",
+        state: "succeeded",
+      });
+    }
+
+    return { state: "attached", workerId };
   },
 });
 
@@ -944,6 +1339,17 @@ export const finishCloudflareWorkerConnection = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      isStandaloneCloudflareWorkerConnectionRun(run) &&
+      ownership?.runId === args.runId &&
+      ownership.state === "succeeded"
+    ) {
+      const worker = await requireCloudflareWorker(ctx, args);
+      if (!isVaultProviderUpstreamPresent(worker)) {
+        throw new Error("Cloudflare Worker connection did not attach a Worker.");
+      }
+      return null;
+    }
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
       if (isStandaloneCloudflareWorkerConnectionRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
@@ -1426,6 +1832,7 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
       },
       convex: {
         convexDeploymentId: convexDeployment._id,
+        teamId: convexDeployment.teamId,
         projectId: convexDeployment.projectId,
         deploymentName: convexDeployment.deploymentName,
         cloudUrl: convexDeployment.cloudUrl,
@@ -1862,7 +2269,6 @@ function resolveInfrastructureVerificationPatch(args: {
   builds: Doc<"vaultCloudflareWorkers">["builds"];
   dependencyWiring: Doc<"vaultWorkerDeploymentDependencies">["wiring"] | null;
   message: string;
-  shouldPatchWorker: boolean;
   shouldPatchDependency: boolean;
 } {
   const dependency = args.dependency;
@@ -1879,7 +2285,6 @@ function resolveInfrastructureVerificationPatch(args: {
       builds: { state: "not_connected" },
       dependencyWiring: notWiredDependency,
       message: `Cloudflare Worker is missing upstream for ${args.rootDirectory}; marked Worker missing.`,
-      shouldPatchWorker: true,
       shouldPatchDependency: dependency?.wiring.state === "wired",
     };
   }
@@ -1889,7 +2294,6 @@ function resolveInfrastructureVerificationPatch(args: {
       builds: { state: "not_connected" },
       dependencyWiring: notWiredDependency,
       message: `Cloudflare Workers Builds triggers are missing for ${args.rootDirectory}; marked Builds not connected.`,
-      shouldPatchWorker: true,
       shouldPatchDependency: dependency?.wiring.state === "wired",
     };
   }
@@ -1911,7 +2315,6 @@ function resolveInfrastructureVerificationPatch(args: {
         deployKeys: currentDeployKeys,
       },
       message: `Cloudflare infrastructure verified for ${args.rootDirectory}.`,
-      shouldPatchWorker: true,
       shouldPatchDependency: !isWorkerDeploymentDependencyCurrentlyWired(
         dependency,
         convexDeployment,
@@ -1927,7 +2330,6 @@ function resolveInfrastructureVerificationPatch(args: {
         args.providerResult.convexBuildAccess === "confirmed"
           ? `Cloudflare Workers Builds already match ${args.rootDirectory}; recorded Builds connected but left deploy keys repairable because Samebase lacks complete key identity.`
           : `Cloudflare Workers Builds already match ${args.rootDirectory}; recorded Builds connected.`,
-      shouldPatchWorker: true,
       shouldPatchDependency: dependency?.wiring.state === "wired",
     };
   }
@@ -1937,7 +2339,6 @@ function resolveInfrastructureVerificationPatch(args: {
       builds: currentBuilds,
       dependencyWiring: notWiredDependency,
       message: `Cloudflare Workers Builds are not connected for ${args.rootDirectory}; marked deploy keys missing.`,
-      shouldPatchWorker: false,
       shouldPatchDependency: true,
     };
   }
@@ -1951,7 +2352,6 @@ function resolveInfrastructureVerificationPatch(args: {
       builds: currentBuilds,
       dependencyWiring: notWiredDependency,
       message: `Cloudflare Workers Builds deploy-key variables are missing for ${args.rootDirectory}; marked deploy keys missing.`,
-      shouldPatchWorker: true,
       shouldPatchDependency: dependency.wiring.state === "wired",
     };
   }
@@ -1968,7 +2368,6 @@ function resolveInfrastructureVerificationPatch(args: {
         args.providerResult.convexBuildAccess === "confirmed" && dependency
           ? `Cloudflare infrastructure is present for ${args.rootDirectory}, but Samebase left deploy keys repairable because their recorded identity is incomplete.`
           : `Cloudflare infrastructure verified for ${args.rootDirectory}.`,
-      shouldPatchWorker: true,
       shouldPatchDependency: false,
     };
   }
@@ -1977,7 +2376,6 @@ function resolveInfrastructureVerificationPatch(args: {
     builds: currentBuilds,
     dependencyWiring: dependency?.wiring ?? null,
     message: `No connected Cloudflare infrastructure state to verify for ${args.rootDirectory}.`,
-    shouldPatchWorker: false,
     shouldPatchDependency: false,
   };
 }
@@ -2116,6 +2514,7 @@ export const readActiveCloudflareInfrastructureVerification = internalQuery({
             },
             convexDeployment: {
               convexDeploymentId: dependencyContext.convexDeployment._id,
+              teamId: dependencyContext.convexDeployment.teamId,
               projectId: dependencyContext.convexDeployment.projectId,
               deploymentName: dependencyContext.convexDeployment.deploymentName,
             },
@@ -2157,6 +2556,26 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
       }),
       readWorkerDeploymentDependencyContext(ctx, args),
     ]);
+    if (args.providerResult.worker === "confirmed") {
+      const [workerByProviderIdentity, creationClaim] = await Promise.all([
+        readCloudflareWorkerByProviderIdentity(ctx, {
+          accountId: worker.accountId,
+          workerName: args.providerResult.workerName,
+          workerTag: worker.workerTag,
+        }),
+        readCloudflareWorkerCreationClaimByProviderIdentity(ctx, {
+          accountId: worker.accountId,
+          workerName: args.providerResult.workerName,
+          workerTag: worker.workerTag,
+        }),
+      ]);
+      if (workerByProviderIdentity && workerByProviderIdentity._id !== worker._id) {
+        throw new Error("Cloudflare Worker identity is already attached to another app.");
+      }
+      if (creationClaim) {
+        throw new Error("Cloudflare Worker identity is owned by an unfinished creation.");
+      }
+    }
 
     const patch = resolveInfrastructureVerificationPatch({
       rootDirectory: app.rootDirectory,
@@ -2169,16 +2588,16 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
       args.providerResult.worker === "missing_upstream"
         ? VAULT_PROVIDER_UPSTREAM_MISSING
         : VAULT_PROVIDER_UPSTREAM_PRESENT;
-    if (
-      patch.shouldPatchWorker ||
-      readVaultProviderUpstreamPresence(worker).state !== workerUpstream.state
-    ) {
-      await ctx.db.patch(worker._id, {
-        builds: patch.builds,
-        upstream: workerUpstream,
-        lastObservedAt: Date.now(),
-      });
-    }
+    await ctx.db.patch(worker._id, {
+      builds: patch.builds,
+      workerName:
+        args.providerResult.worker === "confirmed"
+          ? args.providerResult.workerName
+          : worker.workerName,
+      workersDev: args.providerResult.workersDev,
+      upstream: workerUpstream,
+      lastObservedAt: Date.now(),
+    });
     if (patch.shouldPatchDependency && dependencyContext && patch.dependencyWiring) {
       await ctx.db.patch(dependencyContext.dependency._id, {
         wiring: patch.dependencyWiring,
