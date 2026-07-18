@@ -3,13 +3,8 @@ import { internalMutation, type ActionCtx, type MutationCtx } from "./_generated
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "convex/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import {
-  isConvexCloudDeployment,
-  requestConvexManagementApi,
-  type ConvexCloudDeployment,
-} from "./convexManagementApi/client";
-import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
-import type { components, PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
+import { requestConvexManagementApi } from "./convexManagementApi/client";
+import type { components } from "./convexManagementApi/types.generated";
 import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
@@ -37,147 +32,22 @@ type ConvexDeployKeyResult = {
   deployKey: string;
 };
 
-function requireConvexCloudDeployment(args: {
-  deployment: PlatformDeploymentResponse;
-  deploymentType: "prod" | "dev";
-  projectId: string;
-  description: string;
-}): ConvexCloudDeployment {
-  if (!isConvexCloudDeployment(args.deployment)) {
-    throw new Error(`${args.description} was not cloud.`);
-  }
-  if (args.deployment.deploymentType !== args.deploymentType) {
-    throw new Error(`${args.description} had the wrong deployment type.`);
-  }
-  if (args.deployment.projectId !== args.projectId) {
-    throw new Error(`${args.description} belonged to a different project.`);
-  }
-  return args.deployment;
-}
-
-async function readDefaultConvexCloudDeployment(args: {
-  convexToken: string;
-  projectId: string;
-  deploymentType: "prod" | "dev";
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexCloudDeployment | null> {
-  try {
-    const deployment = await requestConvexManagementApi(
-      args.convexToken,
-      "GET",
-      "/projects/{project_id}/deployment",
-      {
-        params: {
-          path: { project_id: args.projectId },
-          query: args.deploymentType === "prod" ? { defaultProd: true } : { defaultDev: true },
-        },
-        recordApiCall: args.recordApiCall,
-      },
-    );
-    return requireConvexCloudDeployment({
-      deployment,
-      deploymentType: args.deploymentType,
-      projectId: args.projectId,
-      description:
-        args.deploymentType === "prod"
-          ? "Default Convex production deployment"
-          : "Default Convex dev deployment",
-    });
-  } catch (error) {
-    if (isConvexManagementNotFoundError(error)) {
-      return null;
-    }
-    throw error;
-  }
-}
-
-async function createConvexCloudDeployment(args: {
-  convexToken: string;
-  projectId: string;
-  deploymentType: "prod" | "dev";
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexCloudDeployment> {
-  const deployment = await requestConvexManagementApi(
-    args.convexToken,
-    "POST",
-    "/projects/{project_id}/create_deployment",
-    {
-      params: { path: { project_id: args.projectId } },
-      body: {
-        type: args.deploymentType,
-      },
-      recordApiCall: args.recordApiCall,
-    },
-  );
-  return requireConvexCloudDeployment({
-    deployment,
-    deploymentType: args.deploymentType,
-    projectId: args.projectId,
-    description: "Created Convex deployment",
-  });
-}
-
-async function readConvexProjectDetails(args: {
+export async function verifyConvexProjectBelongsToTeam(args: {
   convexToken: string;
   projectId: string;
   teamId: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}) {
+}): Promise<void> {
   const project = await requestConvexManagementApi(
     args.convexToken,
     "GET",
     "/projects/{project_id}",
     {
       params: { path: { project_id: args.projectId } },
-      recordApiCall: args.recordApiCall,
     },
   );
   if (project.teamId !== args.teamId) {
     throw new Error("Convex project belonged to a different team.");
   }
-  return project;
-}
-
-export type ConvexPreviewProvisionResult = {
-  previewDeploymentName: string;
-  previewCloudUrl: string;
-};
-
-export async function ensureConvexPreviewResources(args: {
-  convexToken: string;
-  teamId: string;
-  projectId: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexPreviewProvisionResult> {
-  // Preview deployment creation starts from recorded infrastructure, so prove
-  // that project still belongs to the currently connected Convex team first.
-  await readConvexProjectDetails({
-    convexToken: args.convexToken,
-    projectId: args.projectId,
-    teamId: args.teamId,
-    recordApiCall: args.recordApiCall,
-  });
-
-  const defaultDevDeployment = await readDefaultConvexCloudDeployment({
-    convexToken: args.convexToken,
-    projectId: args.projectId,
-    deploymentType: "dev",
-    recordApiCall: args.recordApiCall,
-  });
-
-  const deployment =
-    defaultDevDeployment ??
-    (await createConvexCloudDeployment({
-      convexToken: args.convexToken,
-      projectId: args.projectId,
-      deploymentType: "dev",
-      recordApiCall: args.recordApiCall,
-    }));
-
-  return {
-    previewDeploymentName: deployment.name,
-    previewCloudUrl: deployment.deploymentUrl,
-  };
 }
 
 /**

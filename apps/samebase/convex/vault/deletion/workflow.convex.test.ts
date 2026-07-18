@@ -459,7 +459,6 @@ describe("vault deletion workflow", () => {
         deploymentType: "prod",
         cloudUrl: "https://delete-me-production.convex.cloud",
         siteUrl: "https://delete-me-production.convex.site",
-        previewDeployment: { state: "not_ensured" },
         origin: "selected_existing",
         connectedAt: 6,
         lastObservedAt: 7,

@@ -76,18 +76,6 @@ export const vVaultConvexConnectionTarget = union(
 );
 export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
 
-export const vConvexPreviewDeployment = union(
-  object({
-    state: literal("not_ensured"),
-  }),
-  object({
-    state: literal("ready"),
-    deploymentName: string(),
-    cloudUrl: string(),
-  }),
-);
-export type ConvexPreviewDeployment = Infer<typeof vConvexPreviewDeployment>;
-
 export const vVaultRootDirectory = string();
 export type VaultRootDirectory = Infer<typeof vVaultRootDirectory>;
 
@@ -142,7 +130,6 @@ export const vVaultConvexDeployment = object({
   deploymentType: literal("prod"),
   cloudUrl: string(),
   siteUrl: string(),
-  previewDeployment: vConvexPreviewDeployment,
   origin: vVaultConvexOrigin,
   upstream: optional(vVaultProviderUpstreamPresence),
   connectedAt: number(),

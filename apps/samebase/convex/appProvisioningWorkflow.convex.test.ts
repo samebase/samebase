@@ -91,11 +91,6 @@ describe("app provisioning workflow composition", () => {
         deploymentType: "prod",
         cloudUrl: "https://composed-app-prod.convex.cloud",
         siteUrl: "https://composed-app-prod.convex.site",
-        previewDeployment: {
-          state: "ready",
-          deploymentName: "composed-app-dev",
-          cloudUrl: "https://composed-app-dev.convex.cloud",
-        },
         origin: "provisioned",
         connectedAt: 40,
         lastObservedAt: 40,

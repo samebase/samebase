@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-07-05
+- Last updated: 2026-07-18
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
@@ -94,13 +94,11 @@ Indexes:
 - `vaultId`, `userId`, `appRoot`
 - `projectId`, `teamSlug`, `projectSlug`
 - `deploymentName`, `deploymentType: "prod"`, `cloudUrl`, `siteUrl`
-- `previewDeployment`: either `{ state: "not_ensured" }` or
-  `{ state: "ensured", deploymentName, cloudUrl }`
-- `deployKeys.production` and `deployKeys.preview`: each either `{ state: "not_created" }` or
-  `{ state: "created", id }`
 - `origin: "provisioned" | "selected_existing"`, `connectedAt`, `lastObservedAt`
 
-This table is the durable Convex identity. Deploy-key ids live here; key material is never stored.
+This table is the durable Convex production identity. Personal development deployments are not
+attached to it, and branch builds create their own branch-named previews. Worker-specific deploy-key
+identities live on the explicit Worker-to-Convex dependency; key material is never stored.
 
 Indexes:
 
@@ -223,7 +221,7 @@ sequenceDiagram
   CFB->>CFL: connect GitHub repo + create build triggers
   CFB->>DB: write deployment.builds
   WF->>CFB: wire_convex_build_access child run
-  CFB->>CVX: ensure preview deployment + mint deploy keys
+  CFB->>CVX: verify project team + mint production and project preview deploy keys
   CFB->>CFL: patch trigger env vars
   CFB->>DB: write deploy-key ids + convexBuildAccess
   WF->>DB: upsert vaultDomains + mark parent run succeeded

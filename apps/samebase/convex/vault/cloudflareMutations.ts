@@ -72,11 +72,6 @@ const cloudflareWorkerAttachmentResult = union(
   object({ state: literal("not_attached") }),
 );
 type CloudflareWorkerAttachmentResult = Infer<typeof cloudflareWorkerAttachmentResult>;
-const vConvexPreviewDeploymentReady = object({
-  state: literal("ready"),
-  deploymentName: string(),
-  cloudUrl: string(),
-});
 const vCloudflareConvexBuildAccessDeployKey = union(
   object({
     deployment: literal("production"),
@@ -1706,7 +1701,6 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
     workerId: id("vaultCloudflareWorkers"),
     convexDeploymentId: id("vaultConvexDeployments"),
     builds: vVaultCloudflareConnectedBuilds,
-    previewDeployment: vConvexPreviewDeploymentReady,
   },
   returns: object({ applied: boolean() }),
   handler: async (ctx, args) => {
@@ -1758,7 +1752,6 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
 
     const now = Date.now();
     await ctx.db.patch(convexDeployment._id, {
-      previewDeployment: args.previewDeployment,
       lastObservedAt: now,
     });
     await ctx.db.patch(worker._id, {

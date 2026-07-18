@@ -5,6 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase hosting, generated app provisioning, and public template stack
 - Created: 2026-05-15
+- Last updated: 2026-07-18
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
@@ -186,17 +187,16 @@ New Samebase-managed app creation should:
 1. create the GitHub repository
 2. seed the Workers template snapshot
 3. create or resolve Convex production deployment
-4. create or resolve Convex preview deployment
-5. create production and preview Convex deploy keys
-6. create or reuse a Cloudflare Worker
-7. connect the GitHub repository to Workers Builds
-8. create or reuse a Workers Builds build token tied to the current Cloudflare credential
-9. configure production build/deploy commands
-10. configure non-production branch build/deploy commands
-11. set production and preview build variables/secrets
-12. trigger the first production build
-13. record the Workers production URL and Worker tag
-14. surface preview URLs, status, and logs from Workers-compatible data
+4. create production and project-scoped preview Convex deploy keys
+5. create or reuse a Cloudflare Worker
+6. connect the GitHub repository to Workers Builds
+7. create or reuse a Workers Builds build token tied to the current Cloudflare credential
+8. configure production build/deploy commands
+9. configure non-production branch build/deploy commands
+10. set production and preview build variables/secrets
+11. trigger the first production build
+12. record the Workers production URL and Worker tag
+13. surface preview URLs, status, and logs from Workers-compatible data
 
 ## Implementation Plan
 
@@ -349,10 +349,10 @@ Generated app provisioning validation:
 1. create a new Samebase-managed app
 2. confirm GitHub repo seeded from Workers template snapshot
 3. confirm Convex production deployment exists
-4. confirm Convex preview deployment exists
-5. confirm Cloudflare Worker exists
-6. confirm production URL opens
-7. open a PR and confirm preview URL/status/logs
+4. confirm Cloudflare Worker exists
+5. confirm production URL opens
+6. open a PR and confirm its build creates the branch-named Convex preview
+7. confirm preview URL/status/logs
 8. delete the vault and confirm Samebase-managed resources are removed
 
 Use Chrome to verify Cloudflare dashboard behavior where API responses are not enough to prove the

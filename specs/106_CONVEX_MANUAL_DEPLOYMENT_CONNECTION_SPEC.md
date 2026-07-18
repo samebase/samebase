@@ -5,6 +5,7 @@
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
 - Created: 2026-05-23
+- Last updated: 2026-07-18
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
@@ -63,13 +64,6 @@ type VaultConvexDeployment = {
   deploymentType: "prod";
   cloudUrl: string;
   siteUrl: string;
-  previewDeployment:
-    | { state: "not_ensured" }
-    | { state: "ensured"; deploymentName: string; cloudUrl: string };
-  deployKeys: {
-    production: { state: "not_created" } | { state: "created"; id: string };
-    preview: { state: "not_created" } | { state: "created"; id: string };
-  };
   origin: "provisioned" | "selected_existing";
   connectedAt: number;
   lastObservedAt: number;
@@ -87,7 +81,8 @@ data can be cleared instead of carrying old `vault.convex` or `vaultInfrastructu
 Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
 flows, while `selected_existing` projects are external.
 
-Manual connection does not create deploy keys, so both deploy-key states start as `not_created`.
+Manual connection does not create a Worker dependency or deploy keys. The production and preview
+deploy-key identities belong to an explicit Worker-to-Convex dependency instead.
 
 ## Provider Scope
 
@@ -168,9 +163,11 @@ Deployment wiring is separate from Convex attach/create. The two wiring relation
 
 Attaching or creating a Convex production deployment does not imply either wiring relationship
 exists. If a Worker already has connected builds, Samebase can later run `wire_convex_build_access`
-to ensure the preview deployment, mint deploy keys, patch Cloudflare trigger environment variables,
-and mark `vaultCloudflareWorkers.deployment.convexBuildAccess` as wired. Until this state is wired,
-the dashboard shows the Cloudflare row message
-`Cloudflare does not have this Convex deployment's deploy keys.` with a `Set Convex deploy keys`
-action when the same app root has both an attached Convex deployment and connected Cloudflare
-Builds.
+to verify that the project still belongs to the connected Convex team, mint a production deploy key
+and a project-scoped preview deploy key, patch Cloudflare trigger environment variables, and mark
+the dependency as wired. The project-scoped key lets a later non-production branch build create or
+reuse its branch-named preview. Samebase does not read, create, or store a personal development
+deployment as preview infrastructure. Until this state is wired, the dashboard shows the Cloudflare
+row message `Cloudflare does not have this Convex deployment's deploy keys.` with a
+`Set Convex deploy keys` action when the same app root has both an attached Convex deployment and
+connected Cloudflare Builds.

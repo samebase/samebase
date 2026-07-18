@@ -282,7 +282,6 @@ async function insertRootConvexDeployment(
         deploymentType: "prod",
         cloudUrl: "https://manual-cloudflare.convex.cloud",
         siteUrl: "https://manual-cloudflare.convex.site",
-        previewDeployment: { state: "not_ensured" },
         origin: "selected_existing",
         upstream: args?.upstream ?? { state: "present" },
         connectedAt: 35,
@@ -317,7 +316,6 @@ async function insertConvexDeploymentForApp(
         deploymentType: "prod",
         cloudUrl: `https://${projectSlug}.convex.cloud`,
         siteUrl: `https://${projectSlug}.convex.site`,
-        previewDeployment: { state: "not_ensured" },
         origin: "selected_existing",
         upstream: { state: "present" },
         connectedAt: 35,
@@ -443,7 +441,6 @@ async function createClaimedInfrastructureVerification(args: { includeConvexConn
       deploymentType: "prod",
       cloudUrl: "https://manual-cloudflare.convex.cloud",
       siteUrl: "https://manual-cloudflare.convex.site",
-      previewDeployment: { state: "not_ensured" },
       origin: "selected_existing",
       upstream: { state: "present" },
       connectedAt: 35,
@@ -772,11 +769,6 @@ describe("vault Cloudflare attachment mutations", () => {
     await t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
       ...accessArgs,
       builds: rootBuilds,
-      previewDeployment: {
-        state: "ready",
-        deploymentName: "manual-cloudflare-dev",
-        cloudUrl: "https://manual-cloudflare-dev.convex.cloud",
-      },
     });
     await expect(
       t.mutation(
@@ -1138,11 +1130,6 @@ describe("vault Cloudflare attachment mutations", () => {
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
         ...accessIds,
         builds: rootBuilds,
-        previewDeployment: {
-          state: "ready",
-          deploymentName: "manual-cloudflare-dev",
-          cloudUrl: "https://manual-cloudflare-dev.convex.cloud",
-        },
       }),
     ).resolves.toEqual({ applied: true });
     await expect(
@@ -1158,7 +1145,6 @@ describe("vault Cloudflare attachment mutations", () => {
         .withIndex("by_worker", (q) => q.eq("workerId", workerId))
         .unique();
       return {
-        convexDeployment: await ctx.db.get(convexDeploymentId),
         dependency,
         run: await ctx.db.get(runId),
         worker: await ctx.db.get(workerId),
@@ -1168,13 +1154,6 @@ describe("vault Cloudflare attachment mutations", () => {
     expect(result.run).toMatchObject({
       state: "succeeded",
       currentStep: "finish",
-    });
-    expect(result.convexDeployment).toMatchObject({
-      previewDeployment: {
-        state: "ready",
-        deploymentName: "manual-cloudflare-dev",
-        cloudUrl: "https://manual-cloudflare-dev.convex.cloud",
-      },
     });
     expect(result.worker).toMatchObject({
       builds: rootBuilds,
@@ -2274,11 +2253,6 @@ describe("explicit Worker to Convex dependencies", () => {
     await t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
       ...runArgs,
       builds: dependencyAwareWebBuilds,
-      previewDeployment: {
-        state: "ready",
-        deploymentName: "manual-cloudflare-preview",
-        cloudUrl: "https://manual-cloudflare-preview.convex.cloud",
-      },
     });
     await t.mutation(
       internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,

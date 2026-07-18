@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase vault app and infrastructure model
-- Last updated: 2026-07-17
+- Last updated: 2026-07-18
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`
@@ -32,8 +32,12 @@ conflict with this model.
   root directory is not its identity.
 - **Worker**: a Cloudflare Worker provider resource. Cloudflare Workers is the only hosting resource
   Samebase supports.
-- **Convex deployment**: a Convex production deployment provider resource. It belongs to the app
+- **Convex production deployment**: the project's shared live deployment. It belongs to the app
   selected as the Convex project's root.
+- **Convex development deployment**: a persistent personal deployment for one Convex team member.
+  Samebase does not connect, create, or store it in this slice.
+- **Convex preview deployment**: a transient, branch-named deployment created or reused by a
+  non-production build. It is not a development or production deployment fallback.
 - **Deployment dependency**: an explicit directed relation saying that one Worker's build pipeline
   deploys one Convex deployment. It does not transfer resource ownership.
 - **Build**: evidence that a provider build actually ran. A possible deployment dependency without a
@@ -56,6 +60,11 @@ Worker and Convex resources each belong to exactly one app. Different resource t
 same root without colliding. More than one Worker may also use one root if the provider contains
 that configuration. An app owns zero or one Convex production deployment and zero or more Workers.
 Samebase never uses `rootDirectory` as a Worker or Convex deployment ID.
+
+`vaultConvexDeployments` stores only the attached production deployment. It has no nested
+development or preview deployment field. A missing branch preview remains missing, and provider
+uncertainty remains unknown or failed; Samebase never substitutes a personal development deployment
+or the production deployment because its URL happens to be available.
 
 Creating an app and attaching a provider resource are separate operations. The repository-root app
 may be added before or after nested apps, but it can exist only once. Every other app identifies its
@@ -229,6 +238,8 @@ sufficient evidence for ownership placement or empty-app visibility.
 
 - Inferring runtime dependencies between arbitrary clients and backends.
 - Supporting another hosting provider or Cloudflare Pages.
+- Persisting personal Convex development deployments or branch preview inventory as app
+  infrastructure.
 - Copying provider deployment history into Samebase.
 - Showing closed pull requests or historical build attempts.
 

@@ -5,7 +5,7 @@
 - Status: Proposed
 - Owner: vault infrastructure provisioning, Cloudflare/Convex resource attachment
 - Created: 2026-07-03
-- Last updated: 2026-07-03
+- Last updated: 2026-07-18
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
@@ -74,12 +74,13 @@ Rules:
 - `wire_builds` takes an attached Worker (either origin) and the vault's connected GitHub repo. It
   has no Convex inputs. Trigger env vars at this stage carry no Convex values.
 - `wire_convex_build_access` requires `attach_convex` and `wire_builds` to have completed. It
-  ensures the preview deployment (persisting its identity, unlike today), mints the two deploy keys,
-  records their ids on the Convex row, and PATCHes the Workers Builds env vars with both
-  `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` on every recorded trigger. This mirrors the
-  Cloudflare dashboard's visible build-variable table while the build script still selects the
-  branch-appropriate key from `WORKERS_CI_BRANCH`. This block patches only those deploy-key
-  variables; key material never touches the workflow journal (existing doctrine).
+  verifies that the Convex project belongs to the connected team, then mints a production key for
+  the production deployment and a project-scoped preview key. Their provider identities live on the
+  explicit Worker-to-Convex dependency. The production trigger receives only `CONVEX_DEPLOY_KEY`;
+  the preview trigger receives only `PREVIEW_CONVEX_DEPLOY_KEY`. A later branch build uses the
+  project-scoped key to create or reuse its branch-named preview. Samebase does not pre-create or
+  persist a personal development deployment as preview infrastructure. Key material never touches
+  the workflow journal.
 - The temporary dashboard repair path exposes the same blocks after manual or partial setup:
   `Connect GitHub repo` runs `wire_builds` when an attached Worker is not connected to the vault's
   GitHub repository, and `Set Convex deploy keys` runs `wire_convex_build_access` when the same app

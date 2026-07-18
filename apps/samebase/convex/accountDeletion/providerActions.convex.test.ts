@@ -115,7 +115,6 @@ async function seedRetainedProviderResources(t: ConvexTest, userId: Id<"users">)
       deploymentType: "prod",
       cloudUrl: "https://backend-production.convex.cloud",
       siteUrl: "https://backend-production.convex.site",
-      previewDeployment: { state: "not_ensured" },
       origin: "selected_existing",
       connectedAt: 1,
       lastObservedAt: 1,

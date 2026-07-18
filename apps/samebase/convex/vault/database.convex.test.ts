@@ -99,7 +99,6 @@ async function seedDatabaseEditorVault(
       deploymentType: "prod",
       cloudUrl: "https://demo.convex.cloud",
       siteUrl: "https://demo.convex.site",
-      previewDeployment: { state: "not_ensured" },
       origin: "selected_existing",
       connectedAt: 25,
       lastObservedAt: 25,

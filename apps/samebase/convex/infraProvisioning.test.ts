@@ -1,8 +1,14 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
+import { verifyConvexProjectBelongsToTeam } from "./infraProvisioning";
 import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./schema";
 import { makeConvexTest } from "./test.setup";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -81,6 +87,47 @@ async function readRunAndFirstEvent(
     return { event, run };
   });
 }
+
+describe("verifyConvexProjectBelongsToTeam", () => {
+  it("does not read or create a development deployment", async () => {
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        requests.push(request);
+        return new Response(
+          `{
+            "createTime": 1710000000000,
+            "id": 1001,
+            "name": "Fixture",
+            "slug": "fixture",
+            "teamId": 1000,
+            "teamSlug": "samebase-team"
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      verifyConvexProjectBelongsToTeam({
+        convexToken: "team-token",
+        projectId: "1001",
+        teamId: "1000",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(requests.map(({ method, url }) => ({ method, url }))).toEqual([
+      {
+        method: "GET",
+        url: "https://api.convex.dev/v1/projects/1001",
+      },
+    ]);
+  });
+});
 
 describe("upsertDomainRecord", () => {
   it("creates and updates one branch domain for Samebase-managed connected vaults", async () => {

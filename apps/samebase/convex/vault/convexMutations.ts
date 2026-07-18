@@ -17,9 +17,6 @@ import { isLiveConnectedVault } from "./state";
 
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
 const CONVEX_CONNECTION_STALE_MS = 10 * 60 * 1000;
-const CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED = {
-  state: "not_ensured",
-} as const;
 
 const createdConvexProjectValidator = object({
   projectName: string(),
@@ -404,7 +401,6 @@ export const attachDeploymentForRun = internalMutation({
         deploymentType: args.convex.convexDeploymentType,
         cloudUrl: args.convex.convexCloudUrl,
         siteUrl: args.convex.convexSiteUrl,
-        previewDeployment: CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED,
         origin: args.origin,
         upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
         connectedAt: now,
@@ -432,7 +428,6 @@ export const attachDeploymentForRun = internalMutation({
       deploymentType: args.convex.convexDeploymentType,
       cloudUrl: args.convex.convexCloudUrl,
       siteUrl: args.convex.convexSiteUrl,
-      previewDeployment: CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED,
       origin: args.origin,
       upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
       connectedAt: now,

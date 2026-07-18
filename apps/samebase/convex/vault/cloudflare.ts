@@ -42,7 +42,7 @@ import {
   deleteConvexDeployKey,
   deleteConvexPreviewDeployKey,
   ConvexProvisioningConnectionRequiredError,
-  ensureConvexPreviewResources,
+  verifyConvexProjectBelongsToTeam,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
 import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
@@ -1371,7 +1371,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         }
       }
 
-      const previewConvex = await ensureConvexPreviewResources({
+      await verifyConvexProjectBelongsToTeam({
         convexToken: convexConnection.convexToken,
         teamId: convexConnection.convexTeamId,
         projectId: active.convex.projectId,
@@ -1482,11 +1482,6 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
           workerId: args.workerId,
           convexDeploymentId: args.convexDeploymentId,
           builds: vaultBuilds,
-          previewDeployment: {
-            state: "ready",
-            deploymentName: previewConvex.previewDeploymentName,
-            cloudUrl: previewConvex.previewCloudUrl,
-          },
         },
       );
       if (!applied) {

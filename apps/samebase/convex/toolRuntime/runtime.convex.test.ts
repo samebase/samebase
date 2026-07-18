@@ -41,7 +41,6 @@ describe("toolRuntime scope enforcement", () => {
         deploymentType: "prod",
         cloudUrl: "https://project-1.convex.cloud",
         siteUrl: "https://project-1.convex.site",
-        previewDeployment: { state: "not_ensured" },
         origin: "selected_existing",
         connectedAt: 1,
         lastObservedAt: 1,
