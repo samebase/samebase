@@ -119,6 +119,9 @@ export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier
   return readVaultProviderUpstreamPresence(row).state === "present";
 }
 
+// TODO: Let an app explicitly include member-scoped Convex development deployments when Samebase
+// adds that user story. Extend or split this production-only model with provider member identity;
+// development deployments must never substitute for branch previews.
 export const vVaultConvexDeployment = object({
   vaultId: id("vaults"),
   userId: id("users"),
