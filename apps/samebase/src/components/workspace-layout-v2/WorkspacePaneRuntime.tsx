@@ -15,7 +15,7 @@ import type {
   WorkspaceSidebarStateController,
   WorkspaceSidebarStatePersistenceMode,
 } from "@/lib/workspaceSidebarStateController";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 import {
   WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
   WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,

@@ -26,7 +26,7 @@ import {
   type ConvexSchemaGraphTable,
   type ConvexSchemaGraphTableSource,
 } from "./convexSchemaGraphModel";
-import { vVaultConvexDeployment } from "./model";
+import { vaultTables } from "./model";
 
 const { array, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
@@ -77,7 +77,7 @@ const CONVEX_SCHEMA_DEPLOY_KEY_ALLOWED_ACTIONS = [
 ] satisfies ConvexDeployKeyAllowedAction[];
 
 const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
-const vConnectedConvexDeployment = vVaultConvexDeployment.extend({
+const vConnectedConvexDeployment = vaultTables.vaultConvexDeployments.validator.extend({
   _id: id("vaultConvexDeployments"),
   _creationTime: number(),
 });

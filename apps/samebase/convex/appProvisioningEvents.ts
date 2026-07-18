@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { query } from "./functions";
-import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./schema";
+import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./appProvisioningModel";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;

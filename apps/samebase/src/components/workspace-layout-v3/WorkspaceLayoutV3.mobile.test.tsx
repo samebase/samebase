@@ -7,7 +7,7 @@ import {
   DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
 } from "@/lib/workspacePaneSizes";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 import { WorkspaceLayoutV3FullPage } from "./WorkspaceLayoutV3FullPage";
 import { type WorkspaceLayoutV3MobileMinResizeBehavior } from "./WorkspaceLayoutV3Geometry";
 import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";

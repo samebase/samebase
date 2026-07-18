@@ -1,3 +1,4 @@
+import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
 const { id, literal, number, object, string, union } = v;
@@ -48,11 +49,6 @@ export const vDashboardRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("dashboard"),
 });
-/**
- * Repository demand created by passive dashboard activation.
- * Route load, visibility resume, and window focus all collapse before Convex.
- */
-export type DashboardRepositoryRefreshDemand = Infer<typeof vDashboardRepositoryRefreshDemand>;
 
 /**
  * Manual vault-level refresh.
@@ -65,11 +61,6 @@ export const vManualRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("manual"),
 });
-/**
- * Repository demand created by an explicit dashboard refresh action.
- * It upgrades passive dashboard demand because the user requested it directly.
- */
-export type ManualRepositoryRefreshDemand = Infer<typeof vManualRepositoryRefreshDemand>;
 
 /**
  * GitHub repo create/connect flow finished.
@@ -100,11 +91,6 @@ export const vFileViewBranchRefreshDemand = object({
   branch: string(),
   source: literal("file_view"),
 });
-/**
- * Branch demand created by file-route activation.
- * The branch is required because file freshness is branch-specific.
- */
-export type FileViewBranchRefreshDemand = Infer<typeof vFileViewBranchRefreshDemand>;
 
 /**
  * Manual branch-level refresh.
@@ -117,11 +103,6 @@ export const vManualBranchRefreshDemand = object({
   branch: string(),
   source: literal("manual"),
 });
-/**
- * Branch demand created by a direct branch refresh click.
- * It is separate from repository manual demand so dedupe includes the branch.
- */
-export type ManualBranchRefreshDemand = Infer<typeof vManualBranchRefreshDemand>;
 
 /**
  * Local commit finished for one branch.
@@ -133,10 +114,6 @@ export const vCommitBranchRefreshDemand = object({
   branch: string(),
   source: literal("commit"),
 });
-/**
- * Branch demand created after a local commit changes one branch.
- */
-export type CommitBranchRefreshDemand = Infer<typeof vCommitBranchRefreshDemand>;
 
 /**
  * Local pull finished for one branch.
@@ -149,10 +126,6 @@ export const vPullBranchRefreshDemand = object({
   branch: string(),
   source: literal("pull"),
 });
-/**
- * Branch demand created after a pull updates one local checkout branch.
- */
-export type PullBranchRefreshDemand = Infer<typeof vPullBranchRefreshDemand>;
 
 /**
  * Repository-level freshness demand.
@@ -183,11 +156,6 @@ export const vBranchScopeRefreshDemand = union(
   vCommitBranchRefreshDemand,
   vPullBranchRefreshDemand,
 );
-/**
- * All demand whose dedupe key includes one branch name.
- * These states always carry `branch`.
- */
-export type BranchScopeRefreshDemand = Infer<typeof vBranchScopeRefreshDemand>;
 
 /**
  * All durable refresh demand accepted by the queue.
@@ -344,20 +312,42 @@ export type RepositoryRefreshLifecycle = Infer<typeof vRepositoryRefreshLifecycl
  * The demand union forbids impossible states, such as dashboard branch fan-out
  * or source_setup without the provisioning run id.
  */
-export const vRepositoryRefreshRequest = object({
-  userId: id("users"),
-  vaultId: id("vaults"),
-  dedupeKey: string(),
-  demand: vRepositoryRefreshDemand,
-  lifecycle: vRepositoryRefreshLifecycle,
-  createdAt: number(),
-  updatedAt: number(),
-});
+export const repositoryRefreshTables = {
+  operations_vaultRepositoryRefreshRequests: defineTable({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    dedupeKey: string(),
+    demand: vRepositoryRefreshDemand,
+    lifecycle: vRepositoryRefreshLifecycle,
+    createdAt: number(),
+    updatedAt: number(),
+  })
+    .index("by_userId_and_vaultId_and_dedupeKey", ["userId", "vaultId", "dedupeKey"])
+    .index("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", [
+      "userId",
+      "vaultId",
+      "dedupeKey",
+      "lifecycle.state",
+    ])
+    .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
+    .index("by_userId_and_lifecycle_state_and_updatedAt", [
+      "userId",
+      "lifecycle.state",
+      "updatedAt",
+    ])
+    .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
+    .index("by_lifecycle_state_and_lifecycle_notBefore", [
+      "lifecycle.state",
+      "lifecycle.notBefore",
+    ]),
+};
 /**
  * Full row shape stored in `operations_vaultRepositoryRefreshRequests`.
  * Use constructors/transitions below instead of assembling this by hand.
  */
-export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
+export type RepositoryRefreshRequest = Infer<
+  typeof repositoryRefreshTables.operations_vaultRepositoryRefreshRequests.validator
+>;
 
 // MARK: Enqueue Results
 // Enqueue results describe what happened to durable demand. They intentionally

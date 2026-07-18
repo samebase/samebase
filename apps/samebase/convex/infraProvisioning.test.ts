@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
-import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./schema";
+import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./appProvisioningModel";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;

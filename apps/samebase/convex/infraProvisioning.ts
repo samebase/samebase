@@ -14,7 +14,7 @@ import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
-import type { AppProvisioningStep } from "./schema";
+import type { AppProvisioningStep } from "./appProvisioningModel";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./vault/state";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 

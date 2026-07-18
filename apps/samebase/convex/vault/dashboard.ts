@@ -13,7 +13,7 @@ import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { hasBranchStagingChanges } from "./branches";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
-import { vVaultResourceLinksState } from "./resourceLinksStateModel";
+import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
 import {
   getUserVaultsContract,

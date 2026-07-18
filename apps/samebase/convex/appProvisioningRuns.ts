@@ -7,7 +7,7 @@ import {
   vAppProvisioningRunState,
   vAppProvisioningRunTrigger,
   vAppProvisioningStep,
-} from "./schema";
+} from "./appProvisioningModel";
 import { assertConnectedVault } from "./vault/state";
 
 const { id, literal, string, union } = v;

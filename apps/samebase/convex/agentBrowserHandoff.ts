@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { vMcpOauthClientRegistrationStatus } from "./schema";
+import { vMcpOauthClientRegistrationStatus } from "./mcp/model";
 import {
   ACCESS_BROWSER_LOGIN_HANDOFF,
   canAccess,

@@ -15,7 +15,7 @@ import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTree } from "../../convex/schema";
+import { type GithubTree } from "../../convex/vault/model";
 import { MonacoEditor } from "./MonacoEditor";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";

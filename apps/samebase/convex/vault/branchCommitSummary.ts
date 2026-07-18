@@ -1,8 +1,8 @@
 import type {
   GitHubCommitCheckSnapshot,
   VaultBranchCommitChecksSummary,
-  VaultBranchCommitSummary,
-} from "../schema";
+} from "../commitCheckModel";
+import type { VaultBranchCommitSummary } from "./branchModel";
 
 type BranchCommitSummarySource = {
   headCommitSha: string;

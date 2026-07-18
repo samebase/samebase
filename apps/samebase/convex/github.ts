@@ -21,7 +21,7 @@ import {
 } from "../shared/repositoryMedia";
 import { isRepositoryMetadataStale, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { readStagedFileKind } from "./stagingChanges";
-import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
+import type { PullRequestLabel as StoredPullRequestLabel } from "./vault/branchModel";
 
 const {
   array,

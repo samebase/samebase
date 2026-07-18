@@ -1,5 +1,5 @@
 import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 import {
   MOBILE_PANE_SETTLED_TOLERANCE_PX,
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,

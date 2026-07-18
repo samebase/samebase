@@ -8,7 +8,7 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
-import type { GithubTree } from "./schema";
+import type { GithubTree } from "./vault/model";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,

@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 import type { WorkspacePaneSide } from "./WorkspacePaneRuntime";
 import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
 import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";

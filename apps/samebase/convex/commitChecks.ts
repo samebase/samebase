@@ -7,7 +7,7 @@ import {
   type CommitCheckState,
   type GitHubCommitCheckSnapshot,
   vGithubCommitCheckSnapshot,
-} from "./schema";
+} from "./commitCheckModel";
 
 const { array, number, object, optional, string } = v;
 

@@ -18,7 +18,7 @@ import {
   vProdAccessResourceKind,
   vProdAccessScope,
   vProdAccessStatus,
-} from "../schema";
+} from "./prodAccessModel";
 import {
   parseCommitPayload,
   parseMetadataPayload,

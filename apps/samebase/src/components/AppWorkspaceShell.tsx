@@ -29,7 +29,7 @@ import {
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
 type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;

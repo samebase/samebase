@@ -7,7 +7,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
-import type { AppProvisioningStep } from "../schema";
+import type { AppProvisioningStep } from "../appProvisioningModel";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
   isVaultProviderUpstreamPresent,

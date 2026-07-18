@@ -55,7 +55,7 @@ import {
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
-import { type GithubTree } from "../../../convex/schema";
+import { type GithubTree } from "../../../convex/vault/model";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";

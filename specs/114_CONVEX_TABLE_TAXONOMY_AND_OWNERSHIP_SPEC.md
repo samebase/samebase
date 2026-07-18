@@ -155,8 +155,7 @@ export const userPreferenceTables = {
     userId: id("users"),
     accountPanelOpen: optional(boolean()),
     providersPanelOpen: boolean(),
-    machinesPanelOpen: optional(boolean()),
-    workspaceSidebarExpanded: optional(boolean()),
+    pricingBillingCycle: optional(union(literal("monthly"), literal("annual"))),
     editorChatOpen: optional(boolean()),
     globalChatOpen: optional(boolean()),
   }).index("by_user", ["userId"]),
@@ -165,6 +164,10 @@ export const userPreferenceTables = {
 
 Do not create a separate row validator only to pass it into `defineTable`. A named validator stays
 separate only when another table, argument, result, or runtime boundary genuinely reuses it.
+
+The package-owned Convex Auth tables are the exception. `identityTables` includes the definitions
+from `@convex-dev/auth` so they continue to follow that package's schema contract instead of copying
+and silently diverging from it.
 
 Types derived from a table use its validator as the single source of truth:
 

@@ -5,7 +5,7 @@ import { components, internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
-import type { AppProvisioningStep } from "./schema";
+import type { AppProvisioningStep } from "./appProvisioningModel";
 import {
   isVaultProviderUpstreamPresent,
   vVaultCloudflareOrigin,

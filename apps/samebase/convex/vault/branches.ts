@@ -4,12 +4,8 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
-import {
-  vPullRequestLabel,
-  vVaultBranchCommitSummary,
-  type GitHubCommitCheckSnapshot,
-  type PullRequestLabel,
-} from "../schema";
+import { vPullRequestLabel, vVaultBranchCommitSummary, type PullRequestLabel } from "./branchModel";
+import type { GitHubCommitCheckSnapshot } from "../commitCheckModel";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
 import {
   deleteGitHubCommitChecksUnreferencedByBranches,

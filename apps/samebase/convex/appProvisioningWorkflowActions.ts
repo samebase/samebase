@@ -11,7 +11,7 @@ import type {
   AppProvisioningEventLevel,
   AppProvisioningRunState,
   AppProvisioningStep,
-} from "./schema";
+} from "./appProvisioningModel";
 import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
 import {
   formatProviderApiCallLogMessage,

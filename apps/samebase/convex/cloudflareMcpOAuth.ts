@@ -14,7 +14,7 @@ import {
 } from "./oauthUtils";
 import { isRecord } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
-import { vCloudflareDefaultAccount } from "./schema";
+import { vCloudflareDefaultAccount } from "./providerConnectionModel";
 import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 

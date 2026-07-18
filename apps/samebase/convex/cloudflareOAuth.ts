@@ -10,7 +10,7 @@ import { action } from "./functions";
 import { formatCloudflareOAuthEndpointError } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
-import { vCloudflareDefaultAccount } from "./schema";
+import { vCloudflareDefaultAccount } from "./providerConnectionModel";
 import { utf8ToBase64 } from "../shared/base64";
 import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";

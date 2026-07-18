@@ -8,7 +8,7 @@ import {
   type McpAuthorizationSuccessSearchParams,
 } from "../../shared/mcpOAuth";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
-import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "../schema";
+import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./model";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import { revokeActiveMcpGrant } from "./grants";
 import {

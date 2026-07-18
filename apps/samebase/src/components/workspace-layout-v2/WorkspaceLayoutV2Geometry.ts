@@ -1,6 +1,6 @@
 import { clampNumber } from "@/lib/clampNumber";
 import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import type { WorkspaceMobileSurface } from "../../../convex/workspaceSidebarStateModel";
+import type { WorkspaceMobileSurface } from "../../../convex/userPreferenceModel";
 
 export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 
 /**
  * Provides deterministic in-memory sidebar state for fixtures and component

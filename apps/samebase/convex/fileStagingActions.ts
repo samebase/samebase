@@ -9,7 +9,7 @@ import { createTwoFilesPatch, diffLines } from "diff";
 import { notEmpty } from "@samebase/dependent/main";
 import { action } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import type { GithubTree } from "./schema";
+import type { GithubTree } from "./vault/model";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";

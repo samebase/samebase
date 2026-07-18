@@ -56,7 +56,7 @@ import {
   type VaultCloudflareBuildConfig,
   type VaultCloudflareOrigin,
 } from "./model";
-import type { AppProvisioningStep } from "../schema";
+import type { AppProvisioningStep } from "../appProvisioningModel";
 import {
   cloudflareListAccountsContract,
   vCloudflareAccountResult,

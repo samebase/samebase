@@ -537,14 +537,14 @@ const stateRows = [
   },
   {
     location: "Convex row preview identity",
-    exactName: "vConvexPreviewDeployment",
+    exactName: "vaultTables.vaultConvexDeployments",
     meaning:
       "not_ensured until wire_convex_build_access ensures the preview deployment; ready stores only the preview deployment name and cloud URL.",
     refs: [
       {
         file: "apps/samebase/convex/vault/model.ts",
         line: 101,
-        symbol: "vConvexPreviewDeployment",
+        symbol: "vaultTables.vaultConvexDeployments",
       },
     ],
   },

@@ -2,7 +2,7 @@ import { devices, expect, test, type Locator, type Page } from "@playwright/test
 import { PNG } from "pngjs";
 import type { VaultDashboardVisualMode } from "../src/components/vault-dashboard/VaultDashboardVisualFixture";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
-import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
