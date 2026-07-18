@@ -1,3 +1,4 @@
+import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { parseRepositoryFullName } from "../../shared/repoName";
 import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
@@ -77,15 +78,6 @@ export const vVaultConvexConnectionTarget = union(
 export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
 
 export const vVaultRootDirectory = string();
-export type VaultRootDirectory = Infer<typeof vVaultRootDirectory>;
-
-export const vVaultApp = object({
-  vaultId: id("vaults"),
-  userId: id("users"),
-  rootDirectory: vVaultRootDirectory,
-  createdAt: number(),
-});
-export type VaultApp = Infer<typeof vVaultApp>;
 
 export const vVaultProviderUpstreamPresence = union(
   object({
@@ -118,27 +110,6 @@ export function readVaultProviderUpstreamPresence(
 export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
   return readVaultProviderUpstreamPresence(row).state === "present";
 }
-
-// TODO: Let an app explicitly include member-scoped Convex development deployments when Samebase
-// adds that user story. Extend or split this production-only model with provider member identity;
-// development deployments must never substitute for branch previews.
-export const vVaultConvexDeployment = object({
-  vaultId: id("vaults"),
-  userId: id("users"),
-  appId: id("vaultApps"),
-  projectId: string(),
-  teamSlug: string(),
-  projectSlug: string(),
-  deploymentName: string(),
-  deploymentType: literal("prod"),
-  cloudUrl: string(),
-  siteUrl: string(),
-  origin: vVaultConvexOrigin,
-  upstream: optional(vVaultProviderUpstreamPresence),
-  connectedAt: number(),
-  lastObservedAt: number(),
-});
-export type VaultConvexDeployment = Infer<typeof vVaultConvexDeployment>;
 
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
@@ -195,7 +166,6 @@ export const vVaultCloudflareWorkersBuildTrigger = object({
   triggerUuid: string(),
   buildTokenUuid: string(),
 });
-export type VaultCloudflareWorkersBuildTrigger = Infer<typeof vVaultCloudflareWorkersBuildTrigger>;
 
 export const vVaultCloudflareConnectedBuilds = object({
   state: literal("connected"),
@@ -211,23 +181,6 @@ export const vVaultCloudflareBuilds = union(
   }),
   vVaultCloudflareConnectedBuilds,
 );
-export type VaultCloudflareBuilds = Infer<typeof vVaultCloudflareBuilds>;
-
-export const vVaultCloudflareWorker = object({
-  vaultId: id("vaults"),
-  userId: id("users"),
-  appId: id("vaultApps"),
-  accountId: string(),
-  workerName: string(),
-  workerTag: string(),
-  workersDevUrl: optional(string()),
-  origin: vVaultCloudflareOrigin,
-  upstream: optional(vVaultProviderUpstreamPresence),
-  builds: vVaultCloudflareBuilds,
-  connectedAt: number(),
-  lastObservedAt: number(),
-});
-export type VaultCloudflareWorker = Infer<typeof vVaultCloudflareWorker>;
 
 export const vVaultWorkerDeploymentWiring = union(
   object({
@@ -239,18 +192,98 @@ export const vVaultWorkerDeploymentWiring = union(
     deployKeys: vCreatedConvexDeployKeys,
   }),
 );
-export type VaultWorkerDeploymentWiring = Infer<typeof vVaultWorkerDeploymentWiring>;
 
-export const vVaultWorkerDeploymentDependency = object({
-  vaultId: id("vaults"),
-  userId: id("users"),
-  workerId: id("vaultCloudflareWorkers"),
-  convexDeploymentId: id("vaultConvexDeployments"),
-  wiring: vVaultWorkerDeploymentWiring,
-  createdAt: number(),
-  updatedAt: number(),
-});
-export type VaultWorkerDeploymentDependency = Infer<typeof vVaultWorkerDeploymentDependency>;
+/**
+ * The app resource graph is kept together so its stored facts and lookup paths
+ * can be reviewed as one model. Reusable nested states remain named above;
+ * schema-only row validators stay inline here.
+ */
+export const vaultAppResourceTables = {
+  /**
+   * Stable app identities inside a repo-backed vault. An app remains visible
+   * without a provider resource; "/" is the repository-root app.
+   */
+  vaultApps: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    rootDirectory: vVaultRootDirectory,
+    createdAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
+
+  /**
+   * Cloudflare Worker resources attached to stable app identities. More than
+   * one Worker may attach to the same app.
+   */
+  vaultCloudflareWorkers: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
+    workersDevUrl: optional(string()),
+    origin: vVaultCloudflareOrigin,
+    upstream: optional(vVaultProviderUpstreamPresence),
+    builds: vVaultCloudflareBuilds,
+    connectedAt: number(),
+    lastObservedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_app", ["appId"])
+    .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
+
+  /**
+   * Convex production deployment resources attached to stable app identities.
+   *
+   * TODO: Let an app explicitly include member-scoped Convex development
+   * deployments when Samebase adds that user story. Extend or split this
+   * production-only model with provider member identity; development
+   * deployments must never substitute for branch previews.
+   */
+  vaultConvexDeployments: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appId: id("vaultApps"),
+    projectId: string(),
+    teamSlug: string(),
+    projectSlug: string(),
+    deploymentName: string(),
+    deploymentType: literal("prod"),
+    cloudUrl: string(),
+    siteUrl: string(),
+    origin: vVaultConvexOrigin,
+    upstream: optional(vVaultProviderUpstreamPresence),
+    connectedAt: number(),
+    lastObservedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_app", ["appId"])
+    .index("by_vault_and_project", ["vaultId", "projectId"]),
+
+  /**
+   * An explicit build-time dependency from one Worker to one Convex
+   * deployment. A Worker has at most one dependency row; a Convex deployment
+   * may be shared by several Workers.
+   */
+  vaultWorkerDeploymentDependencies: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    convexDeploymentId: id("vaultConvexDeployments"),
+    wiring: vVaultWorkerDeploymentWiring,
+    createdAt: number(),
+    updatedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_worker", ["workerId"])
+    .index("by_convex_deployment", ["convexDeploymentId"]),
+};
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every

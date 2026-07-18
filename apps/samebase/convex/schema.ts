@@ -2,15 +2,12 @@ import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import {
+  vaultAppResourceTables,
   vGithubTree,
   vGithubTreeData,
   vGitHubRepositoryVisibility,
   vTreeRefreshFailureKind,
-  vVaultApp,
-  vVaultCloudflareWorker,
-  vVaultConvexDeployment,
   vVaultRow,
-  vVaultWorkerDeploymentDependency,
 } from "./vault/model";
 import {
   vVaultDeletionEventLevel,
@@ -466,42 +463,7 @@ export default defineSchema({
     .index("by_owner_and_name", ["owner", "name"])
     .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
-  /**
-   * Stable app identities inside a repo-backed vault. An app remains visible
-   * without a provider resource; "/" is the repository-root app.
-   */
-  vaultApps: defineTable(vVaultApp)
-    .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
-    .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
-
-  /**
-   * Cloudflare Worker resources attached to stable app identities. More than
-   * one Worker may attach to the same app.
-   */
-  vaultCloudflareWorkers: defineTable(vVaultCloudflareWorker)
-    .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
-    .index("by_app", ["appId"])
-    .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
-
-  /** Convex deployment resources attached to stable app identities. */
-  vaultConvexDeployments: defineTable(vVaultConvexDeployment)
-    .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
-    .index("by_app", ["appId"])
-    .index("by_vault_and_project", ["vaultId", "projectId"]),
-
-  /**
-   * An explicit build-time dependency from one Worker to one Convex
-   * deployment. A Worker has at most one dependency row; a Convex deployment
-   * may be shared by several Workers.
-   */
-  vaultWorkerDeploymentDependencies: defineTable(vVaultWorkerDeploymentDependency)
-    .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
-    .index("by_worker", ["workerId"])
-    .index("by_convex_deployment", ["convexDeploymentId"]),
+  ...vaultAppResourceTables,
 
   /**
    * Live Convex deployment schema snapshots normalized into table graph data.

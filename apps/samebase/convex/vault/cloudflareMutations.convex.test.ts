@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 import { isWorkerDeploymentDependencyCurrentlyWired } from "./deploymentDependencies";
-import type { VaultWorkerDeploymentWiring } from "./model";
 
 const rootDirectory = "/";
 const verificationCloudflareAccountId = "0123456789abcdef0123456789abcdef";
@@ -329,7 +328,7 @@ async function insertWorkerDeploymentDependency(
   ids: ConnectionVaultIds,
   workerId: Id<"vaultCloudflareWorkers">,
   convexDeploymentId: Id<"vaultConvexDeployments">,
-  wiring: VaultWorkerDeploymentWiring,
+  wiring: Doc<"vaultWorkerDeploymentDependencies">["wiring"],
 ): Promise<Id<"vaultWorkerDeploymentDependencies">> {
   return await t.run(
     async (ctx) =>
