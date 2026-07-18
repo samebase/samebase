@@ -141,11 +141,11 @@ const providerCleanupPlan = {
 
 export const vVaultDeletionPlan = union(
   object({
-    ...providerCleanupPlan,
     target: object({
       kind: literal("samebase_managed_repository"),
       ...githubRepositoryCoordinates,
     }),
+    ...providerCleanupPlan,
     githubRepository: union(
       skipNotRequested,
       object({
@@ -157,23 +157,23 @@ export const vVaultDeletionPlan = union(
     ),
   }),
   object({
-    ...providerCleanupPlan,
     target: object({
       kind: literal("existing_repository"),
       ...githubRepositoryCoordinates,
     }),
+    ...providerCleanupPlan,
     githubRepository: object({
       action: literal("skip"),
       reason: union(literal("not_requested"), literal("not_samebase_managed")),
     }),
   }),
   object({
-    ...providerCleanupPlan,
     target: object({
       kind: literal("failed_repository_setup"),
       githubMode: union(literal("create_repository"), literal("connect_existing_repository")),
       ...repositorySetupCoordinates,
     }),
+    ...providerCleanupPlan,
     githubRepository: object({
       action: literal("skip"),
       reason: union(literal("not_requested"), literal("no_confirmed_identity")),
@@ -192,6 +192,7 @@ export const vaultDeletionTables = {
   operations_vaultDeletionRuns: defineTable(
     union(
       object({
+        state: literal("queued"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -206,7 +207,6 @@ export const vaultDeletionTables = {
             retryOf: id("operations_vaultDeletionRuns"),
           }),
         ),
-        state: literal("queued"),
         workflow: object({
           state: literal("not_started"),
         }),
@@ -214,6 +214,7 @@ export const vaultDeletionTables = {
         snapshot: vVaultDeletionRetainedSnapshot,
       }),
       object({
+        state: literal("running"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -228,7 +229,6 @@ export const vaultDeletionTables = {
             retryOf: id("operations_vaultDeletionRuns"),
           }),
         ),
-        state: literal("running"),
         workflow: object({
           state: literal("started"),
           workflowId: string(),
@@ -237,6 +237,7 @@ export const vaultDeletionTables = {
         snapshot: vVaultDeletionRetainedSnapshot,
       }),
       object({
+        state: literal("failed"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -251,7 +252,6 @@ export const vaultDeletionTables = {
             retryOf: id("operations_vaultDeletionRuns"),
           }),
         ),
-        state: literal("failed"),
         workflow: union(
           object({
             state: literal("not_started"),
@@ -267,6 +267,7 @@ export const vaultDeletionTables = {
         completedAt: number(),
       }),
       object({
+        state: literal("succeeded"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -281,7 +282,6 @@ export const vaultDeletionTables = {
             retryOf: id("operations_vaultDeletionRuns"),
           }),
         ),
-        state: literal("succeeded"),
         workflow: object({
           state: literal("started"),
           workflowId: string(),

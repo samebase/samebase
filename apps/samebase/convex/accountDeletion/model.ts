@@ -173,6 +173,7 @@ export const accountDeletionTables = {
   operations_accountDeletionRuns: defineTable(
     union(
       object({
+        state: literal("queued"),
         identity: object({
           state: literal("active"),
           userId: id("users"),
@@ -188,12 +189,12 @@ export const accountDeletionTables = {
         // Active runs created before durable data progress shipped remain readable
         // and finish through the legacy cleanup path.
         dataDeletion: v.optional(vAccountDeletionDataProgress),
-        state: literal("queued"),
         workflow: object({
           state: literal("not_started"),
         }),
       }),
       object({
+        state: literal("running"),
         identity: object({
           state: literal("active"),
           userId: id("users"),
@@ -207,7 +208,6 @@ export const accountDeletionTables = {
         retryCount: number(),
         outcomes: vAccountDeletionOutcomeSummary,
         dataDeletion: v.optional(vAccountDeletionDataProgress),
-        state: literal("running"),
         workflow: object({
           state: literal("started"),
           workflowId: string(),
@@ -215,6 +215,7 @@ export const accountDeletionTables = {
         }),
       }),
       object({
+        state: literal("needs_attention"),
         identity: object({
           state: literal("active"),
           userId: id("users"),
@@ -228,7 +229,6 @@ export const accountDeletionTables = {
         retryCount: number(),
         outcomes: vAccountDeletionOutcomeSummary,
         dataDeletion: v.optional(vAccountDeletionDataProgress),
-        state: literal("needs_attention"),
         workflow: object({
           state: literal("started"),
           workflowId: string(),
@@ -237,10 +237,10 @@ export const accountDeletionTables = {
         latestSafeError: string(),
       }),
       object({
+        state: literal("succeeded"),
         identity: object({
           state: literal("scrubbed"),
         }),
-        state: literal("succeeded"),
         currentStep: literal("finish"),
         requestedAt: number(),
         updatedAt: number(),

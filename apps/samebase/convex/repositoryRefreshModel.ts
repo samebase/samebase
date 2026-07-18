@@ -88,8 +88,8 @@ export type SourceSetupRepositoryRefreshDemand = Infer<typeof vSourceSetupReposi
  */
 export const vFileViewBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("file_view"),
+  branch: string(),
 });
 
 /**
@@ -100,8 +100,8 @@ export const vFileViewBranchRefreshDemand = object({
  */
 export const vManualBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("manual"),
+  branch: string(),
 });
 
 /**
@@ -111,8 +111,8 @@ export const vManualBranchRefreshDemand = object({
  */
 export const vCommitBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("commit"),
+  branch: string(),
 });
 
 /**
@@ -123,8 +123,8 @@ export const vCommitBranchRefreshDemand = object({
  */
 export const vPullBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("pull"),
+  branch: string(),
 });
 
 /**
