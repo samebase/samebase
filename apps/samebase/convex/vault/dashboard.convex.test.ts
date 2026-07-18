@@ -6,6 +6,77 @@ import { readProviderSetupFailedNextAction } from "./dashboard";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
 
 describe("vault dashboard Convex contract", () => {
+  it("normalizes app roots and rejects a duplicate identity", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/monorepo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "monorepo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      return { userId, vaultId };
+    });
+    const user = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const appId = await user.mutation(api.vault.dashboard.createVaultApp, {
+      vaultId: ids.vaultId,
+      rootDirectory: " apps/web ",
+    });
+    await expect(
+      user.mutation(api.vault.dashboard.createVaultApp, {
+        vaultId: ids.vaultId,
+        rootDirectory: "apps/web",
+      }),
+    ).rejects.toThrow("Vault already has this root directory.");
+
+    await expect(t.run(async (ctx) => await ctx.db.get(appId))).resolves.toMatchObject({
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      rootDirectory: "apps/web",
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultApps")
+            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+            .collect(),
+      ),
+    ).resolves.toHaveLength(1);
+  });
+
   it("records initializing existing repository connection before external GitHub work", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -1713,11 +1784,13 @@ describe("vault dashboard Convex contract", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "fixture-production-key",
               deploymentName: "fixture-backend-production",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "fixture-preview-key",
               projectId: "fixture-backend-project",
             },
@@ -2145,11 +2218,13 @@ describe("vault dashboard Convex contract", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "web-production-key",
               deploymentName: "shared-prod",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "web-preview-key",
               projectId: "shared-project",
             },

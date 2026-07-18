@@ -93,6 +93,7 @@ function selectedConvexTarget(ids: Pick<ConvexConnectionIds, "appId">) {
   return {
     mode: "connect_existing_project",
     appId: ids.appId,
+    teamId: convexRecord.convexTeamId,
     projectId: convexRecord.convexProjectId,
   } as const;
 }
@@ -226,7 +227,7 @@ describe("vault Convex deployment connection mutations", () => {
       events: [
         {
           level: "warn",
-          message: "Convex connection no longer matches the selected team.",
+          message: "Reconnect the Convex team that owns this resource.",
         },
       ],
     });
@@ -315,6 +316,43 @@ describe("vault Convex deployment connection mutations", () => {
     ]);
   });
 
+  it("does not record a provider result after the active Convex team changes", async () => {
+    const { ids, t } = await createConvexConnectionVault();
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      userId: ids.userId,
+      target: selectedConvexTarget(ids),
+    });
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", ids.userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Expected Convex connection.");
+      }
+      await ctx.db.patch(connection._id, { teamId: "other-team" });
+    });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
+        ...ids,
+        convex: convexRecord,
+        provenance: { state: "selected_existing" },
+      }),
+    ).rejects.toThrow("Reconnect the Convex team that owns this resource.");
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultConvexDeployments")
+            .withIndex("by_app", (q) => q.eq("appId", ids.appId))
+            .unique(),
+      ),
+    ).resolves.toBeNull();
+  });
+
   it("retargets a missing-upstream deployment without rewriting dependent Worker rows", async () => {
     const { ids, t } = await createConvexConnectionVault();
     const dependencyIds = await t.run(async (ctx) => {
@@ -377,11 +415,13 @@ describe("vault Convex deployment connection mutations", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "old-production-key",
               deploymentName: "old-prod",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "old-preview-key",
               projectId: "old-project",
             },
@@ -414,11 +454,13 @@ describe("vault Convex deployment connection mutations", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "old-sibling-production-key",
               deploymentName: "old-prod",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "old-sibling-preview-key",
               projectId: "old-project",
             },
@@ -492,11 +534,13 @@ describe("vault Convex deployment connection mutations", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "old-production-key",
               deploymentName: "old-prod",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "old-preview-key",
               projectId: "old-project",
             },
@@ -509,11 +553,13 @@ describe("vault Convex deployment connection mutations", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "old-sibling-production-key",
               deploymentName: "old-prod",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "old-sibling-preview-key",
               projectId: "old-project",
             },
@@ -538,6 +584,127 @@ describe("vault Convex deployment connection mutations", () => {
       selectedDeploymentId: attachment.deploymentId,
       snapshot: null,
       layout: [{ nodeId: "table:messages", x: 10, y: 20 }],
+    });
+  });
+
+  it("does not move a stable deployment row to another team while deploy keys remain", async () => {
+    const { ids, t } = await createConvexConnectionVault();
+    const resources = await t.run(async (ctx) => {
+      const deploymentId = await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: ids.appId,
+        teamId: "convex-team",
+        projectId: "old-project",
+        teamSlug: "old-team",
+        projectSlug: "old-project",
+        deploymentName: "old-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://old-prod.convex.cloud",
+        siteUrl: "https://old-prod.convex.site",
+        origin: "selected_existing",
+        upstream: { state: "missing_upstream" },
+        connectedAt: 20,
+        lastObservedAt: 20,
+      });
+      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+        workersDev: { state: "unknown" },
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: ids.appId,
+        accountId: "cloudflare-account",
+        workerName: "manual-convex-worker",
+        workerTag: "manual-convex-worker-tag",
+        origin: "selected_existing",
+        upstream: { state: "present" },
+        builds: { state: "not_connected" },
+        connectedAt: 20,
+        lastObservedAt: 20,
+      });
+      const dependencyId = await ctx.db.insert("vaultWorkerDeploymentDependencies", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        workerId,
+        convexDeploymentId: deploymentId,
+        wiring: {
+          state: "wired",
+          deployKeys: {
+            production: {
+              state: "created",
+              teamId: "convex-team",
+              name: "old-production-key",
+              deploymentName: "old-prod",
+            },
+            preview: {
+              state: "created",
+              teamId: "convex-team",
+              name: "old-preview-key",
+              projectId: "old-project",
+            },
+          },
+        },
+        createdAt: 20,
+        updatedAt: 20,
+      });
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", ids.userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Expected Convex connection.");
+      }
+      await ctx.db.patch(connection._id, { teamId: "other-team" });
+      return { dependencyId, deploymentId };
+    });
+    const target = {
+      mode: "connect_existing_project" as const,
+      appId: ids.appId,
+      teamId: "other-team",
+      projectId: "other-project",
+    };
+    await expect(
+      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        userId: ids.userId,
+        target,
+      }),
+    ).resolves.toEqual({ claimed: true });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
+        ...ids,
+        convex: {
+          ...convexRecord,
+          convexTeamId: "other-team",
+          convexTeamSlug: "other-team",
+          convexProjectId: "other-project",
+          convexProjectName: "Other Project",
+          convexProjectSlug: "other-project",
+          convexDeploymentName: "other-prod",
+          convexCloudUrl: "https://other-prod.convex.cloud",
+          convexSiteUrl: "https://other-prod.convex.site",
+        },
+        provenance: { state: "selected_existing" },
+      }),
+    ).rejects.toThrow("Remove the existing Convex deploy keys");
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(resources.deploymentId)),
+    ).resolves.toMatchObject({
+      teamId: "convex-team",
+      projectId: "old-project",
+      upstream: { state: "missing_upstream" },
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(resources.dependencyId)),
+    ).resolves.toMatchObject({
+      convexDeploymentId: resources.deploymentId,
+      wiring: {
+        deployKeys: {
+          production: { teamId: "convex-team", name: "old-production-key" },
+          preview: { teamId: "convex-team", name: "old-preview-key" },
+        },
+      },
     });
   });
 
@@ -727,6 +894,21 @@ describe("vault Convex deployment connection mutations", () => {
         state: "active",
         updatedAt: 40,
       });
+      await ctx.db.insert("vaultInfrastructureTargets", {
+        vaultId: ids.vaultId,
+        appId: ids.appId,
+        convex: {
+          state: "planned",
+          teamId: convexRecord.convexTeamId,
+          projectName: convexRecord.convexProjectName,
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account",
+          workerName: "manual-convex",
+        },
+        createdAt: 40,
+      });
     });
 
     const attachment = await t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
@@ -760,7 +942,11 @@ describe("vault Convex deployment connection mutations", () => {
         .query("appProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
-      return { events, ownership, run };
+      const target = await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      return { events, ownership, run, target };
     });
 
     expect(result.ownership).toMatchObject({
@@ -771,10 +957,16 @@ describe("vault Convex deployment connection mutations", () => {
       state: "running",
       currentStep: "attach_convex",
     });
+    expect(result.target?.convex).toEqual({
+      state: "attached",
+      teamId: convexRecord.convexTeamId,
+      projectName: convexRecord.convexProjectName,
+      deploymentId: attachment.deploymentId,
+    });
     expect(result.events.map((event) => event.step)).toEqual(["attach_convex", "attach_convex"]);
   });
 
-  it("allows a failed Convex connection owner to be claimed again", async () => {
+  it("does not resurrect a terminal Convex connection run", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.run(async (ctx) => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
@@ -792,7 +984,7 @@ describe("vault Convex deployment connection mutations", () => {
         userId: ids.userId,
         target: selectedConvexTarget(ids),
       }),
-    ).resolves.toEqual({ claimed: true });
+    ).resolves.toEqual({ claimed: false });
 
     const ownership = await t.run(async (ctx) => {
       return await ctx.db
@@ -800,7 +992,48 @@ describe("vault Convex deployment connection mutations", () => {
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
     });
-    expect(ownership).toMatchObject({ state: "active", runId: ids.runId });
+    expect(ownership).toMatchObject({ state: "failed", runId: ids.runId });
+  });
+
+  it("lets a new Convex connection run claim after the previous owner failed", async () => {
+    const { ids, t } = await createConvexConnectionVault();
+    const nextRunId = await t.run(async (ctx) => {
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        state: "failed",
+        updatedAt: 40,
+      });
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-convex",
+        trigger: "connect_convex_deployment",
+        state: "queued",
+        currentStep: "run_created",
+        createdAt: 50,
+        updatedAt: 50,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+        vaultId: ids.vaultId,
+        runId: nextRunId,
+        userId: ids.userId,
+        target: selectedConvexTarget(ids),
+      }),
+    ).resolves.toEqual({ claimed: true });
+
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultInfrastructureOwnership")
+            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({ state: "active", runId: nextRunId });
   });
 
   it("does not attach when ownership was superseded", async () => {

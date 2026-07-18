@@ -249,6 +249,31 @@ describe("Convex Management API request helpers", () => {
     ]);
   });
 
+  it("rejects a project returned outside the requested Convex team", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          items: [
+            {
+              createTime: 1710000000000,
+              id: 1,
+              name: "Wrong team",
+              slug: "wrong-team",
+              teamId: 20,
+              teamSlug: "other-team",
+            },
+          ],
+          pagination: { hasMore: false },
+        }),
+      ),
+    );
+
+    await expect(
+      listConvexManagementProjects({ token: "team-token", teamId: "10" }),
+    ).rejects.toThrow("Convex returned a project outside the requested team.");
+  });
+
   it("rejects incomplete Convex project pagination metadata", async () => {
     vi.stubGlobal(
       "fetch",

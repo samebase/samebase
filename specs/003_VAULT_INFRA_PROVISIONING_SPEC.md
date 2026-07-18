@@ -42,15 +42,17 @@ flows described by specs 105, 106, and 115.
 ## Durable State
 
 - `vaultInfrastructureTargets` stores create-flow intent for the selected app, selected Convex team
-  ID, planned Convex project name, Cloudflare account, and planned Worker name. Its Cloudflare state
-  changes from `planned` to `attached` with the stable Samebase Worker row ID, so composed retries
-  never rediscover that Worker by mutable name. It does not store provider create responses and is
-  not resource inventory.
+  ID, planned Convex project name, Cloudflare account, and planned Worker name. Each provider state
+  changes from `planned` to `attached` with the stable Samebase deployment or Worker row ID in the
+  same mutation that attaches the resource. Composed retries and completion follow those exact row
+  IDs rather than accepting another resource on the same app or rediscovering a Worker by mutable
+  name. The target does not duplicate provider create responses and is not resource inventory.
 - `vaultConvexProjectCreationClaims` and `vaultCloudflareWorkerCreationClaims` are the pre-write
   ownership checkpoints. They distinguish an unresolved provider request from a response-confirmed
   stable provider ID and are consumed by successful attachment.
 - `vaultInfrastructureOwnership` is the vault-scoped lock and terminal ownership record for the
-  active writer run.
+  writer run. An active owner never becomes replaceable because time elapsed. Another run can claim
+  only after the previous owner is explicitly terminal.
 - `appProvisioningRuns` and `appProvisioningEvents` record progress, retry state, and user-visible
   failures.
 - `vaultApps`, `vaultConvexDeployments`, `vaultCloudflareWorkers`, and
@@ -68,6 +70,8 @@ production deployment. No root string is used as a provider resource foreign key
 The composed workflow follows these boundaries:
 
 - Provider target access is validated before triggers are changed or old deploy keys are deleted.
+- Every retained Convex deploy-key identity includes its owning team ID. A key may be deleted only
+  with the active connection for that exact team.
 - A Worker build is not deliberately started before both least-privilege Convex secrets are written
   and read back.
 - A claim is written before every provider create request. A successful response records its stable
@@ -76,9 +80,12 @@ The composed workflow follows these boundaries:
   acquires the vault's infrastructure lock.
 - The selected Convex team ID is pinned before provisioning starts. A changed Convex connection
   stops the create before any provider write instead of redirecting the project to another team.
-- Superseded runs may clean up only deploy-key names that the superseded attempt recorded. Created
-  provider resources and their durable claims are never rolled back automatically; they remain for
-  retry or explicit provider deletion.
+- A workflow retry of the same active run may clean up only deploy-key names that run recorded.
+  Another run cannot take ownership while provider work remains active. Created provider resources
+  and their durable claims are never rolled back automatically; they remain for retry or explicit
+  provider deletion.
+- Rewiring within one Convex team may rotate target-specific keys. Rewiring to another team is
+  rejected before local state or provider state changes while any old-team key identity remains.
 - The composed terminal mutation marks the infrastructure ownership and provisioning run successful
   and records the final event together, but only after both creation claims are consumed, both
   provider resources are present, Workers Builds is connected, and the target Worker is wired to the

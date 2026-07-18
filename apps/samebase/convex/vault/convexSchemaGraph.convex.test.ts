@@ -99,7 +99,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       kind: "convex",
       userId,
       auth: convexAuth,
-      teamId: "1000",
+      teamId: "convex-team",
       teamSlug: "ada-team",
       createdAt: 1,
       updatedAt: 2,
@@ -318,6 +318,40 @@ describe("vault Convex schema graph", () => {
       name: deployKeyName,
     });
     expect(deleteRequest?.body).toEqual({ id: deployKeyName });
+  });
+
+  it("does not mint an inspection key with a connection for another team", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedSchemaGraphVault(t, {
+      method: "api_key",
+      credential: "convex-api-key",
+    });
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", ids.userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Expected Convex connection.");
+      }
+      await ctx.db.patch(connection._id, { teamId: "other-team" });
+    });
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      user.action(api.vault.convexSchemaGraph.refresh, {
+        vaultId: ids.vaultId,
+        deploymentId: ids.deploymentId,
+      }),
+    ).rejects.toThrow("Reconnect the Convex team that owns this resource.");
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(
+      user.query(api.vault.convexSchemaGraph.get, {
+        vaultId: ids.vaultId,
+        deploymentId: ids.deploymentId,
+      }),
+    ).resolves.toMatchObject({ snapshot: null });
   });
 
   it("returns deployment options when the route deployment no longer exists", async () => {

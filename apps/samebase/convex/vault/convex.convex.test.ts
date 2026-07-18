@@ -228,6 +228,7 @@ describe("vault Convex deployment connection actions", () => {
       target: {
         mode: "connect_existing_project",
         appId: ids.appId,
+        teamId: "1000",
         projectId: "1001",
       },
     });
@@ -239,6 +240,7 @@ describe("vault Convex deployment connection actions", () => {
         target: {
           mode: "connect_existing_project",
           appId: ids.appId,
+          teamId: "1000",
           projectId: "1001",
         },
       }),
@@ -274,6 +276,7 @@ describe("vault Convex deployment connection actions", () => {
       target: {
         mode: "connect_existing_project",
         appId: ids.appId,
+        teamId: "1000",
         projectId: "1001",
       },
     });
@@ -332,6 +335,7 @@ describe("vault Convex deployment connection actions", () => {
         target: {
           mode: "connect_existing_project",
           appId: ids.appId,
+          teamId: "1000",
           projectId: "1001",
         },
       }),
@@ -379,6 +383,8 @@ describe("vault Convex deployment connection actions", () => {
       }
       await ctx.db.patch(connection._id, { teamId: "2000" });
     });
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
 
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
@@ -388,6 +394,45 @@ describe("vault Convex deployment connection actions", () => {
         target,
       }),
     ).rejects.toThrow("Convex connection no longer matches the selected team.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not read a selected project after its captured team changes", async () => {
+    const { ids, t } = await createConvexConnectedVault();
+    const target = {
+      mode: "connect_existing_project" as const,
+      appId: ids.appId,
+      teamId: "1000",
+      projectId: "1001",
+    };
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      userId: ids.userId,
+      target,
+    });
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", ids.userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Expected Convex connection.");
+      }
+      await ctx.db.patch(connection._id, { teamId: "2000" });
+    });
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        userId: ids.userId,
+        target,
+      }),
+    ).rejects.toThrow("Convex connection no longer matches the selected team.");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("reuses a previously created Convex project when retrying project creation", async () => {

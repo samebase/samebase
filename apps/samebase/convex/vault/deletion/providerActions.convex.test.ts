@@ -200,6 +200,30 @@ describe("vault deletion Convex provider actions", () => {
     expect(requests.some((request) => request.includes("/delete"))).toBe(false);
   });
 
+  it.each([
+    {
+      description: "the only target belongs to another team",
+      projects: [{ teamId: "200", projectId: "2001" }],
+    },
+    {
+      description: "the retained plan spans multiple teams",
+      projects: [
+        { teamId: "100", projectId: "1001" },
+        { teamId: "200", projectId: "2001" },
+      ],
+    },
+  ])("makes no provider call when $description", async ({ projects }) => {
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
+    const { ids, t } = await createConvexDeletionRun(projects);
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteConvex, ids),
+    ).rejects.toThrow("Reconnect the Convex team that owns this resource.");
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("deletes a renamed GitHub repository through its retained stable ID", async () => {
     const requests: string[] = [];
     vi.stubGlobal(

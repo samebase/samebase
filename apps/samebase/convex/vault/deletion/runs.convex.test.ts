@@ -318,13 +318,19 @@ async function createExistingRepositoryVaultWithCloudflareWorker(args: {
     });
   });
 
-  return { ids, t };
+  return { ids, resources, t };
 }
 
 const deleteConvexOptions = {
   removeCodespaces: false,
   removeGithubRepo: false,
   removeConvexProvision: true,
+  removeCloudflareProvision: false,
+};
+const localOnlyDeletionOptions = {
+  removeCodespaces: false,
+  removeGithubRepo: false,
+  removeConvexProvision: false,
   removeCloudflareProvision: false,
 };
 
@@ -419,12 +425,14 @@ describe("vault deletion Convex resource planning", () => {
             production: {
               state: "creating",
               runId,
+              teamId: "convex-team",
               name: "production-key-name",
               deploymentName: "existing-prod",
             },
             preview: {
               state: "creating",
               runId,
+              teamId: "convex-team",
               name: "preview-key-name",
               projectId: "existing-project",
             },
@@ -508,6 +516,33 @@ describe("vault deletion Convex resource planning", () => {
         },
       },
     });
+  });
+
+  it("requires an unknown Convex create outcome only when provider deletion is selected", async () => {
+    const { ids, t } = await createExistingRepositoryVaultWithFailedCreatedConvexProject();
+    await t.run(async (ctx) => {
+      const claim = await ctx.db
+        .query("vaultConvexProjectCreationClaims")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (!claim) {
+        throw new Error("Expected Convex creation claim.");
+      }
+      await ctx.db.patch(claim._id, { lifecycle: { state: "creating" } });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: deleteConvexOptions,
+      }),
+    ).rejects.toThrow("Convex project creation must be reconciled");
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: localOnlyDeletionOptions,
+      }),
+    ).resolves.toEqual({ deletionRunId: expect.any(String) });
   });
 
   it("deletes recorded created Convex projects before deployment ownership checks", async () => {
@@ -664,8 +699,33 @@ describe("vault deletion Cloudflare Worker planning", () => {
   );
 
   it("plans an explicitly selected provisioned Worker for deletion", async () => {
-    const { ids, t } = await createExistingRepositoryVaultWithCloudflareWorker({
+    const { ids, resources, t } = await createExistingRepositoryVaultWithCloudflareWorker({
       origin: "provisioned",
+    });
+    await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-convex",
+        trigger: "connect_cloudflare_worker",
+        state: "failed",
+        currentStep: "attach_worker",
+        lastError: "Worker attachment failed after create.",
+        createdAt: 17,
+        updatedAt: 17,
+        completedAt: 17,
+      });
+      await ctx.db.insert("vaultCloudflareWorkerCreationClaims", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: resources.appId,
+        runId,
+        accountId: "cloudflare-account",
+        workerName: "manual-worker",
+        lifecycle: { state: "created", workerTag: "worker-tag" },
+        createdAt: 17,
+        updatedAt: 17,
+      });
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
@@ -700,5 +760,103 @@ describe("vault deletion Cloudflare Worker planning", () => {
         githubRepository: { action: "skip", reason: "not_requested" },
       },
     });
+  });
+
+  it("includes a response-confirmed Worker claim without a managed Worker row", async () => {
+    const { ids, resources, t } = await createExistingRepositoryVaultWithCloudflareWorker({
+      origin: "selected_existing",
+    });
+    await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-convex",
+        trigger: "connect_cloudflare_worker",
+        state: "failed",
+        currentStep: "attach_worker",
+        lastError: "Worker attachment failed after create.",
+        createdAt: 17,
+        updatedAt: 17,
+        completedAt: 17,
+      });
+      await ctx.db.insert("vaultCloudflareWorkerCreationClaims", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: resources.appId,
+        runId,
+        accountId: "cloudflare-account",
+        workerName: "created-worker",
+        lifecycle: { state: "created", workerTag: "created-worker-tag" },
+        createdAt: 17,
+        updatedAt: 17,
+      });
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      ...ids,
+      options: {
+        ...localOnlyDeletionOptions,
+        removeCloudflareProvision: true,
+      },
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(deletionRunId))).resolves.toMatchObject({
+      snapshot: {
+        plan: {
+          cloudflare: {
+            action: "delete_worker",
+            accountId: "cloudflare-account",
+            workerName: "created-worker",
+            workerTag: "created-worker-tag",
+          },
+        },
+      },
+    });
+  });
+
+  it("requires an unknown Worker create outcome only when provider deletion is selected", async () => {
+    const { ids, resources, t } = await createExistingRepositoryVaultWithCloudflareWorker({
+      origin: "selected_existing",
+    });
+    await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-convex",
+        trigger: "connect_cloudflare_worker",
+        state: "failed",
+        currentStep: "attach_worker",
+        lastError: "Worker create outcome is unknown.",
+        createdAt: 17,
+        updatedAt: 17,
+        completedAt: 17,
+      });
+      await ctx.db.insert("vaultCloudflareWorkerCreationClaims", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: resources.appId,
+        runId,
+        accountId: "cloudflare-account",
+        workerName: "creating-worker",
+        lifecycle: { state: "creating" },
+        createdAt: 17,
+        updatedAt: 17,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: {
+          ...localOnlyDeletionOptions,
+          removeCloudflareProvision: true,
+        },
+      }),
+    ).rejects.toThrow("Cloudflare Worker creation must be reconciled");
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: localOnlyDeletionOptions,
+      }),
+    ).resolves.toEqual({ deletionRunId: expect.any(String) });
   });
 });

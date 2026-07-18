@@ -290,12 +290,14 @@ async function insertConvexDeploymentForApp(
   ids: ConnectionVaultIds,
   appId: Id<"vaultApps">,
   args?: {
+    teamId?: string;
     projectId?: string;
     projectSlug?: string;
     deploymentName?: string;
   },
 ): Promise<Id<"vaultConvexDeployments">> {
   const projectId = args?.projectId ?? "convex-project";
+  const teamId = args?.teamId ?? "convex-team";
   const projectSlug = args?.projectSlug ?? "manual-cloudflare";
   const deploymentName = args?.deploymentName ?? "manual-cloudflare-prod";
   return await t.run(
@@ -304,7 +306,7 @@ async function insertConvexDeploymentForApp(
         vaultId: ids.vaultId,
         userId: ids.userId,
         appId,
-        teamId: "convex-team",
+        teamId,
         projectId,
         teamSlug: "ada-team",
         projectSlug,
@@ -876,11 +878,13 @@ describe("vault Cloudflare attachment mutations", () => {
     const deployKeys = {
       production: {
         state: "created" as const,
+        teamId: "convex-team",
         name: "production-key-name",
         deploymentName: "manual-cloudflare-prod",
       },
       preview: {
         state: "created" as const,
+        teamId: "convex-team",
         name: "preview-key-name",
         projectId: "convex-project",
       },
@@ -924,7 +928,11 @@ describe("vault Cloudflare attachment mutations", () => {
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId: ids.vaultId,
         appId: ids.appId,
-        convex: { teamId: "convex-team", projectName: "manual-cloudflare" },
+        convex: {
+          state: "planned",
+          teamId: "convex-team",
+          projectName: "manual-cloudflare",
+        },
         cloudflare: {
           state: "attached",
           accountId: "cloudflare-account",
@@ -1013,7 +1021,11 @@ describe("vault Cloudflare attachment mutations", () => {
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId: ids.vaultId,
         appId: ids.appId,
-        convex: { teamId: "convex-team", projectName: "manual-cloudflare" },
+        convex: {
+          state: "planned",
+          teamId: "convex-team",
+          projectName: "manual-cloudflare",
+        },
         cloudflare: {
           state: "planned",
           accountId: "cloudflare-account",
@@ -1179,11 +1191,13 @@ describe("vault Cloudflare attachment mutations", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "production-key-name",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "preview-key-name",
             projectId: "convex-project",
           },
@@ -1494,11 +1508,13 @@ describe("vault Cloudflare attachment mutations", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "production-key-name",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "preview-key-name",
             projectId: "convex-project",
           },
@@ -1616,11 +1632,13 @@ describe("vault Cloudflare attachment mutations", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "production-key-name",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "preview-key-name",
             projectId: "convex-project",
           },
@@ -1871,11 +1889,13 @@ describe("vault Cloudflare attachment mutations", () => {
               deployKeys: {
                 production: {
                   state: "created",
+                  teamId: "convex-team",
                   name: "production-key-name",
                   deploymentName: "manual-cloudflare-prod",
                 },
                 preview: {
                   state: "created",
+                  teamId: "convex-team",
                   name: "preview-key-name",
                   projectId: "convex-project",
                 },
@@ -1936,11 +1956,13 @@ describe("vault Cloudflare attachment mutations", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "production-key-name",
               deploymentName: "manual-cloudflare-prod",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "preview-key-name",
               projectId: "123",
             },
@@ -1985,11 +2007,13 @@ describe("vault Cloudflare attachment mutations", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "production-key-name",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "preview-key-name",
             projectId: "convex-project",
           },
@@ -2086,11 +2110,13 @@ describe("vault Cloudflare attachment mutations", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "production-key-name",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "preview-key-name",
             projectId: "convex-project",
           },
@@ -2242,7 +2268,7 @@ describe("vault Cloudflare attachment mutations", () => {
     ).rejects.toThrow("Vault app not found.");
   });
 
-  it("lets the durable claim supersede stale active ownership", async () => {
+  it("does not supersede active ownership based on elapsed time", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
     const staleRunId = await t.run(async (ctx) => {
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -2275,7 +2301,7 @@ describe("vault Cloudflare attachment mutations", () => {
         workerName: "manual-cloudflare-worker",
         origin: "selected_existing",
       }),
-    ).resolves.toEqual({ claimed: true });
+    ).resolves.toEqual({ claimed: false });
 
     const result = await t.run(async (ctx) => {
       const [staleRun, ownership] = await Promise.all([
@@ -2290,12 +2316,12 @@ describe("vault Cloudflare attachment mutations", () => {
     });
 
     expect(result.ownership).toMatchObject({
-      runId: ids.runId,
+      runId: staleRunId,
       state: "active",
     });
     expect(result.staleRun).toMatchObject({
-      state: "canceled",
-      currentStep: "claim_infra",
+      state: "running",
+      currentStep: "attach_worker",
     });
   });
 
@@ -2683,12 +2709,14 @@ describe("explicit Worker to Convex dependencies", () => {
           production: {
             state: "creating",
             runId,
+            teamId: "convex-team",
             name: "creating-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "creating",
             runId,
+            teamId: "convex-team",
             name: "creating-preview-key",
             projectId: "convex-project",
           },
@@ -2702,6 +2730,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "production",
           value: {
+            teamId: "convex-team",
             name: "creating-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
@@ -2714,6 +2743,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "preview",
           value: {
+            teamId: "convex-team",
             name: "creating-preview-key",
             projectId: "convex-project",
           },
@@ -2778,6 +2808,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "production",
           value: {
+            teamId: "convex-team",
             name: "creating-production-key",
             deploymentName: "different-production-target",
           },
@@ -2798,6 +2829,7 @@ describe("explicit Worker to Convex dependencies", () => {
           production: {
             state: "creating",
             runId,
+            teamId: "convex-team",
             name: "creating-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
@@ -2806,7 +2838,7 @@ describe("explicit Worker to Convex dependencies", () => {
     });
   });
 
-  it("lets only the active run complete the creating-to-created transition", async () => {
+  it("does not let another run overlap a deploy-key creation", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
     const { backendAppId, webAppId } = await createMonorepoApps(t, ids);
     const workerId = await insertWorkerForApp(t, ids, webAppId, "web-worker");
@@ -2849,7 +2881,7 @@ describe("explicit Worker to Convex dependencies", () => {
         internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring,
         secondRunArgs,
       ),
-    ).resolves.toEqual({ claimed: true });
+    ).resolves.toEqual({ claimed: false });
 
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey, {
@@ -2857,32 +2889,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployment: "production",
         convexDeployKeyName: "first-run-production-key",
       }),
-    ).resolves.toEqual({ applied: false });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey, {
-        ...secondRunArgs,
-        deployment: "production",
-        convexDeployKeyName: "first-run-production-key",
-      }),
-    ).resolves.toEqual({ applied: false });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.clearCloudflareConvexBuildAccessDeployKey, {
-        ...secondRunArgs,
-        deployKey: {
-          deployment: "production",
-          value: {
-            name: "first-run-production-key",
-            deploymentName: "manual-cloudflare-prod",
-          },
-        },
-      }),
     ).resolves.toEqual({ applied: true });
-    await beginAndRecordConvexBuildAccessDeployKey(
-      t,
-      secondRunArgs,
-      "production",
-      "second-run-production-key",
-    );
     await expect(
       t.run(
         async (ctx) =>
@@ -2896,7 +2903,8 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKeys: {
           production: {
             state: "created",
-            name: "second-run-production-key",
+            teamId: "convex-team",
+            name: "first-run-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
         },
@@ -2919,11 +2927,13 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "old-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "old-preview-key",
             projectId: "convex-project",
           },
@@ -2949,6 +2959,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "production",
           value: {
+            teamId: "convex-team",
             name: "old-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
@@ -2961,6 +2972,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "preview",
           value: {
+            teamId: "convex-team",
             name: "old-preview-key",
             projectId: "convex-project",
           },
@@ -2980,6 +2992,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "production",
           value: {
+            teamId: "convex-team",
             name: "replacement-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
@@ -3033,6 +3046,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "production",
           value: {
+            teamId: "convex-team",
             name: "different-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
@@ -3045,6 +3059,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "production",
           value: {
+            teamId: "convex-team",
             name: "replacement-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
@@ -3057,6 +3072,7 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKey: {
           deployment: "preview",
           value: {
+            teamId: "convex-team",
             name: "replacement-preview-key",
             projectId: "convex-project",
           },
@@ -3098,11 +3114,13 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "first-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "first-preview-key",
             projectId: "convex-project",
           },
@@ -3141,17 +3159,153 @@ describe("explicit Worker to Convex dependencies", () => {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "first-production-key",
             deploymentName: "manual-cloudflare-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "first-preview-key",
             projectId: "convex-project",
           },
         },
       },
     });
+  });
+
+  it("does not retarget a Worker while deploy keys from another team remain", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    const { backendAppId, webAppId } = await createMonorepoApps(t, ids);
+    const workerId = await insertWorkerForApp(t, ids, webAppId, "web-worker");
+    const firstDeploymentId = await insertConvexDeploymentForApp(t, ids, backendAppId);
+    const dependencyId = await insertWorkerDeploymentDependency(
+      t,
+      ids,
+      workerId,
+      firstDeploymentId,
+      {
+        state: "wired",
+        deployKeys: {
+          production: {
+            state: "created",
+            teamId: "convex-team",
+            name: "first-production-key",
+            deploymentName: "manual-cloudflare-prod",
+          },
+          preview: {
+            state: "created",
+            teamId: "convex-team",
+            name: "first-preview-key",
+            projectId: "convex-project",
+          },
+        },
+      },
+    );
+    const replacementAppId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("vaultApps", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          rootDirectory: "packages/replacement-backend",
+          createdAt: 60,
+        }),
+    );
+    const replacementDeploymentId = await insertConvexDeploymentForApp(t, ids, replacementAppId, {
+      teamId: "other-team",
+      projectId: "replacement-project",
+      projectSlug: "replacement",
+      deploymentName: "replacement-prod",
+    });
+    const runId = await createCloudflareRun(t, ids, "wire_convex_build_access");
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring, {
+        vaultId: ids.vaultId,
+        runId,
+        userId: ids.userId,
+        workerId,
+        convexDeploymentId: replacementDeploymentId,
+      }),
+    ).rejects.toThrow("remove them before changing teams");
+    await expect(t.run(async (ctx) => await ctx.db.get(dependencyId))).resolves.toMatchObject({
+      convexDeploymentId: firstDeploymentId,
+      wiring: {
+        state: "wired",
+        deployKeys: {
+          production: {
+            state: "created",
+            teamId: "convex-team",
+            name: "first-production-key",
+          },
+          preview: {
+            state: "created",
+            teamId: "convex-team",
+            name: "first-preview-key",
+          },
+        },
+      },
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultInfrastructureOwnership")
+            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+            .unique(),
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it("makes no provider call when retained deploy keys contradict the target team", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    const { backendAppId, webAppId } = await createMonorepoApps(t, ids);
+    const workerId = await insertWorkerForApp(t, ids, webAppId, "web-worker");
+    const replacementDeploymentId = await insertConvexDeploymentForApp(t, ids, backendAppId, {
+      teamId: "other-team",
+      projectId: "replacement-project",
+      projectSlug: "replacement",
+      deploymentName: "replacement-prod",
+    });
+    await insertWorkerDeploymentDependency(t, ids, workerId, replacementDeploymentId, {
+      state: "wired",
+      deployKeys: {
+        production: {
+          state: "created",
+          teamId: "convex-team",
+          name: "old-production-key",
+          deploymentName: "old-prod",
+        },
+        preview: {
+          state: "created",
+          teamId: "convex-team",
+          name: "old-preview-key",
+          projectId: "old-project",
+        },
+      },
+    });
+    const runId = await createCloudflareRun(t, ids, "wire_convex_build_access");
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: ids.vaultId,
+        runId,
+        state: "active",
+        updatedAt: 70,
+      });
+    });
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring, {
+        vaultId: ids.vaultId,
+        runId,
+        userId: ids.userId,
+        workerId,
+        convexDeploymentId: replacementDeploymentId,
+      }),
+    ).rejects.toThrow("remove them before rewiring access");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 
@@ -3171,11 +3325,13 @@ describe("dependency verification and run ownership", () => {
       deployKeys: {
         production: {
           state: "created" as const,
+          teamId: "convex-team",
           name: "production-key",
           deploymentName: "manual-cloudflare-prod",
         },
         preview: {
           state: "created" as const,
+          teamId: "convex-team",
           name: "preview-key",
           projectId: "convex-project",
         },

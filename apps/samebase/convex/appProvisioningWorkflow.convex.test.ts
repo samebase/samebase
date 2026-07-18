@@ -101,11 +101,13 @@ async function createFinishableComposedInfrastructure() {
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "production-key",
             deploymentName: "composed-finish-prod",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "preview-key",
             projectId: "convex-project",
           },
@@ -117,7 +119,12 @@ async function createFinishableComposedInfrastructure() {
     await ctx.db.insert("vaultInfrastructureTargets", {
       vaultId,
       appId,
-      convex: { teamId: "convex-team", projectName: "composed-finish" },
+      convex: {
+        state: "attached",
+        teamId: "convex-team",
+        projectName: "composed-finish",
+        deploymentId: convexDeploymentId,
+      },
       cloudflare: {
         state: "attached",
         accountId: "cloudflare-account",
@@ -184,6 +191,7 @@ describe("app provisioning workflow composition", () => {
         vaultId,
         appId,
         convex: {
+          state: "planned",
           teamId: "convex-team",
           projectName: "composed-app",
         },
@@ -215,6 +223,34 @@ describe("app provisioning workflow composition", () => {
         workerName: "composed-app",
       },
     });
+
+    const unrelatedDeploymentId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("vaultConvexDeployments", {
+          upstream: { state: "present" },
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          appId: ids.appId,
+          teamId: "convex-team",
+          projectId: "unrelated-project",
+          teamSlug: "ada-team",
+          projectSlug: "unrelated-project",
+          deploymentName: "unrelated-project-prod",
+          deploymentType: "prod",
+          cloudUrl: "https://unrelated-project-prod.convex.cloud",
+          siteUrl: "https://unrelated-project-prod.convex.site",
+          origin: "selected_existing",
+          connectedAt: 35,
+          lastObservedAt: 35,
+        }),
+    );
+    await expect(
+      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("outside this provisioning target");
+    await t.run(async (ctx) => await ctx.db.delete(unrelatedDeploymentId));
 
     const providerIds = await t.run(async (ctx) => {
       const convexDeploymentId = await ctx.db.insert("vaultConvexDeployments", {
@@ -264,6 +300,12 @@ describe("app provisioning workflow composition", () => {
         lastObservedAt: 50,
       });
       await ctx.db.patch(ids.targetId, {
+        convex: {
+          state: "attached",
+          teamId: "convex-team",
+          projectName: "composed-app",
+          deploymentId: convexDeploymentId,
+        },
         cloudflare: {
           state: "attached",
           accountId: "cloudflare-account",
@@ -281,11 +323,13 @@ describe("app provisioning workflow composition", () => {
           deployKeys: {
             production: {
               state: "created",
+              teamId: "convex-team",
               name: "prod-key",
               deploymentName: "composed-app-prod",
             },
             preview: {
               state: "created",
+              teamId: "convex-team",
               name: "preview-key",
               projectId: "convex-project",
             },
@@ -473,7 +517,11 @@ describe("app provisioning workflow composition", () => {
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
         appId,
-        convex: { teamId: "convex-team", projectName: "composed-retry" },
+        convex: {
+          state: "planned",
+          teamId: "convex-team",
+          projectName: "composed-retry",
+        },
         cloudflare: {
           state: "planned",
           accountId: "cloudflare-account",

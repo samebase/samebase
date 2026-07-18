@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
@@ -50,6 +50,10 @@ async function createConnectedVault() {
   });
   return { ids, t };
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("infra read app targeting", () => {
   it("fails closed when the recorded Convex deployment is missing upstream", async () => {
@@ -144,6 +148,51 @@ describe("infra read app targeting", () => {
     ).rejects.toThrow(
       "Production read is ambiguous because multiple Convex deployments are connected.",
     );
+  });
+
+  it("makes no Convex request when the active connection belongs to another team", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        userId: ids.userId,
+        auth: { method: "api_key", credential: "other-team-token" },
+        teamId: "other-team",
+        createdAt: 30,
+        updatedAt: 30,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        upstream: { state: "present" },
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: ids.appId,
+        teamId: "convex-team",
+        projectId: "convex-project",
+        teamSlug: "ada-team",
+        projectSlug: "monorepo",
+        deploymentName: "monorepo-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://monorepo.convex.cloud",
+        siteUrl: "https://monorepo.convex.site",
+        origin: "selected_existing",
+        connectedAt: 30,
+        lastObservedAt: 30,
+      });
+    });
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.infraRead.getConvexDeploymentStatus, {
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Reconnect the Convex team that owns this resource.");
+    await expect(
+      t.action(internal.infraRead.getConvexLogs, {
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Reconnect the Convex team that owns this resource.");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("fails closed when multiple Cloudflare Workers are connected", async () => {

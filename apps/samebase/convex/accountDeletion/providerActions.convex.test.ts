@@ -133,11 +133,13 @@ async function seedRetainedProviderResources(t: ConvexTest, userId: Id<"users">)
         deployKeys: {
           production: {
             state: "created",
+            teamId: "convex-team",
             name: "production-key",
             deploymentName: "backend-production",
           },
           preview: {
             state: "created",
+            teamId: "convex-team",
             name: "preview-key",
             projectId: "convex-project",
           },

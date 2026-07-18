@@ -48,7 +48,7 @@ async function seedDatabaseEditorVault(
       kind: "convex",
       userId,
       auth: convexAuth,
-      teamId: "1000",
+      teamId: "convex-team",
       teamSlug: "ada-team",
       createdAt: 1,
       updatedAt: 2,
@@ -111,6 +111,7 @@ async function seedDatabaseEditorVault(
 
   return {
     deploymentId: ids.deploymentId,
+    userId: ids.userId,
     user: asUser(t, ids.userId),
   };
 }
@@ -252,9 +253,66 @@ describe("createEmbeddedDashboardCredentials", () => {
       id: "samebase-embedded-data-demo-prod-1710003600000",
     });
   });
+
+  it("does not mint a data editor key with a connection for another team", async () => {
+    const t = makeConvexTest();
+    const { deploymentId, user, userId } = await seedDatabaseEditorVault(t, {
+      method: "api_key",
+      credential: "convex-api-key",
+    });
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Expected Convex connection.");
+      }
+      await ctx.db.patch(connection._id, { teamId: "other-team" });
+    });
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      user.action(api.vault.database.createEmbeddedDashboardCredentials, {
+        ...databaseRouteBaseArgs,
+        deploymentId,
+      }),
+    ).rejects.toThrow("Reconnect the Convex team that owns this resource.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe("revokeEmbeddedDashboardCredentials", () => {
+  it("does not revoke a data editor key with a connection for another team", async () => {
+    const t = makeConvexTest();
+    const { deploymentId, user, userId } = await seedDatabaseEditorVault(t, {
+      method: "api_key",
+      credential: "convex-api-key",
+    });
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Expected Convex connection.");
+      }
+      await ctx.db.patch(connection._id, { teamId: "other-team" });
+    });
+    const fetch = vi.fn(async () => new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
+        ...databaseRouteBaseArgs,
+        deploymentId,
+        deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
+      }),
+    ).rejects.toThrow("Reconnect the Convex team that owns this resource.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("does not delete arbitrary deployment keys", async () => {
     const t = makeConvexTest();
     const { deploymentId, user } = await seedDatabaseEditorVault(t, {

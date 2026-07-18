@@ -128,15 +128,16 @@ terminal mutation rejects incomplete state: provider creation claims must be con
 Worker and target app's production deployment must both be present, Workers Builds must be
 connected, and the Worker's dependency on that deployment must be fully wired.
 
-The composed create target pins the selected Convex team ID and planned project name before provider
-writes. Changing the active Convex connection cannot redirect that create into another team. The
-same target retains the originally planned Cloudflare account and Worker name, then records the
-stable Samebase Worker row ID when attachment succeeds. Retries follow that row ID and read its
-current provider name. They never rediscover an attached Worker by the original mutable name. If the
-referenced Worker is confirmed missing upstream, the retained planned name remains the explicit
-intent for creating or recovering a replacement. Successful replacement updates that same Worker row
-with the replacement provider identity, so its app ownership and Convex dependency stay attached to
-one stable Samebase resource. The target pointer does not move to a second Worker row.
+The composed create target pins the selected Convex team ID, planned project name, Cloudflare
+account, and planned Worker name before provider writes. Each provider side begins as `planned`.
+Attachment changes it to `attached` with the exact stable Samebase deployment or Worker row ID in
+the same mutation that writes the resource. Changing the active Convex connection cannot redirect a
+create into another team. A different Convex deployment attached to the target app does not satisfy
+the planned target, and composed completion follows only the recorded deployment ID. Retries follow
+the recorded row IDs and read their current provider identities. They never rediscover an attached
+Worker by the original mutable name. If a referenced provider resource is confirmed missing
+upstream, the retained plan remains explicit replacement intent. Successful replacement updates the
+same stable Samebase row, so app ownership and dependencies stay attached to one resource identity.
 
 Replacing the provider project or production deployment behind a stable Samebase Convex deployment
 row clears schema snapshots collected from the old provider identity in the same mutation. Schema
@@ -192,33 +193,38 @@ does not create a deployment dependency. In particular, `apps/mobile` consumes t
 runtime but has no Worker build pipeline, so Samebase must not infer a mobile-to-backend deployment
 edge.
 
-Each dependency owns the unique Convex deploy-key names minted for that Worker pipeline. A recorded
-production key also retains the deployment name it targets; a preview key retains its project ID.
-The names and targets do not live as one global pair on the Convex deployment. This permits multiple
-Workers to depend on one backend, and lets Samebase revoke an old relationship after the deployment
-row is reconnected to a different provider resource. Secret values are passed directly between
-provider operations and are never stored in Samebase.
+Each dependency owns the unique Convex deploy-key names minted for that Worker pipeline. Every key
+identity retains the immutable Convex team ID that authorizes its cleanup. A production key also
+retains its deployment name; a preview key retains its project ID. The names, authorization team,
+and targets do not live as one global pair on the Convex deployment. This permits multiple Workers
+to depend on one backend while preserving exact cleanup evidence. Secret values are passed directly
+between provider operations and are never stored in Samebase.
 
 Each wiring attempt mints fresh provider key names. Before asking Convex to create either key,
-Samebase records that exact name, provider target, and owning run on the dependency as `creating`.
-`creating` means the key may or may not exist at Convex because Samebase might have lost the
-provider response. Recovery deletes that exact identity and accepts a provider not-found response as
-success before minting a replacement. Only the same active run, name, and target may advance a key
-from `creating` to `created`.
+Samebase records that exact name, owning team, provider target, and owning run on the dependency as
+`creating`. `creating` means the key may or may not exist at Convex because Samebase might have lost
+the provider response. Recovery first proves that the active connection matches the recorded team,
+then deletes that exact identity and accepts provider not-found as success before minting a
+replacement. Only the same active run, team, name, and target may advance a key from `creating` to
+`created`.
 
-Attempts are therefore disjoint: a superseded action can clean up only its own names and cannot
-delete a newer action's provider keys. A retry deletes the dependency's recorded prior names before
-minting its new pair. Successful provider deletion clears only the exact matching `creating` or
-`created` identity. Failed deletion retains the identity for recovery.
+Attempts are therefore serialized. Elapsed time never lets another run replace an active provider
+writer because changing the database owner cannot fence an in-flight provider request. Workflow
+retry within the same active run may reconcile only that run's recorded identities. A new run can
+claim only after the previous owner is terminal. Successful provider deletion clears only the exact
+matching team-qualified `creating` or `created` identity. Failed deletion retains the identity for
+recovery.
 
-Rewiring a Worker to another Convex deployment keeps the same dependency identity and makes the
-relationship `not_wired`. Samebase revokes the old target-specific keys before minting replacements.
-A failure leaves the relationship visibly `not_wired`. When a shared Convex deployment becomes
+Rewiring a Worker to another Convex deployment in the same team keeps the dependency identity and
+makes the relationship `not_wired`. Samebase revokes the old target-specific keys before minting
+replacements. Rewiring to another team is rejected before changing the dependency, ownership,
+triggers, or keys while any old-team key identity remains. With one active Convex connection,
+Samebase cannot safely revoke old-team keys and mint new-team keys in one automatic transition. A
+failure leaves the relationship visibly `not_wired`. When a shared Convex deployment becomes
 unavailable or changes provider identity, every relationship pointing to it reads as `not_wired`.
-Samebase derives that state from the stored key targets and current provider identity rather than
-rewriting every dependent relationship. The stored key identities remain available for exact
-cleanup, and the UI must never report a relationship as wired while its Convex deployment is missing
-upstream.
+Samebase derives that state from stored team-qualified key targets and current provider identity
+rather than rewriting every dependent relationship. The UI must never report a relationship as wired
+while its Convex deployment is missing upstream.
 
 Samebase-managed Cloudflare triggers use least privilege:
 
@@ -326,17 +332,24 @@ Expo hosting, or another hosting provider. Convex-only and resource-empty apps r
     previous team appear deleted. Samebase leaves its upstream state unchanged until that team can
     be checked again, and operations that need provider access stop before changing triggers or
     deploy keys.
+17. A composed create records the exact Convex deployment and Cloudflare Worker rows it attached.
+    Another deployment already attached to the app cannot satisfy that create or let it finish.
+18. An active provider-writing run remains the only writer regardless of elapsed time. Another run
+    can start only after the owner is explicitly recorded as succeeded or failed.
+19. Rewiring a Worker to a Convex deployment in another team stops before changing local state or
+    provider state while a deploy-key identity from the previous team remains.
 
 ## Validation
 
 Provider-mocked tests must prove root-directory normalization, stable app/resource foreign keys,
-exact trigger payloads, least-privilege environment-variable payloads, dependency-owned deploy-key
-state, idempotent rewiring, drift detection, and cleanup after partial failure. They must also prove
-that retained provider resources produce no Cloudflare or Convex calls during vault or account
-deletion, while an explicitly selected Worker deletion still removes its triggers and then the
-Worker. Creation tests must prove pre-write claims, response-confirmed origin, conservative
-same-name recovery, vault-wide claim cardinality, atomic standalone completion, and claim-aware
-deletion behavior.
+exact composed target pointers, exact trigger payloads, least-privilege environment-variable
+payloads, team-qualified dependency-owned deploy-key state, serialized provider-write ownership,
+idempotent same-team rewiring, cross-team fail-closed behavior, drift detection, and cleanup after
+partial failure. They must also prove that retained provider resources produce no Cloudflare or
+Convex calls during vault or account deletion, while an explicitly selected Worker deletion still
+removes its triggers and then the Worker. Creation tests must prove pre-write claims,
+response-confirmed origin, conservative same-name recovery, vault-wide claim cardinality, atomic
+standalone completion, and claim-aware deletion behavior.
 
 Live fixture validation must prove the intentional wildcard trigger policy, root-relative build
 execution, write-only secret readback, one shared branch-named Convex preview, deployment URL
