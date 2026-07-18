@@ -256,7 +256,7 @@ export const accountDeletionTables = {
     .index("by_completion_capability", ["completionCapability"])
     .index("by_updated_at", ["updatedAt"]),
 
-  /** User-safe progress without account identity or provider payloads. */
+  /** Ordered identity-free progress messages for one account-deletion run. */
   operations_accountDeletionEvents: defineTable({
     runId: id("operations_accountDeletionRuns"),
     step: vAccountDeletionStep,

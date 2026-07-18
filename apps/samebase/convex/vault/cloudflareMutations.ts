@@ -138,7 +138,7 @@ const cloudflareInfrastructureVerificationState = union(
   }),
 );
 
-type VaultInfrastructureOwnership = Doc<"operations_vaultInfrastructureOwnership">;
+type VaultInfrastructureOwnership = Doc<"operations_vaultProvisioningRunClaims">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
 
@@ -175,7 +175,7 @@ async function getVaultInfrastructureOwnership(
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
   return await ctx.db
-    .query("operations_vaultInfrastructureOwnership")
+    .query("operations_vaultProvisioningRunClaims")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -407,7 +407,7 @@ async function assertNoActiveCloudflareProvisioning(
   vaultId: Id<"vaults">,
 ): Promise<void> {
   const ownership = await ctx.db
-    .query("operations_vaultInfrastructureOwnership")
+    .query("operations_vaultProvisioningRunClaims")
     .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "active"))
     .first();
   if (ownership) {
@@ -667,7 +667,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -993,7 +993,7 @@ export const claimCloudflareBuildsWiring = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1302,7 +1302,7 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1752,7 +1752,7 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",

@@ -232,12 +232,12 @@ Key domain entities:
 - `users`
 - `providerConnections`
 - `vaults`
-- `operations_vaultInfrastructureTargets`
-- `operations_vaultInfrastructureOwnership`
+- `operations_vaultProvisioningPlans`
+- `operations_vaultProvisioningRunClaims`
 - `vaultDomains`
 - `operations_fileStaging`
-- `operations_aiProdAccessRequests`
-- `audit_aiProdAccessEvents`
+- `operations_aiProductionReadRequests`
+- `audit_aiProductionReadEvents`
 
 ## Convex CLI
 

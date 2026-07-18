@@ -316,7 +316,7 @@ describe("MCP OAuth account deletion access", () => {
       }),
     ).resolves.toBeDefined();
     await expect(
-      t.run(async (ctx) => await ctx.db.query("operations_mcpAuthRequests").collect()),
+      t.run(async (ctx) => await ctx.db.query("operations_mcpAuthorizationRequests").collect()),
     ).resolves.toHaveLength(1);
   });
 
@@ -375,7 +375,7 @@ describe("MCP OAuth account deletion access", () => {
         { requestId: "mcpar_deleting_code_owner", userId: deletingUserId },
         { requestId: "mcpar_missing_code_owner", userId: missingUserId },
       ]) {
-        await ctx.db.insert("operations_mcpAuthRequests", {
+        await ctx.db.insert("operations_mcpAuthorizationRequests", {
           requestId: authRequest.requestId,
           clientId,
           redirectUri: "http://127.0.0.1/callback",
@@ -396,7 +396,7 @@ describe("MCP OAuth account deletion access", () => {
     const readIssuanceState = async () => {
       return await t.run(async (ctx) => ({
         accessAudits: await ctx.db.query("audit_mcpAccessEvents").collect(),
-        authRequests: await ctx.db.query("operations_mcpAuthRequests").collect(),
+        authRequests: await ctx.db.query("operations_mcpAuthorizationRequests").collect(),
         authorizationCodes: await ctx.db.query("operations_mcpAuthorizationCodes").collect(),
         grants: await ctx.db.query("mcpGrants").collect(),
       }));
@@ -467,7 +467,7 @@ describe("MCP OAuth account deletion access", () => {
         registrationStatus: "active",
         metadataJson: "{}",
       });
-      await ctx.db.insert("operations_mcpAuthRequests", {
+      await ctx.db.insert("operations_mcpAuthorizationRequests", {
         requestId: "mcpar_deleting_user",
         clientId,
         redirectUri: "http://127.0.0.1/callback",

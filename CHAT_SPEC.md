@@ -34,8 +34,8 @@ and stored in Convex.
 
 - `agentThreadContext`
 - `chatMessageMetadata`
-- `operations_aiProdAccessRequests`
-- `audit_aiProdAccessEvents`
+- `operations_aiProductionReadRequests`
+- `audit_aiProductionReadEvents`
 
 ## Approval Flows
 

@@ -4,7 +4,10 @@ import { v } from "convex/values";
 const { boolean, id, literal, number, optional, string, union } = v;
 
 export const editorTables = {
-  /** Unsaved changes for real-time collaborative editing. */
+  /**
+   * The current uncommitted state of each changed file on a vault branch,
+   * including edits, renames, deletions, and binary uploads.
+   */
   operations_fileStaging: defineTable({
     ownerId: id("users"),
     vaultId: id("vaults"),
@@ -61,8 +64,8 @@ export const editorTables = {
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
 
-  /** Operational-transformation updates for collaborative editing. */
-  operations_collaborativeUpdates: defineTable({
+  /** Versioned file edits that other clients pull to synchronize one staged document. */
+  operations_collaborativeFileUpdates: defineTable({
     vaultId: id("vaults"),
     branch: optional(string()),
     filePath: string(),

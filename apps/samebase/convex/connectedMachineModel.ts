@@ -54,6 +54,10 @@ export const connectedMachineTables = {
     .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"]),
 
+  /**
+   * A short-lived browser approval request that binds a connector-reported
+   * machine to a user and activates the credential prepared by that connector.
+   */
   operations_machineRegistrationRequests: defineTable({
     requestId: string(),
     credentialHash: string(),
@@ -71,12 +75,17 @@ export const connectedMachineTables = {
     .index("by_machine_id", ["machineId"])
     .index("by_user", ["userId"]),
 
+  /**
+   * Per-connector counters limiting unauthenticated machine-registration
+   * requests within one time window.
+   */
   operations_machineRegistrationBootstrapRateLimits: defineTable({
     fingerprint: string(),
     requestCount: number(),
     windowStartedAt: number(),
   }).index("by_fingerprint", ["fingerprint"]),
 
+  /** Hashed credentials used to authenticate heartbeats from approved machine connectors. */
   operations_machineCredentials: defineTable({
     userId: id("users"),
     machineId: string(),
@@ -88,6 +97,7 @@ export const connectedMachineTables = {
     .index("by_user_machine_id", ["userId", "machineId"])
     .index("by_credential_hash", ["credentialHash"]),
 
+  /** Short-lived hashed tokens authorizing live browser control of one connected machine. */
   operations_machineControlTokens: defineTable({
     userId: id("users"),
     machineId: string(),

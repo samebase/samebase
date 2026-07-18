@@ -48,8 +48,8 @@ The result is a flow that looks broken even when the backend is behaving as desi
 
 ### MCP authorize creates a short-lived app-routed consent request
 
-1. `apps/noter/convex/mcp/http.ts` creates an `operations_mcpAuthRequests` row and redirects browser
-   UX to `SITE_URL + /oauth/mcp/consent?...`.
+1. `apps/noter/convex/mcp/http.ts` creates an `operations_mcpAuthorizationRequests` row and
+   redirects browser UX to `SITE_URL + /oauth/mcp/consent?...`.
 2. `MCP_AUTH_REQUEST_TTL_MS` is currently `10 * 60 * 1000` (10 minutes).
 3. This request is appropriate for an in-progress login/consent handoff, not a long-lived
    pending-signup ticket.
@@ -99,7 +99,7 @@ distinguish:
 
 1. Opening self-serve signup to anyone with a Google account.
 2. Replacing Convex Auth.
-3. Turning `operations_mcpAuthRequests` into long-lived onboarding records.
+3. Turning `operations_mcpAuthorizationRequests` into long-lived onboarding records.
 4. Completing the original MCP authorization request days later after manual approval.
 5. Solving the separate latency issue in this RFC.
 

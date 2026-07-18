@@ -42,7 +42,7 @@ const convexInfrastructureRecordValidator = object({
   convexSiteUrl: string(),
 });
 
-type VaultInfrastructureOwnership = Doc<"operations_vaultInfrastructureOwnership">;
+type VaultInfrastructureOwnership = Doc<"operations_vaultProvisioningRunClaims">;
 type ConvexDeploymentConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type ConvexDeploymentConnectionReadCtx = Pick<QueryCtx, "db">;
 
@@ -61,7 +61,7 @@ async function getVaultInfrastructureOwnership(
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
   return await ctx.db
-    .query("operations_vaultInfrastructureOwnership")
+    .query("operations_vaultProvisioningRunClaims")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -311,7 +311,7 @@ export const claimConvexDeploymentConnection = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",

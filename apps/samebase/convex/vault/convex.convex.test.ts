@@ -271,7 +271,7 @@ describe("vault Convex deployment connection actions", () => {
         if (input.url.includes("/projects/1001/deployment")) {
           await t.run(async (ctx) => {
             const ownership = await ctx.db
-              .query("operations_vaultInfrastructureOwnership")
+              .query("operations_vaultProvisioningRunClaims")
               .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
               .first();
             if (!ownership) {

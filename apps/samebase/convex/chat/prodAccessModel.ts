@@ -41,8 +41,11 @@ export const vProdAccessAuditAction = union(
 );
 
 export const prodAccessTables = {
-  /** Approval-first requests for AI reads against production data or infrastructure. */
-  operations_aiProdAccessRequests: defineTable({
+  /**
+   * One proposed AI read against production, including its exact parameters,
+   * approval, redaction, expiration, execution status, and safe error.
+   */
+  operations_aiProductionReadRequests: defineTable({
     threadId: string(),
     requesterUserId: id("users"),
     vaultId: optional(id("vaults")),
@@ -65,9 +68,9 @@ export const prodAccessTables = {
     .index("by_status", ["status"])
     .index("by_vault", ["vaultId"]),
 
-  /** Immutable audit events for the production-access request lifecycle. */
-  audit_aiProdAccessEvents: defineTable({
-    requestId: id("operations_aiProdAccessRequests"),
+  /** Immutable audit events recording decisions and execution for production AI reads. */
+  audit_aiProductionReadEvents: defineTable({
+    requestId: id("operations_aiProductionReadRequests"),
     actorUserId: id("users"),
     action: vProdAccessAuditAction,
     toolName: string(),

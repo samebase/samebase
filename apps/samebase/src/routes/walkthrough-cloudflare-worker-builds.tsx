@@ -112,7 +112,7 @@ const runSteps = [
   },
   {
     title: "2. Claim infrastructure ownership",
-    why: "claimCloudflareBuildsWiring checks that an attached Worker exists, exits if Builds are already connected, then claims operations_vaultInfrastructureOwnership for this run.",
+    why: "claimCloudflareBuildsWiring checks that an attached Worker exists, exits if Builds are already connected, then claims operations_vaultProvisioningRunClaims for this run.",
     refs: [
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",

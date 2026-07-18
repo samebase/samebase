@@ -360,7 +360,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       message: "Created the initializing Samebase vault.",
       createdAt: now,
     });
-    await ctx.db.insert("operations_vaultInfrastructureTargets", {
+    await ctx.db.insert("operations_vaultProvisioningPlans", {
       vaultId,
       appRoot: ROOT_VAULT_APP_ROOT,
       convex: {

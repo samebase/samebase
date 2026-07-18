@@ -47,8 +47,8 @@ consent screen uses the standard Google sign-in flow, and that flow currently de
 
 ### Current MCP consent flow
 
-1. `GET /oauth/mcp/authorize` runs on the request origin and creates an `operations_mcpAuthRequests`
-   row.
+1. `GET /oauth/mcp/authorize` runs on the request origin and creates an
+   `operations_mcpAuthorizationRequests` row.
 2. If the user must log in or approve access, `buildMcpConsentRedirectUrl()` redirects to
    `SITE_URL + /oauth/mcp/consent?...`.
 3. `apps/noter/src/routes/mcp-consent.tsx` renders the consent page and reads `mcp_consent_request`

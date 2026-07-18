@@ -36,8 +36,8 @@ export const mcpTables = {
     .index("by_registration_status", ["registrationStatus"])
     .index("by_provisional_expires_at", ["provisionalExpiresAt"]),
 
-  /** Pending authorization requests for MCP OAuth consent. */
-  operations_mcpAuthRequests: defineTable({
+  /** Pending MCP OAuth requests awaiting a user's browser consent decision. */
+  operations_mcpAuthorizationRequests: defineTable({
     requestId: string(),
     clientId: string(),
     redirectUri: string(),
@@ -57,7 +57,7 @@ export const mcpTables = {
     .index("by_status", ["status"])
     .index("by_expires_at", ["expiresAt"]),
 
-  /** One-time authorization codes for MCP OAuth. */
+  /** Hashed one-use codes exchanged by approved MCP clients for access and refresh tokens. */
   operations_mcpAuthorizationCodes: defineTable({
     codeHash: string(),
     requestId: string(),
@@ -95,7 +95,7 @@ export const mcpTables = {
     .index("by_client_id", ["clientId"])
     .index("by_status", ["status"]),
 
-  /** Opaque access tokens for MCP resource access. */
+  /** Hashed bearer tokens authorizing MCP resource calls until expiry or revocation. */
   operations_mcpAccessTokens: defineTable({
     tokenHash: string(),
     grantId: string(),
@@ -113,7 +113,7 @@ export const mcpTables = {
     .index("by_user_id", ["userId"])
     .index("by_expires_at", ["expiresAt"]),
 
-  /** Opaque refresh tokens for OAuth token rotation. */
+  /** Hashed rotating credentials used to mint replacement MCP tokens. */
   operations_mcpRefreshTokens: defineTable({
     grantId: string(),
     clientId: string(),

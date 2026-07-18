@@ -307,10 +307,9 @@ export type RepositoryRefreshLifecycle = Infer<typeof vRepositoryRefreshLifecycl
 // internal execution steps without widening the caller-facing state space.
 
 /**
- * Persisted operations_vaultRepositoryRefreshRequests row.
- *
- * The demand union forbids impossible states, such as dashboard branch fan-out
- * or source_setup without the provisioning run id.
+ * One deduplicated request for fresher repository or branch data. `demand`
+ * describes what must be fresh; `lifecycle` records queue state, worker lease,
+ * and terminal result.
  */
 export const repositoryRefreshTables = {
   operations_vaultRepositoryRefreshRequests: defineTable({

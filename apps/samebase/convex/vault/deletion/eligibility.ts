@@ -68,7 +68,7 @@ export async function readVaultDeletionEligibility(
   }
 
   const activeOwner = await ctx.db
-    .query("operations_vaultInfrastructureOwnership")
+    .query("operations_vaultProvisioningRunClaims")
     .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vault._id).eq("state", "active"))
     .first();
   if (activeOwner) {

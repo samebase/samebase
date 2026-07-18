@@ -400,7 +400,7 @@ const storeCloudflareMcpOauthConnectionArgs = {
   expiresAt: number(),
   clientId: string(),
   defaultAccount: vCloudflareDefaultAccount,
-  oauthStateId: id("operations_providerOauthStates"),
+  oauthStateId: id("operations_providerOauthCallbackStates"),
 } as const;
 const storeCloudflareMcpOauthConnectionResultValidator = nullValue();
 

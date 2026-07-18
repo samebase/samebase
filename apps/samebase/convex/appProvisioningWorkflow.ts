@@ -75,25 +75,25 @@ export const readComposedInfrastructureState = internalQuery({
       throw new Error("Vault not found.");
     }
 
-    const target = await ctx.db
-      .query("operations_vaultInfrastructureTargets")
+    const plan = await ctx.db
+      .query("operations_vaultProvisioningPlans")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
-    if (!target) {
-      throw new Error("Infrastructure target not found for vault.");
+    if (!plan) {
+      throw new Error("Infrastructure provisioning plan not found for vault.");
     }
 
     const [convexDeployment, worker] = await Promise.all([
       ctx.db
         .query("vaultConvexDeployments")
         .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", args.vaultId).eq("appRoot", target.appRoot),
+          q.eq("vaultId", args.vaultId).eq("appRoot", plan.appRoot),
         )
         .first(),
       ctx.db
         .query("vaultCloudflareWorkers")
         .withIndex("by_vault_and_appRoot", (q) =>
-          q.eq("vaultId", args.vaultId).eq("appRoot", target.appRoot),
+          q.eq("vaultId", args.vaultId).eq("appRoot", plan.appRoot),
         )
         .first(),
     ]);
@@ -102,14 +102,14 @@ export const readComposedInfrastructureState = internalQuery({
     const cloudflareWorkerAttached = worker !== null && isVaultProviderUpstreamPresent(worker);
 
     return {
-      appRoot: target.appRoot,
+      appRoot: plan.appRoot,
       convex: {
-        projectName: target.convex.projectName,
+        projectName: plan.convex.projectName,
         attached: convexDeploymentAttached,
       },
       cloudflare: {
-        accountId: target.cloudflare.accountId,
-        workerName: target.cloudflare.workerName,
+        accountId: plan.cloudflare.accountId,
+        workerName: plan.cloudflare.workerName,
         attached: cloudflareWorkerAttached,
         buildsConnected: cloudflareWorkerAttached && worker.deployment.builds.state === "connected",
         convexBuildAccessWired:
@@ -166,17 +166,17 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const target = await ctx.db
-      .query("operations_vaultInfrastructureTargets")
+    const plan = await ctx.db
+      .query("operations_vaultProvisioningPlans")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
-    if (!target) {
-      throw new Error("Infrastructure target not found for vault.");
+    if (!plan) {
+      throw new Error("Infrastructure provisioning plan not found for vault.");
     }
 
     const now = Date.now();
     const ownership = await ctx.db
-      .query("operations_vaultInfrastructureOwnership")
+      .query("operations_vaultProvisioningRunClaims")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
     if (
@@ -211,7 +211,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -223,7 +223,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       runId: args.runId,
       step: "claim_infra",
       level: "info",
-      message: `Started infrastructure provisioning for ${target.appRoot}.`,
+      message: `Started infrastructure provisioning for ${plan.appRoot}.`,
       state: "running",
     });
 
@@ -249,7 +249,7 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Composed infrastructure run does not match vault.");
     }
     const ownership = await ctx.db
-      .query("operations_vaultInfrastructureOwnership")
+      .query("operations_vaultProvisioningRunClaims")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
     if (!ownership || ownership.state !== "active" || ownership.runId !== args.runId) {

@@ -75,7 +75,7 @@ The sections below describe the state before PR #174 and are kept for context.
 
 ### What is already branch-aware
 
-1. `operations_fileStaging` and `operations_collaborativeUpdates` data models are branch-scoped
+1. `operations_fileStaging` and `operations_collaborativeFileUpdates` data models are branch-scoped
 2. Staging read/write/commit actions accept `branch` and rebase on branch head
 3. Chat thread context stores an optional branch
 4. Many editor actions already pass branch through API calls
@@ -202,7 +202,7 @@ Behavior:
 6. If a previously deleted-upstream branch reappears remotely, restore it to `remoteState="active"`
    and clear `deletedUpstreamAt`
 7. Garbage-collect deleted-upstream branch rows only when there are no `operations_fileStaging` or
-   `operations_collaborativeUpdates` rows for that branch
+   `operations_collaborativeFileUpdates` rows for that branch
 
 Add query:
 

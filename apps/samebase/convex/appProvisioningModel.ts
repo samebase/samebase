@@ -71,8 +71,14 @@ export const vAppProvisioningRunState = union(
 export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
 
 export const appProvisioningTables = {
-  /** User-selected target state for Samebase-managed infrastructure. */
-  operations_vaultInfrastructureTargets: defineTable({
+  /**
+   * The app root and exact Convex project and Cloudflare Worker choices for one
+   * vault. Retries read this row so every attempt uses the same provider names
+   * and Cloudflare account. `created` variants preserve identities returned by
+   * earlier provider-creation checkpoints; current connected resources live in
+   * the durable vault resource tables.
+   */
+  operations_vaultProvisioningPlans: defineTable({
     vaultId: id("vaults"),
     appRoot: string(),
     convex: union(
@@ -106,8 +112,12 @@ export const appProvisioningTables = {
     updatedAt: number(),
   }).index("by_vault", ["vaultId"]),
 
-  /** Latest Workflow run allowed to write provider state for a vault. */
-  operations_vaultInfrastructureOwnership: defineTable({
+  /**
+   * The provisioning run currently allowed to change a vault's provider
+   * resources. Its claim remains after completion so an older overlapping run
+   * cannot write later.
+   */
+  operations_vaultProvisioningRunClaims: defineTable({
     vaultId: id("vaults"),
     runId: id("operations_vaultProvisioningRuns"),
     state: union(literal("active"), literal("succeeded"), literal("failed")),
@@ -117,7 +127,10 @@ export const appProvisioningTables = {
     .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_run", ["runId"]),
 
-  /** App-owned Workflow run identity for Samebase-managed provisioning. */
+  /**
+   * One attempt to create, connect, retry, or repair a vault and its provider
+   * resources, including background-workflow progress and outcome.
+   */
   operations_vaultProvisioningRuns: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
@@ -144,7 +157,7 @@ export const appProvisioningTables = {
     .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflowId"]),
 
-  /** User-visible provisioning events for Samebase-managed app creation. */
+  /** Ordered user-visible progress messages for one vault provisioning run. */
   operations_vaultProvisioningEvents: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),

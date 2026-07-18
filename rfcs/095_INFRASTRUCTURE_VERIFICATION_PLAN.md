@@ -147,7 +147,7 @@ row). Verification pairs with that write, not with a central list:
 7. Existing run machinery. One `operations_vaultProvisioningRuns` run per execution with trigger
    `verify_infrastructure` — one new literal in `vAppProvisioningRunTrigger`
    (`apps/samebase/convex/schema.ts:108`), the only validator edit in Phase 1 — fenced by the same
-   `operations_vaultInfrastructureOwnership` claim pattern the blocks use. Verification refuses to
+   `operations_vaultProvisioningRunClaims` claim pattern the blocks use. Verification refuses to
    start while another run for the vault is active.
 8. One contract, every surface. The `verify_infrastructure` contract module registers in the action
    catalog (`apps/samebase/convex/toolRuntime/actionCatalog.ts`, shipped v1656), which renders the

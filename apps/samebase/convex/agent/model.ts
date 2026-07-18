@@ -4,14 +4,17 @@ import { v } from "convex/values";
 const { id, number, optional, string } = v;
 
 export const agentTables = {
-  /** In-flight actions that can write to the Agent component. */
+  /**
+   * Short-lived markers held while agent or chat actions may still write.
+   * Account deletion waits for every marker to be released or expire.
+   */
   operations_agentActionLeases: defineTable({
     userId: id("users"),
     expiresAt: number(),
   }).index("by_user_and_expires_at", ["userId", "expiresAt"]),
 
-  /** One-time browser handoffs from an authenticated agent session. */
-  operations_agentBrowserHandoffs: defineTable({
+  /** One-use tokens that let an authorized MCP client continue its user's session in a browser. */
+  operations_mcpBrowserLoginHandoffs: defineTable({
     tokenHash: string(),
     userId: id("users"),
     grantId: string(),

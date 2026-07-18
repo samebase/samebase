@@ -92,7 +92,7 @@ describe("agent browser handoff lifecycle", () => {
 
     const snapshot = await t.run(async (ctx) => {
       const handoff = await ctx.db
-        .query("operations_agentBrowserHandoffs")
+        .query("operations_mcpBrowserLoginHandoffs")
         .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
         .unique();
       const audits = await ctx.db
@@ -229,7 +229,7 @@ describe("agent browser handoff lifecycle", () => {
     });
     const handoffId = await t.run(async (ctx) => {
       const handoff = await ctx.db
-        .query("operations_agentBrowserHandoffs")
+        .query("operations_mcpBrowserLoginHandoffs")
         .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
         .unique();
       return handoff?._id ?? null;
@@ -246,7 +246,7 @@ describe("agent browser handoff lifecycle", () => {
       t.run(
         async (ctx) =>
           await ctx.db
-            .query("operations_agentBrowserHandoffs")
+            .query("operations_mcpBrowserLoginHandoffs")
             .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
             .unique(),
       ),

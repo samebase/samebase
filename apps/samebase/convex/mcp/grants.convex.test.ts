@@ -200,7 +200,7 @@ describe("MCP grant management", () => {
         tokenHash: "refresh_hash",
         userId: ids.ownerId,
       });
-      await ctx.db.insert("operations_agentBrowserHandoffs", {
+      await ctx.db.insert("operations_mcpBrowserLoginHandoffs", {
         clientId: "mcpc_named",
         createdAt: now,
         expiresAt: now + 60_000,

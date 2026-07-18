@@ -327,7 +327,7 @@ async function appendProvisioningRunEvent(
   }
 }
 
-type VaultInfrastructureOwnership = Doc<"operations_vaultInfrastructureOwnership">;
+type VaultInfrastructureOwnership = Doc<"operations_vaultProvisioningRunClaims">;
 type ProvisioningOwnershipCtx = Pick<MutationCtx, "db">;
 
 async function getVaultInfrastructureOwnership(
@@ -335,7 +335,7 @@ async function getVaultInfrastructureOwnership(
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
   return await ctx.db
-    .query("operations_vaultInfrastructureOwnership")
+    .query("operations_vaultProvisioningRunClaims")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }

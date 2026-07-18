@@ -333,7 +333,7 @@ Fields:
 - `firstTokenExchangedAt?`
 - `metadataJson`
 
-### 2. `operations_mcpAuthRequests`
+### 2. `operations_mcpAuthorizationRequests`
 
 Pending authorization requests before user approval.
 
@@ -529,7 +529,7 @@ The consent screen must show:
 
 Recommended shape:
 
-1. `GET /oauth/mcp/authorize` creates `operations_mcpAuthRequests`.
+1. `GET /oauth/mcp/authorize` creates `operations_mcpAuthorizationRequests`.
 2. Convex redirects into an existing React route on `noter.md` for consent UI.
 3. The React app reads the pending request and lets the user approve or deny.
 4. Approval writes back to Convex, which completes the OAuth redirect.

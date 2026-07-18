@@ -106,7 +106,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 > = {
   users: "identity",
   providerConnections: "providers",
-  operations_providerOauthStates: "providers",
+  operations_providerOauthCallbackStates: "providers",
 
   connectedMachines: "machines",
   operations_machineRegistrationRequests: "machines",
@@ -135,8 +135,8 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   vaultConvexDeployments: "infrastructure",
   observations_vaultConvexSchemaSnapshots: "infrastructure",
   ui_vaultConvexSchemaGraphLayouts: "infrastructure",
-  operations_vaultInfrastructureTargets: "infrastructure",
-  operations_vaultInfrastructureOwnership: "infrastructure",
+  operations_vaultProvisioningPlans: "infrastructure",
+  operations_vaultProvisioningRunClaims: "infrastructure",
   operations_vaultProvisioningRuns: "infrastructure",
   operations_vaultProvisioningEvents: "infrastructure",
   operations_vaultDeletionRuns: "infrastructure",
@@ -144,16 +144,16 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 
   operations_fileStaging: "files",
   observations_vaultFileBlobs: "files",
-  operations_collaborativeUpdates: "files",
+  operations_collaborativeFileUpdates: "files",
 
   ui_agentGraphNodeLayout: "agent",
   agentThreadContext: "agent",
   chatMessageMetadata: "agent",
-  operations_aiProdAccessRequests: "agent",
-  audit_aiProdAccessEvents: "agent",
+  operations_aiProductionReadRequests: "agent",
+  audit_aiProductionReadEvents: "agent",
 
   mcpOauthClients: "mcp",
-  operations_mcpAuthRequests: "mcp",
+  operations_mcpAuthorizationRequests: "mcp",
   operations_mcpAuthorizationCodes: "mcp",
   mcpGrants: "mcp",
   operations_mcpAccessTokens: "mcp",

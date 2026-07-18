@@ -80,8 +80,11 @@ export const providerConnectionTables = {
     .index("by_user_kind", ["userId", "kind"])
     .index("by_kind_method", ["kind", "auth.method"]),
 
-  /** OAuth state records for provider integrations. */
-  operations_providerOauthStates: defineTable({
+  /**
+   * Short-lived records that bind a provider OAuth callback to the user who
+   * started it and retain callback data such as PKCE credentials until use.
+   */
+  operations_providerOauthCallbackStates: defineTable({
     provider: union(
       literal("github"),
       literal("convex"),

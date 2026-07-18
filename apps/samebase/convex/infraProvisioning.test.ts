@@ -56,7 +56,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     }
 
     if (args.activeOwnership) {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId,
         runId,
         state: "active",
@@ -275,7 +275,7 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       return { ownership, run };
@@ -311,7 +311,7 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       const event = await ctx.db

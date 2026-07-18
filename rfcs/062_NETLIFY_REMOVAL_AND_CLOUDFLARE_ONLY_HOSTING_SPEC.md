@@ -273,9 +273,9 @@ branches.
 
 1. `providerConnections`
    - delete rows where `kind == "netlify"`
-2. `operations_providerOauthStates`
+2. `operations_providerOauthCallbackStates`
    - delete rows where `provider == "netlify"`
-3. `operations_aiProdAccessRequests`
+3. `operations_aiProductionReadRequests`
    - delete rows where `provider == "netlify"`
 4. `vaults`
    - if `hostingProvider` is being removed in this phase, unset it on all rows
@@ -297,7 +297,7 @@ branches.
 
 Notes:
 
-- `audit_aiProdAccessEvents` does not store a provider enum and can remain.
+- `audit_aiProductionReadEvents` does not store a provider enum and can remain.
 - `chatMessageMetadata.payloadJson` is opaque historical text; old Netlify labels can remain.
 
 ### Cleanup verification gate
@@ -306,7 +306,7 @@ Before deploying schema literal removal:
 
 - zero `providerConnections.kind == "netlify"`
 - zero `oauthStates.provider == "netlify"`
-- zero `aiProdAccessRequests.provider == "netlify"`
+- zero `operations_aiProductionReadRequests.provider == "netlify"`
 - zero `vaultDomains.source in {"netlify_default", "netlify_custom"}`
 - zero remaining Netlify compatibility fields relied on by runtime code
 

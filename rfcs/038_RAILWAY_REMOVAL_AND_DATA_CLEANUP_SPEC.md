@@ -112,7 +112,7 @@ removal.
 
 1. `providerConnections`
    - Delete rows where `kind == "railway"`.
-2. `operations_providerOauthStates`
+2. `operations_providerOauthCallbackStates`
    - Delete rows where `provider == "railway"`.
 3. `vaults`
    - Normalize `hostingProvider == "railway"` to `"netlify"`.
@@ -123,12 +123,12 @@ removal.
      - set a clear `lastError` message directing user to reprovision with a supported provider
 5. `vaultDomains`
    - Delete rows where `source == "railway_default"`.
-6. `operations_aiProdAccessRequests`
+6. `operations_aiProductionReadRequests`
    - Delete rows where `provider == "railway"`.
 
 Notes:
 
-- `audit_aiProdAccessEvents` does not carry a provider enum field and can remain.
+- `audit_aiProductionReadEvents` does not carry a provider enum field and can remain.
 - `chatMessageMetadata.payloadJson` is opaque text; old entries can remain.
 
 ### Cleanup verification expectations

@@ -216,7 +216,7 @@ treat it as self-reported.
 Add a table for handoff rows:
 
 ```ts
-agentBrowserHandoffs: defineTable({
+operations_mcpBrowserLoginHandoffs: defineTable({
   tokenHash: v.string(),
   userId: v.id("users"),
   grantId: v.string(),

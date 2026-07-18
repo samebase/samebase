@@ -9,8 +9,8 @@ export const vAllowedInfraReadTable = v.union(
   v.literal("vaultDomains"),
   v.literal("codespaces"),
   v.literal("operations_fileStaging"),
-  v.literal("operations_aiProdAccessRequests"),
-  v.literal("audit_aiProdAccessEvents"),
+  v.literal("operations_aiProductionReadRequests"),
+  v.literal("audit_aiProductionReadEvents"),
 );
 
 export const readTableSample = internalQuery({
@@ -85,18 +85,18 @@ export const readTableSample = internalQuery({
       return await ctx.db.query("operations_fileStaging").take(limit);
     }
 
-    if (args.table === "operations_aiProdAccessRequests") {
+    if (args.table === "operations_aiProductionReadRequests") {
       const vaultId = args.vaultId;
       if (vaultId) {
         return await ctx.db
-          .query("operations_aiProdAccessRequests")
+          .query("operations_aiProductionReadRequests")
           .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
           .take(limit);
       }
-      return await ctx.db.query("operations_aiProdAccessRequests").take(limit);
+      return await ctx.db.query("operations_aiProductionReadRequests").take(limit);
     }
 
-    return await ctx.db.query("audit_aiProdAccessEvents").take(limit);
+    return await ctx.db.query("audit_aiProductionReadEvents").take(limit);
   },
 });
 

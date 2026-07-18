@@ -118,7 +118,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       height: 180,
       updatedAt: 20,
     });
-    await ctx.db.insert("operations_collaborativeUpdates", {
+    await ctx.db.insert("operations_collaborativeFileUpdates", {
       vaultId,
       branch: "main",
       filePath: "notes/plan.md",
@@ -542,7 +542,7 @@ describe("public Convex route ownership checks", () => {
       t.run(async (ctx) => {
         const staging = await ctx.db.get(ids.stagingId);
         const updates = await ctx.db
-          .query("operations_collaborativeUpdates")
+          .query("operations_collaborativeFileUpdates")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect();
         return { staging, updates };

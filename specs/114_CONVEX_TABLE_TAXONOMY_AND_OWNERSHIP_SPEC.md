@@ -64,22 +64,22 @@ operations_machineRegistrationRequests
 operations_machineRegistrationBootstrapRateLimits
 operations_machineCredentials
 operations_machineControlTokens
-operations_providerOauthStates
+operations_providerOauthCallbackStates
 operations_vaultRepositoryRefreshRequests
-operations_vaultInfrastructureTargets
-operations_vaultInfrastructureOwnership
+operations_vaultProvisioningPlans
+operations_vaultProvisioningRunClaims
 operations_vaultProvisioningRuns
 operations_vaultProvisioningEvents
 operations_vaultDeletionRuns
 operations_vaultDeletionEvents
 operations_fileStaging
-operations_collaborativeUpdates
-operations_aiProdAccessRequests
-operations_mcpAuthRequests
+operations_collaborativeFileUpdates
+operations_aiProductionReadRequests
+operations_mcpAuthorizationRequests
 operations_mcpAuthorizationCodes
 operations_mcpAccessTokens
 operations_mcpRefreshTokens
-operations_agentBrowserHandoffs
+operations_mcpBrowserLoginHandoffs
 ```
 
 ### Observation tables
@@ -108,7 +108,7 @@ ui_agentGraphNodeLayout
 ### Audit tables
 
 ```text
-audit_aiProdAccessEvents
+audit_aiProductionReadEvents
 audit_mcpAccessEvents
 ```
 
@@ -174,6 +174,11 @@ Types derived from a table use its validator as the single source of truth:
 ```ts
 export type DashboardSettings = Infer<typeof userPreferenceTables.ui_dashboardSettings.validator>;
 ```
+
+Every supporting-table definition starts with a plain-language comment that explains what one row
+represents and why live behavior needs it. The comment must define domain-specific nouns instead of
+restating them. For example, a provisioning-plan comment must say which choices it preserves and why
+retries read them; "provisioning state" is not a definition.
 
 Feature model files imported by the root schema must not import `_generated/dataModel`, because the
 generated data model imports the root schema.

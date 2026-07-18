@@ -211,9 +211,9 @@ Accepted retention rules:
 3. After a deletion succeeds, the deletion run may retain display-safe summary fields such as
    `repositoryFullName`, options, final state, step events, and timestamps. Provider identifiers
    needed only for retry should be scrubbed from the completed snapshot.
-4. `audit_aiProdAccessEvents` rows are preserved. Matching `operations_aiProdAccessRequests` are
-   preserved as audit context, detached from the vault by clearing `vaultId`, and any still-active
-   request for the deleted vault is expired.
+4. `audit_aiProductionReadEvents` rows are preserved. Matching `operations_aiProductionReadRequests`
+   are preserved as audit context, detached from the vault by clearing `vaultId`, and any
+   still-active request for the deleted vault is expired.
 5. Legacy chat and agent context are not product-critical for this workflow. If those tables still
    exist when deletion ships, use the simplest safe cleanup: delete or detach vault-scoped app rows,
    but do not add new account-level chat retention machinery.
@@ -571,7 +571,7 @@ The deletion Workflow runs:
 3. `delete_cloudflare`: delete the recorded Cloudflare Worker when requested
 4. `delete_convex`: delete the recorded Convex project or deployment when requested
 5. `delete_github_repo`: delete the recorded Samebase-managed GitHub repository when requested
-6. `cleanup_editor_state`: delete `operations_fileStaging`, `operations_collaborativeUpdates`,
+6. `cleanup_editor_state`: delete `operations_fileStaging`, `operations_collaborativeFileUpdates`,
    `observations_vaultFileBlobs`, and backing storage in bounded batches
 7. `cleanup_source_caches`: delete branch filters, folder expansion state,
    `observations_vaultRemoteBranches`, and `observations_vaultBranchTrees` in bounded batches
@@ -662,14 +662,14 @@ Delete rows:
 1. `ui_vaultBranchFilters` via `by_vault`
 2. `operations_fileStaging` via `by_vault`; use `by_vault_and_storageId` when checking staged
    storage references and delete staged-only storage objects before rows
-3. `operations_collaborativeUpdates` via `by_vault`
+3. `operations_collaborativeFileUpdates` via `by_vault`
 4. `observations_vaultFileBlobs` via `by_vault`, deleting storage objects before rows
 5. `ui_folderExpansionState` via `by_vault`
 6. `observations_vaultRemoteBranches` via `by_vault`
 7. `observations_vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
 8. `vaultDomains` via `by_vault`
 9. `vaultInfrastructure` via `by_vault`, deleting all rows if more than one exists
-10. `operations_vaultInfrastructureOwnership` via `by_vault`
+10. `operations_vaultProvisioningRunClaims` via `by_vault`
 11. `codespaces` via `by_vault`
 12. `ui_agentGraphNodeLayout` via `by_vault`
 13. `operations_vaultProvisioningEvents` via `by_vault_and_created_at`
@@ -677,15 +677,15 @@ Delete rows:
 
 Patch or delete rows:
 
-1. `operations_aiProdAccessRequests` via `by_vault`: clear `vaultId`; move `proposed` and `approved`
-   requests to `expired`; preserve executed, failed, rejected, and already expired statuses for
-   every matching request.
+1. `operations_aiProductionReadRequests` via `by_vault`: clear `vaultId`; move `proposed` and
+   `approved` requests to `expired`; preserve executed, failed, rejected, and already expired
+   statuses for every matching request.
 2. `agentThreadContext` via `by_vault`: either clear `vaultId`, `repositoryFullName`, `branch`, and
    `filePath`, or delete the row if the legacy chat cleanup/removal path makes deletion simpler.
 
 Preserve rows:
 
-1. `audit_aiProdAccessEvents`
+1. `audit_aiProductionReadEvents`
 2. `operations_vaultDeletionRuns`
 3. `operations_vaultDeletionEvents`
 
@@ -758,8 +758,8 @@ implementation.
 4. Update `fileStaging.deletePendingUploadBlob` to use the same vault-scoped blob index instead of
    scanning `observations_vaultFileBlobs`; if the implementation needs exact storage-reference
    checks, add vault-prefixed storage indexes instead of collecting all vault blobs or staged files.
-5. Include `operations_collaborativeUpdates`, `operations_vaultInfrastructureOwnership`,
-   `ui_agentGraphNodeLayout`, `agentThreadContext`, `operations_aiProdAccessRequests`,
+5. Include `operations_collaborativeFileUpdates`, `operations_vaultProvisioningRunClaims`,
+   `ui_agentGraphNodeLayout`, `agentThreadContext`, `operations_aiProductionReadRequests`,
    `operations_vaultProvisioningRuns`, and `operations_vaultProvisioningEvents`.
 6. Delete the vault row once, last.
 7. Add tests that force branch-heavy cleanup across multiple batches.
@@ -843,8 +843,8 @@ Backend:
 9. branch-heavy cleanup completes through multiple bounded batches
 10. `observations_vaultFileBlobs` cleanup deletes storage objects and rows
 11. pending-upload blob cleanup uses the vault-scoped blob index
-12. `operations_collaborativeUpdates` are deleted at vault scope
-13. `audit_aiProdAccessEvents` rows are preserved while requests are detached
+12. `operations_collaborativeFileUpdates` are deleted at vault scope
+13. `audit_aiProductionReadEvents` rows are preserved while requests are detached
 14. legacy `agentThreadContext` rows are deleted or detached using the simplest safe path
 15. `operations_vaultProvisioningRuns` and `operations_vaultProvisioningEvents` are deleted in
     batches

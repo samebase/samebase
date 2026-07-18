@@ -62,7 +62,7 @@ This works but is expensive and produces noisy raw payloads for small changes.
 Noter already has a concrete collaborative editing protocol:
 
 - `fileStaging.version` stores the current document version.
-- `collaborativeUpdates.changes` stores serialized CodeMirror `ChangeSet` JSON.
+- `operations_collaborativeFileUpdates.changes` stores serialized CodeMirror `ChangeSet` JSON.
 - Editors send `changes.toJSON()` to Convex.
 - Convex reconstructs updates with `ChangeSet.fromJSON(...)`.
 
@@ -215,7 +215,7 @@ After all replacements are resolved:
 
 If the file is already staged/open:
 
-- Insert a `operations_collaborativeUpdates` row with serialized `ChangeSet` JSON.
+- Insert a `operations_collaborativeFileUpdates` row with serialized `ChangeSet` JSON.
 - Increment `fileStaging.version`.
 - Update staged content by applying the same `ChangeSet`.
 

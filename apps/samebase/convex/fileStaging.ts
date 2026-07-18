@@ -938,10 +938,10 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
       args.branch === undefined
         ? cutoffTimestamp === undefined
           ? ctx.db
-              .query("operations_collaborativeUpdates")
+              .query("operations_collaborativeFileUpdates")
               .withIndex("by_vault_and_timestamp", (q) => q.eq("vaultId", args.vaultId))
           : ctx.db
-              .query("operations_collaborativeUpdates")
+              .query("operations_collaborativeFileUpdates")
               .withIndex("by_vault_and_timestamp", (q) =>
                 q.eq("vaultId", args.vaultId).lt("timestamp", cutoffTimestamp),
               )
@@ -949,12 +949,12 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
             const branch = args.branch;
             return cutoffTimestamp === undefined
               ? ctx.db
-                  .query("operations_collaborativeUpdates")
+                  .query("operations_collaborativeFileUpdates")
                   .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
                     q.eq("vaultId", args.vaultId).eq("branch", branch),
                   )
               : ctx.db
-                  .query("operations_collaborativeUpdates")
+                  .query("operations_collaborativeFileUpdates")
                   .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
                     q
                       .eq("vaultId", args.vaultId)
@@ -1000,7 +1000,7 @@ export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
   handler: async (ctx, args) => {
     const updates = [];
     for await (const update of ctx.db
-      .query("operations_collaborativeUpdates")
+      .query("operations_collaborativeFileUpdates")
       .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
         q
           .eq("vaultId", args.vaultId)

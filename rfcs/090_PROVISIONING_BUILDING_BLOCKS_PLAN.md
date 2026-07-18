@@ -200,7 +200,7 @@ Verification probes required before implementation (one-time, live):
 
 - Run/trigger vocabulary for the new blocks: one new `operations_vaultProvisioningRuns` trigger per
   block versus a parameterized wiring run.
-- Whether the single-row-per-vault `operations_vaultInfrastructureOwnership` lock stays as-is when
+- Whether the single-row-per-vault `operations_vaultProvisioningRunClaims` lock stays as-is when
   block runs compose in sequence (today three claim paths contend on one row with a 10-minute stale
   window).
 - Teardown of wiring on `selected_existing` Workers: vault deletion currently skips such Workers

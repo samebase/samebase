@@ -8,7 +8,7 @@ const { id, literal, number, object, union } = v;
 const deleteOnlyByVaultCleanupTables = union(
   literal("ui_vaultBranchFilters"),
   literal("ui_vaultResourceLinksState"),
-  literal("operations_collaborativeUpdates"),
+  literal("operations_collaborativeFileUpdates"),
   literal("ui_folderExpansionState"),
   literal("observations_vaultRemoteBranches"),
   literal("vaultDomains"),
@@ -17,8 +17,8 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("observations_vaultConvexSchemaSnapshots"),
   literal("ui_vaultConvexSchemaGraphLayouts"),
   literal("vaultCloudflareWorkers"),
-  literal("operations_vaultInfrastructureTargets"),
-  literal("operations_vaultInfrastructureOwnership"),
+  literal("operations_vaultProvisioningPlans"),
+  literal("operations_vaultProvisioningRunClaims"),
   literal("codespaces"),
   literal("ui_agentGraphNodeLayout"),
 );
@@ -29,7 +29,7 @@ const vaultLocalCleanupTable = union(
   literal("operations_fileStaging"),
   literal("observations_vaultFileBlobs"),
   literal("observations_vaultBranchTrees"),
-  literal("operations_aiProdAccessRequests"),
+  literal("operations_aiProductionReadRequests"),
   literal("operations_vaultProvisioningEvents"),
   literal("operations_vaultProvisioningRuns"),
   literal("agentThreadContext"),
@@ -154,7 +154,7 @@ async function patchAiProdAccessRequestsBatch(
   args: VaultLocalCleanupArgs,
 ): Promise<number> {
   const rows = await ctx.db
-    .query("operations_aiProdAccessRequests")
+    .query("operations_aiProductionReadRequests")
     .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
   for (const row of rows) {
@@ -264,8 +264,8 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteStorageBackedByVaultBatch("operations_fileStaging"),
   },
   {
-    table: "operations_collaborativeUpdates",
-    cleanup: deleteByVaultBatch("operations_collaborativeUpdates"),
+    table: "operations_collaborativeFileUpdates",
+    cleanup: deleteByVaultBatch("operations_collaborativeFileUpdates"),
   },
   {
     table: "observations_vaultFileBlobs",
@@ -308,12 +308,12 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultCloudflareWorkers"),
   },
   {
-    table: "operations_vaultInfrastructureTargets",
-    cleanup: deleteByVaultBatch("operations_vaultInfrastructureTargets"),
+    table: "operations_vaultProvisioningPlans",
+    cleanup: deleteByVaultBatch("operations_vaultProvisioningPlans"),
   },
   {
-    table: "operations_vaultInfrastructureOwnership",
-    cleanup: deleteByVaultBatch("operations_vaultInfrastructureOwnership"),
+    table: "operations_vaultProvisioningRunClaims",
+    cleanup: deleteByVaultBatch("operations_vaultProvisioningRunClaims"),
   },
   {
     table: "codespaces",
@@ -324,7 +324,7 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("ui_agentGraphNodeLayout"),
   },
   {
-    table: "operations_aiProdAccessRequests",
+    table: "operations_aiProductionReadRequests",
     cleanup: patchAiProdAccessRequestsBatch,
   },
   {
@@ -351,7 +351,7 @@ const vaultLocalCleanupRegistry = [
 const vaultLocalCleanupRegistryByStep = {
   cleanup_editor_state: [
     "operations_fileStaging",
-    "operations_collaborativeUpdates",
+    "operations_collaborativeFileUpdates",
     "observations_vaultFileBlobs",
   ],
   cleanup_source_caches: [
@@ -369,12 +369,12 @@ const vaultLocalCleanupRegistryByStep = {
     "observations_vaultConvexSchemaSnapshots",
     "ui_vaultConvexSchemaGraphLayouts",
     "vaultCloudflareWorkers",
-    "operations_vaultInfrastructureTargets",
-    "operations_vaultInfrastructureOwnership",
+    "operations_vaultProvisioningPlans",
+    "operations_vaultProvisioningRunClaims",
     "codespaces",
     "ui_agentGraphNodeLayout",
   ],
-  cleanup_access_state: ["operations_aiProdAccessRequests"],
+  cleanup_access_state: ["operations_aiProductionReadRequests"],
   detach_agent_context: ["agentThreadContext"],
   cleanup_provisioning_history: [
     "operations_vaultProvisioningEvents",

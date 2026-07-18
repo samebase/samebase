@@ -444,7 +444,7 @@ describe("vault dashboard Convex contract", () => {
         appRoot,
         createdAt: 21,
       });
-      await ctx.db.insert("operations_vaultInfrastructureTargets", {
+      await ctx.db.insert("operations_vaultProvisioningPlans", {
         vaultId,
         appRoot,
         convex: {
@@ -1016,7 +1016,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId,
         runId: retryRunId,
         state: "active",
@@ -1130,7 +1130,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId,
         runId: retryRunId,
         state: "failed",
@@ -1231,7 +1231,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 24,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId,
         runId: cloudflareRunId,
         state: "active",
@@ -1324,7 +1324,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 24,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId,
         runId: convexRunId,
         state: "failed",
@@ -1480,7 +1480,7 @@ describe("vault dashboard Convex contract", () => {
           lastTreeRefreshAt: 29,
         });
         if (testCase.ownershipState) {
-          await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+          await ctx.db.insert("operations_vaultProvisioningRunClaims", {
             vaultId,
             runId,
             state: testCase.ownershipState,
@@ -2357,7 +2357,7 @@ describe("vault dashboard Convex contract", () => {
         branch: "main",
         version: 1,
       });
-      await ctx.db.insert("operations_collaborativeUpdates", {
+      await ctx.db.insert("operations_collaborativeFileUpdates", {
         vaultId,
         branch: "main",
         filePath: "README.md",
@@ -2433,7 +2433,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 9,
         lastObservedAt: 9,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId,
         runId,
         state: "succeeded",
@@ -2482,7 +2482,7 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 12,
         updatedAt: 12,
       });
-      const requestId = await ctx.db.insert("operations_aiProdAccessRequests", {
+      const requestId = await ctx.db.insert("operations_aiProductionReadRequests", {
         threadId: "thread-1",
         requesterUserId: userId,
         vaultId,
@@ -2496,7 +2496,7 @@ describe("vault dashboard Convex contract", () => {
         approvedBy: collaboratorId,
         approvedAt: 13,
       });
-      const auditId = await ctx.db.insert("audit_aiProdAccessEvents", {
+      const auditId = await ctx.db.insert("audit_aiProductionReadEvents", {
         requestId,
         actorUserId: collaboratorId,
         action: "approved",
@@ -2553,17 +2553,17 @@ describe("vault dashboard Convex contract", () => {
         "ui_vaultBranchFilters",
         "ui_vaultResourceLinksState",
         "operations_fileStaging",
-        "operations_collaborativeUpdates",
+        "operations_collaborativeFileUpdates",
         "observations_vaultFileBlobs",
         "ui_folderExpansionState",
         "observations_vaultRemoteBranches",
         "observations_vaultBranchTrees",
         "vaultDomains",
         "vaultConvexDeployments",
-        "operations_vaultInfrastructureOwnership",
+        "operations_vaultProvisioningRunClaims",
         "codespaces",
         "ui_agentGraphNodeLayout",
-        "operations_aiProdAccessRequests",
+        "operations_aiProductionReadRequests",
         "agentThreadContext",
         "operations_vaultRepositoryRefreshRequests",
         "operations_vaultProvisioningEvents",
@@ -2595,7 +2595,7 @@ describe("vault dashboard Convex contract", () => {
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         prodRequestsForVault: await ctx.db
-          .query("operations_aiProdAccessRequests")
+          .query("operations_aiProductionReadRequests")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         refreshRequests: await ctx.db

@@ -109,7 +109,7 @@ describe("vault Convex deployment connection mutations", () => {
           .first(),
       ]);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
@@ -303,7 +303,7 @@ describe("vault Convex deployment connection mutations", () => {
         currentStep: "attach_convex",
         updatedAt: 40,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "active",
@@ -327,7 +327,7 @@ describe("vault Convex deployment connection mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
@@ -351,7 +351,7 @@ describe("vault Convex deployment connection mutations", () => {
   it("allows a failed Convex connection owner to be claimed again", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "failed",
@@ -368,7 +368,7 @@ describe("vault Convex deployment connection mutations", () => {
 
     const ownership = await t.run(async (ctx) => {
       return await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
     });
@@ -393,7 +393,7 @@ describe("vault Convex deployment connection mutations", () => {
         updatedAt: 40,
       });
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       if (!ownership) {
@@ -446,7 +446,7 @@ describe("vault Convex deployment connection mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       return { ownership, run };

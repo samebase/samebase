@@ -461,7 +461,7 @@ Constraints this RFC locks in so Phases 1–3 do not paint MCP into a corner:
 2. Consent becomes checkbox-per-scope with partial grants (`granted ⊆ requested`), following the
    Cloudflare consent page / `workers-oauth-provider` pattern and the MCP 2025-11-25 draft's scope
    selection + `insufficient_scope` step-up flow. The flat `scope` strings on
-   `operations_mcpAuthRequests`/`operations_mcpAuthorizationCodes`/`mcpGrants`/`operations_mcpAccessTokens`
+   `operations_mcpAuthorizationRequests`/`operations_mcpAuthorizationCodes`/`mcpGrants`/`operations_mcpAccessTokens`
    already encode a granted subset; grant matching moves from string equality to subset logic.
 3. `scopes_supported` advertises the minimal useful access-key scope set (excludes `access_admin`)
    so generic clients that request everything do not ask for staff powers by default.

@@ -99,15 +99,15 @@ start provisioning in that state; the dashboard should block create and offer an
 path. Manual Worker attach/create can also choose an account and then stores that choice as the new
 default for later flows.
 
-## Provisioning Target Model
+## Provisioning Plan Model
 
-`vaultInfrastructureTargets.cloudflare` is only a full-app provisioning plan/checkpoint. It should
-not be the durable connected Worker identity.
+`operations_vaultProvisioningPlans.cloudflare` is only a full-app provisioning plan/checkpoint. It
+should not be the durable connected Worker identity.
 
-The desired target shape is:
+The desired plan shape is:
 
 ```ts
-type VaultInfrastructureTargetCloudflare = {
+type VaultProvisioningPlanCloudflare = {
   state: "planned";
   accountId: string;
   workerName: string;
@@ -115,13 +115,13 @@ type VaultInfrastructureTargetCloudflare = {
 };
 ```
 
-Full-app provisioning can use this target to keep retries deterministic. The target keeps the
-planned name, selected account, and intended build config. Once a Worker is attached, the Worker
-identity belongs in `vaultCloudflareWorkers`.
+Full-app provisioning can use this plan to keep retries deterministic. The plan keeps the planned
+name, selected account, and intended build config. Once a Worker is attached, the Worker identity
+belongs in `vaultCloudflareWorkers`.
 
 Because existing data is not a compatibility constraint for this slice, full-app Cloudflare
-provisioning should fail closed if the target is missing instead of reconstructing a target from
-legacy provider defaults.
+provisioning should fail closed if the plan is missing instead of reconstructing a plan from legacy
+provider defaults.
 
 Manual account selection updates the Cloudflare provider connection's default account. That default
 is only a convenience for the next flow; each attached vault still stores its own account identity.
@@ -145,7 +145,7 @@ ensures the selected or newly created Worker, writes `vaultCloudflareWorkers`, t
 complete.
 
 Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
-run is active or failed, dashboard state is derived from `operations_vaultInfrastructureOwnership`
+run is active or failed, dashboard state is derived from `operations_vaultProvisioningRunClaims`
 plus the run events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable
 resource identity.
 

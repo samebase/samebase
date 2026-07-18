@@ -70,7 +70,7 @@ Indexes:
 - `by_user`
 - `by_vault_and_appRoot`
 
-### `operations_vaultInfrastructureTargets`
+### `operations_vaultProvisioningPlans`
 
 - `vaultId`
 - `appRoot`
@@ -80,9 +80,9 @@ Indexes:
   `{ state: "created", accountId, workerName, workerTag, workersDevUrl?, build }`
 - `createdAt`, `updatedAt`
 
-The target row records user-selected provider names before side effects happen and exact provider
-identities after Samebase creates a provider resource. It is a create-flow checkpoint, not the
-durable connected resource identity for the dashboard.
+The plan row records user-selected provider names before side effects happen so retries use the same
+configuration. The `created` variants remain readable for earlier provider-identity checkpoints;
+current connected resource identities live in the durable resource tables used by the dashboard.
 
 Indexes:
 
@@ -239,7 +239,7 @@ sequenceDiagram
 - `vaultCloudflareWorkers.deployment.convexBuildAccess` moves from `not_wired` to `wired` after
   `wire_convex_build_access`. The temporary dashboard repair action may perform the same transition
   after the app root has an attached Convex deployment and the Worker has connected Builds.
-- `operations_vaultInfrastructureOwnership` records the active/succeeded/failed writer run.
+- `operations_vaultProvisioningRunClaims` records the active/succeeded/failed writer run.
 - `operations_vaultProvisioningRuns` and `operations_vaultProvisioningEvents` record workflow
   progress and user-visible failures.
 

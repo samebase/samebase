@@ -164,12 +164,12 @@ Run rules:
 5. Completed Workflow component records need a documented cleanup path after the app-owned run has
    durable terminal state.
 
-### 1.1. Active Infrastructure Ownership
+### 1.1. Active Provisioning Run Claim
 
 Phase 2 stores the latest Workflow run allowed to write provider state for each vault:
 
 ```ts
-vaultInfrastructureOwnership: {
+operations_vaultProvisioningRunClaims: {
   vaultId: Id<"vaults">;
   runId: Id<"operations_vaultProvisioningRuns">;
   state: "active" | "succeeded" | "failed";
@@ -177,11 +177,11 @@ vaultInfrastructureOwnership: {
 }
 ```
 
-The ownership row is not a compatibility shim. It is the explicit fencing record for provider
-writes. Claiming a new run moves ownership to that run and cancels the previous active run. Every
-later provider step must verify that its `runId` still owns the vault before making external calls
-or writing infrastructure state. The row remains after completion so stale in-flight workflow
-callbacks cannot regain ownership after the newer run finishes.
+The claim row is not a compatibility shim. It is the explicit fencing record for provider writes.
+Claiming a new run moves the claim to that run and cancels the previous active run. Every later
+provider step must verify that its `runId` still holds the claim before making external calls or
+writing infrastructure state. The row remains after completion so stale in-flight workflow callbacks
+cannot regain the claim after the newer run finishes.
 
 ### 2. Provisioning Events Foundation
 
@@ -293,7 +293,7 @@ Phase 2: Workflow component install and post-vault infra workflow.
 2. Install the Workflow component in `convex.config.ts`.
 3. Add `operations_vaultProvisioningRuns`; keep stored event `runId` temporarily optional for old
    rows, but require it for new provisioning event writes.
-4. Add `operations_vaultInfrastructureOwnership` so retries and stale in-flight steps have a durable
+4. Add `operations_vaultProvisioningRunClaims` so retries and stale in-flight steps have a durable
    owner to check before provider writes.
 5. Create `appProvisioningWorkflow.ts`.
 6. Split the current infra action into a deterministic workflow handler plus narrow idempotent step

@@ -70,7 +70,7 @@ The move touches roughly:
 
 No data migration is required. Convex function references are file-path based, but table names are
 schema names. The existing tables stay named `vaults`, `observations_vaultRemoteBranches`,
-`observations_vaultBranchTrees`, `vaultInfrastructure`, `operations_vaultInfrastructureOwnership`,
+`observations_vaultBranchTrees`, `vaultInfrastructure`, `operations_vaultProvisioningRunClaims`,
 `operations_vaultDeletionRuns`, `operations_vaultDeletionEvents`, and `vaultDomains`.
 
 ## Accepted Module Shape

@@ -561,9 +561,9 @@ writes with explicit app-root resource rows and block-run state, then remove the
 from the vault row after production data is clean.
 
 `vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultDomains`, and
-`operations_vaultInfrastructureOwnership` keep the external resource metadata and operational
-details needed to call providers, such as project ids, deployment names, account ids, deploy-key
-ids, domains, provisioning version, and ownership. They should not become a competing aggregate
+`operations_vaultProvisioningRunClaims` keep the external resource metadata and operational details
+needed to call providers, such as project ids, deployment names, account ids, deploy-key ids,
+domains, provisioning version, and ownership. They should not become a competing aggregate
 user-visible source of truth for whether the app is ready.
 
 ## Migration
@@ -598,7 +598,7 @@ include:
 2. `observations_vaultRemoteBranches`
 3. `observations_vaultBranchTrees`
 4. `vaultInfrastructure`
-5. `operations_vaultInfrastructureOwnership`
+5. `operations_vaultProvisioningRunClaims`
 6. `operations_vaultProvisioningRuns`
 7. `operations_vaultProvisioningEvents`
 8. `vaultDomains`
@@ -608,8 +608,8 @@ include:
 12. `ui_folderExpansionState`
 13. `ui_agentGraphNodeLayout`
 14. `agentThreadContext`
-15. `operations_aiProdAccessRequests`
-16. `operations_collaborativeUpdates`
+15. `operations_aiProductionReadRequests`
+16. `operations_collaborativeFileUpdates`
 
 The cleanup must fail closed: if the cleanup cannot prove it is targeting the intended vault-scoped
 tables and rows, it must abort before deletion and report the failure outside the product flow. The
@@ -846,8 +846,8 @@ Scope:
 2. update provisioning code to compose Convex and Cloudflare blocks separately while preserving
    connected GitHub state
 3. replace dashboard and query reads of top-level `vaults.infra*` fields with summaries derived from
-   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `operations_vaultInfrastructureOwnership`,
-   and `operations_vaultProvisioningRuns`
+   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `operations_vaultProvisioningRunClaims`, and
+   `operations_vaultProvisioningRuns`
 4. keep provider resource metadata and operational ownership outside the vault row instead of
    treating those details as user-visible readiness
 5. remove the top-level `vaults.infraState`, `vaults.infraLastError`,

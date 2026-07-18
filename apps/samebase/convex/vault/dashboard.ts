@@ -35,7 +35,7 @@ type SourceSetupVault = Extract<
   { githubMode: "create_repository" | "connect_existing_repository" }
 >;
 type VaultDomain = Doc<"vaultDomains">;
-type VaultInfrastructureOwnership = Doc<"operations_vaultInfrastructureOwnership">;
+type VaultInfrastructureOwnership = Doc<"operations_vaultProvisioningRunClaims">;
 type VaultApp = Doc<"vaultApps">;
 type ConnectedConvexDeployment = Doc<"vaultConvexDeployments">;
 type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
@@ -327,7 +327,7 @@ async function readVaultInfrastructureOwnership(
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
   return await ctx.db
-    .query("operations_vaultInfrastructureOwnership")
+    .query("operations_vaultProvisioningRunClaims")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }

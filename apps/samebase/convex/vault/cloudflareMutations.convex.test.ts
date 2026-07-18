@@ -88,7 +88,7 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       appRoot,
       createdAt: 25,
     });
-    await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+    await ctx.db.insert("operations_vaultProvisioningRunClaims", {
       vaultId,
       runId,
       state: args.ownershipState,
@@ -284,7 +284,7 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
@@ -486,7 +486,7 @@ describe("vault Cloudflare attachment mutations", () => {
         currentStep: "attach_worker",
         updatedAt: 40,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "active",
@@ -576,7 +576,7 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
@@ -675,7 +675,7 @@ describe("vault Cloudflare attachment mutations", () => {
         createdAt: 40,
         updatedAt: 40,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: ids.vaultId,
         runId,
         state: "active",
@@ -810,7 +810,7 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
@@ -1308,7 +1308,7 @@ describe("vault Cloudflare attachment mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(runId);
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
@@ -2143,7 +2143,7 @@ describe("vault Cloudflare attachment mutations", () => {
         createdAt: 10,
         updatedAt: 20,
       });
-      await ctx.db.insert("operations_vaultInfrastructureOwnership", {
+      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
         vaultId: ids.vaultId,
         runId,
         state: "active",
@@ -2167,7 +2167,7 @@ describe("vault Cloudflare attachment mutations", () => {
       const [staleRun, ownership] = await Promise.all([
         ctx.db.get(staleRunId),
         ctx.db
-          .query("operations_vaultInfrastructureOwnership")
+          .query("operations_vaultProvisioningRunClaims")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .first(),
       ]);
@@ -2207,7 +2207,7 @@ describe("vault Cloudflare attachment mutations", () => {
         updatedAt: 40,
       });
       const ownership = await ctx.db
-        .query("operations_vaultInfrastructureOwnership")
+        .query("operations_vaultProvisioningRunClaims")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       if (!ownership) {

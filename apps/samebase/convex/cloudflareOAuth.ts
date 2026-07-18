@@ -275,7 +275,7 @@ const storeCloudflareOauthConnectionArgs = {
   refreshToken: string(),
   expiresAt: number(),
   defaultAccount: vCloudflareDefaultAccount,
-  oauthStateId: id("operations_providerOauthStates"),
+  oauthStateId: id("operations_providerOauthCallbackStates"),
 } as const;
 
 export const storeCloudflareOauthConnection = internalMutation({

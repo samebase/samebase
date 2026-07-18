@@ -189,6 +189,10 @@ export const vVaultDeletionRetainedSnapshot = object({
 export type VaultDeletionRetainedSnapshot = Infer<typeof vVaultDeletionRetainedSnapshot>;
 
 export const vaultDeletionTables = {
+  /**
+   * One vault-deletion attempt, including its retained provider-cleanup plan,
+   * background-workflow progress, outcome, and link to an earlier attempt.
+   */
   operations_vaultDeletionRuns: defineTable(
     union(
       object({
@@ -300,7 +304,10 @@ export const vaultDeletionTables = {
     .index("by_workflow_id", ["workflow.workflowId"])
     .index("by_retry_of", ["attempt.retryOf"]),
 
-  /** User-safe deletion progress without provider payloads or credentials. */
+  /**
+   * Ordered user-visible progress messages for one vault-deletion run, without
+   * provider payloads or credentials.
+   */
   operations_vaultDeletionEvents: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
