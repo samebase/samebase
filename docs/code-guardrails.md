@@ -227,6 +227,9 @@ declaring one.
   and use that matrix to pressure the schema toward making impossible states impossible.
 - When returning collections from queries or building user-visible lists, always choose an explicit
   deterministic sort order with stable tie-breakers.
+- Persisted model names use the closed generic lifecycle vocabulary in
+  `docs/data-modeling-vocabulary.md`. New or renamed models must use an approved generic noun or add
+  a precise definition there in the same change. Domain nouns stay concrete and consistent.
 - Comments document the current contract or invariant, in the code's own concrete vocabulary
   (`draftPath`, `expectedRouteAddress` — never invented labels), naming the concrete runtime case
   over abstract ownership language. Never narrate the patch ('moved from X'), and never delete,

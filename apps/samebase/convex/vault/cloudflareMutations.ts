@@ -138,7 +138,7 @@ const cloudflareInfrastructureVerificationState = union(
   }),
 );
 
-type VaultInfrastructureOwnership = Doc<"operations_vaultProvisioningRunClaims">;
+type VaultProvisioningWriteLock = Doc<"operations_vaultProvisioningWriteLocks">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
 
@@ -170,23 +170,23 @@ function isStandaloneCloudflareInfrastructureVerificationRun(
   return run.trigger === "verify_infrastructure";
 }
 
-async function getVaultInfrastructureOwnership(
+async function readVaultProvisioningWriteLock(
   ctx: CloudflareWorkerConnectionReadCtx,
   vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
+): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("operations_vaultProvisioningRunClaims")
+    .query("operations_vaultProvisioningWriteLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
 
-function isActiveCloudflareProvisioningOwner(
-  ownership: VaultInfrastructureOwnership | null,
+function runHoldsCloudflareProvisioningWriteLock(
+  writeLock: VaultProvisioningWriteLock | null,
   args: {
     runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): boolean {
-  return ownership?.state === "active" && ownership.runId === args.runId;
+  return writeLock?.state === "active" && writeLock.runId === args.runId;
 }
 
 async function readCloudflareWorkerForAppRoot(
@@ -406,11 +406,11 @@ async function assertNoActiveCloudflareProvisioning(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
 ): Promise<void> {
-  const ownership = await ctx.db
-    .query("operations_vaultProvisioningRunClaims")
+  const writeLock = await ctx.db
+    .query("operations_vaultProvisioningWriteLocks")
     .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "active"))
     .first();
-  if (ownership) {
+  if (writeLock) {
     throw new Error("Cloudflare provisioning is already running.");
   }
 }
@@ -638,12 +638,12 @@ export const claimCloudflareWorkerConnection = internalMutation({
     }
 
     const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
     if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
+      writeLock &&
+      writeLock.state === "active" &&
+      writeLock.runId !== args.runId &&
+      now - writeLock.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
     ) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
@@ -655,19 +655,19 @@ export const claimCloudflareWorkerConnection = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
+    if (writeLock) {
+      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
+          runId: writeLock.runId,
         });
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: args.runId,
         state: "active",
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -706,8 +706,8 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    const [ownership, worker] = await Promise.all([
-      getVaultInfrastructureOwnership(ctx, args.vaultId),
+    const [writeLock, worker] = await Promise.all([
+      readVaultProvisioningWriteLock(ctx, args.vaultId),
       readCloudflareWorkerForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
@@ -716,7 +716,7 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
     return {
       active:
         (!worker || !isVaultProviderUpstreamPresent(worker)) &&
-        isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId }),
+        runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId }),
     };
   },
 });
@@ -771,15 +771,15 @@ export const attachWorkerForRun = internalMutation({
       throw error;
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneCloudflareWorkerConnectionRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
         });
         return { attached: false };
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
 
     const now = Date.now();
@@ -876,15 +876,15 @@ export const finishCloudflareWorkerConnection = internalMutation({
       throw new Error("Vault not found.");
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneCloudflareWorkerConnectionRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
         });
         return null;
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
@@ -897,7 +897,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
 
     const now = Date.now();
     if (isStandaloneCloudflareWorkerConnectionRun(run)) {
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         state: "succeeded",
         updatedAt: now,
       });
@@ -964,12 +964,12 @@ export const claimCloudflareBuildsWiring = internalMutation({
     }
 
     const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
     if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
+      writeLock &&
+      writeLock.state === "active" &&
+      writeLock.runId !== args.runId &&
+      now - writeLock.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
     ) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
@@ -981,19 +981,19 @@ export const claimCloudflareBuildsWiring = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
+    if (writeLock) {
+      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
+          runId: writeLock.runId,
         });
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: args.runId,
         state: "active",
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1032,12 +1032,12 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    const [convexDeployment, ownership, worker] = await Promise.all([
+    const [convexDeployment, writeLock, worker] = await Promise.all([
       readConvexDeploymentForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
       }),
-      getVaultInfrastructureOwnership(ctx, args.vaultId),
+      readVaultProvisioningWriteLock(ctx, args.vaultId),
       readCloudflareWorkerForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
@@ -1047,7 +1047,7 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
       !worker ||
       !isVaultProviderUpstreamPresent(worker) ||
       worker.deployment.builds.state === "connected" ||
-      !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })
+      !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })
     ) {
       return { active: false as const };
     }
@@ -1086,15 +1086,15 @@ export const recordCloudflareBuildsForRun = internalMutation({
       return { applied: false };
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneCloudflareBuildsWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
         });
         return { applied: false };
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
@@ -1152,15 +1152,15 @@ export const finishCloudflareBuildsWiring = internalMutation({
       throw new Error("Vault not found.");
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneCloudflareBuildsWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
         });
         return { convexBuildAccessRunId: null };
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const [convexDeployment, worker] = await Promise.all([
@@ -1191,7 +1191,7 @@ export const finishCloudflareBuildsWiring = internalMutation({
 
     const now = Date.now();
     if (isStandaloneCloudflareBuildsWiringRun(run)) {
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         state: "succeeded",
         updatedAt: now,
       });
@@ -1273,12 +1273,12 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
     }
 
     const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
     if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
+      writeLock &&
+      writeLock.state === "active" &&
+      writeLock.runId !== args.runId &&
+      now - writeLock.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
     ) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
@@ -1290,19 +1290,19 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
+    if (writeLock) {
+      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
+          runId: writeLock.runId,
         });
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: args.runId,
         state: "active",
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1341,12 +1341,12 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    const [convexDeployment, ownership, worker] = await Promise.all([
+    const [convexDeployment, writeLock, worker] = await Promise.all([
       readConvexDeploymentForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
       }),
-      getVaultInfrastructureOwnership(ctx, args.vaultId),
+      readVaultProvisioningWriteLock(ctx, args.vaultId),
       readCloudflareWorkerForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
@@ -1359,7 +1359,7 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
       !isVaultProviderUpstreamPresent(worker) ||
       worker.deployment.builds.state !== "connected" ||
       worker.deployment.convexBuildAccess.state === "wired" ||
-      !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })
+      !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })
     ) {
       return { active: false as const };
     }
@@ -1402,15 +1402,15 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
       return { applied: false };
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
         });
         return { applied: false };
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const convexDeployment = await readConvexDeploymentForAppRoot(ctx, {
@@ -1471,15 +1471,15 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
       return { applied: false };
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
         });
         return { applied: false };
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const [convexDeployment, worker] = await Promise.all([
@@ -1546,15 +1546,15 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
       throw new Error("Vault not found.");
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
           runId: args.runId,
         });
         return null;
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
@@ -1567,7 +1567,7 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
 
     const now = Date.now();
     if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         state: "succeeded",
         updatedAt: now,
       });
@@ -1723,12 +1723,12 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
     }
 
     const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
     if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
+      writeLock &&
+      writeLock.state === "active" &&
+      writeLock.runId !== args.runId &&
+      now - writeLock.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
     ) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
@@ -1740,19 +1740,19 @@ export const claimCloudflareInfrastructureVerification = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
+    if (writeLock) {
+      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: ownership.runId,
+          runId: writeLock.runId,
         });
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: args.runId,
         state: "active",
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -1791,18 +1791,18 @@ export const readActiveCloudflareInfrastructureVerification = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    const [convexDeployment, ownership, worker] = await Promise.all([
+    const [convexDeployment, writeLock, worker] = await Promise.all([
       readConvexDeploymentForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
       }),
-      getVaultInfrastructureOwnership(ctx, args.vaultId),
+      readVaultProvisioningWriteLock(ctx, args.vaultId),
       readCloudflareWorkerForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
       }),
     ]);
-    if (!worker || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    if (!worker || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       return { active: false as const };
     }
 
@@ -1845,8 +1845,8 @@ export const recordCloudflareInfrastructureVerification = internalMutation({
       return { applied: false };
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
@@ -1935,8 +1935,8 @@ export const recordCloudflareInfrastructureVerificationUnverifiable = internalMu
       return { applied: false };
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
@@ -1970,8 +1970,8 @@ export const finishCloudflareInfrastructureVerification = internalMutation({
       throw new Error("Vault not found.");
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
@@ -1979,7 +1979,7 @@ export const finishCloudflareInfrastructureVerification = internalMutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(ownership._id, {
+    await ctx.db.patch(writeLock._id, {
       state: "succeeded",
       updatedAt: now,
     });

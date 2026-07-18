@@ -145,7 +145,7 @@ ensures the selected or newly created Worker, writes `vaultCloudflareWorkers`, t
 complete.
 
 Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
-run is active or failed, dashboard state is derived from `operations_vaultProvisioningRunClaims`
+run is active or failed, dashboard state is derived from `operations_vaultProvisioningWriteLocks`
 plus the run events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable
 resource identity.
 

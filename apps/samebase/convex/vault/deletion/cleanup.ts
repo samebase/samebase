@@ -18,7 +18,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("ui_vaultConvexSchemaGraphLayouts"),
   literal("vaultCloudflareWorkers"),
   literal("operations_vaultProvisioningPlans"),
-  literal("operations_vaultProvisioningRunClaims"),
+  literal("operations_vaultProvisioningWriteLocks"),
   literal("codespaces"),
   literal("ui_agentGraphNodeLayout"),
 );
@@ -312,8 +312,8 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("operations_vaultProvisioningPlans"),
   },
   {
-    table: "operations_vaultProvisioningRunClaims",
-    cleanup: deleteByVaultBatch("operations_vaultProvisioningRunClaims"),
+    table: "operations_vaultProvisioningWriteLocks",
+    cleanup: deleteByVaultBatch("operations_vaultProvisioningWriteLocks"),
   },
   {
     table: "codespaces",
@@ -370,7 +370,7 @@ const vaultLocalCleanupRegistryByStep = {
     "ui_vaultConvexSchemaGraphLayouts",
     "vaultCloudflareWorkers",
     "operations_vaultProvisioningPlans",
-    "operations_vaultProvisioningRunClaims",
+    "operations_vaultProvisioningWriteLocks",
     "codespaces",
     "ui_agentGraphNodeLayout",
   ],

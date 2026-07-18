@@ -327,26 +327,26 @@ async function appendProvisioningRunEvent(
   }
 }
 
-type VaultInfrastructureOwnership = Doc<"operations_vaultProvisioningRunClaims">;
-type ProvisioningOwnershipCtx = Pick<MutationCtx, "db">;
+type VaultProvisioningWriteLock = Doc<"operations_vaultProvisioningWriteLocks">;
+type ProvisioningWriteLockCtx = Pick<MutationCtx, "db">;
 
-async function getVaultInfrastructureOwnership(
-  ctx: ProvisioningOwnershipCtx,
+async function readVaultProvisioningWriteLock(
+  ctx: ProvisioningWriteLockCtx,
   vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
+): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("operations_vaultProvisioningRunClaims")
+    .query("operations_vaultProvisioningWriteLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
 
-function isActiveProvisioningOwner(
-  ownership: VaultInfrastructureOwnership | null,
+function runHoldsProvisioningWriteLock(
+  writeLock: VaultProvisioningWriteLock | null,
   args: {
     runId: Id<"operations_vaultProvisioningRuns">;
   },
 ): boolean {
-  return ownership?.runId === args.runId && ownership.state === "active";
+  return writeLock?.runId === args.runId && writeLock.state === "active";
 }
 
 async function cancelSupersededProvisioningRun(
@@ -719,10 +719,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     if (run.trigger === "connect_convex_deployment") {
-      const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-      const ownsActiveClaim = isActiveProvisioningOwner(ownership, { runId: args.runId });
-      if (ownership && ownsActiveClaim) {
-        await ctx.db.patch(ownership._id, {
+      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
+      const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
+        runId: args.runId,
+      });
+      if (writeLock && holdsProvisioningWriteLock) {
+        await ctx.db.patch(writeLock._id, {
           state: "failed",
           updatedAt: now,
         });
@@ -748,9 +750,9 @@ export const markWorkflowProvisioningFailed = internalMutation({
       run.trigger === "wire_convex_build_access" ||
       run.trigger === "verify_infrastructure"
     ) {
-      const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-      if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
-        await ctx.db.patch(ownership._id, {
+      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
+      if (writeLock && runHoldsProvisioningWriteLock(writeLock, { runId: args.runId })) {
+        await ctx.db.patch(writeLock._id, {
           state: "failed",
           updatedAt: now,
         });
@@ -802,12 +804,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-    const ownsActiveClaim = isActiveProvisioningOwner(ownership, {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
+    const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
       runId: args.runId,
     });
-    const failedBeforeClaim = run.currentStep === "run_created";
-    if (!ownsActiveClaim && !failedBeforeClaim) {
+    const failedBeforeLockAcquisition = run.currentStep === "run_created";
+    if (!holdsProvisioningWriteLock && !failedBeforeLockAcquisition) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: eventStep,
@@ -815,8 +817,8 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (ownsActiveClaim && ownership) {
-      await ctx.db.patch(ownership._id, {
+    if (holdsProvisioningWriteLock && writeLock) {
+      await ctx.db.patch(writeLock._id, {
         state: "failed",
         updatedAt: now,
       });

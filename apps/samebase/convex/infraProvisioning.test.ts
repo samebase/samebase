@@ -56,7 +56,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     }
 
     if (args.activeOwnership) {
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId,
         runId,
         state: "active",
@@ -253,7 +253,7 @@ describe("markWorkflowProvisioningFailed", () => {
     });
   });
 
-  it("marks active Convex child-run ownership as failed", async () => {
+  it("marks an active Convex child-run write lock as failed", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {
       repoName: "convex-failure",
@@ -274,23 +274,23 @@ describe("markWorkflowProvisioningFailed", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("operations_vaultProvisioningRunClaims")
+      const writeLock = await ctx.db
+        .query("operations_vaultProvisioningWriteLocks")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
-      return { ownership, run };
+      return { writeLock, run };
     });
 
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,
     });
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       state: "failed",
     });
   });
 
-  it("marks active composed create-app ownership as failed", async () => {
+  it("marks an active composed create-app write lock as failed", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {
       repoName: "composed-worker-failure",
@@ -310,22 +310,22 @@ describe("markWorkflowProvisioningFailed", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("operations_vaultProvisioningRunClaims")
+      const writeLock = await ctx.db
+        .query("operations_vaultProvisioningWriteLocks")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       const event = await ctx.db
         .query("operations_vaultProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .first();
-      return { event, ownership, run };
+      return { event, writeLock, run };
     });
 
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,
     });
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       state: "failed",
     });
     expect(result.event).toMatchObject({

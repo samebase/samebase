@@ -270,14 +270,14 @@ describe("vault Convex deployment connection actions", () => {
       vi.fn(async (input: Request) => {
         if (input.url.includes("/projects/1001/deployment")) {
           await t.run(async (ctx) => {
-            const ownership = await ctx.db
-              .query("operations_vaultProvisioningRunClaims")
+            const writeLock = await ctx.db
+              .query("operations_vaultProvisioningWriteLocks")
               .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
               .first();
-            if (!ownership) {
-              throw new Error("Expected active ownership row.");
+            if (!writeLock) {
+              throw new Error("Expected active provisioning write lock row.");
             }
-            await ctx.db.patch(ownership._id, {
+            await ctx.db.patch(writeLock._id, {
               state: "failed",
               updatedAt: 50,
             });

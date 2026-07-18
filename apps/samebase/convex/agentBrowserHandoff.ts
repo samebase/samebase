@@ -140,7 +140,7 @@ export const createForMcp = internalMutation({
     }
 
     const recentHandoffs = await ctx.db
-      .query("operations_mcpBrowserLoginHandoffs")
+      .query("operations_mcpBrowserLoginTokens")
       .withIndex("by_grant_id", (q) => q.eq("grantId", args.grantId))
       .order("desc")
       .take(AGENT_BROWSER_HANDOFF_CREATE_RATE_LIMIT_MAX);
@@ -152,7 +152,7 @@ export const createForMcp = internalMutation({
       return error("rate_limited");
     }
 
-    const handoffId = await ctx.db.insert("operations_mcpBrowserLoginHandoffs", args);
+    const handoffId = await ctx.db.insert("operations_mcpBrowserLoginTokens", args);
     await ctx.scheduler.runAfter(
       Math.max(0, args.expiresAt - args.createdAt),
       internal.agentBrowserHandoff.deleteExpired,
@@ -170,7 +170,7 @@ export const createForMcp = internalMutation({
 
 export const deleteExpired = internalMutation({
   args: {
-    handoffId: id("operations_mcpBrowserLoginHandoffs"),
+    handoffId: id("operations_mcpBrowserLoginTokens"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -199,7 +199,7 @@ export const redeemForAuth = internalMutation({
   returns: redeemForAuthResultValidator,
   handler: async (ctx, args: RedeemForAuthArgs): Promise<RedeemForAuthResult> => {
     const handoff = await ctx.db
-      .query("operations_mcpBrowserLoginHandoffs")
+      .query("operations_mcpBrowserLoginTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .first();
     if (!handoff) {

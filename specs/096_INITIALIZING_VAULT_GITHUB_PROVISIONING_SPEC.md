@@ -551,7 +551,7 @@ The current target state model is:
 2. `vaultConvexDeployments` stores connected Convex production deployments by `vaultId` + `appRoot`
 3. `vaultCloudflareWorkers` stores connected Cloudflare Workers by `vaultId` + `appRoot`
 4. dashboard labels such as creating, active, degraded, failed, or partial are derived from those
-   resource rows, active ownership, and run/event state
+   resource rows, the active provisioning write lock, and run/event state
 5. provider retry actions target the failed block run, not a generic aggregate infra status
 
 Top-level `vaults.infraState`, `vaults.infraLastError`, `vaults.infraLastProvisionedAt`, and
@@ -561,7 +561,7 @@ writes with explicit app-root resource rows and block-run state, then remove the
 from the vault row after production data is clean.
 
 `vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultDomains`, and
-`operations_vaultProvisioningRunClaims` keep the external resource metadata and operational details
+`operations_vaultProvisioningWriteLocks` keep the external resource metadata and operational details
 needed to call providers, such as project ids, deployment names, account ids, deploy-key ids,
 domains, provisioning version, and ownership. They should not become a competing aggregate
 user-visible source of truth for whether the app is ready.
@@ -598,7 +598,7 @@ include:
 2. `observations_vaultRemoteBranches`
 3. `observations_vaultBranchTrees`
 4. `vaultInfrastructure`
-5. `operations_vaultProvisioningRunClaims`
+5. `operations_vaultProvisioningWriteLocks`
 6. `operations_vaultProvisioningRuns`
 7. `operations_vaultProvisioningEvents`
 8. `vaultDomains`
@@ -846,9 +846,9 @@ Scope:
 2. update provisioning code to compose Convex and Cloudflare blocks separately while preserving
    connected GitHub state
 3. replace dashboard and query reads of top-level `vaults.infra*` fields with summaries derived from
-   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `operations_vaultProvisioningRunClaims`, and
+   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `operations_vaultProvisioningWriteLocks`, and
    `operations_vaultProvisioningRuns`
-4. keep provider resource metadata and operational ownership outside the vault row instead of
+4. keep provider resource metadata and the provisioning write lock outside the vault row instead of
    treating those details as user-visible readiness
 5. remove the top-level `vaults.infraState`, `vaults.infraLastError`,
    `vaults.infraLastProvisionedAt`, and `vaults.infraProvisioningStartedAt` mirrors after production
@@ -917,7 +917,7 @@ These items are intentionally outside the current New App reliability path:
    retry action should target one failed provider state, create a new run, update only that provider
    state's `runId`, and preserve older runs and events as history.
 3. Consider a generic restart-from-failed-step abstraction only after manual provider retry has
-   proven the state ownership model.
+   proven the provider-state model.
 
 ## Testing Plan
 

@@ -147,8 +147,8 @@ row). Verification pairs with that write, not with a central list:
 7. Existing run machinery. One `operations_vaultProvisioningRuns` run per execution with trigger
    `verify_infrastructure` — one new literal in `vAppProvisioningRunTrigger`
    (`apps/samebase/convex/schema.ts:108`), the only validator edit in Phase 1 — fenced by the same
-   `operations_vaultProvisioningRunClaims` claim pattern the blocks use. Verification refuses to
-   start while another run for the vault is active.
+   `operations_vaultProvisioningWriteLocks` acquisition pattern the blocks use. Verification refuses
+   to start while another run for the vault is active.
 8. One contract, every surface. The `verify_infrastructure` contract module registers in the action
    catalog (`apps/samebase/convex/toolRuntime/actionCatalog.ts`, shipped v1656), which renders the
    MCP tool, the generated `/docs/actions/verify_infrastructure.md` page, llms.txt, and usage
@@ -229,7 +229,7 @@ creation fails, the run remains failed and a retry reconciles or recreates the t
 - **Fake verifiers**: the exhaustive registry invites writing a shallow verifier just to satisfy the
   type. `notVerifiable` with a reason is the honest and reviewable alternative; reviewers treat a
   verifier without an authoritative live read as a defect.
-- **Racing an active run**: excluded by ownership fencing (Locked Decision 7).
+- **Racing an active run**: excluded by the provisioning write lock (Locked Decision 7).
 - **Builds API drift**: the env-var listing endpoint is the same one `wire_convex_build_access`
   already uses for read-back verification; both go through one shared helper.
 

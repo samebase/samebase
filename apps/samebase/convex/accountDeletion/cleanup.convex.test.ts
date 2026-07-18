@@ -743,7 +743,7 @@ describe("account-local deletion cleanup", () => {
     expect(result).toEqual({ state: "done" });
     await t.run(async (ctx) => {
       expect(await ctx.db.get(survivingVaultId)).not.toBeNull();
-      expect(await ctx.db.query("observations_vaultCommitCheckItems").collect()).toHaveLength(1);
+      expect(await ctx.db.query("observations_vaultCommitChecks").collect()).toHaveLength(1);
       expect(await ctx.db.query("observations_vaultCommitCheckSnapshots").collect()).toHaveLength(
         1,
       );

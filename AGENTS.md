@@ -233,7 +233,7 @@ Key domain entities:
 - `providerConnections`
 - `vaults`
 - `operations_vaultProvisioningPlans`
-- `operations_vaultProvisioningRunClaims`
+- `operations_vaultProvisioningWriteLocks`
 - `vaultDomains`
 - `operations_fileStaging`
 - `operations_aiProductionReadRequests`

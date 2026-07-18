@@ -35,7 +35,7 @@ type SourceSetupVault = Extract<
   { githubMode: "create_repository" | "connect_existing_repository" }
 >;
 type VaultDomain = Doc<"vaultDomains">;
-type VaultInfrastructureOwnership = Doc<"operations_vaultProvisioningRunClaims">;
+type VaultProvisioningWriteLock = Doc<"operations_vaultProvisioningWriteLocks">;
 type VaultApp = Doc<"vaultApps">;
 type ConnectedConvexDeployment = Doc<"vaultConvexDeployments">;
 type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
@@ -229,8 +229,9 @@ async function readProviderRunSummary(
 }
 
 /**
- * The create workflow can sync the first tree before infra ownership is claimed;
- * keep the setup log visible during that handoff instead of flashing empty UI.
+ * The create workflow can sync the first tree before it acquires the provisioning
+ * write lock; keep the setup log visible during that transition instead of
+ * flashing empty UI.
  */
 async function readRunningProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
@@ -322,12 +323,12 @@ async function resolveVaultDeletionSummary(
   }
 }
 
-async function readVaultInfrastructureOwnership(
+async function readVaultProvisioningWriteLock(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
+): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("operations_vaultProvisioningRunClaims")
+    .query("operations_vaultProvisioningWriteLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -393,31 +394,31 @@ async function resolveProviderSetupSummary(
   convexDeployments: ConnectedConvexDeployment[],
   cloudflareWorkers: ConnectedCloudflareWorker[],
 ): Promise<ProviderSetupSummary> {
-  const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
-  const ownershipRun = ownership ? await ctx.db.get(ownership.runId) : null;
-  const manualOwnershipProvider = readManualProviderFromRun(ownershipRun);
+  const writeLock = await readVaultProvisioningWriteLock(ctx, vault._id);
+  const writeLockRun = writeLock ? await ctx.db.get(writeLock.runId) : null;
+  const manualWriteLockProvider = readManualProviderFromRun(writeLockRun);
   if (
-    ownership &&
-    manualOwnershipProvider &&
-    (ownership.state === "active" || ownership.state === "failed")
+    writeLock &&
+    manualWriteLockProvider &&
+    (writeLock.state === "active" || writeLock.state === "failed")
   ) {
     return await readProviderRunSummary(ctx, {
-      provider: manualOwnershipProvider,
+      provider: manualWriteLockProvider,
       source: "manual",
-      runId: ownership.runId,
-      status: ownership.state === "failed" ? "failed" : "running",
-      fallbackUpdatedAt: ownership.updatedAt,
+      runId: writeLock.runId,
+      status: writeLock.state === "failed" ? "failed" : "running",
+      fallbackUpdatedAt: writeLock.updatedAt,
     });
   }
 
   if (convexDeployments.length === 0) {
-    if (ownership?.state === "active" || ownership?.state === "failed") {
+    if (writeLock?.state === "active" || writeLock?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "convex",
         source: "managed",
-        runId: ownership.runId,
-        status: ownership.state === "failed" ? "failed" : "running",
-        fallbackUpdatedAt: ownership.updatedAt,
+        runId: writeLock.runId,
+        status: writeLock.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: writeLock.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -428,13 +429,13 @@ async function resolveProviderSetupSummary(
     return runningCreateRun ?? { status: "not_applicable" };
   }
   if (cloudflareWorkers.length === 0) {
-    if (ownership?.state === "active" || ownership?.state === "failed") {
+    if (writeLock?.state === "active" || writeLock?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "cloudflare",
         source: "managed",
-        runId: ownership.runId,
-        status: ownership.state === "failed" ? "failed" : "running",
-        fallbackUpdatedAt: ownership.updatedAt,
+        runId: writeLock.runId,
+        status: writeLock.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: writeLock.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -444,13 +445,13 @@ async function resolveProviderSetupSummary(
     });
     return runningCreateRun ?? { status: "not_applicable" };
   }
-  if (ownership?.state === "active") {
+  if (writeLock?.state === "active") {
     return await readProviderRunSummary(ctx, {
       provider: "cloudflare",
       source: "managed",
-      runId: ownership.runId,
+      runId: writeLock.runId,
       status: "running",
-      fallbackUpdatedAt: ownership.updatedAt,
+      fallbackUpdatedAt: writeLock.updatedAt,
     });
   }
 
@@ -754,8 +755,8 @@ export const createVaultAppRoot = mutation({
     }
 
     if (appRoot !== ROOT_VAULT_APP_ROOT && rootApp) {
-      const [rootConvexDeployment, rootCloudflareWorker, infrastructureOwnership] =
-        await Promise.all([
+      const [rootConvexDeployment, rootCloudflareWorker, provisioningWriteLock] = await Promise.all(
+        [
           ctx.db
             .query("vaultConvexDeployments")
             .withIndex("by_vault_and_appRoot", (q) =>
@@ -768,9 +769,10 @@ export const createVaultAppRoot = mutation({
               q.eq("vaultId", args.vaultId).eq("appRoot", ROOT_VAULT_APP_ROOT),
             )
             .first(),
-          readVaultInfrastructureOwnership(ctx, args.vaultId),
-        ]);
-      if (infrastructureOwnership?.state === "active") {
+          readVaultProvisioningWriteLock(ctx, args.vaultId),
+        ],
+      );
+      if (provisioningWriteLock?.state === "active") {
         throw new Error("Wait for provider setup before converting this vault to a monorepo.");
       }
       if (rootConvexDeployment || rootCloudflareWorker) {

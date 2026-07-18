@@ -113,11 +113,11 @@ export const appProvisioningTables = {
   }).index("by_vault", ["vaultId"]),
 
   /**
-   * The provisioning run currently allowed to change a vault's provider
-   * resources. Its claim remains after completion so an older overlapping run
-   * cannot write later.
+   * The provisioning write lock for one vault. Only its active run may change
+   * Convex or Cloudflare resources. The row remains after completion so delayed
+   * work from older runs cannot write.
    */
-  operations_vaultProvisioningRunClaims: defineTable({
+  operations_vaultProvisioningWriteLocks: defineTable({
     vaultId: id("vaults"),
     runId: id("operations_vaultProvisioningRuns"),
     state: union(literal("active"), literal("succeeded"), literal("failed")),

@@ -131,7 +131,7 @@ export const mcpTables = {
     .index("by_status", ["status"])
     .index("by_expires_at", ["expiresAt"]),
 
-  /** Immutable audit events for MCP OAuth lifecycle. */
+  /** One immutable MCP OAuth action, never read to authorize live requests. */
   audit_mcpAccessEvents: defineTable({
     grantId: optional(string()),
     clientId: optional(string()),

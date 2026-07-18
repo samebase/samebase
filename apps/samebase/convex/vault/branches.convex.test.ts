@@ -248,7 +248,7 @@ describe("vault branch mutations", () => {
           )
           .first();
         const staleItems = await ctx.db
-          .query("observations_vaultCommitCheckItems")
+          .query("observations_vaultCommitChecks")
           .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
             q.eq("githubRepositoryId", "123").eq("commitSha", "stale456"),
           )

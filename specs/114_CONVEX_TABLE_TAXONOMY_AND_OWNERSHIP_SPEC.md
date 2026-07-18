@@ -30,6 +30,22 @@ used by a workflow or UI remain `operations_`.
 No current table qualifies for `derived_`. Convex schema snapshots retain raw provider state, and
 Git blobs cache provider content, so both are observations.
 
+## Table Naming Rules
+
+After its lifecycle prefix, a supporting table name starts with its domain and ends with the thing
+one row represents. Generic lifecycle nouns come from the closed vocabulary in
+`docs/data-modeling-vocabulary.md`. A new generic noun must be defined there in the same change.
+
+Use concrete nouns instead of relational placeholders. In particular, persisted rows are not named
+`target`, `ownership`, `claim`, `handoff`, `item`, `record`, `data`, `history`, or bare `state`.
+Protocol-defined and product nouns remain valid when they have one precise meaning.
+
+Every supporting-table definition starts with a plain-language comment that identifies one row and
+why live behavior needs it. When the producer or consumer is not obvious, the comment names the
+actual command, service, provider, or user action. It expands domain-specific terms instead of
+repeating them. For example, a provisioning-plan comment says which choices it preserves and why
+retries read them; "provisioning state" is not a definition.
+
 ### Normal durable tables
 
 ```text
@@ -67,7 +83,7 @@ operations_machineControlTokens
 operations_providerOauthCallbackStates
 operations_vaultRepositoryRefreshRequests
 operations_vaultProvisioningPlans
-operations_vaultProvisioningRunClaims
+operations_vaultProvisioningWriteLocks
 operations_vaultProvisioningRuns
 operations_vaultProvisioningEvents
 operations_vaultDeletionRuns
@@ -79,7 +95,7 @@ operations_mcpAuthorizationRequests
 operations_mcpAuthorizationCodes
 operations_mcpAccessTokens
 operations_mcpRefreshTokens
-operations_mcpBrowserLoginHandoffs
+operations_mcpBrowserLoginTokens
 ```
 
 ### Observation tables
@@ -87,7 +103,7 @@ operations_mcpBrowserLoginHandoffs
 ```text
 observations_vaultRemoteBranches
 observations_vaultCommitCheckSnapshots
-observations_vaultCommitCheckItems
+observations_vaultCommitChecks
 observations_vaultBranchTrees
 observations_vaultConvexSchemaSnapshots
 observations_vaultFileBlobs
@@ -174,11 +190,6 @@ Types derived from a table use its validator as the single source of truth:
 ```ts
 export type DashboardSettings = Infer<typeof userPreferenceTables.ui_dashboardSettings.validator>;
 ```
-
-Every supporting-table definition starts with a plain-language comment that explains what one row
-represents and why live behavior needs it. The comment must define domain-specific nouns instead of
-restating them. For example, a provisioning-plan comment must say which choices it preserves and why
-retries read them; "provisioning state" is not a definition.
 
 Feature model files imported by the root schema must not import `_generated/dataModel`, because the
 generated data model imports the root schema.

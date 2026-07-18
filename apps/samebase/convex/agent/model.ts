@@ -13,13 +13,16 @@ export const agentTables = {
     expiresAt: number(),
   }).index("by_user_and_expires_at", ["userId", "expiresAt"]),
 
-  /** One-use tokens that let an authorized MCP client continue its user's session in a browser. */
-  operations_mcpBrowserLoginHandoffs: defineTable({
+  /**
+   * Hashes of one-use tokens that an authorized MCP client sends to a browser
+   * to start a Samebase session for the grant's user.
+   */
+  operations_mcpBrowserLoginTokens: defineTable({
     tokenHash: string(),
     userId: id("users"),
     grantId: string(),
     clientId: string(),
-    // Deprecated rollout field. New handoffs never write it; legacy rows expire after five minutes.
+    // Deprecated rollout field. New tokens never write it; legacy rows expire after five minutes.
     returnToPath: optional(string()),
     createdAt: number(),
     expiresAt: number(),

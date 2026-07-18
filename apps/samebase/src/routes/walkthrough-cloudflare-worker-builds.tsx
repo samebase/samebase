@@ -111,8 +111,8 @@ const runSteps = [
     ],
   },
   {
-    title: "2. Claim infrastructure ownership",
-    why: "claimCloudflareBuildsWiring checks that an attached Worker exists, exits if Builds are already connected, then claims operations_vaultProvisioningRunClaims for this run.",
+    title: "2. Acquire provisioning write lock",
+    why: "claimCloudflareBuildsWiring checks that an attached Worker exists, exits if Builds are already connected, then acquires operations_vaultProvisioningWriteLocks for this run.",
     refs: [
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
@@ -574,9 +574,9 @@ const failureRefs = [
     ],
   },
   {
-    title: "wire_builds failures mark the right ownership claim failed",
+    title: "wire_builds failures mark the matching write lock failed",
     detail:
-      "markWorkflowProvisioningFailed handles connect_cloudflare_worker, wire_builds, and wire_convex_build_access on the Cloudflare ownership path, then logs the matching failure event.",
+      "markWorkflowProvisioningFailed handles connect_cloudflare_worker, wire_builds, and wire_convex_build_access on the Cloudflare write-lock path, then logs the matching failure event.",
     refs: [
       {
         file: "apps/samebase/convex/infraProvisioning.ts",

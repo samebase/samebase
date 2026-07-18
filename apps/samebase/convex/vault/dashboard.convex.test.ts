@@ -1016,7 +1016,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId,
         runId: retryRunId,
         state: "active",
@@ -1130,7 +1130,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId,
         runId: retryRunId,
         state: "failed",
@@ -1231,7 +1231,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 24,
       });
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId,
         runId: cloudflareRunId,
         state: "active",
@@ -1262,7 +1262,7 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
-  it("keeps failed manual Convex ownership on the Convex provider row after attach", async () => {
+  it("keeps a failed manual Convex run visible after its deployment attaches", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -1324,7 +1324,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 24,
       });
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId,
         runId: convexRunId,
         state: "failed",
@@ -1354,11 +1354,11 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
-  it("keeps active provider ownership visible but lets connected resources recover failed ownership", async () => {
+  it("shows an active provider write lock but recovers after a failed lock", async () => {
     const cases = [
       {
         label: "active",
-        ownershipState: "active",
+        writeLockState: "active",
         runState: "running",
         expectedSetup: {
           status: "running",
@@ -1368,7 +1368,7 @@ describe("vault dashboard Convex contract", () => {
       },
       {
         label: "failed",
-        ownershipState: "failed",
+        writeLockState: "failed",
         runState: "failed",
         expectedSetup: {
           status: "ready",
@@ -1376,7 +1376,7 @@ describe("vault dashboard Convex contract", () => {
       },
       {
         label: "succeeded",
-        ownershipState: "succeeded",
+        writeLockState: "succeeded",
         runState: "succeeded",
         expectedSetup: {
           status: "ready",
@@ -1384,7 +1384,7 @@ describe("vault dashboard Convex contract", () => {
       },
       {
         label: "none",
-        ownershipState: null,
+        writeLockState: null,
         runState: "succeeded",
         expectedSetup: {
           status: "ready",
@@ -1479,11 +1479,11 @@ describe("vault dashboard Convex contract", () => {
           },
           lastTreeRefreshAt: 29,
         });
-        if (testCase.ownershipState) {
-          await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+        if (testCase.writeLockState) {
+          await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
             vaultId,
             runId,
-            state: testCase.ownershipState,
+            state: testCase.writeLockState,
             updatedAt: 44,
           });
         }
@@ -1505,7 +1505,7 @@ describe("vault dashboard Convex contract", () => {
     }
   });
 
-  it("keeps setup progress visible between tree sync and provider claim", async () => {
+  it("keeps setup progress visible before provisioning lock acquisition", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -2433,7 +2433,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 9,
         lastObservedAt: 9,
       });
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId,
         runId,
         state: "succeeded",
@@ -2560,7 +2560,7 @@ describe("vault dashboard Convex contract", () => {
         "observations_vaultBranchTrees",
         "vaultDomains",
         "vaultConvexDeployments",
-        "operations_vaultProvisioningRunClaims",
+        "operations_vaultProvisioningWriteLocks",
         "codespaces",
         "ui_agentGraphNodeLayout",
         "operations_aiProductionReadRequests",

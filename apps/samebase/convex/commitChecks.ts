@@ -440,7 +440,7 @@ async function deleteGitHubCommitCheckItems(
   },
 ): Promise<void> {
   const existingItems = await ctx.db
-    .query("observations_vaultCommitCheckItems")
+    .query("observations_vaultCommitChecks")
     .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
       q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
@@ -510,7 +510,7 @@ export const replaceGitHubCommitCheckSnapshot = internalMutation({
     await deleteGitHubCommitCheckItems(ctx, args);
     await deleteGitHubCommitCheckSnapshots(ctx, args);
     for (const item of args.items) {
-      await ctx.db.insert("observations_vaultCommitCheckItems", {
+      await ctx.db.insert("observations_vaultCommitChecks", {
         githubRepositoryId: args.githubRepositoryId,
         commitSha: args.commitSha,
         ...item,

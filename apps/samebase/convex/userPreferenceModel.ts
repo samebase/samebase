@@ -37,6 +37,7 @@ export const vWorkspaceMobileSurface = union(
 export type WorkspaceMobileSurface = Infer<typeof vWorkspaceMobileSurface>;
 
 export const userPreferenceTables = {
+  /** Per-user choices for dashboard panels, billing display, and chat visibility. */
   ui_dashboardSettings: defineTable({
     userId: id("users"),
     accountPanelOpen: optional(boolean()),

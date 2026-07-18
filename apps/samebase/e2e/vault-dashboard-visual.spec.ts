@@ -287,7 +287,7 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
   ).toBeVisible();
   const longTableName = fixture
     .getByTestId("rf__node-vaultProvisioningRunClaims")
-    .getByText("operations_vaultProvisioningRunClaims", { exact: true });
+    .getByText("operations_vaultProvisioningWriteLocks", { exact: true });
   await expect(longTableName).toBeVisible();
   await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
   await expect(fixture.locator(".react-flow__edge")).toHaveCount(10);

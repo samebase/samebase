@@ -127,7 +127,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 
   observations_vaultRemoteBranches: "repository",
   observations_vaultCommitCheckSnapshots: "repository",
-  observations_vaultCommitCheckItems: "repository",
+  observations_vaultCommitChecks: "repository",
   observations_vaultBranchTrees: "repository",
   operations_vaultRepositoryRefreshRequests: "repository",
 
@@ -136,7 +136,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   observations_vaultConvexSchemaSnapshots: "infrastructure",
   ui_vaultConvexSchemaGraphLayouts: "infrastructure",
   operations_vaultProvisioningPlans: "infrastructure",
-  operations_vaultProvisioningRunClaims: "infrastructure",
+  operations_vaultProvisioningWriteLocks: "infrastructure",
   operations_vaultProvisioningRuns: "infrastructure",
   operations_vaultProvisioningEvents: "infrastructure",
   operations_vaultDeletionRuns: "infrastructure",

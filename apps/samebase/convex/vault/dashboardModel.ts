@@ -4,6 +4,7 @@ import { v } from "convex/values";
 const { array, boolean, id, number, object, optional, string } = v;
 
 export const vaultDashboardTables = {
+  /** Per-user choices controlling which pull-request branches appear for one vault. */
   ui_vaultBranchFilters: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),

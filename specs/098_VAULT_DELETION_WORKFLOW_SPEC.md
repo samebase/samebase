@@ -115,7 +115,7 @@ A vault is quiescent for deletion when:
 3. no `operations_vaultProvisioningRuns` row for the vault is `queued` or `running`
 4. connected Convex state is `not_configured`, `connected`, or `failed`, but not `provisioning`
 5. connected Cloudflare state is `not_configured`, `connected`, or `failed`, but not `provisioning`
-6. no vault infrastructure ownership row is active for an in-flight provider workflow
+6. no vault provisioning write lock is active for an in-flight provider workflow
 
 The dashboard should disable delete with a short reason while a vault is not quiescent. A direct
 selected-vault `?delete` URL, such as `/vault/samebase/samebase?delete`, for a non-quiescent vault
@@ -575,7 +575,7 @@ The deletion Workflow runs:
    `observations_vaultFileBlobs`, and backing storage in bounded batches
 7. `cleanup_source_caches`: delete branch filters, folder expansion state,
    `observations_vaultRemoteBranches`, and `observations_vaultBranchTrees` in bounded batches
-8. `cleanup_runtime_state`: delete vault domains, infrastructure, infrastructure ownership,
+8. `cleanup_runtime_state`: delete vault domains, infrastructure, provisioning write locks,
    Codespaces records, and graph layout in bounded batches
 9. `cleanup_access_state`: expire and detach vault-scoped prod-access requests while preserving
    audit rows
@@ -669,7 +669,7 @@ Delete rows:
 7. `observations_vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
 8. `vaultDomains` via `by_vault`
 9. `vaultInfrastructure` via `by_vault`, deleting all rows if more than one exists
-10. `operations_vaultProvisioningRunClaims` via `by_vault`
+10. `operations_vaultProvisioningWriteLocks` via `by_vault`
 11. `codespaces` via `by_vault`
 12. `ui_agentGraphNodeLayout` via `by_vault`
 13. `operations_vaultProvisioningEvents` via `by_vault_and_created_at`
@@ -758,7 +758,7 @@ implementation.
 4. Update `fileStaging.deletePendingUploadBlob` to use the same vault-scoped blob index instead of
    scanning `observations_vaultFileBlobs`; if the implementation needs exact storage-reference
    checks, add vault-prefixed storage indexes instead of collecting all vault blobs or staged files.
-5. Include `operations_collaborativeFileUpdates`, `operations_vaultProvisioningRunClaims`,
+5. Include `operations_collaborativeFileUpdates`, `operations_vaultProvisioningWriteLocks`,
    `ui_agentGraphNodeLayout`, `agentThreadContext`, `operations_aiProductionReadRequests`,
    `operations_vaultProvisioningRuns`, and `operations_vaultProvisioningEvents`.
 6. Delete the vault row once, last.

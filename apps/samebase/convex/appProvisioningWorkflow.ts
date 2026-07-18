@@ -175,15 +175,15 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
     }
 
     const now = Date.now();
-    const ownership = await ctx.db
-      .query("operations_vaultProvisioningRunClaims")
+    const writeLock = await ctx.db
+      .query("operations_vaultProvisioningWriteLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
     if (
-      ownership &&
-      ownership.state === "active" &&
-      ownership.runId !== args.runId &&
-      now - ownership.updatedAt < COMPOSED_INFRASTRUCTURE_STALE_MS
+      writeLock &&
+      writeLock.state === "active" &&
+      writeLock.runId !== args.runId &&
+      now - writeLock.updatedAt < COMPOSED_INFRASTRUCTURE_STALE_MS
     ) {
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId: args.runId,
@@ -195,23 +195,23 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
+    if (writeLock) {
+      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
         await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-          runId: ownership.runId,
+          runId: writeLock.runId,
           step: "claim_infra",
           level: "warn",
           message: "Infrastructure provisioning was superseded by a newer run.",
           state: "canceled",
         });
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: args.runId,
         state: "active",
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultProvisioningRunClaims", {
+      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -248,15 +248,15 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     ) {
       throw new Error("Composed infrastructure run does not match vault.");
     }
-    const ownership = await ctx.db
-      .query("operations_vaultProvisioningRunClaims")
+    const writeLock = await ctx.db
+      .query("operations_vaultProvisioningWriteLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
-    if (!ownership || ownership.state !== "active" || ownership.runId !== args.runId) {
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+    if (!writeLock || writeLock.state !== "active" || writeLock.runId !== args.runId) {
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
 
-    await ctx.db.patch(ownership._id, {
+    await ctx.db.patch(writeLock._id, {
       state: "succeeded",
       updatedAt: Date.now(),
     });

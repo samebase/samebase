@@ -1091,7 +1091,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "operations_vaultProvisioningRunClaims",
+            name: "operations_vaultProvisioningWriteLocks",
             source: "declared",
             documentCount: 16,
             indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
@@ -1264,8 +1264,8 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             source: "declared",
           },
           {
-            id: "declared:operations_vaultProvisioningRunClaims:userId:users",
-            fromTable: "operations_vaultProvisioningRunClaims",
+            id: "declared:operations_vaultProvisioningWriteLocks:userId:users",
+            fromTable: "operations_vaultProvisioningWriteLocks",
             fromField: "userId",
             toTable: "users",
             source: "declared",

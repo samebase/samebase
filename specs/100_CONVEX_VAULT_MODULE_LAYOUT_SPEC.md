@@ -70,7 +70,7 @@ The move touches roughly:
 
 No data migration is required. Convex function references are file-path based, but table names are
 schema names. The existing tables stay named `vaults`, `observations_vaultRemoteBranches`,
-`observations_vaultBranchTrees`, `vaultInfrastructure`, `operations_vaultProvisioningRunClaims`,
+`observations_vaultBranchTrees`, `vaultInfrastructure`, `operations_vaultProvisioningWriteLocks`,
 `operations_vaultDeletionRuns`, `operations_vaultDeletionEvents`, and `vaultDomains`.
 
 ## Accepted Module Shape
@@ -196,7 +196,7 @@ Keep these domains outside `vault/`:
 - `chat/`, `agent/`, and `toolRuntime/`: agent and approval surfaces
 - `codespaces/`: GitHub Codespaces lifecycle
 - `github.ts` and `githubChecks.ts`: GitHub API integration
-- `repositoryRefresh*.ts`: refresh queue ownership
+- `repositoryRefresh*.ts`: refresh queue execution
 
 Those modules should update imports and function references to the new vault paths. They should not
 be pulled under `vault/` merely because vault identity is part of their arguments.

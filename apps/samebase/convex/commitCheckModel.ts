@@ -33,8 +33,8 @@ export const commitCheckTables = {
     syncedAt: number(),
   }).index("by_githubRepositoryId_and_commitSha", ["githubRepositoryId", "commitSha"]),
 
-  /** Current GitHub check/status items for one commit in one repository. */
-  observations_vaultCommitCheckItems: defineTable({
+  /** One current GitHub check run or commit status for a commit in one repository. */
+  observations_vaultCommitChecks: defineTable({
     githubRepositoryId: string(),
     commitSha: string(),
     source: vCommitCheckSource,

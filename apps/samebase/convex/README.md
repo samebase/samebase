@@ -72,7 +72,7 @@ flowchart LR
 ### Infrastructure Provisioning
 
 - Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
-- State tracking: `operations_vaultProvisioningPlans`, `operations_vaultProvisioningRunClaims`,
+- State tracking: `operations_vaultProvisioningPlans`, `operations_vaultProvisioningWriteLocks`,
   `vaultConvexDeployments`, and `vaultCloudflareWorkers`
 - Domain tracking: `vaultDomains` table
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`
