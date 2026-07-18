@@ -86,7 +86,14 @@ script uses `WORKERS_CI_BRANCH` to choose between `CONVEX_DEPLOY_KEY` on `main` 
 `PREVIEW_CONVEX_DEPLOY_KEY` on non-production branches. Preview builds must require the preview key
 instead of falling back to the production key. The Workers Builds variable table does not store
 `VITE_CONVEX_URL`; `convex deploy --cmd` supplies the selected production or preview deployment URL
-to the child build command.
+to the child build command. After building the app and immediately before Convex pushes functions,
+the command compares `WORKERS_CI_COMMIT_SHA` with the current remote head of `WORKERS_CI_BRANCH`. A
+stale build must fail without deploying Convex. This protects both production and named branch
+previews from an older concurrent Workers Build finishing after a newer one. The guard adds one
+authenticated `git ls-remote` request per provider build. It is not an atomic compare-and-swap: a
+branch can still advance in the short interval between the Git check and Convex's internal push.
+Eliminating that residual race requires provider-side serialization or a Convex source-commit
+concurrency primitive.
 
 ### Static Page Prerendering And SPA Shell
 
@@ -246,6 +253,7 @@ Samebase production itself.
      is a non-production branch
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
+   - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head
    - falls back to a frontend-only build for local dry runs without a deploy key
 4. Add production deploy and preview upload scripts around Wrangler.
 5. Use the Worker name supplied by Workers Builds when available, with one local override for

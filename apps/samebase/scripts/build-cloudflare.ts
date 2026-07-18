@@ -9,6 +9,7 @@ const PRODUCTION_POSTHOG_PROXY_HOST = "https://e.samebase.com";
 const VITE_PUBLIC_POSTHOG_HOST = "VITE_PUBLIC_POSTHOG_HOST";
 const VITE_PUBLIC_POSTHOG_PROJECT_TOKEN = "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN";
 const VITE_SAMEBASE_ROUTE_ENVIRONMENT = "VITE_SAMEBASE_ROUTE_ENVIRONMENT";
+const WORKERS_BUILD_COMMAND = "pnpm run build:ci && node ./scripts/verify-current-branch-head.ts";
 
 type BuildRouteEnvironment = "local" | "preview" | "production";
 
@@ -145,7 +146,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
         "--preview-run",
         "devAuth:seedPasswordAccount",
         "--cmd",
-        "pnpm run build:ci",
+        WORKERS_BUILD_COMMAND,
       ],
     };
   }
@@ -160,7 +161,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
     }),
     postHogProjectToken: env[PROD_POSTHOG_PROJECT_TOKEN] ?? null,
     routeEnvironment: "production",
-    args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
+    args: ["exec", "convex", "deploy", "--cmd", WORKERS_BUILD_COMMAND],
   };
 }
 
