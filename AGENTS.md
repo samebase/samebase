@@ -236,8 +236,6 @@ Key domain entities:
 - `operations_vaultInfrastructureOwnership`
 - `vaultDomains`
 - `operations_fileStaging`
-- `operations_collaborativeUpdates`
-- `ui_folderExpansionState`
 - `operations_aiProdAccessRequests`
 - `audit_aiProdAccessEvents`
 
