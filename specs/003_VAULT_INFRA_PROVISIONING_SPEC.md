@@ -129,6 +129,10 @@ Provisioning and repair actions re-read the provider state they require before a
 events record that an explicit operation succeeded or failed; they are operation evidence, not a
 claim that the provider still has the same state later.
 
+Convex build-access rotation uses exact Samebase-owned key names derived from the full vault id. A
+rotation lists and deletes matching keys directly in Convex before minting replacements. Samebase
+does not store deploy-key ids or secrets in its database.
+
 Indexes:
 
 - `by_vault`

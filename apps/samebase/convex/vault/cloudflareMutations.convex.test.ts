@@ -261,21 +261,19 @@ describe("vault Cloudflare attachment mutations", () => {
       }),
     ).resolves.toEqual({ convexBuildAccessRunId: null });
     await t.mutation(
-      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
+      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKeyReady,
       {
         ...ids,
         appRoot,
         deployment: "production",
-        convexDeployKeyId: "prod:key-id",
       },
     );
     await t.mutation(
-      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
+      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKeyReady,
       {
         ...ids,
         appRoot,
         deployment: "preview",
-        convexDeployKeyId: "preview:key-id",
       },
     );
     await t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {
@@ -609,20 +607,24 @@ describe("vault Cloudflare attachment mutations", () => {
       },
     });
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey, {
-        ...accessIds,
-        appRoot,
-        deployment: "production",
-        convexDeployKeyId: "prod:key-id",
-      }),
+      t.mutation(
+        internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKeyReady,
+        {
+          ...accessIds,
+          appRoot,
+          deployment: "production",
+        },
+      ),
     ).resolves.toEqual({ applied: true });
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey, {
-        ...accessIds,
-        appRoot,
-        deployment: "preview",
-        convexDeployKeyId: "preview:key-id",
-      }),
+      t.mutation(
+        internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKeyReady,
+        {
+          ...accessIds,
+          appRoot,
+          deployment: "preview",
+        },
+      ),
     ).resolves.toEqual({ applied: true });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun, {

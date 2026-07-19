@@ -33,15 +33,17 @@ import {
 } from "../cloudflareResources";
 import { fetchGitHubRepoIdentity } from "../githubRepoApi";
 import {
+  buildConvexBuildAccessDeployKeyNames,
   createConvexDeployKey,
   createConvexPreviewDeployKey,
   deleteConvexDeployKey,
+  deleteConvexDeployKeysByName,
   deleteConvexPreviewDeployKey,
+  deleteConvexPreviewDeployKeysByName,
   ensureConvexPreviewResources,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
-import { vaultSuffix } from "../slugUtils";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
   vVaultCloudflareOrigin,
@@ -150,7 +152,7 @@ function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareB
 }
 
 async function deleteConvexBuildAccessDeployKey(args: {
-  convexDeployKeyId: string;
+  deployKey: string;
   convexToken: string;
   deploymentName: string;
 }): Promise<void> {
@@ -158,7 +160,7 @@ async function deleteConvexBuildAccessDeployKey(args: {
     await deleteConvexDeployKey({
       convexToken: args.convexToken,
       deploymentName: args.deploymentName,
-      convexDeployKeyId: args.convexDeployKeyId,
+      deployKeyIdentifier: args.deployKey,
     });
   } catch (error) {
     if (isConvexManagementNotFoundError(error)) {
@@ -169,7 +171,7 @@ async function deleteConvexBuildAccessDeployKey(args: {
 }
 
 async function deleteConvexBuildAccessPreviewDeployKey(args: {
-  convexDeployKeyId: string;
+  deployKey: string;
   convexToken: string;
   projectId: string;
 }): Promise<void> {
@@ -177,7 +179,7 @@ async function deleteConvexBuildAccessPreviewDeployKey(args: {
     await deleteConvexPreviewDeployKey({
       convexToken: args.convexToken,
       projectId: args.projectId,
-      convexDeployKeyId: args.convexDeployKeyId,
+      deployKeyIdentifier: args.deployKey,
     });
   } catch (error) {
     if (isConvexManagementNotFoundError(error)) {
@@ -1075,21 +1077,49 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         teamId: convexConnection.convexTeamId,
         projectId: active.convex.projectId,
       });
+      const confirmedActive = await readActiveCloudflareConvexBuildAccessWiring(ctx, args);
+      if (!confirmedActive.active) {
+        return null;
+      }
+      if (
+        confirmedActive.ghRepoId !== active.ghRepoId ||
+        confirmedActive.repositoryFullName !== active.repositoryFullName ||
+        confirmedActive.defaultBranch !== active.defaultBranch ||
+        confirmedActive.worker.accountId !== active.worker.accountId ||
+        confirmedActive.worker.workerName !== active.worker.workerName ||
+        confirmedActive.worker.workerTag !== active.worker.workerTag ||
+        confirmedActive.convex.projectId !== active.convex.projectId ||
+        confirmedActive.convex.deploymentName !== active.convex.deploymentName
+      ) {
+        throw new Error("Convex build access wiring target changed during provider verification.");
+      }
+      const deployKeyNames = buildConvexBuildAccessDeployKeyNames(args.vaultId);
+      await Promise.all([
+        deleteConvexDeployKeysByName({
+          convexToken: convexConnection.convexToken,
+          deploymentName: active.convex.deploymentName,
+          name: deployKeyNames.production,
+        }),
+        deleteConvexPreviewDeployKeysByName({
+          convexToken: convexConnection.convexToken,
+          projectId: active.convex.projectId,
+          name: deployKeyNames.preview,
+        }),
+      ]);
       productionDeployKey = await createConvexDeployKey({
         convexToken: convexConnection.convexToken,
         convexAuthMethod: convexConnection.convexAuthMethod,
         deploymentName: active.convex.deploymentName,
-        name: `samebase-${vaultSuffix(args.vaultId)}`,
+        name: deployKeyNames.production,
       });
       const productionDeployKeyRecord = await ctx.runMutation(
-        internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
+        internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKeyReady,
         {
           vaultId: args.vaultId,
           runId: args.runId,
           userId: args.userId,
           appRoot: args.appRoot,
           deployment: "production",
-          convexDeployKeyId: productionDeployKey.convexDeployKeyId,
         },
       );
       if (!productionDeployKeyRecord.applied) {
@@ -1099,17 +1129,16 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
       previewDeployKey = await createConvexPreviewDeployKey({
         convexToken: convexConnection.convexToken,
         projectId: active.convex.projectId,
-        name: `samebase-preview-${vaultSuffix(args.vaultId)}`,
+        name: deployKeyNames.preview,
       });
       const previewDeployKeyRecord = await ctx.runMutation(
-        internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
+        internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKeyReady,
         {
           vaultId: args.vaultId,
           runId: args.runId,
           userId: args.userId,
           appRoot: args.appRoot,
           deployment: "preview",
-          convexDeployKeyId: previewDeployKey.convexDeployKeyId,
         },
       );
       if (!previewDeployKeyRecord.applied) {
@@ -1165,25 +1194,25 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         throw new Error("Convex build access wiring was superseded.");
       }
     } catch (error) {
-      if (productionDeployKey) {
-        await deleteConvexBuildAccessDeployKey({
+      if (previewDeployKey) {
+        await deleteConvexBuildAccessPreviewDeployKey({
           convexToken: convexConnection.convexToken,
-          deploymentName: active.convex.deploymentName,
-          convexDeployKeyId: productionDeployKey.convexDeployKeyId,
+          projectId: active.convex.projectId,
+          deployKey: previewDeployKey.deployKey,
         }).catch((cleanupError: unknown) => {
-          console.warn("cloudflare:convex_build_access:production_key_cleanup_failed", {
+          console.warn("cloudflare:convex_build_access:preview_key_cleanup_failed", {
             vaultId: args.vaultId,
             error: toErrorMessage(cleanupError),
           });
         });
       }
-      if (previewDeployKey) {
-        await deleteConvexBuildAccessPreviewDeployKey({
+      if (productionDeployKey) {
+        await deleteConvexBuildAccessDeployKey({
           convexToken: convexConnection.convexToken,
-          projectId: active.convex.projectId,
-          convexDeployKeyId: previewDeployKey.convexDeployKeyId,
+          deploymentName: active.convex.deploymentName,
+          deployKey: productionDeployKey.deployKey,
         }).catch((cleanupError: unknown) => {
-          console.warn("cloudflare:convex_build_access:preview_key_cleanup_failed", {
+          console.warn("cloudflare:convex_build_access:production_key_cleanup_failed", {
             vaultId: args.vaultId,
             error: toErrorMessage(cleanupError),
           });

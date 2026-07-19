@@ -1155,14 +1155,13 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
   },
 });
 
-export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
+export const recordCloudflareConvexBuildAccessDeployKeyReady = internalMutation({
   args: {
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
     deployment: union(literal("production"), literal("preview")),
-    convexDeployKeyId: string(),
   },
   returns: object({ applied: boolean() }),
   handler: async (ctx, args) => {

@@ -36,7 +36,8 @@ keys on the app's Convex deployment and writes both keys into each Workers Build
 dashboard's "Set Convex deploy keys" button. It is the same operation.
 
 Requires the Worker's Builds connection to exist first (\`wire_builds\` otherwise). This is a key
-rotation: previously recorded deploy keys are deleted once replacements are installed (and its own
-new keys are cleaned up if the run fails). Writes deploy keys on Convex and trigger variables on
-Cloudflare, both in the caller's own accounts; no user data is touched.`,
+rotation: existing keys with this vault's exact Samebase-owned names are read from Convex and
+deleted before replacements are minted. Newly minted keys are cleaned up if the run fails. Writes
+deploy keys on Convex and trigger variables on Cloudflare, both in the caller's own accounts; no
+user data is touched.`,
 } as const;

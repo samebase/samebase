@@ -480,7 +480,7 @@ async function runComposedCloudflareConvexBuildAccessWiring(
         userId: args.userId,
         appRoot: args.appRoot,
       },
-      { name: "wire_convex_build_access", retry: false },
+      { name: "wire_convex_build_access", retry: idempotentProviderStepRetry },
     );
     await step.runMutation(
       internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
@@ -1106,7 +1106,7 @@ export const wireCloudflareConvexBuildAccess = workflow.define({
     );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring, args, {
       name: "wire_convex_build_access",
-      retry: false,
+      retry: idempotentProviderStepRetry,
     });
     await step.runMutation(
       internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
