@@ -7,18 +7,13 @@ MCP tool `vault_cloudflare_wireBuilds` · scope `access_app_create` · write
 The repair for a Worker that exists but is not connected to its repository: creates the Workers
 Builds production and preview triggers against the app's repo and root directory, with the
 wrong-repo guard (a trigger belonging to a different repository is never adopted). This is the
-remedy behind `nextAction: "wire_builds"` on the Worker's `githubRepositoryConnection` axis and the
-dashboard's "Connect GitHub repo" button. It is the same operation.
-
-Writes Workers Builds triggers on the caller's Cloudflare account, updating the app's own existing
-trigger configuration when one matches, and may create a Workers Builds API token when the
-connection uses API-key auth. Follow with `wire_convex_build_access` if deploy keys are still
-missing afterwards.
+explicit user action. Samebase reads the current Worker and repository state live, writes the
+provider configuration, and stores no trigger or status mirror in Convex.
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault id of the app whose Worker needs Builds wiring.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `vaultId` (string, required): Samebase vault id containing the Worker.
+- `workerId` (string, required): Stable Samebase Worker attachment id returned by get_user_vaults.
 
 ## Returns
 

@@ -4,10 +4,9 @@
 
 MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · read_only
 
-Returns every app the authenticated account can see, with source setup, provider operation evidence,
-deletion state, and stable provider attachment coordinates. The resource observation is
-`not_requested` in this database query. Use the live provider observation action before presenting
-or acting on current Worker, Workers Builds, deploy-key, Convex URL, or upstream existence state.
+Returns every vault the authenticated account can see. Provider resources are stable identities and
+explicit relationships only. Current Cloudflare and Convex state is intentionally loaded from those
+providers when a relevant view opens; it is not mirrored by this query.
 
 ## Arguments
 
@@ -464,6 +463,9 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "wire_convex_build_access"
+                      },
+                      {
+                        "const": "verify_infrastructure"
                       }
                     ]
                   }
@@ -695,16 +697,19 @@ JSON Schema for the tool's `structuredContent`:
           "canRemoveCloudflareProvision": {
             "type": "boolean"
           },
-          "appRoots": {
+          "apps": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "appRoot": {
+                "appId": {
+                  "type": "string"
+                },
+                "rootDirectory": {
                   "type": "string"
                 }
               },
-              "required": ["appRoot"],
+              "required": ["appId", "rootDirectory"],
               "additionalProperties": false
             }
           },
@@ -713,7 +718,10 @@ JSON Schema for the tool's `structuredContent`:
             "items": {
               "type": "object",
               "properties": {
-                "appRoot": {
+                "workerId": {
+                  "type": "string"
+                },
+                "appId": {
                   "type": "string"
                 },
                 "accountId": {
@@ -724,268 +732,50 @@ JSON Schema for the tool's `structuredContent`:
                 },
                 "workerTag": {
                   "type": "string"
-                },
-                "origin": {
-                  "anyOf": [
-                    {
-                      "const": "provisioned"
-                    },
-                    {
-                      "const": "selected_existing"
-                    }
-                  ]
-                },
-                "projectDashboardUrl": {
-                  "type": "string"
-                },
-                "observation": {
-                  "anyOf": [
-                    {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "state": {
-                              "const": "not_requested"
-                            }
-                          },
-                          "required": ["state"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "state": {
-                              "const": "loading"
-                            }
-                          },
-                          "required": ["state"],
-                          "additionalProperties": false
-                        }
-                      ]
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "missing"
-                        },
-                        "observedAt": {
-                          "type": "number"
-                        }
-                      },
-                      "required": ["state", "observedAt"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "failed"
-                        },
-                        "observedAt": {
-                          "type": "number"
-                        },
-                        "reason": {
-                          "anyOf": [
-                            {
-                              "const": "connection_required"
-                            },
-                            {
-                              "const": "provider_failure"
-                            }
-                          ]
-                        }
-                      },
-                      "required": ["state", "observedAt", "reason"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "available"
-                        },
-                        "observedAt": {
-                          "type": "number"
-                        },
-                        "workersDevUrl": {
-                          "type": "string"
-                        },
-                        "githubRepositoryConnection": {
-                          "anyOf": [
-                            {
-                              "const": "connected"
-                            },
-                            {
-                              "const": "not_connected"
-                            }
-                          ]
-                        },
-                        "convexDeployKeys": {
-                          "anyOf": [
-                            {
-                              "const": "set"
-                            },
-                            {
-                              "const": "missing"
-                            },
-                            {
-                              "const": "not_applicable"
-                            }
-                          ]
-                        }
-                      },
-                      "required": [
-                        "state",
-                        "observedAt",
-                        "githubRepositoryConnection",
-                        "convexDeployKeys"
-                      ],
-                      "additionalProperties": false
-                    }
-                  ]
                 }
               },
-              "required": [
-                "appRoot",
-                "accountId",
-                "workerName",
-                "workerTag",
-                "origin",
-                "observation"
-              ],
+              "required": ["workerId", "appId", "accountId", "workerName", "workerTag"],
               "additionalProperties": false
             }
           },
-          "convexDeployments": {
+          "convexProjects": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "appRoot": {
+                "convexProjectId": {
+                  "type": "string"
+                },
+                "appId": {
+                  "type": "string"
+                },
+                "teamId": {
                   "type": "string"
                 },
                 "projectId": {
                   "type": "string"
-                },
-                "deploymentName": {
-                  "type": "string"
-                },
-                "origin": {
-                  "anyOf": [
-                    {
-                      "const": "provisioned"
-                    },
-                    {
-                      "const": "selected_existing"
-                    }
-                  ]
-                },
-                "observation": {
-                  "anyOf": [
-                    {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "state": {
-                              "const": "not_requested"
-                            }
-                          },
-                          "required": ["state"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "state": {
-                              "const": "loading"
-                            }
-                          },
-                          "required": ["state"],
-                          "additionalProperties": false
-                        }
-                      ]
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "missing"
-                        },
-                        "observedAt": {
-                          "type": "number"
-                        }
-                      },
-                      "required": ["state", "observedAt"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "failed"
-                        },
-                        "observedAt": {
-                          "type": "number"
-                        },
-                        "reason": {
-                          "anyOf": [
-                            {
-                              "const": "connection_required"
-                            },
-                            {
-                              "const": "provider_failure"
-                            }
-                          ]
-                        }
-                      },
-                      "required": ["state", "observedAt", "reason"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "available"
-                        },
-                        "observedAt": {
-                          "type": "number"
-                        },
-                        "projectSlug": {
-                          "type": "string"
-                        },
-                        "teamSlug": {
-                          "type": "string"
-                        },
-                        "cloudUrl": {
-                          "type": "string"
-                        },
-                        "siteUrl": {
-                          "type": "string"
-                        },
-                        "projectSettingsDashboardUrl": {
-                          "type": "string"
-                        },
-                        "deploymentDashboardUrl": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "state",
-                        "observedAt",
-                        "projectSlug",
-                        "teamSlug",
-                        "cloudUrl",
-                        "siteUrl"
-                      ],
-                      "additionalProperties": false
-                    }
-                  ]
                 }
               },
-              "required": ["appRoot", "projectId", "deploymentName", "origin", "observation"],
+              "required": ["convexProjectId", "appId", "teamId", "projectId"],
+              "additionalProperties": false
+            }
+          },
+          "workerConvexProjectDependencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dependencyId": {
+                  "type": "string"
+                },
+                "workerId": {
+                  "type": "string"
+                },
+                "convexProjectId": {
+                  "type": "string"
+                }
+              },
+              "required": ["dependencyId", "workerId", "convexProjectId"],
               "additionalProperties": false
             }
           }
@@ -1007,9 +797,10 @@ JSON Schema for the tool's `structuredContent`:
           "hasCloudflareProvision",
           "canRemoveConvexProvision",
           "canRemoveCloudflareProvision",
-          "appRoots",
+          "apps",
           "cloudflareWorkers",
-          "convexDeployments"
+          "convexProjects",
+          "workerConvexProjectDependencies"
         ],
         "additionalProperties": false
       }

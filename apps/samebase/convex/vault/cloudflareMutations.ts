@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
+import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
 import { vVaultProviderResourceOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
@@ -265,11 +265,7 @@ export const removeWorkerConvexProjectDependency = internalMutation({
   handler: async (ctx, args): Promise<null> => {
     await requireConnectedVault(ctx, args);
     const dependency = await ctx.db.get(args.dependencyId);
-    if (
-      !dependency ||
-      dependency.vaultId !== args.vaultId ||
-      dependency.userId !== args.userId
-    ) {
+    if (!dependency || dependency.vaultId !== args.vaultId || dependency.userId !== args.userId) {
       throw new Error("Worker dependency not found.");
     }
     await ctx.db.delete(dependency._id);

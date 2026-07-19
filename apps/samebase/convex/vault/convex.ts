@@ -10,14 +10,8 @@ import {
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
 import { validateAppResourceName } from "../../shared/appResourceNames";
-import {
-  vVaultConvexProjectConnectionTarget,
-  type VaultConvexProjectConnectionTarget,
-} from "./model";
-import {
-  convexListProjectsContract,
-  vConvexProjectResult,
-} from "./contracts/convexListProjects";
+import { vVaultConvexProjectConnectionTarget } from "./model";
+import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
 import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
 
 const { id, null: nullValue, string } = v;

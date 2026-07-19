@@ -5,21 +5,21 @@
 MCP tool `vault_cloudflare_wireConvexBuildAccess` · scope `access_app_create` · write
 
 The repair for builds that cannot deploy the backend: mints production and preview deploy keys on
-the app's Convex deployment and writes both keys into each Workers Builds trigger as
-`CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`. This is the remedy behind
+the selected Convex project's production and preview scopes and writes both keys into each Workers
+Builds trigger as `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`. This is the remedy behind
 `nextAction: "wire_convex_build_access"` on the Worker's `convexDeployKeys` axis and the dashboard's
 "Set Convex deploy keys" button. It is the same operation.
 
-Requires the Worker's Builds connection to exist first (`wire_builds` otherwise). This is a key
-rotation: existing keys with this vault's exact Samebase-owned names are read from Convex and
-deleted before replacements are minted. Newly minted keys are cleaned up if the run fails. Writes
-deploy keys on Convex and trigger variables on Cloudflare, both in the caller's own accounts; no
-user data is touched.
+The Worker-to-project dependency must exist in Samebase first. This explicit action rotates
+Samebase-named keys by reading them live from Convex, updates Cloudflare, and stores no key or
+trigger mirror in Convex.
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault id of the app whose builds need Convex deploy keys.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `vaultId` (string, required): Samebase vault id containing both resources.
+- `workerId` (string, required): Stable Samebase Worker attachment id returned by get_user_vaults.
+- `convexProjectId` (string, required): Attached Convex project that the Worker explicitly depends
+  on.
 
 ## Returns
 
