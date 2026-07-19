@@ -67,7 +67,7 @@ type VaultResourceRailActionRequiredRow<TProvider extends VaultResourceRailProvi
 };
 
 type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
-  actions: VaultResourceRailActionList;
+  actions?: VaultResourceRailActionList;
   provider: TProvider;
   scope?: string;
   status: "failed";

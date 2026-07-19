@@ -15,6 +15,7 @@ import {
   VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
+import { canOpenVaultProviderConnectionDialog } from "./vaultResourceRailState";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
@@ -1540,6 +1541,75 @@ describe("VaultDashboardCloudflareDialog", () => {
   });
 });
 
+describe("canOpenVaultProviderConnectionDialog", () => {
+  it("opens only for an unattached app root or a provider-confirmed missing attachment", () => {
+    const unattachedVault = makeResourceRailBuilderVault({
+      appRoots: [{ appRoot: "." }],
+    });
+    expect(
+      canOpenVaultProviderConnectionDialog({
+        appRoot: ".",
+        provider: "convex",
+        vault: unattachedVault,
+      }),
+    ).toBe(true);
+
+    const missingVault = makeResourceRailBuilderVault({
+      appRoots: [{ appRoot: "." }],
+      convexDeployments: [
+        makeResourceRailConvexDeployment({
+          observation: { state: "missing", observedAt: 40 },
+        }),
+      ],
+      cloudflareWorkers: [
+        makeResourceRailCloudflareWorker({
+          observation: { state: "missing", observedAt: 40 },
+        }),
+      ],
+    });
+    expect(
+      canOpenVaultProviderConnectionDialog({
+        appRoot: ".",
+        provider: "convex",
+        vault: missingVault,
+      }),
+    ).toBe(true);
+    expect(
+      canOpenVaultProviderConnectionDialog({
+        appRoot: ".",
+        provider: "cloudflare",
+        vault: missingVault,
+      }),
+    ).toBe(true);
+  });
+
+  it("closes direct dialog URLs for available or failed observations", () => {
+    const vault = makeResourceRailBuilderVault({
+      appRoots: [{ appRoot: "." }],
+      convexDeployments: [
+        makeResourceRailConvexDeployment({
+          observation: { state: "failed", observedAt: 40, reason: "provider_failure" },
+        }),
+      ],
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({})],
+    });
+    expect(
+      canOpenVaultProviderConnectionDialog({
+        appRoot: ".",
+        provider: "convex",
+        vault,
+      }),
+    ).toBe(false);
+    expect(
+      canOpenVaultProviderConnectionDialog({
+        appRoot: ".",
+        provider: "cloudflare",
+        vault,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("buildVaultDashboardResourceRailState", () => {
   it("puts the add-app-root action on the GitHub row", () => {
     const addAppRoot = vi.fn();
@@ -1661,8 +1731,8 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "failed",
       value: "demo",
     });
-    if (cloudflareRow.status !== "failed") {
-      throw new Error("Expected failed Cloudflare row.");
+    if (cloudflareRow.status !== "failed" || !cloudflareRow.actions) {
+      throw new Error("Expected actionable failed Cloudflare row.");
     }
     const [action] = cloudflareRow.actions;
     expect(action).toMatchObject({
@@ -1704,8 +1774,8 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "failed",
       value: "demo",
     });
-    if (cloudflareRow.status !== "failed") {
-      throw new Error("Expected failed Cloudflare row.");
+    if (cloudflareRow.status !== "failed" || !cloudflareRow.actions) {
+      throw new Error("Expected actionable failed Cloudflare row.");
     }
     const [action] = cloudflareRow.actions;
     expect(action).toMatchObject({
@@ -1749,8 +1819,8 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "failed",
       value: "demo",
     });
-    if (convexRow.status !== "failed") {
-      throw new Error("Expected failed Convex row.");
+    if (convexRow.status !== "failed" || !convexRow.actions) {
+      throw new Error("Expected actionable failed Convex row.");
     }
     const [action] = convexRow.actions;
     expect(action).toMatchObject({
@@ -1787,8 +1857,8 @@ describe("buildVaultDashboardResourceRailState", () => {
     });
 
     const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
-    if (cloudflareRow.status !== "failed") {
-      throw new Error("Expected failed Cloudflare row.");
+    if (cloudflareRow.status !== "failed" || !cloudflareRow.actions) {
+      throw new Error("Expected actionable failed Cloudflare row.");
     }
     const [action] = cloudflareRow.actions;
     expect(action).toMatchObject({
@@ -1828,8 +1898,8 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "failed",
       value: "demo",
     });
-    if (convexRow.status !== "failed") {
-      throw new Error("Expected failed Convex row.");
+    if (convexRow.status !== "failed" || !convexRow.actions) {
+      throw new Error("Expected actionable failed Convex row.");
     }
     const [action] = convexRow.actions;
     expect(action).toMatchObject({
@@ -1854,6 +1924,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         appRoots: [{ appRoot: "." }],
         convexDeployments: [
           makeResourceRailConvexDeployment({
+            origin: "provisioned",
             observation: { state: "missing", observedAt: 40 },
           }),
         ],
@@ -1874,8 +1945,8 @@ describe("buildVaultDashboardResourceRailState", () => {
         },
       ],
     });
-    if (convexRow.status !== "failed") {
-      throw new Error("Expected failed Convex row.");
+    if (convexRow.status !== "failed" || !convexRow.actions) {
+      throw new Error("Expected actionable failed Convex row.");
     }
     convexRow.actions[0].onClick?.();
     expect(addConvex).toHaveBeenCalledWith(".");
@@ -1913,8 +1984,8 @@ describe("buildVaultDashboardResourceRailState", () => {
         },
       ],
     });
-    if (cloudflareRow.status !== "failed") {
-      throw new Error("Expected failed Cloudflare row.");
+    if (cloudflareRow.status !== "failed" || !cloudflareRow.actions) {
+      throw new Error("Expected actionable failed Cloudflare row.");
     }
     cloudflareRow.actions[0].onClick?.();
     expect(addCloudflareWorker).toHaveBeenCalledWith(".");
@@ -1925,11 +1996,12 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).not.toContain("Connect GitHub repo");
   });
 
-  it("lets missing-upstream managed Cloudflare Workers retry infrastructure", () => {
-    const retryInfrastructure = vi.fn();
+  it("lets missing-upstream provisioned Cloudflare Workers reopen the Worker dialog", () => {
+    const addCloudflareWorker = vi.fn();
     const state = buildVaultDashboardResourceRailState({
+      addCloudflareWorkerOnClick: addCloudflareWorker,
+      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
       githubRepositoryUrl: "https://github.com/ada/demo",
-      retryInfrastructureOnClick: retryInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
         cloudflareWorkers: [
@@ -1946,13 +2018,55 @@ describe("buildVaultDashboardResourceRailState", () => {
       provider: "cloudflare",
       status: "failed",
       value: "demo-worker",
-      actions: [{ kind: "retry", label: "Retry", disabled: false }],
+      actions: [
+        {
+          kind: "add",
+          label: "?add-cloudflare",
+          disabled: false,
+          href: "/vault/ada/demo?add-cloudflare",
+        },
+      ],
     });
-    if (cloudflareRow.status !== "failed") {
-      throw new Error("Expected failed Cloudflare row.");
+    if (cloudflareRow.status !== "failed" || !cloudflareRow.actions) {
+      throw new Error("Expected actionable failed Cloudflare row.");
     }
     cloudflareRow.actions[0].onClick?.();
-    expect(retryInfrastructure).toHaveBeenCalledOnce();
+    expect(addCloudflareWorker).toHaveBeenCalledWith(".");
+  });
+
+  it("does not offer replacement when provider observation failed", () => {
+    const state = buildVaultDashboardResourceRailState({
+      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
+      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        convexDeployments: [
+          makeResourceRailConvexDeployment({
+            observation: { state: "failed", observedAt: 40, reason: "provider_failure" },
+          }),
+        ],
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            observation: { state: "failed", observedAt: 40, reason: "provider_failure" },
+          }),
+        ],
+      }),
+    });
+
+    expect(getResourceRailAppRow(state, ".", "convex")).toEqual({
+      provider: "convex",
+      status: "failed",
+      value: "demo-production",
+    });
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toEqual({
+      provider: "cloudflare",
+      status: "failed",
+      value: "demo-worker",
+    });
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).not.toContain("?add-convex");
+    expect(markup).not.toContain("?add-cloudflare");
   });
 
   it("shows missing provider actions after setup is idle", () => {

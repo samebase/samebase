@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
-import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
+import {
+  buildVaultDashboardResourceRailState,
+  canOpenVaultProviderConnectionDialog,
+} from "@/components/vault-dashboard/vaultResourceRailState";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
   CircleAlert,
@@ -3718,10 +3721,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
   const addConvexDialogVault = addConvexModeActive ? selectedVault : null;
-  const canOpenConnectConvexDialog =
-    addConvexDialogVault?.state === "ready" && providerAddAppRoot !== null;
+  const canOpenConnectConvexDialog = canOpenVaultProviderConnectionDialog({
+    appRoot: providerAddAppRoot,
+    provider: "convex",
+    vault: addConvexDialogVault,
+  });
   const vaultToConnectConvex = useMemo(() => {
-    if (!addConvexDialogVault || !canOpenConnectConvexDialog) {
+    if (!addConvexDialogVault || !canOpenConnectConvexDialog || providerAddAppRoot === null) {
       return null;
     }
 
@@ -3733,11 +3739,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     };
   }, [addConvexDialogVault, canOpenConnectConvexDialog, providerAddAppRoot]);
   const addCloudflareWorkerDialogVault = addCloudflareWorkerModeActive ? selectedVault : null;
-  const canOpenConnectCloudflareDialog = addCloudflareWorkerDialogVault?.state === "ready";
-  const canOpenScopedCloudflareDialog =
-    canOpenConnectCloudflareDialog && providerAddAppRoot !== null;
+  const canOpenScopedCloudflareDialog = canOpenVaultProviderConnectionDialog({
+    appRoot: providerAddAppRoot,
+    provider: "cloudflare",
+    vault: addCloudflareWorkerDialogVault,
+  });
   const vaultToConnectCloudflare = useMemo(() => {
-    if (!addCloudflareWorkerDialogVault || !canOpenScopedCloudflareDialog) {
+    if (
+      !addCloudflareWorkerDialogVault ||
+      !canOpenScopedCloudflareDialog ||
+      providerAddAppRoot === null
+    ) {
       return null;
     }
 
