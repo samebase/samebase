@@ -20,7 +20,7 @@ async function createExistingRepositoryVaultWithConvex(args: {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -98,7 +98,7 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/managed-convex",
@@ -176,7 +176,7 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -187,7 +187,7 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
       updatedAt: 20,
       completedAt: 20,
     });
-    await ctx.db.insert("operations_vaultProvisioningRuns", {
+    await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -319,7 +319,7 @@ describe("vault deletion Convex resource planning", () => {
       withDeployment: false,
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert("operations_vaultProvisioningRuns", {
+      await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/managed-convex",

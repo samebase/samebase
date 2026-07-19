@@ -231,7 +231,7 @@ async function createConvexProjectDeployment(args: {
   ctx: Pick<ActionCtx, "runMutation" | "runQuery">;
   connection: ConvexActionConnection;
   projectName: string;
-  runId: Id<"operations_vaultProvisioningRuns">;
+  runId: Id<"workflow_vaultProvisioning_runs">;
   userId: Id<"users">;
   vaultId: Id<"vaults">;
 }): Promise<ConvexInfrastructureRecord> {
@@ -315,7 +315,7 @@ async function startConvexDeploymentConnectionOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     target: VaultConvexConnectionTarget;
   },
@@ -335,7 +335,7 @@ async function isConvexDeploymentConnectionRunActive(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -356,7 +356,7 @@ async function recordConvexDeployment(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
     teamId: string;
@@ -492,7 +492,7 @@ export const createProject = action({
 export const ensureConvexDeploymentConnection = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
   },

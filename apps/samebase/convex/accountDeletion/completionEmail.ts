@@ -15,7 +15,7 @@ const COMPLETION_EMAIL_SAFE_ERROR = "Completion email delivery could not be conf
 
 export const sendForAccountDeletion = internalAction({
   args: {
-    runId: id("operations_accountDeletionRuns"),
+    runId: id("workflow_accountDeletion_runs"),
     workflowId: string(),
   },
   returns: vCompletionEmailResult,

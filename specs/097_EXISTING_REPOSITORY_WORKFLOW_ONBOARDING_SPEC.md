@@ -45,7 +45,7 @@ repositories.
 5. call `repos.getBranch`
 6. call `git.getTree`
 7. insert the connected vault through `internal.vault.addVault`
-8. write `observations_vaultBranchTrees`
+8. write `observations_vaultRepository_branchTrees`
 9. return the connected vault id, canonical repository full name, and default branch
 
 If any GitHub call fails, no vault, run, or provisioning event exists.
@@ -144,7 +144,7 @@ Connected existing-repository vaults must store `runId` directly:
 {
   state: "connected",
   githubMode: "connect_existing_repository",
-  runId: Id<"operations_vaultProvisioningRuns">,
+  runId: Id<"workflow_vaultProvisioning_runs">,
   ghRepoId: string,
   owner: string,
   name: string,
@@ -222,7 +222,7 @@ The connect-existing Workflow runs:
 4. `connect_github`: patch this vault to connected GitHub state with the same `runId`, canonical
    owner/name, visibility, default branch, and `not_configured` provider states
 5. `sync_tree`: fetch and write the recursive default-branch tree into
-   `observations_vaultBranchTrees`
+   `observations_vaultRepository_branchTrees`
 6. `finish`: mark the run succeeded
 
 The repository fetch step should treat repo identity and default branch validation as one accepted
@@ -237,7 +237,7 @@ Before `connect_github` succeeds, a workflow failure moves the vault to:
 {
   state: "failed",
   githubMode: "connect_existing_repository",
-  runId: Id<"operations_vaultProvisioningRuns">,
+  runId: Id<"workflow_vaultProvisioning_runs">,
   owner: string,
   name: string,
   failedAt: number,
@@ -282,13 +282,13 @@ type SourceSetupSummary =
   | { status: "ready" }
   | {
       status: "running";
-      runId: Id<"operations_vaultProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
       step: AppProvisioningRunStep;
       updatedAt: number;
     }
   | {
       status: "failed";
-      runId: Id<"operations_vaultProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
       step: AppProvisioningRunStep;
       message: string;
       updatedAt: number;

@@ -22,7 +22,7 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
       userId,
       expirationTime: 2_000_000_000_000,
     });
-    const runId = await ctx.db.insert("operations_accountDeletionRuns", {
+    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
       identity: { state: "active", userId, email: "test@example.invalid" },
       completionCapability: "billing-actions-test",
       state: "running",

@@ -357,7 +357,7 @@ describe("MCP tools/call access enforcement", () => {
         createdAt: now,
         updatedAt: now,
       });
-      await ctx.db.insert("operations_mcpAccessTokens", {
+      await ctx.db.insert("mcpAccessTokens", {
         tokenHash,
         grantId: "grant_test",
         clientId: "client_test",

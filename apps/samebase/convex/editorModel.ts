@@ -3,12 +3,12 @@ import { v } from "convex/values";
 
 const { boolean, id, literal, number, optional, string, union } = v;
 
-export const editorTables = {
+export const vaultEditorTables = {
   /**
    * The current uncommitted state of each changed file on a vault branch,
    * including edits, renames, deletions, and binary uploads.
    */
-  operations_fileStaging: defineTable({
+  vaultStagedFiles: defineTable({
     ownerId: id("users"),
     vaultId: id("vaults"),
     fileDeleted: boolean(),
@@ -39,7 +39,7 @@ export const editorTables = {
     .index("by_user", ["lastEditUserId"]),
 
   /** Git blob contents observed by SHA and cached inline or in Convex storage. */
-  observations_vaultFileBlobs: defineTable({
+  observations_vaultFiles_blobs: defineTable({
     vaultId: id("vaults"),
     sha: string(),
     size: number(),
@@ -54,7 +54,7 @@ export const editorTables = {
     .index("by_storageId", ["storageId"]),
 
   /** Expanded or collapsed file-tree folders for one user and vault. */
-  ui_folderExpansionState: defineTable({
+  ui_vaultFileTree_folderExpansions: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     folderPath: string(),
@@ -65,7 +65,7 @@ export const editorTables = {
     .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
 
   /** Versioned file edits that other clients pull to synchronize one staged document. */
-  operations_collaborativeFileUpdates: defineTable({
+  vaultStagedFileUpdates: defineTable({
     vaultId: id("vaults"),
     branch: optional(string()),
     filePath: string(),

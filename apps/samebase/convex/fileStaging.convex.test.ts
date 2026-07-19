@@ -22,7 +22,7 @@ async function seedVaultWithStagedFile() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    await ctx.db.insert("operations_fileStaging", {
+    await ctx.db.insert("vaultStagedFiles", {
       ownerId,
       vaultId,
       fileDeleted: false,

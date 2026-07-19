@@ -35,7 +35,7 @@ type SourceSetupVault = Extract<
   { githubMode: "create_repository" | "connect_existing_repository" }
 >;
 type VaultDomain = Doc<"vaultDomains">;
-type VaultProvisioningWriteLock = Doc<"operations_vaultProvisioningWriteLocks">;
+type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type VaultApp = Doc<"vaultApps">;
 type ConnectedConvexDeployment = Doc<"vaultConvexDeployments">;
 type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
@@ -79,10 +79,10 @@ function resolveCloudflareWorkerUpstream(
 
 async function readLatestRunErrorMessage(
   ctx: Pick<QueryCtx, "db">,
-  runId: Id<"operations_vaultProvisioningRuns">,
+  runId: Id<"workflow_vaultProvisioning_runs">,
 ): Promise<string | undefined> {
   const events = await ctx.db
-    .query("operations_vaultProvisioningEvents")
+    .query("workflow_vaultProvisioning_events")
     .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
     .order("desc")
     .take(SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT);
@@ -160,7 +160,7 @@ function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
 export function readProviderSetupFailedNextAction(args: {
   provider: "convex" | "cloudflare";
   source: "managed" | "manual";
-  trigger?: Doc<"operations_vaultProvisioningRuns">["trigger"];
+  trigger?: Doc<"workflow_vaultProvisioning_runs">["trigger"];
 }): Extract<ProviderSetupSummary, { status: "failed" }>["nextAction"] {
   if (args.source !== "manual") {
     return "retry_infrastructure_provisioning";
@@ -185,7 +185,7 @@ async function readProviderRunSummary(
   args: {
     provider: "convex" | "cloudflare";
     source: "managed" | "manual";
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     status: "running" | "failed";
     fallbackUpdatedAt: number;
   },
@@ -238,7 +238,7 @@ async function readRunningProviderRunSummary(
   args: {
     provider: "convex" | "cloudflare";
     source: "managed" | "manual";
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): Promise<Extract<ProviderSetupSummary, { status: "running" }> | null> {
   const run = await ctx.db.get(args.runId);
@@ -258,10 +258,10 @@ async function readRunningProviderRunSummary(
 
 async function readLatestDeletionEvent(
   ctx: Pick<QueryCtx, "db">,
-  runId: Id<"operations_vaultDeletionRuns">,
-): Promise<Doc<"operations_vaultDeletionEvents"> | null> {
+  runId: Id<"workflow_vaultDeletion_runs">,
+): Promise<Doc<"workflow_vaultDeletion_events"> | null> {
   return await ctx.db
-    .query("operations_vaultDeletionEvents")
+    .query("workflow_vaultDeletion_events")
     .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
     .order("desc")
     .first();
@@ -328,7 +328,7 @@ async function readVaultProvisioningWriteLock(
   vaultId: Id<"vaults">,
 ): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("operations_vaultProvisioningWriteLocks")
+    .query("workflow_vaultProvisioning_writeLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -338,7 +338,7 @@ async function hasCreatedConvexProjectForVault(
   vaultId: Id<"vaults">,
 ): Promise<boolean> {
   const runs = await ctx.db
-    .query("operations_vaultProvisioningRuns")
+    .query("workflow_vaultProvisioning_runs")
     .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
     .collect();
   return runs.some(
@@ -347,7 +347,7 @@ async function hasCreatedConvexProjectForVault(
 }
 
 function readManualProviderFromRun(
-  run: Doc<"operations_vaultProvisioningRuns"> | null,
+  run: Doc<"workflow_vaultProvisioning_runs"> | null,
 ): "convex" | "cloudflare" | null {
   switch (run?.trigger) {
     case "connect_convex_deployment":
@@ -612,7 +612,7 @@ export const getUserVaultBranchFilters = query({
   handler: async (ctx) => {
     return (
       await ctx.db
-        .query("ui_vaultBranchFilters")
+        .query("ui_vaultBranches_filters")
         .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
     ).map((vaultBranchFilter) => ({
@@ -631,7 +631,7 @@ export const getUserVaultResourceLinksState = query({
   handler: async (ctx) => {
     const states = (
       await ctx.db
-        .query("ui_vaultResourceLinksState")
+        .query("ui_vaultResourceLinks_settings")
         .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
     ).map((state) => ({
@@ -658,7 +658,7 @@ export const setVaultResourceLinksOpen = mutation({
     }
 
     const existing = await ctx.db
-      .query("ui_vaultResourceLinksState")
+      .query("ui_vaultResourceLinks_settings")
       .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     const nextState = {
@@ -671,7 +671,7 @@ export const setVaultResourceLinksOpen = mutation({
       return;
     }
 
-    await ctx.db.insert("ui_vaultResourceLinksState", {
+    await ctx.db.insert("ui_vaultResourceLinks_settings", {
       userId,
       vaultId: args.vaultId,
       ...nextState,
@@ -694,7 +694,7 @@ export const setVaultBranchFilters = mutation({
     }
 
     const existing = await ctx.db
-      .query("ui_vaultBranchFilters")
+      .query("ui_vaultBranches_filters")
       .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     const shouldPersist =
@@ -714,7 +714,7 @@ export const setVaultBranchFilters = mutation({
         includeNoLabel: args.includeNoLabel !== false,
       });
     } else {
-      await ctx.db.insert("ui_vaultBranchFilters", {
+      await ctx.db.insert("ui_vaultBranches_filters", {
         userId,
         vaultId: args.vaultId,
         hiddenLabels: args.hiddenLabels,
@@ -803,7 +803,7 @@ export const listVaultAppRootFolderSuggestions = query({
     }
 
     const defaultBranchTree = await ctx.db
-      .query("observations_vaultBranchTrees")
+      .query("observations_vaultRepository_branchTrees")
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", vault.defaultBranch),
       )
@@ -951,11 +951,11 @@ async function readUserVaults(
 
       const [stagingData, defaultBranchTree, hasCreatedConvexProject] = await Promise.all([
         ctx.db
-          .query("operations_fileStaging")
+          .query("vaultStagedFiles")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
           .collect(),
         ctx.db
-          .query("observations_vaultBranchTrees")
+          .query("observations_vaultRepository_branchTrees")
           .withIndex("by_vault_and_branch", (q) =>
             q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
           )

@@ -16,7 +16,7 @@ const idempotentProviderStepRetry = {
 } as const;
 
 const workflowCompletionContext = object({
-  runId: id("operations_vaultDeletionRuns"),
+  runId: id("workflow_vaultDeletion_runs"),
 });
 
 const cleanupSteps = [
@@ -55,7 +55,7 @@ export function resolveVaultDeletionWorkflowError(result: RunResult): string | n
 export const deleteVaultWorkflow = workflow.define({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     userId: id("users"),
   },
   returns: v.null(),
@@ -162,7 +162,7 @@ export const deleteVaultWorkflow = workflow.define({
 export const startVaultDeletion = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     userId: id("users"),
   },
   returns: string(),

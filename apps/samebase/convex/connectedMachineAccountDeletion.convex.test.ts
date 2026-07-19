@@ -14,7 +14,7 @@ describe("connected machine account deletion access", () => {
         email: "deleting-machine@example.test",
         isApproved: true,
       });
-      const machineCredentialId = await ctx.db.insert("operations_machineCredentials", {
+      const machineCredentialId = await ctx.db.insert("machineCredentials", {
         userId,
         machineId: "machine-1",
         credentialHash: "machine-credential-hash",
@@ -34,7 +34,7 @@ describe("connected machine account deletion access", () => {
         controlStatus: "ready",
         controlUrl: "https://machine.example.test",
       });
-      const controlTokenId = await ctx.db.insert("operations_machineControlTokens", {
+      const controlTokenId = await ctx.db.insert("machineControlTokens", {
         userId,
         machineId: "machine-1",
         tokenHash: "machine-control-token-hash",
@@ -79,7 +79,7 @@ describe("connected machine account deletion access", () => {
         userId: ids.userId,
         expirationTime: now + 60_000,
       });
-      const runId = await ctx.db.insert("operations_accountDeletionRuns", {
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: {
           state: "active",
           userId: ids.userId,

@@ -30,7 +30,7 @@ describe("vault dashboard Convex contract", () => {
       const vault = await ctx.db.get(ids.vaultId);
       const run = await ctx.db.get(ids.runId);
       const events = await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       return { events, run, vault };
@@ -315,7 +315,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/imported",
@@ -354,7 +354,7 @@ describe("vault dashboard Convex contract", () => {
       const vault = await ctx.db.get(ids.vaultId);
       const run = await ctx.db.get(ids.runId);
       const events = await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       return { events, run, vault };
@@ -414,7 +414,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/demo",
@@ -444,7 +444,7 @@ describe("vault dashboard Convex contract", () => {
         appRoot,
         createdAt: 21,
       });
-      await ctx.db.insert("operations_vaultProvisioningPlans", {
+      await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
         appRoot,
         convex: {
@@ -504,7 +504,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/demo",
@@ -534,7 +534,7 @@ describe("vault dashboard Convex contract", () => {
         appRoot: "apps",
         createdAt: 21,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -579,7 +579,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/demo",
@@ -671,7 +671,7 @@ describe("vault dashboard Convex contract", () => {
       const vault = await ctx.db.get(ids.vaultId);
       const run = await ctx.db.get(ids.runId);
       const events = await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       return { events, run, vault };
@@ -712,7 +712,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/source-setup-failed",
@@ -738,7 +738,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
       });
-      await ctx.db.insert("operations_vaultProvisioningEvents", {
+      await ctx.db.insert("workflow_vaultProvisioning_events", {
         userId,
         vaultId,
         repositoryFullName: "ada/source-setup-failed",
@@ -788,7 +788,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/missing-run",
@@ -851,7 +851,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/provider-state",
@@ -875,7 +875,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -949,7 +949,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const createRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const createRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
@@ -960,7 +960,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 30,
         completedAt: 30,
       });
-      const retryRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const retryRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
@@ -1004,7 +1004,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 24,
         lastObservedAt: 24,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1016,7 +1016,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
         runId: retryRunId,
         state: "active",
@@ -1061,7 +1061,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const createRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const createRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
@@ -1072,7 +1072,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 30,
         completedAt: 30,
       });
-      const retryRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const retryRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
@@ -1118,7 +1118,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 24,
         lastObservedAt: 24,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1130,13 +1130,13 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
         runId: retryRunId,
         state: "failed",
         updatedAt: 44,
       });
-      await ctx.db.insert("operations_vaultProvisioningEvents", {
+      await ctx.db.insert("workflow_vaultProvisioning_events", {
         userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
@@ -1184,7 +1184,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const sourceRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/existing-cloudflare",
@@ -1195,7 +1195,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 20,
         completedAt: 20,
       });
-      const cloudflareRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const cloudflareRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/existing-cloudflare",
@@ -1219,7 +1219,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 22,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1231,7 +1231,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 24,
       });
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
         runId: cloudflareRunId,
         state: "active",
@@ -1275,7 +1275,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const sourceRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/existing-convex",
@@ -1286,7 +1286,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 20,
         completedAt: 20,
       });
-      const convexRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const convexRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/existing-convex",
@@ -1312,7 +1312,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 22,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1324,7 +1324,7 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 24,
       });
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
         runId: convexRunId,
         state: "failed",
@@ -1405,7 +1405,7 @@ describe("vault dashboard Convex contract", () => {
           deletion: { state: "not_deleting" },
           state: "not_connected",
         });
-        const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+        const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
           userId,
           vaultId,
           repositoryFullName: `ada/provider-${testCase.label}`,
@@ -1467,7 +1467,7 @@ describe("vault dashboard Convex contract", () => {
           connectedAt: 26,
           lastObservedAt: 26,
         });
-        await ctx.db.insert("observations_vaultBranchTrees", {
+        await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
           branch: "main",
           treeSHA: "tree",
@@ -1480,7 +1480,7 @@ describe("vault dashboard Convex contract", () => {
           lastTreeRefreshAt: 29,
         });
         if (testCase.writeLockState) {
-          await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+          await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
             vaultId,
             runId,
             state: testCase.writeLockState,
@@ -1518,7 +1518,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/provider-handoff",
@@ -1542,7 +1542,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1593,7 +1593,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/completed-provider-run",
@@ -1618,7 +1618,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1673,7 +1673,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/demo",
@@ -1718,7 +1718,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 25,
         lastObservedAt: 25,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1765,7 +1765,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/upstream-state",
@@ -1846,7 +1846,7 @@ describe("vault dashboard Convex contract", () => {
           lastObservedAt: 26,
         });
       }
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -1915,7 +1915,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-state",
@@ -2050,7 +2050,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 28,
         lastObservedAt: 28,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -2104,7 +2104,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/domain-order",
@@ -2220,7 +2220,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       for (let index = 0; index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1; index++) {
-        await ctx.db.insert("observations_vaultBranchTrees", {
+        await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
           branch: `branch-${index}`,
           treeSHA: `tree-${index}`,
@@ -2243,14 +2243,14 @@ describe("vault dashboard Convex contract", () => {
 
     expect(firstResult).toEqual({
       state: "needs_more",
-      table: "observations_vaultBranchTrees",
+      table: "observations_vaultRepository_branchTrees",
       rowsChanged: VAULT_LOCAL_CLEANUP_BATCH_SIZE,
     });
     await expect(
       t.run(async (ctx) => {
         const vault = await ctx.db.get(ids.vaultId);
         const branchTrees = await ctx.db
-          .query("observations_vaultBranchTrees")
+          .query("observations_vaultRepository_branchTrees")
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
           .collect();
         return { branchTreeCount: branchTrees.length, vault };
@@ -2291,7 +2291,7 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
@@ -2305,25 +2305,25 @@ describe("vault dashboard Convex contract", () => {
       const storageId = await ctx.storage.store(new Blob(["cached"], { type: "text/plain" }));
       const stagedStorageId = await ctx.storage.store(new Blob(["staged"], { type: "text/plain" }));
 
-      await ctx.db.insert("ui_vaultBranchFilters", {
+      await ctx.db.insert("ui_vaultBranches_filters", {
         userId,
         vaultId,
         hiddenLabels: [],
         includeDrafts: false,
       });
-      await ctx.db.insert("ui_vaultBranchFilters", {
+      await ctx.db.insert("ui_vaultBranches_filters", {
         userId: collaboratorId,
         vaultId,
         hiddenLabels: ["wip"],
         includeDrafts: true,
       });
-      await ctx.db.insert("ui_vaultResourceLinksState", {
+      await ctx.db.insert("ui_vaultResourceLinks_settings", {
         userId,
         vaultId,
         resourceLinksOpen: true,
         updatedAt: 4,
       });
-      await ctx.db.insert("operations_fileStaging", {
+      await ctx.db.insert("vaultStagedFiles", {
         ownerId: userId,
         vaultId,
         fileDeleted: false,
@@ -2338,7 +2338,7 @@ describe("vault dashboard Convex contract", () => {
         branch: "main",
         version: 1,
       });
-      await ctx.db.insert("operations_fileStaging", {
+      await ctx.db.insert("vaultStagedFiles", {
         ownerId: userId,
         vaultId,
         fileDeleted: false,
@@ -2357,7 +2357,7 @@ describe("vault dashboard Convex contract", () => {
         branch: "main",
         version: 1,
       });
-      await ctx.db.insert("operations_collaborativeFileUpdates", {
+      await ctx.db.insert("vaultStagedFileUpdates", {
         vaultId,
         branch: "main",
         filePath: "README.md",
@@ -2367,7 +2367,7 @@ describe("vault dashboard Convex contract", () => {
         userId,
         timestamp: 6,
       });
-      await ctx.db.insert("observations_vaultFileBlobs", {
+      await ctx.db.insert("observations_vaultFiles_blobs", {
         vaultId,
         sha: "blob-sha",
         size: 6,
@@ -2375,13 +2375,13 @@ describe("vault dashboard Convex contract", () => {
         mime: "text/plain",
         ext: "txt",
       });
-      await ctx.db.insert("ui_folderExpansionState", {
+      await ctx.db.insert("ui_vaultFileTree_folderExpansions", {
         userId: collaboratorId,
         vaultId,
         folderPath: "/",
         isExpanded: true,
       });
-      await ctx.db.insert("observations_vaultRemoteBranches", {
+      await ctx.db.insert("observations_vaultRepository_branches", {
         vaultId,
         name: "main",
         headCommitSha: "commit",
@@ -2393,7 +2393,7 @@ describe("vault dashboard Convex contract", () => {
         commitRank: Number.MAX_SAFE_INTEGER,
         lastSyncedAt: 6,
       });
-      await ctx.db.insert("observations_vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -2433,7 +2433,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 9,
         lastObservedAt: 9,
       });
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
         runId,
         state: "succeeded",
@@ -2449,7 +2449,7 @@ describe("vault dashboard Convex contract", () => {
         commitSha: "commit",
         branch: "main",
       });
-      await ctx.db.insert("ui_agentGraphNodeLayout", {
+      await ctx.db.insert("ui_agentGraphNode_layouts", {
         userId: collaboratorId,
         vaultId,
         nodeId: "README.md",
@@ -2457,7 +2457,7 @@ describe("vault dashboard Convex contract", () => {
         height: 80,
         updatedAt: 11,
       });
-      await ctx.db.insert("agentThreadContext", {
+      await ctx.db.insert("chatThreadContexts", {
         threadId: "thread-1",
         userId: collaboratorId,
         vaultId,
@@ -2466,14 +2466,14 @@ describe("vault dashboard Convex contract", () => {
         filePath: "README.md",
         createdAt: 12,
       });
-      await ctx.db.insert("chatMessageMetadata", {
+      await ctx.db.insert("chatMessagePayloads", {
         messageId: "message-1",
         threadId: "thread-1",
         type: "tool_activity",
         payloadJson: "{}",
         createdAt: 12,
       });
-      await ctx.db.insert("operations_vaultRepositoryRefreshRequests", {
+      await ctx.db.insert("vaultRepositoryRefreshRequests", {
         userId,
         vaultId,
         dedupeKey: `${vaultId}:main`,
@@ -2482,7 +2482,7 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 12,
         updatedAt: 12,
       });
-      const requestId = await ctx.db.insert("operations_aiProductionReadRequests", {
+      const requestId = await ctx.db.insert("aiProductionReadRequests", {
         threadId: "thread-1",
         requesterUserId: userId,
         vaultId,
@@ -2496,7 +2496,7 @@ describe("vault dashboard Convex contract", () => {
         approvedBy: collaboratorId,
         approvedAt: 13,
       });
-      const auditId = await ctx.db.insert("audit_aiProductionReadEvents", {
+      const auditId = await ctx.db.insert("audit_aiProductionRead_events", {
         requestId,
         actorUserId: collaboratorId,
         action: "approved",
@@ -2505,7 +2505,7 @@ describe("vault dashboard Convex contract", () => {
         argumentHash: "hash",
         createdAt: 14,
       });
-      await ctx.db.insert("operations_vaultProvisioningEvents", {
+      await ctx.db.insert("workflow_vaultProvisioning_events", {
         userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
@@ -2550,24 +2550,24 @@ describe("vault dashboard Convex contract", () => {
     ).rejects.toThrow("Agent thread context not found.");
     expect(tables).toEqual(
       expect.arrayContaining([
-        "ui_vaultBranchFilters",
-        "ui_vaultResourceLinksState",
-        "operations_fileStaging",
-        "operations_collaborativeFileUpdates",
-        "observations_vaultFileBlobs",
-        "ui_folderExpansionState",
-        "observations_vaultRemoteBranches",
-        "observations_vaultBranchTrees",
+        "ui_vaultBranches_filters",
+        "ui_vaultResourceLinks_settings",
+        "vaultStagedFiles",
+        "vaultStagedFileUpdates",
+        "observations_vaultFiles_blobs",
+        "ui_vaultFileTree_folderExpansions",
+        "observations_vaultRepository_branches",
+        "observations_vaultRepository_branchTrees",
         "vaultDomains",
         "vaultConvexDeployments",
-        "operations_vaultProvisioningWriteLocks",
+        "workflow_vaultProvisioning_writeLocks",
         "codespaces",
-        "ui_agentGraphNodeLayout",
-        "operations_aiProductionReadRequests",
-        "agentThreadContext",
-        "operations_vaultRepositoryRefreshRequests",
-        "operations_vaultProvisioningEvents",
-        "operations_vaultProvisioningRuns",
+        "ui_agentGraphNode_layouts",
+        "aiProductionReadRequests",
+        "chatThreadContexts",
+        "vaultRepositoryRefreshRequests",
+        "workflow_vaultProvisioning_events",
+        "workflow_vaultProvisioning_runs",
       ]),
     );
 
@@ -2583,27 +2583,27 @@ describe("vault dashboard Convex contract", () => {
         storage,
         vault: await ctx.db.get(ids.vaultId),
         branchFilters: await ctx.db
-          .query("ui_vaultBranchFilters")
+          .query("ui_vaultBranches_filters")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         resourceLinksState: await ctx.db
-          .query("ui_vaultResourceLinksState")
+          .query("ui_vaultResourceLinks_settings")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         branchTrees: await ctx.db
-          .query("observations_vaultBranchTrees")
+          .query("observations_vaultRepository_branchTrees")
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         prodRequestsForVault: await ctx.db
-          .query("operations_aiProductionReadRequests")
+          .query("aiProductionReadRequests")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         refreshRequests: await ctx.db
-          .query("operations_vaultRepositoryRefreshRequests")
+          .query("vaultRepositoryRefreshRequests")
           .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         threadMetadata: await ctx.db
-          .query("chatMessageMetadata")
+          .query("chatMessagePayloads")
           .withIndex("by_threadId", (q) => q.eq("threadId", "thread-1"))
           .collect(),
       };

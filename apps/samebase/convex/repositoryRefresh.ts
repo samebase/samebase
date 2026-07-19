@@ -51,7 +51,7 @@ const REPOSITORY_REFRESH_RUNNING_LEASE_MS = 15 * 60 * 1000;
 type RepositoryRefreshWorkerIntent = "passive" | "source_setup" | "manual";
 
 const repositoryRefreshWorkpoolContext = object({
-  requestId: id("operations_vaultRepositoryRefreshRequests"),
+  requestId: id("vaultRepositoryRefreshRequests"),
 });
 
 /**
@@ -167,7 +167,7 @@ function toRepositoryRefreshResult(args: { refreshed: boolean }): RepositoryRefr
 }
 
 function isRunningRepositoryRefreshLeaseValid(
-  request: Doc<"operations_vaultRepositoryRefreshRequests">,
+  request: Doc<"vaultRepositoryRefreshRequests">,
   now: number,
 ): boolean {
   return request.lifecycle.state === "running" && request.lifecycle.leaseExpiresAt > now;
@@ -175,7 +175,7 @@ function isRunningRepositoryRefreshLeaseValid(
 
 async function markExpiredRunningRepositoryRefreshRequestFailed(
   ctx: MutationCtx,
-  request: Doc<"operations_vaultRepositoryRefreshRequests">,
+  request: Doc<"vaultRepositoryRefreshRequests">,
   now: number,
 ): Promise<void> {
   if (request.lifecycle.state !== "running") {
@@ -270,7 +270,7 @@ async function enqueueDashboardRepositoryRefreshPageForUser(
  * Accepts completed create/connect setup runs only.
  * Retry runs are rejected because retries are not original source setup demand.
  */
-function assertSourceSetupRepositoryRefreshRun(run: Doc<"operations_vaultProvisioningRuns">): void {
+function assertSourceSetupRepositoryRefreshRun(run: Doc<"workflow_vaultProvisioning_runs">): void {
   switch (run.trigger) {
     case "create":
     case "connect_existing_repository":
@@ -322,9 +322,9 @@ async function getActiveRepositoryRefreshRequestForState(
     dedupeKey: string;
     state: ActiveRepositoryRefreshState;
   },
-): Promise<Doc<"operations_vaultRepositoryRefreshRequests"> | null> {
+): Promise<Doc<"vaultRepositoryRefreshRequests"> | null> {
   return await ctx.db
-    .query("operations_vaultRepositoryRefreshRequests")
+    .query("vaultRepositoryRefreshRequests")
     .withIndex("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", (q) =>
       q
         .eq("userId", args.userId)
@@ -349,7 +349,7 @@ async function getActiveRepositoryRefreshRequest(
     dedupeKey: string;
     now: number;
   },
-): Promise<Doc<"operations_vaultRepositoryRefreshRequests"> | null> {
+): Promise<Doc<"vaultRepositoryRefreshRequests"> | null> {
   const running = await getActiveRepositoryRefreshRequestForState(ctx, {
     ...args,
     state: "running",
@@ -419,7 +419,7 @@ async function enqueueRepositoryRefresh(
   });
   if (!activeRequest) {
     const requestId = await ctx.db.insert(
-      "operations_vaultRepositoryRefreshRequests",
+      "vaultRepositoryRefreshRequests",
       makeRepositoryRefreshRequest({
         userId: args.userId,
         vaultId: args.vaultId,
@@ -515,7 +515,7 @@ async function enqueueRepositoryRefresh(
  */
 async function scheduleQueuedRepositoryRefreshRequest(
   ctx: MutationCtx,
-  requestId: Id<"operations_vaultRepositoryRefreshRequests">,
+  requestId: Id<"vaultRepositoryRefreshRequests">,
 ): Promise<void> {
   const request = await ctx.db.get(requestId);
   if (!request || request.lifecycle.state !== "queued") {
@@ -585,7 +585,7 @@ async function enqueueAndScheduleRepositoryRefresh(
  */
 export const startRepositoryRefreshRequest = internalMutation({
   args: object({
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   returns: repositoryRefreshWorkerInput,
   handler: async (ctx, args): Promise<RepositoryRefreshWorkerInput> => {
@@ -644,7 +644,7 @@ export const startRepositoryRefreshRequest = internalMutation({
  */
 export const refreshRepositoryRefreshRequestLease = internalMutation({
   args: object({
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
@@ -668,7 +668,7 @@ export const refreshRepositoryRefreshRequestLease = internalMutation({
 async function finishRunningRepositoryRefreshRequestSucceeded(
   ctx: MutationCtx,
   args: {
-    requestId: Id<"operations_vaultRepositoryRefreshRequests">;
+    requestId: Id<"vaultRepositoryRefreshRequests">;
     result: RepositoryRefreshResult;
   },
 ): Promise<void> {
@@ -696,10 +696,10 @@ async function finishRunningRepositoryRefreshRequestSucceeded(
 async function getOwnedActiveRepositoryRefreshRequest(
   ctx: MutationCtx,
   args: {
-    requestId: Id<"operations_vaultRepositoryRefreshRequests">;
+    requestId: Id<"vaultRepositoryRefreshRequests">;
     workpoolJobId: string | null;
   },
-): Promise<Doc<"operations_vaultRepositoryRefreshRequests"> | null> {
+): Promise<Doc<"vaultRepositoryRefreshRequests"> | null> {
   const request = await ctx.db.get(args.requestId);
   if (
     !request ||
@@ -717,7 +717,7 @@ async function getOwnedActiveRepositoryRefreshRequest(
 async function finishActiveRepositoryRefreshRequestFailed(
   ctx: MutationCtx,
   args: {
-    requestId: Id<"operations_vaultRepositoryRefreshRequests">;
+    requestId: Id<"vaultRepositoryRefreshRequests">;
     workpoolJobId: string | null;
     failure: RepositoryRefreshFailure;
   },
@@ -741,7 +741,7 @@ async function finishActiveRepositoryRefreshRequestFailed(
 async function finishActiveRepositoryRefreshRequestCanceled(
   ctx: MutationCtx,
   args: {
-    requestId: Id<"operations_vaultRepositoryRefreshRequests">;
+    requestId: Id<"vaultRepositoryRefreshRequests">;
     workpoolJobId: string | null;
     reason: RepositoryRefreshCancelReason;
   },
@@ -764,7 +764,7 @@ async function finishActiveRepositoryRefreshRequestCanceled(
 
 export const quiesceForAccountDeletion = internalMutation({
   args: object({
-    runId: id("operations_accountDeletionRuns"),
+    runId: id("workflow_accountDeletion_runs"),
     workflowId: string(),
   }),
   returns: union(object({ state: literal("done") }), object({ state: literal("needs_more") })),
@@ -775,7 +775,7 @@ export const quiesceForAccountDeletion = internalMutation({
 
     for (const state of ["queued", "scheduled", "running"] as const) {
       const requests = await ctx.db
-        .query("operations_vaultRepositoryRefreshRequests")
+        .query("vaultRepositoryRefreshRequests")
         .withIndex("by_userId_and_lifecycle_state_and_updatedAt", (q) =>
           q.eq("userId", deletionRun.identity.userId).eq("lifecycle.state", state),
         )
@@ -831,7 +831,7 @@ export const quiesceForAccountDeletion = internalMutation({
  */
 export const finishRepositoryRefreshRequestSucceeded = internalMutation({
   args: object({
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
     result: vRepositoryRefreshResult,
   }),
   returns: vNull(),
@@ -851,7 +851,7 @@ export const finishRepositoryRefreshRequestSucceeded = internalMutation({
  */
 export const finishRepositoryRefreshRequestFailed = internalMutation({
   args: object({
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
     workpoolJobId: union(string(), vNull()),
     failure: vRepositoryRefreshFailure,
   }),
@@ -872,7 +872,7 @@ export const finishRepositoryRefreshRequestFailed = internalMutation({
  */
 export const finishRepositoryRefreshRequestCanceled = internalMutation({
   args: object({
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
     workpoolJobId: union(string(), vNull()),
     reason: vRepositoryRefreshCancelReason,
   }),
@@ -936,7 +936,7 @@ export const handleRepositoryRefreshComplete = internalMutation({
  */
 export const runRepositoryRefreshRequest = internalAction({
   args: object({
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   returns: vRepositoryRefreshResult,
   handler: async (ctx, args): Promise<RepositoryRefreshResult> => {
@@ -1092,7 +1092,7 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
   args: object({
     userId: id("users"),
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
   }),
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
@@ -1126,7 +1126,7 @@ export const completeExistingRepositoryConnectionAndEnqueueRefresh = internalMut
   args: object({
     userId: id("users"),
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
   }),
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
@@ -1157,7 +1157,7 @@ export const completeExistingRepositoryConnectionAndEnqueueRefresh = internalMut
       ) {
         throw new Error("Existing repository vault is not connected.");
       }
-      await ctx.db.insert("operations_vaultProvisioningEvents", {
+      await ctx.db.insert("workflow_vaultProvisioning_events", {
         userId: run.userId,
         vaultId: run.vaultId,
         repositoryFullName: run.repositoryFullName,

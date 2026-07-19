@@ -101,7 +101,7 @@ default for later flows.
 
 ## Provisioning Plan Model
 
-`operations_vaultProvisioningPlans.cloudflare` is only a full-app provisioning plan/checkpoint. It
+`workflow_vaultProvisioning_plans.cloudflare` is only a full-app provisioning plan/checkpoint. It
 should not be the durable connected Worker identity.
 
 The desired plan shape is:
@@ -139,13 +139,13 @@ attached or unavailable.
 
 ## Durable Execution
 
-Manual Worker attach/create uses `operations_vaultProvisioningRuns` with trigger
+Manual Worker attach/create uses `workflow_vaultProvisioning_runs` with trigger
 `connect_cloudflare_worker`. The run is intentionally narrow: it claims Cloudflare provider work,
 ensures the selected or newly created Worker, writes `vaultCloudflareWorkers`, then marks the run
 complete.
 
 Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
-run is active or failed, dashboard state is derived from `operations_vaultProvisioningWriteLocks`
+run is active or failed, dashboard state is derived from `workflow_vaultProvisioning_writeLocks`
 plus the run events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable
 resource identity.
 

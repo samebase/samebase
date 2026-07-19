@@ -477,8 +477,7 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
 - [ ] after commit now, the file should already have a new staging
 - [ ] add more descriptive commit names
 - [ ] update the tree from time to time?
-- [ ] **IMPORTANT, make fewer writes to operations_collaborativeFileUpdates, takes lots of
-      resources**
+- [ ] **IMPORTANT, make fewer writes to vaultStagedFileUpdates, takes lots of resources**
 - [ ] **BUG: If a GitHub repository is renamed, the vault UI still shows the old name. It also
       appears in search with the old name, which is confusing. Need to detect repo renames and
       update vault metadata accordingly.**

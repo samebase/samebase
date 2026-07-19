@@ -25,7 +25,7 @@ async function createConnectedVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/refresh-me",
@@ -63,8 +63,8 @@ async function createConnectedVault() {
 
 async function getRefreshRequest(
   t: ConvexTest,
-  requestId: Id<"operations_vaultRepositoryRefreshRequests">,
-): Promise<Doc<"operations_vaultRepositoryRefreshRequests">> {
+  requestId: Id<"vaultRepositoryRefreshRequests">,
+): Promise<Doc<"vaultRepositoryRefreshRequests">> {
   const request = await t.run(async (ctx) => {
     return await ctx.db.get(requestId);
   });
@@ -76,7 +76,7 @@ async function getRefreshRequest(
 
 async function listRefreshRequests(t: ConvexTest) {
   return await t.run(async (ctx) => {
-    return await ctx.db.query("operations_vaultRepositoryRefreshRequests").collect();
+    return await ctx.db.query("vaultRepositoryRefreshRequests").collect();
   });
 }
 
@@ -97,7 +97,7 @@ async function insertConnectedVaultForUser(
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
       vaultId,
       repositoryFullName: args.repositoryFullName,
@@ -149,7 +149,7 @@ async function createNotConnectedVault() {
 
 async function readSingleRefreshRequest(
   t: ConvexTest,
-): Promise<Doc<"operations_vaultRepositoryRefreshRequests">> {
+): Promise<Doc<"vaultRepositoryRefreshRequests">> {
   const requests = await listRefreshRequests(t);
   expect(requests).toHaveLength(1);
   return requests[0];
@@ -163,7 +163,7 @@ async function insertScheduledRepositoryRefreshRequest(
     demand?: RepositoryRefreshDemand;
     workpoolJobId?: string;
   },
-): Promise<Id<"operations_vaultRepositoryRefreshRequests">> {
+): Promise<Id<"vaultRepositoryRefreshRequests">> {
   return await t.run(async (ctx) => {
     const queued = makeRepositoryRefreshRequest({
       userId: args.userId,
@@ -180,7 +180,7 @@ async function insertScheduledRepositoryRefreshRequest(
       now: 101,
       workpoolJobId: args.workpoolJobId ?? "job-1",
     });
-    return await ctx.db.insert("operations_vaultRepositoryRefreshRequests", scheduled);
+    return await ctx.db.insert("vaultRepositoryRefreshRequests", scheduled);
   });
 }
 
@@ -330,7 +330,7 @@ describe("repository refresh demand ingest", () => {
     const { asUser, ids, t } = await createConnectedVault();
     const requestId = await t.run(async (ctx) => {
       return await ctx.db.insert(
-        "operations_vaultRepositoryRefreshRequests",
+        "vaultRepositoryRefreshRequests",
         makeRepositoryRefreshRequest({
           userId: ids.userId,
           vaultId: ids.vaultId,
@@ -656,7 +656,7 @@ describe("repository refresh demand ingest", () => {
     });
     const events = await t.run(async (ctx) => {
       return await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
     });
@@ -700,7 +700,7 @@ describe("repository refresh demand ingest", () => {
   it("rejects existing repository completion before the vault is connected", async () => {
     const { ids, t } = await createNotConnectedVault();
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("operations_vaultProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/refresh-me",
@@ -732,7 +732,7 @@ describe("repository refresh demand ingest", () => {
   it("accepts create source setup demand from the provisioning run", async () => {
     const { ids, t } = await createConnectedVault();
     const createRunId = await t.run(async (ctx) => {
-      return await ctx.db.insert("operations_vaultProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/refresh-me",
@@ -775,7 +775,7 @@ describe("repository refresh demand ingest", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      return await ctx.db.insert("operations_vaultProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: otherVaultId,
         repositoryFullName: "ada/other",
@@ -819,7 +819,7 @@ describe("repository refresh demand ingest", () => {
   it("rejects source setup demand for retry runs", async () => {
     const { ids, t } = await createConnectedVault();
     const retryRunId = await t.run(async (ctx) => {
-      return await ctx.db.insert("operations_vaultProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/refresh-me",

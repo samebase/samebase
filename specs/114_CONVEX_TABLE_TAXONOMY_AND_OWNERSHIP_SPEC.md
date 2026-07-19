@@ -14,27 +14,39 @@ behavior, UI behavior, authorization, deletion behavior, or recovery behavior.
 
 ## Table Name Taxonomy
 
-Durable product facts keep normal names. Supporting tables use one visible prefix:
+Concrete product, protocol, authorization, synchronization, and work-queue tables keep normal plural
+names. A table is not put into a generic bucket merely because its rows are temporary or mutable.
 
-- `operations_`: live processes, protocol state, leases, credentials, queues, or unsaved work that
-  current behavior reads or mutates
-- `observations_`: captured external state, including provider snapshots and caches
-- `audit_`: append-only history that production behavior never reads to authorize or decide an
-  operation
-- `ui_`: persisted presentation preferences or layout
-- `derived_`: fully recomputable local projections with no irreplaceable source material
+Only these storage categories use a visible prefix:
 
-An events table is `audit_` only when live behavior never depends on it. Mutable progress events
-used by a workflow or UI remain `operations_`.
+- `workflow_`: state whose sole reason to exist is executing, recovering, or inspecting one named
+  multi-step workflow
+- `observations_`: captured provider or remote-system facts
+- `derived_`: projections that can be rebuilt completely from other local rows
+- `audit_`: append-only occurrences that production behavior never reads to authorize, decide,
+  recover, or render live state
+- `ui_`: persisted presentation settings, filters, expansions, or layouts
 
-No current table qualifies for `derived_`. Convex schema snapshots retain raw provider state, and
-Git blobs cache provider content, so both are observations.
+`operations_` is not a category because it catches unrelated protocol state, credentials, queues,
+leases, synchronization rows, and workflows. `data_` is not a category because it makes primary
+product facts look like another interchangeable storage class.
+
+An events table is `audit_` only when removing all of its rows would not change current production
+behavior. Provisioning, vault-deletion, and account-deletion events remain `workflow_` because live
+behavior reads them. GitHub commit-check summaries are `derived_` because they are computed entirely
+from the observed per-check rows. Convex schema snapshots and Git blobs remain observations because
+they retain provider material that cannot be rebuilt from other local tables.
 
 ## Table Naming Rules
 
-After its lifecycle prefix, a supporting table name starts with its domain and ends with the thing
-one row represents. Generic lifecycle nouns come from the closed vocabulary in
-`docs/data-modeling-vocabulary.md`. A new generic noun must be defined there in the same change.
+A prefixed name has the grammar `<category>_<subject>_<rowKind>`. Underscores mark those semantic
+boundaries; camelCase joins multiple words inside one level. For example,
+`workflow_vaultDeletion_events` is a workflow table, belongs to vault deletion, and contains event
+rows. Keeping the subject before the row kind makes one feature's tables remain adjacent.
+
+Unprefixed tables use one concrete plural camelCase name. Generic lifecycle nouns come from the
+closed vocabulary in `docs/data-modeling-vocabulary.md`. A new generic noun must be defined there in
+the same change.
 
 Use concrete nouns instead of relational placeholders. In particular, persisted rows are not named
 `target`, `ownership`, `claim`, `handoff`, `item`, `record`, `data`, `history`, or bare `state`.
@@ -46,7 +58,7 @@ actual command, service, provider, or user action. It expands domain-specific te
 repeating them. For example, a provisioning-plan comment says which choices it preserves and why
 retries read them; "provisioning state" is not a definition.
 
-### Normal durable tables
+### Unprefixed tables
 
 ```text
 authSessions
@@ -56,76 +68,81 @@ authVerificationCodes
 authVerifiers
 authRateLimits
 users
+agentActionLeases
 providerConnections
+providerOAuthCallbackStates
 connectedMachines
+machineRegistrationRequests
+machineRegistrationRateLimits
+machineCredentials
+machineControlTokens
 vaults
 vaultApps
 vaultCloudflareWorkers
 vaultConvexDeployments
 vaultDomains
+vaultRepositoryRefreshRequests
+vaultStagedFiles
+vaultStagedFileUpdates
 codespaces
-agentThreadContext
-chatMessageMetadata
+chatThreadContexts
+chatMessagePayloads
+aiProductionReadRequests
 mcpOauthClients
+mcpAuthorizationRequests
+mcpAuthorizationCodes
 mcpGrants
+mcpAccessTokens
+mcpRefreshTokens
+mcpBrowserLoginTokens
 ```
 
-### Operational tables
+### Workflow tables
 
 ```text
-operations_accountDeletionRuns
-operations_accountDeletionEvents
-operations_agentActionLeases
-operations_machineRegistrationRequests
-operations_machineRegistrationBootstrapRateLimits
-operations_machineCredentials
-operations_machineControlTokens
-operations_providerOauthCallbackStates
-operations_vaultRepositoryRefreshRequests
-operations_vaultProvisioningPlans
-operations_vaultProvisioningWriteLocks
-operations_vaultProvisioningRuns
-operations_vaultProvisioningEvents
-operations_vaultDeletionRuns
-operations_vaultDeletionEvents
-operations_fileStaging
-operations_collaborativeFileUpdates
-operations_aiProductionReadRequests
-operations_mcpAuthorizationRequests
-operations_mcpAuthorizationCodes
-operations_mcpAccessTokens
-operations_mcpRefreshTokens
-operations_mcpBrowserLoginTokens
+workflow_accountDeletion_runs
+workflow_accountDeletion_events
+workflow_vaultProvisioning_plans
+workflow_vaultProvisioning_writeLocks
+workflow_vaultProvisioning_runs
+workflow_vaultProvisioning_events
+workflow_vaultDeletion_runs
+workflow_vaultDeletion_events
 ```
 
 ### Observation tables
 
 ```text
-observations_vaultRemoteBranches
-observations_vaultCommitCheckSnapshots
-observations_vaultCommitChecks
-observations_vaultBranchTrees
-observations_vaultConvexSchemaSnapshots
-observations_vaultFileBlobs
+observations_vaultRepository_branches
+observations_githubCommit_checks
+observations_vaultRepository_branchTrees
+observations_vaultConvexSchema_snapshots
+observations_vaultFiles_blobs
+```
+
+### Derived tables
+
+```text
+derived_githubCommit_checkSummaries
 ```
 
 ### UI tables
 
 ```text
-ui_dashboardSettings
-ui_workspaceSidebarState
-ui_vaultBranchFilters
-ui_vaultResourceLinksState
-ui_vaultConvexSchemaGraphLayouts
-ui_folderExpansionState
-ui_agentGraphNodeLayout
+ui_user_settings
+ui_workspaceSidebar_layouts
+ui_vaultBranches_filters
+ui_vaultResourceLinks_settings
+ui_vaultConvexSchemaGraph_nodeLayouts
+ui_vaultFileTree_folderExpansions
+ui_agentGraphNode_layouts
 ```
 
 ### Audit tables
 
 ```text
-audit_aiProductionReadEvents
-audit_mcpAccessEvents
+audit_aiProductionRead_events
+audit_mcpAccess_events
 ```
 
 ## Feature Ownership
@@ -145,15 +162,15 @@ userPreferenceTables
 vaultDashboardTables
 vaultTables
 vaultBranchTables
-commitCheckTables
-convexSchemaGraphTables
-repositoryRefreshTables
-appProvisioningTables
+githubCommitCheckTables
+vaultConvexSchemaGraphTables
+vaultRepositoryRefreshTables
+vaultProvisioningTables
 vaultDeletionTables
 codespacesTables
-editorTables
+vaultEditorTables
 chatTables
-prodAccessTables
+aiProductionReadTables
 mcpTables
 ```
 
@@ -167,7 +184,7 @@ Each table object shows complete row fields and indexes at the ownership site:
 
 ```ts
 export const userPreferenceTables = {
-  ui_dashboardSettings: defineTable({
+  ui_user_settings: defineTable({
     userId: id("users"),
     accountPanelOpen: optional(boolean()),
     providersPanelOpen: boolean(),
@@ -188,7 +205,7 @@ and silently diverging from it.
 Types derived from a table use its validator as the single source of truth:
 
 ```ts
-export type DashboardSettings = Infer<typeof userPreferenceTables.ui_dashboardSettings.validator>;
+export type DashboardSettings = Infer<typeof userPreferenceTables.ui_user_settings.validator>;
 ```
 
 Feature model files imported by the root schema must not import `_generated/dataModel`, because the
@@ -212,14 +229,13 @@ new schema leaves those tables undeclared, and they can be deleted after the new
 Deleting them before deployment is unnecessary and does not repair references stored in durable
 tables.
 
-Two durable row shapes can block this deployment because they store IDs for renamed operation
-tables:
+Two durable row shapes can block this deployment because they store IDs for renamed workflow tables:
 
 - `vaults.runId` points to the old `appProvisioningRuns` table.
 - `users.accountDeletion.runId` points to the old `accountDeletionRuns` table.
 
 Before the production schema dry run, `vaults` must be empty and no `users` row may contain an
-`accountDeletion` marker. Finish the corresponding workflow instead of deleting only its operation
+`accountDeletion` marker. Finish the corresponding workflow instead of deleting only its workflow
 run, because the durable row is the schema blocker.
 
 ### Operator checklist
@@ -228,13 +244,10 @@ Perform these steps in order:
 
 1. Stop starting vault creation or deletion, account deletion, provider connection, MCP
    authorization, editor sync, and machine-link operations until the new schema is live.
-2. Export a production snapshot, including file storage. Follow
-   [`docs/convex-production-reads.md`](../docs/convex-production-reads.md) so the command cannot
-   accidentally select a worktree deployment, then run:
-
-   ```bash
-   npx convex export --prod --include-file-storage --path convex-production-pre-table-taxonomy.zip
-   ```
+2. In the production deployment's Convex Dashboard, open Backup & Restore, create a manual backup
+   with file storage included, and wait for it to finish. Dashboard backups stay outside the
+   repository and can be restored directly. See the
+   [Convex Backup & Restore documentation](https://docs.convex.dev/database/backup-restore).
 
 3. Finish or resolve every active vault deletion and account deletion. An account deletion in
    `needs_attention` must be retried from `/admin/account-deletions` until the workflow completes
@@ -243,12 +256,29 @@ Perform these steps in order:
 5. Verify that no relevant Workflow, Workpool, or scheduled function is still running. Waiting jobs
    must complete or be cancelled before deployment so old code cannot recreate reset data during the
    cutover.
-6. From `apps/samebase`, using the production environment selection from
-   [`docs/convex-production-reads.md`](../docs/convex-production-reads.md), require a successful
-   schema dry run:
+6. From this candidate branch's `apps/samebase` directory, derive only the production deployment
+   name from the primary checkout, clear `CONVEX_DEPLOY_KEY`, and require a successful schema dry
+   run. Running this from the primary checkout would test `main`, not the candidate schema.
 
    ```bash
-   npx convex deploy --dry-run --yes --typecheck disable --codegen disable
+   primary_checkout="$(
+     git worktree list --porcelain |
+       awk '$1 == "worktree" { worktree=$2 } $1 == "branch" && $2 == "refs/heads/main" { print worktree; exit }'
+   )"
+   production_deployment="$(
+     node -e '
+       const fs = require("node:fs");
+       const line = fs
+         .readFileSync(process.argv[1], "utf8")
+         .split(/\n/)
+         .find((entry) => entry.trimStart().startsWith("CONVEX_DEPLOYMENT="));
+       if (!line) process.exit(2);
+       const value = line.split("=").slice(1).join("=");
+       console.log(value.replace(/\s+#.*$/, "").trim().replace(/^[\x27\x22]|[\x27\x22]$/g, ""));
+     ' "$primary_checkout/apps/samebase/.env.local"
+   )"
+   CONVEX_DEPLOYMENT="$production_deployment" CONVEX_DEPLOY_KEY= \
+     npx convex deploy --dry-run --yes --typecheck disable --codegen disable
    ```
 
    Repository type checking and tests remain separate required CI checks. `--typecheck disable`
@@ -257,61 +287,68 @@ Perform these steps in order:
 7. Merge and deploy the PR. Do not perform writes from an older application deployment during the
    cutover.
 8. Confirm that the application loads and the newly named tables exist.
-9. Delete the old tables listed below from the Convex dashboard. Keep the production export until
+9. Delete the old tables listed below from the Convex dashboard. Keep the production backup until
    the reset has been verified.
-10. Reconnect or recreate reset state as needed, then test vault creation and deletion, machine
-    sync, MCP authorization, and provider connection flows.
+10. Recreate reset preferences or pending work only when needed, then test vault creation and
+    deletion, machine sync, MCP authorization, and provider connection flows.
 
 ### Renamed tables to delete after deployment
 
 Delete the old name only after the new schema is live. The right column identifies the new table
 that receives future writes.
 
-| Old table                                | New table                                           |
-| ---------------------------------------- | --------------------------------------------------- |
-| `accountDeletionRuns`                    | `operations_accountDeletionRuns`                    |
-| `accountDeletionEvents`                  | `operations_accountDeletionEvents`                  |
-| `agentActionLeases`                      | `operations_agentActionLeases`                      |
-| `agentBrowserHandoffs`                   | `operations_mcpBrowserLoginTokens`                  |
-| `agentGraphNodeLayout`                   | `ui_agentGraphNodeLayout`                           |
-| `machineRegistrationRequests`            | `operations_machineRegistrationRequests`            |
-| `machineRegistrationBootstrapRateLimits` | `operations_machineRegistrationBootstrapRateLimits` |
-| `machineCredentials`                     | `operations_machineCredentials`                     |
-| `machineControlTokens`                   | `operations_machineControlTokens`                   |
-| `dashboardSettings`                      | `ui_dashboardSettings`                              |
-| `workspaceSidebarState`                  | `ui_workspaceSidebarState`                          |
-| `vaultBranchFilters`                     | `ui_vaultBranchFilters`                             |
-| `vaultResourceLinksState`                | `ui_vaultResourceLinksState`                        |
-| `vaultConvexSchemaSnapshots`             | `observations_vaultConvexSchemaSnapshots`           |
-| `vaultConvexSchemaGraphLayouts`          | `ui_vaultConvexSchemaGraphLayouts`                  |
-| `vaultRemoteBranches`                    | `observations_vaultRemoteBranches`                  |
-| `githubCommitCheckSnapshots`             | `observations_vaultCommitCheckSnapshots`            |
-| `githubCommitCheckItems`                 | `observations_vaultCommitChecks`                    |
-| `vaultBranchTrees`                       | `observations_vaultBranchTrees`                     |
-| `repositoryRefreshRequests`              | `operations_vaultRepositoryRefreshRequests`         |
-| `vaultInfrastructureTargets`             | `operations_vaultProvisioningPlans`                 |
-| `vaultInfrastructureOwnership`           | `operations_vaultProvisioningWriteLocks`            |
-| `appProvisioningRuns`                    | `operations_vaultProvisioningRuns`                  |
-| `appProvisioningEvents`                  | `operations_vaultProvisioningEvents`                |
-| `vaultDeletionRuns`                      | `operations_vaultDeletionRuns`                      |
-| `vaultDeletionEvents`                    | `operations_vaultDeletionEvents`                    |
-| `fileStaging`                            | `operations_fileStaging`                            |
-| `blobs`                                  | `observations_vaultFileBlobs`                       |
-| `folderExpansionState`                   | `ui_folderExpansionState`                           |
-| `collaborativeUpdates`                   | `operations_collaborativeFileUpdates`               |
-| `oauthStates`                            | `operations_providerOauthCallbackStates`            |
-| `aiProdAccessRequests`                   | `operations_aiProductionReadRequests`               |
-| `aiProdAccessAudit`                      | `audit_aiProductionReadEvents`                      |
-| `mcpAuthRequests`                        | `operations_mcpAuthorizationRequests`               |
-| `mcpAuthorizationCodes`                  | `operations_mcpAuthorizationCodes`                  |
-| `mcpAccessTokens`                        | `operations_mcpAccessTokens`                        |
-| `mcpRefreshTokens`                       | `operations_mcpRefreshTokens`                       |
-| `mcpAccessAudit`                         | `audit_mcpAccessEvents`                             |
+Deleting every vault removes the renamed vault-local rows, but it does not empty every renamed
+table. Before deployment, expect these old tables may still contain rows: `accountDeletionRuns`,
+`accountDeletionEvents`, `agentBrowserHandoffs`, `machineRegistrationBootstrapRateLimits`,
+`dashboardSettings`, `workspaceSidebarState`, `githubCommitCheckSnapshots`,
+`githubCommitCheckItems`, `vaultDeletionRuns`, `vaultDeletionEvents`, `oauthStates`,
+`aiProdAccessRequests`, `aiProdAccessAudit`, `mcpAuthRequests`, `mcpAccessAudit`,
+`agentThreadContext`, and `chatMessageMetadata`. They do not need an in-place migration under this
+one-user reset, but their contents remain available only in the backup after the old tables are
+deleted.
+
+| Old table                                | New table                                  |
+| ---------------------------------------- | ------------------------------------------ |
+| `accountDeletionRuns`                    | `workflow_accountDeletion_runs`            |
+| `accountDeletionEvents`                  | `workflow_accountDeletion_events`          |
+| `agentBrowserHandoffs`                   | `mcpBrowserLoginTokens`                    |
+| `agentGraphNodeLayout`                   | `ui_agentGraphNode_layouts`                |
+| `machineRegistrationBootstrapRateLimits` | `machineRegistrationRateLimits`            |
+| `dashboardSettings`                      | `ui_user_settings`                         |
+| `workspaceSidebarState`                  | `ui_workspaceSidebar_layouts`              |
+| `vaultBranchFilters`                     | `ui_vaultBranches_filters`                 |
+| `vaultResourceLinksState`                | `ui_vaultResourceLinks_settings`           |
+| `vaultConvexSchemaSnapshots`             | `observations_vaultConvexSchema_snapshots` |
+| `vaultConvexSchemaGraphLayouts`          | `ui_vaultConvexSchemaGraph_nodeLayouts`    |
+| `vaultRemoteBranches`                    | `observations_vaultRepository_branches`    |
+| `githubCommitCheckSnapshots`             | `derived_githubCommit_checkSummaries`      |
+| `githubCommitCheckItems`                 | `observations_githubCommit_checks`         |
+| `vaultBranchTrees`                       | `observations_vaultRepository_branchTrees` |
+| `repositoryRefreshRequests`              | `vaultRepositoryRefreshRequests`           |
+| `vaultInfrastructureTargets`             | `workflow_vaultProvisioning_plans`         |
+| `vaultInfrastructureOwnership`           | `workflow_vaultProvisioning_writeLocks`    |
+| `appProvisioningRuns`                    | `workflow_vaultProvisioning_runs`          |
+| `appProvisioningEvents`                  | `workflow_vaultProvisioning_events`        |
+| `vaultDeletionRuns`                      | `workflow_vaultDeletion_runs`              |
+| `vaultDeletionEvents`                    | `workflow_vaultDeletion_events`            |
+| `fileStaging`                            | `vaultStagedFiles`                         |
+| `blobs`                                  | `observations_vaultFiles_blobs`            |
+| `folderExpansionState`                   | `ui_vaultFileTree_folderExpansions`        |
+| `collaborativeUpdates`                   | `vaultStagedFileUpdates`                   |
+| `oauthStates`                            | `providerOAuthCallbackStates`              |
+| `aiProdAccessRequests`                   | `aiProductionReadRequests`                 |
+| `aiProdAccessAudit`                      | `audit_aiProductionRead_events`            |
+| `mcpAuthRequests`                        | `mcpAuthorizationRequests`                 |
+| `mcpAccessAudit`                         | `audit_mcpAccess_events`                   |
+| `agentThreadContext`                     | `chatThreadContexts`                       |
+| `chatMessageMetadata`                    | `chatMessagePayloads`                      |
 
 The reset has these expected operator-visible effects:
 
-- Connected-machine credentials and control tokens are cleared. Run `samebase-sync connect` again.
-- MCP access and refresh tokens are cleared. Reauthorize MCP clients.
+- Existing connected-machine credentials and control tokens keep working because those table names
+  do not change. Only the unauthenticated registration rate-limit counters reset.
+- Existing MCP clients, grants, authorization codes, access tokens, and refresh tokens keep working
+  because those table names do not change. Pending browser approvals and audit events reset.
 - Pending provider OAuth callbacks cannot finish. Restart those connection flows.
 - Dashboard, workspace sidebar, branch filter, folder expansion, resource-link, and graph-layout
   preferences return to defaults.
@@ -319,12 +356,12 @@ The reset has these expected operator-visible effects:
   rebuild when their owning feature runs again.
 - Pending provisioning, deletion, repository refresh, collaborative update, and staged-file work is
   discarded.
+- Dormant chat thread context and message payload rows remain available only in the backup.
 - Old account-deletion receipts, MCP access events, and AI production-read events remain available
-  only in the production export.
+  only in the production backup.
 
 Durable `providerConnections`, `connectedMachines`, `mcpOauthClients`, and `mcpGrants` keep their
-rows. Resetting their associated operation or token tables does not delete the provider-side
-resources they represent.
+rows. The rename does not delete the provider-side resources they represent.
 
 ### Post-deployment verification
 
@@ -333,8 +370,8 @@ The reset is complete when:
 - the production schema contains the new table names and none of the old table names
 - the app loads without schema-validation or scheduled-function failures
 - a new vault can be created and deleted
-- machine sync works after reconnecting
-- an MCP client can authorize and use a refreshed token
+- machine sync still works with the existing credential
+- an MCP client can still authorize a request with its existing token
 - a provider connection can complete a fresh OAuth flow
 
 The implementation stopping rule is strict:

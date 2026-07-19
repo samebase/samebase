@@ -169,8 +169,8 @@ export const INITIAL_ACCOUNT_DELETION_DATA_PROGRESS = {
 } as const satisfies AccountDeletionDataProgress;
 
 export const accountDeletionTables = {
-  /** Active account deletion operations and scrubbed completion receipts. */
-  operations_accountDeletionRuns: defineTable(
+  /** Account-deletion runs that are active or retained as scrubbed completion receipts. */
+  workflow_accountDeletion_runs: defineTable(
     union(
       object({
         state: literal("queued"),
@@ -257,8 +257,8 @@ export const accountDeletionTables = {
     .index("by_updated_at", ["updatedAt"]),
 
   /** Ordered identity-free progress messages for one account-deletion run. */
-  operations_accountDeletionEvents: defineTable({
-    runId: id("operations_accountDeletionRuns"),
+  workflow_accountDeletion_events: defineTable({
+    runId: id("workflow_accountDeletion_runs"),
     step: vAccountDeletionStep,
     level: vAccountDeletionEventLevel,
     message: string(),

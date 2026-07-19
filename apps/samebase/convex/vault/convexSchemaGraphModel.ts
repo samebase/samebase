@@ -56,9 +56,12 @@ export const vConvexSchemaGraph = object({
 });
 export type ConvexSchemaGraph = Infer<typeof vConvexSchemaGraph>;
 
-export const convexSchemaGraphTables = {
-  /** Fetched Convex schemas normalized into table graph data. */
-  observations_vaultConvexSchemaSnapshots: defineTable({
+export const vaultConvexSchemaGraphTables = {
+  /**
+   * One fetched Convex deployment schema, including raw provider responses and
+   * the normalized graph rendered by the vault dashboard.
+   */
+  observations_vaultConvexSchema_snapshots: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     deploymentId: id("vaultConvexDeployments"),
@@ -75,7 +78,7 @@ export const convexSchemaGraphTables = {
     .index("by_deployment_and_fetched_at", ["deploymentId", "fetchedAt"]),
 
   /** Per-user node positions kept separate from refreshed schema snapshots. */
-  ui_vaultConvexSchemaGraphLayouts: defineTable({
+  ui_vaultConvexSchemaGraph_nodeLayouts: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     deploymentId: id("vaultConvexDeployments"),

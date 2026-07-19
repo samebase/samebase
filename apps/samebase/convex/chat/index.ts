@@ -64,7 +64,7 @@ export const createThread = mutation({
       assertConnectedVault(vault);
 
       const existing = await ctx.db
-        .query("agentThreadContext")
+        .query("chatThreadContexts")
         .withIndex("by_userId_and_vaultId", (q) =>
           q.eq("userId", userId).eq("vaultId", args.vaultId),
         )
@@ -83,7 +83,7 @@ export const createThread = mutation({
       userId,
     });
 
-    await ctx.db.insert("agentThreadContext", {
+    await ctx.db.insert("chatThreadContexts", {
       threadId: thread._id,
       userId,
       vaultId: args.vaultId,
@@ -111,7 +111,7 @@ export const getThreadForVault = query({
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
     const thread = await ctx.db
-      .query("agentThreadContext")
+      .query("chatThreadContexts")
       .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     if (!thread) return null;
@@ -166,7 +166,7 @@ export const deleteThread = mutation({
     });
 
     const metadata = await ctx.db
-      .query("chatMessageMetadata")
+      .query("chatMessagePayloads")
       .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .collect();
     for (const row of metadata) {
@@ -283,7 +283,7 @@ export const listThreadMessages = query({
     const metadataByMessageId = new Map<string, MessageMetadata>();
     for (const msg of paginated.page) {
       const row = await ctx.db
-        .query("chatMessageMetadata")
+        .query("chatMessagePayloads")
         .withIndex("by_messageId", (q) => q.eq("messageId", msg._id))
         .first();
       if (!row) continue;
@@ -329,7 +329,7 @@ export const proposeProdRead = mutation({
     allowRawFallback: optional(boolean()),
   },
   returns: object({
-    requestId: id("operations_aiProductionReadRequests"),
+    requestId: id("aiProductionReadRequests"),
   }),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
@@ -344,7 +344,7 @@ export const proposeProdRead = mutation({
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
     const now = Date.now();
-    const requestId = await ctx.db.insert("operations_aiProductionReadRequests", {
+    const requestId = await ctx.db.insert("aiProductionReadRequests", {
       threadId: args.threadId,
       requesterUserId: userId,
       vaultId: args.vaultId,
@@ -362,7 +362,7 @@ export const proposeProdRead = mutation({
       error: undefined,
     });
 
-    await ctx.db.insert("audit_aiProductionReadEvents", {
+    await ctx.db.insert("audit_aiProductionRead_events", {
       requestId,
       actorUserId: userId,
       action: "proposed",
@@ -392,7 +392,7 @@ export const proposeProdReadInternal = internalMutation({
     allowRawFallback: optional(boolean()),
   },
   returns: object({
-    requestId: id("operations_aiProductionReadRequests"),
+    requestId: id("aiProductionReadRequests"),
   }),
   handler: async (ctx, args) => {
     const thread = await getThreadById(ctx, args.threadId);
@@ -406,7 +406,7 @@ export const proposeProdReadInternal = internalMutation({
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
     const now = Date.now();
-    const requestId = await ctx.db.insert("operations_aiProductionReadRequests", {
+    const requestId = await ctx.db.insert("aiProductionReadRequests", {
       threadId: args.threadId,
       requesterUserId: args.requesterUserId,
       vaultId: args.vaultId,
@@ -424,7 +424,7 @@ export const proposeProdReadInternal = internalMutation({
       error: undefined,
     });
 
-    await ctx.db.insert("audit_aiProductionReadEvents", {
+    await ctx.db.insert("audit_aiProductionRead_events", {
       requestId,
       actorUserId: args.requesterUserId,
       action: "proposed",
@@ -444,7 +444,7 @@ export const proposeProdReadInternal = internalMutation({
 export const rejectProdRead = mutation({
   access: "access_admin",
   args: {
-    requestId: id("operations_aiProductionReadRequests"),
+    requestId: id("aiProductionReadRequests"),
     threadId: string(),
     messageId: string(),
   },
@@ -468,7 +468,7 @@ export const rejectProdRead = mutation({
       error: "Rejected by user",
     });
 
-    await ctx.db.insert("audit_aiProductionReadEvents", {
+    await ctx.db.insert("audit_aiProductionRead_events", {
       requestId: args.requestId,
       actorUserId: userId,
       action: "rejected",
@@ -494,7 +494,7 @@ export const rejectProdRead = mutation({
 export const confirmProdRead = mutation({
   access: "access_admin",
   args: {
-    requestId: id("operations_aiProductionReadRequests"),
+    requestId: id("aiProductionReadRequests"),
     threadId: string(),
     messageId: string(),
   },
@@ -524,7 +524,7 @@ export const confirmProdRead = mutation({
         error: "Request approval expired",
       });
 
-      await ctx.db.insert("audit_aiProductionReadEvents", {
+      await ctx.db.insert("audit_aiProductionRead_events", {
         requestId: args.requestId,
         actorUserId: userId,
         action: "expired",
@@ -552,7 +552,7 @@ export const confirmProdRead = mutation({
       error: undefined,
     });
 
-    await ctx.db.insert("audit_aiProductionReadEvents", {
+    await ctx.db.insert("audit_aiProductionRead_events", {
       requestId: args.requestId,
       actorUserId: userId,
       action: "approved",
@@ -650,7 +650,7 @@ export const claimCommitProposalExecutionInternal = internalMutation({
   returns: claimCommitProposalResultValidator,
   handler: async (ctx, args) => {
     const row = await ctx.db
-      .query("chatMessageMetadata")
+      .query("chatMessagePayloads")
       .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
       .first();
     if (!row || row.threadId !== args.threadId) {
@@ -679,11 +679,11 @@ export const claimCommitProposalExecutionInternal = internalMutation({
 
 export const getProdAccessRequestInternal = internalQuery({
   args: {
-    requestId: id("operations_aiProductionReadRequests"),
+    requestId: id("aiProductionReadRequests"),
   },
   returns: union(
     object({
-      _id: id("operations_aiProductionReadRequests"),
+      _id: id("aiProductionReadRequests"),
       _creationTime: number(),
       threadId: string(),
       requesterUserId: id("users"),
@@ -710,7 +710,7 @@ export const getProdAccessRequestInternal = internalQuery({
 
 export const setProdAccessRequestStatusInternal = internalMutation({
   args: {
-    requestId: id("operations_aiProductionReadRequests"),
+    requestId: id("aiProductionReadRequests"),
     status: vProdAccessStatus,
     error: optional(string()),
     approvedBy: optional(id("users")),
@@ -745,7 +745,7 @@ export const setProdAccessRequestStatusInternal = internalMutation({
 
 export const addProdAccessAuditInternal = internalMutation({
   args: {
-    requestId: id("operations_aiProductionReadRequests"),
+    requestId: id("aiProductionReadRequests"),
     actorUserId: id("users"),
     action: vProdAccessAuditAction,
     toolName: string(),
@@ -757,7 +757,7 @@ export const addProdAccessAuditInternal = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    await ctx.db.insert("audit_aiProductionReadEvents", {
+    await ctx.db.insert("audit_aiProductionRead_events", {
       requestId: args.requestId,
       actorUserId: args.actorUserId,
       action: args.action,
@@ -783,7 +783,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     const row = await ctx.db
-      .query("chatMessageMetadata")
+      .query("chatMessagePayloads")
       .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
       .first();
     if (!row) return null;
@@ -816,7 +816,7 @@ export const saveMessageMetadataInternal = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     const context = await ctx.db
-      .query("agentThreadContext")
+      .query("chatThreadContexts")
       .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .unique();
 
@@ -824,7 +824,7 @@ export const saveMessageMetadataInternal = internalMutation({
       throw new Error("Agent thread context not found.");
     }
 
-    await ctx.db.insert("chatMessageMetadata", {
+    await ctx.db.insert("chatMessagePayloads", {
       messageId: args.messageId,
       threadId: args.threadId,
       type: args.type,
@@ -901,7 +901,7 @@ export const updateProdReadProposalMessageStatusInternal = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     const row = await ctx.db
-      .query("chatMessageMetadata")
+      .query("chatMessagePayloads")
       .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
       .first();
     if (!row) return null;

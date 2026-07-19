@@ -57,7 +57,7 @@ The branch filter UI is inclusive:
 
 ## Persistence Model
 
-Saved filters are scoped by `(userId, vaultId)` in `ui_vaultBranchFilters`.
+Saved filters are scoped by `(userId, vaultId)` in `ui_vaultBranches_filters`.
 
 Stored fields:
 

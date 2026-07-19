@@ -69,9 +69,10 @@ The move touches roughly:
 - 32 non-vault files outside the moved cluster
 
 No data migration is required. Convex function references are file-path based, but table names are
-schema names. The existing tables stay named `vaults`, `observations_vaultRemoteBranches`,
-`observations_vaultBranchTrees`, `vaultInfrastructure`, `operations_vaultProvisioningWriteLocks`,
-`operations_vaultDeletionRuns`, `operations_vaultDeletionEvents`, and `vaultDomains`.
+schema names. The existing tables stay named `vaults`, `observations_vaultRepository_branches`,
+`observations_vaultRepository_branchTrees`, `vaultInfrastructure`,
+`workflow_vaultProvisioning_writeLocks`, `workflow_vaultDeletion_runs`,
+`workflow_vaultDeletion_events`, and `vaultDomains`.
 
 ## Accepted Module Shape
 

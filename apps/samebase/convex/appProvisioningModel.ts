@@ -70,7 +70,7 @@ export const vAppProvisioningRunState = union(
 );
 export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
 
-export const appProvisioningTables = {
+export const vaultProvisioningTables = {
   /**
    * The app root and exact Convex project and Cloudflare Worker choices for one
    * vault. Retries read this row so every attempt uses the same provider names
@@ -78,7 +78,7 @@ export const appProvisioningTables = {
    * earlier provider-creation checkpoints; current connected resources live in
    * the durable vault resource tables.
    */
-  operations_vaultProvisioningPlans: defineTable({
+  workflow_vaultProvisioning_plans: defineTable({
     vaultId: id("vaults"),
     appRoot: string(),
     convex: union(
@@ -117,9 +117,9 @@ export const appProvisioningTables = {
    * Convex or Cloudflare resources. The row remains after completion so delayed
    * work from older runs cannot write.
    */
-  operations_vaultProvisioningWriteLocks: defineTable({
+  workflow_vaultProvisioning_writeLocks: defineTable({
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     state: union(literal("active"), literal("succeeded"), literal("failed")),
     updatedAt: number(),
   })
@@ -131,7 +131,7 @@ export const appProvisioningTables = {
    * One attempt to create, connect, retry, or repair a vault and its provider
    * resources, including background-workflow progress and outcome.
    */
-  operations_vaultProvisioningRuns: defineTable({
+  workflow_vaultProvisioning_runs: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
@@ -158,11 +158,11 @@ export const appProvisioningTables = {
     .index("by_workflow_id", ["workflowId"]),
 
   /** Ordered user-visible progress messages for one vault provisioning run. */
-  operations_vaultProvisioningEvents: defineTable({
+  workflow_vaultProvisioning_events: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningStep,
     level: vAppProvisioningEventLevel,
     message: string(),

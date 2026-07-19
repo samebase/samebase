@@ -92,11 +92,11 @@ describe("agent browser handoff lifecycle", () => {
 
     const snapshot = await t.run(async (ctx) => {
       const handoff = await ctx.db
-        .query("operations_mcpBrowserLoginTokens")
+        .query("mcpBrowserLoginTokens")
         .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
         .unique();
       const audits = await ctx.db
-        .query("audit_mcpAccessEvents")
+        .query("audit_mcpAccess_events")
         .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
         .collect();
       return {
@@ -174,7 +174,7 @@ describe("agent browser handoff lifecycle", () => {
     });
 
     await expect(
-      t.run(async (ctx) => await ctx.db.query("audit_mcpAccessEvents").collect()),
+      t.run(async (ctx) => await ctx.db.query("audit_mcpAccess_events").collect()),
     ).resolves.toHaveLength(0);
   });
 
@@ -209,7 +209,7 @@ describe("agent browser handoff lifecycle", () => {
     const audits = await t.run(
       async (ctx) =>
         await ctx.db
-          .query("audit_mcpAccessEvents")
+          .query("audit_mcpAccess_events")
           .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
           .collect(),
     );
@@ -229,7 +229,7 @@ describe("agent browser handoff lifecycle", () => {
     });
     const handoffId = await t.run(async (ctx) => {
       const handoff = await ctx.db
-        .query("operations_mcpBrowserLoginTokens")
+        .query("mcpBrowserLoginTokens")
         .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
         .unique();
       return handoff?._id ?? null;
@@ -246,7 +246,7 @@ describe("agent browser handoff lifecycle", () => {
       t.run(
         async (ctx) =>
           await ctx.db
-            .query("operations_mcpBrowserLoginTokens")
+            .query("mcpBrowserLoginTokens")
             .withIndex("by_token_hash", (q) => q.eq("tokenHash", createArgs.tokenHash))
             .unique(),
       ),

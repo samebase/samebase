@@ -42,16 +42,16 @@ const convexInfrastructureRecordValidator = object({
   convexSiteUrl: string(),
 });
 
-type VaultProvisioningWriteLock = Doc<"operations_vaultProvisioningWriteLocks">;
+type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type ConvexDeploymentConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type ConvexDeploymentConnectionReadCtx = Pick<QueryCtx, "db">;
 
-function isComposedInfrastructureRun(run: Doc<"operations_vaultProvisioningRuns">): boolean {
+function isComposedInfrastructureRun(run: Doc<"workflow_vaultProvisioning_runs">): boolean {
   return run.trigger === "create" || run.trigger === "retry";
 }
 
 function isStandaloneConvexDeploymentConnectionRun(
-  run: Doc<"operations_vaultProvisioningRuns">,
+  run: Doc<"workflow_vaultProvisioning_runs">,
 ): boolean {
   return run.trigger === "connect_convex_deployment";
 }
@@ -61,7 +61,7 @@ async function readVaultProvisioningWriteLock(
   vaultId: Id<"vaults">,
 ): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("operations_vaultProvisioningWriteLocks")
+    .query("workflow_vaultProvisioning_writeLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -145,7 +145,7 @@ async function assertNoExistingConvexDeploymentTarget(
 function runHoldsConvexProvisioningWriteLock(
   writeLock: VaultProvisioningWriteLock | null,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): boolean {
   return writeLock?.state === "active" && writeLock.runId === args.runId;
@@ -154,7 +154,7 @@ function runHoldsConvexProvisioningWriteLock(
 async function appendConvexDeploymentConnectionEvent(
   ctx: ConvexDeploymentConnectionEventCtx,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
@@ -167,7 +167,7 @@ async function appendConvexDeploymentConnectionEvent(
 async function cancelSupersededConvexDeploymentConnectionRun(
   ctx: ConvexDeploymentConnectionEventCtx,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): Promise<void> {
   await appendConvexDeploymentConnectionEvent(ctx, {
@@ -182,11 +182,11 @@ async function cancelSupersededConvexDeploymentConnectionRun(
 async function requireConvexDeploymentConnectionRun(
   ctx: ConvexDeploymentConnectionReadCtx,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
-): Promise<Doc<"operations_vaultProvisioningRuns">> {
+): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await ctx.db.get(args.runId);
   if (!run) {
     throw new Error("Convex deployment connection run not found.");
@@ -203,7 +203,7 @@ async function requireConvexDeploymentConnectionRun(
 
 function hasFreshConvexDeploymentConnectionLock(args: {
   writeLock: VaultProvisioningWriteLock | null;
-  runId: Id<"operations_vaultProvisioningRuns">;
+  runId: Id<"workflow_vaultProvisioning_runs">;
   now: number;
 }): boolean {
   const writeLock = args.writeLock;
@@ -248,7 +248,7 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
 export const claimConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -311,7 +311,7 @@ export const claimConvexDeploymentConnection = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -334,7 +334,7 @@ export const claimConvexDeploymentConnection = internalMutation({
 export const readActiveConvexDeploymentConnection = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -368,7 +368,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
 export const attachDeploymentForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
     convex: convexInfrastructureRecordValidator,
@@ -483,7 +483,7 @@ export const attachDeploymentForRun = internalMutation({
 export const recordCreatedProjectForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     projectName: string(),
     projectId: string(),
@@ -513,7 +513,7 @@ export const recordCreatedProjectForRun = internalMutation({
 export const readReusableCreatedProjectForRun = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     projectName: string(),
   },
@@ -526,7 +526,7 @@ export const readReusableCreatedProjectForRun = internalQuery({
     }
 
     const runs = await ctx.db
-      .query("operations_vaultProvisioningRuns")
+      .query("workflow_vaultProvisioning_runs")
       .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", args.vaultId))
       .collect();
     const reusableRuns = runs
@@ -550,7 +550,7 @@ export const readReusableCreatedProjectForRun = internalQuery({
 export const finishConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },

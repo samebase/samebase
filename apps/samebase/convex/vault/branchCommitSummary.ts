@@ -1,7 +1,4 @@
-import type {
-  GitHubCommitCheckSnapshot,
-  VaultBranchCommitChecksSummary,
-} from "../commitCheckModel";
+import type { GitHubCommitCheckSummary, VaultBranchCommitChecksSummary } from "../commitCheckModel";
 import type { VaultBranchCommitSummary } from "./branchModel";
 
 type BranchCommitSummarySource = {
@@ -11,9 +8,8 @@ type BranchCommitSummarySource = {
 
 function readBranchHeadCommitChecks(
   branch: BranchCommitSummarySource,
-  snapshot: GitHubCommitCheckSnapshot | null | undefined,
+  summary: GitHubCommitCheckSummary | null | undefined,
 ): VaultBranchCommitChecksSummary | undefined {
-  const summary = snapshot;
   if (!summary || summary.commitSha !== branch.headCommitSha) {
     return undefined;
   }
@@ -36,7 +32,7 @@ function readBranchHeadCommitChecks(
 
 export function buildVaultBranchCommitSummaries(
   branch: BranchCommitSummarySource,
-  snapshot?: GitHubCommitCheckSnapshot | null,
+  summary?: GitHubCommitCheckSummary | null,
 ): VaultBranchCommitSummary[] {
   const commit: VaultBranchCommitSummary = {
     sha: branch.headCommitSha,
@@ -44,7 +40,7 @@ export function buildVaultBranchCommitSummaries(
   if (typeof branch.lastCommitAt === "number") {
     commit.authoredAt = branch.lastCommitAt;
   }
-  const checks = readBranchHeadCommitChecks(branch, snapshot);
+  const checks = readBranchHeadCommitChecks(branch, summary);
   if (checks) {
     commit.checks = checks;
   }

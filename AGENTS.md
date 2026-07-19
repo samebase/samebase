@@ -232,12 +232,12 @@ Key domain entities:
 - `users`
 - `providerConnections`
 - `vaults`
-- `operations_vaultProvisioningPlans`
-- `operations_vaultProvisioningWriteLocks`
+- `workflow_vaultProvisioning_plans`
+- `workflow_vaultProvisioning_writeLocks`
 - `vaultDomains`
-- `operations_fileStaging`
-- `operations_aiProductionReadRequests`
-- `audit_aiProductionReadEvents`
+- `vaultStagedFiles`
+- `aiProductionReadRequests`
+- `audit_aiProductionRead_events`
 
 ## Convex CLI
 
@@ -300,6 +300,12 @@ Types and validation:
   not need.
 - For important state models, start tests by enumerating state axes and allowed combinations.
 - Deterministic sort order with stable tie-breakers for all returned collections and lists.
+- Convex table names use concrete unprefixed plurals by default. Only `workflow_`, `observations_`,
+  `derived_`, `audit_`, and `ui_` are category prefixes; prefixed names use
+  `<category>_<subject>_<rowKind>`, with underscores between levels and camelCase within one level.
+- `workflow_` is only for rows whose sole purpose is executing, recovering, or inspecting one named
+  multi-step workflow. Temporary protocol state, credentials, queues, leases, and synchronization
+  rows do not become workflow tables merely because they support live behavior.
 
 Simplicity and deletion:
 

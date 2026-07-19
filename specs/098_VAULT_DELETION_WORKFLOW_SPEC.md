@@ -112,7 +112,7 @@ A vault is quiescent for deletion when:
 
 1. the vault has no active deletion gate
 2. source setup is not running: the vault is connected or failed, but not provisioning
-3. no `operations_vaultProvisioningRuns` row for the vault is `queued` or `running`
+3. no `workflow_vaultProvisioning_runs` row for the vault is `queued` or `running`
 4. connected Convex state is `not_configured`, `connected`, or `failed`, but not `provisioning`
 5. connected Cloudflare state is `not_configured`, `connected`, or `failed`, but not `provisioning`
 6. no vault provisioning write lock is active for an in-flight provider workflow
@@ -127,12 +127,12 @@ without touching providers. The user can delete after the active setup run succe
 
 ### Dedicated Deletion Runs
 
-Add dedicated `operations_vaultDeletionRuns` and `operations_vaultDeletionEvents` tables. Do not
-stretch `operations_vaultProvisioningRuns` for deletion.
+Add dedicated `workflow_vaultDeletion_runs` and `workflow_vaultDeletion_events` tables. Do not
+stretch `workflow_vaultProvisioning_runs` for deletion.
 
 Provisioning runs describe source and provider setup. Deletion has different steps, retry rules,
 retention rules, and success criteria. Keeping it separate also lets the workflow delete old
-`operations_vaultProvisioningRuns` and `operations_vaultProvisioningEvents` as vault-scoped setup
+`workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` as vault-scoped setup
 history without deleting the deletion run that is still finishing the vault removal.
 
 ### Separate Vault Deletion Gate
@@ -147,12 +147,12 @@ type VaultDeletionState =
     }
   | {
       state: "deleting";
-      runId: Id<"operations_vaultDeletionRuns">;
+      runId: Id<"workflow_vaultDeletion_runs">;
       requestedAt: number;
     }
   | {
       state: "delete_failed";
-      runId: Id<"operations_vaultDeletionRuns">;
+      runId: Id<"workflow_vaultDeletion_runs">;
       failedAt: number;
     };
 ```
@@ -203,17 +203,17 @@ Delete vault-scoped product and cache data. Preserve account-level audit history
 
 Accepted retention rules:
 
-1. `operations_vaultProvisioningRuns` and `operations_vaultProvisioningEvents` are vault-scoped
-   setup history and should be deleted in batches.
-2. `operations_vaultDeletionRuns` and `operations_vaultDeletionEvents` are deletion operation
-   history and should outlive the vault row. They must not store credentials, provider tokens,
-   deploy keys, request headers, or raw provider payloads.
+1. `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` are vault-scoped setup
+   history and should be deleted in batches.
+2. `workflow_vaultDeletion_runs` and `workflow_vaultDeletion_events` are deletion operation history
+   and should outlive the vault row. They must not store credentials, provider tokens, deploy keys,
+   request headers, or raw provider payloads.
 3. After a deletion succeeds, the deletion run may retain display-safe summary fields such as
    `repositoryFullName`, options, final state, step events, and timestamps. Provider identifiers
    needed only for retry should be scrubbed from the completed snapshot.
-4. `audit_aiProductionReadEvents` rows are preserved. Matching `operations_aiProductionReadRequests`
-   are preserved as audit context, detached from the vault by clearing `vaultId`, and any
-   still-active request for the deleted vault is expired.
+4. `audit_aiProductionRead_events` rows are preserved. Matching `aiProductionReadRequests` are
+   preserved as audit context, detached from the vault by clearing `vaultId`, and any still-active
+   request for the deleted vault is expired.
 5. Legacy chat and agent context are not product-critical for this workflow. If those tables still
    exist when deletion ships, use the simplest safe cleanup: delete or detach vault-scoped app rows,
    but do not add new account-level chat retention machinery.
@@ -400,7 +400,7 @@ type VaultDeletionRunBase = {
       }
     | {
         kind: "retry";
-        retryOf: Id<"operations_vaultDeletionRuns">;
+        retryOf: Id<"workflow_vaultDeletion_runs">;
       };
   createdAt: number;
   updatedAt: number;
@@ -468,7 +468,7 @@ Required indexes:
 4. `vaultDeletionRuns.by_retry_of`, using the final retry field path
 
 The active gate lives on the vault row, so hot repo-backed paths should not need to query
-`operations_vaultDeletionRuns` after they have already loaded the vault.
+`workflow_vaultDeletion_runs` after they have already loaded the vault.
 
 ### Deletion Events
 
@@ -481,7 +481,7 @@ type VaultDeletionEvent = {
   userId: Id<"users">;
   vaultId: Id<"vaults">;
   repositoryFullName: string;
-  runId: Id<"operations_vaultDeletionRuns">;
+  runId: Id<"workflow_vaultDeletion_runs">;
   step: VaultDeletionStep;
   level: "info" | "warning" | "error";
   message: string;
@@ -549,7 +549,7 @@ It should:
 6. require local provider connection rows for selected provider teardown options when those rows are
    already known to be necessary
 7. build the validated deletion plan and retry snapshot
-8. insert `operations_vaultDeletionRuns` and the first event
+8. insert `workflow_vaultDeletion_runs` and the first event
 9. patch the vault deletion gate to `deleting`
 10. start the deletion Workflow
 11. return `{ deletionRunId }`
@@ -571,10 +571,11 @@ The deletion Workflow runs:
 3. `delete_cloudflare`: delete the recorded Cloudflare Worker when requested
 4. `delete_convex`: delete the recorded Convex project or deployment when requested
 5. `delete_github_repo`: delete the recorded Samebase-managed GitHub repository when requested
-6. `cleanup_editor_state`: delete `operations_fileStaging`, `operations_collaborativeFileUpdates`,
-   `observations_vaultFileBlobs`, and backing storage in bounded batches
+6. `cleanup_editor_state`: delete `vaultStagedFiles`, `vaultStagedFileUpdates`,
+   `observations_vaultFiles_blobs`, and backing storage in bounded batches
 7. `cleanup_source_caches`: delete branch filters, folder expansion state,
-   `observations_vaultRemoteBranches`, and `observations_vaultBranchTrees` in bounded batches
+   `observations_vaultRepository_branches`, and `observations_vaultRepository_branchTrees` in
+   bounded batches
 8. `cleanup_runtime_state`: delete vault domains, infrastructure, provisioning write locks,
    Codespaces records, and graph layout in bounded batches
 9. `cleanup_access_state`: expire and detach vault-scoped prod-access requests while preserving
@@ -659,35 +660,35 @@ user's rows.
 
 Delete rows:
 
-1. `ui_vaultBranchFilters` via `by_vault`
-2. `operations_fileStaging` via `by_vault`; use `by_vault_and_storageId` when checking staged
-   storage references and delete staged-only storage objects before rows
-3. `operations_collaborativeFileUpdates` via `by_vault`
-4. `observations_vaultFileBlobs` via `by_vault`, deleting storage objects before rows
-5. `ui_folderExpansionState` via `by_vault`
-6. `observations_vaultRemoteBranches` via `by_vault`
-7. `observations_vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
+1. `ui_vaultBranches_filters` via `by_vault`
+2. `vaultStagedFiles` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
+   references and delete staged-only storage objects before rows
+3. `vaultStagedFileUpdates` via `by_vault`
+4. `observations_vaultFiles_blobs` via `by_vault`, deleting storage objects before rows
+5. `ui_vaultFileTree_folderExpansions` via `by_vault`
+6. `observations_vaultRepository_branches` via `by_vault`
+7. `observations_vaultRepository_branchTrees` via `by_vault_and_branch` with the `vaultId` prefix
 8. `vaultDomains` via `by_vault`
 9. `vaultInfrastructure` via `by_vault`, deleting all rows if more than one exists
-10. `operations_vaultProvisioningWriteLocks` via `by_vault`
+10. `workflow_vaultProvisioning_writeLocks` via `by_vault`
 11. `codespaces` via `by_vault`
-12. `ui_agentGraphNodeLayout` via `by_vault`
-13. `operations_vaultProvisioningEvents` via `by_vault_and_created_at`
-14. `operations_vaultProvisioningRuns` via `by_vault_and_updated_at`
+12. `ui_agentGraphNode_layouts` via `by_vault`
+13. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
+14. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
 
 Patch or delete rows:
 
-1. `operations_aiProductionReadRequests` via `by_vault`: clear `vaultId`; move `proposed` and
-   `approved` requests to `expired`; preserve executed, failed, rejected, and already expired
-   statuses for every matching request.
-2. `agentThreadContext` via `by_vault`: either clear `vaultId`, `repositoryFullName`, `branch`, and
+1. `aiProductionReadRequests` via `by_vault`: clear `vaultId`; move `proposed` and `approved`
+   requests to `expired`; preserve executed, failed, rejected, and already expired statuses for
+   every matching request.
+2. `chatThreadContexts` via `by_vault`: either clear `vaultId`, `repositoryFullName`, `branch`, and
    `filePath`, or delete the row if the legacy chat cleanup/removal path makes deletion simpler.
 
 Preserve rows:
 
-1. `audit_aiProductionReadEvents`
-2. `operations_vaultDeletionRuns`
-3. `operations_vaultDeletionEvents`
+1. `audit_aiProductionRead_events`
+2. `workflow_vaultDeletion_runs`
+3. `workflow_vaultDeletion_events`
 
 The registry must be fail-closed. If a new vault-scoped table is added later, the table owner must
 either add it to this cleanup registry or explicitly mark it preserved with a retention reason.
@@ -741,7 +742,7 @@ When the target vault is deleting or delete-failed:
 Deleting cards should show a quiet in-progress state derived from the current deletion run and
 latest event. Failed-deletion cards should show the latest user-safe error and a retry action.
 
-Retry creates a new `operations_vaultDeletionRuns` row with `retryOf` pointing at the failed run,
+Retry creates a new `workflow_vaultDeletion_runs` row with `retryOf` pointing at the failed run,
 copies the failed run's retained deletion plan, patches the vault gate back to `deleting`, and
 starts a new Workflow. Retry does not let the user edit teardown options in the first
 implementation.
@@ -753,14 +754,14 @@ implementation.
 1. Add the missing cleanup index `blobs.by_vault`.
 2. Build the explicit local cleanup registry and table-specific batch mutations.
 3. Delete storage objects inside the blob cleanup batch before deleting blob rows, and delete
-   directly owned staged-upload storage inside the `operations_fileStaging` cleanup batch before
-   deleting staging rows.
+   directly owned staged-upload storage inside the `vaultStagedFiles` cleanup batch before deleting
+   staging rows.
 4. Update `fileStaging.deletePendingUploadBlob` to use the same vault-scoped blob index instead of
-   scanning `observations_vaultFileBlobs`; if the implementation needs exact storage-reference
+   scanning `observations_vaultFiles_blobs`; if the implementation needs exact storage-reference
    checks, add vault-prefixed storage indexes instead of collecting all vault blobs or staged files.
-5. Include `operations_collaborativeFileUpdates`, `operations_vaultProvisioningWriteLocks`,
-   `ui_agentGraphNodeLayout`, `agentThreadContext`, `operations_aiProductionReadRequests`,
-   `operations_vaultProvisioningRuns`, and `operations_vaultProvisioningEvents`.
+5. Include `vaultStagedFileUpdates`, `workflow_vaultProvisioning_writeLocks`,
+   `ui_agentGraphNode_layouts`, `chatThreadContexts`, `aiProductionReadRequests`,
+   `workflow_vaultProvisioning_runs`, and `workflow_vaultProvisioning_events`.
 6. Delete the vault row once, last.
 7. Add tests that force branch-heavy cleanup across multiple batches.
 
@@ -774,7 +775,7 @@ closed instead of creating rows for a vault that is deleting or already deleted.
 
 ### Phase 2: Durable Deletion Workflow
 
-1. Add `operations_vaultDeletionRuns`, `operations_vaultDeletionEvents`, validators, and helpers.
+1. Add `workflow_vaultDeletion_runs`, `workflow_vaultDeletion_events`, validators, and helpers.
 2. Add the vault deletion gate field.
 3. Add the quiescent-vault deletion eligibility helper.
 4. Replace `vaultActions.deleteVault` with a queueing action.
@@ -821,7 +822,7 @@ starts hiding backend state-machine review.
 Phase 3 implementation note:
 
 - Dashboard state uses a query-only `deletion` view union derived from `vault.deletion`,
-  `operations_vaultDeletionRuns`, `operations_vaultDeletionEvents`, and the shared deletion
+  `workflow_vaultDeletion_runs`, `workflow_vaultDeletion_events`, and the shared deletion
   eligibility helper. It does not add persisted UI state.
 - Repo-backed code uses the live-vault invariant: connected GitHub state is not enough once
   `vault.deletion` is `deleting` or `delete_failed`.
@@ -841,13 +842,12 @@ Backend:
 7. provider failures leave the vault visible with `delete_failed`
 8. retry uses the failed run's retained deletion plan
 9. branch-heavy cleanup completes through multiple bounded batches
-10. `observations_vaultFileBlobs` cleanup deletes storage objects and rows
+10. `observations_vaultFiles_blobs` cleanup deletes storage objects and rows
 11. pending-upload blob cleanup uses the vault-scoped blob index
-12. `operations_collaborativeFileUpdates` are deleted at vault scope
-13. `audit_aiProductionReadEvents` rows are preserved while requests are detached
-14. legacy `agentThreadContext` rows are deleted or detached using the simplest safe path
-15. `operations_vaultProvisioningRuns` and `operations_vaultProvisioningEvents` are deleted in
-    batches
+12. `vaultStagedFileUpdates` are deleted at vault scope
+13. `audit_aiProductionRead_events` rows are preserved while requests are detached
+14. legacy `chatThreadContexts` rows are deleted or detached using the simplest safe path
+15. `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` are deleted in batches
 16. the vault row is deleted only after dependent cleanup succeeds
 17. source setup and provider provisioning writes fail closed after deletion starts
 

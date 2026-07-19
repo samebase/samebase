@@ -9,12 +9,12 @@ import { readOwnedActiveRun } from "./stepContext";
 const AUTH_CHILD_BATCH_SIZE = 64;
 
 const workflowArgs = {
-  runId: v.id("operations_accountDeletionRuns"),
+  runId: v.id("workflow_accountDeletion_runs"),
   workflowId: v.string(),
 };
 
 type RunningAccountDeletionRun = Extract<
-  Doc<"operations_accountDeletionRuns">,
+  Doc<"workflow_accountDeletion_runs">,
   { state: "running" }
 >;
 
@@ -161,7 +161,7 @@ export const deleteEventBatch = internalMutation({
     await readOwnedActiveRun(ctx, args);
 
     const events = await ctx.db
-      .query("operations_accountDeletionEvents")
+      .query("workflow_accountDeletion_events")
       .withIndex("by_run_and_created_at", (query) => query.eq("runId", args.runId))
       .take(AUTH_CHILD_BATCH_SIZE);
 
@@ -207,7 +207,7 @@ export async function assertIdentityDeletionReady(
   }
 
   const activeAgentAction = await ctx.db
-    .query("operations_agentActionLeases")
+    .query("agentActionLeases")
     .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
     .first();
 
@@ -266,7 +266,7 @@ export async function assertIdentityDeletionReady(
   }
 
   const remainingEvent = await ctx.db
-    .query("operations_accountDeletionEvents")
+    .query("workflow_accountDeletion_events")
     .withIndex("by_run_and_created_at", (query) => query.eq("runId", run._id))
     .first();
 

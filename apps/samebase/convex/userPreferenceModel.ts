@@ -38,7 +38,7 @@ export type WorkspaceMobileSurface = Infer<typeof vWorkspaceMobileSurface>;
 
 export const userPreferenceTables = {
   /** Per-user choices for dashboard panels, billing display, and chat visibility. */
-  ui_dashboardSettings: defineTable({
+  ui_user_settings: defineTable({
     userId: id("users"),
     accountPanelOpen: optional(boolean()),
     providersPanelOpen: boolean(),
@@ -49,7 +49,7 @@ export const userPreferenceTables = {
   }).index("by_user", ["userId"]),
 
   /** Shell-owned geometry and pane selection for one workspace. */
-  ui_workspaceSidebarState: defineTable({
+  ui_workspaceSidebar_layouts: defineTable({
     userId: id("users"),
     workspaceKey: vWorkspaceSidebarStateKey,
     updatedAt: number(),
@@ -64,12 +64,12 @@ export const userPreferenceTables = {
   }).index("by_user_and_workspace_key", ["userId", "workspaceKey"]),
 };
 
-const workspaceSidebarStateRow = userPreferenceTables.ui_workspaceSidebarState.validator.fields;
+const workspaceSidebarStateRow = userPreferenceTables.ui_workspaceSidebar_layouts.validator.fields;
 
 /**
  * Persist only shell-owned geometry and pane selection here. Route-owned
  * details such as tree expansion or scroll position should live in route-
- * specific records instead of one generic sidebar bucket.
+ * specific rows instead of one generic sidebar bucket.
  */
 export const vWorkspaceSidebarState = object({
   leftDesktopOpen: workspaceSidebarStateRow.leftDesktopOpen,

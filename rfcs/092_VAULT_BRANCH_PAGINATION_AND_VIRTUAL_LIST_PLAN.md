@@ -207,13 +207,13 @@ Status: Implemented.
 
 Goal: make the current branch sort order expressible through a Convex index.
 
-This rollout deliberately does not preserve old `observations_vaultRemoteBranches` rows. Samebase
-currently has one operator-user, and existing vaults can be deleted/recreated instead of carrying
-backfill code.
+This rollout deliberately does not preserve old `observations_vaultRepository_branches` rows.
+Samebase currently has one operator-user, and existing vaults can be deleted/recreated instead of
+carrying backfill code.
 
 Implemented behavior:
 
-- `observations_vaultRemoteBranches` requires the derived rank fields.
+- `observations_vaultRepository_branches` requires the derived rank fields.
 - Branch sync/upsert writes the rank fields for new active rows, refreshed active rows, and
   deleted-upstream transitions.
 - The selected-vault branch query still uses the old collect-and-sort read path until Phase 3
@@ -308,7 +308,7 @@ Goal: remove the old branch-expansion storage after the paginated path is stable
 
 Changes:
 
-- Removed `branchesExpanded` from the `ui_vaultBranchFilters` schema.
+- Removed `branchesExpanded` from the `ui_vaultBranches_filters` schema.
 - Did not add migration scaffolding; existing vault/filter rows can be discarded before deploy.
 - Left hidden-label row filtering unchanged as a separate backend-query design decision.
 

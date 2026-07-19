@@ -16,7 +16,7 @@ async function seedDeletingUserWithConnectedVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const provisioningRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "owner/repository",
@@ -44,7 +44,7 @@ async function seedDeletingUserWithConnectedVault() {
       userId,
       expirationTime: Date.now() + 60_000,
     });
-    const deletionRunId = await ctx.db.insert("operations_accountDeletionRuns", {
+    const deletionRunId = await ctx.db.insert("workflow_accountDeletion_runs", {
       identity: { state: "active", userId, email: "deleting@example.com" },
       completionCapability: "write-fence-test",
       state: "running",
@@ -128,7 +128,7 @@ describe("account deletion late-write fences", () => {
       }),
     ).rejects.toThrow("App provisioning is unavailable during account deletion.");
     await t.run(async (ctx) => {
-      expect(await ctx.db.query("operations_vaultProvisioningRuns").collect()).toHaveLength(1);
+      expect(await ctx.db.query("workflow_vaultProvisioning_runs").collect()).toHaveLength(1);
     });
   });
 
@@ -143,7 +143,7 @@ describe("account deletion late-write fences", () => {
       }),
     ).rejects.toThrow("Repository refresh is unavailable during account deletion.");
     await t.run(async (ctx) => {
-      expect(await ctx.db.query("operations_vaultRepositoryRefreshRequests").collect()).toEqual([]);
+      expect(await ctx.db.query("vaultRepositoryRefreshRequests").collect()).toEqual([]);
     });
   });
 });

@@ -109,7 +109,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/demo",
@@ -392,7 +392,7 @@ describe("vault Convex schema graph", () => {
 
     const snapshots = await t.run(async (ctx) =>
       ctx.db
-        .query("observations_vaultConvexSchemaSnapshots")
+        .query("observations_vaultConvexSchema_snapshots")
         .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", ids.deploymentId))
         .order("desc")
         .take(10),

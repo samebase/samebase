@@ -4,8 +4,11 @@ import { v } from "convex/values";
 const { id, literal, number, optional, string, union } = v;
 
 export const chatTables = {
-  /** Per-thread context not modeled by the Agent component. */
-  agentThreadContext: defineTable({
+  /**
+   * One chat thread's Samebase-owned workspace selection, system prompt, and
+   * unsent draft. The Agent component stores the core conversation.
+   */
+  chatThreadContexts: defineTable({
     threadId: string(),
     userId: id("users"),
     vaultId: optional(id("vaults")),
@@ -22,8 +25,8 @@ export const chatTables = {
     .index("by_vault", ["vaultId"])
     .index("by_userId_and_vaultId", ["userId", "vaultId"]),
 
-  /** Commit proposals, production-read proposals, results, and tool activity. */
-  chatMessageMetadata: defineTable({
+  /** One typed chat-message payload for a proposal, result, or tool activity entry. */
+  chatMessagePayloads: defineTable({
     messageId: string(),
     threadId: string(),
     type: union(

@@ -5,11 +5,11 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
 import { vPullRequestLabel, vVaultBranchCommitSummary, type PullRequestLabel } from "./branchModel";
-import type { GitHubCommitCheckSnapshot } from "../commitCheckModel";
+import type { GitHubCommitCheckSummary } from "../commitCheckModel";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
 import {
   deleteGitHubCommitChecksUnreferencedByBranches,
-  getGitHubCommitCheckSnapshotsByCommitSha,
+  getGitHubCommitCheckSummariesByCommitSha,
 } from "../commitChecks";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
@@ -110,7 +110,7 @@ export function buildRemoteBranchSortFields(branch: {
 
 type BranchStagingChangeCandidate = StagedFileChangeCandidate;
 type BranchStagingRecord = BranchStagingChangeCandidate & {
-  _id: Id<"operations_fileStaging">;
+  _id: Id<"vaultStagedFiles">;
   branch: string;
 };
 
@@ -175,8 +175,8 @@ export function buildActiveBranchPreviewUrlsByBranch(
 }
 
 function buildVaultRemoteBranchListItem(args: {
-  branch: Doc<"observations_vaultRemoteBranches">;
-  checkSnapshot?: GitHubCommitCheckSnapshot;
+  branch: Doc<"observations_vaultRepository_branches">;
+  checkSummary?: GitHubCommitCheckSummary;
   previewUrl?: string;
 }): VaultRemoteBranchListItem {
   return {
@@ -196,7 +196,7 @@ function buildVaultRemoteBranchListItem(args: {
     remoteState: args.branch.remoteState,
     deletedUpstreamAt: args.branch.deletedUpstreamAt,
     lastSyncedAt: args.branch.lastSyncedAt,
-    commits: buildVaultBranchCommitSummaries(args.branch, args.checkSnapshot),
+    commits: buildVaultBranchCommitSummaries(args.branch, args.checkSummary),
   };
 }
 
@@ -225,7 +225,7 @@ async function deleteVaultBranchArtifacts(
   },
 ): Promise<void> {
   const branchTree = await ctx.db
-    .query("observations_vaultBranchTrees")
+    .query("observations_vaultRepository_branchTrees")
     .withIndex("by_vault_and_branch", (q) =>
       q.eq("vaultId", args.vaultId).eq("branch", args.branch),
     )
@@ -260,7 +260,7 @@ async function pruneDeletedUpstreamBranchesForVault(
   vaultId: Id<"vaults">,
 ): Promise<void> {
   const deletedUpstreamBranches = await ctx.db
-    .query("observations_vaultRemoteBranches")
+    .query("observations_vaultRepository_branches")
     .withIndex("by_vault_and_remote_state", (q) =>
       q.eq("vaultId", vaultId).eq("remoteState", "deleted_upstream"),
     )
@@ -272,7 +272,7 @@ async function pruneDeletedUpstreamBranchesForVault(
   const collaborativeUpdatesCutoffTimestamp = Date.now() + 1;
   const stagingFilesByBranch = groupStagingFilesByBranch(
     await ctx.db
-      .query("operations_fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
       .collect(),
   );
@@ -318,7 +318,7 @@ export const syncVaultBranchPreviewDomainFromCheckSnapshot = internalMutation({
     }
 
     const branch = await ctx.db
-      .query("observations_vaultRemoteBranches")
+      .query("observations_vaultRepository_branches")
       .withIndex("by_vault_and_name", (q) =>
         q.eq("vaultId", args.vaultId).eq("name", args.branchName),
       )
@@ -396,7 +396,7 @@ export const getVaultRemoteBranches = query({
 
     const [branches, domains] = await Promise.all([
       ctx.db
-        .query("observations_vaultRemoteBranches")
+        .query("observations_vaultRepository_branches")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
       ctx.db
@@ -404,7 +404,7 @@ export const getVaultRemoteBranches = query({
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
     ]);
-    const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
+    const checkSummariesByCommitSha = await getGitHubCommitCheckSummariesByCommitSha(ctx, {
       githubRepositoryId: vault.ghRepoId,
       commitShas: branches.map((branch) => branch.headCommitSha),
     });
@@ -413,7 +413,7 @@ export const getVaultRemoteBranches = query({
     return branches.sort(compareRemoteBranchSortOrder).map((branch) =>
       buildVaultRemoteBranchListItem({
         branch,
-        checkSnapshot: checkSnapshotsByCommitSha.get(branch.headCommitSha),
+        checkSummary: checkSummariesByCommitSha.get(branch.headCommitSha),
         previewUrl: previewUrlsByBranch.get(branch.name),
       }),
     );
@@ -433,7 +433,7 @@ export const listVaultRemoteBranchFilterMetadata = query({
     }
 
     const branches = await ctx.db
-      .query("observations_vaultRemoteBranches")
+      .query("observations_vaultRepository_branches")
       .withIndex("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", (q) =>
         q.eq("vaultId", args.vaultId),
       )
@@ -480,13 +480,13 @@ export const listVaultRemoteBranchesPage = query({
     }
 
     const paginated = await ctx.db
-      .query("observations_vaultRemoteBranches")
+      .query("observations_vaultRepository_branches")
       .withIndex("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", (q) =>
         q.eq("vaultId", args.vaultId),
       )
       .paginate(args.paginationOpts);
 
-    const [domainsByBranch, checkSnapshotsByCommitSha] = await Promise.all([
+    const [domainsByBranch, checkSummariesByCommitSha] = await Promise.all([
       Promise.all(
         paginated.page.map(async (branch) => ({
           branchName: branch.name,
@@ -498,7 +498,7 @@ export const listVaultRemoteBranchesPage = query({
             .collect(),
         })),
       ),
-      getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
+      getGitHubCommitCheckSummariesByCommitSha(ctx, {
         githubRepositoryId: vault.ghRepoId,
         commitShas: paginated.page.map((branch) => branch.headCommitSha),
       }),
@@ -514,7 +514,7 @@ export const listVaultRemoteBranchesPage = query({
       page: paginated.page.map((branch) =>
         buildVaultRemoteBranchListItem({
           branch,
-          checkSnapshot: checkSnapshotsByCommitSha.get(branch.headCommitSha),
+          checkSummary: checkSummariesByCommitSha.get(branch.headCommitSha),
           previewUrl: previewUrlByBranch.get(branch.name),
         }),
       ),
@@ -531,7 +531,7 @@ export const getVaultRemoteBranch = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("observations_vaultRemoteBranches")
+      .query("observations_vaultRepository_branches")
       .withIndex("by_vault_and_name", (q) =>
         q.eq("vaultId", args.vaultId).eq("name", args.branchName),
       )
@@ -570,7 +570,7 @@ export const syncVaultRemoteBranches = internalMutation({
     }
 
     const existing = await ctx.db
-      .query("observations_vaultRemoteBranches")
+      .query("observations_vaultRepository_branches")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
 
@@ -699,7 +699,7 @@ export const syncVaultRemoteBranches = internalMutation({
           insertData.pullRequestIsDraft = branch.pullRequestIsDraft === true;
         }
       }
-      await ctx.db.insert("observations_vaultRemoteBranches", insertData);
+      await ctx.db.insert("observations_vaultRepository_branches", insertData);
     }
 
     for (const branch of existing) {
@@ -738,7 +738,7 @@ export const getVaultBranchTree = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("observations_vaultBranchTrees")
+      .query("observations_vaultRepository_branchTrees")
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch),
       )
@@ -762,7 +762,7 @@ export const upsertVaultBranchTree = internalMutation({
 
     const now = Date.now();
     const existing = await ctx.db
-      .query("observations_vaultBranchTrees")
+      .query("observations_vaultRepository_branchTrees")
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch),
       )
@@ -779,7 +779,7 @@ export const upsertVaultBranchTree = internalMutation({
       return null;
     }
 
-    await ctx.db.insert("observations_vaultBranchTrees", {
+    await ctx.db.insert("observations_vaultRepository_branchTrees", {
       vaultId: args.vaultId,
       branch: args.branch,
       treeSHA: args.treeData.sha,

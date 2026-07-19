@@ -25,7 +25,7 @@ export type VaultBranchCommitSummary = Infer<typeof vVaultBranchCommitSummary>;
 
 export const vaultBranchTables = {
   /** Remote Git branches mirrored from GitHub for a vault repository. */
-  observations_vaultRemoteBranches: defineTable({
+  observations_vaultRepository_branches: defineTable({
     vaultId: id("vaults"),
     name: string(),
     headCommitSha: string(),
@@ -58,7 +58,7 @@ export const vaultBranchTables = {
     ]),
 
   /** Branch-scoped Git trees for each vault. */
-  observations_vaultBranchTrees: defineTable({
+  observations_vaultRepository_branchTrees: defineTable({
     vaultId: id("vaults"),
     branch: string(),
     treeSHA: string(),

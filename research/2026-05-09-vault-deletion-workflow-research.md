@@ -205,7 +205,7 @@ Tables that should be added or explicitly decided:
 3. `appProvisioningRuns`
 4. `appProvisioningEvents`
 5. `agentGraphNodeLayout`
-6. `agentThreadContext`
+6. `chatThreadContexts`
 7. `aiProdAccessRequests`
 8. `aiProdAccessAudit`
 
@@ -215,7 +215,7 @@ related request rows deliberately. If product privacy requirements say vault del
 these rows, the workflow must derive audit rows through `aiProdAccessRequests.requestId` and delete
 them as an explicit audited retention choice.
 
-`agentThreadContext` is also a product choice. Removing the context hides the thread from
+`chatThreadContexts` is also a product choice. Removing the context hides the thread from
 vault-scoped lookup, but the Agent component thread itself may still exist outside the app schema.
 The deletion spec should decide whether vault deletion deletes agent threads, detaches them from the
 vault, or leaves them as account-level chat history.

@@ -10,12 +10,12 @@ export const vVaultDeletionNotDeleting = object({
 export const vVaultDeletionGate = union(
   object({
     state: literal("deleting"),
-    runId: id("operations_vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     requestedAt: number(),
   }),
   object({
     state: literal("delete_failed"),
-    runId: id("operations_vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     failedAt: number(),
   }),
 );
@@ -193,7 +193,7 @@ export const vaultDeletionTables = {
    * One vault-deletion attempt, including its retained provider-cleanup plan,
    * background-workflow progress, outcome, and link to an earlier attempt.
    */
-  operations_vaultDeletionRuns: defineTable(
+  workflow_vaultDeletion_runs: defineTable(
     union(
       object({
         state: literal("queued"),
@@ -208,7 +208,7 @@ export const vaultDeletionTables = {
           }),
           object({
             kind: literal("retry"),
-            retryOf: id("operations_vaultDeletionRuns"),
+            retryOf: id("workflow_vaultDeletion_runs"),
           }),
         ),
         workflow: object({
@@ -230,7 +230,7 @@ export const vaultDeletionTables = {
           }),
           object({
             kind: literal("retry"),
-            retryOf: id("operations_vaultDeletionRuns"),
+            retryOf: id("workflow_vaultDeletion_runs"),
           }),
         ),
         workflow: object({
@@ -253,7 +253,7 @@ export const vaultDeletionTables = {
           }),
           object({
             kind: literal("retry"),
-            retryOf: id("operations_vaultDeletionRuns"),
+            retryOf: id("workflow_vaultDeletion_runs"),
           }),
         ),
         workflow: union(
@@ -283,7 +283,7 @@ export const vaultDeletionTables = {
           }),
           object({
             kind: literal("retry"),
-            retryOf: id("operations_vaultDeletionRuns"),
+            retryOf: id("workflow_vaultDeletion_runs"),
           }),
         ),
         workflow: object({
@@ -308,11 +308,11 @@ export const vaultDeletionTables = {
    * Ordered user-visible progress messages for one vault-deletion run, without
    * provider payloads or credentials.
    */
-  operations_vaultDeletionEvents: defineTable({
+  workflow_vaultDeletion_events: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: id("operations_vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     step: vVaultDeletionStep,
     level: vVaultDeletionEventLevel,
     message: string(),

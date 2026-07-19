@@ -70,10 +70,10 @@ per-vault thread for the MVP, and formalize persistence of the Editor/Graph view
 
 ## Data Model
 
-Add `ui_agentGraphNodeLayout` to persist node sizes per user and vault.
+Add `ui_agentGraphNode_layouts` to persist node sizes per user and vault.
 
-- `agentThreadContext` remains the single thread context per vault.
-- `ui_agentGraphNodeLayout` stores `{ nodeId, width, height, updatedAt }`.
+- `chatThreadContexts` remains the single thread context per vault.
+- `ui_agentGraphNode_layouts` stores `{ nodeId, width, height, updatedAt }`.
 
 ## API Changes
 

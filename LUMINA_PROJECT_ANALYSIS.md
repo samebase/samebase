@@ -145,7 +145,7 @@ Database Storage → pullUpdates → Other Clients
 
 - Small text files (< 900KB): Stored inline in database
 - Large files: Stored in Convex file storage
-- SHA-based deduplication via `observations_vaultFileBlobs` table
+- SHA-based deduplication via `observations_vaultFiles_blobs` table
 - MIME type detection and file extension handling
 
 ### 5. User Interface & Experience

@@ -44,6 +44,7 @@ export const vCloudflareDefaultAccount = union(
 export type CloudflareDefaultAccount = Infer<typeof vCloudflareDefaultAccount>;
 
 export const providerConnectionTables = {
+  /** Provider credentials and account choices saved by one Samebase user. */
   providerConnections: defineTable(
     union(
       object({
@@ -81,10 +82,10 @@ export const providerConnectionTables = {
     .index("by_kind_method", ["kind", "auth.method"]),
 
   /**
-   * Short-lived records that bind a provider OAuth callback to the user who
+   * Short-lived requests that bind a provider OAuth callback to the user who
    * started it and retain callback data such as PKCE credentials until use.
    */
-  operations_providerOauthCallbackStates: defineTable({
+  providerOAuthCallbackStates: defineTable({
     provider: union(
       literal("github"),
       literal("convex"),

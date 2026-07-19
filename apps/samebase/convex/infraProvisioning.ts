@@ -304,7 +304,7 @@ type ProvisioningEventCtx = {
 async function appendProvisioningRunEvent(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
@@ -327,7 +327,7 @@ async function appendProvisioningRunEvent(
   }
 }
 
-type VaultProvisioningWriteLock = Doc<"operations_vaultProvisioningWriteLocks">;
+type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type ProvisioningWriteLockCtx = Pick<MutationCtx, "db">;
 
 async function readVaultProvisioningWriteLock(
@@ -335,7 +335,7 @@ async function readVaultProvisioningWriteLock(
   vaultId: Id<"vaults">,
 ): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("operations_vaultProvisioningWriteLocks")
+    .query("workflow_vaultProvisioning_writeLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -343,7 +343,7 @@ async function readVaultProvisioningWriteLock(
 function runHoldsProvisioningWriteLock(
   writeLock: VaultProvisioningWriteLock | null,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): boolean {
   return writeLock?.runId === args.runId && writeLock.state === "active";
@@ -352,7 +352,7 @@ function runHoldsProvisioningWriteLock(
 async function cancelSupersededProvisioningRun(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
   },
 ): Promise<void> {
@@ -496,7 +496,7 @@ export const upsertDomainRecord = internalMutation({
 
 export const markWorkflowStartupFailed = internalMutation({
   args: {
-    runId: v.id("operations_vaultProvisioningRuns"),
+    runId: v.id("workflow_vaultProvisioning_runs"),
     message: v.string(),
   },
   returns: v.null(),
@@ -537,7 +537,7 @@ export const markWorkflowStartupFailed = internalMutation({
 });
 
 function resolveWorkflowFailureEventStep(
-  run: Pick<Doc<"operations_vaultProvisioningRuns">, "currentStep" | "trigger">,
+  run: Pick<Doc<"workflow_vaultProvisioning_runs">, "currentStep" | "trigger">,
 ): AppProvisioningStep {
   if (run.currentStep !== "run_created") {
     return run.currentStep;
@@ -553,7 +553,7 @@ async function recordWorkflowRunFailure(
   args: {
     eventStep: AppProvisioningStep;
     now: number;
-    run: Doc<"operations_vaultProvisioningRuns">;
+    run: Doc<"workflow_vaultProvisioning_runs">;
     safeRunError: string;
   },
 ): Promise<void> {
@@ -668,7 +668,7 @@ function isCreateAppPreInfrastructureStep(step: string): boolean {
 
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
-    runId: v.id("operations_vaultProvisioningRuns"),
+    runId: v.id("workflow_vaultProvisioning_runs"),
     workflowId: v.string(),
     message: v.string(),
   },

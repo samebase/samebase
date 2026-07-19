@@ -53,7 +53,7 @@ export const issueMachineControlToken = mutation({
     const tokenHash = await sha256Hex(token);
     const expiresAt = now + MACHINE_CONTROL_TOKEN_TTL_MS;
 
-    await ctx.db.insert("operations_machineControlTokens", {
+    await ctx.db.insert("machineControlTokens", {
       createdAt: now,
       expiresAt,
       machineId: args.machineId,
@@ -77,7 +77,7 @@ export const introspectMachineControlToken = internalMutation({
   returns: vMachineControlTokenIntrospectionResult,
   handler: async (ctx, args): Promise<MachineControlTokenIntrospectionResult> => {
     const token = await ctx.db
-      .query("operations_machineControlTokens")
+      .query("machineControlTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .first();
     if (!token) {

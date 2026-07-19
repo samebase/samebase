@@ -42,7 +42,7 @@ export const getFolderExpansionStates = query({
     }
 
     const expansionStates = await ctx.db
-      .query("ui_folderExpansionState")
+      .query("ui_vaultFileTree_folderExpansions")
       .withIndex("by_user_and_vault", (q) =>
         q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
       )
@@ -74,7 +74,7 @@ export const setFolderExpansionState = mutation({
     }
 
     const existingState = await ctx.db
-      .query("ui_folderExpansionState")
+      .query("ui_vaultFileTree_folderExpansions")
       .withIndex("by_user_vault_and_path", (q) =>
         q
           .eq("userId", ctx.viewer.userId)
@@ -88,7 +88,7 @@ export const setFolderExpansionState = mutation({
         isExpanded: args.isExpanded,
       });
     } else {
-      await ctx.db.insert("ui_folderExpansionState", {
+      await ctx.db.insert("ui_vaultFileTree_folderExpansions", {
         userId: ctx.viewer.userId,
         vaultId: args.vaultId,
         folderPath: args.folderPath,
@@ -115,7 +115,7 @@ export const clearFolderExpansionStates = mutation({
     }
 
     const expansionStates = await ctx.db
-      .query("ui_folderExpansionState")
+      .query("ui_vaultFileTree_folderExpansions")
       .withIndex("by_user_and_vault", (q) =>
         q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
       )

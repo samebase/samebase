@@ -70,7 +70,7 @@ Indexes:
 - `by_user`
 - `by_vault_and_appRoot`
 
-### `operations_vaultProvisioningPlans`
+### `workflow_vaultProvisioning_plans`
 
 - `vaultId`
 - `appRoot`
@@ -239,9 +239,9 @@ sequenceDiagram
 - `vaultCloudflareWorkers.deployment.convexBuildAccess` moves from `not_wired` to `wired` after
   `wire_convex_build_access`. The temporary dashboard repair action may perform the same transition
   after the app root has an attached Convex deployment and the Worker has connected Builds.
-- `operations_vaultProvisioningWriteLocks` records the active/succeeded/failed writer run.
-- `operations_vaultProvisioningRuns` and `operations_vaultProvisioningEvents` record workflow
-  progress and user-visible failures.
+- `workflow_vaultProvisioning_writeLocks` records the active/succeeded/failed writer run.
+- `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record workflow progress
+  and user-visible failures.
 
 ## UI Surface
 

@@ -120,7 +120,7 @@ describe("vault records Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const firstFailedRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const firstFailedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId: firstFailedVaultId,
         repositoryFullName: "ada/shared",
@@ -148,7 +148,7 @@ describe("vault records Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const secondFailedRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const secondFailedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId: secondFailedVaultId,
         repositoryFullName: "ada/shared",
@@ -176,7 +176,7 @@ describe("vault records Convex contract", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const connectedRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const connectedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId: connectedVaultId,
         repositoryFullName: "ada/shared",

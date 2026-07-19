@@ -5,7 +5,7 @@ const { array, boolean, id, number, object, optional, string } = v;
 
 export const vaultDashboardTables = {
   /** Per-user choices controlling which pull-request branches appear for one vault. */
-  ui_vaultBranchFilters: defineTable({
+  ui_vaultBranches_filters: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     hiddenLabels: array(string()),
@@ -19,10 +19,11 @@ export const vaultDashboardTables = {
     .index("by_vault", ["vaultId"]),
 
   /**
+   * One user's choice to keep the resource-links rail open for one vault.
    * New vault creation inserts an open row so the connection rail starts visible.
    * Missing rows still use the dashboard's collapsed fallback for legacy or directly seeded vaults.
    */
-  ui_vaultResourceLinksState: defineTable({
+  ui_vaultResourceLinks_settings: defineTable({
     userId: id("users"),
     updatedAt: number(),
     resourceLinksOpen: boolean(),
@@ -33,7 +34,8 @@ export const vaultDashboardTables = {
     .index("by_vault", ["vaultId"]),
 };
 
-const vaultResourceLinksStateRow = vaultDashboardTables.ui_vaultResourceLinksState.validator.fields;
+const vaultResourceLinksStateRow =
+  vaultDashboardTables.ui_vaultResourceLinks_settings.validator.fields;
 
 export const vVaultResourceLinksState = object({
   resourceLinksOpen: vaultResourceLinksStateRow.resourceLinksOpen,

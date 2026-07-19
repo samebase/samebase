@@ -391,7 +391,7 @@ async function resolveSelectableExistingWorker(args: {
 async function markCloudflareWorkerConnectionStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     error: unknown;
   },
 ): Promise<void> {
@@ -404,7 +404,7 @@ async function markCloudflareWorkerConnectionStartupFailed(
 async function appendProviderApiCallEvent(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
     call: ProviderApiCall;
   },
@@ -430,7 +430,7 @@ async function appendProviderApiCallEvent(
 function createProviderApiCallRecorder(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
   },
 ): ProviderApiCallRecorder {
@@ -447,7 +447,7 @@ async function startCloudflareWorkerConnectionOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
     accountId: string;
@@ -470,7 +470,7 @@ async function startCloudflareBuildsWiringOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -490,7 +490,7 @@ async function startCloudflareConvexBuildAccessWiringOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -513,7 +513,7 @@ async function startCloudflareInfrastructureVerificationOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -536,7 +536,7 @@ async function isCloudflareWorkerConnectionRunActive(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -557,7 +557,7 @@ async function readActiveCloudflareBuildsWiring(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -574,7 +574,7 @@ async function readActiveCloudflareConvexBuildAccessWiring(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -594,7 +594,7 @@ async function readActiveCloudflareInfrastructureVerification(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
   },
@@ -1021,7 +1021,7 @@ export const verifyInfrastructure = action({
 export const ensureCloudflareWorkerConnection = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
     accountId: string(),
@@ -1169,7 +1169,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
 export const ensureCloudflareBuildsWiring = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1241,7 +1241,7 @@ export const ensureCloudflareBuildsWiring = internalAction({
 export const ensureCloudflareConvexBuildAccessWiring = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -1404,7 +1404,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
 export const ensureCloudflareInfrastructureVerification = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("operations_vaultProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },

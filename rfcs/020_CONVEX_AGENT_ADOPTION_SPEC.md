@@ -51,10 +51,9 @@ while keeping Noter’s existing approval-first flows.
 4. Noter-specific message metadata (commit/prod-read proposals, tool activity) is stored in a
    separate Noter table keyed by the agent message ID.
 5. Noter-specific thread context (vault, repo, branch, file path) is stored in a lightweight
-   `agentThreadContext` table keyed by `threadId`.
-6. Approval flows continue to use `operations_aiProductionReadRequests` and
-   `audit_aiProductionReadEvents`, but are updated to reference `threadId` instead of
-   `conversationId`.
+   `chatThreadContexts` table keyed by `threadId`.
+6. Approval flows continue to use `aiProductionReadRequests` and `audit_aiProductionRead_events`,
+   but are updated to reference `threadId` instead of `conversationId`.
 7. System prompts remain generated via `buildSystemPrompt`, but history/context is sourced from the
    agent thread.
 
@@ -72,7 +71,7 @@ while keeping Noter’s existing approval-first flows.
 
 ### Data Model
 
-- Add `agentThreadContext` table:
+- Add `chatThreadContexts` table:
   - `threadId: v.string()` (agent component thread ID)
   - `userId: v.id("users")`
   - `vaultId: v.optional(v.id("vaults"))`
@@ -81,13 +80,13 @@ while keeping Noter’s existing approval-first flows.
   - `filePath: v.optional(v.string())`
   - `createdAt: v.number()`
   - Indexes on `threadId`, `userId`, and `vaultId`.
-- Add `chatMessageMetadata` table:
+- Add `chatMessagePayloads` table:
   - `messageId: v.string()` (agent component message ID)
   - `threadId: v.string()`
   - `type: v.union(v.literal("tool_activity"), v.literal("commit_proposal"), v.literal("prod_read_proposal"), v.literal("prod_read_result"))`
   - `payloadJson: v.string()` (typed JSON payload; keeps schema strict and avoids `any`)
   - Index on `messageId` and `threadId`.
-- Update `operations_aiProductionReadRequests`:
+- Update `aiProductionReadRequests`:
   - Replace `conversationId` with `threadId: v.string()`.
   - Add index by `threadId` for lookup.
 - Remove `chatConversations` and `chatMessages` tables after migration.
@@ -96,7 +95,7 @@ while keeping Noter’s existing approval-first flows.
 
 - Replace `chat.createConversation` with `chat.createThread`:
   - Create an agent thread via `components.agent.threads.createThread`.
-  - Create/update `agentThreadContext` for vault/repo context.
+  - Create/update `chatThreadContexts` for vault/repo context.
   - Return `threadId` to the client.
 - Replace `chat.sendMessage`:
   - Use `agent.saveMessage` with `{ threadId, prompt: content, userId }`.
@@ -107,7 +106,7 @@ while keeping Noter’s existing approval-first flows.
   - Pass `threadId` and `promptMessageId`.
   - Set `saveMessages: "promptAndOutput"` and `saveStreamDeltas: true`.
   - Parse `result.savedMessages` to locate the assistant message IDs.
-  - For commit/prod-read proposals, insert a `chatMessageMetadata` row keyed to the assistant
+  - For commit/prod-read proposals, insert a `chatMessagePayloads` row keyed to the assistant
     message ID.
 - `chat.actions.executeApprovedProdRead`
   - Write prod-read results as assistant messages to the agent thread via `agent.saveMessage` and
@@ -122,7 +121,7 @@ while keeping Noter’s existing approval-first flows.
 - Add a new query `listThreadMessages` that:
   - Uses `listUIMessages(ctx, components.agent, args)`.
   - Uses `syncStreams(ctx, components.agent, args)` for streaming.
-  - Joins `chatMessageMetadata` by `messageId` and attaches it to `UIMessage.metadata`.
+  - Joins `chatMessagePayloads` by `messageId` and attaches it to `UIMessage.metadata`.
 - Update `ChatFab.tsx`:
   - Use `useUIMessages` with `stream: true` for streaming.
   - Render metadata-driven cards for commit/prod-read proposals.
@@ -143,7 +142,7 @@ while keeping Noter’s existing approval-first flows.
 
 ## Migration Plan
 
-1. Add `agentThreadContext` and `chatMessageMetadata` schema.
+1. Add `chatThreadContexts` and `chatMessagePayloads` schema.
 2. Update approval tables to reference `threadId` instead of `conversationId`.
 3. Replace chat endpoints and UI to be thread-based only.
 4. Optional backfill: migrate existing `chatMessages` into agent threads.
@@ -162,6 +161,6 @@ while keeping Noter’s existing approval-first flows.
 ## Open Questions
 
 1. Do we want to backfill legacy `chatMessages` into agent threads or start fresh?
-2. What minimal fields should be persisted in `agentThreadContext`?
+2. What minimal fields should be persisted in `chatThreadContexts`?
 3. Should we add a dedicated UI for agent file definitions (AGENTS.md, config.json, tools.json) in
    this same milestone or defer?

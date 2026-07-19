@@ -226,8 +226,8 @@ initiate arbitrary account deletion from this page in version one.
 
 ## Backend Contract
 
-Add durable `operations_accountDeletionRuns` and `operations_accountDeletionEvents` tables. The run
-ID is the stable internal identifier used by the user state, workflow, authenticated status route,
+Add durable `workflow_accountDeletion_runs` and `workflow_accountDeletion_events` tables. The run ID
+is the stable internal identifier used by the user state, workflow, authenticated status route,
 admin route, events, and retries. A separate browser-generated completion capability resolves only
 the terminal scrubbed receipt after authentication is removed. Email is never used as a workflow
 identifier.

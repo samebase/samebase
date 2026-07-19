@@ -24,7 +24,7 @@ export const getNodeLayouts = query({
     }
 
     const layouts = await ctx.db
-      .query("ui_agentGraphNodeLayout")
+      .query("ui_agentGraphNode_layouts")
       .withIndex("by_user_and_vault", (q) =>
         q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
       )
@@ -55,7 +55,7 @@ export const setNodeLayout = mutation({
     assertConnectedVault(vault);
 
     const existing = await ctx.db
-      .query("ui_agentGraphNodeLayout")
+      .query("ui_agentGraphNode_layouts")
       .withIndex("by_user_vault_and_node", (q) =>
         q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId).eq("nodeId", args.nodeId),
       )
@@ -68,7 +68,7 @@ export const setNodeLayout = mutation({
         updatedAt: Date.now(),
       });
     } else {
-      await ctx.db.insert("ui_agentGraphNodeLayout", {
+      await ctx.db.insert("ui_agentGraphNode_layouts", {
         userId: ctx.viewer.userId,
         vaultId: args.vaultId,
         nodeId: args.nodeId,

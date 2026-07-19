@@ -27,7 +27,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: `ada/${args.repoName}`,
@@ -56,7 +56,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     }
 
     if (args.activeOwnership) {
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
         runId,
         state: "active",
@@ -75,7 +75,7 @@ async function readRunAndFirstEvent(
   return await t.run(async (ctx) => {
     const run = await ctx.db.get(runId);
     const event = await ctx.db
-      .query("operations_vaultProvisioningEvents")
+      .query("workflow_vaultProvisioning_events")
       .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
       .first();
     return { event, run };
@@ -275,7 +275,7 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const writeLock = await ctx.db
-        .query("operations_vaultProvisioningWriteLocks")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       return { writeLock, run };
@@ -311,11 +311,11 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const writeLock = await ctx.db
-        .query("operations_vaultProvisioningWriteLocks")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       const event = await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .first();
       return { event, writeLock, run };

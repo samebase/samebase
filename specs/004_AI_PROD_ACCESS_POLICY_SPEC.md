@@ -17,8 +17,8 @@ This spec is intentionally approval-first and read-only for MVP.
 ## Implementation Snapshot (2026-02-13)
 
 - Proposal -> explicit approval -> execution flow is live in `chat.ts` + `chat/actions.ts`.
-- Request/audit persistence is live via `operations_aiProductionReadRequests` and
-  `audit_aiProductionReadEvents`.
+- Request/audit persistence is live via `aiProductionReadRequests` and
+  `audit_aiProductionRead_events`.
 - Admin-only enforcement is active via `isAdminUser`.
 - Request expiration (TTL) is active.
 - Redaction is active through `infraReadPolicy.ts` with default mode `MVP_OWNER_MODE`.
@@ -79,7 +79,7 @@ Mitigations in this spec:
 
 ## Data Model
 
-### 1. `operations_aiProductionReadRequests`
+### 1. `aiProductionReadRequests`
 
 Stores request lifecycle from proposal to execution.
 
@@ -108,13 +108,13 @@ Indexes:
 - `by_status`
 - `by_vault`
 
-### 2. `audit_aiProductionReadEvents`
+### 2. `audit_aiProductionRead_events`
 
 Immutable event log for each request state/action.
 
 Fields:
 
-- `requestId: Id<"operations_aiProductionReadRequests">`
+- `requestId: Id<"aiProductionReadRequests">`
 - `actorUserId: Id<"users">`
 - `action: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired"`
 - `toolName: string`
@@ -143,7 +143,7 @@ const ProdReadStatus = v.union(
   v.literal("expired"),
 );
 
-operations_aiProductionReadRequests: defineTable({
+aiProductionReadRequests: defineTable({
   threadId: v.string(),
   requesterUserId: v.id("users"),
   vaultId: v.optional(v.id("vaults")),
@@ -173,7 +173,7 @@ operations_aiProductionReadRequests: defineTable({
   .index("by_vault", ["vaultId"]);
 
 aiProdAccessAudit: defineTable({
-  requestId: v.id("operations_aiProductionReadRequests"),
+  requestId: v.id("aiProductionReadRequests"),
   actorUserId: v.id("users"),
   action: v.union(
     v.literal("proposed"),
@@ -236,7 +236,7 @@ args: {
   toolName: string;
   paramsJson: string;
 }
-returns: { requestId: Id<"operations_aiProductionReadRequests"> }
+returns: { requestId: Id<"aiProductionReadRequests"> }
 ```
 
 Behavior:
@@ -244,7 +244,7 @@ Behavior:
 - Validate thread ownership.
 - Validate admin status (`isAdminUser`).
 - Validate global kill switch enabled.
-- Insert `operations_aiProductionReadRequests(status=proposed)`.
+- Insert `aiProductionReadRequests(status=proposed)`.
 - Insert audit `action=proposed`.
 
 ### 2. Confirm request
@@ -253,7 +253,7 @@ Behavior:
 
 ```ts
 args: {
-  requestId: Id<"operations_aiProductionReadRequests">;
+  requestId: Id<"aiProductionReadRequests">;
   threadId: string;
 }
 returns: null;
@@ -353,7 +353,7 @@ Reference redaction pipeline order:
 
 ## Observability and Audit
 
-- Every request lifecycle transition emits `audit_aiProductionReadEvents`.
+- Every request lifecycle transition emits `audit_aiProductionRead_events`.
 - Include argument hash (not raw arguments) in audit.
 - Capture counts and truncated flags, not full payload copy in audit rows.
 - Add admin query for recent prod-read activity and failures.

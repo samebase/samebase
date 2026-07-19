@@ -12,14 +12,36 @@ and comments consistently.
 
 1. Name the thing one row represents. A table name should complete the sentence: "This table
    contains many ..."
-2. Put the domain before the row role. For supporting Convex tables, put the lifecycle prefix first:
-   `operations_vaultProvisioningRuns`, not `operations_runsForVaultProvisioning`.
-3. Prefer a concrete product or protocol noun over a generic technical noun.
-4. Use one word for one meaning across schema, code, tests, and current documentation.
-5. Define non-obvious producers and consumers in the table comment. Name the actual command,
+2. Use an unprefixed plural name for a concrete product, protocol, authorization, synchronization,
+   or work-queue concept. Being temporary or mutable does not make a table a workflow table.
+3. Use a category prefix only for `workflow_`, `observations_`, `derived_`, `audit_`, or `ui_`.
+   `operations_` and `data_` are not categories: the first catches unrelated support state, while
+   the second makes primary product facts look like one interchangeable storage class.
+4. A prefixed name has the grammar `<category>_<subject>_<rowKind>`. Underscores separate those
+   semantic levels; camelCase joins multiple words inside one level. For example,
+   `workflow_vaultProvisioning_runs` means category `workflow`, subject `vaultProvisioning`, and row
+   kind `runs`.
+5. Put the subject before the row kind so one feature's tables remain adjacent:
+   `workflow_vaultDeletion_events`, not `workflow_event_vaultDeletion`.
+6. Prefer a concrete product or protocol noun over a generic technical noun.
+7. Use one word for one meaning across schema, code, tests, and current documentation.
+8. Define non-obvious producers and consumers in the table comment. Name the actual command,
    service, provider, or user action instead of saying only "system", "connector", or "workflow".
-6. Use `claim` only as a verb for atomically acquiring a named lock or lease. The stored noun is the
+9. Use `claim` only as a verb for atomically acquiring a named lock or lease. The stored noun is the
    lock or lease, never a claim.
+
+## Category Prefixes
+
+| Category        | Exact boundary                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `workflow_`     | Rows whose sole reason to exist is executing, recovering, or inspecting one named multi-step workflow.                                     |
+| `observations_` | Provider or remote-system facts captured locally. They are not authoritative Samebase product facts.                                       |
+| `derived_`      | Projections that can be rebuilt completely from other local rows.                                                                          |
+| `audit_`        | Append-only occurrences that production behavior never reads to authorize a request, choose an action, recover work, or render live state. |
+| `ui_`           | Per-user presentation filters, settings, expansions, or layouts that do not define product behavior.                                       |
+
+An event belongs to `workflow_` when live workflow or UI behavior reads it. It belongs to `audit_`
+only when removing every event would not change current production behavior.
 
 ## Approved Generic Nouns
 
@@ -37,6 +59,7 @@ and comments consistently.
 | `rate limit` | Counters for a named key and time window that reject excess requests.                                                                    |
 | `update`     | One ordered delta consumed to synchronize another copy of state.                                                                         |
 | `snapshot`   | A complete point-in-time copy of external state.                                                                                         |
+| `summary`    | A condensed projection computed entirely from other local rows.                                                                          |
 | `staging`    | Current persisted work that has not yet been committed to its durable destination.                                                       |
 | `filter`     | Persisted UI criteria controlling which results are visible.                                                                             |
 | `layout`     | Persisted UI positions or dimensions.                                                                                                    |

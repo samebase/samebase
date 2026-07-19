@@ -72,7 +72,7 @@ export const vManualRepositoryRefreshDemand = object({
 export const vSourceSetupRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("source_setup"),
-  runId: id("operations_vaultProvisioningRuns"),
+  runId: id("workflow_vaultProvisioning_runs"),
 });
 /**
  * Repository demand created by backend setup completion.
@@ -170,7 +170,7 @@ export const vRepositoryRefreshDemand = union(
   vBranchScopeRefreshDemand,
 );
 /**
- * Caller-facing freshness demand persisted on `operations_vaultRepositoryRefreshRequests`.
+ * Caller-facing freshness demand persisted on `vaultRepositoryRefreshRequests`.
  * Backend workers expand this into provider/API steps during execution.
  */
 export type RepositoryRefreshDemand = Infer<typeof vRepositoryRefreshDemand>;
@@ -311,8 +311,8 @@ export type RepositoryRefreshLifecycle = Infer<typeof vRepositoryRefreshLifecycl
  * describes what must be fresh; `lifecycle` records queue state, worker lease,
  * and terminal result.
  */
-export const repositoryRefreshTables = {
-  operations_vaultRepositoryRefreshRequests: defineTable({
+export const vaultRepositoryRefreshTables = {
+  vaultRepositoryRefreshRequests: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     dedupeKey: string(),
@@ -341,11 +341,11 @@ export const repositoryRefreshTables = {
     ]),
 };
 /**
- * Full row shape stored in `operations_vaultRepositoryRefreshRequests`.
+ * Full row shape stored in `vaultRepositoryRefreshRequests`.
  * Use constructors/transitions below instead of assembling this by hand.
  */
 export type RepositoryRefreshRequest = Infer<
-  typeof repositoryRefreshTables.operations_vaultRepositoryRefreshRequests.validator
+  typeof vaultRepositoryRefreshTables.vaultRepositoryRefreshRequests.validator
 >;
 
 // MARK: Enqueue Results
@@ -375,23 +375,23 @@ export type RepositoryRefreshRequest = Infer<
 export const vEnqueueRepositoryRefreshResult = union(
   object({
     kind: literal("created"),
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("updated"),
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_queued"),
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_scheduled"),
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_running"),
-    requestId: id("operations_vaultRepositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("blocked"),

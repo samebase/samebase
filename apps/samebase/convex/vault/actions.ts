@@ -224,7 +224,7 @@ function resolveGitHubRepositoryCreateOwner(args: {
 async function markProvisioningStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     logName: string;
     error: unknown;
     vaultId: Id<"vaults">;
@@ -249,7 +249,7 @@ async function startVaultInfrastructureProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): Promise<void> {
   try {
@@ -271,7 +271,7 @@ async function startVaultInfrastructureProvisioningOrFail(
 async function markDeletionStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"operations_vaultDeletionRuns">;
+    runId: Id<"workflow_vaultDeletion_runs">;
     logName: string;
     error: unknown;
     vaultId: Id<"vaults">;
@@ -296,7 +296,7 @@ async function startVaultDeletionOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultDeletionRuns">;
+    runId: Id<"workflow_vaultDeletion_runs">;
     userId: Id<"users">;
   },
 ): Promise<void> {
@@ -321,7 +321,7 @@ async function startCreateAppProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     repositoryName: string;
     repositoryOwner: string;
@@ -346,7 +346,7 @@ async function startConnectExistingRepositoryProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"operations_vaultProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     repositoryName: string;
     repositoryOwner: string;
@@ -893,11 +893,11 @@ export const deleteVault = action({
     removeCloudflareProvision: v.optional(v.boolean()),
   },
   returns: v.object({
-    deletionRunId: v.id("operations_vaultDeletionRuns"),
+    deletionRunId: v.id("workflow_vaultDeletion_runs"),
   }),
-  handler: async (ctx, args): Promise<{ deletionRunId: Id<"operations_vaultDeletionRuns"> }> => {
+  handler: async (ctx, args): Promise<{ deletionRunId: Id<"workflow_vaultDeletion_runs"> }> => {
     const userId = ctx.viewer.userId;
-    const result: { deletionRunId: Id<"operations_vaultDeletionRuns"> } = await ctx.runMutation(
+    const result: { deletionRunId: Id<"workflow_vaultDeletion_runs"> } = await ctx.runMutation(
       internal.vault.deletion.runs.createInitialRun,
       {
         userId,
@@ -924,14 +924,14 @@ export const deleteVault = action({
 export const retryDeleteVault = action({
   access: "access_app_create",
   args: {
-    runId: v.id("operations_vaultDeletionRuns"),
+    runId: v.id("workflow_vaultDeletion_runs"),
   },
   returns: v.object({
-    deletionRunId: v.id("operations_vaultDeletionRuns"),
+    deletionRunId: v.id("workflow_vaultDeletion_runs"),
   }),
-  handler: async (ctx, args): Promise<{ deletionRunId: Id<"operations_vaultDeletionRuns"> }> => {
+  handler: async (ctx, args): Promise<{ deletionRunId: Id<"workflow_vaultDeletion_runs"> }> => {
     const userId = ctx.viewer.userId;
-    const result: { deletionRunId: Id<"operations_vaultDeletionRuns"> } = await ctx.runMutation(
+    const result: { deletionRunId: Id<"workflow_vaultDeletion_runs"> } = await ctx.runMutation(
       internal.vault.deletion.runs.createRetryRun,
       {
         userId,

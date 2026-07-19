@@ -6,13 +6,13 @@ import { internalQuery, type QueryCtx } from "../_generated/server";
 const { id, object, string } = v;
 
 type RunningAccountDeletionRun = Extract<
-  Doc<"operations_accountDeletionRuns">,
+  Doc<"workflow_accountDeletion_runs">,
   { state: "running" }
 >;
 
 export async function readOwnedActiveRun(
   ctx: Pick<QueryCtx, "db">,
-  args: { runId: Id<"operations_accountDeletionRuns">; workflowId: string },
+  args: { runId: Id<"workflow_accountDeletion_runs">; workflowId: string },
 ): Promise<RunningAccountDeletionRun> {
   const run = await ctx.db.get(args.runId);
 
@@ -29,7 +29,7 @@ export async function readOwnedActiveRun(
 
 export const getOwnedIdentity = internalQuery({
   args: {
-    runId: id("operations_accountDeletionRuns"),
+    runId: id("workflow_accountDeletion_runs"),
     workflowId: string(),
   },
   returns: object({

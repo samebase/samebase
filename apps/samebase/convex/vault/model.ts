@@ -237,7 +237,7 @@ export const vaultTables = {
         treeRefreshCooldownUntil: optional(number()),
         activeCodespaceId: optional(id("codespaces")),
         devcontainerConfig: optional(string()),
-        runId: id("operations_vaultProvisioningRuns"),
+        runId: id("workflow_vaultProvisioning_runs"),
         startedAt: number(),
         owner: string(),
         name: string(),
@@ -256,7 +256,7 @@ export const vaultTables = {
         treeRefreshCooldownUntil: optional(number()),
         activeCodespaceId: optional(id("codespaces")),
         devcontainerConfig: optional(string()),
-        runId: id("operations_vaultProvisioningRuns"),
+        runId: id("workflow_vaultProvisioning_runs"),
         startedAt: number(),
         owner: string(),
         name: string(),
@@ -274,7 +274,7 @@ export const vaultTables = {
         treeRefreshCooldownUntil: optional(number()),
         activeCodespaceId: optional(id("codespaces")),
         devcontainerConfig: optional(string()),
-        runId: id("operations_vaultProvisioningRuns"),
+        runId: id("workflow_vaultProvisioning_runs"),
         ghRepoId: string(),
         defaultBranch: string(),
         connectedAt: number(),
@@ -295,7 +295,7 @@ export const vaultTables = {
         treeRefreshCooldownUntil: optional(number()),
         activeCodespaceId: optional(id("codespaces")),
         devcontainerConfig: optional(string()),
-        runId: id("operations_vaultProvisioningRuns"),
+        runId: id("workflow_vaultProvisioning_runs"),
         ghRepoId: string(),
         defaultBranch: string(),
         connectedAt: number(),
@@ -316,7 +316,7 @@ export const vaultTables = {
         treeRefreshCooldownUntil: optional(number()),
         activeCodespaceId: optional(id("codespaces")),
         devcontainerConfig: optional(string()),
-        runId: id("operations_vaultProvisioningRuns"),
+        runId: id("workflow_vaultProvisioning_runs"),
         failedAt: number(),
         owner: string(),
         name: string(),
@@ -335,7 +335,7 @@ export const vaultTables = {
         treeRefreshCooldownUntil: optional(number()),
         activeCodespaceId: optional(id("codespaces")),
         devcontainerConfig: optional(string()),
-        runId: id("operations_vaultProvisioningRuns"),
+        runId: id("workflow_vaultProvisioning_runs"),
         failedAt: number(),
         owner: string(),
         name: string(),
@@ -359,7 +359,7 @@ export const vaultTables = {
     .index("by_user", ["userId"])
     .index("by_vault_and_appRoot", ["vaultId", "appRoot"]),
 
-  /** Cloudflare Worker targets connected to a repository-backed vault. */
+  /** Cloudflare Workers connected to deployable app roots in a vault. */
   vaultCloudflareWorkers: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),

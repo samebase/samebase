@@ -1406,6 +1406,7 @@ export const trackedFilePaths = [
   "docs/code-guardrails.md",
   "docs/compliance/licenses-prod-2026-05-04.txt",
   "docs/convex-production-reads.md",
+  "docs/data-modeling-vocabulary.md",
   "docs/playwright-visual-testing.md",
   "docs/public-launch-checklist.md",
   "docs/repo-documentation-standard.md",

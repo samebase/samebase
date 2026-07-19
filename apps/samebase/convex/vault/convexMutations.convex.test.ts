@@ -18,7 +18,7 @@ async function createConvexConnectionVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -48,7 +48,7 @@ async function createConvexConnectionVault() {
       appRoot,
       createdAt: 25,
     });
-    const runId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -109,11 +109,11 @@ describe("vault Convex deployment connection mutations", () => {
           .first(),
       ]);
       const writeLock = await ctx.db
-        .query("operations_vaultProvisioningWriteLocks")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       return { deployment, events, writeLock, run };
@@ -284,7 +284,7 @@ describe("vault Convex deployment connection mutations", () => {
 
     const events = await t.run(async (ctx) => {
       return await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
     });
@@ -303,7 +303,7 @@ describe("vault Convex deployment connection mutations", () => {
         currentStep: "attach_convex",
         updatedAt: 40,
       });
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "active",
@@ -327,11 +327,11 @@ describe("vault Convex deployment connection mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const writeLock = await ctx.db
-        .query("operations_vaultProvisioningWriteLocks")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("operations_vaultProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       return { events, writeLock, run };
@@ -351,7 +351,7 @@ describe("vault Convex deployment connection mutations", () => {
   it("allows a failed Convex connection owner to be claimed again", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("operations_vaultProvisioningWriteLocks", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "failed",
@@ -368,7 +368,7 @@ describe("vault Convex deployment connection mutations", () => {
 
     const writeLock = await t.run(async (ctx) => {
       return await ctx.db
-        .query("operations_vaultProvisioningWriteLocks")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
     });
@@ -382,7 +382,7 @@ describe("vault Convex deployment connection mutations", () => {
       appRoot,
     });
     await t.run(async (ctx) => {
-      const otherRunId = await ctx.db.insert("operations_vaultProvisioningRuns", {
+      const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-convex",
@@ -393,7 +393,7 @@ describe("vault Convex deployment connection mutations", () => {
         updatedAt: 40,
       });
       const writeLock = await ctx.db
-        .query("operations_vaultProvisioningWriteLocks")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       if (!writeLock) {
@@ -446,7 +446,7 @@ describe("vault Convex deployment connection mutations", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const writeLock = await ctx.db
-        .query("operations_vaultProvisioningWriteLocks")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       return { writeLock, run };

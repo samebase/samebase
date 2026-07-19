@@ -36,8 +36,8 @@ export const mcpTables = {
     .index("by_registration_status", ["registrationStatus"])
     .index("by_provisional_expires_at", ["provisionalExpiresAt"]),
 
-  /** Pending MCP OAuth requests awaiting a user's browser consent decision. */
-  operations_mcpAuthorizationRequests: defineTable({
+  /** One pending MCP OAuth request awaiting a user's browser consent decision. */
+  mcpAuthorizationRequests: defineTable({
     requestId: string(),
     clientId: string(),
     redirectUri: string(),
@@ -58,7 +58,7 @@ export const mcpTables = {
     .index("by_expires_at", ["expiresAt"]),
 
   /** Hashed one-use codes exchanged by approved MCP clients for access and refresh tokens. */
-  operations_mcpAuthorizationCodes: defineTable({
+  mcpAuthorizationCodes: defineTable({
     codeHash: string(),
     requestId: string(),
     grantId: string(),
@@ -96,7 +96,7 @@ export const mcpTables = {
     .index("by_status", ["status"]),
 
   /** Hashed bearer tokens authorizing MCP resource calls until expiry or revocation. */
-  operations_mcpAccessTokens: defineTable({
+  mcpAccessTokens: defineTable({
     tokenHash: string(),
     grantId: string(),
     clientId: string(),
@@ -114,7 +114,7 @@ export const mcpTables = {
     .index("by_expires_at", ["expiresAt"]),
 
   /** Hashed rotating credentials used to mint replacement MCP tokens. */
-  operations_mcpRefreshTokens: defineTable({
+  mcpRefreshTokens: defineTable({
     grantId: string(),
     clientId: string(),
     userId: id("users"),
@@ -131,8 +131,27 @@ export const mcpTables = {
     .index("by_status", ["status"])
     .index("by_expires_at", ["expiresAt"]),
 
+  /**
+   * Hashes of one-use tokens that an authorized MCP client sends to a browser
+   * to start a Samebase session for the grant's user.
+   */
+  mcpBrowserLoginTokens: defineTable({
+    tokenHash: string(),
+    userId: id("users"),
+    grantId: string(),
+    clientId: string(),
+    // Deprecated rollout field. New tokens never write it; legacy rows expire after five minutes.
+    returnToPath: optional(string()),
+    createdAt: number(),
+    expiresAt: number(),
+    consumedAt: optional(number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_user_id", ["userId"])
+    .index("by_grant_id", ["grantId"]),
+
   /** One immutable MCP OAuth action, never read to authorize live requests. */
-  audit_mcpAccessEvents: defineTable({
+  audit_mcpAccess_events: defineTable({
     grantId: optional(string()),
     clientId: optional(string()),
     userId: optional(id("users")),

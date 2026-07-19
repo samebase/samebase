@@ -179,7 +179,7 @@ vaultRepositoryRefs
   pullRequestIsDraft?
   updatedAt
 
-commitCheckSnapshots
+commitCheckSummarys
   githubRepositoryId
   commitSha
   state
@@ -241,7 +241,7 @@ for commits no active branch currently points at, so the repository-level cache 
 forever as branch heads move.
 
 Rollout is intentionally destructive for the old PR-check cache. The old
-`observations_vaultRemoteBranches` PR-check rollup field and old PR-check item table are not
+`observations_vaultRepository_branches` PR-check rollup field and old PR-check item table are not
 supported by this model. Production deployment must clear those old rows/fields before the schema is
 narrowed, or reset the single-user production database before deploying this change. Do not keep old
 PR-check schema fields as a compatibility layer.

@@ -40,12 +40,12 @@ export const vProdAccessAuditAction = union(
   literal("expired"),
 );
 
-export const prodAccessTables = {
+export const aiProductionReadTables = {
   /**
    * One proposed AI read against production, including its exact parameters,
    * approval, redaction, expiration, execution status, and safe error.
    */
-  operations_aiProductionReadRequests: defineTable({
+  aiProductionReadRequests: defineTable({
     threadId: string(),
     requesterUserId: id("users"),
     vaultId: optional(id("vaults")),
@@ -69,8 +69,8 @@ export const prodAccessTables = {
     .index("by_vault", ["vaultId"]),
 
   /** Immutable audit events recording decisions and execution for production AI reads. */
-  audit_aiProductionReadEvents: defineTable({
-    requestId: id("operations_aiProductionReadRequests"),
+  audit_aiProductionRead_events: defineTable({
+    requestId: id("aiProductionReadRequests"),
     actorUserId: id("users"),
     action: vProdAccessAuditAction,
     toolName: string(),

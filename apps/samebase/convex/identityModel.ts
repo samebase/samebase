@@ -12,6 +12,7 @@ const {
 export const identityTables = {
   ...authTablesWithoutUsersAndVerifiers,
 
+  /** Convex Auth verification values, with optional signatures and session association. */
   authVerifiers: defineTable({
     sessionId: optional(id("authSessions")),
     signature: optional(string()),
@@ -19,6 +20,7 @@ export const identityTables = {
     .index("signature", ["signature"])
     .index("sessionId", ["sessionId"]),
 
+  /** Samebase accounts linked to Convex Auth identities. */
   users: defineTable({
     name: optional(string()),
     displayName: optional(string()),
@@ -33,12 +35,12 @@ export const identityTables = {
       union(
         object({
           state: literal("deleting"),
-          runId: id("operations_accountDeletionRuns"),
+          runId: id("workflow_accountDeletion_runs"),
           requestedAt: number(),
         }),
         object({
           state: literal("finalizing"),
-          runId: id("operations_accountDeletionRuns"),
+          runId: id("workflow_accountDeletion_runs"),
           requestedAt: number(),
         }),
       ),

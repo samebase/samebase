@@ -14,9 +14,9 @@ export const vCommitCheckState = union(
 );
 export type CommitCheckState = Infer<typeof vCommitCheckState>;
 
-export const commitCheckTables = {
-  /** Current GitHub check/status summary for one commit in one repository. */
-  observations_vaultCommitCheckSnapshots: defineTable({
+export const githubCommitCheckTables = {
+  /** Recomputable status summary derived from the current check rows for one GitHub commit. */
+  derived_githubCommit_checkSummaries: defineTable({
     githubRepositoryId: string(),
     commitSha: string(),
     state: vCommitCheckState,
@@ -34,7 +34,7 @@ export const commitCheckTables = {
   }).index("by_githubRepositoryId_and_commitSha", ["githubRepositoryId", "commitSha"]),
 
   /** One current GitHub check run or commit status for a commit in one repository. */
-  observations_vaultCommitChecks: defineTable({
+  observations_githubCommit_checks: defineTable({
     githubRepositoryId: string(),
     commitSha: string(),
     source: vCommitCheckSource,
@@ -58,24 +58,24 @@ export const commitCheckTables = {
   }).index("by_githubRepositoryId_and_commitSha", ["githubRepositoryId", "commitSha"]),
 };
 
-export const vGithubCommitCheckSnapshot =
-  commitCheckTables.observations_vaultCommitCheckSnapshots.validator;
-export type GitHubCommitCheckSnapshot = Infer<typeof vGithubCommitCheckSnapshot>;
+export const vGithubCommitCheckSummary =
+  githubCommitCheckTables.derived_githubCommit_checkSummaries.validator;
+export type GitHubCommitCheckSummary = Infer<typeof vGithubCommitCheckSummary>;
 
-const commitCheckSnapshot = vGithubCommitCheckSnapshot.fields;
+const commitCheckSummary = vGithubCommitCheckSummary.fields;
 
 export const vVaultBranchCommitChecksSummary = object({
-  state: commitCheckSnapshot.state,
-  totalCount: commitCheckSnapshot.totalCount,
-  checkRunCount: commitCheckSnapshot.checkRunCount,
-  statusContextCount: commitCheckSnapshot.statusContextCount,
-  successCount: commitCheckSnapshot.successCount,
-  failureCount: commitCheckSnapshot.failureCount,
-  runningCount: commitCheckSnapshot.runningCount,
-  neutralCount: commitCheckSnapshot.neutralCount,
-  unknownCount: commitCheckSnapshot.unknownCount,
-  primaryTargetUrl: commitCheckSnapshot.primaryTargetUrl,
-  primaryLogUrl: commitCheckSnapshot.primaryLogUrl,
-  syncedAt: commitCheckSnapshot.syncedAt,
+  state: commitCheckSummary.state,
+  totalCount: commitCheckSummary.totalCount,
+  checkRunCount: commitCheckSummary.checkRunCount,
+  statusContextCount: commitCheckSummary.statusContextCount,
+  successCount: commitCheckSummary.successCount,
+  failureCount: commitCheckSummary.failureCount,
+  runningCount: commitCheckSummary.runningCount,
+  neutralCount: commitCheckSummary.neutralCount,
+  unknownCount: commitCheckSummary.unknownCount,
+  primaryTargetUrl: commitCheckSummary.primaryTargetUrl,
+  primaryLogUrl: commitCheckSummary.primaryLogUrl,
+  syncedAt: commitCheckSummary.syncedAt,
 });
 export type VaultBranchCommitChecksSummary = Infer<typeof vVaultBranchCommitChecksSummary>;

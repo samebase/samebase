@@ -36,7 +36,7 @@ async function seedRunningDeletion() {
       userId,
       expirationTime: now + 60_000,
     });
-    const runId = await ctx.db.insert("operations_accountDeletionRuns", {
+    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
       identity: { state: "active", userId, email: "deleting@example.com" },
       completionCapability: "workflow-test",
       state: "running",
@@ -62,7 +62,7 @@ async function seedRunningDeletion() {
 
 async function readRun(
   t: ReturnType<typeof makeConvexTest>,
-  runId: Id<"operations_accountDeletionRuns">,
+  runId: Id<"workflow_accountDeletion_runs">,
 ) {
   return await t.run(async (ctx) => await ctx.db.get(runId));
 }
@@ -101,8 +101,8 @@ describe("account deletion workflow ownership and outcomes", () => {
     ).rejects.toThrow();
     const stored = await t.run(async (ctx) => ({
       user: await ctx.db.get(ids.userId),
-      runs: await ctx.db.query("operations_accountDeletionRuns").collect(),
-      events: await ctx.db.query("operations_accountDeletionEvents").collect(),
+      runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+      events: await ctx.db.query("workflow_accountDeletion_events").collect(),
     }));
     expect(stored.user?.accountDeletion).toBeUndefined();
     expect(stored.runs).toEqual([]);
@@ -274,7 +274,7 @@ describe("account deletion workflow ownership and outcomes", () => {
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
-      return await ctx.db.insert("operations_vaultRepositoryRefreshRequests", {
+      return await ctx.db.insert("vaultRepositoryRefreshRequests", {
         userId: ids.userId,
         vaultId,
         dedupeKey: `${vaultId}:main`,
@@ -532,7 +532,7 @@ describe("account deletion workflow ownership and outcomes", () => {
       t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
     ).resolves.toBeNull();
     const settingsId = await t.run(async (ctx) => {
-      return await ctx.db.insert("ui_dashboardSettings", {
+      return await ctx.db.insert("ui_user_settings", {
         userId: ids.userId,
         providersPanelOpen: false,
       });
