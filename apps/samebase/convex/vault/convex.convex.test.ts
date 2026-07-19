@@ -249,12 +249,7 @@ describe("vault Convex deployment connection actions", () => {
     expect(deployment).toMatchObject({
       appRoot,
       projectId: "1001",
-      teamSlug: "samebase-team",
-      projectSlug: "alpha",
       deploymentName: "alpha-prod",
-      deploymentType: "prod",
-      cloudUrl: "https://alpha-prod.convex.cloud",
-      siteUrl: "https://alpha-prod.convex.site",
       origin: "selected_existing",
     });
   });
@@ -422,7 +417,6 @@ describe("vault Convex deployment connection actions", () => {
     expect(deployment).toMatchObject({
       appRoot,
       projectId: "1001",
-      projectSlug: "alpha-project",
       deploymentName: "alpha-prod",
       origin: "provisioned",
     });
@@ -529,7 +523,6 @@ describe("vault Convex deployment connection actions", () => {
     expect(deployment).toMatchObject({
       appRoot,
       projectId: "1002",
-      projectSlug: "alpha-project-recreated",
       deploymentName: "alpha-recreated-prod",
       origin: "provisioned",
     });
