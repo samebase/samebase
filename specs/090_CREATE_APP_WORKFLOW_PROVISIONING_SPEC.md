@@ -42,7 +42,12 @@ migration history; use `096` for the current create-app state model.
 4. seeds the starter app
 5. syncs the initial branch tree into `observations_vaultRepository_branchTrees`
 6. runs the composed infrastructure sequence:
-   `attach_convex -> attach_worker -> wire_builds -> wire_convex_build_access -> record_domains`
+   `attach_convex -> attach_worker -> wire_builds -> wire_convex_build_access`
+
+The final wiring step writes both Convex deploy-key secrets and the readable
+`SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` marker to both Workers Builds triggers before it
+starts the first production build. The workflow succeeds only after that step completes. The default
+workers.dev URL is loaded directly from Cloudflare and is not copied into `vaultDomains`.
 
 ## Historical Repository-First Runtime
 
@@ -259,8 +264,7 @@ Target workflow steps:
 6. `attach_worker`
 7. `wire_builds`
 8. `wire_convex_build_access`
-9. `record_domains`
-10. `finish`
+9. `finish`
 
 Each step should call a narrow internal function that remains idempotent where provider APIs allow
 it.
@@ -317,8 +321,8 @@ Phase 4: Composed infrastructure blocks.
 1. Reuse the manual Convex deployment connection block for full-app `attach_convex`.
 2. Reuse the manual Cloudflare Worker connection block for full-app `attach_worker`.
 3. Reuse `wire_builds` and `wire_convex_build_access` for full-app deployment wiring.
-4. Record the default Cloudflare Worker domain only after the Cloudflare Worker block produces a
-   URL.
+4. Read the default Cloudflare Worker domain from Cloudflare when the dashboard needs it instead of
+   recording a provider-owned URL in Convex.
 5. Delete the old `ensure_convex_preview` + `ensure_cloudflare` mega-step path instead of keeping
    internal compatibility shims.
 

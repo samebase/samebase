@@ -28,12 +28,12 @@ connection and separate from deployment wiring.
 type VaultCloudflareWorker = {
   vaultId: Id<"vaults">;
   userId: Id<"users">;
-  appRoot: string;
+  appId: Id<"vaultApps">;
   accountId: string;
   workerName: string;
   workerTag: string;
   origin: "provisioned" | "selected_existing";
-  connectedAt: number;
+  createdAt: number;
 };
 ```
 
@@ -41,12 +41,13 @@ The app must not require the account-level workers.dev subdomain endpoint before
 creating a Worker. The real Cloudflare MCP OAuth grant can verify accounts and Worker identity while
 that specific endpoint can return an authentication error; attachment should still succeed.
 
-`appRoot` answers which deployable root inside the repository this Worker serves. Samebase should
-show Cloudflare's observed root-directory evidence in the picker before attachment when it is known.
+The attached `vaultApps` row owns the Worker's `rootDirectory`. It has exactly the same meaning and
+spelling as Cloudflare's `root_directory`. Samebase should show Cloudflare's observed root-directory
+evidence in the picker before attachment when it is known.
 
 `origin` answers how this vault attached to the Worker.
 
-`connectedAt` answers when this vault attached the Worker.
+`createdAt` answers when this vault attached the Worker.
 
 Cleanup ownership is derived from `origin`: `provisioned` Workers can be deleted by managed cleanup
 flows, while `selected_existing` Workers are external.
@@ -171,9 +172,13 @@ Deployment wiring is separate from Worker attach/create. The two wiring relation
 - Cloudflare Workers Builds to Convex build access through deploy keys.
 
 Attaching a Worker does not imply either wiring relationship exists. Samebase-provisioned Workers
-created by full app provisioning auto-queue `wire_builds`; selected existing Workers require an
-explicit user action so Samebase does not mutate a preexisting Cloudflare setup without approval.
+created by full app provisioning continue through `wire_builds`; selected existing Workers require
+an explicit user action so Samebase does not mutate a preexisting Cloudflare setup without approval.
 After attach, the dashboard exposes that explicit action as `Connect GitHub repo` when the Worker is
-not connected to the vault's GitHub repository through Cloudflare Workers Builds. If the same app
-root also has an attached Convex deployment after Builds is connected, the dashboard exposes
-`Set Convex deploy keys` to run `wire_convex_build_access`.
+not connected to the vault's GitHub repository through Cloudflare Workers Builds.
+
+After Builds is connected, `Set Convex deploy keys` takes one explicitly selected attached Convex
+project. Samebase writes both secret deploy-key variables and the readable
+`SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` marker to the production and preview triggers.
+That Cloudflare configuration is the live relationship. Attaching resources does not create a
+Worker-to-project relationship, and Samebase does not persist a completed dependency row.

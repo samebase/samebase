@@ -23,9 +23,9 @@ The dashboard resource rail should let a ready GitHub-connected vault:
 - connect an existing Convex project from the connected Convex team
 - create a new Convex project with a production deployment
 
-Both flows attach the selected or created project's default production deployment to
-`vaultConvexDeployments`, keyed by vault and app root. That row stores only the stable provider
-coordinates and attachment provenance.
+Both flows attach the selected or created Convex project to `vaultConvexProjects`, keyed by app.
+That row stores only the stable project coordinates and attachment provenance. Production,
+development, and preview deployments remain live Convex resources rather than attachment fields.
 
 ## Goals
 
@@ -48,18 +48,17 @@ coordinates and attachment provenance.
 
 ## State Model
 
-`vaultConvexDeployments` owns the attached Convex production resource identity for one vault app
-root:
+`vaultConvexProjects` owns the attached Convex project identity for one vault app:
 
 ```ts
-type VaultConvexDeployment = {
+type VaultConvexProject = {
   vaultId: Id<"vaults">;
   userId: Id<"users">;
-  appRoot: string;
+  appId: Id<"vaultApps">;
+  teamId: string;
   projectId: string;
-  deploymentName: string;
   origin: "provisioned" | "selected_existing";
-  connectedAt: number;
+  createdAt: number;
 };
 ```
 
@@ -74,9 +73,9 @@ data can be cleared instead of carrying old `vault.convex` or `vaultInfrastructu
 Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
 flows, while `selected_existing` projects are external.
 
-Project and deployment existence, slugs, URLs, preview deployments, and deploy keys remain owned by
-Convex. Samebase reads them as a bounded live observation for the requested vault and does not write
-the result into the attachment row.
+Project and deployment existence, slugs, URLs, production, development and preview deployments, and
+deploy keys remain owned by Convex. Samebase reads them as a bounded live observation for the
+requested vault and does not write the result into the attachment row.
 
 ## Provider Scope
 
@@ -130,8 +129,8 @@ The run is intentionally narrow:
 
 1. claim provider work for the vault
 2. verify or create the Convex project/deployment
-3. write `vaultConvexDeployments`
-4. attach the deployment to the target app root
+3. write `vaultConvexProjects`
+4. attach the project to the target app
 5. mark the run complete
 
 The modal submit action should return after the Workflow is queued. The modal closes by clearing
@@ -151,7 +150,7 @@ provider read does not authorize replacement.
 The server derives a one-run replacement intent from the current attachment row. Before queuing the
 Workflow and again after claiming its write lock, it reads the recorded project and deployment from
 Convex and confirms that their recorded identity is missing. The Workflow then compare-and-swaps the
-exact recorded attachment snapshot and patches the same `vaultConvexDeployments` row with the
+exact recorded attachment snapshot and patches the same `vaultConvexProjects` row with the
 replacement identity. A changed attachment snapshot cancels the run instead of overwriting newer
 state.
 
@@ -173,12 +172,9 @@ Deployment wiring is separate from Convex attach/create. The two wiring relation
 - repository source to Convex functions/schema deployment
 - Cloudflare Workers Builds to Convex build access through deploy keys
 
-Attaching or creating a Convex production deployment does not imply either wiring relationship
-exists. If a Worker already has connected builds, Samebase can later run `wire_convex_build_access`
-to ensure the preview deployment, mint deploy keys, patch Cloudflare trigger environment variables,
-and record the explicit operation result in workflow events. It does not persist a current
-deploy-key state on the Worker or deployment attachment. When the next live observation finds
-missing keys, the dashboard shows the Cloudflare row message
-`Cloudflare does not have this Convex deployment's deploy keys.` with a `Set Convex deploy keys`
-action when the same app root has both an attached Convex deployment and connected Cloudflare
-Builds.
+Attaching or creating a Convex project does not imply either wiring relationship exists. If a Worker
+already has connected Builds, Samebase can later run `wire_convex_build_access` for one explicitly
+selected attached project. The action mints deploy keys and writes them together with
+`SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` to both Cloudflare triggers. It does not persist a
+current deploy-key state or a Worker-to-project dependency row. The next dashboard read derives the
+relationship from Cloudflare's live marker and variable names.

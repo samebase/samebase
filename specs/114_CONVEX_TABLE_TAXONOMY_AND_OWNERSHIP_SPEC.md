@@ -79,7 +79,7 @@ machineControlTokens
 vaults
 vaultApps
 vaultCloudflareWorkers
-vaultConvexDeployments
+vaultConvexProjects
 vaultDomains
 vaultRepositoryRefreshRequests
 vaultStagedFiles
