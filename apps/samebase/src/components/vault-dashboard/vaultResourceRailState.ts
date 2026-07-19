@@ -102,7 +102,12 @@ function formatCloudflareRepositoryState(
   const evidence = observation.repository.evidence;
   switch (evidence.state) {
     case "matching_repo":
-      return { canConnect: false };
+      return observation.builds.state === "connected"
+        ? { canConnect: false }
+        : {
+            canConnect: true,
+            description: "Cloudflare Builds setup is incomplete.",
+          };
     case "none":
     case "deleted_repo_connection":
       return {
@@ -159,15 +164,141 @@ function joinDescriptions(...descriptions: (string | undefined)[]): string | und
   return presentDescriptions.length > 0 ? presentDescriptions.join(" ") : undefined;
 }
 
+function buildConvexBuildAccessActions({
+  convexProjects,
+  isWiringConvexBuildAccess,
+  wireConvexBuildAccessOnClick,
+  workerId,
+}: {
+  convexProjects: readonly VaultDashboardConvexProject[];
+  isWiringConvexBuildAccess?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => boolean;
+  wireConvexBuildAccessOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
+  workerId: Id<"vaultCloudflareWorkers">;
+}): VaultResourceRailActionList | undefined {
+  const sortedProjects = [...convexProjects].sort(
+    (left, right) =>
+      left.projectId.localeCompare(right.projectId) ||
+      left.convexProjectId.localeCompare(right.convexProjectId),
+  );
+  if (sortedProjects.length === 0) {
+    return undefined;
+  }
+  const actions = sortedProjects.map((project) => {
+    const isWiring = isWiringConvexBuildAccess?.(workerId, project.convexProjectId) ?? false;
+    const label =
+      sortedProjects.length === 1
+        ? isWiring
+          ? "Setting Convex deploy keys..."
+          : "Set Convex deploy keys"
+        : isWiring
+          ? `Setting keys: ${project.projectId}...`
+          : `Set keys: ${project.projectId}`;
+    return {
+      kind: "configure" as const,
+      label,
+      ariaLabel: `${label} for ${project.projectId}`,
+      disabled: isWiring || !wireConvexBuildAccessOnClick,
+      onClick: wireConvexBuildAccessOnClick
+        ? () => wireConvexBuildAccessOnClick(workerId, project.convexProjectId)
+        : undefined,
+    };
+  });
+  const [first, ...rest] = actions;
+  return [first, ...rest];
+}
+
+function formatCloudflareConvexBuildAccessState({
+  convexProjects,
+  isWiringConvexBuildAccess,
+  observation,
+  wireConvexBuildAccessOnClick,
+  workerId,
+}: {
+  convexProjects: readonly VaultDashboardConvexProject[];
+  isWiringConvexBuildAccess?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => boolean;
+  observation: Extract<VaultCloudflareWorkerObservation, { state: "available" }>;
+  wireConvexBuildAccessOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
+  workerId: Id<"vaultCloudflareWorkers">;
+}): { actions?: VaultResourceRailActionList; description?: string } {
+  if (observation.builds.state === "not_connected") {
+    return {};
+  }
+  const access = observation.builds.convexBuildAccess;
+  if (access.state === "configured" && access.convexProject.state === "attached") {
+    return {
+      description: `Convex deploy keys use ${access.convexProject.projectId}.`,
+    };
+  }
+
+  const actions = buildConvexBuildAccessActions({
+    convexProjects,
+    isWiringConvexBuildAccess,
+    wireConvexBuildAccessOnClick,
+    workerId,
+  });
+  switch (access.state) {
+    case "configured":
+      return {
+        actions,
+        description: `Convex deploy keys target ${access.convexProject.teamId}/${access.convexProject.projectId}, which is not attached to this vault.`,
+      };
+    case "incomplete":
+      return {
+        actions,
+        description: `Convex deploy keys for ${access.convexProject.projectId} are incomplete.`,
+      };
+    case "not_configured":
+      return { actions, description: "Convex deploy keys are not configured." };
+    case "target_unknown":
+      return {
+        actions,
+        description: "Convex deploy keys exist, but their project is unknown.",
+      };
+    case "inconsistent":
+      return {
+        actions,
+        description: "Production and preview Builds target different Convex projects.",
+      };
+    case "invalid":
+      return { actions, description: "The Convex project marker is invalid." };
+  }
+  access satisfies never;
+  return {};
+}
+
 function buildCloudflareRow({
+  convexProjects,
   connectCloudflareGithubRepoOnClick,
   isConnectingCloudflareGithubRepo,
+  isWiringConvexBuildAccess,
   observationState,
+  wireConvexBuildAccessOnClick,
   worker,
 }: {
+  convexProjects: readonly VaultDashboardConvexProject[];
   connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isWiringConvexBuildAccess?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => boolean;
   observationState: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
+  wireConvexBuildAccessOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
   worker: VaultDashboardCloudflareWorker;
 }): VaultResourceRailRowState<"cloudflare"> {
   const base = {
@@ -221,6 +352,13 @@ function buildCloudflareRow({
       };
     case "available": {
       const repositoryState = formatCloudflareRepositoryState(observation);
+      const convexBuildAccessState = formatCloudflareConvexBuildAccessState({
+        convexProjects,
+        isWiringConvexBuildAccess,
+        observation,
+        wireConvexBuildAccessOnClick,
+        workerId: worker.workerId,
+      });
       const isConnecting = isConnectingCloudflareGithubRepo?.(worker.workerId) ?? false;
       const actions: VaultResourceRailActionList | undefined = repositoryState.canConnect
         ? [
@@ -233,7 +371,7 @@ function buildCloudflareRow({
                 : undefined,
             },
           ]
-        : undefined;
+        : convexBuildAccessState.actions;
       return {
         ...base,
         status: "available",
@@ -241,6 +379,7 @@ function buildCloudflareRow({
         description: joinDescriptions(
           formatCloudflarePreviewState(observation),
           repositoryState.description,
+          convexBuildAccessState.description,
         ),
         href: buildCloudflareDashboardUrl(worker),
         scope: resolveCloudflareWorkersSubdomain(observation, worker.workerName),
@@ -342,7 +481,9 @@ function buildAppRows({
   connectCloudflareGithubRepoOnClick,
   convexObservations,
   isConnectingCloudflareGithubRepo,
+  isWiringConvexBuildAccess,
   vault,
+  wireConvexBuildAccessOnClick,
 }: {
   app: VaultDashboardApp;
   buildAddCloudflareWorkerHref?: (rootDirectory: string) => string;
@@ -353,7 +494,15 @@ function buildAppRows({
   connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isWiringConvexBuildAccess?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => boolean;
   vault: VaultDashboardVault;
+  wireConvexBuildAccessOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
 }): VaultResourceRailRowState<"cloudflare" | "convex">[] {
   const projects = vault.convexProjects
     .filter((project) => project.appId === app.appId)
@@ -391,9 +540,12 @@ function buildAppRows({
   rows.push(
     ...workers.map((worker) =>
       buildCloudflareRow({
+        convexProjects: vault.convexProjects,
         connectCloudflareGithubRepoOnClick,
         isConnectingCloudflareGithubRepo,
+        isWiringConvexBuildAccess,
         observationState: cloudflareObservations,
+        wireConvexBuildAccessOnClick,
         worker,
       }),
     ),
@@ -429,7 +581,9 @@ export function buildVaultDashboardResourceRailState({
   convexObservations,
   githubRepositoryUrl,
   isConnectingCloudflareGithubRepo,
+  isWiringConvexBuildAccess,
   vault,
+  wireConvexBuildAccessOnClick,
 }: {
   buildAddCloudflareWorkerHref?: (rootDirectory: string) => string;
   addCloudflareWorkerOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
@@ -442,7 +596,15 @@ export function buildVaultDashboardResourceRailState({
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   githubRepositoryUrl: string;
   isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isWiringConvexBuildAccess?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => boolean;
   vault: VaultDashboardVault;
+  wireConvexBuildAccessOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
 }): VaultResourceRailState {
   let githubRow: VaultResourceRailRowState<"github">;
   if (vault.sourceSetup.status === "failed" || vault.state === "failed") {
@@ -508,7 +670,9 @@ export function buildVaultDashboardResourceRailState({
           connectCloudflareGithubRepoOnClick,
           convexObservations,
           isConnectingCloudflareGithubRepo,
+          isWiringConvexBuildAccess,
           vault,
+          wireConvexBuildAccessOnClick,
         }),
       })),
   };

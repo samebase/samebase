@@ -21,6 +21,7 @@ import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { readDefaultCloudflareWorkerSelection } from "./vaultDashboardCloudflareWorkerSelection";
 import { buildVaultBranchRowViewModel } from "./vaultDashboardBranchRowViewModel";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
+import type { VaultCloudflareWorkerObservation } from "./useVaultProviderObservations";
 import {
   resolveVaultProviderSetupStatus,
   resolveVaultProviderSetupStepProvider,
@@ -96,6 +97,10 @@ function makeCloudflareDialogWorker(
 type ResourceRailBuilderVault = Parameters<typeof buildVaultDashboardResourceRailState>[0]["vault"];
 type ResourceRailCloudflareWorker = ResourceRailBuilderVault["cloudflareWorkers"][number];
 type ResourceRailConvexProject = ResourceRailBuilderVault["convexProjects"][number];
+type AvailableResourceRailCloudflareObservation = Extract<
+  VaultCloudflareWorkerObservation,
+  { state: "available" }
+>;
 
 function getResourceRailAppRow(
   state: ReturnType<typeof buildVaultDashboardResourceRailState>,
@@ -122,6 +127,31 @@ function makeResourceRailCloudflareWorker(
     accountId: "account-1",
     workerName: "demo-worker",
     workerTag: "demo-worker-tag",
+    ...overrides,
+  };
+}
+
+function makeAvailableResourceRailCloudflareObservation(
+  overrides: Partial<AvailableResourceRailCloudflareObservation> & {
+    workerId: Id<"vaultCloudflareWorkers">;
+  },
+): AvailableResourceRailCloudflareObservation {
+  return {
+    state: "available",
+    observedAt: 1,
+    workerTag: "demo-worker-tag",
+    workersDev: { state: "enabled", url: "https://demo-worker.ada.workers.dev" },
+    repository: {
+      classification: "recommended",
+      evidence: {
+        state: "matching_repo",
+        repoId: "123",
+        repoName: "ada/demo",
+        triggerName: "production",
+        rootDirectory: "/",
+      },
+    },
+    builds: { state: "not_connected" },
     ...overrides,
   };
 }
@@ -658,6 +688,7 @@ describe("VaultDashboardRepositoryCard", () => {
           schemaGraphAccessEnabled={false}
           rootRouteSearch={rootRouteSearch}
           onConnectCloudflareGithubRepository={() => {}}
+          onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryVaultDeletion={() => {}}
@@ -1661,6 +1692,163 @@ describe("buildVaultDashboardResourceRailState", () => {
         description: "Preview URL disabled. Cloudflare is not connected to this GitHub repository.",
       },
     ]);
+  });
+
+  it("offers explicit vault-wide Convex key wiring without inferring by app root", () => {
+    const frontendAppId = fakeVaultAppId("app-frontend");
+    const backendAppId = fakeVaultAppId("app-backend");
+    const workerId = fakeCloudflareWorkerId();
+    const convexProjectId = fakeConvexProjectId();
+    const wireConvexBuildAccessOnClick = vi.fn();
+    const vault = makeResourceRailBuilderVault({
+      apps: [
+        { appId: frontendAppId, rootDirectory: "apps/web" },
+        { appId: backendAppId, rootDirectory: "convex" },
+      ],
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId: frontendAppId, workerId })],
+      convexProjects: [makeResourceRailConvexProject({ appId: backendAppId, convexProjectId })],
+    });
+    const cloudflareObservation = makeAvailableResourceRailCloudflareObservation({
+      workerId,
+      builds: {
+        state: "connected",
+        convexBuildAccess: { state: "not_configured" },
+      },
+    });
+
+    const state = buildVaultDashboardResourceRailState({
+      vault,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      cloudflareObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [cloudflareObservation],
+      },
+      convexObservations: { state: "loading" },
+      wireConvexBuildAccessOnClick,
+    });
+    const row = getResourceRailAppRow(state, "apps/web", "cloudflare");
+    expect(row).toMatchObject({
+      status: "available",
+      description: "Convex deploy keys are not configured.",
+      actions: [
+        {
+          kind: "configure",
+          label: "Set Convex deploy keys",
+          disabled: false,
+        },
+      ],
+    });
+    if (row.status !== "available" || !row.actions) {
+      throw new Error("Expected an explicit Convex build access action.");
+    }
+    row.actions[0].onClick?.();
+    expect(wireConvexBuildAccessOnClick).toHaveBeenCalledWith(workerId, convexProjectId);
+
+    const pendingState = buildVaultDashboardResourceRailState({
+      vault,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      cloudflareObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [cloudflareObservation],
+      },
+      convexObservations: { state: "loading" },
+      wireConvexBuildAccessOnClick,
+      isWiringConvexBuildAccess: () => true,
+    });
+    expect(getResourceRailAppRow(pendingState, "apps/web", "cloudflare")).toMatchObject({
+      actions: [{ label: "Setting Convex deploy keys...", disabled: true }],
+    });
+  });
+
+  it("shows configured, external, and ambiguous Convex targets truthfully", () => {
+    const appId = fakeVaultAppId();
+    const workerId = fakeCloudflareWorkerId();
+    const firstProjectId = fakeConvexProjectId("convex-project-first");
+    const secondProjectId = fakeConvexProjectId("convex-project-second");
+    const vault = makeResourceRailBuilderVault({
+      apps: [{ appId, rootDirectory: "/" }],
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId, workerId })],
+      convexProjects: [
+        makeResourceRailConvexProject({
+          appId,
+          convexProjectId: firstProjectId,
+          projectId: "alpha-project",
+        }),
+        makeResourceRailConvexProject({
+          appId,
+          convexProjectId: secondProjectId,
+          projectId: "beta-project",
+        }),
+      ],
+    });
+    const buildState = (
+      convexBuildAccess: Extract<
+        AvailableResourceRailCloudflareObservation["builds"],
+        { state: "connected" }
+      >["convexBuildAccess"],
+    ) =>
+      buildVaultDashboardResourceRailState({
+        vault,
+        githubRepositoryUrl: "https://github.com/ada/demo",
+        cloudflareObservations: {
+          state: "loaded",
+          reload: () => {},
+          observations: [
+            makeAvailableResourceRailCloudflareObservation({
+              workerId,
+              builds: { state: "connected", convexBuildAccess },
+            }),
+          ],
+        },
+        convexObservations: { state: "loading" },
+        wireConvexBuildAccessOnClick: () => {},
+      });
+
+    expect(
+      getResourceRailAppRow(
+        buildState({
+          state: "configured",
+          convexProject: {
+            state: "attached",
+            convexProjectId: firstProjectId,
+            teamId: "team-1",
+            projectId: "alpha-project",
+          },
+        }),
+        "/",
+        "cloudflare",
+      ),
+    ).toMatchObject({
+      description: "Convex deploy keys use alpha-project.",
+      actions: undefined,
+    });
+
+    expect(
+      getResourceRailAppRow(
+        buildState({
+          state: "configured",
+          convexProject: {
+            state: "external",
+            teamId: "external-team",
+            projectId: "external-project",
+          },
+        }),
+        "/",
+        "cloudflare",
+      ),
+    ).toMatchObject({
+      description:
+        "Convex deploy keys target external-team/external-project, which is not attached to this vault.",
+      actions: [{ label: "Set keys: alpha-project" }, { label: "Set keys: beta-project" }],
+    });
+
+    expect(
+      getResourceRailAppRow(buildState({ state: "target_unknown" }), "/", "cloudflare"),
+    ).toMatchObject({
+      description: "Convex deploy keys exist, but their project is unknown.",
+    });
   });
 
   it("maps loading, missing, and failed provider observations without fallbacks", () => {

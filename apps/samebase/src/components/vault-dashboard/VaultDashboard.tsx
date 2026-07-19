@@ -337,11 +337,18 @@ type VaultDashboardDeletionStep = Extract<
   VaultDashboardDeletion,
   { state: "deleting" | "delete_failed" }
 >["currentStep"];
-type CloudflareWorkerRepairActionInFlight = {
-  kind: "connect_github_repo";
-  vaultId: Id<"vaults">;
-  workerId: Id<"vaultCloudflareWorkers">;
-};
+type CloudflareWorkerRepairActionInFlight =
+  | {
+      kind: "connect_github_repo";
+      vaultId: Id<"vaults">;
+      workerId: Id<"vaultCloudflareWorkers">;
+    }
+  | {
+      kind: "wire_convex_build_access";
+      vaultId: Id<"vaults">;
+      workerId: Id<"vaultCloudflareWorkers">;
+      convexProjectId: Id<"vaultConvexProjects">;
+    };
 
 function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProviderSetup): string {
   switch (providerSetup.status) {
@@ -2924,6 +2931,11 @@ type VaultDashboardViewProps = {
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
   ) => void;
+  onWireCloudflareConvexBuildAccess: (
+    vaultId: Id<"vaults">,
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"workflow_vaultDeletion_runs">) => void;
@@ -3099,6 +3111,7 @@ export function VaultDashboardView({
   schemaGraphAccessEnabled,
   rootRouteSearch,
   onConnectCloudflareGithubRepository,
+  onWireCloudflareConvexBuildAccess,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
   onRetryVaultDeletion,
@@ -3226,7 +3239,17 @@ export function VaultDashboardView({
             cloudflareWorkerRepairActionInFlight?.kind === "connect_github_repo" &&
             cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
             cloudflareWorkerRepairActionInFlight.workerId === workerId,
+          isWiringConvexBuildAccess: (workerId, convexProjectId) =>
+            cloudflareWorkerRepairActionInFlight?.kind === "wire_convex_build_access" &&
+            cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
+            cloudflareWorkerRepairActionInFlight.workerId === workerId &&
+            cloudflareWorkerRepairActionInFlight.convexProjectId === convexProjectId,
           vault,
+          wireConvexBuildAccessOnClick: isCloudflareWorkerRepairActionInFlight
+            ? undefined
+            : (workerId, convexProjectId) => {
+                onWireCloudflareConvexBuildAccess(vault._id, workerId, convexProjectId);
+              },
         });
         const productionApps = buildVaultProductionApps({
           cloudflareObservations,
@@ -3525,6 +3548,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const connectExistingCloudflareWorker = useAction(api.vault.cloudflare.connectExistingWorker);
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
   const wireCloudflareBuilds = useAction(api.vault.cloudflare.wireBuilds);
+  const wireCloudflareConvexBuildAccess = useAction(api.vault.cloudflare.wireConvexBuildAccess);
   const [cloudflareWorkerRepairActionInFlight, setCloudflareWorkerRepairActionInFlight] =
     useState<CloudflareWorkerRepairActionInFlight | null>(null);
   const createVaultApp = useMutation(api.vault.dashboard.createVaultApp);
@@ -4308,6 +4332,40 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       });
     } finally {
       setCloudflareWorkerRepairActionInFlight(null);
+      if (providerObservations.cloudflare.state !== "loading") {
+        providerObservations.cloudflare.reload();
+      }
+    }
+  };
+
+  const handleWireCloudflareConvexBuildAccess = async (
+    vaultId: Id<"vaults">,
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => {
+    if (cloudflareWorkerRepairActionInFlight) {
+      return;
+    }
+
+    setCloudflareWorkerRepairActionInFlight({
+      kind: "wire_convex_build_access",
+      vaultId,
+      workerId,
+      convexProjectId,
+    });
+    try {
+      await wireCloudflareConvexBuildAccess({ convexProjectId, workerId, vaultId });
+    } catch (error) {
+      toast({
+        title: "Could not set Convex deploy keys",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCloudflareWorkerRepairActionInFlight(null);
+      if (providerObservations.cloudflare.state !== "loading") {
+        providerObservations.cloudflare.reload();
+      }
     }
   };
 
@@ -4464,6 +4522,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         rootRouteSearch={rootRouteSearch}
         onConnectCloudflareGithubRepository={(vaultId, workerId) => {
           void handleConnectCloudflareGithubRepository(vaultId, workerId);
+        }}
+        onWireCloudflareConvexBuildAccess={(vaultId, workerId, convexProjectId) => {
+          void handleWireCloudflareConvexBuildAccess(vaultId, workerId, convexProjectId);
         }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
         onManualRepositoryRefresh={enqueueManualRepositoryRefresh}

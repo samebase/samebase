@@ -593,6 +593,9 @@ const LIST_SPACING_VAULT = {
 } satisfies VaultDashboardVault;
 
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8e");
+const CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID = fakeCloudflareWorkerId(
+  "jh76f8cc9pq3m7r1s8v5x2z4n6k0b3d9",
+);
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   ...LIST_SPACING_VAULT,
   _id: CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID,
@@ -613,6 +616,13 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
       accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "tmp-my-super-app-234",
       workerTag: "tmp-my-super-app-234-tag",
+    },
+    {
+      workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
+      appId: LIST_SPACING_DOMAIN_APP_ID,
+      accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+      workerName: "tmp-my-super-app-admin",
+      workerTag: "tmp-my-super-app-admin-tag",
     },
   ],
   convexProjects: [
@@ -729,6 +739,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           schemaGraphAccessEnabled
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onConnectCloudflareGithubRepository={() => {}}
+          onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryVaultDeletion={() => {}}
@@ -778,6 +789,30 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                 },
                 builds: { state: "not_connected" },
               },
+              {
+                state: "available",
+                observedAt: FIXTURE_NOW,
+                workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
+                workerTag: "tmp-my-super-app-admin-tag",
+                workersDev: {
+                  state: "enabled",
+                  url: "https://tmp-my-super-app-admin.pfp.workers.dev",
+                },
+                repository: {
+                  classification: "recommended",
+                  evidence: {
+                    state: "matching_repo",
+                    repoId: "123",
+                    repoName: "nicu-chiciuc/tmp-my-super-app-2",
+                    triggerName: "Production Deploy",
+                    rootDirectory: "/",
+                  },
+                },
+                builds: {
+                  state: "connected",
+                  convexBuildAccess: { state: "not_configured" },
+                },
+              },
             ],
           }}
           cloudflareWorkerRepairActionInFlight={null}
@@ -801,6 +836,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           schemaGraphAccessEnabled={false}
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onConnectCloudflareGithubRepository={() => {}}
+          onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryVaultDeletion={() => {}}
@@ -868,6 +904,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
             onConnectCloudflareGithubRepository={() => {}}
+            onWireCloudflareConvexBuildAccess={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onManualRepositoryRefresh={() => {}}
             onRetryVaultDeletion={() => {}}
