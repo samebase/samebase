@@ -203,10 +203,139 @@ The code lands in one PR with two reviewable checkpoints:
    indirection
 
 Convex table renames create new table identities. This rollout deliberately uses a one-time data
-reset instead of building temporary dual-schema migration code for a single active user. The PR does
-not perform or authorize the production reset itself. Before deployment, the operator must quiesce
-Workflows, Workpool jobs, and scheduled functions, preserve any data they want to keep, and
-explicitly authorize the reset.
+reset instead of building temporary dual-schema migration code for a single active user.
+
+### Production reset boundary
+
+Rows in renamed tables do not block deployment merely because the old tables still contain data. The
+new schema leaves those tables undeclared, and they can be deleted after the new schema is live.
+Deleting them before deployment is unnecessary and does not repair references stored in durable
+tables.
+
+Two durable row shapes can block this deployment because they store IDs for renamed operation
+tables:
+
+- `vaults.runId` points to the old `appProvisioningRuns` table.
+- `users.accountDeletion.runId` points to the old `accountDeletionRuns` table.
+
+Before the production schema dry run, `vaults` must be empty and no `users` row may contain an
+`accountDeletion` marker. Finish the corresponding workflow instead of deleting only its operation
+run, because the durable row is the schema blocker.
+
+### Operator checklist
+
+Perform these steps in order:
+
+1. Stop starting vault creation or deletion, account deletion, provider connection, MCP
+   authorization, editor sync, and machine-link operations until the new schema is live.
+2. Export a production snapshot, including file storage. Follow
+   [`docs/convex-production-reads.md`](../docs/convex-production-reads.md) so the command cannot
+   accidentally select a worktree deployment, then run:
+
+   ```bash
+   npx convex export --prod --include-file-storage --path convex-production-pre-table-taxonomy.zip
+   ```
+
+3. Finish or resolve every active vault deletion and account deletion. An account deletion in
+   `needs_attention` must be retried from `/admin/account-deletions` until the workflow completes
+   and the `users.accountDeletion` marker disappears.
+4. Verify that `vaults` has no rows and that no `users` row contains `accountDeletion`.
+5. Verify that no relevant Workflow, Workpool, or scheduled function is still running. Waiting jobs
+   must complete or be cancelled before deployment so old code cannot recreate reset data during the
+   cutover.
+6. From `apps/samebase`, using the production environment selection from
+   [`docs/convex-production-reads.md`](../docs/convex-production-reads.md), require a successful
+   schema dry run:
+
+   ```bash
+   npx convex deploy --dry-run --yes --typecheck disable --codegen disable
+   ```
+
+   Repository type checking and tests remain separate required CI checks. `--typecheck disable`
+   prevents the production dry run from duplicating those checks.
+
+7. Merge and deploy the PR. Do not perform writes from an older application deployment during the
+   cutover.
+8. Confirm that the application loads and the newly named tables exist.
+9. Delete the old tables listed below from the Convex dashboard. Keep the production export until
+   the reset has been verified.
+10. Reconnect or recreate reset state as needed, then test vault creation and deletion, machine
+    sync, MCP authorization, and provider connection flows.
+
+### Renamed tables to delete after deployment
+
+Delete the old name only after the new schema is live. The right column identifies the new table
+that receives future writes.
+
+| Old table                                | New table                                           |
+| ---------------------------------------- | --------------------------------------------------- |
+| `accountDeletionRuns`                    | `operations_accountDeletionRuns`                    |
+| `accountDeletionEvents`                  | `operations_accountDeletionEvents`                  |
+| `agentActionLeases`                      | `operations_agentActionLeases`                      |
+| `agentBrowserHandoffs`                   | `operations_mcpBrowserLoginTokens`                  |
+| `agentGraphNodeLayout`                   | `ui_agentGraphNodeLayout`                           |
+| `machineRegistrationRequests`            | `operations_machineRegistrationRequests`            |
+| `machineRegistrationBootstrapRateLimits` | `operations_machineRegistrationBootstrapRateLimits` |
+| `machineCredentials`                     | `operations_machineCredentials`                     |
+| `machineControlTokens`                   | `operations_machineControlTokens`                   |
+| `dashboardSettings`                      | `ui_dashboardSettings`                              |
+| `workspaceSidebarState`                  | `ui_workspaceSidebarState`                          |
+| `vaultBranchFilters`                     | `ui_vaultBranchFilters`                             |
+| `vaultResourceLinksState`                | `ui_vaultResourceLinksState`                        |
+| `vaultConvexSchemaSnapshots`             | `observations_vaultConvexSchemaSnapshots`           |
+| `vaultConvexSchemaGraphLayouts`          | `ui_vaultConvexSchemaGraphLayouts`                  |
+| `vaultRemoteBranches`                    | `observations_vaultRemoteBranches`                  |
+| `githubCommitCheckSnapshots`             | `observations_vaultCommitCheckSnapshots`            |
+| `githubCommitCheckItems`                 | `observations_vaultCommitChecks`                    |
+| `vaultBranchTrees`                       | `observations_vaultBranchTrees`                     |
+| `repositoryRefreshRequests`              | `operations_vaultRepositoryRefreshRequests`         |
+| `vaultInfrastructureTargets`             | `operations_vaultProvisioningPlans`                 |
+| `vaultInfrastructureOwnership`           | `operations_vaultProvisioningWriteLocks`            |
+| `appProvisioningRuns`                    | `operations_vaultProvisioningRuns`                  |
+| `appProvisioningEvents`                  | `operations_vaultProvisioningEvents`                |
+| `vaultDeletionRuns`                      | `operations_vaultDeletionRuns`                      |
+| `vaultDeletionEvents`                    | `operations_vaultDeletionEvents`                    |
+| `fileStaging`                            | `operations_fileStaging`                            |
+| `blobs`                                  | `observations_vaultFileBlobs`                       |
+| `folderExpansionState`                   | `ui_folderExpansionState`                           |
+| `collaborativeUpdates`                   | `operations_collaborativeFileUpdates`               |
+| `oauthStates`                            | `operations_providerOauthCallbackStates`            |
+| `aiProdAccessRequests`                   | `operations_aiProductionReadRequests`               |
+| `aiProdAccessAudit`                      | `audit_aiProductionReadEvents`                      |
+| `mcpAuthRequests`                        | `operations_mcpAuthorizationRequests`               |
+| `mcpAuthorizationCodes`                  | `operations_mcpAuthorizationCodes`                  |
+| `mcpAccessTokens`                        | `operations_mcpAccessTokens`                        |
+| `mcpRefreshTokens`                       | `operations_mcpRefreshTokens`                       |
+| `mcpAccessAudit`                         | `audit_mcpAccessEvents`                             |
+
+The reset has these expected operator-visible effects:
+
+- Connected-machine credentials and control tokens are cleared. Run `samebase-sync connect` again.
+- MCP access and refresh tokens are cleared. Reauthorize MCP clients.
+- Pending provider OAuth callbacks cannot finish. Restart those connection flows.
+- Dashboard, workspace sidebar, branch filter, folder expansion, resource-link, and graph-layout
+  preferences return to defaults.
+- Commit checks, branch trees, remote branches, Convex schema snapshots, and file blob observations
+  rebuild when their owning feature runs again.
+- Pending provisioning, deletion, repository refresh, collaborative update, and staged-file work is
+  discarded.
+- Old account-deletion receipts, MCP access events, and AI production-read events remain available
+  only in the production export.
+
+Durable `providerConnections`, `connectedMachines`, `mcpOauthClients`, and `mcpGrants` keep their
+rows. Resetting their associated operation or token tables does not delete the provider-side
+resources they represent.
+
+### Post-deployment verification
+
+The reset is complete when:
+
+- the production schema contains the new table names and none of the old table names
+- the app loads without schema-validation or scheduled-function failures
+- a new vault can be created and deleted
+- machine sync works after reconnecting
+- an MCP client can authorize and use a refreshed token
+- a provider connection can complete a fresh OAuth flow
 
 The implementation stopping rule is strict:
 
