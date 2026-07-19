@@ -13,6 +13,7 @@ import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { hasBranchStagingChanges } from "./branches";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
+import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
 import {
@@ -406,11 +407,11 @@ function compareVaultDomainSortOrder(left: VaultDomain, right: VaultDomain): num
 }
 
 function compareVaultAppSortOrder(left: VaultApp, right: VaultApp): number {
-  const leftRootOrder = left.appRoot === "." ? 0 : 1;
-  const rightRootOrder = right.appRoot === "." ? 0 : 1;
+  const leftRootOrder = left.rootDirectory === VAULT_ROOT_DIRECTORY ? 0 : 1;
+  const rightRootOrder = right.rootDirectory === VAULT_ROOT_DIRECTORY ? 0 : 1;
   return (
     leftRootOrder - rightRootOrder ||
-    left.appRoot.localeCompare(right.appRoot) ||
+    left.rootDirectory.localeCompare(right.rootDirectory) ||
     left._id.localeCompare(right._id)
   );
 }
@@ -639,21 +640,24 @@ export const createVaultAppRoot = mutation({
     }
 
     const appRoot = normalizeVaultAppRoot(args.appRoot);
+    const rootDirectory = normalizeVaultRootDirectory(
+      appRoot === ROOT_VAULT_APP_ROOT ? VAULT_ROOT_DIRECTORY : appRoot,
+    );
     const apps = await ctx.db
       .query("vaultApps")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
-    const existingApp = apps.find((app) => app.appRoot === appRoot);
-    const rootApp = apps.find((app) => app.appRoot === ROOT_VAULT_APP_ROOT);
-    const hasFolderApp = apps.some((app) => app.appRoot !== ROOT_VAULT_APP_ROOT);
-    if (appRoot === ROOT_VAULT_APP_ROOT && hasFolderApp) {
+    const existingApp = apps.find((app) => app.rootDirectory === rootDirectory);
+    const rootApp = apps.find((app) => app.rootDirectory === VAULT_ROOT_DIRECTORY);
+    const hasFolderApp = apps.some((app) => app.rootDirectory !== VAULT_ROOT_DIRECTORY);
+    if (rootDirectory === VAULT_ROOT_DIRECTORY && hasFolderApp) {
       throw new Error("Monorepo vaults cannot add the repository root as an app.");
     }
     if (existingApp) {
       throw new Error("Vault already has this app root.");
     }
 
-    if (appRoot !== ROOT_VAULT_APP_ROOT && rootApp) {
+    if (rootDirectory !== VAULT_ROOT_DIRECTORY && rootApp) {
       const [rootConvexDeployment, rootCloudflareWorker, provisioningWriteLock] = await Promise.all(
         [
           ctx.db
@@ -683,7 +687,7 @@ export const createVaultAppRoot = mutation({
     await ctx.db.insert("vaultApps", {
       vaultId: args.vaultId,
       userId,
-      appRoot,
+      rootDirectory,
       createdAt: Date.now(),
     });
   },
@@ -712,7 +716,7 @@ export const listVaultAppRootFolderSuggestions = query({
     }
 
     const existingAppRoots = new Set(
-      (await readVaultAppsForVault(ctx, args.vaultId)).map((app) => app.appRoot),
+      (await readVaultAppsForVault(ctx, args.vaultId)).map((app) => app.rootDirectory),
     );
 
     return defaultBranchTree.treeData.tree
@@ -829,7 +833,10 @@ async function readUserVaults(
           hasCloudflareProvision,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision,
-          appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
+          appRoots: appRoots.map((app) => ({
+            appRoot:
+              app.rootDirectory === VAULT_ROOT_DIRECTORY ? ROOT_VAULT_APP_ROOT : app.rootDirectory,
+          })),
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexDeployments: convexDeploymentSummaries,
         };
@@ -891,7 +898,10 @@ async function readUserVaults(
         hasCloudflareProvision,
         canRemoveConvexProvision,
         canRemoveCloudflareProvision,
-        appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
+        appRoots: appRoots.map((app) => ({
+          appRoot:
+            app.rootDirectory === VAULT_ROOT_DIRECTORY ? ROOT_VAULT_APP_ROOT : app.rootDirectory,
+        })),
         cloudflareWorkers: cloudflareWorkerSummaries,
         convexDeployments: convexDeploymentSummaries,
       };

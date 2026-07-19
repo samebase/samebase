@@ -43,7 +43,7 @@ describe("app provisioning workflow composition", () => {
       await ctx.db.insert("vaultApps", {
         vaultId,
         userId,
-        appRoot: ".",
+        rootDirectory: "/",
         createdAt: 25,
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {

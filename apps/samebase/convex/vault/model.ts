@@ -305,16 +305,16 @@ export const vaultTables = {
     .index("by_owner_and_name", ["owner", "name"])
     .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
-  /** Deployable app roots inside a repository-backed vault. */
+  /** Stable app identities inside a repository-backed vault, identified by Cloudflare's root directory. */
   vaultApps: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),
-    appRoot: string(),
+    rootDirectory: string(),
     createdAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"]),
+    .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
 
   /** Cloudflare Workers connected to deployable app roots in a vault. */
   vaultCloudflareWorkers: defineTable({
