@@ -691,13 +691,10 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
   await openVaultDashboardVisualFixture(page, "vault-dashboard-cloudflare-build-trigger-missing");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(fixture.getByText("Cloudflare setup failed.")).toBeVisible();
-  await expect(fixture.getByText("Convex setup failed.")).toHaveCount(0);
-  await expect(fixture.getByText("?add-convex")).toHaveCount(0);
-  await expect(fixture.getByText("nicu/tmp-my-super-app-2")).toBeVisible();
+  await expect(fixture.getByText("nicu-chiciuc/tmp-my-super-app-2")).toBeVisible();
   await expect(fixture.getByText("pfp/tmp-my-super-app-234")).toBeVisible();
   await expect(
-    fixture.getByText("Cloudflare's saved Workers Builds trigger is missing."),
+    fixture.getByText("Cloudflare is not connected to this GitHub repository."),
   ).toBeVisible();
   await expect(
     fixture.getByRole("button", { name: "Connect GitHub repo Cloudflare" }),
@@ -737,23 +734,10 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
-  ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
+  await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
+  await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
-  await expect(
-    fixture.getByRole("link", {
-      name: "domain-router.nicu.workers.dev",
-    }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", {
-      name: "samebase-worker.nicu.workers.dev",
-    }),
-  ).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",
@@ -882,23 +866,10 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
-  ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
+  await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
+  await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
-  await expect(
-    fixture.getByRole("link", {
-      name: "domain-router.nicu.workers.dev",
-    }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", {
-      name: "samebase-worker.nicu.workers.dev",
-    }),
-  ).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",

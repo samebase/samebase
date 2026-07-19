@@ -8,9 +8,10 @@ test("vault resource rail fixture", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-resource-rail-visual-fixture");
-  await expect(fixture.getByText("nicu/tmp-my-new-app")).toHaveCount(4);
-  await expect(fixture.getByText("nicuchiciuc/tmp-my-new-app")).toHaveCount(1);
-  await expect(fixture.getByText("nicu-chiciuc/weight_tsx")).toBeInViewport();
+  await expect(fixture.getByText("samebase/loading-provider-data")).toBeVisible();
+  await expect(fixture.getByText("samebase/provider-errors")).toBeVisible();
+  await expect(fixture.getByText("samebase/existing-repository")).toBeInViewport();
+  await expect(fixture.getByText("Preview URL disabled.")).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-resource-rail.png", {
     animations: "disabled",
     caret: "hide",

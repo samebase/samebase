@@ -1569,7 +1569,7 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardAppRootDialog
-          appRoot="."
+          appRoot="/"
           error={null}
           folderSuggestions={[]}
           isSubmitting={false}
@@ -1635,7 +1635,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
-          appRoot="."
+          appRoot="/"
           appRootReadOnly={false}
           createProjectName="samebase-app"
           projects={[
