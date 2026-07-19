@@ -3,14 +3,15 @@ import { v } from "convex/values";
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { id, string } = v;
+const { id } = v;
 
 export const cloudflareWireConvexBuildAccessContract = {
   id: "wire_convex_build_access",
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    workerId: id("vaultCloudflareWorkers"),
+    convexProjectId: id("vaultConvexProjects"),
   },
   returns: v.null(),
   mcp: {
@@ -25,19 +26,18 @@ export const cloudflareWireConvexBuildAccessContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      vaultId: "Samebase vault id of the app whose builds need Convex deploy keys.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      vaultId: "Samebase vault id containing both resources.",
+      workerId: "Stable Samebase Worker attachment id returned by get_user_vaults.",
+      convexProjectId: "Attached Convex project that the Worker explicitly depends on.",
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `The repair for builds that cannot deploy the backend: mints production and preview deploy
-keys on the app's Convex deployment and writes both keys into each Workers Builds trigger as
+keys on the selected Convex project's production and preview scopes and writes both keys into each Workers Builds trigger as
 \`CONVEX_DEPLOY_KEY\` and \`PREVIEW_CONVEX_DEPLOY_KEY\`. This is the remedy behind
 \`nextAction: "wire_convex_build_access"\` on the Worker's \`convexDeployKeys\` axis and the
 dashboard's "Set Convex deploy keys" button. It is the same operation.
 
-Requires the Worker's Builds connection to exist first (\`wire_builds\` otherwise). This is a key
-rotation: existing keys with this vault's exact Samebase-owned names are read from Convex and
-deleted before replacements are minted. Newly minted keys are cleaned up if the run fails. Writes
-deploy keys on Convex and trigger variables on Cloudflare, both in the caller's own accounts; no
-user data is touched.`,
+The Worker-to-project dependency must exist in Samebase first. This explicit action rotates
+Samebase-named keys by reading them live from Convex, updates Cloudflare, and stores no key or
+trigger mirror in Convex.`,
 } as const;

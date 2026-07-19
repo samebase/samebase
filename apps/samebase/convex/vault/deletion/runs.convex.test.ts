@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../../_generated/api";
 import { makeConvexTest } from "../../test.setup";
 
-const appRoot = ".";
+const rootDirectory = "/";
 
 async function createExistingRepositoryVaultWithConvex(args: {
   origin: "provisioned" | "selected_existing";
@@ -44,14 +44,20 @@ async function createExistingRepositoryVaultWithConvex(args: {
       defaultBranch: "main",
       connectedAt: 12,
     });
-    await ctx.db.insert("vaultConvexDeployments", {
+    const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot,
+      rootDirectory,
+      createdAt: 13,
+    });
+    await ctx.db.insert("vaultConvexProjects", {
+      vaultId,
+      userId,
+      appId,
+      teamId: "team-id",
       projectId: "convex-project",
-      deploymentName: "manual-convex-prod",
       origin: args.origin,
-      connectedAt: 14,
+      createdAt: 14,
     });
     if (args.origin === "provisioned") {
       await ctx.db.insert("providerConnections", {
@@ -74,7 +80,7 @@ async function createExistingRepositoryVaultWithConvex(args: {
   return { ids, t };
 }
 
-async function createSamebaseManagedVaultWithConvex(args: { withDeployment: boolean }) {
+async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean }) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -123,15 +129,21 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
       createdAt: 15,
       updatedAt: 15,
     });
-    if (args.withDeployment) {
-      await ctx.db.insert("vaultConvexDeployments", {
+    const appId = await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      rootDirectory,
+      createdAt: 13,
+    });
+    if (args.withProject) {
+      await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         userId,
-        appRoot,
+        appId,
+        teamId: "team-id",
         projectId: "convex-project",
-        deploymentName: "managed-convex-prod",
         origin: "provisioned",
-        connectedAt: 14,
+        createdAt: 14,
       });
     }
 
@@ -222,6 +234,40 @@ const deleteConvexOptions = {
 };
 
 describe("vault deletion Convex resource planning", () => {
+  it("keeps an attached Convex project when provider cleanup is not selected", async () => {
+    const { ids, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "provisioned",
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      ...ids,
+      options: {
+        ...deleteConvexOptions,
+        removeConvexProvision: false,
+      },
+    });
+    const snapshot = await t.run(async (ctx) => ({
+      projects: await ctx.db
+        .query("vaultConvexProjects")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .collect(),
+      run: await ctx.db.get(deletionRunId),
+    }));
+
+    expect(snapshot.projects).toHaveLength(1);
+    expect(snapshot.run).toMatchObject({
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          convex: {
+            action: "skip",
+            reason: "not_requested",
+          },
+        },
+      },
+    });
+  });
+
   it("deletes a provisioned Convex project attached to an existing repository vault", async () => {
     const { ids, t } = await createExistingRepositoryVaultWithConvex({
       origin: "provisioned",
@@ -246,7 +292,7 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
-  it("skips a selected existing Convex deployment during vault deletion", async () => {
+  it("does not delete a selected existing Convex project", async () => {
     const { ids, t } = await createExistingRepositoryVaultWithConvex({
       origin: "selected_existing",
     });
@@ -294,7 +340,7 @@ describe("vault deletion Convex resource planning", () => {
 
   it("deletes recorded created Convex projects before deployment ownership checks", async () => {
     const { ids, t } = await createSamebaseManagedVaultWithConvex({
-      withDeployment: false,
+      withProject: false,
     });
     await t.run(async (ctx) => {
       await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -335,31 +381,31 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
-  it("deletes a managed Convex project only when the deployment proves ownership", async () => {
-    const withDeployment = await createSamebaseManagedVaultWithConvex({
-      withDeployment: true,
+  it("deletes a managed Convex project only when the project records provisioned origin", async () => {
+    const withProject = await createSamebaseManagedVaultWithConvex({
+      withProject: true,
     });
-    const withoutDeployment = await createSamebaseManagedVaultWithConvex({
-      withDeployment: false,
+    const withoutProject = await createSamebaseManagedVaultWithConvex({
+      withProject: false,
     });
 
-    const { deletionRunId: deleteRunId } = await withDeployment.t.mutation(
+    const { deletionRunId: deleteRunId } = await withProject.t.mutation(
       internal.vault.deletion.runs.createInitialRun,
       {
-        ...withDeployment.ids,
+        ...withProject.ids,
         options: deleteConvexOptions,
       },
     );
-    const { deletionRunId: skipRunId } = await withoutDeployment.t.mutation(
+    const { deletionRunId: skipRunId } = await withoutProject.t.mutation(
       internal.vault.deletion.runs.createInitialRun,
       {
-        ...withoutDeployment.ids,
+        ...withoutProject.ids,
         options: deleteConvexOptions,
       },
     );
     const [deleteRun, skipRun] = await Promise.all([
-      withDeployment.t.run(async (ctx) => await ctx.db.get(deleteRunId)),
-      withoutDeployment.t.run(async (ctx) => await ctx.db.get(skipRunId)),
+      withProject.t.run(async (ctx) => await ctx.db.get(deleteRunId)),
+      withoutProject.t.run(async (ctx) => await ctx.db.get(skipRunId)),
     ]);
 
     expect(deleteRun).toMatchObject({

@@ -3,10 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
-const appRoot = ".";
-const attachmentIntent = { mode: "attach" } as const;
-
-async function createConvexConnectionVault() {
+async function createGraphFixture() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -14,407 +11,174 @@ async function createConvexConnectionVault() {
       email: "ada@example.com",
       isApproved: true,
     });
-    const vaultId = await ctx.db.insert("vaults", {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "not_connected",
-    });
-    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
-      vaultId,
-      repositoryFullName: "ada/manual-convex",
-      trigger: "connect_existing_repository",
-      state: "succeeded",
-      currentStep: "finish",
-      createdAt: 10,
-      updatedAt: 20,
-      completedAt: 20,
-    });
-    await ctx.db.replace(vaultId, {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "connected",
-      githubMode: "connect_existing_repository",
-      runId: sourceRunId,
-      ghRepoId: "123",
-      owner: "ada",
-      name: "manual-convex",
-      visibility: "private",
-      defaultBranch: "main",
-      connectedAt: 12,
-    });
-    await ctx.db.insert("vaultApps", {
-      vaultId,
-      userId,
-      appRoot,
-      createdAt: 25,
-    });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
-      vaultId,
-      repositoryFullName: "ada/manual-convex",
-      trigger: "connect_convex_deployment",
-      state: "queued",
-      currentStep: "run_created",
-      createdAt: 30,
-      updatedAt: 30,
+    const otherUserId = await ctx.db.insert("users", {
+      name: "Grace",
+      email: "grace@example.com",
+      isApproved: true,
     });
 
-    return { runId, userId, vaultId };
+    const createConnectedVault = async (ownerId: typeof userId, suffix: string) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        userId: ownerId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: ownerId,
+        vaultId,
+        repositoryFullName: `${suffix}/repository`,
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(vaultId, {
+        userId: ownerId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: `github-${suffix}`,
+        owner: suffix,
+        name: "repository",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 3,
+      });
+      const appId = await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId: ownerId,
+        rootDirectory: "/",
+        createdAt: 4,
+      });
+      const nestedAppId = await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId: ownerId,
+        rootDirectory: "apps/admin",
+        createdAt: 5,
+      });
+      return { appId, nestedAppId, vaultId };
+    };
+
+    return {
+      userId,
+      otherUserId,
+      primary: await createConnectedVault(userId, "ada"),
+      secondary: await createConnectedVault(userId, "ada-second"),
+    };
   });
-
   return { ids, t };
 }
 
-const convexRecord = {
-  convexProjectId: "convex-project",
-  convexTeamSlug: "ada-team",
-  convexProjectSlug: "manual-convex",
-  convexDeploymentName: "manual-convex-prod",
-  convexDeploymentType: "prod",
-  convexCloudUrl: "https://manual-convex-prod.convex.cloud",
-  convexSiteUrl: "https://manual-convex-prod.convex.site",
-} as const;
-
-describe("vault Convex deployment connection mutations", () => {
-  it("claims, attaches, and finishes a durable Convex deployment connection run", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-
-    await expect(
-      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-        ...ids,
-        appRoot,
-        attachmentIntent,
-      }),
-    ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
-        ...ids,
-        appRoot,
-        convex: convexRecord,
-        origin: "selected_existing",
-        attachmentIntent,
-      }),
-    ).resolves.toEqual({ attached: true });
-    await expect(
-      t.mutation(internal.vault.convexMutations.finishConvexDeploymentConnection, {
-        ...ids,
-        appRoot,
-        attachmentIntent,
-      }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const [run, deployment] = await Promise.all([
-        ctx.db.get(ids.runId),
-        ctx.db
-          .query("vaultConvexDeployments")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .first(),
-      ]);
-      const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      const events = await ctx.db
-        .query("workflow_vaultProvisioning_events")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
-        .collect();
-      return { deployment, events, writeLock, run };
-    });
-
-    expect(result.writeLock).toMatchObject({
-      runId: ids.runId,
-      state: "succeeded",
-    });
-    expect(result.run).toMatchObject({
-      state: "succeeded",
-      currentStep: "finish",
-    });
-    expect(result.deployment).toMatchObject({
-      appRoot,
-      projectId: "convex-project",
-      deploymentName: "manual-convex-prod",
+describe("vault Convex project graph mutations", () => {
+  it("persists resource origin and permits multiple projects on one app", async () => {
+    const { ids, t } = await createGraphFixture();
+    const selectedProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId: ids.primary.vaultId,
+      userId: ids.userId,
+      appId: ids.primary.appId,
+      teamId: "team-1",
+      projectId: "selected-project",
       origin: "selected_existing",
     });
-    expect(result.events.map((event) => event.step)).toEqual([
-      "claim_infra",
-      "attach_convex",
-      "finish",
-    ]);
-  });
-
-  it("keeps composed create runs active when finishing the Convex deployment block", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.runId, {
-        trigger: "create",
-        state: "running",
-        currentStep: "attach_convex",
-        updatedAt: 40,
-      });
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        state: "active",
-        updatedAt: 40,
-      });
-    });
-
-    await t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
-      ...ids,
-      appRoot,
-      convex: convexRecord,
+    const provisionedProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId: ids.primary.vaultId,
+      userId: ids.userId,
+      appId: ids.primary.appId,
+      teamId: "team-1",
+      projectId: "provisioned-project",
       origin: "provisioned",
-      attachmentIntent,
     });
+
     await expect(
-      t.mutation(internal.vault.convexMutations.finishConvexDeploymentConnection, {
-        ...ids,
-        appRoot,
-        attachmentIntent,
+      t.mutation(internal.vault.convexMutations.attachProject, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        appId: ids.primary.appId,
+        teamId: "team-1",
+        projectId: "selected-project",
+        origin: "provisioned",
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual(selectedProjectId);
 
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-      const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      const events = await ctx.db
-        .query("workflow_vaultProvisioning_events")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+    const projects = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultConvexProjects")
+        .withIndex("by_app", (q) => q.eq("appId", ids.primary.appId))
         .collect();
-      return { events, writeLock, run };
     });
-
-    expect(result.writeLock).toMatchObject({
-      runId: ids.runId,
-      state: "active",
-    });
-    expect(result.run).toMatchObject({
-      state: "running",
-      currentStep: "attach_convex",
-    });
-    expect(result.events.map((event) => event.step)).toEqual(["attach_convex", "attach_convex"]);
+    expect(projects.sort((left, right) => left.projectId.localeCompare(right.projectId))).toMatchObject(
+      [
+        {
+          _id: provisionedProjectId,
+          appId: ids.primary.appId,
+          origin: "provisioned",
+          projectId: "provisioned-project",
+        },
+        {
+          _id: selectedProjectId,
+          appId: ids.primary.appId,
+          origin: "selected_existing",
+          projectId: "selected-project",
+        },
+      ],
+    );
   });
 
-  it("replaces a missing Convex deployment in the existing stable attachment row", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-    const attachmentId = await t.run(async (ctx) => {
-      return await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "deleted-project",
-        deploymentName: "deleted-prod",
-        origin: "provisioned",
-        connectedAt: 40,
-      });
-    });
-    const replacementIntent = await t.query(
-      internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        appRoot,
-      },
-    );
-    expect(replacementIntent).toEqual({
-      mode: "replace_missing",
-      expected: {
-        attachmentId,
-        connectedAt: 40,
-        projectId: "deleted-project",
-        deploymentName: "deleted-prod",
-        origin: "provisioned",
-      },
-    });
-
-    await expect(
-      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-        ...ids,
-        appRoot,
-        attachmentIntent: replacementIntent,
-      }),
-    ).resolves.toEqual({ claimed: true });
-    await expect(
-      t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
-        ...ids,
-        appRoot,
-        convex: convexRecord,
-        origin: "selected_existing",
-        attachmentIntent: replacementIntent,
-      }),
-    ).resolves.toEqual({ attached: true });
-    await expect(
-      t.mutation(internal.vault.convexMutations.finishConvexDeploymentConnection, {
-        ...ids,
-        appRoot,
-        attachmentIntent: replacementIntent,
-      }),
-    ).resolves.toBeNull();
-
-    const deployment = await t.run(async (ctx) => await ctx.db.get(attachmentId));
-    expect(deployment).toMatchObject({
-      _id: attachmentId,
-      projectId: "convex-project",
-      deploymentName: "manual-convex-prod",
+  it("rejects attaching one provider project to another app or vault", async () => {
+    const { ids, t } = await createGraphFixture();
+    await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId: ids.primary.vaultId,
+      userId: ids.userId,
+      appId: ids.primary.appId,
+      teamId: "team-1",
+      projectId: "shared-project",
       origin: "selected_existing",
     });
-  });
 
-  it("rejects a stale Convex replacement snapshot before claiming the workflow lock", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-    const attachmentId = await t.run(async (ctx) => {
-      return await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachProject, {
+        vaultId: ids.primary.vaultId,
         userId: ids.userId,
-        appRoot,
-        projectId: "deleted-project",
-        deploymentName: "deleted-prod",
-        origin: "provisioned",
-        connectedAt: 40,
-      });
-    });
-    const replacementIntent = await t.query(
-      internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
-      {
+        appId: ids.primary.nestedAppId,
+        teamId: "team-1",
+        projectId: "shared-project",
+        origin: "selected_existing",
+      }),
+    ).rejects.toThrow("Convex project is already attached.");
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachProject, {
+        vaultId: ids.secondary.vaultId,
         userId: ids.userId,
-        vaultId: ids.vaultId,
-        appRoot,
-      },
-    );
-    await t.run(async (ctx) => {
-      await ctx.db.patch(attachmentId, { connectedAt: 41 });
-    });
-
-    await expect(
-      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-        ...ids,
-        appRoot,
-        attachmentIntent: replacementIntent,
+        appId: ids.secondary.appId,
+        teamId: "team-1",
+        projectId: "shared-project",
+        origin: "selected_existing",
       }),
-    ).resolves.toEqual({ claimed: false });
+    ).rejects.toThrow("Convex project is already attached.");
   });
 
-  it("allows a failed Convex connection owner to be claimed again", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        state: "failed",
-        updatedAt: 40,
-      });
-    });
+  it("enforces vault, app, and user ownership", async () => {
+    const { ids, t } = await createGraphFixture();
 
     await expect(
-      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-        ...ids,
-        appRoot,
-        attachmentIntent,
-      }),
-    ).resolves.toEqual({ claimed: true });
-
-    const writeLock = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-    });
-    expect(writeLock).toMatchObject({ state: "active", runId: ids.runId });
-  });
-
-  it("does not attach when the write lock was superseded", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent,
-    });
-    await t.run(async (ctx) => {
-      const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      t.query(internal.vault.convexMutations.requireConvexProjectConnectionVault, {
+        vaultId: ids.primary.vaultId,
         userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-convex",
-        trigger: "connect_convex_deployment",
-        state: "running",
-        currentStep: "attach_convex",
-        createdAt: 40,
-        updatedAt: 40,
-      });
-      const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      if (!writeLock) {
-        throw new Error("Expected active provisioning write lock.");
-      }
-      await ctx.db.patch(writeLock._id, {
-        runId: otherRunId,
-        updatedAt: 40,
-      });
-    });
-
-    await expect(
-      t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
-        ...ids,
-        appRoot,
-        convex: convexRecord,
-        origin: "provisioned",
-        attachmentIntent,
+        appId: ids.secondary.appId,
       }),
-    ).resolves.toEqual({ attached: false });
-
-    const result = await t.run(async (ctx) => await ctx.db.get(ids.runId));
-
-    expect(result).toMatchObject({
-      state: "canceled",
-      currentStep: "claim_infra",
-    });
-  });
-
-  it("marks an active Convex connection owner failed when the workflow fails", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent,
-    });
-    await t.mutation(internal.vault.convexMutations.recordCreatedProjectForRun, {
-      ...ids,
-      projectName: "manual-convex",
-      projectId: "created-convex-project",
-      projectSlug: "manual-convex",
-    });
-
+    ).rejects.toThrow("Vault app not found.");
     await expect(
-      t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
-        runId: ids.runId,
-        workflowId: "workflow-1",
-        message: "Convex deployment lookup failed.",
+      t.mutation(internal.vault.convexMutations.attachProject, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.otherUserId,
+        appId: ids.primary.appId,
+        teamId: "team-1",
+        projectId: "foreign-project",
+        origin: "selected_existing",
       }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-      const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      return { writeLock, run };
-    });
-
-    expect(result.writeLock).toMatchObject({ state: "failed" });
-    expect(result.run).toMatchObject({
-      state: "failed",
-      createdConvexProject: {
-        projectName: "manual-convex",
-        projectId: "created-convex-project",
-        projectSlug: "manual-convex",
-      },
-    });
+    ).rejects.toThrow("Vault not found.");
   });
 });

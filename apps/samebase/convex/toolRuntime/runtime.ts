@@ -329,7 +329,7 @@ export const convexConnectExistingProjectTool = internalAction({
       await connectExistingConvexProjectForUser(ctx, connectArgs);
       return {
         status: "ok",
-        text: "Started connect_convex_deployment run.",
+        text: "Attached the Convex project.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -372,7 +372,7 @@ export const cloudflareConnectExistingWorkerTool = internalAction({
       await connectExistingCloudflareWorkerForUser(ctx, connectArgs);
       return {
         status: "ok",
-        text: "Started connect_cloudflare_worker run.",
+        text: "Attached the Cloudflare Worker.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -410,7 +410,7 @@ export const cloudflareWireBuildsTool = internalAction({
       await wireCloudflareBuildsForUser(ctx, wireArgs);
       return {
         status: "ok",
-        text: "Started wire_builds run.",
+        text: "Configured Cloudflare Workers Builds.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -453,7 +453,7 @@ export const cloudflareWireConvexBuildAccessTool = internalAction({
       await wireCloudflareConvexBuildAccessForUser(ctx, wireArgs);
       return {
         status: "ok",
-        text: "Started wire_convex_build_access run.",
+        text: "Configured Convex build access.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -464,6 +464,8 @@ export const cloudflareWireConvexBuildAccessTool = internalAction({
     }
   },
 });
+
+// Current provider state is observed live; there is no verification mutation tool.
 
 const retryInfrastructureProvisioningToolResultValidator = object({
   status: toolStatus,

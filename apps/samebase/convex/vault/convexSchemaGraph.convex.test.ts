@@ -133,17 +133,23 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       defaultBranch: "main",
       connectedAt: 20,
     });
-    const deploymentId = await ctx.db.insert("vaultConvexDeployments", {
+    const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot: ".",
-      projectId: "123",
-      deploymentName: "demo-prod",
+      rootDirectory: "/",
+      createdAt: 25,
+    });
+    const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
+      vaultId,
+      userId,
+      appId,
+      teamId: "1000",
+      projectId: "convex-project-id",
       origin: "selected_existing",
-      connectedAt: 25,
+      createdAt: 25,
     });
 
-    return { deploymentId, userId, vaultId };
+    return { convexProjectId, userId, vaultId };
   });
 
   return { ids, user: asUser(t, ids.userId) };
@@ -193,34 +199,23 @@ function installSchemaGraphFetchStub(requests: RecordedRequest[]) {
         ...(body === undefined ? {} : { body }),
       });
 
-      if (url.endsWith("/projects/123")) {
-        return jsonResponse({
-          createTime: 1,
-          id: "123",
-          name: "Demo",
-          prodDeploymentName: "demo-prod",
-          slug: "demo",
-          teamId: "1000",
-          teamSlug: "ada-team",
-        });
+      if (url.endsWith("/create_deploy_key")) {
+        return jsonResponse({ deployKey: "prod:demo-prod|schema-secret" });
       }
-      if (url.endsWith("/deployments/demo-prod")) {
+      if (url.endsWith("/projects/convex-project-id/deployment")) {
         return jsonResponse({
           class: "s16",
-          createTime: 1,
+          createTime: 1710000000000,
           deploymentType: "prod",
           deploymentUrl: "https://demo.convex.cloud",
-          id: "456",
+          id: 2001,
           isDefault: true,
           kind: "cloud",
           name: "demo-prod",
-          projectId: "123",
+          projectId: "convex-project-id",
           reference: "prod",
           region: "aws-us-east-1",
         });
-      }
-      if (url.endsWith("/create_deploy_key")) {
-        return jsonResponse({ deployKey: "prod:demo-prod|schema-secret" });
       }
       if (url.endsWith("/delete_deploy_key")) {
         return new Response(null, { status: 200 });
@@ -261,7 +256,7 @@ describe("vault Convex schema graph", () => {
 
     await user.action(api.vault.convexSchemaGraph.refresh, {
       vaultId: ids.vaultId,
-      deploymentId: ids.deploymentId,
+      convexProjectId: ids.convexProjectId,
     });
 
     const createRequest = requests.find((request) => request.url.endsWith("/create_deploy_key"));
@@ -274,7 +269,7 @@ describe("vault Convex schema graph", () => {
 
     const state = await user.query(api.vault.convexSchemaGraph.get, {
       vaultId: ids.vaultId,
-      appRoot: ".",
+      convexProjectId: ids.convexProjectId,
     });
     if (!state?.snapshot) {
       throw new Error("Expected schema graph snapshot.");
@@ -317,7 +312,7 @@ describe("vault Convex schema graph", () => {
 
     await user.action(api.vault.convexSchemaGraph.refresh, {
       vaultId: ids.vaultId,
-      deploymentId: ids.deploymentId,
+      convexProjectId: ids.convexProjectId,
     });
 
     const createRequest = requests.find((request) => request.url.endsWith("/create_deploy_key"));
@@ -332,7 +327,7 @@ describe("vault Convex schema graph", () => {
     expect(deleteRequest?.body).toEqual({ id: deployKeyName });
   });
 
-  it("returns deployment options when the route app root no longer matches", async () => {
+  it("returns the attached project when no explicit project is selected", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphVault(t, {
       method: "oauth",
@@ -341,18 +336,17 @@ describe("vault Convex schema graph", () => {
 
     const state = await user.query(api.vault.convexSchemaGraph.get, {
       vaultId: ids.vaultId,
-      appRoot: "apps/missing",
     });
 
     expect(state).toMatchObject({
-      selectedDeploymentId: null,
+      selectedConvexProjectId: ids.convexProjectId,
       snapshot: null,
       layout: [],
-      deployments: [
+      projects: [
         {
-          _id: ids.deploymentId,
-          appRoot: ".",
-          deploymentName: "demo-prod",
+          convexProjectId: ids.convexProjectId,
+          rootDirectory: "/",
+          projectId: "convex-project-id",
         },
       ],
     });
@@ -372,8 +366,8 @@ describe("vault Convex schema graph", () => {
     const firstSnapshotId = await t.mutation(internal.vault.convexSchemaGraph.recordSnapshot, {
       userId: ids.userId,
       vaultId: ids.vaultId,
-      deploymentId: ids.deploymentId,
-      appRoot: ".",
+      convexProjectId: ids.convexProjectId,
+      rootDirectory: "/",
       deploymentName: "demo-prod",
       schemaHash: "same",
       graph,
@@ -382,8 +376,8 @@ describe("vault Convex schema graph", () => {
     const secondSnapshotId = await t.mutation(internal.vault.convexSchemaGraph.recordSnapshot, {
       userId: ids.userId,
       vaultId: ids.vaultId,
-      deploymentId: ids.deploymentId,
-      appRoot: ".",
+      convexProjectId: ids.convexProjectId,
+      rootDirectory: "/",
       deploymentName: "demo-prod",
       schemaHash: "same",
       graph,
@@ -396,8 +390,8 @@ describe("vault Convex schema graph", () => {
       await t.mutation(internal.vault.convexSchemaGraph.recordSnapshot, {
         userId: ids.userId,
         vaultId: ids.vaultId,
-        deploymentId: ids.deploymentId,
-        appRoot: ".",
+        convexProjectId: ids.convexProjectId,
+        rootDirectory: "/",
         deploymentName: "demo-prod",
         schemaHash: `changed-${index}`,
         graph,
@@ -408,7 +402,9 @@ describe("vault Convex schema graph", () => {
     const snapshots = await t.run(async (ctx) =>
       ctx.db
         .query("observations_vaultConvexSchema_snapshots")
-        .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", ids.deploymentId))
+        .withIndex("by_project_and_fetched_at", (q) =>
+          q.eq("convexProjectId", ids.convexProjectId),
+        )
         .order("desc")
         .take(10),
     );

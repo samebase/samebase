@@ -4,13 +4,6 @@ import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 
-const databaseRouteArgs = {
-  owner: "ada",
-  repoName: "demo",
-  branch: "main",
-  appRoot: ".",
-};
-
 type ConvexAuth =
   | {
       method: "api_key";
@@ -35,45 +28,11 @@ function jsonResponse(body: string): Response {
   });
 }
 
-function readConvexManagementObservation(url: string): Response | null {
-  if (url.endsWith("/projects/123")) {
-    return jsonResponse(
-      JSON.stringify({
-        createTime: 1,
-        id: "123",
-        name: "Demo",
-        prodDeploymentName: "demo-prod",
-        slug: "demo",
-        teamId: "1000",
-        teamSlug: "ada-team",
-      }),
-    );
-  }
-  if (url.endsWith("/deployments/demo-prod")) {
-    return jsonResponse(
-      JSON.stringify({
-        class: "s16",
-        createTime: 1,
-        deploymentType: "prod",
-        deploymentUrl: "https://demo.convex.cloud",
-        id: "456",
-        isDefault: true,
-        kind: "cloud",
-        name: "demo-prod",
-        projectId: "123",
-        reference: "prod",
-        region: "aws-us-east-1",
-      }),
-    );
-  }
-  return null;
-}
-
 async function seedDatabaseEditorVault(
   t: ReturnType<typeof makeConvexTest>,
   convexAuth: ConvexAuth,
 ) {
-  const userId = await t.run(async (ctx) => {
+  const { convexProjectId, userId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada@example.com",
@@ -117,20 +76,51 @@ async function seedDatabaseEditorVault(
       defaultBranch: "main",
       connectedAt: 20,
     });
-    await ctx.db.insert("vaultConvexDeployments", {
+    const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot: ".",
-      projectId: "123",
-      deploymentName: "demo-prod",
+      rootDirectory: "/",
+      createdAt: 25,
+    });
+    const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
+      vaultId,
+      userId,
+      appId,
+      teamId: "1000",
+      projectId: "convex-project-id",
       origin: "selected_existing",
-      connectedAt: 25,
+      createdAt: 25,
     });
 
-    return userId;
+    return { convexProjectId, userId };
   });
 
-  return asUser(t, userId);
+  return { convexProjectId, user: asUser(t, userId) };
+}
+
+function databaseRouteArgs(convexProjectId: Id<"vaultConvexProjects">) {
+  return {
+    owner: "ada",
+    repoName: "demo",
+    branch: "main",
+    convexProjectId,
+  };
+}
+
+function productionDeploymentResponse(): Response {
+  return jsonResponse(`{
+    "class":"s16",
+    "createTime":1710000000000,
+    "deploymentType":"prod",
+    "deploymentUrl":"https://demo.convex.cloud",
+    "id":2001,
+    "isDefault":true,
+    "kind":"cloud",
+    "name":"demo-prod",
+    "projectId":"convex-project-id",
+    "reference":"prod",
+    "region":"aws-us-east-1"
+  }`);
 }
 
 afterEach(() => {
@@ -141,7 +131,7 @@ afterEach(() => {
 describe("createEmbeddedDashboardCredentials", () => {
   it("mints and revokes OAuth-backed deploy keys without request-scoped options", async () => {
     const t = makeConvexTest();
-    const user = await seedDatabaseEditorVault(t, {
+    const { convexProjectId, user } = await seedDatabaseEditorVault(t, {
       method: "oauth",
       credential: "convex-oauth-token",
     });
@@ -152,11 +142,9 @@ describe("createEmbeddedDashboardCredentials", () => {
       vi.fn(async (input: Request) => {
         requests.push(input);
 
-        const observation = readConvexManagementObservation(input.url);
-        if (observation) {
-          return observation;
+        if (input.url.endsWith("/projects/convex-project-id/deployment")) {
+          return productionDeploymentResponse();
         }
-
         if (input.url.endsWith("/create_deploy_key")) {
           return jsonResponse(`{"deployKey":"prod:demo-prod|oauth-embedded-secret"}`);
         }
@@ -170,7 +158,7 @@ describe("createEmbeddedDashboardCredentials", () => {
 
     const result = await user.action(
       api.vault.database.createEmbeddedDashboardCredentials,
-      databaseRouteArgs,
+      databaseRouteArgs(convexProjectId),
     );
 
     expect(result).toEqual({
@@ -180,12 +168,12 @@ describe("createEmbeddedDashboardCredentials", () => {
       deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
       adminKey: "prod:demo-prod|oauth-embedded-secret",
     });
-    const createRequest = requests.find((request) => request.url.endsWith("/create_deploy_key"));
-    expect(createRequest?.url).toBe(
+    expect(requests).toHaveLength(2);
+    expect(requests[1]?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/create_deploy_key",
     );
-    expect(createRequest?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
-    await expect(createRequest?.json()).resolves.toEqual({
+    expect(requests[1]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
+    await expect(requests[1]?.json()).resolves.toEqual({
       name: "samebase-embedded-data-demo-prod-1710003600000",
     });
 
@@ -194,23 +182,23 @@ describe("createEmbeddedDashboardCredentials", () => {
     }
 
     await user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
-      ...databaseRouteArgs,
+      ...databaseRouteArgs(convexProjectId),
       deployKeyName: result.deployKeyName,
     });
 
-    const deleteRequest = requests.find((request) => request.url.endsWith("/delete_deploy_key"));
-    expect(deleteRequest?.url).toBe(
+    expect(requests).toHaveLength(4);
+    expect(requests[3]?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/delete_deploy_key",
     );
-    expect(deleteRequest?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
-    await expect(deleteRequest?.json()).resolves.toEqual({
+    expect(requests[3]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
+    await expect(requests[3]?.json()).resolves.toEqual({
       id: "samebase-embedded-data-demo-prod-1710003600000",
     });
   });
 
   it("mints and revokes data editor deploy keys from API-key Convex connections", async () => {
     const t = makeConvexTest();
-    const user = await seedDatabaseEditorVault(t, {
+    const { convexProjectId, user } = await seedDatabaseEditorVault(t, {
       method: "api_key",
       credential: "convex-api-key",
     });
@@ -221,11 +209,9 @@ describe("createEmbeddedDashboardCredentials", () => {
       vi.fn(async (input: Request) => {
         requests.push(input);
 
-        const observation = readConvexManagementObservation(input.url);
-        if (observation) {
-          return observation;
+        if (input.url.endsWith("/projects/convex-project-id/deployment")) {
+          return productionDeploymentResponse();
         }
-
         if (input.url.endsWith("/create_deploy_key")) {
           return jsonResponse(`{"deployKey":"prod:demo-prod|embedded-secret"}`);
         }
@@ -239,7 +225,7 @@ describe("createEmbeddedDashboardCredentials", () => {
 
     const result = await user.action(
       api.vault.database.createEmbeddedDashboardCredentials,
-      databaseRouteArgs,
+      databaseRouteArgs(convexProjectId),
     );
 
     expect(result).toEqual({
@@ -249,12 +235,12 @@ describe("createEmbeddedDashboardCredentials", () => {
       deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
       adminKey: "prod:demo-prod|embedded-secret",
     });
-    const createRequest = requests.find((request) => request.url.endsWith("/create_deploy_key"));
-    expect(createRequest?.url).toBe(
+    expect(requests).toHaveLength(2);
+    expect(requests[1]?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/create_deploy_key",
     );
-    expect(createRequest?.headers.get("Authorization")).toBe("Bearer convex-api-key");
-    await expect(createRequest?.json()).resolves.toEqual({
+    expect(requests[1]?.headers.get("Authorization")).toBe("Bearer convex-api-key");
+    await expect(requests[1]?.json()).resolves.toEqual({
       allowedActions: ["deployment:data:view", "deployment:data:write"],
       expiresAt: 1_710_003_600_000,
       name: "samebase-embedded-data-demo-prod-1710003600000",
@@ -265,16 +251,16 @@ describe("createEmbeddedDashboardCredentials", () => {
     }
 
     await user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
-      ...databaseRouteArgs,
+      ...databaseRouteArgs(convexProjectId),
       deployKeyName: result.deployKeyName,
     });
 
-    const deleteRequest = requests.find((request) => request.url.endsWith("/delete_deploy_key"));
-    expect(deleteRequest?.url).toBe(
+    expect(requests).toHaveLength(4);
+    expect(requests[3]?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/delete_deploy_key",
     );
-    expect(deleteRequest?.headers.get("Authorization")).toBe("Bearer convex-api-key");
-    await expect(deleteRequest?.json()).resolves.toEqual({
+    expect(requests[3]?.headers.get("Authorization")).toBe("Bearer convex-api-key");
+    await expect(requests[3]?.json()).resolves.toEqual({
       id: "samebase-embedded-data-demo-prod-1710003600000",
     });
   });
@@ -283,18 +269,23 @@ describe("createEmbeddedDashboardCredentials", () => {
 describe("revokeEmbeddedDashboardCredentials", () => {
   it("does not delete arbitrary deployment keys", async () => {
     const t = makeConvexTest();
-    const user = await seedDatabaseEditorVault(t, {
+    const { convexProjectId, user } = await seedDatabaseEditorVault(t, {
       method: "api_key",
       credential: "convex-api-key",
     });
-    const fetch = vi.fn();
+    const fetch = vi.fn(async (input: Request) => {
+      if (input.url.endsWith("/projects/convex-project-id/deployment")) {
+        return productionDeploymentResponse();
+      }
+      throw new Error(`Unexpected Convex request: ${input.url}`);
+    });
     vi.stubGlobal("fetch", fetch);
 
     await user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
-      ...databaseRouteArgs,
+      ...databaseRouteArgs(convexProjectId),
       deployKeyName: "production-deploy-key",
     });
 
-    expect(fetch).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledOnce();
   });
 });
