@@ -4,6 +4,7 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const appRoot = ".";
+const rootDirectory = "/";
 
 function jsonResponse(body: string): Response {
   return new Response(body, {
@@ -93,7 +94,7 @@ async function createConvexConnectedVault() {
     await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot,
+      rootDirectory,
       createdAt: 25,
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {

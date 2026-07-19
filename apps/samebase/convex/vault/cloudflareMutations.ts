@@ -8,7 +8,8 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../appProvisioningModel";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
+import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
+import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
   buildVaultCloudflareDeploymentNotConfigured,
@@ -226,10 +227,13 @@ async function assertVaultAppRootExists(
     appRoot: string;
   },
 ): Promise<void> {
+  const rootDirectory = normalizeVaultRootDirectory(
+    args.appRoot === ROOT_VAULT_APP_ROOT ? VAULT_ROOT_DIRECTORY : args.appRoot,
+  );
   const app = await ctx.db
     .query("vaultApps")
-    .withIndex("by_vault_and_appRoot", (q) =>
-      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    .withIndex("by_vault_and_root_directory", (q) =>
+      q.eq("vaultId", args.vaultId).eq("rootDirectory", rootDirectory),
     )
     .first();
   if (!app) {

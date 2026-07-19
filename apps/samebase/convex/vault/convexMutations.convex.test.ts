@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const appRoot = ".";
+const rootDirectory = "/";
 
 async function createConvexConnectionVault() {
   const t = makeConvexTest();
@@ -45,7 +46,7 @@ async function createConvexConnectionVault() {
     await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot,
+      rootDirectory,
       createdAt: 25,
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -220,7 +221,7 @@ describe("vault Convex deployment connection mutations", () => {
       await ctx.db.insert("vaultApps", {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        appRoot: "apps/admin",
+        rootDirectory: "apps/admin",
         createdAt: 26,
       });
       await ctx.db.insert("vaultConvexDeployments", {

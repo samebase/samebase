@@ -6,6 +6,7 @@ import { readProviderSetupFailedNextAction } from "./dashboard";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
 
 const appRoot = ".";
+const rootDirectory = "/";
 
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
@@ -441,7 +442,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultApps", {
         vaultId,
         userId,
-        appRoot,
+        rootDirectory,
         createdAt: 21,
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
@@ -480,15 +481,15 @@ describe("vault dashboard Convex contract", () => {
       appRoot: "apps/samebase",
     });
 
-    const appRoots = await t.run(async (ctx) => {
+    const rootDirectories = await t.run(async (ctx) => {
       const apps = await ctx.db
         .query("vaultApps")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
-      return apps.map((app) => app.appRoot).sort();
+      return apps.map((app) => app.rootDirectory).sort();
     });
 
-    expect(appRoots).toEqual(["apps/samebase"]);
+    expect(rootDirectories).toEqual(["apps/samebase"]);
   });
 
   it("lists app-root folder suggestions from the cached default branch tree", async () => {
@@ -531,7 +532,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultApps", {
         vaultId,
         userId,
-        appRoot: "apps",
+        rootDirectory: "apps",
         createdAt: 21,
       });
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
@@ -606,7 +607,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultApps", {
         vaultId,
         userId,
-        appRoot,
+        rootDirectory,
         createdAt: 21,
       });
       await ctx.db.insert("vaultConvexDeployments", {
@@ -1800,7 +1801,7 @@ describe("vault dashboard Convex contract", () => {
         await ctx.db.insert("vaultApps", {
           vaultId,
           userId,
-          appRoot: root,
+          rootDirectory: root,
           createdAt: 21,
         });
       }
@@ -1945,7 +1946,7 @@ describe("vault dashboard Convex contract", () => {
         await ctx.db.insert("vaultApps", {
           vaultId,
           userId,
-          appRoot,
+          rootDirectory: appRoot === "." ? rootDirectory : appRoot,
           createdAt: 21,
         });
       }
