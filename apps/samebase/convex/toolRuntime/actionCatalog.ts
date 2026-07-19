@@ -9,7 +9,6 @@ import { convexConnectExistingProjectContract } from "../vault/contracts/convexC
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
 import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
 import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
-import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
@@ -35,7 +34,6 @@ export const actionContracts = [
   cloudflareConnectExistingWorkerContract,
   cloudflareWireBuildsContract,
   cloudflareWireConvexBuildAccessContract,
-  cloudflareVerifyInfrastructureContract,
   retryInfrastructureProvisioningContract,
   createBrowserHandoffContract,
 ] as const;

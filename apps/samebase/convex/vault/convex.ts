@@ -17,13 +17,17 @@ import type {
 import { toErrorMessage } from "../jsonUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import {
+  vVaultConvexDeploymentAttachmentIntent,
   vVaultConvexConnectionTarget,
+  type VaultConvexDeploymentAttachmentIntent,
+  type VaultConvexDeploymentAttachmentSnapshot,
   type VaultConvexConnectionTarget,
   type VaultConvexOrigin,
 } from "./model";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
 import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
+import { observeConvexDeployment } from "./convexProviderObservation";
 
 const { id, null: nullValue, string } = v;
 
@@ -57,6 +61,30 @@ async function resolveConvexConnection(
   }
 
   return { token, teamId };
+}
+
+async function assertConvexDeploymentAttachmentIsMissing(args: {
+  connection: ConvexActionConnection;
+  expected: VaultConvexDeploymentAttachmentSnapshot;
+}): Promise<void> {
+  const observation = await observeConvexDeployment({
+    convexToken: args.connection.token,
+    convexTeamId: args.connection.teamId,
+    projectId: args.expected.projectId,
+    deploymentName: args.expected.deploymentName,
+  });
+  switch (observation.state) {
+    case "missing":
+      return;
+    case "available":
+      throw new Error("The attached Convex deployment still exists and cannot be replaced.");
+    case "failed":
+    case "loading":
+    case "not_requested":
+      throw new Error("Samebase could not confirm that the attached Convex deployment is missing.");
+    default:
+      observation satisfies never;
+  }
 }
 
 function compareConvexProjectResult(left: ConvexProjectResult, right: ConvexProjectResult): number {
@@ -318,6 +346,7 @@ async function startConvexDeploymentConnectionOrFail(
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     target: VaultConvexConnectionTarget;
+    attachmentIntent: VaultConvexDeploymentAttachmentIntent;
   },
 ): Promise<void> {
   try {
@@ -338,6 +367,7 @@ async function isConvexDeploymentConnectionRunActive(
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
+    attachmentIntent: VaultConvexDeploymentAttachmentIntent;
   },
 ): Promise<boolean> {
   const result = await ctx.runQuery(
@@ -347,6 +377,7 @@ async function isConvexDeploymentConnectionRunActive(
       runId: args.runId,
       userId: args.userId,
       appRoot: args.appRoot,
+      attachmentIntent: args.attachmentIntent,
     },
   );
   return result.active;
@@ -362,6 +393,7 @@ async function recordConvexDeployment(
     teamId: string;
     convex: ConvexInfrastructureRecord;
     origin: VaultConvexOrigin;
+    attachmentIntent: VaultConvexDeploymentAttachmentIntent;
   },
 ): Promise<boolean> {
   await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
@@ -378,6 +410,7 @@ async function recordConvexDeployment(
       appRoot: args.appRoot,
       convex: args.convex,
       origin: args.origin,
+      attachmentIntent: args.attachmentIntent,
     },
   );
   return attached;
@@ -411,11 +444,20 @@ export async function connectExistingConvexProjectForUser(
   if (!projectId) {
     throw new Error("Convex project is required.");
   }
-  await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
-    vaultId: args.vaultId,
-    userId,
-    appRoot,
-  });
+  const attachmentIntent = await ctx.runQuery(
+    internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
+    {
+      vaultId: args.vaultId,
+      userId,
+      appRoot,
+    },
+  );
+  if (attachmentIntent.mode === "replace_missing") {
+    await assertConvexDeploymentAttachmentIsMissing({
+      connection: await resolveConvexConnection(ctx, userId),
+      expected: attachmentIntent.expected,
+    });
+  }
   const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
     userId,
     vaultId: args.vaultId,
@@ -425,6 +467,7 @@ export async function connectExistingConvexProjectForUser(
     vaultId: args.vaultId,
     runId,
     userId,
+    attachmentIntent,
     target: {
       mode: "connect_existing_project",
       appRoot,
@@ -464,11 +507,20 @@ export const createProject = action({
 
     const userId = ctx.viewer.userId;
     const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
-      vaultId: args.vaultId,
-      userId,
-      appRoot,
-    });
+    const attachmentIntent = await ctx.runQuery(
+      internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
+      {
+        vaultId: args.vaultId,
+        userId,
+        appRoot,
+      },
+    );
+    if (attachmentIntent.mode === "replace_missing") {
+      await assertConvexDeploymentAttachmentIsMissing({
+        connection: await resolveConvexConnection(ctx, userId),
+        expected: attachmentIntent.expected,
+      });
+    }
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
       vaultId: args.vaultId,
@@ -478,6 +530,7 @@ export const createProject = action({
       vaultId: args.vaultId,
       runId,
       userId,
+      attachmentIntent,
       target: {
         mode: "create_project",
         appRoot,
@@ -495,6 +548,7 @@ export const ensureConvexDeploymentConnection = internalAction({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -504,12 +558,19 @@ export const ensureConvexDeploymentConnection = internalAction({
         runId: args.runId,
         userId: args.userId,
         appRoot: args.target.appRoot,
+        attachmentIntent: args.attachmentIntent,
       }))
     ) {
       return null;
     }
 
     const connection = await resolveConvexConnection(ctx, args.userId);
+    if (args.attachmentIntent.mode === "replace_missing") {
+      await assertConvexDeploymentAttachmentIsMissing({
+        connection,
+        expected: args.attachmentIntent.expected,
+      });
+    }
     switch (args.target.mode) {
       case "connect_existing_project": {
         const convex = await resolveExistingConvexProject({
@@ -524,6 +585,7 @@ export const ensureConvexDeploymentConnection = internalAction({
           teamId: connection.teamId,
           convex,
           origin: "selected_existing",
+          attachmentIntent: args.attachmentIntent,
         });
         if (!attached) {
           return null;
@@ -541,6 +603,7 @@ export const ensureConvexDeploymentConnection = internalAction({
             runId: args.runId,
             userId: args.userId,
             appRoot: args.target.appRoot,
+            attachmentIntent: args.attachmentIntent,
           }))
         ) {
           return null;
@@ -559,6 +622,7 @@ export const ensureConvexDeploymentConnection = internalAction({
             runId: args.runId,
             userId: args.userId,
             appRoot: args.target.appRoot,
+            attachmentIntent: args.attachmentIntent,
           }))
         ) {
           return null;
@@ -571,6 +635,7 @@ export const ensureConvexDeploymentConnection = internalAction({
           teamId: connection.teamId,
           convex,
           origin: "provisioned",
+          attachmentIntent: args.attachmentIntent,
         });
         if (!attached) {
           return null;

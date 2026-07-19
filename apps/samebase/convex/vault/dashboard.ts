@@ -17,9 +17,6 @@ import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
 import {
   getUserVaultsContract,
-  type CloudflareWorkerConvexDeployKeys,
-  type CloudflareWorkerGithubRepositoryConnection,
-  type ProviderResourceUpstream,
   type ProviderSetupSummary,
   type SourceSetupSummary,
   type UserVaultResult,
@@ -27,7 +24,6 @@ import {
   type VaultDeletionSummary,
   vProviderSetupSummary,
 } from "./contracts/getUserVaults";
-import { readVaultProviderUpstreamPresence } from "./model";
 
 const { array, boolean, id, object, optional, string } = v;
 type SourceSetupVault = Extract<
@@ -43,38 +39,6 @@ const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
 function canRemoveConvexProvisionForDeployment(deployment: ConnectedConvexDeployment): boolean {
   return deployment.origin === "provisioned";
-}
-
-function resolveConvexDeploymentUpstream(
-  deployment: ConnectedConvexDeployment,
-): ProviderResourceUpstream {
-  const upstream = readVaultProviderUpstreamPresence(deployment);
-  if (upstream.state === "present") {
-    return { state: "present" };
-  }
-  return {
-    state: "missing_upstream",
-    nextAction:
-      deployment.origin === "provisioned"
-        ? "retry_infrastructure_provisioning"
-        : "connect_convex_deployment",
-  };
-}
-
-function resolveCloudflareWorkerUpstream(
-  worker: ConnectedCloudflareWorker,
-): ProviderResourceUpstream {
-  const upstream = readVaultProviderUpstreamPresence(worker);
-  if (upstream.state === "present") {
-    return { state: "present" };
-  }
-  return {
-    state: "missing_upstream",
-    nextAction:
-      worker.origin === "provisioned"
-        ? "retry_infrastructure_provisioning"
-        : "connect_cloudflare_worker",
-  };
 }
 
 async function readLatestRunErrorMessage(
@@ -171,7 +135,6 @@ export function readProviderSetupFailedNextAction(args: {
     case "connect_cloudflare_worker":
     case "wire_builds":
     case "wire_convex_build_access":
-    case "verify_infrastructure":
       return args.trigger;
     default:
       // Run row missing (fallback summaries): the connect flow is the safe
@@ -355,37 +318,10 @@ function readManualProviderFromRun(
     case "connect_cloudflare_worker":
     case "wire_builds":
     case "wire_convex_build_access":
-    case "verify_infrastructure":
       return "cloudflare";
     default:
       return null;
   }
-}
-
-function resolveCloudflareWorkerGithubRepositoryConnection(
-  worker: ConnectedCloudflareWorker,
-): CloudflareWorkerGithubRepositoryConnection {
-  return worker.deployment.builds.state === "connected"
-    ? { state: "connected" }
-    : { state: "not_connected", nextAction: "wire_builds" };
-}
-
-function resolveCloudflareWorkerConvexDeployKeys(
-  worker: ConnectedCloudflareWorker,
-  convexDeployments: ConnectedConvexDeployment[],
-): CloudflareWorkerConvexDeployKeys {
-  const hasConvexDeployment = convexDeployments.some(
-    (deployment) =>
-      deployment.appRoot === worker.appRoot &&
-      readVaultProviderUpstreamPresence(deployment).state === "present",
-  );
-  if (!hasConvexDeployment || worker.deployment.builds.state !== "connected") {
-    return { state: "not_applicable" };
-  }
-
-  return worker.deployment.convexBuildAccess.state === "wired"
-    ? { state: "set" }
-    : { state: "missing", nextAction: "wire_convex_build_access" };
 }
 
 async function resolveProviderSetupSummary(
@@ -502,7 +438,6 @@ function compareConvexDeploymentSortOrder(
   return (
     leftRootOrder - rightRootOrder ||
     left.appRoot.localeCompare(right.appRoot) ||
-    left.projectSlug.localeCompare(right.projectSlug) ||
     left.projectId.localeCompare(right.projectId)
   );
 }
@@ -565,42 +500,6 @@ function buildCloudflareWorkerDashboardUrl(
   }
 
   return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/workers/services/view/${encodeURIComponent(workerName)}/production/deployments`;
-}
-
-/**
- * Convex dashboard URLs are only useful with real team/project/deploy slugs.
- * Return nothing for blank metadata so the dashboard never renders fake links.
- */
-export function buildConvexDeploymentDashboardUrl(args: {
-  deploymentName: string | undefined;
-  projectSlug: string | undefined;
-  teamSlug: string | undefined;
-}): string | undefined {
-  const normalizedTeamSlug = args.teamSlug?.trim();
-  const normalizedProjectSlug = args.projectSlug?.trim();
-  const normalizedDeploymentName = args.deploymentName?.trim();
-  if (!normalizedTeamSlug || !normalizedProjectSlug || !normalizedDeploymentName) {
-    return undefined;
-  }
-
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/${encodeURIComponent(normalizedDeploymentName)}`;
-}
-
-/**
- * Project settings use the project scope, not a deployment scope. Keep the link
- * hidden until both dashboard slugs are known.
- */
-export function buildConvexProjectSettingsDashboardUrl(args: {
-  projectSlug: string | undefined;
-  teamSlug: string | undefined;
-}): string | undefined {
-  const normalizedTeamSlug = args.teamSlug?.trim();
-  const normalizedProjectSlug = args.projectSlug?.trim();
-  if (!normalizedTeamSlug || !normalizedProjectSlug) {
-    return undefined;
-  }
-
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/settings`;
 }
 
 // MARK: Public
@@ -888,34 +787,21 @@ async function readUserVaults(
       const convexDeploymentSummaries = convexDeployments.map((deployment) => ({
         appRoot: deployment.appRoot,
         projectId: deployment.projectId,
-        projectSlug: deployment.projectSlug,
-        teamSlug: deployment.teamSlug,
         deploymentName: deployment.deploymentName,
-        upstream: resolveConvexDeploymentUpstream(deployment),
-        cloudUrl: deployment.cloudUrl,
-        siteUrl: deployment.siteUrl,
-        projectSettingsDashboardUrl: buildConvexProjectSettingsDashboardUrl({
-          projectSlug: deployment.projectSlug,
-          teamSlug: deployment.teamSlug,
-        }),
-        deploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
-          deploymentName: deployment.deploymentName,
-          projectSlug: deployment.projectSlug,
-          teamSlug: deployment.teamSlug,
-        }),
+        origin: deployment.origin,
+        observation: { state: "not_requested" as const },
       }));
       const canRemoveCloudflareProvision = cloudflareWorkers.some(
         (worker) => worker.origin === "provisioned",
       );
       const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
         appRoot: worker.appRoot,
-        convexDeployKeys: resolveCloudflareWorkerConvexDeployKeys(worker, convexDeployments),
-        githubRepositoryConnection: resolveCloudflareWorkerGithubRepositoryConnection(worker),
-        upstream: resolveCloudflareWorkerUpstream(worker),
-        lastObservedAt: worker.lastObservedAt,
+        accountId: worker.accountId,
         workerName: worker.workerName,
-        workersDevUrl: worker.workersDevUrl,
+        workerTag: worker.workerTag,
+        origin: worker.origin,
         projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),
+        observation: { state: "not_requested" as const },
       }));
       if (deletion.state !== "not_deleting") {
         return {
@@ -1063,11 +949,7 @@ export const getVaultInfrastructure = query({
         v.object({
           appRoot: v.string(),
           projectId: v.string(),
-          teamSlug: v.string(),
-          projectSlug: v.string(),
           deploymentName: v.string(),
-          cloudUrl: v.string(),
-          siteUrl: v.string(),
         }),
       ),
       domains: v.array(
@@ -1113,11 +995,7 @@ export const getVaultInfrastructure = query({
       convexDeployments: convexDeployments.map((deployment) => ({
         appRoot: deployment.appRoot,
         projectId: deployment.projectId,
-        teamSlug: deployment.teamSlug,
-        projectSlug: deployment.projectSlug,
         deploymentName: deployment.deploymentName,
-        cloudUrl: deployment.cloudUrl,
-        siteUrl: deployment.siteUrl,
       })),
       domains: [...domains].sort(compareVaultDomainSortOrder).map((domain) => ({
         branch: domain.branch,

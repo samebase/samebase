@@ -92,15 +92,13 @@ Indexes:
 ### `vaultConvexDeployments`
 
 - `vaultId`, `userId`, `appRoot`
-- `projectId`, `teamSlug`, `projectSlug`
-- `deploymentName`, `deploymentType: "prod"`, `cloudUrl`, `siteUrl`
-- `previewDeployment`: either `{ state: "not_ensured" }` or
-  `{ state: "ensured", deploymentName, cloudUrl }`
-- `deployKeys.production` and `deployKeys.preview`: each either `{ state: "not_created" }` or
-  `{ state: "created", id }`
-- `origin: "provisioned" | "selected_existing"`, `connectedAt`, `lastObservedAt`
+- `projectId`, `deploymentName`
+- `origin: "provisioned" | "selected_existing"`, `connectedAt`
 
-This table is the durable Convex identity. Deploy-key ids live here; key material is never stored.
+This table is the durable attachment between a vault app root and a Convex deployment. It stores
+only stable provider coordinates, provenance, and the time of attachment. Current project slugs,
+team slugs, URLs, deployment existence, preview deployments, and deploy keys are provider state and
+must not be mirrored into this row.
 
 Indexes:
 
@@ -112,14 +110,28 @@ Indexes:
 ### `vaultCloudflareWorkers`
 
 - `vaultId`, `userId`, `appRoot`
-- `accountId`, `workerName`, `workerTag`, optional `workersDevUrl`
-- `origin: "provisioned" | "selected_existing"`, `connectedAt`, `lastObservedAt`
-- `deployment.builds`: `{ state: "not_connected" }` or a connected Workers Builds config with root
-  directory, build/deploy commands, path filters, production trigger, and preview trigger
-- `deployment.convexBuildAccess`: `{ state: "not_wired" }` or `{ state: "wired" }`
+- `accountId`, `workerName`, `workerTag`
+- `origin: "provisioned" | "selected_existing"`, `connectedAt`
 
-This table is the durable Cloudflare Worker identity. GitHub Builds wiring and Convex build access
-are independent axes so Cloudflare-only apps can build without a Convex deployment.
+This table is the durable attachment between a vault app root and a Cloudflare Worker. Current
+workers.dev URLs, Worker existence, Workers Builds triggers, repository wiring, and Convex deploy
+keys are provider state and must not be mirrored into this row.
+
+### Provider observation boundary
+
+Provider-owned state is observed directly from Convex and Cloudflare for one requested vault. The
+observation action returns explicit `available`, `missing`, or `failed` results with an observation
+timestamp. The dashboard may cache those results in the browser for a short bounded interval, but
+the action does not write them to Convex tables. Stable attachment rows remain unchanged when a
+provider resource changes or disappears.
+
+Provisioning and repair actions re-read the provider state they require before acting. Durable run
+events record that an explicit operation succeeded or failed; they are operation evidence, not a
+claim that the provider still has the same state later.
+
+Convex build-access rotation uses exact Samebase-owned key names derived from the full vault id. A
+rotation lists and deletes matching keys directly in Convex before minting replacements. Samebase
+does not store deploy-key ids or secrets in its database.
 
 Indexes:
 
@@ -221,11 +233,11 @@ sequenceDiagram
   CFB->>DB: write vaultCloudflareWorkers
   WF->>CFB: wire_builds child run
   CFB->>CFL: connect GitHub repo + create build triggers
-  CFB->>DB: write deployment.builds
+  CFB->>DB: record wiring operation event
   WF->>CFB: wire_convex_build_access child run
   CFB->>CVX: ensure preview deployment + mint deploy keys
   CFB->>CFL: patch trigger env vars
-  CFB->>DB: write deploy-key ids + convexBuildAccess
+  CFB->>DB: record deploy-key wiring operation event
   WF->>DB: upsert vaultDomains + mark parent run succeeded
 ```
 
@@ -234,11 +246,8 @@ sequenceDiagram
 - `vaultConvexDeployments` exists when `attach_convex` has attached the app root's production
   deployment.
 - `vaultCloudflareWorkers` exists when `attach_worker` has attached the app root's Worker.
-- `vaultCloudflareWorkers.deployment.builds` moves from `not_connected` to `connected` after
-  `wire_builds`.
-- `vaultCloudflareWorkers.deployment.convexBuildAccess` moves from `not_wired` to `wired` after
-  `wire_convex_build_access`. The temporary dashboard repair action may perform the same transition
-  after the app root has an attached Convex deployment and the Worker has connected Builds.
+- `wire_builds` and `wire_convex_build_access` do not change either attachment row. Their provider
+  writes are observed live when a caller next requests current state.
 - `workflow_vaultProvisioning_writeLocks` records the active/succeeded/failed writer run.
 - `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record workflow progress
   and user-visible failures.
@@ -260,8 +269,8 @@ In `VaultDashboard`:
 - An attached Cloudflare Worker for an app root that also has Convex, connected Builds, and missing
   Convex build access shows `Cloudflare does not have this Convex deployment's deploy keys.` with a
   `Set Convex deploy keys` action. The action patches both `CONVEX_DEPLOY_KEY` and
-  `PREVIEW_CONVEX_DEPLOY_KEY` into the production and preview Workers Builds triggers. Verification
-  treats Convex build access as missing unless both deploy-key names exist on both recorded
+  `PREVIEW_CONVEX_DEPLOY_KEY` into the production and preview Workers Builds triggers. The live
+  observation treats Convex build access as missing unless both deploy-key names exist on both live
   triggers; split-by-trigger layouts are repaired by the same action.
 
 Dashboard external links:
@@ -272,12 +281,11 @@ Dashboard external links:
   is available.
 - The Cloudflare link targets the specific Worker:
   `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/deployments`.
-- The `Project settings` Convex link targets the project-scoped settings page:
-  `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
+- A live Convex observation provides the `Project settings` link for the project-scoped settings
+  page: `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
 - The production Convex link renders on the default branch row, not in the repository-title service
   row, because the production deployment follows that branch.
-- The production Convex link targets the deployment dashboard from the connected team slug, managed
-  project slug, and deployment name:
+- The production Convex link uses the observed team slug, project slug, and deployment name:
   `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
 - Service links are mobile-friendly text links with service icons. Labels should stay concise; the
   default-branch Convex deployment link uses `Production: <deploymentName>`.

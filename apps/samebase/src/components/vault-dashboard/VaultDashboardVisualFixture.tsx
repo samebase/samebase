@@ -543,39 +543,53 @@ const LIST_SPACING_VAULT = {
   cloudflareWorkers: [
     {
       appRoot: "apps/domain-router",
-      convexDeployKeys: { state: "not_applicable" },
-      githubRepositoryConnection: { state: "connected" },
-      upstream: { state: "present" },
-      lastObservedAt: FIXTURE_NOW - 12_000,
+      accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "domain-router",
-      workersDevUrl: "https://domain-router.nicu.workers.dev",
+      workerTag: "domain-router",
+      origin: "provisioned",
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/deployments",
+      observation: {
+        state: "available",
+        observedAt: FIXTURE_NOW - 12_000,
+        workersDevUrl: "https://domain-router.nicu.workers.dev",
+        githubRepositoryConnection: "connected",
+        convexDeployKeys: "not_applicable",
+      },
     },
     {
       appRoot: "apps/samebase",
-      convexDeployKeys: { state: "set" },
-      githubRepositoryConnection: { state: "connected" },
-      upstream: { state: "present" },
-      lastObservedAt: FIXTURE_NOW - 12_000,
+      accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "samebase-worker",
-      workersDevUrl: "https://samebase-worker.nicu.workers.dev",
+      workerTag: "samebase-worker",
+      origin: "provisioned",
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/deployments",
+      observation: {
+        state: "available",
+        observedAt: FIXTURE_NOW - 12_000,
+        workersDevUrl: "https://samebase-worker.nicu.workers.dev",
+        githubRepositoryConnection: "connected",
+        convexDeployKeys: "set",
+      },
     },
   ],
   convexDeployments: [
     {
       appRoot: "apps/samebase",
       projectId: "samebase",
-      projectSlug: "samebase",
-      teamSlug: "nicu",
       deploymentName: "calm-swan-123",
-      cloudUrl: "https://calm-swan-123.convex.cloud",
-      siteUrl: "https://calm-swan-123.convex.site",
-      upstream: { state: "present" },
-      projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/settings",
-      deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
+      origin: "provisioned",
+      observation: {
+        state: "available",
+        observedAt: FIXTURE_NOW - 12_000,
+        projectSlug: "samebase",
+        teamSlug: "nicu",
+        cloudUrl: "https://calm-swan-123.convex.cloud",
+        siteUrl: "https://calm-swan-123.convex.site",
+        projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/settings",
+        deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
+      },
     },
   ],
 } satisfies VaultDashboardVault;
@@ -607,30 +621,39 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   cloudflareWorkers: [
     {
       appRoot: ".",
-      convexDeployKeys: { state: "not_applicable" },
-      githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
-      upstream: { state: "present" },
-      lastObservedAt: FIXTURE_NOW - 2_000,
+      accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "tmp-my-super-app-234",
-      workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
+      workerTag: "tmp-my-super-app-234",
+      origin: "provisioned",
       projectDashboardUrl:
         "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/tmp-my-super-app-234/production/deployments",
+      observation: {
+        state: "available",
+        observedAt: FIXTURE_NOW - 2_000,
+        workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
+        githubRepositoryConnection: "not_connected",
+        convexDeployKeys: "not_applicable",
+      },
     },
   ],
   convexDeployments: [
     {
       appRoot: ".",
       projectId: "tmp-my-super-app-2",
-      projectSlug: "tmp-my-super-app-2",
-      teamSlug: "nicu",
       deploymentName: "valiant-panda-123",
-      cloudUrl: "https://valiant-panda-123.convex.cloud",
-      siteUrl: "https://valiant-panda-123.convex.site",
-      upstream: { state: "present" },
-      projectSettingsDashboardUrl:
-        "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/settings",
-      deploymentDashboardUrl:
-        "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/valiant-panda-123",
+      origin: "provisioned",
+      observation: {
+        state: "available",
+        observedAt: FIXTURE_NOW - 2_000,
+        projectSlug: "tmp-my-super-app-2",
+        teamSlug: "nicu",
+        cloudUrl: "https://valiant-panda-123.convex.cloud",
+        siteUrl: "https://valiant-panda-123.convex.site",
+        projectSettingsDashboardUrl:
+          "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/settings",
+        deploymentDashboardUrl:
+          "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/valiant-panda-123",
+      },
     },
   ],
 } satisfies VaultDashboardVault;
@@ -753,7 +776,6 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
             }
           }}
           onSetCloudflareConvexDeployKeys={() => {}}
-          onVerifyCloudflareInfrastructure={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -799,7 +821,6 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
           onSetCloudflareConvexDeployKeys={() => {}}
-          onVerifyCloudflareInfrastructure={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -868,7 +889,6 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             onSaveVaultBranchFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
             onSetCloudflareConvexDeployKeys={() => {}}
-            onVerifyCloudflareInfrastructure={() => {}}
           />
         }
       />
@@ -939,8 +959,6 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
         _id: deploymentId,
         appRoot: ".",
         deploymentName: "samebase-prod",
-        projectSlug: "samebase",
-        teamSlug: "samebase",
       },
     ],
     selectedDeploymentId: deploymentId,

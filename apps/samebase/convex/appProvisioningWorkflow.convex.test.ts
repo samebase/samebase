@@ -96,24 +96,9 @@ describe("app provisioning workflow composition", () => {
         userId: ids.userId,
         appRoot: ".",
         projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "composed-app",
         deploymentName: "composed-app-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://composed-app-prod.convex.cloud",
-        siteUrl: "https://composed-app-prod.convex.site",
-        previewDeployment: {
-          state: "ready",
-          deploymentName: "composed-app-dev",
-          cloudUrl: "https://composed-app-dev.convex.cloud",
-        },
-        deployKeys: {
-          production: { state: "created", id: "prod-key" },
-          preview: { state: "created", id: "preview-key" },
-        },
         origin: "provisioned",
         connectedAt: 40,
-        lastObservedAt: 40,
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: ids.vaultId,
@@ -122,30 +107,8 @@ describe("app provisioning workflow composition", () => {
         accountId: "cloudflare-account",
         workerName: "composed-app",
         workerTag: "composed-worker-tag",
-        workersDevUrl: "https://composed-app.ada.workers.dev",
         origin: "provisioned",
-        deployment: {
-          builds: {
-            state: "connected",
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-            production: {
-              triggerUuid: "production-trigger",
-              buildTokenUuid: "build-token",
-            },
-            preview: {
-              triggerUuid: "preview-trigger",
-              buildTokenUuid: "build-token",
-            },
-          },
-          convexBuildAccess: { state: "wired" },
-        },
         connectedAt: 50,
-        lastObservedAt: 50,
       });
     });
 
@@ -161,68 +124,6 @@ describe("app provisioning workflow composition", () => {
         accountId: "cloudflare-account",
         workerName: "composed-app",
         attached: true,
-        buildsConnected: true,
-        convexBuildAccessWired: true,
-        workersDevUrl: "https://composed-app.ada.workers.dev",
-      },
-    });
-
-    await t.run(async (ctx) => {
-      const convexDeployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault_and_appRoot", (q) => q.eq("vaultId", ids.vaultId).eq("appRoot", "."))
-        .first();
-      if (!convexDeployment) {
-        throw new Error("Expected Convex deployment.");
-      }
-      await ctx.db.patch(convexDeployment._id, {
-        upstream: { state: "missing_upstream" },
-      });
-    });
-
-    await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
-    ).resolves.toEqual({
-      appRoot: ".",
-      convex: {
-        projectName: "composed-app",
-        attached: false,
-      },
-      cloudflare: {
-        accountId: "cloudflare-account",
-        workerName: "composed-app",
-        attached: true,
-        buildsConnected: true,
-        convexBuildAccessWired: false,
-        workersDevUrl: "https://composed-app.ada.workers.dev",
-      },
-    });
-
-    await t.run(async (ctx) => {
-      const worker = await ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_vault_and_appRoot", (q) => q.eq("vaultId", ids.vaultId).eq("appRoot", "."))
-        .first();
-      if (!worker) {
-        throw new Error("Expected Cloudflare Worker.");
-      }
-      await ctx.db.patch(worker._id, {
-        upstream: { state: "missing_upstream" },
-      });
-    });
-
-    await expect(
-      t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, ids),
-    ).resolves.toEqual({
-      appRoot: ".",
-      convex: {
-        projectName: "composed-app",
-        attached: false,
-      },
-      cloudflare: {
-        accountId: "cloudflare-account",
-        workerName: "composed-app",
-        attached: false,
         buildsConnected: false,
         convexBuildAccessWired: false,
         workersDevUrl: null,

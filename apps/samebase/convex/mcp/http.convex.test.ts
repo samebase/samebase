@@ -183,14 +183,6 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_cloudflare_verifyInfrastructure",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: true,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
         name: "vault_actions_retryInfrastructureProvisioning",
         annotations: {
           readOnlyHint: false,
@@ -291,9 +283,6 @@ describe("MCP usage attribution dimensions", () => {
     );
     expect(readMcpToolNameForUsage({ name: "vault_cloudflare_wireConvexBuildAccess" })).toBe(
       "vault_cloudflare_wireConvexBuildAccess",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_verifyInfrastructure" })).toBe(
-      "vault_cloudflare_verifyInfrastructure",
     );
     expect(readMcpToolNameForUsage({ name: "vault_actions_retryInfrastructureProvisioning" })).toBe(
       "vault_actions_retryInfrastructureProvisioning",

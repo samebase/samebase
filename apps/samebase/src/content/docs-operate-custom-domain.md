@@ -19,9 +19,9 @@ to the default branch trigger it; preview deploys do not apply domain routes).
 
 ## What stays unchanged
 
-The `workers.dev` URL keeps working alongside the custom domain. The Convex backend URL (`cloudUrl`
-/ `siteUrl` from `get_user_vaults`) does not change and needs no domain work. The frontend reaches
-it by URL regardless of which hostname served the page.
+The `workers.dev` URL keeps working alongside the custom domain. Attaching a Worker domain does not
+change the app's Convex deployment endpoints or require any Convex configuration. The frontend keeps
+using the deployment URLs already configured in the app regardless of which hostname serves it.
 
 ## If the domain is not on Cloudflare yet
 

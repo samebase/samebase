@@ -221,12 +221,7 @@ describe("vault deletion workflow", () => {
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
         connectedAt: 6,
-        lastObservedAt: 7,
       });
 
       return { userId, vaultId };
@@ -435,12 +430,7 @@ describe("vault deletion workflow", () => {
         workerName: "delete-me-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        deployment: {
-          builds: { state: "not_connected" },
-          convexBuildAccess: { state: "not_wired" },
-        },
         connectedAt: 6,
-        lastObservedAt: 7,
       });
 
       return { userId, vaultId };

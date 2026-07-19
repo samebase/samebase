@@ -7,7 +7,6 @@ vi.mock("./cloudflareMcp", () => ({
 }));
 
 import {
-  blockVerification,
   buildCloudflareWorkerCreateBody,
   buildCloudflareWorkersEnvVars,
   CloudflareApiError,
@@ -21,7 +20,7 @@ import {
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
-  verifyCloudflareWorkerInfrastructure,
+  observeCloudflareWorkerInfrastructure,
   wireCloudflareWorkerConvexBuildAccess,
   wireCloudflareWorkerBuilds,
 } from "./cloudflareResources";
@@ -112,8 +111,8 @@ function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
   };
 }
 
-function buildTestVerifyCloudflareWorkerInfrastructureArgs(): Parameters<
-  typeof verifyCloudflareWorkerInfrastructure
+function buildTestObserveCloudflareWorkerInfrastructureArgs(): Parameters<
+  typeof observeCloudflareWorkerInfrastructure
 >[0] {
   return {
     vaultId: "vault-id",
@@ -430,34 +429,6 @@ describe("cloudflare resources", () => {
     expect(isCloudflareBuildTriggerNotFoundError(workerError)).toBe(false);
   });
 
-  it("declares verification coverage for every durable infrastructure block", () => {
-    expect(Object.keys(blockVerification).sort()).toEqual([
-      "attach_convex",
-      "attach_worker",
-      "source_setup",
-      "wire_builds",
-      "wire_convex_build_access",
-    ]);
-    expect(blockVerification.wire_builds).toEqual({
-      verify: expect.any(Function),
-    });
-    expect(blockVerification.wire_convex_build_access).toEqual({
-      verify: expect.any(Function),
-    });
-    expect(blockVerification.attach_worker).toEqual({
-      verify: expect.any(Function),
-    });
-    expect(blockVerification.attach_convex).toEqual({
-      verify: expect.any(Function),
-    });
-    expect(blockVerification.source_setup).toEqual({
-      notVerifiable: {
-        category: "no_remedy",
-        detail: "a deleted or renamed source repo has no re-create/re-link verb in the catalog",
-      },
-    });
-  });
-
   it("omits trace propagation policy when creating Workers with traces disabled", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
@@ -514,8 +485,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -569,8 +540,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         build: { state: "not_connected" },
         verifyConvexBuildAccess: false,
       }),
@@ -628,8 +599,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         build: { state: "not_connected" },
         verifyConvexBuildAccess: true,
       }),
@@ -684,8 +655,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         build: { state: "not_connected" },
         verifyConvexBuildAccess: false,
       }),
@@ -725,8 +696,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         build: { state: "not_connected" },
         verifyConvexBuildAccess: false,
       }),
@@ -747,8 +718,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -768,8 +739,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -793,8 +764,8 @@ describe("cloudflare resources", () => {
       .mockResolvedValueOnce(cloudflareMcpSuccessResult({}));
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         cloudflareToken: "api-key-token",
         cloudflareAuthMethod: "api_key",
         verifyConvexBuildAccess: true,
@@ -819,8 +790,8 @@ describe("cloudflare resources", () => {
       .mockResolvedValueOnce(cloudflareMcpSuccessResult({}));
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         cloudflareToken: "api-key-token",
         cloudflareAuthMethod: "api_key",
         verifyConvexBuildAccess: true,
@@ -849,8 +820,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: false,
       }),
     ).resolves.toEqual({
@@ -868,8 +839,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -897,8 +868,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -938,8 +909,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -971,8 +942,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({
@@ -1006,8 +977,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      verifyCloudflareWorkerInfrastructure({
-        ...buildTestVerifyCloudflareWorkerInfrastructureArgs(),
+      observeCloudflareWorkerInfrastructure({
+        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
         verifyConvexBuildAccess: true,
       }),
     ).resolves.toEqual({

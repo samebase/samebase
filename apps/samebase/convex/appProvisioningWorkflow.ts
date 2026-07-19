@@ -7,9 +7,10 @@ import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
 import {
-  isVaultProviderUpstreamPresent,
+  vVaultCloudflareWorkerAttachmentIntent,
   vVaultCloudflareOrigin,
   vVaultConvexConnectionTarget,
+  vVaultConvexDeploymentAttachmentIntent,
 } from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
 
@@ -97,9 +98,8 @@ export const readComposedInfrastructureState = internalQuery({
         )
         .first(),
     ]);
-    const convexDeploymentAttached =
-      convexDeployment !== null && isVaultProviderUpstreamPresent(convexDeployment);
-    const cloudflareWorkerAttached = worker !== null && isVaultProviderUpstreamPresent(worker);
+    const convexDeploymentAttached = convexDeployment !== null;
+    const cloudflareWorkerAttached = worker !== null;
 
     return {
       appRoot: plan.appRoot,
@@ -111,12 +111,10 @@ export const readComposedInfrastructureState = internalQuery({
         accountId: plan.cloudflare.accountId,
         workerName: plan.cloudflare.workerName,
         attached: cloudflareWorkerAttached,
-        buildsConnected: cloudflareWorkerAttached && worker.deployment.builds.state === "connected",
-        convexBuildAccessWired:
-          convexDeploymentAttached &&
-          cloudflareWorkerAttached &&
-          worker.deployment.convexBuildAccess.state === "wired",
-        workersDevUrl: cloudflareWorkerAttached ? (worker.workersDevUrl ?? null) : null,
+        buildsConnected: false,
+        convexBuildAccessWired: false,
+        workersDevUrl:
+          plan.cloudflare.state === "created" ? (plan.cloudflare.workersDevUrl ?? null) : null,
       },
     };
   },
@@ -355,6 +353,7 @@ async function runComposedConvexAttachment(
           appRoot: args.state.appRoot,
           projectName: args.state.convex.projectName,
         },
+        attachmentIntent: { mode: "attach" },
       },
       { name: "attach_convex", retry: idempotentProviderStepRetry },
     );
@@ -365,6 +364,7 @@ async function runComposedConvexAttachment(
         runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
+        attachmentIntent: { mode: "attach" },
       },
       { name: "finish_attach_convex" },
     );
@@ -402,6 +402,7 @@ async function runComposedCloudflareAttachment(
         accountId: args.state.cloudflare.accountId,
         workerName: args.state.cloudflare.workerName,
         origin: "provisioned",
+        attachmentIntent: { mode: "attach" },
       },
       { name: "attach_worker", retry: false },
     );
@@ -412,6 +413,7 @@ async function runComposedCloudflareAttachment(
         runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
+        attachmentIntent: { mode: "attach" },
       },
       { name: "finish_attach_worker" },
     );
@@ -487,7 +489,7 @@ async function runComposedCloudflareConvexBuildAccessWiring(
         userId: args.userId,
         appRoot: args.appRoot,
       },
-      { name: "wire_convex_build_access", retry: false },
+      { name: "wire_convex_build_access", retry: idempotentProviderStepRetry },
     );
     await step.runMutation(
       internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
@@ -885,6 +887,7 @@ export const connectCloudflareWorker = workflow.define({
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -935,6 +938,7 @@ export const connectCloudflareWorker = workflow.define({
           runId: args.runId,
           userId: args.userId,
           appRoot: args.appRoot,
+          attachmentIntent: args.attachmentIntent,
         },
         { name: "finish" },
       );
@@ -1113,62 +1117,10 @@ export const wireCloudflareConvexBuildAccess = workflow.define({
     );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring, args, {
       name: "wire_convex_build_access",
-      retry: false,
+      retry: idempotentProviderStepRetry,
     });
     await step.runMutation(
       internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        appRoot: args.appRoot,
-      },
-      { name: "finish" },
-    );
-
-    return null;
-  },
-});
-
-export const verifyCloudflareInfrastructure = workflow.define({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: v.null(),
-  handler: async (step, args): Promise<null> => {
-    const { claimed } = await step.runMutation(
-      internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification,
-      args,
-      { name: "claim_infra" },
-    );
-    if (!claimed) {
-      return null;
-    }
-
-    await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
-      {
-        runId: args.runId,
-        step: "verify_infrastructure",
-        level: "info",
-        message: "Verifying Cloudflare infrastructure.",
-        state: "running",
-      },
-      { name: "start_verify_infrastructure_step" },
-    );
-    await step.runAction(
-      internal.vault.cloudflare.ensureCloudflareInfrastructureVerification,
-      args,
-      {
-        name: "verify_infrastructure",
-        retry: false,
-      },
-    );
-    await step.runMutation(
-      internal.vault.cloudflareMutations.finishCloudflareInfrastructureVerification,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -1188,6 +1140,7 @@ export const connectConvexDeployment = workflow.define({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -1198,6 +1151,7 @@ export const connectConvexDeployment = workflow.define({
         runId: args.runId,
         userId: args.userId,
         appRoot: args.target.appRoot,
+        attachmentIntent: args.attachmentIntent,
       },
       { name: "claim_infra" },
     );
@@ -1227,6 +1181,7 @@ export const connectConvexDeployment = workflow.define({
         runId: args.runId,
         userId: args.userId,
         appRoot: args.target.appRoot,
+        attachmentIntent: args.attachmentIntent,
       },
       { name: "finish" },
     );
@@ -1363,6 +1318,7 @@ export const startCloudflareWorkerConnection = internalMutation({
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
@@ -1471,50 +1427,13 @@ export const startCloudflareConvexBuildAccessWiring = internalMutation({
   },
 });
 
-export const startCloudflareInfrastructureVerification = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: string(),
-  handler: async (ctx, args): Promise<string> => {
-    const workflowId: string = await workflow.start(
-      ctx,
-      internal.appProvisioningWorkflow.verifyCloudflareInfrastructure,
-      args,
-      {
-        startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
-        context: {
-          runId: args.runId,
-        },
-      },
-    );
-
-    await ctx.db.patch(args.runId, {
-      workflowId,
-      updatedAt: Date.now(),
-    });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-      runId: args.runId,
-      step: "claim_infra",
-      level: "info",
-      message: "Queued infrastructure verification.",
-      state: "queued",
-    });
-
-    return workflowId;
-  },
-});
-
 export const startConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {

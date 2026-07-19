@@ -32,37 +32,14 @@ type VaultCloudflareWorker = {
   accountId: string;
   workerName: string;
   workerTag: string;
-  workersDevUrl?: string;
   origin: "provisioned" | "selected_existing";
-  deployment: {
-    builds:
-      | { state: "not_connected" }
-      | {
-          state: "connected";
-          rootDirectory: string;
-          buildCommand: string;
-          deployCommand: string;
-          previewDeployCommand: string;
-          pathIncludes: string[];
-          pathExcludes: string[];
-          production: { triggerUuid: string; buildTokenUuid: string };
-          preview: { triggerUuid: string; buildTokenUuid: string };
-        };
-    convexBuildAccess: { state: "not_wired" } | { state: "wired" };
-  };
   connectedAt: number;
-  lastObservedAt: number;
 };
 ```
 
-`workersDevUrl` is optional because selected existing Workers can be configured only through custom
-routes/domains or can have the workers.dev subdomain disabled. Created Workers should record it when
-Cloudflare exposes enough account subdomain information to compute it.
-
 The app must not require the account-level workers.dev subdomain endpoint before attaching or
 creating a Worker. The real Cloudflare MCP OAuth grant can verify accounts and Worker identity while
-that specific endpoint can return an authentication error; attachment should still succeed and leave
-`workersDevUrl` absent until a later build/domain observation can fill it in.
+that specific endpoint can return an authentication error; attachment should still succeed.
 
 `appRoot` answers which deployable root inside the repository this Worker serves. Samebase should
 show Cloudflare's observed root-directory evidence in the picker before attachment when it is known.
@@ -71,9 +48,12 @@ show Cloudflare's observed root-directory evidence in the picker before attachme
 
 `connectedAt` answers when this vault attached the Worker.
 
-`lastObservedAt` answers when Cloudflare last confirmed the Worker identity. Cleanup ownership is
-derived from `origin`: `provisioned` Workers can be deleted by managed cleanup flows, while
-`selected_existing` Workers are external.
+Cleanup ownership is derived from `origin`: `provisioned` Workers can be deleted by managed cleanup
+flows, while `selected_existing` Workers are external.
+
+Worker existence, workers.dev URLs, repository wiring, build triggers, and Convex deploy-key
+variables are read directly from Cloudflare as a bounded live observation. They are not fields on
+the attachment row and the observation is not written back to the database.
 
 ## Provider Connection Model
 
@@ -152,6 +132,23 @@ resource identity.
 The modal submit action should return after the Workflow is queued. The modal then closes by
 clearing `add-cloudflare`, and the vault header/resource rail shows the Cloudflare row as running,
 failed, or ready from subscribed dashboard state.
+
+## Missing Worker Replacement
+
+When a live Cloudflare observation reports that the attached Worker identity is missing, the same
+connection dialog can select or create its replacement. A failed or unavailable provider read does
+not authorize replacement.
+
+The server derives a one-run replacement intent from the current attachment row. Before queuing the
+Workflow and again after claiming its write lock, it reads the recorded Worker name from Cloudflare
+and confirms that the recorded Worker tag no longer exists at that name. The Workflow then
+compare-and-swaps the exact recorded attachment snapshot and patches the same
+`vaultCloudflareWorkers` row with the replacement identity. A changed attachment snapshot cancels
+the run instead of overwriting newer state.
+
+The replacement intent is Workflow input, not durable provider state. Samebase does not persist the
+missing observation, duplicate the Cloudflare resource, or delete the attachment row while a
+replacement is in progress.
 
 If a created Worker cannot be attached to the vault after the provider create call, the Workflow
 must delete that created Worker before surfacing failure unless the vault now points at the same

@@ -32,7 +32,6 @@ import { convexConnectExistingProjectContract } from "../vault/contracts/convexC
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
 import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
 import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
-import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import {
@@ -235,17 +234,6 @@ async function callCloudflareWireConvexBuildAccessMcpTool(
   );
 }
 
-async function callCloudflareVerifyInfrastructureMcpTool(
-  ctx: ActionCtx,
-  invocation: McpToolInvocation,
-) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareVerifyInfrastructureTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
 async function callRetryInfrastructureProvisioningMcpTool(
   ctx: ActionCtx,
   invocation: McpToolInvocation,
@@ -414,19 +402,6 @@ const mcpToolCatalog = [
     ),
     outputSchema: undefined,
     call: callCloudflareWireConvexBuildAccessMcpTool,
-  },
-  {
-    access: cloudflareVerifyInfrastructureContract.access,
-    title: cloudflareVerifyInfrastructureContract.mcp.title,
-    name: cloudflareVerifyInfrastructureContract.mcp.name,
-    description: cloudflareVerifyInfrastructureContract.mcp.description,
-    annotations: cloudflareVerifyInfrastructureContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      cloudflareVerifyInfrastructureContract.args,
-      cloudflareVerifyInfrastructureContract.mcp.inputDescriptions,
-    ),
-    outputSchema: undefined,
-    call: callCloudflareVerifyInfrastructureMcpTool,
   },
   {
     access: retryInfrastructureProvisioningContract.access,
@@ -677,9 +652,6 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
   if (toolName === cloudflareWireConvexBuildAccessContract.mcp.name) {
     return "vault_cloudflare_wireConvexBuildAccess";
-  }
-  if (toolName === cloudflareVerifyInfrastructureContract.mcp.name) {
-    return "vault_cloudflare_verifyInfrastructure";
   }
   if (toolName === retryInfrastructureProvisioningContract.mcp.name) {
     return "vault_actions_retryInfrastructureProvisioning";

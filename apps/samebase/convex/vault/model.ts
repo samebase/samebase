@@ -41,6 +41,28 @@ export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 export const vVaultConvexOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
 
+export const vVaultConvexDeploymentAttachmentSnapshot = object({
+  attachmentId: id("vaultConvexDeployments"),
+  connectedAt: number(),
+  projectId: string(),
+  deploymentName: string(),
+  origin: vVaultConvexOrigin,
+});
+export type VaultConvexDeploymentAttachmentSnapshot = Infer<
+  typeof vVaultConvexDeploymentAttachmentSnapshot
+>;
+
+export const vVaultConvexDeploymentAttachmentIntent = union(
+  object({ mode: literal("attach") }),
+  object({
+    mode: literal("replace_missing"),
+    expected: vVaultConvexDeploymentAttachmentSnapshot,
+  }),
+);
+export type VaultConvexDeploymentAttachmentIntent = Infer<
+  typeof vVaultConvexDeploymentAttachmentIntent
+>;
+
 export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
@@ -55,56 +77,31 @@ export const vVaultConvexConnectionTarget = union(
 );
 export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
 
-export const vConvexDeployKeyState = union(
-  object({
-    state: literal("not_created"),
-  }),
-  object({
-    state: literal("created"),
-    id: string(),
-  }),
-);
-export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
-
-export const vConvexDeployKeys = object({
-  production: vConvexDeployKeyState,
-  preview: vConvexDeployKeyState,
-});
-
-export const vVaultProviderUpstreamPresence = union(
-  object({
-    state: literal("present"),
-  }),
-  object({
-    state: literal("missing_upstream"),
-  }),
-);
-export type VaultProviderUpstreamPresence = Infer<typeof vVaultProviderUpstreamPresence>;
-
-export const VAULT_PROVIDER_UPSTREAM_PRESENT = {
-  state: "present",
-} as const satisfies VaultProviderUpstreamPresence;
-
-export const VAULT_PROVIDER_UPSTREAM_MISSING = {
-  state: "missing_upstream",
-} as const satisfies VaultProviderUpstreamPresence;
-
-type VaultProviderUpstreamCarrier = {
-  upstream?: VaultProviderUpstreamPresence;
-};
-
-export function readVaultProviderUpstreamPresence(
-  row: VaultProviderUpstreamCarrier,
-): VaultProviderUpstreamPresence {
-  return row.upstream ?? VAULT_PROVIDER_UPSTREAM_PRESENT;
-}
-
-export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
-  return readVaultProviderUpstreamPresence(row).state === "present";
-}
-
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
+
+export const vVaultCloudflareWorkerAttachmentSnapshot = object({
+  attachmentId: id("vaultCloudflareWorkers"),
+  connectedAt: number(),
+  accountId: string(),
+  workerName: string(),
+  workerTag: string(),
+  origin: vVaultCloudflareOrigin,
+});
+export type VaultCloudflareWorkerAttachmentSnapshot = Infer<
+  typeof vVaultCloudflareWorkerAttachmentSnapshot
+>;
+
+export const vVaultCloudflareWorkerAttachmentIntent = union(
+  object({ mode: literal("attach") }),
+  object({
+    mode: literal("replace_missing"),
+    expected: vVaultCloudflareWorkerAttachmentSnapshot,
+  }),
+);
+export type VaultCloudflareWorkerAttachmentIntent = Infer<
+  typeof vVaultCloudflareWorkerAttachmentIntent
+>;
 
 const vaultCloudflareBuildConfigFields = {
   rootDirectory: string(),
@@ -156,46 +153,6 @@ export const vVaultCloudflareConnectedBuilds = object({
   preview: vVaultCloudflareWorkersBuildTrigger,
 });
 export type VaultCloudflareConnectedBuilds = Infer<typeof vVaultCloudflareConnectedBuilds>;
-
-export const vVaultCloudflareBuilds = union(
-  object({
-    state: literal("not_connected"),
-  }),
-  vVaultCloudflareConnectedBuilds,
-);
-
-export const vVaultCloudflareConvexBuildAccess = union(
-  object({
-    state: literal("not_wired"),
-  }),
-  object({
-    state: literal("wired"),
-  }),
-);
-export type VaultCloudflareConvexBuildAccess = Infer<typeof vVaultCloudflareConvexBuildAccess>;
-
-export const vVaultCloudflareDeployment = object({
-  builds: vVaultCloudflareBuilds,
-  convexBuildAccess: vVaultCloudflareConvexBuildAccess,
-});
-export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
-
-export function buildVaultCloudflareDeploymentNotConfigured(): VaultCloudflareDeployment {
-  return {
-    builds: { state: "not_connected" },
-    convexBuildAccess: { state: "not_wired" },
-  };
-}
-
-export function buildVaultCloudflareDeploymentWithConnectedBuilds(args: {
-  builds: VaultCloudflareConnectedBuilds;
-  convexBuildAccess: VaultCloudflareConvexBuildAccess;
-}): VaultCloudflareDeployment {
-  return {
-    builds: args.builds,
-    convexBuildAccess: args.convexBuildAccess,
-  };
-}
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
@@ -367,12 +324,8 @@ export const vaultTables = {
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
-    upstream: optional(vVaultProviderUpstreamPresence),
-    deployment: vVaultCloudflareDeployment,
     connectedAt: number(),
-    lastObservedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
@@ -385,34 +338,16 @@ export const vaultTables = {
     userId: id("users"),
     appRoot: string(),
     projectId: string(),
-    teamSlug: string(),
-    projectSlug: string(),
     deploymentName: string(),
-    deploymentType: literal("prod"),
-    cloudUrl: string(),
-    siteUrl: string(),
-    previewDeployment: union(
-      object({
-        state: literal("not_ensured"),
-      }),
-      object({
-        state: literal("ready"),
-        deploymentName: string(),
-        cloudUrl: string(),
-      }),
-    ),
-    deployKeys: vConvexDeployKeys,
     origin: vVaultConvexOrigin,
-    upstream: optional(vVaultProviderUpstreamPresence),
     connectedAt: number(),
-    lastObservedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
     .index("by_vault_and_project", ["vaultId", "projectId"]),
 
-  /** Branch-to-domain mappings observed or provisioned for a vault. */
+  /** Branch-to-domain mappings retained until live build observations replace branch preview readers. */
   vaultDomains: defineTable({
     vaultId: id("vaults"),
     branch: string(),

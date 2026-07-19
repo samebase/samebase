@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
-import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
+import {
+  buildVaultDashboardResourceRailState,
+  canOpenVaultProviderConnectionDialog,
+} from "@/components/vault-dashboard/vaultResourceRailState";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
   CircleAlert,
@@ -146,6 +149,7 @@ import {
   type VaultBranchProductionApp,
   type VaultBranchProductionLinkProvider,
 } from "@/components/vault-dashboard/vaultProductionApps";
+import { useVaultProviderResourceObservations } from "@/hooks/useVaultProviderResourceObservations";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const VAULT_BRANCH_INITIAL_PAGE_SIZE = 25;
@@ -331,7 +335,7 @@ type VaultDashboardDeletionStep = Extract<
 >["currentStep"];
 type CloudflareWorkerRepairActionInFlight = {
   appRoot: string;
-  kind: "connect_github_repo" | "set_convex_deploy_keys" | "verify_infrastructure";
+  kind: "connect_github_repo" | "set_convex_deploy_keys";
   vaultId: Id<"vaults">;
 };
 
@@ -2897,7 +2901,6 @@ type VaultDashboardViewProps = {
   ) => void;
   onResourceLinksOpenChange: (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => void;
   onSetCloudflareConvexDeployKeys: (vaultId: Id<"vaults">, appRoot: string) => void;
-  onVerifyCloudflareInfrastructure: (vaultId: Id<"vaults">, appRoot: string) => void;
 };
 
 function applyVaultDashboardProviderAddSearch({
@@ -3071,7 +3074,6 @@ export function VaultDashboardView({
   onSaveVaultBranchFilters,
   onResourceLinksOpenChange,
   onSetCloudflareConvexDeployKeys,
-  onVerifyCloudflareInfrastructure,
 }: VaultDashboardViewProps) {
   const navigate = useNavigate();
   const dashboardRoutePathname = useLocation({
@@ -3199,10 +3201,6 @@ export function VaultDashboardView({
             cloudflareWorkerRepairActionInFlight?.kind === "set_convex_deploy_keys" &&
             cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
             cloudflareWorkerRepairActionInFlight.appRoot === appRoot,
-          isVerifyingCloudflareInfrastructure: (appRoot) =>
-            cloudflareWorkerRepairActionInFlight?.kind === "verify_infrastructure" &&
-            cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
-            cloudflareWorkerRepairActionInFlight.appRoot === appRoot,
           retryInfrastructureOnClick: isInfrastructureRetryInFlight
             ? undefined
             : () => {
@@ -3212,11 +3210,6 @@ export function VaultDashboardView({
             ? undefined
             : (appRoot) => {
                 onSetCloudflareConvexDeployKeys(vault._id, appRoot);
-              },
-          verifyCloudflareInfrastructureOnClick: isCloudflareWorkerRepairActionInFlight
-            ? undefined
-            : (appRoot) => {
-                onVerifyCloudflareInfrastructure(vault._id, appRoot);
               },
           vault,
         });
@@ -3428,7 +3421,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const storedVaults = useQuery(api.vault.dashboard.getUserVaults);
+  const vaults = useVaultProviderResourceObservations(storedVaults);
   const selectedVault = useMemo(() => {
     if (!vaults || vaults.length === 0) {
       return null;
@@ -3515,7 +3509,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
   const wireCloudflareBuilds = useAction(api.vault.cloudflare.wireBuilds);
   const wireCloudflareConvexBuildAccess = useAction(api.vault.cloudflare.wireConvexBuildAccess);
-  const verifyCloudflareInfrastructure = useAction(api.vault.cloudflare.verifyInfrastructure);
   const [cloudflareWorkerRepairActionInFlight, setCloudflareWorkerRepairActionInFlight] =
     useState<CloudflareWorkerRepairActionInFlight | null>(null);
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
@@ -3728,10 +3721,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
   const addConvexDialogVault = addConvexModeActive ? selectedVault : null;
-  const canOpenConnectConvexDialog =
-    addConvexDialogVault?.state === "ready" && providerAddAppRoot !== null;
+  const canOpenConnectConvexDialog = canOpenVaultProviderConnectionDialog({
+    appRoot: providerAddAppRoot,
+    provider: "convex",
+    vault: addConvexDialogVault,
+  });
   const vaultToConnectConvex = useMemo(() => {
-    if (!addConvexDialogVault || !canOpenConnectConvexDialog) {
+    if (!addConvexDialogVault || !canOpenConnectConvexDialog || providerAddAppRoot === null) {
       return null;
     }
 
@@ -3743,11 +3739,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     };
   }, [addConvexDialogVault, canOpenConnectConvexDialog, providerAddAppRoot]);
   const addCloudflareWorkerDialogVault = addCloudflareWorkerModeActive ? selectedVault : null;
-  const canOpenConnectCloudflareDialog = addCloudflareWorkerDialogVault?.state === "ready";
-  const canOpenScopedCloudflareDialog =
-    canOpenConnectCloudflareDialog && providerAddAppRoot !== null;
+  const canOpenScopedCloudflareDialog = canOpenVaultProviderConnectionDialog({
+    appRoot: providerAddAppRoot,
+    provider: "cloudflare",
+    vault: addCloudflareWorkerDialogVault,
+  });
   const vaultToConnectCloudflare = useMemo(() => {
-    if (!addCloudflareWorkerDialogVault || !canOpenScopedCloudflareDialog) {
+    if (
+      !addCloudflareWorkerDialogVault ||
+      !canOpenScopedCloudflareDialog ||
+      providerAddAppRoot === null
+    ) {
       return null;
     }
 
@@ -4337,29 +4339,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
-  const handleVerifyCloudflareInfrastructure = async (vaultId: Id<"vaults">, appRoot: string) => {
-    if (cloudflareWorkerRepairActionInFlight) {
-      return;
-    }
-
-    setCloudflareWorkerRepairActionInFlight({
-      appRoot,
-      kind: "verify_infrastructure",
-      vaultId,
-    });
-    try {
-      await verifyCloudflareInfrastructure({ appRoot, vaultId });
-    } catch (error) {
-      toast({
-        title: "Could not verify Cloudflare infrastructure",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setCloudflareWorkerRepairActionInFlight(null);
-    }
-  };
-
   const handleCommitBeforeRemove = async () => {
     if (!vaultToDelete || isCommitting || isDeleting) return;
 
@@ -4525,9 +4504,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         onResourceLinksOpenChange={handleVaultResourceLinksOpenChange}
         onSetCloudflareConvexDeployKeys={(vaultId, appRoot) => {
           void handleSetCloudflareConvexDeployKeys(vaultId, appRoot);
-        }}
-        onVerifyCloudflareInfrastructure={(vaultId, appRoot) => {
-          void handleVerifyCloudflareInfrastructure(vaultId, appRoot);
         }}
       />
     );

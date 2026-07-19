@@ -23,7 +23,6 @@ import {
 } from "./cloudflareApi/client";
 import { clamp } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
-import { isVaultProviderUpstreamPresent } from "./vault/model";
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -79,13 +78,7 @@ function requireConvexDeploymentForInfraRead(
       "Multiple Convex deployments are connected. Choose an app root before reading production.",
     );
   }
-  const deployment = deployments[0];
-  if (!isVaultProviderUpstreamPresent(deployment)) {
-    throw new Error(
-      "Convex deployment is missing upstream. Reconnect or reprovision it before reading production.",
-    );
-  }
-  return deployment;
+  return deployments[0];
 }
 
 function requireCloudflareWorkerForInfraRead(
@@ -100,13 +93,7 @@ function requireCloudflareWorkerForInfraRead(
       "Multiple Cloudflare Workers are connected. Choose an app root before reading production.",
     );
   }
-  const worker = workers[0];
-  if (!isVaultProviderUpstreamPresent(worker)) {
-    throw new Error(
-      "Cloudflare Worker is missing upstream. Reconnect it before reading production.",
-    );
-  }
-  return worker;
+  return workers[0];
 }
 
 function resolveConvexToken(

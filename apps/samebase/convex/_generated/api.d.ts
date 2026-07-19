@@ -129,7 +129,6 @@ import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js
 import type * as vault_contracts_cloudflareConnectExistingWorker from "../vault/contracts/cloudflareConnectExistingWorker.js";
 import type * as vault_contracts_cloudflareListAccounts from "../vault/contracts/cloudflareListAccounts.js";
 import type * as vault_contracts_cloudflareListWorkers from "../vault/contracts/cloudflareListWorkers.js";
-import type * as vault_contracts_cloudflareVerifyInfrastructure from "../vault/contracts/cloudflareVerifyInfrastructure.js";
 import type * as vault_contracts_cloudflareWireBuilds from "../vault/contracts/cloudflareWireBuilds.js";
 import type * as vault_contracts_cloudflareWireConvexBuildAccess from "../vault/contracts/cloudflareWireConvexBuildAccess.js";
 import type * as vault_contracts_connectRepository from "../vault/contracts/connectRepository.js";
@@ -141,6 +140,7 @@ import type * as vault_contracts_retryInfrastructureProvisioning from "../vault/
 import type * as vault_convex from "../vault/convex.js";
 import type * as vault_convexDeployKeys from "../vault/convexDeployKeys.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
+import type * as vault_convexProviderObservation from "../vault/convexProviderObservation.js";
 import type * as vault_convexSchemaGraph from "../vault/convexSchemaGraph.js";
 import type * as vault_convexSchemaGraphModel from "../vault/convexSchemaGraphModel.js";
 import type * as vault_dashboard from "../vault/dashboard.js";
@@ -155,6 +155,9 @@ import type * as vault_deletion_runs from "../vault/deletion/runs.js";
 import type * as vault_deletion_state from "../vault/deletion/state.js";
 import type * as vault_deletion_workflow from "../vault/deletion/workflow.js";
 import type * as vault_model from "../vault/model.js";
+import type * as vault_providerResourceObservationModel from "../vault/providerResourceObservationModel.js";
+import type * as vault_providerResourceObservationTargets from "../vault/providerResourceObservationTargets.js";
+import type * as vault_providerResourceObservations from "../vault/providerResourceObservations.js";
 import type * as vault_records from "../vault/records.js";
 import type * as vault_state from "../vault/state.js";
 import type * as viewerRole from "../viewerRole.js";
@@ -288,7 +291,6 @@ declare const fullApi: ApiFromModules<{
   "vault/contracts/cloudflareConnectExistingWorker": typeof vault_contracts_cloudflareConnectExistingWorker;
   "vault/contracts/cloudflareListAccounts": typeof vault_contracts_cloudflareListAccounts;
   "vault/contracts/cloudflareListWorkers": typeof vault_contracts_cloudflareListWorkers;
-  "vault/contracts/cloudflareVerifyInfrastructure": typeof vault_contracts_cloudflareVerifyInfrastructure;
   "vault/contracts/cloudflareWireBuilds": typeof vault_contracts_cloudflareWireBuilds;
   "vault/contracts/cloudflareWireConvexBuildAccess": typeof vault_contracts_cloudflareWireConvexBuildAccess;
   "vault/contracts/connectRepository": typeof vault_contracts_connectRepository;
@@ -300,6 +302,7 @@ declare const fullApi: ApiFromModules<{
   "vault/convex": typeof vault_convex;
   "vault/convexDeployKeys": typeof vault_convexDeployKeys;
   "vault/convexMutations": typeof vault_convexMutations;
+  "vault/convexProviderObservation": typeof vault_convexProviderObservation;
   "vault/convexSchemaGraph": typeof vault_convexSchemaGraph;
   "vault/convexSchemaGraphModel": typeof vault_convexSchemaGraphModel;
   "vault/dashboard": typeof vault_dashboard;
@@ -314,6 +317,9 @@ declare const fullApi: ApiFromModules<{
   "vault/deletion/state": typeof vault_deletion_state;
   "vault/deletion/workflow": typeof vault_deletion_workflow;
   "vault/model": typeof vault_model;
+  "vault/providerResourceObservationModel": typeof vault_providerResourceObservationModel;
+  "vault/providerResourceObservationTargets": typeof vault_providerResourceObservationTargets;
+  "vault/providerResourceObservations": typeof vault_providerResourceObservations;
   "vault/records": typeof vault_records;
   "vault/state": typeof vault_state;
   viewerRole: typeof viewerRole;
