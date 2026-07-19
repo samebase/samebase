@@ -49,6 +49,8 @@ type PlannedShuffleMove = {
   toKey: string;
 };
 
+type LogoSceneKind = "canonical" | "canonical-depth-two" | "menger-depth-two" | "shuffling";
+
 const canonicalFilledVoxels = createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
 const canonicalDepthTwoGrid = createLogoFractalVoxelGrid({
   depth: 2,
@@ -157,11 +159,7 @@ function planShuffleMoves(): PlannedShuffleMove[] {
 
 const shuffleMoves = planShuffleMoves();
 
-function Surface({ meshes, opacity }: { meshes: readonly SurfaceMesh[]; opacity: number }) {
-  if (opacity <= 0) {
-    return null;
-  }
-
+function Surface({ meshes }: { meshes: readonly SurfaceMesh[] }) {
   return (
     <group>
       {meshes.map((mesh) => (
@@ -169,23 +167,15 @@ function Surface({ meshes, opacity }: { meshes: readonly SurfaceMesh[]; opacity:
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[mesh.positions, 3]} />
           </bufferGeometry>
-          <meshBasicMaterial color={mesh.color} opacity={opacity} transparent={opacity < 1} />
+          <meshBasicMaterial color={mesh.color} />
         </mesh>
       ))}
     </group>
   );
 }
 
-function MovingCube({
-  move,
-  frame,
-  opacity,
-}: {
-  move: PlannedShuffleMove;
-  frame: number;
-  opacity: number;
-}) {
-  if (frame < move.startFrame || frame >= move.endFrame || opacity <= 0) {
+function MovingCube({ move, frame }: { move: PlannedShuffleMove; frame: number }) {
+  if (frame < move.startFrame || frame >= move.endFrame) {
     return null;
   }
 
@@ -203,47 +193,17 @@ function MovingCube({
   return (
     <mesh position={position}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshBasicMaterial
-        attach="material-0"
-        color={DEFAULT_LOGO_FACE_HEX_COLORS.right}
-        opacity={opacity}
-        transparent={opacity < 1}
-      />
-      <meshBasicMaterial
-        attach="material-1"
-        color={DEFAULT_LOGO_FACE_HEX_COLORS.right}
-        opacity={opacity}
-        transparent={opacity < 1}
-      />
-      <meshBasicMaterial
-        attach="material-2"
-        color={DEFAULT_LOGO_FACE_HEX_COLORS.top}
-        opacity={opacity}
-        transparent={opacity < 1}
-      />
-      <meshBasicMaterial
-        attach="material-3"
-        color={DEFAULT_LOGO_FACE_HEX_COLORS.top}
-        opacity={opacity}
-        transparent={opacity < 1}
-      />
-      <meshBasicMaterial
-        attach="material-4"
-        color={DEFAULT_LOGO_FACE_HEX_COLORS.left}
-        opacity={opacity}
-        transparent={opacity < 1}
-      />
-      <meshBasicMaterial
-        attach="material-5"
-        color={DEFAULT_LOGO_FACE_HEX_COLORS.left}
-        opacity={opacity}
-        transparent={opacity < 1}
-      />
+      <meshBasicMaterial attach="material-0" color={DEFAULT_LOGO_FACE_HEX_COLORS.right} />
+      <meshBasicMaterial attach="material-1" color={DEFAULT_LOGO_FACE_HEX_COLORS.right} />
+      <meshBasicMaterial attach="material-2" color={DEFAULT_LOGO_FACE_HEX_COLORS.top} />
+      <meshBasicMaterial attach="material-3" color={DEFAULT_LOGO_FACE_HEX_COLORS.top} />
+      <meshBasicMaterial attach="material-4" color={DEFAULT_LOGO_FACE_HEX_COLORS.left} />
+      <meshBasicMaterial attach="material-5" color={DEFAULT_LOGO_FACE_HEX_COLORS.left} />
     </mesh>
   );
 }
 
-function ShufflingCanonicalLogo({ frame, opacity }: { frame: number; opacity: number }) {
+function ShufflingCanonicalLogo({ frame }: { frame: number }) {
   const settledVoxels = new Set(canonicalFilledVoxels);
 
   for (const move of shuffleMoves) {
@@ -257,17 +217,9 @@ function ShufflingCanonicalLogo({ frame, opacity }: { frame: number; opacity: nu
 
   return (
     <group>
-      <Surface
-        meshes={buildSurfaceMeshes(settledVoxels, STATIC_LOGO_GRID_SIZE)}
-        opacity={opacity}
-      />
+      <Surface meshes={buildSurfaceMeshes(settledVoxels, STATIC_LOGO_GRID_SIZE)} />
       {shuffleMoves.map((move) => (
-        <MovingCube
-          frame={frame}
-          key={`${move.fromKey}:${move.toKey}`}
-          move={move}
-          opacity={opacity}
-        />
+        <MovingCube frame={frame} key={`${move.fromKey}:${move.toKey}`} move={move} />
       ))}
     </group>
   );
@@ -291,17 +243,17 @@ function LogoCamera({ elevationDegrees }: { elevationDegrees: number }) {
   return null;
 }
 
-function LogoScene({ frame }: { frame: number }) {
-  const rotationReveal = transitionProgress(frame, 48, 84);
-  const elevationReveal = transitionProgress(frame, 84, 122);
-  const recursiveRotation = advanceLogoAutoRotation(45, Math.max(frame - 280, 0) / logoHypeFps);
-  const finalReturn = transitionProgress(frame, 326, 342);
-  const rotationDegrees = mix(
-    mix(0, 45, rotationReveal),
-    mix(recursiveRotation, 45, finalReturn),
-    transitionProgress(frame, 122, 140),
-  );
-  const elevationDegrees = mix(0, STATIC_LOGO_ELEVATION_DEGREES, elevationReveal);
+function LogoScene({
+  elevationDegrees,
+  frame,
+  kind,
+  rotationDegrees,
+}: {
+  elevationDegrees: number;
+  frame: number;
+  kind: LogoSceneKind;
+  rotationDegrees: number;
+}) {
   const rotationAxis = getLogoRotationAxis({
     elevationDegrees,
     mode: "cube-y",
@@ -310,28 +262,88 @@ function LogoScene({ frame }: { frame: number }) {
     new ThreeVector3(rotationAxis[0], rotationAxis[1], rotationAxis[2]),
     MathUtils.degToRad(toRenderedRotationDegrees(rotationDegrees)),
   );
-  const introOpacity = transitionProgress(frame, 4, 20);
-  const shuffleOpacity = introOpacity * (1 - transitionProgress(frame, 216, 228));
-  const resetOpacity =
-    transitionProgress(frame, 216, 228) * (1 - transitionProgress(frame, 238, 250));
-  const canonicalDepthOpacity =
-    transitionProgress(frame, 238, 250) * (1 - transitionProgress(frame, 280, 294));
-  const mengerOpacity =
-    transitionProgress(frame, 280, 294) * (1 - transitionProgress(frame, 326, 340));
-  const finalOpacity = transitionProgress(frame, 326, 340);
+
+  let logo;
+  switch (kind) {
+    case "canonical":
+      logo = <Surface meshes={canonicalSurface} />;
+      break;
+    case "canonical-depth-two":
+      logo = (
+        <group scale={1 / 3}>
+          <Surface meshes={canonicalDepthTwoSurface} />
+        </group>
+      );
+      break;
+    case "menger-depth-two":
+      logo = (
+        <group scale={1 / 3}>
+          <Surface meshes={mengerDepthTwoSurface} />
+        </group>
+      );
+      break;
+    case "shuffling":
+      logo = <ShufflingCanonicalLogo frame={frame} />;
+      break;
+    default: {
+      const unreachable = kind satisfies never;
+      return unreachable;
+    }
+  }
 
   return (
     <>
       <LogoCamera elevationDegrees={elevationDegrees} />
       <group quaternion={quaternion} scale={1.1}>
-        <ShufflingCanonicalLogo frame={frame} opacity={shuffleOpacity} />
-        <Surface meshes={canonicalSurface} opacity={resetOpacity + finalOpacity} />
-        <group scale={1 / 3}>
-          <Surface meshes={canonicalDepthTwoSurface} opacity={canonicalDepthOpacity} />
-          <Surface meshes={mengerDepthTwoSurface} opacity={mengerOpacity} />
-        </group>
+        {logo}
       </group>
     </>
+  );
+}
+
+function LogoLayer({
+  elevationDegrees,
+  frame,
+  height,
+  kind,
+  opacity,
+  rotationDegrees,
+  width,
+}: {
+  elevationDegrees: number;
+  frame: number;
+  height: number;
+  kind: LogoSceneKind;
+  opacity: number;
+  rotationDegrees: number;
+  width: number;
+}) {
+  if (opacity <= 0) {
+    return null;
+  }
+
+  // Separate depth buffers keep crossfading appearances opaque and prevent
+  // coplanar surface faces from z-fighting during the recursive transitions.
+  return (
+    <ThreeCanvas
+      camera={{ position: [0, 0, 13], zoom: 150 }}
+      height={height}
+      orthographic
+      style={{
+        backgroundColor: "transparent",
+        inset: 0,
+        opacity,
+        position: "absolute",
+      }}
+      width={width}
+    >
+      <LogoScene
+        elevationDegrees={elevationDegrees}
+        frame={frame}
+        kind={kind}
+        rotationDegrees={rotationDegrees}
+      />
+    </ThreeCanvas>
   );
 }
 
@@ -377,6 +389,25 @@ function BeatCopy({
 export function LogoHype() {
   const frame = useCurrentFrame();
   const { height, width } = useVideoConfig();
+  const rotationReveal = transitionProgress(frame, 48, 84);
+  const elevationReveal = transitionProgress(frame, 84, 122);
+  const recursiveRotation = advanceLogoAutoRotation(45, Math.max(frame - 280, 0) / logoHypeFps);
+  const finalReturn = transitionProgress(frame, 326, 342);
+  const rotationDegrees = mix(
+    mix(0, 45, rotationReveal),
+    mix(recursiveRotation, 45, finalReturn),
+    transitionProgress(frame, 122, 140),
+  );
+  const elevationDegrees = mix(0, STATIC_LOGO_ELEVATION_DEGREES, elevationReveal);
+  const introOpacity = transitionProgress(frame, 4, 20);
+  const shuffleOpacity = introOpacity * (1 - transitionProgress(frame, 216, 228));
+  const resetOpacity =
+    transitionProgress(frame, 216, 228) * (1 - transitionProgress(frame, 238, 250));
+  const canonicalDepthOpacity =
+    transitionProgress(frame, 238, 250) * (1 - transitionProgress(frame, 280, 294));
+  const mengerOpacity =
+    transitionProgress(frame, 280, 294) * (1 - transitionProgress(frame, 326, 340));
+  const canonicalOpacity = resetOpacity + transitionProgress(frame, 326, 340);
   const finalOpacity = transitionProgress(frame, 332, 346);
 
   return (
@@ -388,15 +419,42 @@ export function LogoHype() {
         overflow: "hidden",
       }}
     >
-      <ThreeCanvas
-        camera={{ position: [0, 0, 13], zoom: 150 }}
+      <LogoLayer
+        elevationDegrees={elevationDegrees}
+        frame={frame}
         height={height}
-        orthographic
-        style={{ backgroundColor: "transparent" }}
+        kind="shuffling"
+        opacity={shuffleOpacity}
+        rotationDegrees={rotationDegrees}
         width={width}
-      >
-        <LogoScene frame={frame} />
-      </ThreeCanvas>
+      />
+      <LogoLayer
+        elevationDegrees={elevationDegrees}
+        frame={frame}
+        height={height}
+        kind="canonical"
+        opacity={canonicalOpacity}
+        rotationDegrees={rotationDegrees}
+        width={width}
+      />
+      <LogoLayer
+        elevationDegrees={elevationDegrees}
+        frame={frame}
+        height={height}
+        kind="canonical-depth-two"
+        opacity={canonicalDepthOpacity}
+        rotationDegrees={rotationDegrees}
+        width={width}
+      />
+      <LogoLayer
+        elevationDegrees={elevationDegrees}
+        frame={frame}
+        height={height}
+        kind="menger-depth-two"
+        opacity={mengerOpacity}
+        rotationDegrees={rotationDegrees}
+        width={width}
+      />
       <BeatCopy endFrame={72} frame={frame} startFrame={10}>
         start from the same base
       </BeatCopy>

@@ -44,3 +44,7 @@ requires selecting `MENGER_SPONGE_VOXEL_STATE` before increasing depth.
 Renderer-independent identity, camera, voxel, surface, auto-rotation, and shuffle behavior belongs
 in `@samebase/logo-model`. The Samebase app and Remotion provide separate live-clock and frame-clock
 renderer adapters over that shared behavior.
+
+Crossfade finished canvas layers when changing voxel appearances. Making overlapping, coplanar
+Three.js surface meshes transparent inside one scene causes depth-order artifacts as their faces
+appear and disappear.
