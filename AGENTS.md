@@ -290,9 +290,9 @@ Types and validation:
 - Let `pure(...)`/`sure(...)` infer inline validator inputs; no redundant `unknown` annotations.
 - When a schema exists, derive the type from it; one source-of-truth schema per boundary, with no
   parallel hand-written types, strict companions, or validator-issue translation.
-- Convex: result validators before handlers, `Infer<typeof ...>`, destructure validator builders
-  once; reserve the `v` prefix for reusable Convex validators (`vProviderAuth`), system-specific
-  prefixes elsewhere (`ajv...`).
+- Convex: table names follow `docs/data-modeling-vocabulary.md`; put result validators before
+  handlers, derive types with `Infer`, destructure builders once, reserve `v` for reusable
+  validators, and use system-specific prefixes elsewhere.
 - Required properties and args by default; every optional needs a current justification.
 - Put invariants in the state shape (discriminated unions, required variant fields, closed sets,
   validators that reject impossible rows); runtime transitions only for db/time/provider-dependent
@@ -300,12 +300,6 @@ Types and validation:
   not need.
 - For important state models, start tests by enumerating state axes and allowed combinations.
 - Deterministic sort order with stable tie-breakers for all returned collections and lists.
-- Convex table names use concrete unprefixed plurals by default. Only `workflow_`, `observations_`,
-  `derived_`, `audit_`, and `ui_` are category prefixes; prefixed names use
-  `<category>_<subject>_<rowKind>`, with underscores between levels and camelCase within one level.
-- `workflow_` is only for rows whose sole purpose is executing, recovering, or inspecting one named
-  multi-step workflow. Temporary protocol state, credentials, queues, leases, and synchronization
-  rows do not become workflow tables merely because they support live behavior.
 
 Simplicity and deletion:
 
