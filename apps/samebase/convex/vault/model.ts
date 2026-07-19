@@ -55,54 +55,6 @@ export const vVaultConvexConnectionTarget = union(
 );
 export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
 
-export const vConvexDeployKeyState = union(
-  object({
-    state: literal("not_created"),
-  }),
-  object({
-    state: literal("created"),
-    id: string(),
-  }),
-);
-export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
-
-export const vConvexDeployKeys = object({
-  production: vConvexDeployKeyState,
-  preview: vConvexDeployKeyState,
-});
-
-export const vVaultProviderUpstreamPresence = union(
-  object({
-    state: literal("present"),
-  }),
-  object({
-    state: literal("missing_upstream"),
-  }),
-);
-export type VaultProviderUpstreamPresence = Infer<typeof vVaultProviderUpstreamPresence>;
-
-export const VAULT_PROVIDER_UPSTREAM_PRESENT = {
-  state: "present",
-} as const satisfies VaultProviderUpstreamPresence;
-
-export const VAULT_PROVIDER_UPSTREAM_MISSING = {
-  state: "missing_upstream",
-} as const satisfies VaultProviderUpstreamPresence;
-
-type VaultProviderUpstreamCarrier = {
-  upstream?: VaultProviderUpstreamPresence;
-};
-
-export function readVaultProviderUpstreamPresence(
-  row: VaultProviderUpstreamCarrier,
-): VaultProviderUpstreamPresence {
-  return row.upstream ?? VAULT_PROVIDER_UPSTREAM_PRESENT;
-}
-
-export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
-  return readVaultProviderUpstreamPresence(row).state === "present";
-}
-
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
 
@@ -156,46 +108,6 @@ export const vVaultCloudflareConnectedBuilds = object({
   preview: vVaultCloudflareWorkersBuildTrigger,
 });
 export type VaultCloudflareConnectedBuilds = Infer<typeof vVaultCloudflareConnectedBuilds>;
-
-export const vVaultCloudflareBuilds = union(
-  object({
-    state: literal("not_connected"),
-  }),
-  vVaultCloudflareConnectedBuilds,
-);
-
-export const vVaultCloudflareConvexBuildAccess = union(
-  object({
-    state: literal("not_wired"),
-  }),
-  object({
-    state: literal("wired"),
-  }),
-);
-export type VaultCloudflareConvexBuildAccess = Infer<typeof vVaultCloudflareConvexBuildAccess>;
-
-export const vVaultCloudflareDeployment = object({
-  builds: vVaultCloudflareBuilds,
-  convexBuildAccess: vVaultCloudflareConvexBuildAccess,
-});
-export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
-
-export function buildVaultCloudflareDeploymentNotConfigured(): VaultCloudflareDeployment {
-  return {
-    builds: { state: "not_connected" },
-    convexBuildAccess: { state: "not_wired" },
-  };
-}
-
-export function buildVaultCloudflareDeploymentWithConnectedBuilds(args: {
-  builds: VaultCloudflareConnectedBuilds;
-  convexBuildAccess: VaultCloudflareConvexBuildAccess;
-}): VaultCloudflareDeployment {
-  return {
-    builds: args.builds,
-    convexBuildAccess: args.convexBuildAccess,
-  };
-}
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
