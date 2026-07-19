@@ -26,6 +26,18 @@ function buildResourceIdentity(vault: VaultDashboardVault) {
   };
 }
 
+function buildProviderObservationLifecycle(providerSetup: VaultDashboardVault["providerSetup"]) {
+  switch (providerSetup.status) {
+    case "running":
+    case "failed":
+      return [providerSetup.status, providerSetup.runId] as const;
+    case "ready":
+    case "not_applicable":
+      return [providerSetup.status] as const;
+  }
+  providerSetup satisfies never;
+}
+
 export function useVaultProviderResourceObservations(
   vaults: VaultDashboardVault[] | undefined,
 ): VaultDashboardVault[] | undefined {
@@ -34,11 +46,19 @@ export function useVaultProviderResourceObservations(
   );
   const observationQueries = useQueries({
     queries: (vaults ?? []).map((vault) => ({
-      queryKey: ["vault-provider-resources", vault._id, buildResourceIdentity(vault)] as const,
+      queryKey: [
+        "vault-provider-resources",
+        vault._id,
+        buildResourceIdentity(vault),
+        buildProviderObservationLifecycle(vault.providerSetup),
+      ] as const,
       queryFn: () => observeVaultProviderResources({ vaultId: vault._id }),
-      enabled: vault.cloudflareWorkers.length > 0 || vault.convexDeployments.length > 0,
+      enabled:
+        vault.providerSetup.status !== "running" &&
+        (vault.cloudflareWorkers.length > 0 || vault.convexDeployments.length > 0),
       staleTime: PROVIDER_RESOURCE_OBSERVATION_STALE_MS,
       gcTime: PROVIDER_RESOURCE_OBSERVATION_CACHE_MS,
+      refetchOnMount: "always" as const,
       retry: false,
     })),
   });
