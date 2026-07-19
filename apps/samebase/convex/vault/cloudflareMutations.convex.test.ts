@@ -253,7 +253,7 @@ async function createClaimedInfrastructureVerification(args: { includeConvexConn
 }
 
 describe("vault Cloudflare attachment mutations", () => {
-  it("claims, attaches, and finishes a durable Cloudflare Worker connection run", async () => {
+  it("retains existing Builds trigger identities when attaching a Worker", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
 
     await expect(
@@ -272,6 +272,23 @@ describe("vault Cloudflare attachment mutations", () => {
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
         workerTag: "manual-cloudflare-worker-tag",
+        builds: {
+          state: "connected",
+          rootDirectory,
+          buildCommand: "pnpm run build",
+          deployCommand: "pnpm run deploy",
+          previewDeployCommand: "pnpm run deploy:preview",
+          pathIncludes: ["*"],
+          pathExcludes: [],
+          production: {
+            triggerUuid: "production-trigger",
+            buildTokenUuid: "production-build-token",
+          },
+          preview: {
+            triggerUuid: "preview-trigger",
+            buildTokenUuid: "preview-build-token",
+          },
+        },
         origin: "selected_existing",
       }),
     ).resolves.toEqual({ attached: true });
@@ -316,7 +333,23 @@ describe("vault Cloudflare attachment mutations", () => {
       workerTag: "manual-cloudflare-worker-tag",
       origin: "selected_existing",
       deployment: {
-        builds: { state: "not_connected" },
+        builds: {
+          state: "connected",
+          rootDirectory,
+          buildCommand: "pnpm run build",
+          deployCommand: "pnpm run deploy",
+          previewDeployCommand: "pnpm run deploy:preview",
+          pathIncludes: ["*"],
+          pathExcludes: [],
+          production: {
+            triggerUuid: "production-trigger",
+            buildTokenUuid: "production-build-token",
+          },
+          preview: {
+            triggerUuid: "preview-trigger",
+            buildTokenUuid: "preview-build-token",
+          },
+        },
         convexBuildAccess: { state: "not_wired" },
       },
     });
@@ -370,6 +403,7 @@ describe("vault Cloudflare attachment mutations", () => {
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
         workerTag: "manual-cloudflare-worker-tag",
+        builds: { state: "not_connected" },
         origin: "selected_existing",
       }),
     ).resolves.toEqual({ attached: true });
@@ -521,6 +555,7 @@ describe("vault Cloudflare attachment mutations", () => {
       accountId: "cloudflare-account",
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
+      builds: { state: "not_connected" },
       origin: "provisioned",
     });
     await expect(
@@ -2227,6 +2262,7 @@ describe("vault Cloudflare attachment mutations", () => {
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
         workerTag: "manual-cloudflare-worker-tag",
+        builds: { state: "not_connected" },
         origin: "provisioned",
       }),
     ).resolves.toEqual({ attached: false });

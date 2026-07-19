@@ -274,6 +274,7 @@ type CloudflareWorkerDiscoveryContext = {
   ghRepoId: string;
   repositoryFullName: string;
   expectedRootDirectory: string;
+  defaultBranch: string;
 };
 
 function formatCloudflareWorkerDiscoveryTriggerName(triggerName: string | null): string {
@@ -359,6 +360,7 @@ async function resolveSelectableExistingWorker(args: {
   repositoryFullName: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
+  defaultBranch: string;
 }) {
   const worker = await readCloudflareWorkerRepositoryDiscovery({
     token: args.token,
@@ -367,6 +369,7 @@ async function resolveSelectableExistingWorker(args: {
     workerName: args.workerName,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.expectedRootDirectory,
+    defaultBranch: args.defaultBranch,
   });
   const blockMessage = buildCloudflareWorkerDiscoveryBlockMessage({
     workerName: worker.workerName,
@@ -385,6 +388,7 @@ async function resolveSelectableExistingWorker(args: {
       accountId: args.accountId,
       workerName: worker.workerName,
     }),
+    builds: worker.builds,
   };
 }
 
@@ -831,6 +835,7 @@ export async function connectExistingCloudflareWorkerForUser(
     repositoryFullName: discoveryContext.repositoryFullName,
     expectedRepoId: discoveryContext.ghRepoId,
     expectedRootDirectory: discoveryContext.expectedRootDirectory,
+    defaultBranch: discoveryContext.defaultBranch,
   });
   const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
     userId,
@@ -1056,6 +1061,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
           repositoryFullName: discoveryContext.repositoryFullName,
           expectedRepoId: discoveryContext.ghRepoId,
           expectedRootDirectory: discoveryContext.expectedRootDirectory,
+          defaultBranch: discoveryContext.defaultBranch,
         });
         await rememberDefaultAccount(ctx, {
           userId: args.userId,
@@ -1074,6 +1080,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
             workerName: worker.workerName,
             workerTag: worker.workerTag,
             workersDevUrl: worker.workersDevUrl,
+            builds: worker.builds,
             origin: args.origin,
           },
         );
@@ -1121,6 +1128,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
               workerName: worker.workerName,
               workerTag: worker.workerTag,
               workersDevUrl: worker.workersDevUrl,
+              builds: { state: "not_connected" },
               origin: args.origin,
             },
           );

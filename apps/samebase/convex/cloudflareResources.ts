@@ -695,8 +695,13 @@ export async function readCloudflareWorkerRepositoryDiscovery(
     workerName: string;
     expectedRepoId: string;
     expectedRootDirectory: string;
+    defaultBranch: string;
   } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkerDiscoveryItem> {
+): Promise<
+  CloudflareWorkerDiscoveryItem & {
+    builds: CloudflareConnectedWorkersBuilds | { state: "not_connected" };
+  }
+> {
   const workers = await listCloudflareWorkers({
     token: args.token,
     transport: args.transport,
@@ -709,15 +714,28 @@ export async function readCloudflareWorkerRepositoryDiscovery(
     throw new Error(`Cloudflare Worker ${args.workerName} was not found.`);
   }
 
-  return await readCloudflareWorkerDiscoveryForInventoryItem({
+  const triggers = await listBuildTriggers({
     token: args.token,
     transport: args.transport,
     accountId: args.accountId,
-    worker,
-    expectedRepoId: args.expectedRepoId,
-    expectedRootDirectory: args.expectedRootDirectory,
+    workerTag: worker.workerTag,
     recordApiCall: args.recordApiCall,
   });
+
+  return {
+    ...worker,
+    discovery: classifyCloudflareWorkerRepositoryDiscovery({
+      triggers,
+      expectedRepoId: args.expectedRepoId,
+      expectedRootDirectory: args.expectedRootDirectory,
+    }),
+    builds: readMatchingCloudflareWorkerBuilds({
+      triggers,
+      defaultBranch: args.defaultBranch,
+      expectedRepoId: args.expectedRepoId,
+      expectedRootDirectory: args.expectedRootDirectory,
+    }) ?? { state: "not_connected" },
+  };
 }
 
 export async function createCloudflareWorker(args: {
@@ -1938,21 +1956,21 @@ function readMatchingCloudflareWorkerBuilds(args: {
   triggers: readonly CloudflareBuildTrigger[];
   defaultBranch: string;
   expectedRepoId: string;
-  buildConfig: CloudflareBuildConfig;
+  expectedRootDirectory: string;
 }): CloudflareConnectedWorkersBuilds | null {
   const production = readMatchingBuildTrigger({
     triggers: args.triggers,
     kind: "production",
     defaultBranch: args.defaultBranch,
     expectedRepoId: args.expectedRepoId,
-    expectedRootDirectory: args.buildConfig.rootDir,
+    expectedRootDirectory: args.expectedRootDirectory,
   });
   const preview = readMatchingBuildTrigger({
     triggers: args.triggers,
     kind: "preview",
     defaultBranch: args.defaultBranch,
     expectedRepoId: args.expectedRepoId,
-    expectedRootDirectory: args.buildConfig.rootDir,
+    expectedRootDirectory: args.expectedRootDirectory,
   });
   if (!production || !preview) {
     return null;
@@ -1982,7 +2000,7 @@ function readMatchingCloudflareWorkerBuilds(args: {
 
   return {
     state: "connected",
-    rootDirectory: args.buildConfig.rootDir,
+    rootDirectory: args.expectedRootDirectory,
     buildCommand,
     deployCommand,
     previewDeployCommand,
@@ -2011,7 +2029,7 @@ function verifyConnectedBuilds(args: {
       triggers: args.triggers,
       defaultBranch: args.defaultBranch,
       expectedRepoId: args.expectedRepoId,
-      buildConfig: args.buildConfig,
+      expectedRootDirectory: args.buildConfig.rootDir,
     });
     return connectedBuilds
       ? {

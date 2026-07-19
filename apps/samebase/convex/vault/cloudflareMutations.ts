@@ -18,6 +18,7 @@ import {
   readVaultProviderUpstreamPresence,
   vConvexDeployKeys,
   vVaultCloudflareBuildConfig,
+  vVaultCloudflareBuilds,
   vVaultCloudflareConnectedBuilds,
   vVaultCloudflareDeployment,
   vVaultCloudflareOrigin,
@@ -52,6 +53,7 @@ const cloudflareWorkerDiscoveryContext = object({
   ghRepoId: string(),
   repositoryFullName: string(),
   expectedRootDirectory: string(),
+  defaultBranch: string(),
 });
 const vConvexPreviewDeploymentReady = object({
   state: literal("ready"),
@@ -528,6 +530,7 @@ export const readCloudflareWorkerDiscoveryContext = internalQuery({
       ghRepoId: vault.ghRepoId,
       repositoryFullName: `${vault.owner}/${vault.name}`,
       expectedRootDirectory: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }).rootDirectory,
+      defaultBranch: vault.defaultBranch,
     };
   },
 });
@@ -735,6 +738,7 @@ export const attachWorkerForRun = internalMutation({
     workerName: string(),
     workerTag: string(),
     workersDevUrl: optional(string()),
+    builds: vVaultCloudflareBuilds,
     origin: vVaultCloudflareOrigin,
   },
   returns: object({ attached: boolean() }),
@@ -787,6 +791,13 @@ export const attachWorkerForRun = internalMutation({
     }
 
     const now = Date.now();
+    const deployment =
+      args.builds.state === "connected"
+        ? buildVaultCloudflareDeploymentWithConnectedBuilds({
+            builds: args.builds,
+            convexBuildAccess: { state: "not_wired" },
+          })
+        : buildVaultCloudflareDeploymentNotConfigured();
     if (existingAppRootWorker) {
       await ctx.db.patch(existingAppRootWorker._id, {
         accountId: args.accountId,
@@ -795,7 +806,7 @@ export const attachWorkerForRun = internalMutation({
         workersDevUrl: args.workersDevUrl,
         origin: args.origin,
         upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
-        deployment: buildVaultCloudflareDeploymentNotConfigured(),
+        deployment,
         connectedAt: now,
         lastObservedAt: now,
       });
@@ -820,7 +831,7 @@ export const attachWorkerForRun = internalMutation({
       workersDevUrl: args.workersDevUrl,
       origin: args.origin,
       upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
-      deployment: buildVaultCloudflareDeploymentNotConfigured(),
+      deployment,
       connectedAt: now,
       lastObservedAt: now,
     });

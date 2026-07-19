@@ -2240,7 +2240,7 @@ describe("cloudflare resources", () => {
     });
   });
 
-  it("discovers a selected Worker from inventory without reading Worker detail", async () => {
+  it("keeps a production-only selected Worker aggregate not connected", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     vi.stubGlobal(
       "fetch",
@@ -2255,15 +2255,14 @@ describe("cloudflare resources", () => {
             return cloudflareSuccessResponse([buildCloudflareWorkerListItem()]);
           case "/client/v4/accounts/account-id/builds/workers/worker-tag/triggers":
             return cloudflareSuccessResponse([
-              {
-                trigger_name: "Production Deploy",
+              buildMatchingProductionTrigger({
                 root_directory: "apps/samebase",
                 repo_connection: {
                   repo_connection_uuid: "repo-connection",
                   repo_id: "123",
                   repo_name: "samebase/samebase",
                 },
-              },
+              }),
             ]);
           case "/client/v4/accounts/account-id/workers/workers/samebase-app":
             return new Response("detail endpoint should not be called", { status: 500 });
@@ -2286,6 +2285,7 @@ describe("cloudflare resources", () => {
         workerName: "samebase-app",
         expectedRepoId: "123",
         expectedRootDirectory: "apps/samebase",
+        defaultBranch: "main",
       }),
     ).resolves.toEqual({
       workerName: "samebase-app",
@@ -2298,6 +2298,91 @@ describe("cloudflare resources", () => {
           repoName: "samebase/samebase",
           triggerName: "Production Deploy",
           rootDirectory: "apps/samebase",
+        },
+      },
+      builds: { state: "not_connected" },
+    });
+
+    expect(requests.map((request) => request.path)).not.toContain(
+      "/client/v4/accounts/account-id/workers/workers/samebase-app",
+    );
+  });
+
+  it("retains both matching Builds trigger identities for a selected Worker", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+        const endpoint = new URL(url).pathname;
+        requests.push({ method, path: endpoint, body: undefined });
+
+        switch (endpoint) {
+          case "/client/v4/accounts/account-id/workers/scripts":
+            return cloudflareSuccessResponse([buildCloudflareWorkerListItem()]);
+          case "/client/v4/accounts/account-id/builds/workers/worker-tag/triggers":
+            return cloudflareSuccessResponse([
+              buildMatchingProductionTrigger({
+                build_token_uuid: "production-build-token",
+                root_directory: "apps/samebase",
+                repo_connection: {
+                  repo_connection_uuid: "repo-connection",
+                  repo_id: "123",
+                  repo_name: "samebase/samebase",
+                },
+              }),
+              buildMatchingPreviewTrigger({
+                build_token_uuid: "preview-build-token",
+                root_directory: "apps/samebase",
+                repo_connection: {
+                  repo_connection_uuid: "repo-connection",
+                  repo_id: "123",
+                  repo_name: "samebase/samebase",
+                },
+              }),
+            ]);
+          case "/client/v4/accounts/account-id/workers/workers/samebase-app":
+            return new Response("detail endpoint should not be called", { status: 500 });
+        }
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [{ code: 1000, message: `Unexpected endpoint ${endpoint}` }],
+          }),
+          { status: 404 },
+        );
+      }),
+    );
+
+    await expect(
+      readCloudflareWorkerRepositoryDiscovery({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerName: "samebase-app",
+        expectedRepoId: "123",
+        expectedRootDirectory: "apps/samebase",
+        defaultBranch: "main",
+      }),
+    ).resolves.toMatchObject({
+      workerName: "samebase-app",
+      workerTag: "worker-tag",
+      builds: {
+        state: "connected",
+        rootDirectory: "apps/samebase",
+        buildCommand: "pnpm build",
+        deployCommand: "pnpm deploy",
+        previewDeployCommand: "pnpm deploy:preview",
+        pathIncludes: ["**/*"],
+        pathExcludes: [],
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "production-build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "preview-build-token",
         },
       },
     });
