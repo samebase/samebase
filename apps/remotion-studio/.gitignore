@@ -1,0 +1,4 @@
+out/
+.env*
+public/media/*
+!public/media/.gitkeep

@@ -1,0 +1,30 @@
+{
+  "name": "@samebase/remotion-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Samebase motion design and video composition workbench",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "build": "remotion bundle",
+    "check": "pnpm run typecheck && pnpm run lint",
+    "dev": "remotion studio",
+    "lint": "eslint src",
+    "render": "remotion render RemotionTour out/remotion-tour.mp4",
+    "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p apps/remotion-studio/tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.489",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "remotion": "4.0.489"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.489",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@types/web": "0.0.166",
+    "eslint": "9.39.2"
+  }
+}
