@@ -400,6 +400,44 @@ async function readWorker(
   }
 }
 
+export async function readCloudflareWorkerIdentity(
+  args: {
+    token: string;
+    accountId: string;
+    workerName: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerInventoryItem | null> {
+  const worker = await readWorker(args);
+  if (!worker) {
+    return null;
+  }
+  return {
+    workerName: args.workerName,
+    workerTag: readCloudflareWorkerTag(worker, args.workerName),
+  };
+}
+
+export type CloudflareWorkersDevAvailability =
+  | { state: "enabled"; url: string }
+  | { state: "disabled" };
+
+export async function readCloudflareWorkersDevAvailability(
+  args: {
+    token: string;
+    accountId: string;
+    workerName: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkersDevAvailability> {
+  if (!(await readWorkerSubdomainEnabled(args))) {
+    return { state: "disabled" };
+  }
+  const accountSubdomain = await readAccountSubdomain(args);
+  return {
+    state: "enabled",
+    url: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
+  };
+}
+
 export async function readOptionalWorkersDevUrl(
   args: {
     token: string;
@@ -663,6 +701,26 @@ async function readCloudflareWorkerDiscoveryForInventoryItem(
       },
     };
   }
+}
+
+export async function readCloudflareWorkerRepositoryDiscoveryForIdentity(
+  args: {
+    token: string;
+    accountId: string;
+    workerName: string;
+    workerTag: string;
+    expectedRepoId: string;
+    expectedRootDirectory: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerRepositoryDiscovery> {
+  const result = await readCloudflareWorkerDiscoveryForInventoryItem({
+    ...args,
+    worker: {
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+    },
+  });
+  return result.discovery;
 }
 
 export async function listCloudflareWorkersWithRepositoryDiscovery(
