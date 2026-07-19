@@ -20,17 +20,14 @@ import {
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
-  CloudflareApiError,
   type CloudflareBuildConfig,
   createCloudflareWorker,
   deleteCloudflareResources,
-  isCloudflareWorkerNotFoundError,
   listCloudflareWorkersWithRepositoryDiscovery,
   readCloudflareWorkerRepositoryDiscovery,
   readOptionalWorkersDevUrl,
   type CloudflareWorkerRepositoryDiscovery,
-  verifyCloudflareWorkerInfrastructure,
-  type CloudflareWorkerInfrastructureVerificationResult,
+  observeCloudflareWorkerInfrastructure,
   wireCloudflareWorkerBuilds,
   wireCloudflareWorkerConvexBuildAccess,
 } from "../cloudflareResources";
@@ -40,15 +37,10 @@ import {
   createConvexPreviewDeployKey,
   deleteConvexDeployKey,
   deleteConvexPreviewDeployKey,
-  ConvexProvisioningConnectionRequiredError,
   ensureConvexPreviewResources,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
-import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
-import {
-  ConvexManagementApiError,
-  isConvexManagementNotFoundError,
-} from "../convexManagementApi/errors";
+import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
 import { vaultSuffix } from "../slugUtils";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
@@ -68,7 +60,6 @@ import {
 import { cloudflareConnectExistingWorkerContract } from "./contracts/cloudflareConnectExistingWorker";
 import { cloudflareWireBuildsContract } from "./contracts/cloudflareWireBuilds";
 import { cloudflareWireConvexBuildAccessContract } from "./contracts/cloudflareWireConvexBuildAccess";
-import { cloudflareVerifyInfrastructureContract } from "./contracts/cloudflareVerifyInfrastructure";
 
 const { id, null: nullValue, string } = v;
 
@@ -479,29 +470,6 @@ async function startCloudflareConvexBuildAccessWiringOrFail(
   }
 }
 
-async function startCloudflareInfrastructureVerificationOrFail(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    vaultId: Id<"vaults">;
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    appRoot: string;
-  },
-): Promise<void> {
-  try {
-    await ctx.runMutation(
-      internal.appProvisioningWorkflow.startCloudflareInfrastructureVerification,
-      args,
-    );
-  } catch (error) {
-    await markCloudflareWorkerConnectionStartupFailed(ctx, {
-      runId: args.runId,
-      error,
-    });
-    throw error;
-  }
-}
-
 async function isCloudflareWorkerConnectionRunActive(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
@@ -558,122 +526,6 @@ async function readActiveCloudflareConvexBuildAccessWiring(
       appRoot: args.appRoot,
     },
   );
-}
-
-async function readActiveCloudflareInfrastructureVerification(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: {
-    vaultId: Id<"vaults">;
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    appRoot: string;
-  },
-) {
-  return await ctx.runQuery(
-    internal.vault.cloudflareMutations.readActiveCloudflareInfrastructureVerification,
-    {
-      vaultId: args.vaultId,
-      runId: args.runId,
-      userId: args.userId,
-      appRoot: args.appRoot,
-    },
-  );
-}
-
-type ConvexDeploymentInfrastructureVerificationResult =
-  | "confirmed"
-  | "missing_upstream"
-  | "not_checked";
-
-async function verifyConvexDeploymentExistence(args: {
-  convexToken: string;
-  teamId: string;
-  projectId: string;
-  deploymentName: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<
-  Extract<ConvexDeploymentInfrastructureVerificationResult, "confirmed" | "missing_upstream">
-> {
-  try {
-    const project = await requestConvexManagementApi(
-      args.convexToken,
-      "GET",
-      "/projects/{project_id}",
-      {
-        params: { path: { project_id: args.projectId } },
-        recordApiCall: args.recordApiCall,
-      },
-    );
-    if (project.teamId !== args.teamId) {
-      return "missing_upstream";
-    }
-
-    const deployment = await requestConvexManagementApi(
-      args.convexToken,
-      "GET",
-      "/deployments/{deployment_name}",
-      {
-        params: { path: { deployment_name: args.deploymentName } },
-        recordApiCall: args.recordApiCall,
-      },
-    );
-    if (!isConvexCloudDeployment(deployment)) {
-      return "missing_upstream";
-    }
-    if (deployment.projectId !== args.projectId) {
-      return "missing_upstream";
-    }
-    if (deployment.name !== args.deploymentName) {
-      return "missing_upstream";
-    }
-    return deployment.deploymentType === "prod" ? "confirmed" : "missing_upstream";
-  } catch (error) {
-    if (isConvexManagementNotFoundError(error)) {
-      return "missing_upstream";
-    }
-    throw error;
-  }
-}
-
-async function verifyActiveConvexDeploymentInfrastructure(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: {
-    userId: Id<"users">;
-    projectId: string;
-    deploymentName: string;
-    recordApiCall?: ProviderApiCallRecorder;
-  },
-): Promise<ConvexDeploymentInfrastructureVerificationResult> {
-  const convexConnection = await resolveConvexProvisioningConnection(ctx, args.userId);
-  return await verifyConvexDeploymentExistence({
-    convexToken: convexConnection.convexToken,
-    teamId: convexConnection.convexTeamId,
-    projectId: args.projectId,
-    deploymentName: args.deploymentName,
-    recordApiCall: args.recordApiCall,
-  });
-}
-
-function resolveInfrastructureVerificationUnverifiableMessage(error: unknown): string | null {
-  if (isCloudflareWorkerNotFoundError(error)) {
-    return "Cloudflare Worker could not be verified because Cloudflare did not return the recorded Worker.";
-  }
-  if (error instanceof CloudflareApiError) {
-    return "Cloudflare infrastructure could not be verified because Cloudflare did not return a verifiable response.";
-  }
-  if (error instanceof CloudflareConnectionRequiredError) {
-    return "Cloudflare infrastructure could not be verified because the Cloudflare connection is missing.";
-  }
-  if (error instanceof CloudflareAccountUnavailableError) {
-    return "Cloudflare infrastructure could not be verified because the recorded Cloudflare account is unavailable.";
-  }
-  if (error instanceof ConvexProvisioningConnectionRequiredError) {
-    return "Convex deployment could not be verified because the Convex connection is missing.";
-  }
-  if (error instanceof ConvexManagementApiError) {
-    return "Convex deployment could not be verified because Convex did not return a verifiable response.";
-  }
-  return null;
 }
 
 export async function listCloudflareAccountsForUser(
@@ -946,48 +798,6 @@ export const wireConvexBuildAccess = action({
   },
 });
 
-export async function verifyCloudflareInfrastructureForUser(
-  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
-  args: { userId: Id<"users">; vaultId: Id<"vaults">; appRoot: string },
-): Promise<null> {
-  const userId = args.userId;
-  const appRoot = normalizeVaultAppRoot(args.appRoot);
-  await ctx.runQuery(
-    internal.vault.cloudflareMutations.requireCloudflareInfrastructureVerificationVault,
-    {
-      vaultId: args.vaultId,
-      userId,
-      appRoot,
-    },
-  );
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-    userId,
-    vaultId: args.vaultId,
-    trigger: "verify_infrastructure",
-  });
-  await startCloudflareInfrastructureVerificationOrFail(ctx, {
-    vaultId: args.vaultId,
-    runId,
-    userId,
-    appRoot,
-  });
-
-  return null;
-}
-
-export const verifyInfrastructure = action({
-  access: cloudflareVerifyInfrastructureContract.access,
-  args: cloudflareVerifyInfrastructureContract.args,
-  returns: cloudflareVerifyInfrastructureContract.returns,
-  mcp: cloudflareVerifyInfrastructureContract.mcp,
-  handler: async (ctx, args): Promise<null> => {
-    return await verifyCloudflareInfrastructureForUser(ctx, {
-      ...args,
-      userId: ctx.viewer.userId,
-    });
-  },
-});
-
 export const ensureCloudflareWorkerConnection = internalAction({
   args: {
     vaultId: id("vaults"),
@@ -1238,7 +1048,7 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         appRoot: args.appRoot,
       });
       const buildConfig = toCloudflareBuildConfig(storedBuildConfig);
-      const buildObservation = await verifyCloudflareWorkerInfrastructure({
+      const buildObservation = await observeCloudflareWorkerInfrastructure({
         vaultId: args.vaultId,
         workerName: active.worker.workerName,
         workerTag: active.worker.workerTag,
@@ -1380,103 +1190,6 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         });
       }
       throw error;
-    }
-
-    return null;
-  },
-});
-
-export const ensureCloudflareInfrastructureVerification = internalAction({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const active = await readActiveCloudflareInfrastructureVerification(ctx, args);
-    if (!active.active) {
-      return null;
-    }
-
-    let providerResult: CloudflareWorkerInfrastructureVerificationResult & {
-      convexDeployment: ConvexDeploymentInfrastructureVerificationResult;
-    };
-    try {
-      const cloudflareConnection = await resolveCloudflareConnection(ctx, args.userId);
-      const account = await resolveAccount(ctx, {
-        token: cloudflareConnection.token,
-        transport: cloudflareConnection.transport,
-        accountId: active.worker.accountId,
-      });
-      const recordApiCall = createProviderApiCallRecorder(ctx, {
-        runId: args.runId,
-        step: "verify_infrastructure",
-      });
-      const convexDeploymentVerification: Promise<ConvexDeploymentInfrastructureVerificationResult> =
-        active.convexDeployment
-          ? verifyActiveConvexDeploymentInfrastructure(ctx, {
-              userId: args.userId,
-              projectId: active.convexDeployment.projectId,
-              deploymentName: active.convexDeployment.deploymentName,
-              recordApiCall,
-            })
-          : Promise.resolve("not_checked");
-      const [cloudflareResult, convexDeployment] = await Promise.all([
-        verifyCloudflareWorkerInfrastructure({
-          vaultId: args.vaultId,
-          workerName: active.worker.workerName,
-          workerTag: active.worker.workerTag,
-          cloudflareToken: cloudflareConnection.token,
-          cloudflareAuthMethod: cloudflareConnection.auth.method,
-          accountId: account.accountId,
-          defaultBranch: active.defaultBranch,
-          expectedRepoId: active.ghRepoId,
-          build: { state: "not_connected" },
-          buildConfig: toCloudflareBuildConfig(active.buildConfig),
-          verifyConvexBuildAccess: false,
-          recordApiCall,
-        }),
-        convexDeploymentVerification,
-      ]);
-      providerResult = {
-        ...cloudflareResult,
-        convexDeployment,
-      };
-    } catch (error) {
-      const message = resolveInfrastructureVerificationUnverifiableMessage(error);
-      if (!message) {
-        throw error;
-      }
-      const { applied } = await ctx.runMutation(
-        internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerificationUnverifiable,
-        {
-          vaultId: args.vaultId,
-          runId: args.runId,
-          userId: args.userId,
-          appRoot: args.appRoot,
-          message,
-        },
-      );
-      if (!applied) {
-        throw new Error("Infrastructure verification was superseded.");
-      }
-      return null;
-    }
-
-    const { applied } = await ctx.runMutation(
-      internal.vault.cloudflareMutations.recordCloudflareInfrastructureVerification,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        appRoot: args.appRoot,
-        providerResult,
-      },
-    );
-    if (!applied) {
-      throw new Error("Infrastructure verification was superseded.");
     }
 
     return null;

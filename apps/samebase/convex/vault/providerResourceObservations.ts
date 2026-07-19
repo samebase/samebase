@@ -10,7 +10,7 @@ import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexMa
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
 import {
   readOptionalWorkersDevUrl,
-  verifyCloudflareWorkerInfrastructure,
+  observeCloudflareWorkerInfrastructure,
 } from "../cloudflareResources";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import { buildVaultCloudflareBuildConfigForAppRoot } from "./model";
@@ -203,7 +203,7 @@ async function observeCloudflareWorkers(args: {
       try {
         const buildConfig = buildVaultCloudflareBuildConfigForAppRoot({ appRoot });
         const [providerResult, workersDevUrl] = await Promise.all([
-          verifyCloudflareWorkerInfrastructure({
+          observeCloudflareWorkerInfrastructure({
             vaultId: args.target.vaultId,
             workerName,
             workerTag,

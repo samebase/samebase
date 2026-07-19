@@ -776,7 +776,6 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
             }
           }}
           onSetCloudflareConvexDeployKeys={() => {}}
-          onVerifyCloudflareInfrastructure={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -822,7 +821,6 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
           onSetCloudflareConvexDeployKeys={() => {}}
-          onVerifyCloudflareInfrastructure={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -891,7 +889,6 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             onSaveVaultBranchFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
             onSetCloudflareConvexDeployKeys={() => {}}
-            onVerifyCloudflareInfrastructure={() => {}}
           />
         }
       />

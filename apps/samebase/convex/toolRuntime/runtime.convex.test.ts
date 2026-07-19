@@ -146,20 +146,6 @@ describe("toolRuntime scope enforcement", () => {
       text: "Insufficient scope for vault_cloudflare_wireConvexBuildAccess.",
     });
 
-    const verifyInfrastructure = await t.action(
-      internal.toolRuntime.runtime.cloudflareVerifyInfrastructureTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-        appRoot: ".",
-      },
-    );
-    expect(verifyInfrastructure).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_verifyInfrastructure.",
-    });
-
     const retry = await t.action(internal.toolRuntime.runtime.retryInfrastructureProvisioningTool, {
       userId,
       grantedScopes,

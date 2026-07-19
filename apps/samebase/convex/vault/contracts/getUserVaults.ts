@@ -49,7 +49,6 @@ const vProviderSetupFailedNextAction = union(
   literal("connect_cloudflare_worker"),
   literal("wire_builds"),
   literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
 );
 
 export const vProviderSetupSummary = union(

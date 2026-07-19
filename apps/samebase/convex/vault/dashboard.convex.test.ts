@@ -2245,13 +2245,6 @@ describe("provider setup failed nextAction", () => {
         trigger: "wire_convex_build_access",
       }),
     ).toBe("wire_convex_build_access");
-    expect(
-      readProviderSetupFailedNextAction({
-        provider: "cloudflare",
-        source: "manual",
-        trigger: "verify_infrastructure",
-      }),
-    ).toBe("verify_infrastructure");
   });
 
   it("falls back to the provider's connect flow when the run row is missing", () => {

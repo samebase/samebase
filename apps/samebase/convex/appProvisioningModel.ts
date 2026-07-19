@@ -22,7 +22,6 @@ export const vAppProvisioningStep = union(
   literal("attach_worker"),
   literal("wire_builds"),
   literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
   literal("record_domains"),
   literal("finish"),
 );
@@ -43,7 +42,6 @@ export const vAppProvisioningRunStep = union(
   literal("attach_worker"),
   literal("wire_builds"),
   literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
   literal("record_domains"),
   literal("finish"),
 );
@@ -56,7 +54,6 @@ export const vAppProvisioningRunTrigger = union(
   literal("connect_cloudflare_worker"),
   literal("wire_builds"),
   literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
   literal("retry"),
 );
 export type AppProvisioningRunTrigger = Infer<typeof vAppProvisioningRunTrigger>;

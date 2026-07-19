@@ -1667,7 +1667,7 @@ export type CloudflareWorkersBuilds = {
 export type CloudflareConnectedWorkersBuilds = CloudflareWorkersBuilds & {
   state: "connected";
 };
-type CloudflareInfrastructureVerificationConvexBuildAccessResult =
+type CloudflareInfrastructureObservationConvexBuildAccessResult =
   | "confirmed"
   | "contradicted"
   | "not_checked";
@@ -1734,42 +1734,20 @@ type WireCloudflareWorkerConvexBuildAccessArgs = {
   recordApiCall?: ProviderApiCallRecorder;
 };
 
-type DurableAxisBlockId =
-  | "source_setup"
-  | "attach_worker"
-  | "attach_convex"
-  | "wire_builds"
-  | "wire_convex_build_access";
-type BlockVerificationNotVerifiableCategory = "no_remedy" | "state_shape_not_ready";
-type BlockVerification =
-  | {
-      verify:
-        | typeof verifyAttachedCloudflareWorker
-        | typeof verifyAttachedConvexDeployment
-        | typeof verifyConnectedBuilds
-        | typeof verifyConvexBuildAccess;
-    }
-  | {
-      notVerifiable: {
-        category: BlockVerificationNotVerifiableCategory;
-        detail: string;
-      };
-    };
-
-export type CloudflareWorkerInfrastructureVerificationResult =
+export type CloudflareWorkerInfrastructureObservationResult =
   | {
       worker: "confirmed";
       builds: "adopted";
       connectedBuilds: CloudflareConnectedWorkersBuilds;
-      convexBuildAccess: CloudflareInfrastructureVerificationConvexBuildAccessResult;
+      convexBuildAccess: CloudflareInfrastructureObservationConvexBuildAccessResult;
     }
   | {
       worker: "confirmed" | "missing_upstream";
       builds: "confirmed" | "contradicted" | "not_checked";
-      convexBuildAccess: CloudflareInfrastructureVerificationConvexBuildAccessResult;
+      convexBuildAccess: CloudflareInfrastructureObservationConvexBuildAccessResult;
     };
 
-type VerifyCloudflareWorkerInfrastructureArgs = {
+type ObserveCloudflareWorkerInfrastructureArgs = {
   vaultId: string;
   workerName: string;
   workerTag: string;
@@ -2074,33 +2052,6 @@ function verifyConvexBuildAccess(args: {
   return productionDeployKeysPresent && previewDeployKeysPresent ? "confirmed" : "contradicted";
 }
 
-function verifyAttachedCloudflareWorker(args: {
-  workerExists: boolean;
-}): "confirmed" | "missing_upstream" {
-  return args.workerExists ? "confirmed" : "missing_upstream";
-}
-
-function verifyAttachedConvexDeployment(args: {
-  deploymentExists: boolean;
-}): "confirmed" | "missing_upstream" {
-  return args.deploymentExists ? "confirmed" : "missing_upstream";
-}
-
-// Catalog every durable verification axis, including axes whose repair path calls
-// the verifier directly instead of dispatching through this object.
-export const blockVerification = {
-  wire_builds: { verify: verifyConnectedBuilds },
-  wire_convex_build_access: { verify: verifyConvexBuildAccess },
-  attach_worker: { verify: verifyAttachedCloudflareWorker },
-  attach_convex: { verify: verifyAttachedConvexDeployment },
-  source_setup: {
-    notVerifiable: {
-      category: "no_remedy",
-      detail: "a deleted or renamed source repo has no re-create/re-link verb in the catalog",
-    },
-  },
-} satisfies Record<DurableAxisBlockId, BlockVerification>;
-
 async function configureCloudflareWorkerBuilds(
   args: ConfigureCloudflareWorkerBuildsArgs,
 ): Promise<CloudflareConnectedWorkersBuilds> {
@@ -2262,10 +2213,10 @@ export async function wireCloudflareWorkerBuilds(
   }
 }
 
-export async function verifyCloudflareWorkerInfrastructure(
-  args: VerifyCloudflareWorkerInfrastructureArgs,
-): Promise<CloudflareWorkerInfrastructureVerificationResult> {
-  console.log("infra:cloudflare:verify:start", {
+export async function observeCloudflareWorkerInfrastructure(
+  args: ObserveCloudflareWorkerInfrastructureArgs,
+): Promise<CloudflareWorkerInfrastructureObservationResult> {
+  console.log("infra:cloudflare:observe:start", {
     vaultId: args.vaultId,
     accountId: args.accountId,
     workerName: args.workerName,
@@ -2293,7 +2244,7 @@ export async function verifyCloudflareWorkerInfrastructure(
       case "adopted":
         break;
       case "not_checked":
-        console.log("infra:cloudflare:verify:builds_not_connected", {
+        console.log("infra:cloudflare:observe:builds_not_connected", {
           vaultId: args.vaultId,
           accountId: args.accountId,
           workerName: args.workerName,
@@ -2305,7 +2256,7 @@ export async function verifyCloudflareWorkerInfrastructure(
           convexBuildAccess: "not_checked",
         };
       case "contradicted":
-        console.log("infra:cloudflare:verify:builds_contradicted", {
+        console.log("infra:cloudflare:observe:builds_contradicted", {
           vaultId: args.vaultId,
           accountId: args.accountId,
           workerName: args.workerName,
@@ -2322,7 +2273,7 @@ export async function verifyCloudflareWorkerInfrastructure(
         buildsResult satisfies never;
     }
     if (!args.verifyConvexBuildAccess) {
-      console.log(`infra:cloudflare:verify:builds_${buildsResult.builds}`, {
+      console.log(`infra:cloudflare:observe:builds_${buildsResult.builds}`, {
         vaultId: args.vaultId,
         accountId: args.accountId,
         workerName: args.workerName,
@@ -2365,7 +2316,7 @@ export async function verifyCloudflareWorkerInfrastructure(
       previewEnvVars,
     });
 
-    console.log("infra:cloudflare:verify:success", {
+    console.log("infra:cloudflare:observe:success", {
       vaultId: args.vaultId,
       accountId: args.accountId,
       workerName: args.workerName,
@@ -2390,7 +2341,7 @@ export async function verifyCloudflareWorkerInfrastructure(
       step === "read_build_environment_variables" &&
       isCloudflareBuildTriggerNotFoundError(error)
     ) {
-      console.log("infra:cloudflare:verify:build_trigger_missing_upstream", {
+      console.log("infra:cloudflare:observe:build_trigger_missing_upstream", {
         vaultId: args.vaultId,
         accountId: args.accountId,
         workerName: args.workerName,
@@ -2403,19 +2354,19 @@ export async function verifyCloudflareWorkerInfrastructure(
       };
     }
     if (isCloudflareWorkerNotFoundError(error)) {
-      console.log("infra:cloudflare:verify:worker_missing_upstream", {
+      console.log("infra:cloudflare:observe:worker_missing_upstream", {
         vaultId: args.vaultId,
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
       });
       return {
-        worker: verifyAttachedCloudflareWorker({ workerExists: false }),
+        worker: "missing_upstream",
         builds: "not_checked",
         convexBuildAccess: "not_checked",
       };
     }
-    console.error("infra:cloudflare:verify:failed", {
+    console.error("infra:cloudflare:observe:failed", {
       vaultId: args.vaultId,
       accountId: args.accountId,
       workerName: args.workerName,

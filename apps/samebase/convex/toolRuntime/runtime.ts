@@ -12,7 +12,6 @@ import { convexConnectExistingProjectContract } from "../vault/contracts/convexC
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
 import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
 import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
-import { cloudflareVerifyInfrastructureContract } from "../vault/contracts/cloudflareVerifyInfrastructure";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
@@ -33,7 +32,6 @@ import {
   connectExistingCloudflareWorkerForUser,
   wireCloudflareBuildsForUser,
   wireCloudflareConvexBuildAccessForUser,
-  verifyCloudflareInfrastructureForUser,
 } from "../vault/cloudflare";
 import { internal } from "../_generated/api";
 import { mcpScopeAllowsAccess } from "./mcpScopes";
@@ -456,49 +454,6 @@ export const cloudflareWireConvexBuildAccessTool = internalAction({
       return {
         status: "ok",
         text: "Started wire_convex_build_access run.",
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Tool execution failed.";
-      return {
-        status: "error",
-        text: message,
-      };
-    }
-  },
-});
-
-const cloudflareVerifyInfrastructureToolResultValidator = object({
-  status: toolStatus,
-  text: string(),
-  structuredContent: optional(nullValue()),
-});
-type CloudflareVerifyInfrastructureToolResult = Infer<
-  typeof cloudflareVerifyInfrastructureToolResultValidator
->;
-
-export const cloudflareVerifyInfrastructureTool = internalAction({
-  args: object({
-    userId: id("users"),
-    grantedScopes: array(string()),
-    ...cloudflareVerifyInfrastructureContract.args,
-  }),
-  returns: cloudflareVerifyInfrastructureToolResultValidator,
-  handler: async (
-    ctx,
-    { grantedScopes, ...verifyArgs },
-  ): Promise<CloudflareVerifyInfrastructureToolResult> => {
-    if (!grantedScopes.includes(cloudflareVerifyInfrastructureContract.access)) {
-      return {
-        status: "blocked",
-        text: `Insufficient scope for ${cloudflareVerifyInfrastructureContract.mcp.name}.`,
-      };
-    }
-
-    try {
-      await verifyCloudflareInfrastructureForUser(ctx, verifyArgs);
-      return {
-        status: "ok",
-        text: "Started verify_infrastructure run.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";

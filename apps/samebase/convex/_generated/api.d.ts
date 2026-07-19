@@ -129,7 +129,6 @@ import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js
 import type * as vault_contracts_cloudflareConnectExistingWorker from "../vault/contracts/cloudflareConnectExistingWorker.js";
 import type * as vault_contracts_cloudflareListAccounts from "../vault/contracts/cloudflareListAccounts.js";
 import type * as vault_contracts_cloudflareListWorkers from "../vault/contracts/cloudflareListWorkers.js";
-import type * as vault_contracts_cloudflareVerifyInfrastructure from "../vault/contracts/cloudflareVerifyInfrastructure.js";
 import type * as vault_contracts_cloudflareWireBuilds from "../vault/contracts/cloudflareWireBuilds.js";
 import type * as vault_contracts_cloudflareWireConvexBuildAccess from "../vault/contracts/cloudflareWireConvexBuildAccess.js";
 import type * as vault_contracts_connectRepository from "../vault/contracts/connectRepository.js";
@@ -291,7 +290,6 @@ declare const fullApi: ApiFromModules<{
   "vault/contracts/cloudflareConnectExistingWorker": typeof vault_contracts_cloudflareConnectExistingWorker;
   "vault/contracts/cloudflareListAccounts": typeof vault_contracts_cloudflareListAccounts;
   "vault/contracts/cloudflareListWorkers": typeof vault_contracts_cloudflareListWorkers;
-  "vault/contracts/cloudflareVerifyInfrastructure": typeof vault_contracts_cloudflareVerifyInfrastructure;
   "vault/contracts/cloudflareWireBuilds": typeof vault_contracts_cloudflareWireBuilds;
   "vault/contracts/cloudflareWireConvexBuildAccess": typeof vault_contracts_cloudflareWireConvexBuildAccess;
   "vault/contracts/connectRepository": typeof vault_contracts_connectRepository;

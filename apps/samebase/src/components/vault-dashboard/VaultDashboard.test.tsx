@@ -655,7 +655,6 @@ describe("VaultDashboardRepositoryCard", () => {
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
           onSetCloudflareConvexDeployKeys={() => {}}
-          onVerifyCloudflareInfrastructure={() => {}}
         />
       </TestRouterProvider>,
     );
@@ -2105,11 +2104,9 @@ describe("buildVaultDashboardResourceRailState", () => {
 
   it("shows a Cloudflare action when the worker is not connected to the GitHub repo", () => {
     const connectCloudflareGithubRepo = vi.fn();
-    const verifyCloudflareInfrastructure = vi.fn();
     const state = buildVaultDashboardResourceRailState({
       connectCloudflareGithubRepoOnClick: connectCloudflareGithubRepo,
       githubRepositoryUrl: "https://github.com/ada/demo",
-      verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
         cloudflareWorkers: [
@@ -2133,32 +2130,24 @@ describe("buildVaultDashboardResourceRailState", () => {
       provider: "cloudflare",
       status: "ready",
       description: "Cloudflare is not connected to this GitHub repository.",
-      actions: [
-        { kind: "connect", label: "Connect GitHub repo", disabled: false },
-        { kind: "verify", label: "Verify infrastructure", disabled: false },
-      ],
+      actions: [{ kind: "connect", label: "Connect GitHub repo", disabled: false }],
     });
     if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
       throw new Error("Expected Cloudflare row with GitHub connection action.");
     }
     cloudflareRow.actions[0].onClick?.();
     expect(connectCloudflareGithubRepo).toHaveBeenCalledWith(".");
-    cloudflareRow.actions[1].onClick?.();
-    expect(verifyCloudflareInfrastructure).toHaveBeenCalledWith(".");
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Cloudflare is not connected to this GitHub repository.");
     expect(markup).toContain("Connect GitHub repo");
-    expect(markup).toContain("Verify infrastructure");
   });
 
   it("shows a Cloudflare action when Convex deploy keys are missing", () => {
     const setCloudflareConvexDeployKeys = vi.fn();
-    const verifyCloudflareInfrastructure = vi.fn();
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       setCloudflareConvexDeployKeysOnClick: setCloudflareConvexDeployKeys,
-      verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
         convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
@@ -2183,73 +2172,26 @@ describe("buildVaultDashboardResourceRailState", () => {
       provider: "cloudflare",
       status: "ready",
       description: "Cloudflare does not have this Convex deployment's deploy keys.",
-      actions: [
-        { kind: "set", label: "Set Convex deploy keys", disabled: false },
-        { kind: "verify", label: "Verify infrastructure", disabled: false },
-      ],
+      actions: [{ kind: "set", label: "Set Convex deploy keys", disabled: false }],
     });
     if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
       throw new Error("Expected Cloudflare row with Convex deploy-key action.");
     }
     cloudflareRow.actions[0].onClick?.();
     expect(setCloudflareConvexDeployKeys).toHaveBeenCalledWith(".");
-    cloudflareRow.actions[1].onClick?.();
-    expect(verifyCloudflareInfrastructure).toHaveBeenCalledWith(".");
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Cloudflare does not have this Convex deployment&#x27;s deploy keys.");
     expect(markup).toContain("Set Convex deploy keys");
-    expect(markup).toContain("Verify infrastructure");
-  });
-
-  it("shows a Cloudflare verification action for an attached Worker", () => {
-    const verifyCloudflareInfrastructure = vi.fn();
-    const state = buildVaultDashboardResourceRailState({
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
-      vault: makeResourceRailBuilderVault({
-        appRoots: [{ appRoot: "." }],
-        cloudflareWorkers: [
-          makeResourceRailCloudflareWorker({
-            appRoot: ".",
-            workerName: "demo-worker",
-            observation: {
-              state: "available",
-              observedAt: 40,
-              workersDevUrl: "https://demo-worker.ada.workers.dev",
-              githubRepositoryConnection: "connected",
-              convexDeployKeys: "not_applicable",
-            },
-          }),
-        ],
-      }),
-    });
-
-    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
-    expect(cloudflareRow).toMatchObject({
-      provider: "cloudflare",
-      status: "ready",
-      actions: [{ kind: "verify", label: "Verify infrastructure", disabled: false }],
-    });
-    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
-      throw new Error("Expected Cloudflare row with verification action.");
-    }
-    cloudflareRow.actions[0].onClick?.();
-    expect(verifyCloudflareInfrastructure).toHaveBeenCalledWith(".");
-
-    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
-    expect(markup).toContain("Verify infrastructure");
   });
 
   it("keeps a live Cloudflare Worker observation repairable when GitHub is disconnected", () => {
     const connectCloudflareGithubRepo = vi.fn();
     const setCloudflareConvexDeployKeys = vi.fn();
-    const verifyCloudflareInfrastructure = vi.fn();
     const state = buildVaultDashboardResourceRailState({
       connectCloudflareGithubRepoOnClick: connectCloudflareGithubRepo,
       githubRepositoryUrl: "https://github.com/ada/demo",
       setCloudflareConvexDeployKeysOnClick: setCloudflareConvexDeployKeys,
-      verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
         convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
@@ -2291,10 +2233,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "ready",
       value: "demo-worker",
       description: "Cloudflare is not connected to this GitHub repository.",
-      actions: [
-        { kind: "connect", label: "Connect GitHub repo", disabled: false },
-        { kind: "verify", label: "Verify infrastructure", disabled: false },
-      ],
+      actions: [{ kind: "connect", label: "Connect GitHub repo", disabled: false }],
     });
     if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
       throw new Error("Expected Cloudflare row with GitHub connection action.");
@@ -2302,25 +2241,20 @@ describe("buildVaultDashboardResourceRailState", () => {
     cloudflareRow.actions[0].onClick?.();
     expect(connectCloudflareGithubRepo).toHaveBeenCalledWith(".");
     expect(setCloudflareConvexDeployKeys).not.toHaveBeenCalled();
-    cloudflareRow.actions[1].onClick?.();
-    expect(verifyCloudflareInfrastructure).toHaveBeenCalledWith(".");
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Cloudflare is not connected to this GitHub repository.");
     expect(markup).toContain("Connect GitHub repo");
-    expect(markup).toContain("Verify infrastructure");
     expect(markup).not.toContain("?add-convex");
   });
 
   it("offers Convex deploy-key repair when stale Builds-trigger failure remains after Builds connect", () => {
     const connectCloudflareGithubRepo = vi.fn();
     const setCloudflareConvexDeployKeys = vi.fn();
-    const verifyCloudflareInfrastructure = vi.fn();
     const state = buildVaultDashboardResourceRailState({
       connectCloudflareGithubRepoOnClick: connectCloudflareGithubRepo,
       githubRepositoryUrl: "https://github.com/ada/demo",
       setCloudflareConvexDeployKeysOnClick: setCloudflareConvexDeployKeys,
-      verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
         convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
@@ -2357,10 +2291,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "ready",
       value: "demo-worker",
       description: "Cloudflare does not have this Convex deployment's deploy keys.",
-      actions: [
-        { kind: "set", label: "Set Convex deploy keys", disabled: false },
-        { kind: "verify", label: "Verify infrastructure", disabled: false },
-      ],
+      actions: [{ kind: "set", label: "Set Convex deploy keys", disabled: false }],
     });
     if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
       throw new Error("Expected Cloudflare row with Convex deploy-key action.");
@@ -2368,13 +2299,10 @@ describe("buildVaultDashboardResourceRailState", () => {
     cloudflareRow.actions[0].onClick?.();
     expect(connectCloudflareGithubRepo).not.toHaveBeenCalled();
     expect(setCloudflareConvexDeployKeys).toHaveBeenCalledWith(".");
-    cloudflareRow.actions[1].onClick?.();
-    expect(verifyCloudflareInfrastructure).toHaveBeenCalledWith(".");
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Cloudflare does not have this Convex deployment&#x27;s deploy keys.");
     expect(markup).toContain("Set Convex deploy keys");
-    expect(markup).toContain("Verify infrastructure");
     expect(markup).not.toContain("Connect GitHub repo");
   });
 

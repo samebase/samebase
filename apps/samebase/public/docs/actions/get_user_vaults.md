@@ -164,9 +164,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "wire_convex_build_access"
                       },
                       {
-                        "const": "verify_infrastructure"
-                      },
-                      {
                         "const": "record_domains"
                       },
                       {
@@ -233,9 +230,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "wire_convex_build_access"
-                      },
-                      {
-                        "const": "verify_infrastructure"
                       },
                       {
                         "const": "record_domains"
@@ -353,9 +347,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "wire_convex_build_access"
                       },
                       {
-                        "const": "verify_infrastructure"
-                      },
-                      {
                         "const": "record_domains"
                       },
                       {
@@ -444,9 +435,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "wire_convex_build_access"
                       },
                       {
-                        "const": "verify_infrastructure"
-                      },
-                      {
                         "const": "record_domains"
                       },
                       {
@@ -476,9 +464,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "wire_convex_build_access"
-                      },
-                      {
-                        "const": "verify_infrastructure"
                       }
                     ]
                   }

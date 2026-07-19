@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, type MouseEvent } from "react";
 
-type VaultResourceRailActionKind = "add" | "connect" | "retry" | "set" | "verify";
+type VaultResourceRailActionKind = "add" | "connect" | "retry" | "set";
 
 export type VaultResourceRailAction = {
   ariaLabel?: string;
@@ -112,7 +112,6 @@ const ACTION_ICONS = {
   connect: GitBranch,
   retry: RotateCw,
   set: KeyRound,
-  verify: RotateCw,
 } satisfies Record<VaultResourceRailActionKind, LucideIcon>;
 
 const STATUS_ICON_CLASS_NAMES = {
@@ -181,7 +180,6 @@ function getActionLabel(args: {
       return `Add ${PROVIDER_LABELS[args.provider]}`;
     case "connect":
     case "set":
-    case "verify":
     case "retry":
       return `${args.action.label} ${PROVIDER_LABELS[args.provider]}`;
   }

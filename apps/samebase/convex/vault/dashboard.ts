@@ -135,7 +135,6 @@ export function readProviderSetupFailedNextAction(args: {
     case "connect_cloudflare_worker":
     case "wire_builds":
     case "wire_convex_build_access":
-    case "verify_infrastructure":
       return args.trigger;
     default:
       // Run row missing (fallback summaries): the connect flow is the safe
@@ -319,7 +318,6 @@ function readManualProviderFromRun(
     case "connect_cloudflare_worker":
     case "wire_builds":
     case "wire_convex_build_access":
-    case "verify_infrastructure":
       return "cloudflare";
     default:
       return null;

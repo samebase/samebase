@@ -1123,58 +1123,6 @@ export const wireCloudflareConvexBuildAccess = workflow.define({
   },
 });
 
-export const verifyCloudflareInfrastructure = workflow.define({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: v.null(),
-  handler: async (step, args): Promise<null> => {
-    const { claimed } = await step.runMutation(
-      internal.vault.cloudflareMutations.claimCloudflareInfrastructureVerification,
-      args,
-      { name: "claim_infra" },
-    );
-    if (!claimed) {
-      return null;
-    }
-
-    await step.runMutation(
-      internal.appProvisioningRuns.appendRunEvent,
-      {
-        runId: args.runId,
-        step: "verify_infrastructure",
-        level: "info",
-        message: "Verifying Cloudflare infrastructure.",
-        state: "running",
-      },
-      { name: "start_verify_infrastructure_step" },
-    );
-    await step.runAction(
-      internal.vault.cloudflare.ensureCloudflareInfrastructureVerification,
-      args,
-      {
-        name: "verify_infrastructure",
-        retry: false,
-      },
-    );
-    await step.runMutation(
-      internal.vault.cloudflareMutations.finishCloudflareInfrastructureVerification,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        appRoot: args.appRoot,
-      },
-      { name: "finish" },
-    );
-
-    return null;
-  },
-});
-
 export const connectConvexDeployment = workflow.define({
   args: {
     vaultId: id("vaults"),
@@ -1457,44 +1405,6 @@ export const startCloudflareConvexBuildAccessWiring = internalMutation({
       step: "claim_infra",
       level: "info",
       message: "Queued Convex build access wiring.",
-      state: "queued",
-    });
-
-    return workflowId;
-  },
-});
-
-export const startCloudflareInfrastructureVerification = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: string(),
-  handler: async (ctx, args): Promise<string> => {
-    const workflowId: string = await workflow.start(
-      ctx,
-      internal.appProvisioningWorkflow.verifyCloudflareInfrastructure,
-      args,
-      {
-        startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
-        context: {
-          runId: args.runId,
-        },
-      },
-    );
-
-    await ctx.db.patch(args.runId, {
-      workflowId,
-      updatedAt: Date.now(),
-    });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-      runId: args.runId,
-      step: "claim_infra",
-      level: "info",
-      message: "Queued infrastructure verification.",
       state: "queued",
     });
 
