@@ -107,12 +107,6 @@ const routeAccessMetadataByPath = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/walkthrough/cloudflare-worker-builds": {
-    access: "access_public",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-    pathSuggestion: "hidden",
-    prerender: false,
-  },
   "/vault/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo": { access: "access_dashboard" },
