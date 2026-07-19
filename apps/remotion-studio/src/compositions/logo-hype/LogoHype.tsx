@@ -1,277 +1,432 @@
 import { ThreeCanvas } from "@remotion/three";
 import { useThree } from "@react-three/fiber";
+import { advanceLogoAutoRotation } from "@samebase/logo-model/auto-rotation";
 import {
   DEFAULT_LOGO_FACE_HEX_COLORS,
-  STATIC_LOGO_GRID_SIZE,
   STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_GRID_SIZE,
   STATIC_LOGO_VOXEL_COORDINATES,
 } from "@samebase/logo-model/identity";
-import { getCameraLocalVector } from "@samebase/logo-model/rotation";
-import { buildLogoSurfaceQuads } from "@samebase/logo-model/surface";
-import { createFilledVoxelSet } from "@samebase/logo-model/voxel";
 import {
-  AbsoluteFill,
-  interpolate,
-  interpolateColors,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
+  getLogoRotationAxis,
+  getWorldCameraVector,
+  getWorldScreenVerticalAxis,
+  toRenderedRotationDegrees,
+} from "@samebase/logo-model/rotation";
+import {
+  easeLogoShuffleProgress,
+  getShuffleOriginCandidates,
+  LOGO_SHUFFLE_MOVE_DURATION_MS,
+  LOGO_SHUFFLE_MOVE_STAGGER_MS,
+} from "@samebase/logo-model/shuffle";
+import { buildLogoSurfaceQuads, type FaceColorKey } from "@samebase/logo-model/surface";
+import {
+  createFilledVoxelSet,
+  createLogoFractalVoxelGrid,
+  MENGER_SPONGE_VOXEL_STATE,
+  parseVoxelState,
+  voxelKey,
+  type VoxelCoordinate,
+} from "@samebase/logo-model/voxel";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { MathUtils, Quaternion, Vector3 as ThreeVector3 } from "three";
 
 export const logoHypeFps = 30;
-export const logoHypeDurationInFrames = 270;
+export const logoHypeDurationInFrames = 360;
 
-const logoSurfaceFaces = buildLogoSurfaceQuads(
-  createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES),
-  STATIC_LOGO_GRID_SIZE,
-).map((quad) => ({
-  color: DEFAULT_LOGO_FACE_HEX_COLORS[quad.colorKey],
-  key: quad.key,
-  positions: new Float32Array([
-    ...quad.vertices[0],
-    ...quad.vertices[1],
-    ...quad.vertices[2],
-    ...quad.vertices[0],
-    ...quad.vertices[2],
-    ...quad.vertices[3],
-  ]),
-}));
+type SurfaceMesh = {
+  color: string;
+  colorKey: FaceColorKey;
+  positions: Float32Array;
+};
+
+type PlannedShuffleMove = {
+  endFrame: number;
+  from: VoxelCoordinate;
+  fromKey: string;
+  startFrame: number;
+  to: VoxelCoordinate;
+  toKey: string;
+};
+
+const canonicalFilledVoxels = createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+const canonicalDepthTwoGrid = createLogoFractalVoxelGrid({
+  depth: 2,
+  filledVoxels: canonicalFilledVoxels,
+  gridSize: STATIC_LOGO_GRID_SIZE,
+});
+const parsedMengerState = parseVoxelState(MENGER_SPONGE_VOXEL_STATE);
+if (!parsedMengerState) {
+  throw new Error("The shared Menger motif must remain a valid voxel state");
+}
+const mengerDepthTwoGrid = createLogoFractalVoxelGrid({
+  depth: 2,
+  filledVoxels: parsedMengerState.filledVoxels,
+  gridSize: parsedMengerState.gridSize,
+});
 
 function mix(from: number, to: number, progress: number): number {
   return from + (to - from) * progress;
 }
 
-function LogoVoxel({
-  colorProgress,
-  coordinate,
-  frame,
-  index,
-}: {
-  colorProgress: number;
-  coordinate: (typeof STATIC_LOGO_VOXEL_COORDINATES)[number];
-  frame: number;
-  index: number;
-}) {
-  const exitProgress = interpolate(frame, [72 + index * 1.7, 126 + index], [0, 1], {
+function transitionProgress(frame: number, startFrame: number, endFrame: number): number {
+  return interpolate(frame, [startFrame, endFrame], [0, 1], {
+    easing: easeLogoShuffleProgress,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const returnProgress = spring({
-    config: { damping: 17, mass: 0.72, stiffness: 105 },
-    durationInFrames: 66,
-    fps: logoHypeFps,
-    frame: frame - 157 - (STATIC_LOGO_VOXEL_COORDINATES.length - index) * 1.25,
-  });
-  const shapeProgress = exitProgress * (1 - returnProgress);
-  const angle = (index / STATIC_LOGO_VOXEL_COORDINATES.length) * Math.PI * 2 - Math.PI / 2;
-  const canonicalPosition: [number, number, number] = [
-    coordinate[0] - 1,
-    coordinate[1] - 1,
-    coordinate[2] - 1,
-  ];
-  const helixPosition: [number, number, number] = [
-    Math.cos(angle) * 3.45,
-    (index - (STATIC_LOGO_VOXEL_COORDINATES.length - 1) / 2) * 0.42,
-    Math.sin(angle) * 2.15,
-  ];
-  const position: [number, number, number] = [
-    mix(canonicalPosition[0], helixPosition[0], shapeProgress),
-    mix(canonicalPosition[1], helixPosition[1], shapeProgress),
-    mix(canonicalPosition[2], helixPosition[2], shapeProgress),
-  ];
-  const scale = mix(1, 0.58, shapeProgress);
-  const leftColor = interpolateColors(
-    colorProgress,
-    [0, 0.52, 1],
-    [DEFAULT_LOGO_FACE_HEX_COLORS.left, "#ff3aa7", DEFAULT_LOGO_FACE_HEX_COLORS.left],
-  );
-  const rightColor = interpolateColors(
-    colorProgress,
-    [0, 0.52, 1],
-    [DEFAULT_LOGO_FACE_HEX_COLORS.right, "#5545ff", DEFAULT_LOGO_FACE_HEX_COLORS.right],
-  );
-  const topColor = interpolateColors(
-    colorProgress,
-    [0, 0.52, 1],
-    [DEFAULT_LOGO_FACE_HEX_COLORS.top, "#ddff45", DEFAULT_LOGO_FACE_HEX_COLORS.top],
-  );
-
-  return (
-    <mesh
-      position={position}
-      rotation={[
-        shapeProgress * (index * 0.31 + 0.9),
-        shapeProgress * (index * -0.24 - 0.6),
-        shapeProgress * (index % 2 === 0 ? 0.8 : -0.8),
-      ]}
-      scale={scale}
-    >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshBasicMaterial attach="material-0" color={rightColor} />
-      <meshBasicMaterial attach="material-1" color={rightColor} />
-      <meshBasicMaterial attach="material-2" color={topColor} />
-      <meshBasicMaterial attach="material-3" color={topColor} />
-      <meshBasicMaterial attach="material-4" color={leftColor} />
-      <meshBasicMaterial attach="material-5" color={leftColor} />
-    </mesh>
-  );
 }
 
-function SettledLogoSurface() {
+function buildSurfaceMeshes(filledVoxels: ReadonlySet<string>, gridSize: number): SurfaceMesh[] {
+  const positionsByColor: Record<FaceColorKey, number[]> = {
+    left: [],
+    right: [],
+    top: [],
+  };
+
+  for (const quad of buildLogoSurfaceQuads(filledVoxels, gridSize)) {
+    positionsByColor[quad.colorKey].push(
+      ...quad.vertices[0],
+      ...quad.vertices[1],
+      ...quad.vertices[2],
+      ...quad.vertices[0],
+      ...quad.vertices[2],
+      ...quad.vertices[3],
+    );
+  }
+
+  return (["left", "right", "top"] as const).map((colorKey) => ({
+    color: DEFAULT_LOGO_FACE_HEX_COLORS[colorKey],
+    colorKey,
+    positions: new Float32Array(positionsByColor[colorKey]),
+  }));
+}
+
+const canonicalSurface = buildSurfaceMeshes(canonicalFilledVoxels, STATIC_LOGO_GRID_SIZE);
+const canonicalDepthTwoSurface = buildSurfaceMeshes(
+  canonicalDepthTwoGrid.filledVoxels,
+  canonicalDepthTwoGrid.gridSize,
+);
+const mengerDepthTwoSurface = buildSurfaceMeshes(
+  mengerDepthTwoGrid.filledVoxels,
+  mengerDepthTwoGrid.gridSize,
+);
+
+function planShuffleMoves(): PlannedShuffleMove[] {
+  const blockedKeys = new Set<string>();
+  const durationInFrames = Math.round((LOGO_SHUFFLE_MOVE_DURATION_MS / 1000) * logoHypeFps);
+  const staggerInFrames = Math.round((LOGO_SHUFFLE_MOVE_STAGGER_MS / 1000) * logoHypeFps);
+  const moves: PlannedShuffleMove[] = [];
+
+  for (let index = 0; index < 3; index += 1) {
+    const candidates = getShuffleOriginCandidates({
+      blockedKeys,
+      elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+      filledVoxels: canonicalFilledVoxels,
+      gridSize: STATIC_LOGO_GRID_SIZE,
+      lastMovedCubeKey: null,
+      rotationAxisMode: "cube-y",
+      rotationDegrees: 45,
+    });
+    const candidate = candidates[(index * 5 + 2) % candidates.length];
+    if (!candidate) {
+      break;
+    }
+
+    const destination = candidate.destinations[index % candidate.destinations.length];
+    if (!destination) {
+      break;
+    }
+
+    const startFrame = 140 + index * staggerInFrames;
+    const toKey = voxelKey(destination[0], destination[1], destination[2]);
+    blockedKeys.add(candidate.fromKey);
+    blockedKeys.add(toKey);
+    moves.push({
+      endFrame: startFrame + durationInFrames,
+      from: candidate.from,
+      fromKey: candidate.fromKey,
+      startFrame,
+      to: destination,
+      toKey,
+    });
+  }
+
+  return moves;
+}
+
+const shuffleMoves = planShuffleMoves();
+
+function Surface({ meshes, opacity }: { meshes: readonly SurfaceMesh[]; opacity: number }) {
+  if (opacity <= 0) {
+    return null;
+  }
+
   return (
     <group>
-      {logoSurfaceFaces.map((face) => (
-        <mesh key={face.key}>
+      {meshes.map((mesh) => (
+        <mesh key={mesh.colorKey}>
           <bufferGeometry>
-            <bufferAttribute attach="attributes-position" args={[face.positions, 3]} />
+            <bufferAttribute attach="attributes-position" args={[mesh.positions, 3]} />
           </bufferGeometry>
-          <meshBasicMaterial color={face.color} />
+          <meshBasicMaterial color={mesh.color} opacity={opacity} transparent={opacity < 1} />
         </mesh>
       ))}
     </group>
   );
 }
 
-function LogoScene({ frame }: { frame: number }) {
-  const introScale = spring({
-    config: { damping: 14, mass: 0.8, stiffness: 115 },
-    durationInFrames: 46,
-    fps: logoHypeFps,
-    frame: frame - 5,
-  });
-  const orbitAmount = interpolate(frame, [72, 108, 184, 224], [0, 1, 1, 0], {
+function MovingCube({
+  move,
+  frame,
+  opacity,
+}: {
+  move: PlannedShuffleMove;
+  frame: number;
+  opacity: number;
+}) {
+  if (frame < move.startFrame || frame >= move.endFrame || opacity <= 0) {
+    return null;
+  }
+
+  const progress = interpolate(frame, [move.startFrame, move.endFrame], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const orbitPhase = interpolate(frame, [72, 224], [0, Math.PI * 2.15], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const lockupProgress = spring({
-    config: { damping: 18, mass: 0.82, stiffness: 110 },
-    durationInFrames: 42,
-    fps: logoHypeFps,
-    frame: frame - 220,
-  });
-  const colorProgress = interpolate(frame, [74, 130, 176, 224], [0, 0.52, 0.72, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const showSettledSurface = frame < 72 || frame >= 224;
+  const travelProgress = easeLogoShuffleProgress(progress);
+  const position: [number, number, number] = [
+    mix(move.from[0], move.to[0], travelProgress) - STATIC_LOGO_GRID_SIZE / 2 + 0.5,
+    mix(move.from[1], move.to[1], travelProgress) - STATIC_LOGO_GRID_SIZE / 2 + 0.5,
+    mix(move.from[2], move.to[2], travelProgress) - STATIC_LOGO_GRID_SIZE / 2 + 0.5,
+  ];
 
   return (
-    <group
-      position={[mix(0, -2.6, lockupProgress), 0, 0]}
-      rotation={[
-        Math.sin(orbitPhase * 1.3) * orbitAmount * 0.24,
-        orbitPhase * orbitAmount,
-        Math.sin(orbitPhase * 0.7) * orbitAmount * 0.1,
-      ]}
-      scale={mix(0.01, 1.08, introScale)}
-    >
-      {showSettledSurface ? <SettledLogoSurface /> : null}
-      {showSettledSurface
-        ? null
-        : STATIC_LOGO_VOXEL_COORDINATES.map((coordinate, index) => (
-            <LogoVoxel
-              colorProgress={colorProgress}
-              coordinate={coordinate}
-              frame={frame}
-              index={index}
-              key={coordinate.join("")}
-            />
-          ))}
+    <mesh position={position}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial
+        attach="material-0"
+        color={DEFAULT_LOGO_FACE_HEX_COLORS.right}
+        opacity={opacity}
+        transparent={opacity < 1}
+      />
+      <meshBasicMaterial
+        attach="material-1"
+        color={DEFAULT_LOGO_FACE_HEX_COLORS.right}
+        opacity={opacity}
+        transparent={opacity < 1}
+      />
+      <meshBasicMaterial
+        attach="material-2"
+        color={DEFAULT_LOGO_FACE_HEX_COLORS.top}
+        opacity={opacity}
+        transparent={opacity < 1}
+      />
+      <meshBasicMaterial
+        attach="material-3"
+        color={DEFAULT_LOGO_FACE_HEX_COLORS.top}
+        opacity={opacity}
+        transparent={opacity < 1}
+      />
+      <meshBasicMaterial
+        attach="material-4"
+        color={DEFAULT_LOGO_FACE_HEX_COLORS.left}
+        opacity={opacity}
+        transparent={opacity < 1}
+      />
+      <meshBasicMaterial
+        attach="material-5"
+        color={DEFAULT_LOGO_FACE_HEX_COLORS.left}
+        opacity={opacity}
+        transparent={opacity < 1}
+      />
+    </mesh>
+  );
+}
+
+function ShufflingCanonicalLogo({ frame, opacity }: { frame: number; opacity: number }) {
+  const settledVoxels = new Set(canonicalFilledVoxels);
+
+  for (const move of shuffleMoves) {
+    if (frame >= move.startFrame) {
+      settledVoxels.delete(move.fromKey);
+    }
+    if (frame >= move.endFrame) {
+      settledVoxels.add(move.toKey);
+    }
+  }
+
+  return (
+    <group>
+      <Surface
+        meshes={buildSurfaceMeshes(settledVoxels, STATIC_LOGO_GRID_SIZE)}
+        opacity={opacity}
+      />
+      {shuffleMoves.map((move) => (
+        <MovingCube
+          frame={frame}
+          key={`${move.fromKey}:${move.toKey}`}
+          move={move}
+          opacity={opacity}
+        />
+      ))}
     </group>
   );
 }
 
-function LogoCamera({ frame }: { frame: number }) {
+function LogoCamera({ elevationDegrees }: { elevationDegrees: number }) {
   const camera = useThree((state) => state.camera);
-  const revealProgress = interpolate(frame, [26, 72], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const cameraVector = getCameraLocalVector({
-    elevationDegrees: mix(0, STATIC_LOGO_ELEVATION_DEGREES, revealProgress),
-    rotationAxisMode: "cube-y",
-    rotationDegrees: mix(0, 45, revealProgress),
-  });
+  const cameraVector = getWorldCameraVector(elevationDegrees);
+  const screenVertical = getWorldScreenVerticalAxis(elevationDegrees);
   const cameraDistance = 13;
+
   camera.position.set(
     cameraVector[0] * cameraDistance,
     cameraVector[1] * cameraDistance,
     cameraVector[2] * cameraDistance,
   );
-  camera.up.set(0, 1, 0);
+  camera.up.set(screenVertical[0], screenVertical[1], screenVertical[2]);
   camera.lookAt(0, 0, 0);
   camera.updateMatrixWorld();
 
   return null;
 }
 
+function LogoScene({ frame }: { frame: number }) {
+  const rotationReveal = transitionProgress(frame, 48, 84);
+  const elevationReveal = transitionProgress(frame, 84, 122);
+  const recursiveRotation = advanceLogoAutoRotation(45, Math.max(frame - 280, 0) / logoHypeFps);
+  const finalReturn = transitionProgress(frame, 326, 342);
+  const rotationDegrees = mix(
+    mix(0, 45, rotationReveal),
+    mix(recursiveRotation, 45, finalReturn),
+    transitionProgress(frame, 122, 140),
+  );
+  const elevationDegrees = mix(0, STATIC_LOGO_ELEVATION_DEGREES, elevationReveal);
+  const rotationAxis = getLogoRotationAxis({
+    elevationDegrees,
+    mode: "cube-y",
+  });
+  const quaternion = new Quaternion().setFromAxisAngle(
+    new ThreeVector3(rotationAxis[0], rotationAxis[1], rotationAxis[2]),
+    MathUtils.degToRad(toRenderedRotationDegrees(rotationDegrees)),
+  );
+  const introOpacity = transitionProgress(frame, 4, 20);
+  const shuffleOpacity = introOpacity * (1 - transitionProgress(frame, 216, 228));
+  const resetOpacity =
+    transitionProgress(frame, 216, 228) * (1 - transitionProgress(frame, 238, 250));
+  const canonicalDepthOpacity =
+    transitionProgress(frame, 238, 250) * (1 - transitionProgress(frame, 280, 294));
+  const mengerOpacity =
+    transitionProgress(frame, 280, 294) * (1 - transitionProgress(frame, 326, 340));
+  const finalOpacity = transitionProgress(frame, 326, 340);
+
+  return (
+    <>
+      <LogoCamera elevationDegrees={elevationDegrees} />
+      <group quaternion={quaternion} scale={1.1}>
+        <ShufflingCanonicalLogo frame={frame} opacity={shuffleOpacity} />
+        <Surface meshes={canonicalSurface} opacity={resetOpacity + finalOpacity} />
+        <group scale={1 / 3}>
+          <Surface meshes={canonicalDepthTwoSurface} opacity={canonicalDepthOpacity} />
+          <Surface meshes={mengerDepthTwoSurface} opacity={mengerOpacity} />
+        </group>
+      </group>
+    </>
+  );
+}
+
+function BeatCopy({
+  children,
+  endFrame,
+  frame,
+  startFrame,
+}: {
+  children: string;
+  endFrame: number;
+  frame: number;
+  startFrame: number;
+}) {
+  const opacity =
+    transitionProgress(frame, startFrame, startFrame + 12) *
+    (1 - transitionProgress(frame, endFrame - 12, endFrame));
+  const translateY = mix(18, 0, transitionProgress(frame, startFrame, startFrame + 16));
+
+  return (
+    <div
+      style={{
+        bottom: 92,
+        fontFamily:
+          '"Liberation Sans", ui-sans-serif, system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", sans-serif',
+        fontSize: 56,
+        fontWeight: 520,
+        left: 0,
+        letterSpacing: "-0.035em",
+        lineHeight: 1.08,
+        opacity,
+        position: "absolute",
+        textAlign: "center",
+        transform: `translateY(${translateY}px)`,
+        width: "100%",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function LogoHype() {
   const frame = useCurrentFrame();
   const { height, width } = useVideoConfig();
-  const lockupProgress = spring({
-    config: { damping: 18, mass: 0.82, stiffness: 110 },
-    durationInFrames: 42,
-    fps: logoHypeFps,
-    frame: frame - 220,
-  });
-  const flashOpacity = interpolate(frame, [70, 78, 92, 162, 170, 186], [0, 0.42, 0, 0, 0.32, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  const finalOpacity = transitionProgress(frame, 332, 346);
 
   return (
     <AbsoluteFill
       style={{
         background:
-          "radial-gradient(circle at 50% 47%, rgba(0, 184, 219, 0.13), transparent 34%), #050808",
+          "radial-gradient(circle at 50% 46%, rgba(0, 184, 219, 0.12), transparent 32%), #050808",
         color: "white",
         overflow: "hidden",
       }}
     >
       <ThreeCanvas
-        camera={{ fov: 35, position: [0, 0, 13] }}
+        camera={{ position: [0, 0, 13], zoom: 150 }}
         height={height}
-        orthographic={false}
+        orthographic
         style={{ backgroundColor: "transparent" }}
         width={width}
       >
-        <LogoCamera frame={frame} />
         <LogoScene frame={frame} />
       </ThreeCanvas>
-      <AbsoluteFill
-        style={{
-          background:
-            "radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.28), transparent 38%)",
-          opacity: flashOpacity,
-        }}
-      />
+      <BeatCopy endFrame={72} frame={frame} startFrame={10}>
+        start from the same base
+      </BeatCopy>
+      <BeatCopy endFrame={154} frame={frame} startFrame={62}>
+        explore different directions
+      </BeatCopy>
+      <BeatCopy endFrame={282} frame={frame} startFrame={224}>
+        go deeper
+      </BeatCopy>
+      <BeatCopy endFrame={332} frame={frame} startFrame={284}>
+        wildly different results
+      </BeatCopy>
       <div
         style={{
-          alignItems: "center",
-          display: "flex",
-          height: "100%",
-          left: "52%",
-          opacity: lockupProgress,
+          bottom: 72,
+          fontFamily:
+            '"Liberation Sans", ui-sans-serif, system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", sans-serif',
+          fontSize: 72,
+          fontWeight: 650,
+          left: 0,
+          letterSpacing: "-0.055em",
+          lineHeight: 1,
+          opacity: finalOpacity,
           position: "absolute",
-          transform: `translate3d(${mix(42, 0, lockupProgress)}px, 0, 0)`,
+          textAlign: "center",
+          transform: `translateY(${mix(16, 0, finalOpacity)}px)`,
+          width: "100%",
         }}
       >
-        <div
-          style={{
-            fontFamily:
-              '"Liberation Sans", ui-sans-serif, system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", sans-serif',
-            fontSize: 132,
-            fontWeight: 650,
-            letterSpacing: "-0.065em",
-            lineHeight: 1,
-          }}
-        >
-          samebase
-        </div>
+        samebase
       </div>
       <div
         style={{
@@ -279,12 +434,9 @@ export function LogoHype() {
           bottom: 0,
           height: 2,
           left: 0,
-          opacity: interpolate(frame, [232, 262], [0, 0.72], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          }),
+          opacity: finalOpacity * 0.7,
           position: "absolute",
-          transform: `scaleX(${lockupProgress})`,
+          transform: `scaleX(${finalOpacity})`,
           transformOrigin: "50% 50%",
           width: "100%",
         }}

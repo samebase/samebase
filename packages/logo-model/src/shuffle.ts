@@ -1,10 +1,13 @@
-import { isWithinVoxelGrid, type VoxelCoordinate, voxelKey } from "@samebase/logo-model/voxel";
 import {
   dotProduct,
   getCameraLocalVector,
-  type Vector3,
   type LogoRotationAxisMode,
-} from "@samebase/logo-model/rotation";
+  type Vector3,
+} from "./rotation.ts";
+import { isWithinVoxelGrid, parseVoxelKey, type VoxelCoordinate, voxelKey } from "./voxel.ts";
+
+export const LOGO_SHUFFLE_MOVE_DURATION_MS = 1800;
+export const LOGO_SHUFFLE_MOVE_STAGGER_MS = 520;
 
 const SHUFFLE_FACE_DIRECTIONS = [
   {
@@ -48,11 +51,6 @@ type ShuffleOriginCandidateContext = {
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
 };
-
-function voxelCoordinateFromKey(key: string): VoxelCoordinate {
-  const [xText, yText, zText] = key.split(",");
-  return [Number.parseInt(xText, 10), Number.parseInt(yText, 10), Number.parseInt(zText, 10)];
-}
 
 function readCenterVoxelKey(gridSize: number): string | null {
   if (gridSize % 2 === 0) {
@@ -117,6 +115,14 @@ function hasVisibleExposedFace(
   return false;
 }
 
+export function easeLogoShuffleProgress(value: number): number {
+  if (value < 0.5) {
+    return 4 * value * value * value;
+  }
+
+  return 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
 export function getShuffleOriginCandidates({
   blockedKeys,
   elevationDegrees,
@@ -143,7 +149,10 @@ export function getShuffleOriginCandidates({
       continue;
     }
 
-    const fromCoordinate = voxelCoordinateFromKey(fromKey);
+    const fromCoordinate = parseVoxelKey(fromKey);
+    if (!fromCoordinate) {
+      continue;
+    }
     if (!hasVisibleExposedFace(filledVoxels, fromCoordinate, cameraLocalVector, gridSize)) {
       continue;
     }

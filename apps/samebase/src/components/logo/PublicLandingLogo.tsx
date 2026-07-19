@@ -1,5 +1,5 @@
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { advanceLogoAutoRotation } from "@/components/logo/logoAutoRotation";
+import { advanceLogoAutoRotation } from "@samebase/logo-model/auto-rotation";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,

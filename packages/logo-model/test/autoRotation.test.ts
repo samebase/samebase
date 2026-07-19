@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
-import { advanceLogoAutoRotation } from "@/components/logo/logoAutoRotation";
+import { advanceLogoAutoRotation } from "../src/autoRotation.ts";
 
 describe("advanceLogoAutoRotation", () => {
-  it("rotates at 12 degrees per second", () => {
+  it("advances at the logo rotation rate", () => {
     expect(advanceLogoAutoRotation(45, 1)).toBe(57);
   });
 
-  it("applies resume speed and wraps the result", () => {
+  it("wraps and applies the speed multiplier", () => {
     expect(advanceLogoAutoRotation(359, 0.5, 0.5)).toBe(2);
   });
 });

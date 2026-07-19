@@ -1,5 +1,10 @@
-import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import { type LogoShuffleParallelMoves } from "@/components/logo/logoShuffleAnimation";
+import {
+  easeLogoShuffleProgress,
+  getShuffleOriginCandidates,
+  LOGO_SHUFFLE_MOVE_DURATION_MS,
+  LOGO_SHUFFLE_MOVE_STAGGER_MS,
+} from "@samebase/logo-model/shuffle";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -45,8 +50,6 @@ import {
 
 const CLICK_THRESHOLD_PX = 4;
 const MIN_RECURSIVE_ISO_CUBE_SIDE_PX = 1;
-const SHUFFLE_MOVE_DURATION_MS = 1800;
-const SHUFFLE_MOVE_STAGGER_MS = 520;
 
 type LogoShuffleAnimationConfig = {
   enabled: boolean;
@@ -110,19 +113,11 @@ type NLogoIsoSceneProps = {
   voxelState: string;
 };
 
-function easeInOutCubic(value: number): number {
-  if (value < 0.5) {
-    return 4 * value * value * value;
-  }
-
-  return 1 - Math.pow(-2 * value + 2, 3) / 2;
-}
-
 function getCubeMovePosition(
   move: ActiveCubeMove,
   progress: number,
 ): readonly [number, number, number] {
-  const travelProgress = easeInOutCubic(progress);
+  const travelProgress = easeLogoShuffleProgress(progress);
   return [
     move.from[0] + (move.to[0] - move.from[0]) * travelProgress,
     move.from[1] + (move.to[1] - move.from[1]) * travelProgress,
@@ -325,7 +320,7 @@ function scheduleNextCubeMove(
 
   const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
   sceneState.activeCubeMoves.push({
-    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    durationMs: LOGO_SHUFFLE_MOVE_DURATION_MS,
     from: nextMove.from,
     fromKey: nextMove.fromKey,
     hasDeparted: false,
@@ -378,7 +373,7 @@ function syncCubeShuffleAnimation(
     const didScheduleMove = scheduleNextCubeMove(
       sceneState,
       lastMovedCubeKeyRef,
-      timestampMs + sceneState.activeCubeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+      timestampMs + sceneState.activeCubeMoves.length * LOGO_SHUFFLE_MOVE_STAGGER_MS,
     );
 
     if (!didScheduleMove) {

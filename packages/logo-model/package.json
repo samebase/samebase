@@ -8,10 +8,12 @@
   ],
   "type": "module",
   "exports": {
+    "./auto-rotation": "./src/autoRotation.ts",
     "./face-treatment": "./src/faceTreatment.ts",
     "./identity": "./src/identity.ts",
     "./left-face-style": "./src/leftFaceStyle.ts",
     "./rotation": "./src/rotation.ts",
+    "./shuffle": "./src/shuffle.ts",
     "./surface": "./src/surface.ts",
     "./voxel": "./src/voxel.ts"
   },

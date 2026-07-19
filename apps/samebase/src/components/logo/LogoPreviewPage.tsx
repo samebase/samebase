@@ -1,6 +1,6 @@
 import { NLogoScene } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
-import { advanceLogoAutoRotation } from "@/components/logo/logoAutoRotation";
+import { advanceLogoAutoRotation } from "@samebase/logo-model/auto-rotation";
 import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import {
   readLogoRouteRenderState,

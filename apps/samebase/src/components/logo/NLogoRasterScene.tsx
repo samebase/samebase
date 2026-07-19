@@ -17,7 +17,12 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
-import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
+import {
+  easeLogoShuffleProgress,
+  getShuffleOriginCandidates,
+  LOGO_SHUFFLE_MOVE_DURATION_MS,
+  LOGO_SHUFFLE_MOVE_STAGGER_MS,
+} from "@samebase/logo-model/shuffle";
 import {
   DEFAULT_LOGO_GRID_SIZE,
   createDefaultFilledVoxelSet,
@@ -40,8 +45,6 @@ const RASTER_EXACT_TILE_MAX_SIZE = RASTER_BACKING_MAX_SIZE * 2;
 const RASTER_FRUSTUM_PADDING = 1.18;
 const RASTER_RECURSIVE_FRUSTUM_PADDING = LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING;
 const FACE_ON_DOT_THRESHOLD = 1 - 1e-6;
-const SHUFFLE_MOVE_DURATION_MS = 1800;
-const SHUFFLE_MOVE_STAGGER_MS = 520;
 
 type RasterMotifDrawItem = {
   center: Vector3;
@@ -1152,7 +1155,7 @@ function getMotifDrawItems({
       normalizedDistanceScale,
     );
     const endCenter = scaleVector(getMotifCenter(move.to, baseGridSize), normalizedDistanceScale);
-    const travelProgress = easeInOutCubic(progress);
+    const travelProgress = easeLogoShuffleProgress(progress);
     const center: Vector3 = [
       startCenter[0] + (endCenter[0] - startCenter[0]) * travelProgress,
       startCenter[1] + (endCenter[1] - startCenter[1]) * travelProgress,
@@ -1255,10 +1258,6 @@ function getRasterLevelSize({
   }
 
   return Math.max(1, Math.ceil(outputSizePx / baseGridSize ** (depth - level)));
-}
-
-function easeInOutCubic(value: number): number {
-  return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
 function renderRasterRecursiveImage({
@@ -1531,7 +1530,7 @@ function scheduleNextRasterMove({
     nextMove.destinations[Math.floor(Math.random() * nextMove.destinations.length)];
   const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
   motion.activeMoves.push({
-    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    durationMs: LOGO_SHUFFLE_MOVE_DURATION_MS,
     from: nextMove.from,
     fromKey: nextMove.fromKey,
     hasDeparted: false,
@@ -1585,7 +1584,7 @@ function syncRasterMotion({
       motion,
       rotationAxisMode,
       rotationDegrees,
-      startTimeMs: timestampMs + motion.activeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+      startTimeMs: timestampMs + motion.activeMoves.length * LOGO_SHUFFLE_MOVE_STAGGER_MS,
     });
     if (!didScheduleMove) {
       break;
