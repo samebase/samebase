@@ -1090,7 +1090,7 @@ describe("VaultDashboardConvexDialog", () => {
   it("hides the app root input for the repository root app", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        appRoot="."
+        appRoot="/"
         appRootReadOnly={true}
         createProjectName="demo"
         projects={[
@@ -1303,7 +1303,7 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="."
+        appRoot="/"
         appRootReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
@@ -1389,7 +1389,7 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="."
+        appRoot="/"
         appRootReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
@@ -1518,7 +1518,7 @@ describe("VaultDashboardCloudflareDialog", () => {
             accountName: "Ada Cloud",
           },
         ]}
-        appRoot="."
+        appRoot="/"
         appRootReadOnly={true}
         createWorkerName="demo-worker"
         error={null}
