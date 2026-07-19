@@ -98,7 +98,6 @@ type AccountLocalTableName = {
 }[TableNames];
 
 const accountLocalCleanupTarget = union(
-  literal("repositoryRefreshRequests"),
   literal("chatMessageMetadata"),
   literal("agentThreadContext"),
   literal("vaults"),
@@ -328,6 +327,20 @@ async function cleanupVaultBatch(
     .first();
 
   if (!vault) {
+    const refreshRequests = await ctx.db
+      .query("repositoryRefreshRequests")
+      .withIndex("by_userId_and_updatedAt", (q) => q.eq("userId", userId))
+      .order("asc")
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
+    if (refreshRequests.length > 0) {
+      return {
+        state: "needs_more",
+        currentPhase: "source_data",
+        rowsChanged: await deleteRowsById(ctx, refreshRequests),
+      };
+    }
+
     return { state: "done" };
   }
 
@@ -793,19 +806,6 @@ export async function cleanupAccountLocalDataBatchForUser(
     return { state: "needs_more", target: "vaults", rowsChanged: 1 };
   }
 
-  const refreshRequests = await ctx.db
-    .query("repositoryRefreshRequests")
-    .withIndex("by_userId_and_updatedAt", (q) => q.eq("userId", args.userId))
-    .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-  if (refreshRequests.length > 0) {
-    return {
-      state: "needs_more",
-      target: "repositoryRefreshRequests",
-      rowsChanged: await deleteRowsById(ctx, refreshRequests),
-    };
-  }
-
   for (const cleanup of Object.values(ACCOUNT_LOCAL_CLEANUP_HANDLERS)) {
     const result = await cleanup(ctx, args.userId);
 
@@ -935,12 +935,31 @@ export const cleanupVaultDataDeletionBatch = internalMutation({
       throw new Error("Vault data deletion was not started.");
     }
 
-    if (current.state === "completed") {
-      return true;
-    }
-
     const result = await cleanupVaultBatch(ctx, run.identity.userId);
     const now = Date.now();
+
+    if (current.state === "completed") {
+      if (result.state === "done") {
+        return true;
+      }
+
+      await ctx.db.patch(run._id, {
+        dataDeletion: {
+          ...dataDeletion,
+          vaultsAndStagedChanges: {
+            state: "in_progress",
+            startedAt: current.startedAt,
+            updatedAt: now,
+            deletedVaultCount:
+              current.deletedVaultCount + (result.state === "vault_deleted" ? 1 : 0),
+            currentVaultPhase: result.state === "needs_more" ? result.currentPhase : "vault_data",
+          },
+        },
+        updatedAt: now,
+      });
+
+      return false;
+    }
 
     if (result.state === "needs_more") {
       await ctx.db.patch(run._id, {
