@@ -144,7 +144,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       userId,
       appId,
       teamId: "1000",
-      projectId: "convex-project-id",
+      projectId: "1001",
       origin: "selected_existing",
       createdAt: 25,
     });
@@ -202,7 +202,7 @@ function installSchemaGraphFetchStub(requests: RecordedRequest[]) {
       if (url.endsWith("/create_deploy_key")) {
         return jsonResponse({ deployKey: "prod:demo-prod|schema-secret" });
       }
-      if (url.endsWith("/projects/convex-project-id/deployment")) {
+      if (url.endsWith("/projects/1001/deployment?defaultProd=true")) {
         return jsonResponse({
           class: "s16",
           createTime: 1710000000000,
@@ -212,7 +212,7 @@ function installSchemaGraphFetchStub(requests: RecordedRequest[]) {
           isDefault: true,
           kind: "cloud",
           name: "demo-prod",
-          projectId: "convex-project-id",
+          projectId: "1001",
           reference: "prod",
           region: "aws-us-east-1",
         });
@@ -346,7 +346,7 @@ describe("vault Convex schema graph", () => {
         {
           convexProjectId: ids.convexProjectId,
           rootDirectory: "/",
-          projectId: "convex-project-id",
+          projectId: "1001",
         },
       ],
     });
@@ -402,9 +402,7 @@ describe("vault Convex schema graph", () => {
     const snapshots = await t.run(async (ctx) =>
       ctx.db
         .query("observations_vaultConvexSchema_snapshots")
-        .withIndex("by_project_and_fetched_at", (q) =>
-          q.eq("convexProjectId", ids.convexProjectId),
-        )
+        .withIndex("by_project_and_fetched_at", (q) => q.eq("convexProjectId", ids.convexProjectId))
         .order("desc")
         .take(10),
     );

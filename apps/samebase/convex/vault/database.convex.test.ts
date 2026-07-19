@@ -87,7 +87,7 @@ async function seedDatabaseEditorVault(
       userId,
       appId,
       teamId: "1000",
-      projectId: "convex-project-id",
+      projectId: "1001",
       origin: "selected_existing",
       createdAt: 25,
     });
@@ -117,7 +117,7 @@ function productionDeploymentResponse(): Response {
     "isDefault":true,
     "kind":"cloud",
     "name":"demo-prod",
-    "projectId":"convex-project-id",
+    "projectId":"1001",
     "reference":"prod",
     "region":"aws-us-east-1"
   }`);
@@ -142,7 +142,7 @@ describe("createEmbeddedDashboardCredentials", () => {
       vi.fn(async (input: Request) => {
         requests.push(input);
 
-        if (input.url.endsWith("/projects/convex-project-id/deployment")) {
+        if (input.url.endsWith("/projects/1001/deployment?defaultProd=true")) {
           return productionDeploymentResponse();
         }
         if (input.url.endsWith("/create_deploy_key")) {
@@ -209,7 +209,7 @@ describe("createEmbeddedDashboardCredentials", () => {
       vi.fn(async (input: Request) => {
         requests.push(input);
 
-        if (input.url.endsWith("/projects/convex-project-id/deployment")) {
+        if (input.url.endsWith("/projects/1001/deployment?defaultProd=true")) {
           return productionDeploymentResponse();
         }
         if (input.url.endsWith("/create_deploy_key")) {
@@ -274,7 +274,7 @@ describe("revokeEmbeddedDashboardCredentials", () => {
       credential: "convex-api-key",
     });
     const fetch = vi.fn(async (input: Request) => {
-      if (input.url.endsWith("/projects/convex-project-id/deployment")) {
+      if (input.url.endsWith("/projects/1001/deployment?defaultProd=true")) {
         return productionDeploymentResponse();
       }
       throw new Error(`Unexpected Convex request: ${input.url}`);
