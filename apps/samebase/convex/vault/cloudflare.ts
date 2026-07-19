@@ -20,16 +20,12 @@ import {
   type CloudflareBuildConfig,
   type CloudflareConnectedWorkersBuilds,
 } from "../cloudflareResources";
-import {
-  requestConvexManagementApi,
-  type ConvexCloudDeployment,
-} from "../convexManagementApi/client";
 import { fetchGitHubRepoIdentity } from "../githubRepoApi";
 import {
   createConvexDeployKey,
   createConvexPreviewDeployKey,
-  deleteConvexDeployKey,
-  deleteConvexPreviewDeployKey,
+  deleteConvexDeployKeysByName,
+  deleteConvexPreviewDeployKeysByName,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
 import { action } from "../functions";
@@ -346,61 +342,6 @@ async function wireBuildsForWorker(
   return { build, connection, context };
 }
 
-async function deleteProductionKey(args: {
-  token: string;
-  deploymentName: string;
-  keyId: string;
-}): Promise<void> {
-  await deleteConvexDeployKey({
-    convexToken: args.token,
-    deploymentName: args.deploymentName,
-    convexDeployKeyId: args.keyId,
-  });
-}
-
-async function deletePreviewKey(args: {
-  token: string;
-  projectId: string;
-  keyId: string;
-}): Promise<void> {
-  await deleteConvexPreviewDeployKey({
-    convexToken: args.token,
-    projectId: args.projectId,
-    convexDeployKeyId: args.keyId,
-  });
-}
-
-async function listSamebaseKeyIds(args: {
-  token: string;
-  projectId: string;
-  deployment: ConvexCloudDeployment;
-  keyName: string;
-}): Promise<{ production: string[]; preview: string[] }> {
-  const [production, preview] = await Promise.all([
-    requestConvexManagementApi(
-      args.token,
-      "GET",
-      "/deployments/{deployment_name}/list_deploy_keys",
-      { params: { path: { deployment_name: args.deployment.name } } },
-    ),
-    requestConvexManagementApi(
-      args.token,
-      "GET",
-      "/projects/{project_id}/list_preview_deploy_keys",
-      {
-        params: {
-          path: { project_id: args.projectId },
-          query: { includeManaged: false },
-        },
-      },
-    ),
-  ]);
-  return {
-    production: production.filter((key) => key.name === args.keyName).map((key) => key.id),
-    preview: preview.items.filter((key) => key.name === args.keyName).map((key) => key.id),
-  };
-}
-
 export async function wireCloudflareConvexBuildAccessForUser(
   ctx: ActionCtx,
   args: {
@@ -433,30 +374,38 @@ export async function wireCloudflareConvexBuildAccessForUser(
   }
 
   const keyName = `samebase-${vaultSuffix(args.vaultId)}-${vaultSuffix(args.workerId)}`;
-  const previous = await listSamebaseKeyIds({
-    token: convexConnection.convexToken,
-    projectId: project.projectId,
-    deployment,
-    keyName,
-  });
+  const productionKeyName = `${keyName}-production`;
+  const previewKeyName = `${keyName}-preview`;
+  await Promise.all([
+    deleteConvexDeployKeysByName({
+      convexToken: convexConnection.convexToken,
+      deploymentName: deployment.name,
+      name: productionKeyName,
+    }),
+    deleteConvexPreviewDeployKeysByName({
+      convexToken: convexConnection.convexToken,
+      projectId: project.projectId,
+      name: previewKeyName,
+    }),
+  ]);
   const production = await createConvexDeployKey({
     convexToken: convexConnection.convexToken,
     convexAuthMethod: convexConnection.convexAuthMethod,
     deploymentName: deployment.name,
-    name: keyName,
+    name: productionKeyName,
   });
   let preview: Awaited<ReturnType<typeof createConvexPreviewDeployKey>>;
   try {
     preview = await createConvexPreviewDeployKey({
       convexToken: convexConnection.convexToken,
       projectId: project.projectId,
-      name: keyName,
+      name: previewKeyName,
     });
   } catch (error) {
-    await deleteProductionKey({
-      token: convexConnection.convexToken,
+    await deleteConvexDeployKeysByName({
+      convexToken: convexConnection.convexToken,
       deploymentName: deployment.name,
-      keyId: production.convexDeployKeyId,
+      name: productionKeyName,
     });
     throw error;
   }
@@ -481,36 +430,19 @@ export async function wireCloudflareConvexBuildAccessForUser(
     });
   } catch (error) {
     await Promise.allSettled([
-      deleteProductionKey({
-        token: convexConnection.convexToken,
+      deleteConvexDeployKeysByName({
+        convexToken: convexConnection.convexToken,
         deploymentName: deployment.name,
-        keyId: production.convexDeployKeyId,
+        name: productionKeyName,
       }),
-      deletePreviewKey({
-        token: convexConnection.convexToken,
+      deleteConvexPreviewDeployKeysByName({
+        convexToken: convexConnection.convexToken,
         projectId: project.projectId,
-        keyId: preview.convexDeployKeyId,
+        name: previewKeyName,
       }),
     ]);
     throw error;
   }
-
-  await Promise.all([
-    ...previous.production.map((keyId) =>
-      deleteProductionKey({
-        token: convexConnection.convexToken,
-        deploymentName: deployment.name,
-        keyId,
-      }),
-    ),
-    ...previous.preview.map((keyId) =>
-      deletePreviewKey({
-        token: convexConnection.convexToken,
-        projectId: project.projectId,
-        keyId,
-      }),
-    ),
-  ]);
 }
 
 export async function listCloudflareAccountsForUser(
@@ -633,10 +565,10 @@ export const attachConvexProjectDependency = action({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await ctx.runMutation(
-      internal.vault.cloudflareMutations.attachWorkerConvexProjectDependency,
-      { ...args, userId: ctx.viewer.userId },
-    );
+    await ctx.runMutation(internal.vault.cloudflareMutations.attachWorkerConvexProjectDependency, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
     return null;
   },
 });
@@ -649,10 +581,10 @@ export const removeConvexProjectDependency = action({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await ctx.runMutation(
-      internal.vault.cloudflareMutations.removeWorkerConvexProjectDependency,
-      { ...args, userId: ctx.viewer.userId },
-    );
+    await ctx.runMutation(internal.vault.cloudflareMutations.removeWorkerConvexProjectDependency, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
     return null;
   },
 });

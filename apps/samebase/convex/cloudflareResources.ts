@@ -481,22 +481,6 @@ export function readCloudflareWorkerTag(
   );
 }
 
-export async function readCloudflareWorkerIdentity(args: {
-  token: string;
-  accountId: string;
-  workerName: string;
-  transport: CloudflareApiTransport;
-}): Promise<CloudflareWorkerInventoryItem | null> {
-  const worker = await readWorker(args);
-  if (!worker) {
-    return null;
-  }
-  return {
-    workerName: args.workerName,
-    workerTag: readCloudflareWorkerTag(worker, args.workerName),
-  };
-}
-
 export async function listCloudflareWorkers(
   args: {
     token: string;
