@@ -2,10 +2,10 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded by live provider observations
 - Owner: Nicu Chiciuc
 - Created: 2026-07-07
-- Last updated: 2026-07-08 (rewritten around the block-verifier registry after operator review)
+- Last updated: 2026-07-19
 - Origin: operator question after the v1651 deploy-key rename (PR #1171,
   https://github.com/samebase/samebase/pull/1171): fresh provisioning wires the conventional
   `CONVEX_DEPLOY_KEY` contract, but a Worker wired before the rename keeps its recorded
@@ -23,6 +23,11 @@
 - Related research: `research/2026-05-16-cloudflare-workers-build-preview-env-ui-gap.md`
 
 ## Problem
+
+This proposal is retained as history. The provider-observation cutover rejected its central design:
+Samebase no longer persists Cloudflare trigger, deploy-key, URL, or upstream-existence observations
+on attachment rows. Current state is read directly from providers for one requested vault and cached
+briefly in the browser. The `verify_infrastructure` workflow and action were removed.
 
 Registry state is trust-on-write. Every rfcs/090 block records durable state when it succeeds
 (`deployment.builds`, `deployment.convexBuildAccess` on `vaultCloudflareWorkers`), and every surface

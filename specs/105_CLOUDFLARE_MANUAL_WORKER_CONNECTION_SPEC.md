@@ -32,37 +32,14 @@ type VaultCloudflareWorker = {
   accountId: string;
   workerName: string;
   workerTag: string;
-  workersDevUrl?: string;
   origin: "provisioned" | "selected_existing";
-  deployment: {
-    builds:
-      | { state: "not_connected" }
-      | {
-          state: "connected";
-          rootDirectory: string;
-          buildCommand: string;
-          deployCommand: string;
-          previewDeployCommand: string;
-          pathIncludes: string[];
-          pathExcludes: string[];
-          production: { triggerUuid: string; buildTokenUuid: string };
-          preview: { triggerUuid: string; buildTokenUuid: string };
-        };
-    convexBuildAccess: { state: "not_wired" } | { state: "wired" };
-  };
   connectedAt: number;
-  lastObservedAt: number;
 };
 ```
 
-`workersDevUrl` is optional because selected existing Workers can be configured only through custom
-routes/domains or can have the workers.dev subdomain disabled. Created Workers should record it when
-Cloudflare exposes enough account subdomain information to compute it.
-
 The app must not require the account-level workers.dev subdomain endpoint before attaching or
 creating a Worker. The real Cloudflare MCP OAuth grant can verify accounts and Worker identity while
-that specific endpoint can return an authentication error; attachment should still succeed and leave
-`workersDevUrl` absent until a later build/domain observation can fill it in.
+that specific endpoint can return an authentication error; attachment should still succeed.
 
 `appRoot` answers which deployable root inside the repository this Worker serves. Samebase should
 show Cloudflare's observed root-directory evidence in the picker before attachment when it is known.
@@ -71,9 +48,12 @@ show Cloudflare's observed root-directory evidence in the picker before attachme
 
 `connectedAt` answers when this vault attached the Worker.
 
-`lastObservedAt` answers when Cloudflare last confirmed the Worker identity. Cleanup ownership is
-derived from `origin`: `provisioned` Workers can be deleted by managed cleanup flows, while
-`selected_existing` Workers are external.
+Cleanup ownership is derived from `origin`: `provisioned` Workers can be deleted by managed cleanup
+flows, while `selected_existing` Workers are external.
+
+Worker existence, workers.dev URLs, repository wiring, build triggers, and Convex deploy-key
+variables are read directly from Cloudflare as a bounded live observation. They are not fields on
+the attachment row and the observation is not written back to the database.
 
 ## Provider Connection Model
 
