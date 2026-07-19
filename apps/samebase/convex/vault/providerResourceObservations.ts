@@ -70,7 +70,7 @@ function buildConvexDeploymentDashboardUrl(args: {
   return `https://dashboard.convex.dev/t/${encodeURIComponent(args.teamSlug)}/${encodeURIComponent(args.projectSlug)}/${encodeURIComponent(args.deploymentName)}`;
 }
 
-async function observeConvexDeployment(args: {
+export async function observeConvexDeployment(args: {
   convexToken: string;
   convexTeamId: string;
   projectId: string;

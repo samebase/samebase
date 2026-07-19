@@ -4,6 +4,7 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const appRoot = ".";
+const attachmentIntent = { mode: "attach" } as const;
 
 function jsonResponse(body: string): Response {
   return new Response(body, {
@@ -226,10 +227,12 @@ describe("vault Convex deployment connection actions", () => {
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
       appRoot,
+      attachmentIntent,
     });
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
         ...ids,
+        attachmentIntent,
         target: {
           mode: "connect_existing_project",
           appRoot,
@@ -254,11 +257,175 @@ describe("vault Convex deployment connection actions", () => {
     });
   });
 
+  it("rechecks that the old Convex deployment is missing before replacing its attachment", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        if (
+          input.url.includes("/projects/9999") ||
+          input.url.includes("/deployments/deleted-prod")
+        ) {
+          return new Response("not found", { status: 404 });
+        }
+        if (input.url.includes("/projects/1001/deployment")) {
+          return jsonResponse(`{
+            "class": "s16",
+            "createTime": 1710000000200,
+            "deploymentType": "prod",
+            "deploymentUrl": "https://alpha-prod.convex.cloud",
+            "id": 2002,
+            "isDefault": true,
+            "kind": "cloud",
+            "name": "alpha-prod",
+            "projectId": 1001,
+            "reference": "prod",
+            "region": "aws-us-east-1"
+          }`);
+        }
+        if (input.url.includes("/projects/1001")) {
+          return jsonResponse(`{
+            "createTime": 1710000000000,
+            "id": 1001,
+            "name": "Alpha Project",
+            "slug": "alpha",
+            "teamId": 1000,
+            "teamSlug": "samebase-team"
+          }`);
+        }
+        throw new Error(`Unexpected Convex request: ${input.url}`);
+      }),
+    );
+    const { ids, t } = await createConvexConnectedVault();
+    const attachmentId = await t.run(async (ctx) => {
+      return await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        projectId: "9999",
+        deploymentName: "deleted-prod",
+        origin: "provisioned",
+        connectedAt: 40,
+      });
+    });
+    const replacementIntent = await t.query(
+      internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        appRoot,
+      },
+    );
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+      ...ids,
+      appRoot,
+      attachmentIntent: replacementIntent,
+    });
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
+        ...ids,
+        attachmentIntent: replacementIntent,
+        target: {
+          mode: "connect_existing_project",
+          appRoot,
+          projectId: "1001",
+        },
+      }),
+    ).resolves.toBeNull();
+
+    const deployment = await t.run(async (ctx) => await ctx.db.get(attachmentId));
+    expect(deployment).toMatchObject({
+      _id: attachmentId,
+      projectId: "1001",
+      deploymentName: "alpha-prod",
+      origin: "selected_existing",
+    });
+  });
+
+  it("refuses replacement while the attached Convex deployment still exists", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        if (input.url.includes("/deployments/deleted-prod")) {
+          return jsonResponse(`{
+            "class": "s16",
+            "createTime": 1710000000200,
+            "deploymentType": "prod",
+            "deploymentUrl": "https://deleted-prod.convex.cloud",
+            "id": 2002,
+            "isDefault": true,
+            "kind": "cloud",
+            "name": "deleted-prod",
+            "projectId": 9999,
+            "reference": "prod",
+            "region": "aws-us-east-1"
+          }`);
+        }
+        if (input.url.includes("/projects/9999")) {
+          return jsonResponse(`{
+            "createTime": 1710000000000,
+            "id": 9999,
+            "name": "Deleted Project",
+            "slug": "deleted-project",
+            "teamId": 1000,
+            "teamSlug": "samebase-team"
+          }`);
+        }
+        throw new Error(`Unexpected Convex request: ${input.url}`);
+      }),
+    );
+    const { ids, t } = await createConvexConnectedVault();
+    const attachmentId = await t.run(async (ctx) => {
+      return await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        projectId: "9999",
+        deploymentName: "deleted-prod",
+        origin: "provisioned",
+        connectedAt: 40,
+      });
+    });
+    const replacementIntent = await t.query(
+      internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        appRoot,
+      },
+    );
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+      ...ids,
+      appRoot,
+      attachmentIntent: replacementIntent,
+    });
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
+        ...ids,
+        attachmentIntent: replacementIntent,
+        target: {
+          mode: "connect_existing_project",
+          appRoot,
+          projectId: "1001",
+        },
+      }),
+    ).rejects.toThrow("still exists and cannot be replaced");
+
+    const deployment = await t.run(async (ctx) => await ctx.db.get(attachmentId));
+    expect(deployment).toMatchObject({
+      projectId: "9999",
+      deploymentName: "deleted-prod",
+      connectedAt: 40,
+    });
+  });
+
   it("treats a superseded attach as canceled instead of failed", async () => {
     const { ids, t } = await createConvexConnectedVault();
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
       appRoot,
+      attachmentIntent,
     });
     vi.stubGlobal(
       "fetch",
@@ -310,6 +477,7 @@ describe("vault Convex deployment connection actions", () => {
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
         ...ids,
+        attachmentIntent,
         target: {
           mode: "connect_existing_project",
           appRoot,
@@ -394,11 +562,13 @@ describe("vault Convex deployment connection actions", () => {
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
       appRoot,
+      attachmentIntent,
     });
 
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
         ...ids,
+        attachmentIntent,
         target: {
           mode: "create_project",
           appRoot,
@@ -500,11 +670,13 @@ describe("vault Convex deployment connection actions", () => {
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
       appRoot,
+      attachmentIntent,
     });
 
     await expect(
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
         ...ids,
+        attachmentIntent,
         target: {
           mode: "create_project",
           appRoot,

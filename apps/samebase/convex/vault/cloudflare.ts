@@ -24,6 +24,7 @@ import {
   createCloudflareWorker,
   deleteCloudflareResources,
   listCloudflareWorkersWithRepositoryDiscovery,
+  readCloudflareWorkerIdentity,
   readCloudflareWorkerRepositoryDiscovery,
   readOptionalWorkersDevUrl,
   type CloudflareWorkerRepositoryDiscovery,
@@ -46,9 +47,12 @@ import {
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
+  vVaultCloudflareWorkerAttachmentIntent,
   vVaultCloudflareOrigin,
   type VaultCloudflareBuildConfig,
   type VaultCloudflareOrigin,
+  type VaultCloudflareWorkerAttachmentIntent,
+  type VaultCloudflareWorkerAttachmentSnapshot,
 } from "./model";
 import type { AppProvisioningStep } from "../appProvisioningModel";
 import {
@@ -123,6 +127,22 @@ async function resolveCloudflareConnection(
     transport: resolveCloudflareApiTransport(connection.auth.method),
     tokenHealth: connection.tokenHealth,
   };
+}
+
+async function assertCloudflareWorkerAttachmentIsMissing(args: {
+  connection: CloudflareActionConnection;
+  expected: VaultCloudflareWorkerAttachmentSnapshot;
+}): Promise<void> {
+  const worker = await readCloudflareWorkerIdentity({
+    token: args.connection.token,
+    transport: args.connection.transport,
+    accountId: args.expected.accountId,
+    workerName: args.expected.workerName,
+  });
+  if (!worker || worker.workerTag !== args.expected.workerTag) {
+    return;
+  }
+  throw new Error("The attached Cloudflare Worker still exists and cannot be replaced.");
 }
 
 async function resolveGitHubConnection(
@@ -416,6 +436,7 @@ async function startCloudflareWorkerConnectionOrFail(
     accountId: string;
     workerName: string;
     origin: VaultCloudflareOrigin;
+    attachmentIntent: VaultCloudflareWorkerAttachmentIntent;
   },
 ): Promise<void> {
   try {
@@ -479,6 +500,7 @@ async function isCloudflareWorkerConnectionRunActive(
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     appRoot: string;
+    attachmentIntent: VaultCloudflareWorkerAttachmentIntent;
   },
 ): Promise<boolean> {
   const result = await ctx.runQuery(
@@ -488,6 +510,7 @@ async function isCloudflareWorkerConnectionRunActive(
       runId: args.runId,
       userId: args.userId,
       appRoot: args.appRoot,
+      attachmentIntent: args.attachmentIntent,
     },
   );
   return result.active;
@@ -636,12 +659,26 @@ export async function connectExistingCloudflareWorkerForUser(
     throw new Error("Cloudflare Worker is required.");
   }
   const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const attachmentIntent = await ctx.runQuery(
+    internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault,
+    {
+      vaultId: args.vaultId,
+      userId,
+      appRoot,
+    },
+  );
   const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
     vaultId: args.vaultId,
     userId,
     appRoot,
   });
   const connection = await resolveCloudflareConnection(ctx, userId);
+  if (attachmentIntent.mode === "replace_missing") {
+    await assertCloudflareWorkerAttachmentIsMissing({
+      connection,
+      expected: attachmentIntent.expected,
+    });
+  }
   const account = await resolveAccount(ctx, {
     token: connection.token,
     transport: connection.transport,
@@ -669,6 +706,7 @@ export async function connectExistingCloudflareWorkerForUser(
     accountId: account.accountId,
     workerName,
     origin: "selected_existing",
+    attachmentIntent,
   });
 
   return null;
@@ -708,11 +746,20 @@ export const createWorker = action({
     const appRoot = normalizeVaultAppRoot(args.appRoot);
 
     const userId = ctx.viewer.userId;
-    await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
-      vaultId: args.vaultId,
-      userId,
-      appRoot,
-    });
+    const attachmentIntent = await ctx.runQuery(
+      internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault,
+      {
+        vaultId: args.vaultId,
+        userId,
+        appRoot,
+      },
+    );
+    if (attachmentIntent.mode === "replace_missing") {
+      await assertCloudflareWorkerAttachmentIsMissing({
+        connection: await resolveCloudflareConnection(ctx, userId),
+        expected: attachmentIntent.expected,
+      });
+    }
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
       vaultId: args.vaultId,
@@ -726,6 +773,7 @@ export const createWorker = action({
       accountId,
       workerName: validation.value,
       origin: "provisioned",
+      attachmentIntent,
     });
 
     return null;
@@ -809,6 +857,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -817,6 +866,12 @@ export const ensureCloudflareWorkerConnection = internalAction({
     }
 
     const connection = await resolveCloudflareConnection(ctx, args.userId);
+    if (args.attachmentIntent.mode === "replace_missing") {
+      await assertCloudflareWorkerAttachmentIsMissing({
+        connection,
+        expected: args.attachmentIntent.expected,
+      });
+    }
     const account = await resolveAccount(ctx, {
       token: connection.token,
       transport: connection.transport,
@@ -857,6 +912,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
             workerTag: worker.workerTag,
             workersDevUrl: worker.workersDevUrl,
             origin: args.origin,
+            attachmentIntent: args.attachmentIntent,
           },
         );
         if (!attached) {
@@ -904,6 +960,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
               workerTag: worker.workerTag,
               workersDevUrl: worker.workersDevUrl,
               origin: args.origin,
+              attachmentIntent: args.attachmentIntent,
             },
           );
           if (!attached) {
@@ -919,6 +976,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
               appRoot: args.appRoot,
               accountId: account.accountId,
               workerName: worker.workerName,
+              workerTag: worker.workerTag,
             },
           );
           if (shouldDelete) {

@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const appRoot = ".";
+const attachmentIntent = { mode: "attach" } as const;
 async function createAttachableVaultWithWriteLock(args: { writeLockState: "active" | "failed" }) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
@@ -132,6 +133,7 @@ describe("vault Cloudflare attachment mutations", () => {
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
         origin: "selected_existing",
+        attachmentIntent,
       }),
     ).resolves.toEqual({ claimed: true });
     await expect(
@@ -142,12 +144,14 @@ describe("vault Cloudflare attachment mutations", () => {
         workerName: "manual-cloudflare-worker",
         workerTag: "manual-cloudflare-worker-tag",
         origin: "selected_existing",
+        attachmentIntent,
       }),
     ).resolves.toEqual({ attached: true });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, {
         ...ids,
         appRoot,
+        attachmentIntent,
       }),
     ).resolves.toBeNull();
 
@@ -242,11 +246,13 @@ describe("vault Cloudflare attachment mutations", () => {
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
       origin: "provisioned",
+      attachmentIntent,
     });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, {
         ...ids,
         appRoot,
+        attachmentIntent,
       }),
     ).resolves.toBeNull();
     await t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
@@ -335,6 +341,117 @@ describe("vault Cloudflare attachment mutations", () => {
       "wire_convex_build_access",
       "wire_convex_build_access",
     ]);
+  });
+
+  it("replaces a missing Cloudflare Worker in the existing stable attachment row", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    const attachmentId = await t.run(async (ctx) => {
+      return await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "deleted-worker",
+        workerTag: "deleted-worker-tag",
+        origin: "provisioned",
+        connectedAt: 40,
+      });
+    });
+    const replacementIntent = await t.query(
+      internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        appRoot,
+      },
+    );
+    expect(replacementIntent).toEqual({
+      mode: "replace_missing",
+      expected: {
+        attachmentId,
+        connectedAt: 40,
+        accountId: "cloudflare-account",
+        workerName: "deleted-worker",
+        workerTag: "deleted-worker-tag",
+        origin: "provisioned",
+      },
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
+        ...ids,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "replacement-worker",
+        origin: "selected_existing",
+        attachmentIntent: replacementIntent,
+      }),
+    ).resolves.toEqual({ claimed: true });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
+        ...ids,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "replacement-worker",
+        workerTag: "replacement-worker-tag",
+        origin: "selected_existing",
+        attachmentIntent: replacementIntent,
+      }),
+    ).resolves.toEqual({ attached: true });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, {
+        ...ids,
+        appRoot,
+        attachmentIntent: replacementIntent,
+      }),
+    ).resolves.toBeNull();
+
+    const worker = await t.run(async (ctx) => await ctx.db.get(attachmentId));
+    expect(worker).toMatchObject({
+      _id: attachmentId,
+      accountId: "cloudflare-account",
+      workerName: "replacement-worker",
+      workerTag: "replacement-worker-tag",
+      origin: "selected_existing",
+    });
+  });
+
+  it("rejects a stale Cloudflare replacement snapshot before claiming the workflow lock", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    const attachmentId = await t.run(async (ctx) => {
+      return await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "deleted-worker",
+        workerTag: "deleted-worker-tag",
+        origin: "provisioned",
+        connectedAt: 40,
+      });
+    });
+    const replacementIntent = await t.query(
+      internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        appRoot,
+      },
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.patch(attachmentId, { connectedAt: 41 });
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
+        ...ids,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "replacement-worker",
+        origin: "selected_existing",
+        attachmentIntent: replacementIntent,
+      }),
+    ).resolves.toEqual({ claimed: false });
   });
 
   it("claims, records, and finishes Workers Builds wiring for an attached Worker", async () => {
@@ -790,6 +907,7 @@ describe("vault Cloudflare attachment mutations", () => {
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
         origin: "selected_existing",
+        attachmentIntent,
       }),
     ).resolves.toEqual({ claimed: true });
 
@@ -824,6 +942,7 @@ describe("vault Cloudflare attachment mutations", () => {
       accountId: "cloudflare-account",
       workerName: "manual-cloudflare-worker",
       origin: "provisioned",
+      attachmentIntent,
     });
     await t.run(async (ctx) => {
       const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -857,6 +976,7 @@ describe("vault Cloudflare attachment mutations", () => {
         workerName: "manual-cloudflare-worker",
         workerTag: "manual-cloudflare-worker-tag",
         origin: "provisioned",
+        attachmentIntent,
       }),
     ).resolves.toEqual({ attached: false });
 
@@ -895,6 +1015,7 @@ describe("vault Cloudflare attachment mutations", () => {
         appRoot,
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
+        workerTag: "manual-cloudflare-worker-tag",
       }),
     ).resolves.toEqual({ shouldDelete: false });
     await expect(
@@ -903,6 +1024,7 @@ describe("vault Cloudflare attachment mutations", () => {
         appRoot,
         accountId: "cloudflare-account",
         workerName: "different-worker",
+        workerTag: "different-worker-tag",
       }),
     ).resolves.toEqual({ shouldDelete: true });
   });
@@ -917,7 +1039,7 @@ describe("vault Cloudflare attachment mutations", () => {
         ...ids,
         appRoot,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ mode: "attach" });
     await expect(
       t.query(internal.vault.cloudflareMutations.requireAttachableVault, {
         ...ids,

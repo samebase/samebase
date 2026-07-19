@@ -41,6 +41,28 @@ export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 export const vVaultConvexOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
 
+export const vVaultConvexDeploymentAttachmentSnapshot = object({
+  attachmentId: id("vaultConvexDeployments"),
+  connectedAt: number(),
+  projectId: string(),
+  deploymentName: string(),
+  origin: vVaultConvexOrigin,
+});
+export type VaultConvexDeploymentAttachmentSnapshot = Infer<
+  typeof vVaultConvexDeploymentAttachmentSnapshot
+>;
+
+export const vVaultConvexDeploymentAttachmentIntent = union(
+  object({ mode: literal("attach") }),
+  object({
+    mode: literal("replace_missing"),
+    expected: vVaultConvexDeploymentAttachmentSnapshot,
+  }),
+);
+export type VaultConvexDeploymentAttachmentIntent = Infer<
+  typeof vVaultConvexDeploymentAttachmentIntent
+>;
+
 export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
@@ -57,6 +79,29 @@ export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTar
 
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
+
+export const vVaultCloudflareWorkerAttachmentSnapshot = object({
+  attachmentId: id("vaultCloudflareWorkers"),
+  connectedAt: number(),
+  accountId: string(),
+  workerName: string(),
+  workerTag: string(),
+  origin: vVaultCloudflareOrigin,
+});
+export type VaultCloudflareWorkerAttachmentSnapshot = Infer<
+  typeof vVaultCloudflareWorkerAttachmentSnapshot
+>;
+
+export const vVaultCloudflareWorkerAttachmentIntent = union(
+  object({ mode: literal("attach") }),
+  object({
+    mode: literal("replace_missing"),
+    expected: vVaultCloudflareWorkerAttachmentSnapshot,
+  }),
+);
+export type VaultCloudflareWorkerAttachmentIntent = Infer<
+  typeof vVaultCloudflareWorkerAttachmentIntent
+>;
 
 const vaultCloudflareBuildConfigFields = {
   rootDirectory: string(),

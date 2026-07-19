@@ -6,7 +6,12 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
-import { vVaultCloudflareOrigin, vVaultConvexConnectionTarget } from "./vault/model";
+import {
+  vVaultCloudflareWorkerAttachmentIntent,
+  vVaultCloudflareOrigin,
+  vVaultConvexConnectionTarget,
+  vVaultConvexDeploymentAttachmentIntent,
+} from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -348,6 +353,7 @@ async function runComposedConvexAttachment(
           appRoot: args.state.appRoot,
           projectName: args.state.convex.projectName,
         },
+        attachmentIntent: { mode: "attach" },
       },
       { name: "attach_convex", retry: idempotentProviderStepRetry },
     );
@@ -358,6 +364,7 @@ async function runComposedConvexAttachment(
         runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
+        attachmentIntent: { mode: "attach" },
       },
       { name: "finish_attach_convex" },
     );
@@ -395,6 +402,7 @@ async function runComposedCloudflareAttachment(
         accountId: args.state.cloudflare.accountId,
         workerName: args.state.cloudflare.workerName,
         origin: "provisioned",
+        attachmentIntent: { mode: "attach" },
       },
       { name: "attach_worker", retry: false },
     );
@@ -405,6 +413,7 @@ async function runComposedCloudflareAttachment(
         runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
+        attachmentIntent: { mode: "attach" },
       },
       { name: "finish_attach_worker" },
     );
@@ -878,6 +887,7 @@ export const connectCloudflareWorker = workflow.define({
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -928,6 +938,7 @@ export const connectCloudflareWorker = workflow.define({
           runId: args.runId,
           userId: args.userId,
           appRoot: args.appRoot,
+          attachmentIntent: args.attachmentIntent,
         },
         { name: "finish" },
       );
@@ -1129,6 +1140,7 @@ export const connectConvexDeployment = workflow.define({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -1139,6 +1151,7 @@ export const connectConvexDeployment = workflow.define({
         runId: args.runId,
         userId: args.userId,
         appRoot: args.target.appRoot,
+        attachmentIntent: args.attachmentIntent,
       },
       { name: "claim_infra" },
     );
@@ -1168,6 +1181,7 @@ export const connectConvexDeployment = workflow.define({
         runId: args.runId,
         userId: args.userId,
         appRoot: args.target.appRoot,
+        attachmentIntent: args.attachmentIntent,
       },
       { name: "finish" },
     );
@@ -1304,6 +1318,7 @@ export const startCloudflareWorkerConnection = internalMutation({
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
@@ -1418,6 +1433,7 @@ export const startConvexDeploymentConnection = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     target: vVaultConvexConnectionTarget,
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {

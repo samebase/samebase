@@ -133,6 +133,23 @@ The modal submit action should return after the Workflow is queued. The modal th
 clearing `add-cloudflare`, and the vault header/resource rail shows the Cloudflare row as running,
 failed, or ready from subscribed dashboard state.
 
+## Missing Worker Replacement
+
+When a live Cloudflare observation reports that the attached Worker identity is missing, the same
+connection dialog can select or create its replacement. A failed or unavailable provider read does
+not authorize replacement.
+
+The server derives a one-run replacement intent from the current attachment row. Before queuing the
+Workflow and again after claiming its write lock, it reads the recorded Worker name from Cloudflare
+and confirms that the recorded Worker tag no longer exists at that name. The Workflow then
+compare-and-swaps the exact recorded attachment snapshot and patches the same
+`vaultCloudflareWorkers` row with the replacement identity. A changed attachment snapshot cancels
+the run instead of overwriting newer state.
+
+The replacement intent is Workflow input, not durable provider state. Samebase does not persist the
+missing observation, duplicate the Cloudflare resource, or delete the attachment row while a
+replacement is in progress.
+
 If a created Worker cannot be attached to the vault after the provider create call, the Workflow
 must delete that created Worker before surfacing failure unless the vault now points at the same
 Cloudflare account and Worker name from a newer run. A failed manual Cloudflare run should keep the

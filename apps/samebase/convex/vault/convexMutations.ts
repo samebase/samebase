@@ -9,7 +9,12 @@ import {
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../appProvisioningModel";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-import { vVaultConvexOrigin } from "./model";
+import {
+  vVaultConvexDeploymentAttachmentIntent,
+  vVaultConvexOrigin,
+  type VaultConvexDeploymentAttachmentIntent,
+  type VaultConvexDeploymentAttachmentSnapshot,
+} from "./model";
 import { isLiveConnectedVault } from "./state";
 
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
@@ -102,24 +107,71 @@ async function readConvexDeploymentByProviderIdentity(
     .first();
 }
 
-async function assertNoExistingConvexDeploymentTarget(
+function toConvexDeploymentAttachmentSnapshot(
+  deployment: Doc<"vaultConvexDeployments">,
+): VaultConvexDeploymentAttachmentSnapshot {
+  return {
+    attachmentId: deployment._id,
+    connectedAt: deployment.connectedAt,
+    projectId: deployment.projectId,
+    deploymentName: deployment.deploymentName,
+    origin: deployment.origin,
+  };
+}
+
+function matchesConvexDeploymentAttachmentSnapshot(
+  deployment: Doc<"vaultConvexDeployments">,
+  expected: VaultConvexDeploymentAttachmentSnapshot,
+): boolean {
+  return (
+    deployment._id === expected.attachmentId &&
+    deployment.connectedAt === expected.connectedAt &&
+    deployment.projectId === expected.projectId &&
+    deployment.deploymentName === expected.deploymentName &&
+    deployment.origin === expected.origin
+  );
+}
+
+async function assertConvexDeploymentTargetMatchesIntent(
   ctx: ConvexDeploymentConnectionReadCtx,
   args: {
     vaultId: Id<"vaults">;
     appRoot: string;
+    attachmentIntent: VaultConvexDeploymentAttachmentIntent;
     projectId?: string;
   },
 ): Promise<void> {
   const existingAppRootDeployment = await readConvexDeploymentForAppRoot(ctx, args);
-  if (existingAppRootDeployment) {
-    throw new Error("Vault already has a Convex deployment for this app root.");
+  switch (args.attachmentIntent.mode) {
+    case "attach":
+      if (existingAppRootDeployment) {
+        throw new Error("Vault already has a Convex deployment for this app root.");
+      }
+      break;
+    case "replace_missing":
+      if (
+        !existingAppRootDeployment ||
+        !matchesConvexDeploymentAttachmentSnapshot(
+          existingAppRootDeployment,
+          args.attachmentIntent.expected,
+        )
+      ) {
+        throw new Error("Convex deployment attachment changed before it could be replaced.");
+      }
+      break;
+    default:
+      args.attachmentIntent satisfies never;
   }
   if (args.projectId) {
     const existingProject = await readConvexDeploymentByProviderIdentity(ctx, {
       vaultId: args.vaultId,
       projectId: args.projectId,
     });
-    if (existingProject) {
+    if (
+      existingProject &&
+      (args.attachmentIntent.mode === "attach" ||
+        existingProject._id !== args.attachmentIntent.expected.attachmentId)
+    ) {
       throw new Error("Convex project is already attached to this vault.");
     }
   }
@@ -208,8 +260,8 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
     userId: id("users"),
     appRoot: string(),
   },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
+  returns: vVaultConvexDeploymentAttachmentIntent,
+  handler: async (ctx, args): Promise<VaultConvexDeploymentAttachmentIntent> => {
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
@@ -219,12 +271,17 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    await assertNoExistingConvexDeploymentTarget(ctx, {
+    const existingDeployment = await readConvexDeploymentForAppRoot(ctx, {
       vaultId: args.vaultId,
       appRoot,
     });
 
-    return null;
+    return existingDeployment
+      ? {
+          mode: "replace_missing",
+          expected: toConvexDeploymentAttachmentSnapshot(existingDeployment),
+        }
+      : { mode: "attach" };
   },
 });
 
@@ -234,6 +291,7 @@ export const claimConvexDeploymentConnection = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: object({ claimed: boolean() }),
   handler: async (ctx, args) => {
@@ -248,9 +306,10 @@ export const claimConvexDeploymentConnection = internalMutation({
       appRoot,
     });
     try {
-      await assertNoExistingConvexDeploymentTarget(ctx, {
+      await assertConvexDeploymentTargetMatchesIntent(ctx, {
         vaultId: args.vaultId,
         appRoot,
+        attachmentIntent: args.attachmentIntent,
       });
     } catch (error) {
       await appendConvexDeploymentConnectionEvent(ctx, {
@@ -320,6 +379,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: object({ active: boolean() }),
   handler: async (ctx, args) => {
@@ -340,8 +400,14 @@ export const readActiveConvexDeploymentConnection = internalQuery({
         appRoot,
       }),
     ]);
+    const targetStillMatches =
+      args.attachmentIntent.mode === "attach"
+        ? !deployment
+        : deployment !== null &&
+          matchesConvexDeploymentAttachmentSnapshot(deployment, args.attachmentIntent.expected);
     return {
-      active: !deployment && runHoldsConvexProvisioningWriteLock(writeLock, { runId: args.runId }),
+      active:
+        targetStillMatches && runHoldsConvexProvisioningWriteLock(writeLock, { runId: args.runId }),
     };
   },
 });
@@ -354,6 +420,7 @@ export const attachDeploymentForRun = internalMutation({
     appRoot: string(),
     convex: convexInfrastructureRecordValidator,
     origin: vVaultConvexOrigin,
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: object({ attached: boolean() }),
   handler: async (ctx, args) => {
@@ -372,9 +439,10 @@ export const attachDeploymentForRun = internalMutation({
       appRoot,
     });
     try {
-      await assertNoExistingConvexDeploymentTarget(ctx, {
+      await assertConvexDeploymentTargetMatchesIntent(ctx, {
         vaultId: args.vaultId,
         appRoot,
+        attachmentIntent: args.attachmentIntent,
         projectId: args.convex.convexProjectId,
       });
     } catch (error) {
@@ -404,7 +472,10 @@ export const attachDeploymentForRun = internalMutation({
     }
 
     const now = Date.now();
-    if (existingAppRootDeployment) {
+    if (args.attachmentIntent.mode === "replace_missing") {
+      if (!existingAppRootDeployment) {
+        throw new Error("Convex deployment attachment disappeared before replacement.");
+      }
       await ctx.db.patch(existingAppRootDeployment._id, {
         projectId: args.convex.convexProjectId,
         deploymentName: args.convex.convexDeploymentName,
@@ -420,6 +491,10 @@ export const attachDeploymentForRun = internalMutation({
       });
 
       return { attached: true };
+    }
+
+    if (existingAppRootDeployment) {
+      throw new Error("Vault already has a Convex deployment for this app root.");
     }
 
     await ctx.db.insert("vaultConvexDeployments", {
@@ -516,6 +591,7 @@ export const finishConvexDeploymentConnection = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
+    attachmentIntent: vVaultConvexDeploymentAttachmentIntent,
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -542,6 +618,12 @@ export const finishConvexDeploymentConnection = internalMutation({
     });
     if (!deployment) {
       throw new Error("Convex deployment connection did not attach a deployment.");
+    }
+    if (
+      args.attachmentIntent.mode === "replace_missing" &&
+      matchesConvexDeploymentAttachmentSnapshot(deployment, args.attachmentIntent.expected)
+    ) {
+      throw new Error("Convex deployment connection did not replace the missing deployment.");
     }
 
     if (isStandaloneConvexDeploymentConnectionRun(run)) {

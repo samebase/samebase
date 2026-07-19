@@ -13,7 +13,10 @@ import {
   buildVaultCloudflareBuildConfigForAppRoot,
   vVaultCloudflareBuildConfig,
   vVaultCloudflareConnectedBuilds,
+  vVaultCloudflareWorkerAttachmentIntent,
   vVaultCloudflareOrigin,
+  type VaultCloudflareWorkerAttachmentIntent,
+  type VaultCloudflareWorkerAttachmentSnapshot,
 } from "./model";
 import { isLiveConnectedVault } from "./state";
 
@@ -206,6 +209,81 @@ async function assertNoExistingCloudflareWorkerTarget(
   }
 }
 
+function toCloudflareWorkerAttachmentSnapshot(
+  worker: Doc<"vaultCloudflareWorkers">,
+): VaultCloudflareWorkerAttachmentSnapshot {
+  return {
+    attachmentId: worker._id,
+    connectedAt: worker.connectedAt,
+    accountId: worker.accountId,
+    workerName: worker.workerName,
+    workerTag: worker.workerTag,
+    origin: worker.origin,
+  };
+}
+
+function matchesCloudflareWorkerAttachmentSnapshot(
+  worker: Doc<"vaultCloudflareWorkers">,
+  expected: VaultCloudflareWorkerAttachmentSnapshot,
+): boolean {
+  return (
+    worker._id === expected.attachmentId &&
+    worker.connectedAt === expected.connectedAt &&
+    worker.accountId === expected.accountId &&
+    worker.workerName === expected.workerName &&
+    worker.workerTag === expected.workerTag &&
+    worker.origin === expected.origin
+  );
+}
+
+async function assertCloudflareWorkerTargetMatchesIntent(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+    attachmentIntent: VaultCloudflareWorkerAttachmentIntent;
+    accountId?: string;
+    workerName?: string;
+  },
+): Promise<void> {
+  const existingAppRootWorker = await readCloudflareWorkerForAppRoot(ctx, args);
+  switch (args.attachmentIntent.mode) {
+    case "attach":
+      if (existingAppRootWorker) {
+        throw new Error("Vault already has a Cloudflare Worker for this app root.");
+      }
+      break;
+    case "replace_missing":
+      if (
+        !existingAppRootWorker ||
+        !matchesCloudflareWorkerAttachmentSnapshot(
+          existingAppRootWorker,
+          args.attachmentIntent.expected,
+        )
+      ) {
+        throw new Error("Cloudflare Worker attachment changed before it could be replaced.");
+      }
+      break;
+    default:
+      args.attachmentIntent satisfies never;
+  }
+
+  if (args.accountId && args.workerName) {
+    const existingWorker = await readCloudflareWorkerByProviderIdentity(ctx, {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+    });
+    if (
+      existingWorker &&
+      (args.attachmentIntent.mode === "attach" ||
+        existingWorker._id !== args.attachmentIntent.expected.attachmentId)
+    ) {
+      throw new Error("Cloudflare Worker is already attached to this vault.");
+    }
+  }
+}
+
 async function appendCloudflareWorkerConnectionEvent(
   ctx: CloudflareWorkerConnectionEventCtx,
   args: {
@@ -346,8 +424,8 @@ export const requireCloudflareWorkerConnectionVault = internalQuery({
     userId: id("users"),
     appRoot: string(),
   },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
+  returns: vVaultCloudflareWorkerAttachmentIntent,
+  handler: async (ctx, args): Promise<VaultCloudflareWorkerAttachmentIntent> => {
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
@@ -357,12 +435,17 @@ export const requireCloudflareWorkerConnectionVault = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    await assertNoExistingCloudflareWorkerTarget(ctx, {
+    const existingWorker = await readCloudflareWorkerForAppRoot(ctx, {
       vaultId: args.vaultId,
       appRoot,
     });
 
-    return null;
+    return existingWorker
+      ? {
+          mode: "replace_missing",
+          expected: toCloudflareWorkerAttachmentSnapshot(existingWorker),
+        }
+      : { mode: "attach" };
   },
 });
 
@@ -383,11 +466,6 @@ export const readCloudflareWorkerDiscoveryContext = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    await assertNoExistingCloudflareWorkerTarget(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-
     return {
       ghRepoId: vault.ghRepoId,
       repositoryFullName: `${vault.owner}/${vault.name}`,
@@ -451,6 +529,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: object({ claimed: boolean() }),
   handler: async (ctx, args) => {
@@ -465,9 +544,10 @@ export const claimCloudflareWorkerConnection = internalMutation({
       appRoot,
     });
     try {
-      await assertNoExistingCloudflareWorkerTarget(ctx, {
+      await assertCloudflareWorkerTargetMatchesIntent(ctx, {
         vaultId: args.vaultId,
         appRoot,
+        attachmentIntent: args.attachmentIntent,
         accountId: args.accountId,
         workerName: args.workerName,
       });
@@ -538,6 +618,7 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: object({ active: boolean() }),
   handler: async (ctx, args) => {
@@ -558,8 +639,15 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
         appRoot,
       }),
     ]);
+    const targetStillMatches =
+      args.attachmentIntent.mode === "attach"
+        ? !worker
+        : worker !== null &&
+          matchesCloudflareWorkerAttachmentSnapshot(worker, args.attachmentIntent.expected);
     return {
-      active: !worker && runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId }),
+      active:
+        targetStillMatches &&
+        runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId }),
     };
   },
 });
@@ -575,6 +663,7 @@ export const attachWorkerForRun = internalMutation({
     workerTag: string(),
     workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: object({ attached: boolean() }),
   handler: async (ctx, args) => {
@@ -593,9 +682,10 @@ export const attachWorkerForRun = internalMutation({
       appRoot,
     });
     try {
-      await assertNoExistingCloudflareWorkerTarget(ctx, {
+      await assertCloudflareWorkerTargetMatchesIntent(ctx, {
         vaultId: args.vaultId,
         appRoot,
+        attachmentIntent: args.attachmentIntent,
         accountId: args.accountId,
         workerName: args.workerName,
       });
@@ -626,7 +716,10 @@ export const attachWorkerForRun = internalMutation({
     }
 
     const now = Date.now();
-    if (existingAppRootWorker) {
+    if (args.attachmentIntent.mode === "replace_missing") {
+      if (!existingAppRootWorker) {
+        throw new Error("Cloudflare Worker attachment disappeared before replacement.");
+      }
       await ctx.db.patch(existingAppRootWorker._id, {
         accountId: args.accountId,
         workerName: args.workerName,
@@ -643,6 +736,10 @@ export const attachWorkerForRun = internalMutation({
       });
 
       return { attached: true };
+    }
+
+    if (existingAppRootWorker) {
+      throw new Error("Vault already has a Cloudflare Worker for this app root.");
     }
 
     await ctx.db.insert("vaultCloudflareWorkers", {
@@ -675,6 +772,7 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
     appRoot: string(),
     accountId: string(),
     workerName: string(),
+    workerTag: string(),
   },
   returns: object({ shouldDelete: boolean() }),
   handler: async (ctx, args) => {
@@ -691,7 +789,10 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
     });
     return {
       shouldDelete:
-        !worker || worker.accountId !== args.accountId || worker.workerName !== args.workerName,
+        !worker ||
+        worker.accountId !== args.accountId ||
+        worker.workerName !== args.workerName ||
+        worker.workerTag !== args.workerTag,
     };
   },
 });
@@ -702,6 +803,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
+    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -728,6 +830,12 @@ export const finishCloudflareWorkerConnection = internalMutation({
     });
     if (!worker) {
       throw new Error("Cloudflare Worker connection did not attach a Worker.");
+    }
+    if (
+      args.attachmentIntent.mode === "replace_missing" &&
+      matchesCloudflareWorkerAttachmentSnapshot(worker, args.attachmentIntent.expected)
+    ) {
+      throw new Error("Cloudflare Worker connection did not replace the missing Worker.");
     }
 
     const now = Date.now();

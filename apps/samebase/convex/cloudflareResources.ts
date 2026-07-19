@@ -424,8 +424,7 @@ export async function isCloudflareWorkerNameAvailable(args: {
   workerName: string;
   transport: CloudflareApiTransport;
 }): Promise<boolean> {
-  const worker = await readWorker(args);
-  return !worker;
+  return (await readCloudflareWorkerIdentity(args)) === null;
 }
 
 export function readCloudflareWorkerTag(
@@ -442,6 +441,22 @@ export function readCloudflareWorkerTag(
   throw new Error(
     `Cloudflare Worker ${workerName} did not include id, external_script_id, or tag.`,
   );
+}
+
+export async function readCloudflareWorkerIdentity(args: {
+  token: string;
+  accountId: string;
+  workerName: string;
+  transport: CloudflareApiTransport;
+}): Promise<CloudflareWorkerInventoryItem | null> {
+  const worker = await readWorker(args);
+  if (!worker) {
+    return null;
+  }
+  return {
+    workerName: args.workerName,
+    workerTag: readCloudflareWorkerTag(worker, args.workerName),
+  };
 }
 
 export async function listCloudflareWorkers(

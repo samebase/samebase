@@ -142,6 +142,23 @@ A failed manual Convex run should keep the Convex row failed while offering the 
 dialog again, so the operator can choose an existing project or create a new project without waiting
 for hidden state cleanup.
 
+## Missing Deployment Replacement
+
+When a live Convex observation reports that the attached project or production deployment is
+missing, the same connection dialog can select or create its replacement. A failed or unavailable
+provider read does not authorize replacement.
+
+The server derives a one-run replacement intent from the current attachment row. Before queuing the
+Workflow and again after claiming its write lock, it reads the recorded project and deployment from
+Convex and confirms that their recorded identity is missing. The Workflow then compare-and-swaps the
+exact recorded attachment snapshot and patches the same `vaultConvexDeployments` row with the
+replacement identity. A changed attachment snapshot cancels the run instead of overwriting newer
+state.
+
+The replacement intent is Workflow input, not durable provider state. Samebase does not persist the
+missing observation, duplicate the Convex resource, or delete the attachment row while a replacement
+is in progress.
+
 ## Route Semantics
 
 `/vault/<org>/<repo>?add-convex` opens the Convex project connection dialog for the selected vault
