@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import {
+  buildConvexDeploymentDashboardUrl,
+  buildConvexProjectSettingsDashboardUrl,
+} from "./convexProviderObservation";
 
 type SeedOptions = {
   cloudflareConnection: boolean;
@@ -162,6 +166,24 @@ function installAvailableProviderFetch() {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe("Convex provider dashboard URLs", () => {
+  it("targets the observed project and deployment scopes", () => {
+    expect(
+      buildConvexProjectSettingsDashboardUrl({
+        teamSlug: "ada team",
+        projectSlug: "demo/project",
+      }),
+    ).toBe("https://dashboard.convex.dev/t/ada%20team/demo%2Fproject/settings");
+    expect(
+      buildConvexDeploymentDashboardUrl({
+        teamSlug: "ada team",
+        projectSlug: "demo/project",
+        deploymentName: "demo prod",
+      }),
+    ).toBe("https://dashboard.convex.dev/t/ada%20team/demo%2Fproject/demo%20prod");
+  });
 });
 
 describe("vault provider resource observations", () => {

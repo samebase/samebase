@@ -26,7 +26,6 @@ import {
   listCloudflareWorkersWithRepositoryDiscovery,
   readCloudflareWorkerIdentity,
   readCloudflareWorkerRepositoryDiscovery,
-  readOptionalWorkersDevUrl,
   type CloudflareWorkerRepositoryDiscovery,
   observeCloudflareWorkerInfrastructure,
   wireCloudflareWorkerBuilds,
@@ -362,12 +361,6 @@ async function resolveSelectableExistingWorker(args: {
   return {
     workerName: worker.workerName,
     workerTag: worker.workerTag,
-    workersDevUrl: await readOptionalWorkersDevUrl({
-      token: args.token,
-      transport: args.transport,
-      accountId: args.accountId,
-      workerName: worker.workerName,
-    }),
   };
 }
 
@@ -910,7 +903,6 @@ export const ensureCloudflareWorkerConnection = internalAction({
             accountId: account.accountId,
             workerName: worker.workerName,
             workerTag: worker.workerTag,
-            workersDevUrl: worker.workersDevUrl,
             origin: args.origin,
             attachmentIntent: args.attachmentIntent,
           },
@@ -958,7 +950,6 @@ export const ensureCloudflareWorkerConnection = internalAction({
               accountId: account.accountId,
               workerName: worker.workerName,
               workerTag: worker.workerTag,
-              workersDevUrl: worker.workersDevUrl,
               origin: args.origin,
               attachmentIntent: args.attachmentIntent,
             },

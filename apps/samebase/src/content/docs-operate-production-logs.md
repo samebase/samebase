@@ -2,8 +2,10 @@
 
 Samebase deliberately does not wrap log reading. The providers' own tools are better, and your agent
 already has them; Samebase's job is handing over the coordinates. Get them from the app list
-(dashboard, or the `get_user_vaults` MCP tool): each app carries its Convex `deploymentName`,
-`teamSlug`, `projectSlug`, and its Cloudflare `workerName` with a `projectDashboardUrl`.
+(dashboard, or the `get_user_vaults` MCP tool): each app carries its Convex `projectId` and
+`deploymentName`, and its Cloudflare `workerName` with a `projectDashboardUrl`. The dashboard loads
+current provider observations separately and adds direct Convex links when the provider is
+reachable.
 
 ## Convex (backend) logs
 
@@ -16,8 +18,8 @@ CONVEX_DEPLOY_KEY= npx convex logs --prod --history 50
 The CLI resolves the production deployment from the repo's Convex configuration. The
 `CONVEX_DEPLOY_KEY=` prefix matters: if an env file carries a deploy key, the CLI silently targets
 that key's deployment and ignores `--prod`, so clear it for read commands. Outside a checkout, open
-the deployment dashboard instead. The `deploymentDashboardUrl` from `get_user_vaults` links directly
-to the deployment's logs and data.
+the deployment from the Convex dashboard by its `deploymentName`, or follow the direct link in the
+Samebase dashboard after its live provider observation succeeds.
 
 ## Cloudflare (delivery) logs
 

@@ -502,42 +502,6 @@ function buildCloudflareWorkerDashboardUrl(
   return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/workers/services/view/${encodeURIComponent(workerName)}/production/deployments`;
 }
 
-/**
- * Convex dashboard URLs are only useful with real team/project/deploy slugs.
- * Return nothing for blank metadata so the dashboard never renders fake links.
- */
-export function buildConvexDeploymentDashboardUrl(args: {
-  deploymentName: string | undefined;
-  projectSlug: string | undefined;
-  teamSlug: string | undefined;
-}): string | undefined {
-  const normalizedTeamSlug = args.teamSlug?.trim();
-  const normalizedProjectSlug = args.projectSlug?.trim();
-  const normalizedDeploymentName = args.deploymentName?.trim();
-  if (!normalizedTeamSlug || !normalizedProjectSlug || !normalizedDeploymentName) {
-    return undefined;
-  }
-
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/${encodeURIComponent(normalizedDeploymentName)}`;
-}
-
-/**
- * Project settings use the project scope, not a deployment scope. Keep the link
- * hidden until both dashboard slugs are known.
- */
-export function buildConvexProjectSettingsDashboardUrl(args: {
-  projectSlug: string | undefined;
-  teamSlug: string | undefined;
-}): string | undefined {
-  const normalizedTeamSlug = args.teamSlug?.trim();
-  const normalizedProjectSlug = args.projectSlug?.trim();
-  if (!normalizedTeamSlug || !normalizedProjectSlug) {
-    return undefined;
-  }
-
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/settings`;
-}
-
 // MARK: Public
 
 export const getUserVaultBranchFilters = query({

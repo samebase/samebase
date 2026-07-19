@@ -27,7 +27,7 @@ import {
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
 import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
-import { observeConvexDeployment } from "./providerResourceObservations";
+import { observeConvexDeployment } from "./convexProviderObservation";
 
 const { id, null: nullValue, string } = v;
 

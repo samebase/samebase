@@ -140,6 +140,7 @@ import type * as vault_contracts_retryInfrastructureProvisioning from "../vault/
 import type * as vault_convex from "../vault/convex.js";
 import type * as vault_convexDeployKeys from "../vault/convexDeployKeys.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
+import type * as vault_convexProviderObservation from "../vault/convexProviderObservation.js";
 import type * as vault_convexSchemaGraph from "../vault/convexSchemaGraph.js";
 import type * as vault_convexSchemaGraphModel from "../vault/convexSchemaGraphModel.js";
 import type * as vault_dashboard from "../vault/dashboard.js";
@@ -301,6 +302,7 @@ declare const fullApi: ApiFromModules<{
   "vault/convex": typeof vault_convex;
   "vault/convexDeployKeys": typeof vault_convexDeployKeys;
   "vault/convexMutations": typeof vault_convexMutations;
+  "vault/convexProviderObservation": typeof vault_convexProviderObservation;
   "vault/convexSchemaGraph": typeof vault_convexSchemaGraph;
   "vault/convexSchemaGraphModel": typeof vault_convexSchemaGraphModel;
   "vault/dashboard": typeof vault_dashboard;

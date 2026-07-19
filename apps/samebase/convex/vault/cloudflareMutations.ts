@@ -20,7 +20,7 @@ import {
 } from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, literal, null: nullValue, object, optional, string, union } = v;
+const { boolean, id, literal, null: nullValue, object, string, union } = v;
 const CLOUDFLARE_CONNECTION_STALE_MS = 10 * 60 * 1000;
 
 const cloudflareBuildsWiringState = union(
@@ -482,7 +482,6 @@ export const attachWorker = internalMutation({
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
   },
   returns: nullValue(),
@@ -661,7 +660,6 @@ export const attachWorkerForRun = internalMutation({
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
     attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
