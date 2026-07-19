@@ -51,7 +51,7 @@ import {
 } from "../convexManagementApi/errors";
 import { vaultSuffix } from "../slugUtils";
 import {
-  type ConvexDeployKeyState,
+  buildVaultCloudflareBuildConfigForAppRoot,
   vVaultCloudflareOrigin,
   type VaultCloudflareBuildConfig,
   type VaultCloudflareOrigin,
@@ -194,36 +194,6 @@ async function deleteConvexBuildAccessPreviewDeployKey(args: {
     }
     throw error;
   }
-}
-
-async function deleteRecordedConvexBuildAccessDeployKey(args: {
-  deployKey: ConvexDeployKeyState;
-  convexToken: string;
-  deploymentName: string;
-}): Promise<void> {
-  if (args.deployKey.state !== "created") {
-    return;
-  }
-  await deleteConvexBuildAccessDeployKey({
-    convexToken: args.convexToken,
-    deploymentName: args.deploymentName,
-    convexDeployKeyId: args.deployKey.id,
-  });
-}
-
-async function deleteRecordedConvexBuildAccessPreviewDeployKey(args: {
-  deployKey: ConvexDeployKeyState;
-  convexToken: string;
-  projectId: string;
-}): Promise<void> {
-  if (args.deployKey.state !== "created") {
-    return;
-  }
-  await deleteConvexBuildAccessPreviewDeployKey({
-    convexToken: args.convexToken,
-    projectId: args.projectId,
-    convexDeployKeyId: args.deployKey.id,
-  });
 }
 
 async function listAccountsForConnection(args: {
@@ -1264,16 +1234,31 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
     let productionDeployKey: Awaited<ReturnType<typeof createConvexDeployKey>> | null = null;
     let previewDeployKey: Awaited<ReturnType<typeof createConvexPreviewDeployKey>> | null = null;
     try {
-      await deleteRecordedConvexBuildAccessDeployKey({
-        convexToken: convexConnection.convexToken,
-        deploymentName: active.convex.deploymentName,
-        deployKey: active.convex.deployKeys.production,
+      const storedBuildConfig = buildVaultCloudflareBuildConfigForAppRoot({
+        appRoot: args.appRoot,
       });
-      await deleteRecordedConvexBuildAccessPreviewDeployKey({
-        convexToken: convexConnection.convexToken,
-        projectId: active.convex.projectId,
-        deployKey: active.convex.deployKeys.preview,
+      const buildConfig = toCloudflareBuildConfig(storedBuildConfig);
+      const buildObservation = await verifyCloudflareWorkerInfrastructure({
+        vaultId: args.vaultId,
+        workerName: active.worker.workerName,
+        workerTag: active.worker.workerTag,
+        cloudflareToken: cloudflareConnection.token,
+        cloudflareAuthMethod: cloudflareConnection.auth.method,
+        accountId: account.accountId,
+        defaultBranch: active.defaultBranch,
+        expectedRepoId: active.ghRepoId,
+        build: { state: "not_connected" },
+        buildConfig,
+        verifyConvexBuildAccess: false,
+        recordApiCall: createProviderApiCallRecorder(ctx, {
+          runId: args.runId,
+          step: "wire_convex_build_access",
+        }),
       });
+      if (buildObservation.worker !== "confirmed" || buildObservation.builds !== "adopted") {
+        throw new Error("Cloudflare Workers Builds must be connected before wiring Convex access.");
+      }
+      const build = buildObservation.connectedBuilds;
 
       const previewConvex = await ensureConvexPreviewResources({
         convexToken: convexConnection.convexToken,
@@ -1325,14 +1310,14 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         defaultBranch: active.defaultBranch,
         expectedRepoId: active.ghRepoId,
         repositoryFullName: active.repositoryFullName,
-        rootDirectory: active.worker.build.rootDirectory,
+        rootDirectory: storedBuildConfig.rootDirectory,
         vaultId: args.vaultId,
         workerName: active.worker.workerName,
         workerTag: active.worker.workerTag,
         cloudflareToken: cloudflareConnection.token,
         cloudflareAuthMethod: cloudflareConnection.auth.method,
         accountId: account.accountId,
-        build: active.worker.build,
+        build,
         convex: {
           production: {
             deployKey: productionDeployKey.deployKey,
@@ -1448,11 +1433,9 @@ export const ensureCloudflareInfrastructureVerification = internalAction({
           accountId: account.accountId,
           defaultBranch: active.defaultBranch,
           expectedRepoId: active.ghRepoId,
-          build: active.worker.deployment.builds,
+          build: { state: "not_connected" },
           buildConfig: toCloudflareBuildConfig(active.buildConfig),
-          verifyConvexBuildAccess:
-            active.convexDeployment !== null &&
-            active.worker.deployment.convexBuildAccess.state === "wired",
+          verifyConvexBuildAccess: false,
           recordApiCall,
         }),
         convexDeploymentVerification,

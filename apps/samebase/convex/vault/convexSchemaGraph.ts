@@ -27,12 +27,14 @@ import {
   type ConvexSchemaGraphTableSource,
 } from "./convexSchemaGraphModel";
 import { vaultTables } from "./model";
+import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
 
 const { array, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
 type ConvexSchemaRefreshTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
   deployment: Doc<"vaultConvexDeployments">;
+  teamId: string;
   token: string;
 };
 type ConvexSystemQueryResponse = {
@@ -84,6 +86,7 @@ const vConnectedConvexDeployment = vaultTables.vaultConvexDeployments.validator.
 
 const vConvexSchemaRefreshTarget = object({
   token: string(),
+  teamId: string(),
   authMethod: vConvexProviderAuthMethod,
   deployment: vConnectedConvexDeployment,
 });
@@ -98,8 +101,6 @@ const vConvexSchemaGraphDeploymentOption = object({
   _id: id("vaultConvexDeployments"),
   appRoot: string(),
   deploymentName: string(),
-  projectSlug: string(),
-  teamSlug: string(),
 });
 
 const vConvexSchemaGraphSnapshotResult = object({
@@ -126,7 +127,6 @@ function compareDeploymentSortOrder(
   return (
     leftRootOrder - rightRootOrder ||
     left.appRoot.localeCompare(right.appRoot) ||
-    left.projectSlug.localeCompare(right.projectSlug) ||
     left.projectId.localeCompare(right.projectId)
   );
 }
@@ -171,8 +171,6 @@ function readDeploymentOption(deployment: Doc<"vaultConvexDeployments">) {
     _id: deployment._id,
     appRoot: deployment.appRoot,
     deploymentName: deployment.deploymentName,
-    projectSlug: deployment.projectSlug,
-    teamSlug: deployment.teamSlug,
   };
 }
 
@@ -1156,6 +1154,21 @@ export const refresh = action({
     let deployKey: string | null = null;
     let deployKeyName: string | null = null;
     try {
+      const [project, liveDeployment] = await Promise.all([
+        requestConvexManagementApi(target.token, "GET", "/projects/{project_id}", {
+          params: { path: { project_id: target.deployment.projectId } },
+        }),
+        requestConvexManagementApi(target.token, "GET", "/deployments/{deployment_name}", {
+          params: { path: { deployment_name: target.deployment.deploymentName } },
+        }),
+      ]);
+      if (
+        project.teamId !== target.teamId ||
+        !isConvexCloudDeployment(liveDeployment) ||
+        liveDeployment.projectId !== target.deployment.projectId
+      ) {
+        throw new Error("Convex deployment is no longer attached to this project.");
+      }
       const createdDeployKey = await createConvexInspectionDeployKey({
         authMethod: target.authMethod,
         deploymentName: target.deployment.deploymentName,
@@ -1165,7 +1178,7 @@ export const refresh = action({
       deployKeyName = createdDeployKey.name;
       const fetched = await fetchConvexSchemaGraph({
         deployKey,
-        deploymentUrl: target.deployment.cloudUrl,
+        deploymentUrl: liveDeployment.deploymentUrl,
       });
       const graph = fetched.graph;
       const snapshotId = await ctx.runMutation(internal.vault.convexSchemaGraph.recordSnapshot, {
@@ -1236,6 +1249,7 @@ export const readRefreshTarget = internalQuery({
 
     return {
       token,
+      teamId: connection.teamId,
       authMethod: connection.auth.method,
       deployment,
     };
@@ -1291,9 +1305,6 @@ export const recordSnapshot = internalMutation({
       await ctx.db.patch(latestSnapshot._id, {
         fetchedAt: args.fetchedAt,
       });
-      await ctx.db.patch(args.deploymentId, {
-        lastObservedAt: args.fetchedAt,
-      });
       await pruneSchemaSnapshots(ctx, args.deploymentId);
       return latestSnapshot._id;
     }
@@ -1309,9 +1320,6 @@ export const recordSnapshot = internalMutation({
       declaredSchemaJson: args.declaredSchemaJson,
       inferredSchemaJson: args.inferredSchemaJson,
       fetchedAt: args.fetchedAt,
-    });
-    await ctx.db.patch(args.deploymentId, {
-      lastObservedAt: args.fetchedAt,
     });
     await pruneSchemaSnapshots(ctx, args.deploymentId);
     return snapshotId;

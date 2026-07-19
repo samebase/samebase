@@ -67,14 +67,15 @@ function buildVaultBranchProductionUrlLabel(url: string): string {
 export function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
   const cloudflareLinks: VaultBranchProductionLinkInput[] = vault.cloudflareWorkers.flatMap(
     (worker) => {
-      if (worker.upstream.state !== "present" || !worker.workersDevUrl) {
+      if (worker.observation.state !== "available" || !worker.observation.workersDevUrl) {
         return [];
       }
+      const workersDevUrl = worker.observation.workersDevUrl;
       return [
         {
           appRoot: worker.appRoot,
-          href: worker.workersDevUrl,
-          label: buildVaultBranchProductionUrlLabel(worker.workersDevUrl),
+          href: workersDevUrl,
+          label: buildVaultBranchProductionUrlLabel(workersDevUrl),
           provider: "cloudflare",
           sortKey: worker.workerName,
           title:
@@ -87,13 +88,17 @@ export function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranc
   );
   const convexLinks: VaultBranchProductionLinkInput[] = vault.convexDeployments.flatMap(
     (deployment) => {
-      if (deployment.upstream.state !== "present" || !deployment.deploymentDashboardUrl) {
+      if (
+        deployment.observation.state !== "available" ||
+        !deployment.observation.deploymentDashboardUrl
+      ) {
         return [];
       }
+      const deploymentDashboardUrl = deployment.observation.deploymentDashboardUrl;
       return [
         {
           appRoot: deployment.appRoot,
-          href: deployment.deploymentDashboardUrl,
+          href: deploymentDashboardUrl,
           label: `Production: ${deployment.deploymentName}`,
           provider: "convex",
           sortKey: deployment.deploymentName,

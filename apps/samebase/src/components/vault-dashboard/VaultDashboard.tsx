@@ -146,6 +146,7 @@ import {
   type VaultBranchProductionApp,
   type VaultBranchProductionLinkProvider,
 } from "@/components/vault-dashboard/vaultProductionApps";
+import { useVaultProviderResourceObservations } from "@/hooks/useVaultProviderResourceObservations";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const VAULT_BRANCH_INITIAL_PAGE_SIZE = 25;
@@ -3428,7 +3429,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const storedVaults = useQuery(api.vault.dashboard.getUserVaults);
+  const vaults = useVaultProviderResourceObservations(storedVaults);
   const selectedVault = useMemo(() => {
     if (!vaults || vaults.length === 0) {
       return null;

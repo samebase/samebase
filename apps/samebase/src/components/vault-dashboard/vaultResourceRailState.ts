@@ -108,11 +108,15 @@ function hasCurrentMissingCloudflareBuildsTriggerFailure(
   worker: VaultDashboardVault["cloudflareWorkers"][number],
 ): boolean {
   const providerSetup = vault.providerSetup;
+  const observedAt =
+    worker.observation.state === "not_requested" || worker.observation.state === "loading"
+      ? 0
+      : worker.observation.observedAt;
   return (
     providerSetup.status === "failed" &&
     providerSetup.step === "wire_convex_build_access" &&
     providerSetup.message.includes("Retry Workers Builds wiring") &&
-    providerSetup.updatedAt >= worker.lastObservedAt
+    providerSetup.updatedAt >= observedAt
   );
 }
 
@@ -343,11 +347,18 @@ export function buildVaultDashboardResourceRailState({
     const rootConvexDeployment = vault.convexDeployments.find(
       (deployment) => deployment.appRoot === ".",
     );
+    const rootConvexObservation = rootConvexDeployment?.observation;
     convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "failed",
-      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
-      scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
+      value:
+        rootConvexObservation?.state === "available"
+          ? rootConvexObservation.projectSlug
+          : (rootConvexDeployment?.deploymentName ?? vault.ghRepoName),
+      scope:
+        rootConvexObservation?.state === "available"
+          ? normalizeResourceScope(rootConvexObservation.teamSlug)
+          : undefined,
       actions:
         vault.providerSetup.source === "manual" && canConfigureRootAppRoot
           ? [buildAddConvexAction(".")]
@@ -361,28 +372,50 @@ export function buildVaultDashboardResourceRailState({
     const rootConvexDeployment = vault.convexDeployments.find(
       (deployment) => deployment.appRoot === ".",
     );
+    const rootConvexObservation = rootConvexDeployment?.observation;
     convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "running",
-      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
-      scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
+      value:
+        rootConvexObservation?.state === "available"
+          ? rootConvexObservation.projectSlug
+          : (rootConvexDeployment?.deploymentName ?? vault.ghRepoName),
+      scope:
+        rootConvexObservation?.state === "available"
+          ? normalizeResourceScope(rootConvexObservation.teamSlug)
+          : undefined,
     });
   } else {
     const sortedConvexDeployments = [...vault.convexDeployments].sort(
       (left, right) =>
         compareAppRoots(left.appRoot, right.appRoot) ||
-        left.projectSlug.localeCompare(right.projectSlug) ||
+        (left.observation.state === "available"
+          ? left.observation.projectSlug
+          : left.projectId
+        ).localeCompare(
+          right.observation.state === "available" ? right.observation.projectSlug : right.projectId,
+        ) ||
         left.projectId.localeCompare(right.projectId),
     );
     for (const deployment of sortedConvexDeployments) {
-      if (deployment.upstream.state === "missing_upstream") {
+      if (
+        deployment.observation.state === "not_requested" ||
+        deployment.observation.state === "loading"
+      ) {
+        convexRowsByAppRoot.set(deployment.appRoot, {
+          provider: "convex",
+          status: "running",
+          value: deployment.deploymentName,
+        });
+        continue;
+      }
+      if (deployment.observation.state === "missing" || deployment.observation.state === "failed") {
         convexRowsByAppRoot.set(deployment.appRoot, {
           provider: "convex",
           status: "failed",
-          value: deployment.projectSlug,
-          scope: normalizeResourceScope(deployment.teamSlug),
+          value: deployment.deploymentName,
           actions: [
-            deployment.upstream.nextAction === "retry_infrastructure_provisioning"
+            deployment.origin === "provisioned"
               ? buildRetryInfrastructureAction()
               : buildAddConvexAction(deployment.appRoot),
           ],
@@ -392,9 +425,9 @@ export function buildVaultDashboardResourceRailState({
       convexRowsByAppRoot.set(deployment.appRoot, {
         provider: "convex",
         status: "ready",
-        value: deployment.projectSlug,
-        scope: normalizeResourceScope(deployment.teamSlug),
-        href: deployment.projectSettingsDashboardUrl,
+        value: deployment.observation.projectSlug,
+        scope: normalizeResourceScope(deployment.observation.teamSlug),
+        href: deployment.observation.projectSettingsDashboardUrl,
       });
     }
   }
@@ -445,17 +478,21 @@ export function buildVaultDashboardResourceRailState({
         left.workerName.localeCompare(right.workerName),
     );
     for (const worker of sortedCloudflareWorkers) {
-      if (worker.upstream.state === "missing_upstream") {
+      if (worker.observation.state === "not_requested" || worker.observation.state === "loading") {
+        cloudflareRowsByAppRoot.set(worker.appRoot, {
+          provider: "cloudflare",
+          status: "running",
+          value: worker.workerName,
+        });
+        continue;
+      }
+      if (worker.observation.state === "missing" || worker.observation.state === "failed") {
         cloudflareRowsByAppRoot.set(worker.appRoot, {
           provider: "cloudflare",
           status: "failed",
           value: worker.workerName,
-          scope: resolveCloudflareWorkersSubdomain({
-            workersDevUrl: worker.workersDevUrl,
-            workerName: worker.workerName,
-          }),
           actions: [
-            worker.upstream.nextAction === "retry_infrastructure_provisioning"
+            worker.origin === "provisioned"
               ? buildRetryInfrastructureAction()
               : buildAddCloudflareWorkerAction(worker.appRoot),
           ],
@@ -471,13 +508,14 @@ export function buildVaultDashboardResourceRailState({
       );
       if (
         canRepairCloudflareWorkers &&
-        (worker.githubRepositoryConnection.state === "not_connected" || missingBuildsTriggerFailure)
+        (worker.observation.githubRepositoryConnection === "not_connected" ||
+          missingBuildsTriggerFailure)
       ) {
         cloudflareDescription = missingBuildsTriggerFailure
           ? "Cloudflare's saved Workers Builds trigger is missing."
           : "Cloudflare is not connected to this GitHub repository.";
         cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.appRoot);
-      } else if (canRepairCloudflareWorkers && worker.convexDeployKeys.state === "missing") {
+      } else if (canRepairCloudflareWorkers && worker.observation.convexDeployKeys === "missing") {
         cloudflareDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
         cloudflareAction = buildSetCloudflareConvexDeployKeysAction(worker.appRoot);
       }
@@ -503,7 +541,7 @@ export function buildVaultDashboardResourceRailState({
         status: "ready",
         value: worker.workerName,
         scope: resolveCloudflareWorkersSubdomain({
-          workersDevUrl: worker.workersDevUrl,
+          workersDevUrl: worker.observation.workersDevUrl,
           workerName: worker.workerName,
         }),
         href: worker.projectDashboardUrl,

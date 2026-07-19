@@ -9,23 +9,11 @@ import {
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../appProvisioningModel";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-import {
-  isVaultProviderUpstreamPresent,
-  vVaultConvexOrigin,
-  VAULT_PROVIDER_UPSTREAM_PRESENT,
-} from "./model";
+import { vVaultConvexOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
 const CONVEX_CONNECTION_STALE_MS = 10 * 60 * 1000;
-const CONVEX_DEPLOY_KEYS_NOT_CREATED = {
-  production: { state: "not_created" },
-  preview: { state: "not_created" },
-} as const;
-const CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED = {
-  state: "not_ensured",
-} as const;
-
 const createdConvexProjectValidator = object({
   projectName: string(),
   projectId: string(),
@@ -123,7 +111,7 @@ async function assertNoExistingConvexDeploymentTarget(
   },
 ): Promise<void> {
   const existingAppRootDeployment = await readConvexDeploymentForAppRoot(ctx, args);
-  if (existingAppRootDeployment && isVaultProviderUpstreamPresent(existingAppRootDeployment)) {
+  if (existingAppRootDeployment) {
     throw new Error("Vault already has a Convex deployment for this app root.");
   }
   if (args.projectId) {
@@ -131,12 +119,7 @@ async function assertNoExistingConvexDeploymentTarget(
       vaultId: args.vaultId,
       projectId: args.projectId,
     });
-    if (
-      existingProject &&
-      (isVaultProviderUpstreamPresent(existingProject) ||
-        !existingAppRootDeployment ||
-        existingProject._id !== existingAppRootDeployment._id)
-    ) {
+    if (existingProject) {
       throw new Error("Convex project is already attached to this vault.");
     }
   }
@@ -358,9 +341,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
       }),
     ]);
     return {
-      active:
-        (!deployment || !isVaultProviderUpstreamPresent(deployment)) &&
-        runHoldsConvexProvisioningWriteLock(writeLock, { runId: args.runId }),
+      active: !deployment && runHoldsConvexProvisioningWriteLock(writeLock, { runId: args.runId }),
     };
   },
 });
@@ -426,18 +407,9 @@ export const attachDeploymentForRun = internalMutation({
     if (existingAppRootDeployment) {
       await ctx.db.patch(existingAppRootDeployment._id, {
         projectId: args.convex.convexProjectId,
-        teamSlug: args.convex.convexTeamSlug,
-        projectSlug: args.convex.convexProjectSlug,
         deploymentName: args.convex.convexDeploymentName,
-        deploymentType: args.convex.convexDeploymentType,
-        cloudUrl: args.convex.convexCloudUrl,
-        siteUrl: args.convex.convexSiteUrl,
-        previewDeployment: CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED,
-        deployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
         origin: args.origin,
-        upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
         connectedAt: now,
-        lastObservedAt: now,
       });
       await appendConvexDeploymentConnectionEvent(ctx, {
         runId: args.runId,
@@ -455,18 +427,9 @@ export const attachDeploymentForRun = internalMutation({
       userId: args.userId,
       appRoot,
       projectId: args.convex.convexProjectId,
-      teamSlug: args.convex.convexTeamSlug,
-      projectSlug: args.convex.convexProjectSlug,
       deploymentName: args.convex.convexDeploymentName,
-      deploymentType: args.convex.convexDeploymentType,
-      cloudUrl: args.convex.convexCloudUrl,
-      siteUrl: args.convex.convexSiteUrl,
-      previewDeployment: CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED,
-      deployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
       origin: args.origin,
-      upstream: VAULT_PROVIDER_UPSTREAM_PRESENT,
       connectedAt: now,
-      lastObservedAt: now,
     });
     await appendConvexDeploymentConnectionEvent(ctx, {
       runId: args.runId,
@@ -577,7 +540,7 @@ export const finishConvexDeploymentConnection = internalMutation({
       vaultId: args.vaultId,
       appRoot,
     });
-    if (!deployment || !isVaultProviderUpstreamPresent(deployment)) {
+    if (!deployment) {
       throw new Error("Convex deployment connection did not attach a deployment.");
     }
 

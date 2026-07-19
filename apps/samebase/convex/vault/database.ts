@@ -10,6 +10,8 @@ import {
   deleteConvexDeploymentDeployKey,
   type ConvexDeployKeyAllowedAction,
 } from "./convexDeployKeys";
+import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
+import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
 
 const { literal, null: nullValue, object, string, union } = v;
 
@@ -158,6 +160,37 @@ export const createEmbeddedDashboardCredentials = action({
       return context;
     }
 
+    let deploymentUrl: string;
+    try {
+      const [project, deployment] = await Promise.all([
+        requestConvexManagementApi(
+          context.convexConnection.auth.credential,
+          "GET",
+          "/projects/{project_id}",
+          { params: { path: { project_id: context.deployment.projectId } } },
+        ),
+        requestConvexManagementApi(
+          context.convexConnection.auth.credential,
+          "GET",
+          "/deployments/{deployment_name}",
+          { params: { path: { deployment_name: context.deployment.deploymentName } } },
+        ),
+      ]);
+      if (
+        project.teamId !== context.convexConnection.teamId ||
+        !isConvexCloudDeployment(deployment) ||
+        deployment.projectId !== context.deployment.projectId
+      ) {
+        return { kind: "missing_deployment" };
+      }
+      deploymentUrl = deployment.deploymentUrl;
+    } catch (error) {
+      if (isConvexManagementNotFoundError(error)) {
+        return { kind: "missing_deployment" };
+      }
+      throw error;
+    }
+
     const expiresAt = Date.now() + EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS;
     const deployKeyName = buildEmbeddedDashboardDeployKeyName({
       deploymentName: context.deployment.deploymentName,
@@ -174,7 +207,7 @@ export const createEmbeddedDashboardCredentials = action({
 
     return {
       kind: "ready",
-      deploymentUrl: context.deployment.cloudUrl,
+      deploymentUrl,
       deploymentName: context.deployment.deploymentName,
       deployKeyName,
       adminKey: deployKey,

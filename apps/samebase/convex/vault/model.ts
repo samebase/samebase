@@ -367,12 +367,8 @@ export const vaultTables = {
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
-    upstream: optional(vVaultProviderUpstreamPresence),
-    deployment: vVaultCloudflareDeployment,
     connectedAt: number(),
-    lastObservedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
@@ -385,34 +381,16 @@ export const vaultTables = {
     userId: id("users"),
     appRoot: string(),
     projectId: string(),
-    teamSlug: string(),
-    projectSlug: string(),
     deploymentName: string(),
-    deploymentType: literal("prod"),
-    cloudUrl: string(),
-    siteUrl: string(),
-    previewDeployment: union(
-      object({
-        state: literal("not_ensured"),
-      }),
-      object({
-        state: literal("ready"),
-        deploymentName: string(),
-        cloudUrl: string(),
-      }),
-    ),
-    deployKeys: vConvexDeployKeys,
     origin: vVaultConvexOrigin,
-    upstream: optional(vVaultProviderUpstreamPresence),
     connectedAt: number(),
-    lastObservedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
     .index("by_vault_and_project", ["vaultId", "projectId"]),
 
-  /** Branch-to-domain mappings observed or provisioned for a vault. */
+  /** Branch-to-domain mappings retained until live build observations replace branch preview readers. */
   vaultDomains: defineTable({
     vaultId: id("vaults"),
     branch: string(),
