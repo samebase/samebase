@@ -8,7 +8,7 @@ import {
   type McpAuthorizationSuccessSearchParams,
 } from "../../shared/mcpOAuth";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
-import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "../schema";
+import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./model";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import { revokeActiveMcpGrant } from "./grants";
 import {
@@ -307,7 +307,7 @@ export const getClientByClientId = internalQuery({
 
 export const createAuthRequest = internalMutation({
   args: createAuthRequestArgsValidator,
-  returns: id("mcpAuthRequests"),
+  returns: id("mcpAuthorizationRequests"),
   handler: async (ctx, args: CreateAuthRequestArgs) => {
     if (args.userId) {
       const user = await ctx.db.get(args.userId);
@@ -317,7 +317,7 @@ export const createAuthRequest = internalMutation({
       }
     }
 
-    return await ctx.db.insert("mcpAuthRequests", {
+    return await ctx.db.insert("mcpAuthorizationRequests", {
       requestId: args.requestId,
       clientId: args.clientId,
       redirectUri: args.redirectUri,
@@ -343,7 +343,7 @@ export const getAuthorizationRequestForCurrentUser = query({
     args: GetAuthorizationRequestForCurrentUserArgs,
   ): Promise<GetAuthorizationRequestForCurrentUserResult> => {
     const authRequest = await ctx.db
-      .query("mcpAuthRequests")
+      .query("mcpAuthorizationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .first();
     if (!authRequest) {
@@ -388,7 +388,7 @@ export const hasActiveGrantForAuthRequest = internalQuery({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const authRequest = await ctx.db
-      .query("mcpAuthRequests")
+      .query("mcpAuthorizationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .first();
     if (!authRequest) {
@@ -410,7 +410,7 @@ export const hasActiveGrantForAuthRequest = internalQuery({
 
 export const expireAuthRequest = internalMutation({
   args: {
-    authRequestId: id("mcpAuthRequests"),
+    authRequestId: id("mcpAuthorizationRequests"),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -434,7 +434,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
   ): Promise<IssueAuthorizationCodeForAuthRequestResult> => {
     const allowLoopbackHttpRedirectUris = args.allowLoopbackHttpRedirectUris === true;
     const authRequest = await ctx.db
-      .query("mcpAuthRequests")
+      .query("mcpAuthorizationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .first();
     if (!authRequest) {
@@ -569,7 +569,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       userId: args.userId,
     });
 
-    await ctx.db.insert("mcpAccessAudit", {
+    await ctx.db.insert("audit_mcpAccess_events", {
       grantId,
       clientId: authRequest.clientId,
       userId: args.userId,
@@ -596,7 +596,7 @@ export const denyAuthorizationRequest = internalMutation({
     args: DenyAuthorizationRequestArgs,
   ): Promise<DenyAuthorizationRequestResult> => {
     const authRequest = await ctx.db
-      .query("mcpAuthRequests")
+      .query("mcpAuthorizationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .first();
     if (!authRequest) {
@@ -636,7 +636,7 @@ export const denyAuthorizationRequest = internalMutation({
       userId: args.userId,
     });
 
-    await ctx.db.insert("mcpAccessAudit", {
+    await ctx.db.insert("audit_mcpAccess_events", {
       clientId: authRequest.clientId,
       userId: args.userId,
       action: "authorization_denied",
@@ -770,7 +770,7 @@ export const exchangeAuthorizationCode = internalMutation({
     }
 
     const authRequest = await ctx.db
-      .query("mcpAuthRequests")
+      .query("mcpAuthorizationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", authorizationCode.requestId))
       .first();
     if (!authRequest) {
@@ -901,7 +901,7 @@ export const exchangeAuthorizationCode = internalMutation({
       updatedAt: args.now,
     });
 
-    await ctx.db.insert("mcpAccessAudit", {
+    await ctx.db.insert("audit_mcpAccess_events", {
       grantId: grant.grantId,
       clientId: grant.clientId,
       userId: grant.userId,
@@ -1069,7 +1069,7 @@ export const exchangeRefreshToken = internalMutation({
       lastUsedAt: args.now,
     });
 
-    await ctx.db.insert("mcpAccessAudit", {
+    await ctx.db.insert("audit_mcpAccess_events", {
       grantId: grant.grantId,
       clientId: grant.clientId,
       userId: grant.userId,

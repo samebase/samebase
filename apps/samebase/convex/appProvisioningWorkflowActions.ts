@@ -11,7 +11,7 @@ import type {
   AppProvisioningEventLevel,
   AppProvisioningRunState,
   AppProvisioningStep,
-} from "./schema";
+} from "./appProvisioningModel";
 import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
 import {
   formatProviderApiCallLogMessage,
@@ -75,8 +75,8 @@ function readRepositoryCoordinates(args: { ownerName: string; repoName: string }
 
 async function getProvisioningRun(
   ctx: Pick<ActionCtx, "runQuery">,
-  runId: Id<"appProvisioningRuns">,
-): Promise<Doc<"appProvisioningRuns">> {
+  runId: Id<"workflow_vaultProvisioning_runs">,
+): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await ctx.runQuery(internal.appProvisioningRuns.getById, {
     runId,
   });
@@ -106,7 +106,7 @@ async function resolveGitHubOctokit(
 async function appendRunEvent(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
     level: AppProvisioningEventLevel;
     message: string;
@@ -119,7 +119,7 @@ async function appendRunEvent(
 async function appendProviderApiCallEvent(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
     call: ProviderApiCall;
   },
@@ -145,7 +145,7 @@ async function appendProviderApiCallEvent(
 function createProviderApiCallRecorder(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
   },
 ): ProviderApiCallRecorder {
@@ -162,10 +162,10 @@ async function assertCreateRun(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await getProvisioningRun(ctx, args.runId);
   if (run.userId !== args.userId || run.trigger !== "create" || run.vaultId !== args.vaultId) {
     throw new Error("Provisioning run does not match create workflow.");
@@ -177,10 +177,10 @@ async function assertConnectExistingRepositoryRun(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await getProvisioningRun(ctx, args.runId);
   if (
     run.userId !== args.userId ||
@@ -196,10 +196,10 @@ async function assertSourceSetupRun(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     vaultId: Id<"vaults">;
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await getProvisioningRun(ctx, args.runId);
   if (
     run.userId !== args.userId ||
@@ -214,7 +214,7 @@ async function assertSourceSetupRun(
 export const validateCreateAppConnections = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     repositoryName: string(),
     repositoryOwner: string(),
@@ -276,7 +276,7 @@ export const validateCreateAppConnections = internalAction({
 export const createGitHubRepository = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     repositoryName: string(),
     repositoryOwner: string(),
@@ -377,7 +377,7 @@ export const createGitHubRepository = internalAction({
 export const validateExistingRepositoryConnection = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ownerName: string(),
     repoName: string(),
@@ -418,7 +418,7 @@ export const validateExistingRepositoryConnection = internalAction({
 export const fetchExistingGitHubRepository = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ownerName: string(),
     repoName: string(),
@@ -506,7 +506,7 @@ export const fetchExistingGitHubRepository = internalAction({
 export const seedStarterRepository = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ownerName: string(),
     repoName: string(),
@@ -562,7 +562,7 @@ export const seedStarterRepository = internalAction({
 export const createVaultForRepository = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ghRepoId: string(),
     ownerName: string(),
@@ -607,7 +607,7 @@ export const createVaultForRepository = internalAction({
 export const connectExistingRepositoryVault = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ghRepoId: string(),
     ownerName: string(),
@@ -652,7 +652,7 @@ export const connectExistingRepositoryVault = internalAction({
 export const syncVaultTreeForRepository = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ownerName: string(),
     repoName: string(),
@@ -740,7 +740,7 @@ export const syncVaultTreeForRepository = internalAction({
 export const finishExistingRepositoryConnection = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
   },
   returns: v.null(),

@@ -62,7 +62,7 @@ This works but is expensive and produces noisy raw payloads for small changes.
 Noter already has a concrete collaborative editing protocol:
 
 - `fileStaging.version` stores the current document version.
-- `collaborativeUpdates.changes` stores serialized CodeMirror `ChangeSet` JSON.
+- `vaultStagedFileUpdates.changes` stores serialized CodeMirror `ChangeSet` JSON.
 - Editors send `changes.toJSON()` to Convex.
 - Convex reconstructs updates with `ChangeSet.fromJSON(...)`.
 
@@ -178,7 +178,7 @@ type ReplaceInFileInput = {
 
 `replace_in_file` resolves against the same content source the current AI tools use:
 
-1. If the file already exists in `fileStaging`, use staged content.
+1. If the file already exists in `vaultStagedFiles`, use staged content.
 2. Otherwise, read repository content for the current branch/path.
 
 This preserves the existing Noter behavior where staged edits are the live working copy seen by the
@@ -215,13 +215,13 @@ After all replacements are resolved:
 
 If the file is already staged/open:
 
-- Insert a `collaborativeUpdates` row with serialized `ChangeSet` JSON.
+- Insert a `vaultStagedFileUpdates` row with serialized `ChangeSet` JSON.
 - Increment `fileStaging.version`.
 - Update staged content by applying the same `ChangeSet`.
 
 If the file is not yet staged:
 
-- Create or update the `fileStaging` row with the final content.
+- Create or update the `vaultStagedFiles` row with the final content.
 - Preserve the existing initial content and branch metadata.
 - Starting version remains `0` unless a collaborative stream already exists.
 

@@ -134,7 +134,8 @@ remains available through the explicit vault delete path for provisioned resourc
 
 ## Durable Execution
 
-Manual Convex attach/create uses `appProvisioningRuns` with trigger `connect_convex_deployment`.
+Manual Convex attach/create uses `workflow_vaultProvisioning_runs` with trigger
+`connect_convex_deployment`.
 
 The run is intentionally narrow:
 

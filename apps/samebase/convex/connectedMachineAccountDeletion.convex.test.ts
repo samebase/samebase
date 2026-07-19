@@ -79,7 +79,7 @@ describe("connected machine account deletion access", () => {
         userId: ids.userId,
         expirationTime: now + 60_000,
       });
-      const runId = await ctx.db.insert("accountDeletionRuns", {
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: {
           state: "active",
           userId: ids.userId,

@@ -213,10 +213,10 @@ treat it as self-reported.
 
 ## Proposed Backend Model
 
-Add a table for handoff rows:
+Add a table of browser-login tokens:
 
 ```ts
-agentBrowserHandoffs: defineTable({
+mcpBrowserLoginTokens: defineTable({
   tokenHash: v.string(),
   userId: v.id("users"),
   grantId: v.string(),
@@ -251,7 +251,7 @@ Unknown tokens and repeated presentations of already-terminal tokens must return
 without inserting an audit row. Otherwise an attacker can turn random-token or replay traffic into
 an unbounded database write stream.
 
-Reuse `mcpAccessAudit` for these events with new `action` strings and reason details in
+Reuse `audit_mcpAccess_events` for these events with new `action` strings and reason details in
 `detailsJson`. Do not add a parallel audit table. Audit rows should include `userId`, `clientId`,
 `grantId`, event time, and a reason code. Do not store raw tokens, full URLs, full user-agent
 strings, or provider credentials in audit fields.
@@ -281,7 +281,7 @@ The provider must not create new users. A valid handoff is always tied to an exi
 The provider should validate in this order:
 
 1. Parse and hash the presented handoff token.
-2. Find a live handoff row by `tokenHash`.
+2. Find a live browser-login token by `tokenHash`.
 3. Reject expired or consumed rows.
 4. Load and validate the user.
 5. Load and validate the MCP grant.
@@ -364,10 +364,10 @@ internals.
 
 ### Rate Limiting
 
-Convex limits browser handoff creation to ten rows per grant in a rolling five-minute window. Rows
-remain until their five-minute expiry even after consumption, so consuming links cannot reopen the
-budget. Redemption rejects malformed token shapes before hashing; unknown and repeated tokens do an
-indexed read without writing audit or state rows.
+Convex limits browser handoff creation to ten tokens per grant in a rolling five-minute window.
+Tokens remain until their five-minute expiry even after consumption, so consuming links cannot
+reopen the budget. Redemption rejects malformed token shapes before hashing; unknown and repeated
+tokens do an indexed read without writing audit or state rows.
 
 Per-IP limits for MCP dynamic registration, authorize, and token exchange belong at the Cloudflare
 front door. Convex HTTP actions and the Convex Auth action do not expose a trustworthy source IP to

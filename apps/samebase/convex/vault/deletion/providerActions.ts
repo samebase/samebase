@@ -34,8 +34,8 @@ const providerStepRetryMessage = {
 
 async function getDeletionRun(
   ctx: Pick<ActionCtx, "runQuery">,
-  runId: Id<"vaultDeletionRuns">,
-): Promise<Doc<"vaultDeletionRuns">> {
+  runId: Id<"workflow_vaultDeletion_runs">,
+): Promise<Doc<"workflow_vaultDeletion_runs">> {
   const run = await ctx.runQuery(internal.vault.deletion.runs.getById, {
     runId,
   });
@@ -47,7 +47,7 @@ async function getDeletionRun(
 
 async function getDeletionPlan(
   ctx: Pick<ActionCtx, "runQuery">,
-  runId: Id<"vaultDeletionRuns">,
+  runId: Id<"workflow_vaultDeletion_runs">,
 ): Promise<VaultDeletionPlan> {
   const run = await getDeletionRun(ctx, runId);
   return readRetainedSnapshot(run).plan;
@@ -56,7 +56,7 @@ async function getDeletionPlan(
 async function appendRunEvent(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    runId: Id<"vaultDeletionRuns">;
+    runId: Id<"workflow_vaultDeletion_runs">;
     step: VaultDeletionStep;
     level: VaultDeletionEventLevel;
     message: string;
@@ -88,7 +88,7 @@ async function resolveGitHubOctokit(
 export const deleteConnectedCodespaces = internalAction({
   args: {
     vaultId: id("vaults"),
-    runId: id("vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     userId: id("users"),
   },
   returns: v.null(),
@@ -153,7 +153,7 @@ export const deleteConnectedCodespaces = internalAction({
 
 export const deleteCloudflare = internalAction({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     userId: id("users"),
   },
   returns: v.null(),
@@ -207,7 +207,7 @@ export const deleteCloudflare = internalAction({
 
 export const deleteConvex = internalAction({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     userId: id("users"),
   },
   returns: v.null(),
@@ -285,7 +285,7 @@ export const deleteConvex = internalAction({
 
 export const deleteGitHubRepository = internalAction({
   args: {
-    runId: id("vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     userId: id("users"),
   },
   returns: v.null(),

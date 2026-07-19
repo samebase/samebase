@@ -5,7 +5,7 @@ import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";
 import { requestCloudflareApi, type CloudflareApiTransport } from "./cloudflareApi/client";
-import { vCloudflareDefaultAccount } from "./schema";
+import { vCloudflareDefaultAccount } from "./providerConnectionModel";
 
 const vCloudflareApiTransport = v.union(v.literal("mcp"), v.literal("direct"));
 

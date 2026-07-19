@@ -99,17 +99,17 @@ Convex state:
 - Do not keep optional old-row normalization in query handlers.
 - Do not preserve unknown missing fields for old clients in mutations.
 - Before deploying a required schema against existing data, clear or patch the existing
-  `workspaceSidebarState` rows once. That operational cleanup replaces a widen-migrate-narrow
+  `ui_workspaceSidebar_layouts` rows once. That operational cleanup replaces a widen-migrate-narrow
   rollout for this one-user state.
 
 Operational cleanup:
 
 - Owner: the release operator for this PR owns the one-time cleanup.
 - Timing: run it immediately before deploying the required Convex schema.
-- Approach: manually clear or patch every existing `workspaceSidebarState` row so each row has
+- Approach: manually clear or patch every existing `ui_workspaceSidebar_layouts` row so each row has
   `mobileSurface: { kind: "unmerged" }`; do not add app-level fallback code.
 - Verification: record the command in the deployment checklist, confirm the pre-deploy query finds
-  no `workspaceSidebarState` rows missing `mobileSurface`, and repeat the query after deploy.
+  no `ui_workspaceSidebar_layouts` rows missing `mobileSurface`, and repeat the query after deploy.
 
 Local storage state:
 

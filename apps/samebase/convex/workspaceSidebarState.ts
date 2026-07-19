@@ -4,7 +4,7 @@ import {
   vWorkspaceSidebarStateKey,
   vWorkspaceSidebarState,
   type WorkspaceSidebarState,
-} from "./workspaceSidebarStateModel";
+} from "./userPreferenceModel";
 
 const { object, union } = v;
 
@@ -36,7 +36,7 @@ export const getWorkspaceSidebarState = query({
     }
 
     const existing = await ctx.db
-      .query("workspaceSidebarState")
+      .query("ui_workspaceSidebar_layouts")
       .withIndex("by_user_and_workspace_key", (q) =>
         q.eq("userId", userId).eq("workspaceKey", args.workspaceKey),
       )
@@ -59,7 +59,7 @@ export const setWorkspaceSidebarState = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const existing = await ctx.db
-      .query("workspaceSidebarState")
+      .query("ui_workspaceSidebar_layouts")
       .withIndex("by_user_and_workspace_key", (q) =>
         q.eq("userId", ctx.viewer.userId).eq("workspaceKey", args.workspaceKey),
       )
@@ -74,7 +74,7 @@ export const setWorkspaceSidebarState = mutation({
       return;
     }
 
-    await ctx.db.insert("workspaceSidebarState", {
+    await ctx.db.insert("ui_workspaceSidebar_layouts", {
       userId: ctx.viewer.userId,
       workspaceKey: args.workspaceKey,
       ...nextState,

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTree } from "../../convex/schema";
+import { type GithubTree } from "../../convex/vault/model";
 import { buildProjectFilesCacheKey } from "@/lib/editorCacheKeys";
 import {
   getCachedProjectFiles,

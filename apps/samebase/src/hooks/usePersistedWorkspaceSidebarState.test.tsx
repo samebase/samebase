@@ -4,7 +4,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 
 let mockedQueryState: WorkspaceSidebarState | null | undefined = undefined;
 const mockedMutation = vi.fn(async () => null);

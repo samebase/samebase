@@ -14,7 +14,7 @@ import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
-import type { AppProvisioningStep } from "./schema";
+import type { AppProvisioningStep } from "./appProvisioningModel";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./vault/state";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
@@ -304,7 +304,7 @@ type ProvisioningEventCtx = {
 async function appendProvisioningRunEvent(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
@@ -327,32 +327,32 @@ async function appendProvisioningRunEvent(
   }
 }
 
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
-type ProvisioningOwnershipCtx = Pick<MutationCtx, "db">;
+type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
+type ProvisioningWriteLockCtx = Pick<MutationCtx, "db">;
 
-async function getVaultInfrastructureOwnership(
-  ctx: ProvisioningOwnershipCtx,
+async function readVaultProvisioningWriteLock(
+  ctx: ProvisioningWriteLockCtx,
   vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
+): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("workflow_vaultProvisioning_writeLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
 
-function isActiveProvisioningOwner(
-  ownership: VaultInfrastructureOwnership | null,
+function runHoldsProvisioningWriteLock(
+  writeLock: VaultProvisioningWriteLock | null,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): boolean {
-  return ownership?.runId === args.runId && ownership.state === "active";
+  return writeLock?.runId === args.runId && writeLock.state === "active";
 }
 
 async function cancelSupersededProvisioningRun(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
   },
 ): Promise<void> {
@@ -496,7 +496,7 @@ export const upsertDomainRecord = internalMutation({
 
 export const markWorkflowStartupFailed = internalMutation({
   args: {
-    runId: v.id("appProvisioningRuns"),
+    runId: v.id("workflow_vaultProvisioning_runs"),
     message: v.string(),
   },
   returns: v.null(),
@@ -537,7 +537,7 @@ export const markWorkflowStartupFailed = internalMutation({
 });
 
 function resolveWorkflowFailureEventStep(
-  run: Pick<Doc<"appProvisioningRuns">, "currentStep" | "trigger">,
+  run: Pick<Doc<"workflow_vaultProvisioning_runs">, "currentStep" | "trigger">,
 ): AppProvisioningStep {
   if (run.currentStep !== "run_created") {
     return run.currentStep;
@@ -553,7 +553,7 @@ async function recordWorkflowRunFailure(
   args: {
     eventStep: AppProvisioningStep;
     now: number;
-    run: Doc<"appProvisioningRuns">;
+    run: Doc<"workflow_vaultProvisioning_runs">;
     safeRunError: string;
   },
 ): Promise<void> {
@@ -668,7 +668,7 @@ function isCreateAppPreInfrastructureStep(step: string): boolean {
 
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
-    runId: v.id("appProvisioningRuns"),
+    runId: v.id("workflow_vaultProvisioning_runs"),
     workflowId: v.string(),
     message: v.string(),
   },
@@ -719,10 +719,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     if (run.trigger === "connect_convex_deployment") {
-      const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-      const ownsActiveClaim = isActiveProvisioningOwner(ownership, { runId: args.runId });
-      if (ownership && ownsActiveClaim) {
-        await ctx.db.patch(ownership._id, {
+      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
+      const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
+        runId: args.runId,
+      });
+      if (writeLock && holdsProvisioningWriteLock) {
+        await ctx.db.patch(writeLock._id, {
           state: "failed",
           updatedAt: now,
         });
@@ -748,9 +750,9 @@ export const markWorkflowProvisioningFailed = internalMutation({
       run.trigger === "wire_convex_build_access" ||
       run.trigger === "verify_infrastructure"
     ) {
-      const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-      if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
-        await ctx.db.patch(ownership._id, {
+      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
+      if (writeLock && runHoldsProvisioningWriteLock(writeLock, { runId: args.runId })) {
+        await ctx.db.patch(writeLock._id, {
           state: "failed",
           updatedAt: now,
         });
@@ -802,12 +804,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
-    const ownsActiveClaim = isActiveProvisioningOwner(ownership, {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
+    const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
       runId: args.runId,
     });
-    const failedBeforeClaim = run.currentStep === "run_created";
-    if (!ownsActiveClaim && !failedBeforeClaim) {
+    const failedBeforeLockAcquisition = run.currentStep === "run_created";
+    if (!holdsProvisioningWriteLock && !failedBeforeLockAcquisition) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: eventStep,
@@ -815,8 +817,8 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (ownsActiveClaim && ownership) {
-      await ctx.db.patch(ownership._id, {
+    if (holdsProvisioningWriteLock && writeLock) {
+      await ctx.db.patch(writeLock._id, {
         state: "failed",
         updatedAt: now,
       });

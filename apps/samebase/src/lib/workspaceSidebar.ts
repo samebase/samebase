@@ -1,4 +1,4 @@
-import type { WorkspaceMobileSidebarPane } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceMobileSidebarPane } from "../../convex/userPreferenceModel";
 
 export const MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO = 0.85;
 export const MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS = 1.25;

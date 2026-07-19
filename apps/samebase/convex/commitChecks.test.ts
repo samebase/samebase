@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  buildGitHubCommitCheckSnapshot,
+  buildGitHubCommitCheckSummary,
   normalizeCommitCheckRun,
   normalizeCommitCheckSnapshot,
   normalizeCommitStatus,
@@ -129,7 +129,7 @@ describe("normalizeCommitStatus", () => {
   });
 });
 
-describe("buildGitHubCommitCheckSnapshot", () => {
+describe("buildGitHubCommitCheckSummary", () => {
   it("summarizes check runs and commit statuses for the branch row", () => {
     const items = normalizeCommitCheckSnapshot({
       checkRuns: [
@@ -160,7 +160,7 @@ describe("buildGitHubCommitCheckSnapshot", () => {
     });
 
     expect(
-      buildGitHubCommitCheckSnapshot({
+      buildGitHubCommitCheckSummary({
         githubRepositoryId: "123",
         commitSha: "abc123",
         syncedAt: 1000,

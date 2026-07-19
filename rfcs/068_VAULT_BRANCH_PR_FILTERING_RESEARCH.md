@@ -260,7 +260,7 @@ strong signal to lean into a known model instead of inventing a new one.
 Add `pullRequestIsDraft` to the branch PR metadata pipeline:
 
 1. read `draft` from the GitHub pull request payload in `apps/noter/convex/github.ts`
-2. persist it into `vaultRemoteBranches`
+2. persist it into `observations_vaultRepository_branches`
 3. return it from `apps/noter/convex/vault.ts`
 4. expose it in the dashboard row props
 
@@ -314,13 +314,13 @@ Prefer storing the filter in Convex-backed synced state because the operator pre
 persistence over `localStorage`.
 
 Because this RFC proposes per-vault filtering, persistence must also be scoped per vault or
-repository. `dashboardSettings` is currently keyed only by user, so the implementation should not
+repository. `ui_user_settings` is currently keyed only by user, so the implementation should not
 store one global raw filter string there unless the product is explicitly reframed as a global
 dashboard filter.
 
 Reasonable shapes include:
 
-- a `dashboardSettings` map keyed by `vaultId` or `repositoryFullName`
+- a `ui_user_settings` map keyed by `vaultId` or `repositoryFullName`
 - a small dedicated per-user, per-vault filter table
 - a URL-owned filter with optional synced recent-history state
 

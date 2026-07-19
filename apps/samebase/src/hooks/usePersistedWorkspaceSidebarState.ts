@@ -9,7 +9,7 @@ import type {
 import type {
   WorkspaceSidebarState,
   WorkspaceSidebarStateKey,
-} from "../../convex/workspaceSidebarStateModel";
+} from "../../convex/userPreferenceModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 

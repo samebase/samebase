@@ -17,7 +17,7 @@ devices.
 
 **Data Model**
 
-- New table: `dashboardSettings`
+- New table: `ui_user_settings`
   - `userId`: `v.id("users")`
   - `providersPanelOpen`: `v.boolean()`
   - Optional: `updatedAt`: `v.number()` (if we want last-change tracking)

@@ -83,7 +83,7 @@ export const getDocument = query({
 
     // Check if there's staged content for this file
     const staging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -135,7 +135,7 @@ export const pullUpdates = query({
     }
 
     const updates = await ctx.db
-      .query("collaborativeUpdates")
+      .query("vaultStagedFileUpdates")
       .withIndex("by_vaultId_and_branch_and_filePath_and_version", (q) =>
         q
           .eq("vaultId", vault._id)
@@ -184,7 +184,7 @@ export const pushUpdates = mutation({
 
     // Get current staging record
     const staging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", vault._id).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -215,7 +215,7 @@ export const pushUpdates = mutation({
       currentVersion++;
 
       // Store the update for other clients to pull
-      const inserted = await ctx.db.insert("collaborativeUpdates", {
+      const inserted = await ctx.db.insert("vaultStagedFileUpdates", {
         vaultId: vault._id,
         branch: args.branch,
         filePath: args.filePath,
@@ -282,7 +282,7 @@ export const pushContentUpdate = internalMutation({
     await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId);
 
     const staging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -321,7 +321,7 @@ export const pushContentUpdate = internalMutation({
     );
 
     // Insert into the collaborative update stream so open editors pick it up
-    await ctx.db.insert("collaborativeUpdates", {
+    await ctx.db.insert("vaultStagedFileUpdates", {
       vaultId: args.vaultId,
       branch: args.branch,
       filePath: args.filePath,
@@ -371,7 +371,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId);
 
     const staging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -410,7 +410,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     const newVersion = currentVersion + 1;
     const timestamp = Date.now();
 
-    await ctx.db.insert("collaborativeUpdates", {
+    await ctx.db.insert("vaultStagedFileUpdates", {
       vaultId: args.vaultId,
       branch: args.branch,
       filePath: args.filePath,
@@ -459,7 +459,7 @@ export const pruneOldUpdates = internalMutation({
 
     // Grab a batch of old updates to delete (ascending version order).
     const oldUpdates = await ctx.db
-      .query("collaborativeUpdates")
+      .query("vaultStagedFileUpdates")
       .withIndex("by_vaultId_and_branch_and_filePath_and_version", (q) =>
         q
           .eq("vaultId", args.vaultId)
@@ -512,7 +512,7 @@ export const getActiveEditors = query({
     // Get recent updates (within last 30 seconds) to determine active editors.
     // Use .order("desc") and .take() to avoid scanning the entire update history.
     const recentUpdates = await ctx.db
-      .query("collaborativeUpdates")
+      .query("vaultStagedFileUpdates")
       .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )

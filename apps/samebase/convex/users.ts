@@ -16,7 +16,7 @@ import {
   vMcpTokenHealthStatus,
   type McpTokenHealth,
 } from "./mcpTokenHealth";
-import type { CloudflareDefaultAccount } from "./schema";
+import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 import { buildGitHubOAuthManageUrl, getGitHubOAuthScopeRequirements } from "../shared/githubOAuth";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,

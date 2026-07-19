@@ -1,3 +1,4 @@
+import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
 const { id, literal, number, object, string, union } = v;
@@ -48,11 +49,6 @@ export const vDashboardRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("dashboard"),
 });
-/**
- * Repository demand created by passive dashboard activation.
- * Route load, visibility resume, and window focus all collapse before Convex.
- */
-export type DashboardRepositoryRefreshDemand = Infer<typeof vDashboardRepositoryRefreshDemand>;
 
 /**
  * Manual vault-level refresh.
@@ -65,11 +61,6 @@ export const vManualRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("manual"),
 });
-/**
- * Repository demand created by an explicit dashboard refresh action.
- * It upgrades passive dashboard demand because the user requested it directly.
- */
-export type ManualRepositoryRefreshDemand = Infer<typeof vManualRepositoryRefreshDemand>;
 
 /**
  * GitHub repo create/connect flow finished.
@@ -81,7 +72,7 @@ export type ManualRepositoryRefreshDemand = Infer<typeof vManualRepositoryRefres
 export const vSourceSetupRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("source_setup"),
-  runId: id("appProvisioningRuns"),
+  runId: id("workflow_vaultProvisioning_runs"),
 });
 /**
  * Repository demand created by backend setup completion.
@@ -97,14 +88,9 @@ export type SourceSetupRepositoryRefreshDemand = Infer<typeof vSourceSetupReposi
  */
 export const vFileViewBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("file_view"),
+  branch: string(),
 });
-/**
- * Branch demand created by file-route activation.
- * The branch is required because file freshness is branch-specific.
- */
-export type FileViewBranchRefreshDemand = Infer<typeof vFileViewBranchRefreshDemand>;
 
 /**
  * Manual branch-level refresh.
@@ -114,14 +100,9 @@ export type FileViewBranchRefreshDemand = Infer<typeof vFileViewBranchRefreshDem
  */
 export const vManualBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("manual"),
+  branch: string(),
 });
-/**
- * Branch demand created by a direct branch refresh click.
- * It is separate from repository manual demand so dedupe includes the branch.
- */
-export type ManualBranchRefreshDemand = Infer<typeof vManualBranchRefreshDemand>;
 
 /**
  * Local commit finished for one branch.
@@ -130,13 +111,9 @@ export type ManualBranchRefreshDemand = Infer<typeof vManualBranchRefreshDemand>
  */
 export const vCommitBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("commit"),
+  branch: string(),
 });
-/**
- * Branch demand created after a local commit changes one branch.
- */
-export type CommitBranchRefreshDemand = Infer<typeof vCommitBranchRefreshDemand>;
 
 /**
  * Local pull finished for one branch.
@@ -146,13 +123,9 @@ export type CommitBranchRefreshDemand = Infer<typeof vCommitBranchRefreshDemand>
  */
 export const vPullBranchRefreshDemand = object({
   scope: literal("branch"),
-  branch: string(),
   source: literal("pull"),
+  branch: string(),
 });
-/**
- * Branch demand created after a pull updates one local checkout branch.
- */
-export type PullBranchRefreshDemand = Infer<typeof vPullBranchRefreshDemand>;
 
 /**
  * Repository-level freshness demand.
@@ -183,11 +156,6 @@ export const vBranchScopeRefreshDemand = union(
   vCommitBranchRefreshDemand,
   vPullBranchRefreshDemand,
 );
-/**
- * All demand whose dedupe key includes one branch name.
- * These states always carry `branch`.
- */
-export type BranchScopeRefreshDemand = Infer<typeof vBranchScopeRefreshDemand>;
 
 /**
  * All durable refresh demand accepted by the queue.
@@ -202,7 +170,7 @@ export const vRepositoryRefreshDemand = union(
   vBranchScopeRefreshDemand,
 );
 /**
- * Caller-facing freshness demand persisted on `repositoryRefreshRequests`.
+ * Caller-facing freshness demand persisted on `vaultRepositoryRefreshRequests`.
  * Backend workers expand this into provider/API steps during execution.
  */
 export type RepositoryRefreshDemand = Infer<typeof vRepositoryRefreshDemand>;
@@ -339,25 +307,46 @@ export type RepositoryRefreshLifecycle = Infer<typeof vRepositoryRefreshLifecycl
 // internal execution steps without widening the caller-facing state space.
 
 /**
- * Persisted repositoryRefreshRequests row.
- *
- * The demand union forbids impossible states, such as dashboard branch fan-out
- * or source_setup without the provisioning run id.
+ * One deduplicated request for fresher repository or branch data. `demand`
+ * describes what must be fresh; `lifecycle` records queue state, worker lease,
+ * and terminal result.
  */
-export const vRepositoryRefreshRequest = object({
-  userId: id("users"),
-  vaultId: id("vaults"),
-  dedupeKey: string(),
-  demand: vRepositoryRefreshDemand,
-  lifecycle: vRepositoryRefreshLifecycle,
-  createdAt: number(),
-  updatedAt: number(),
-});
+export const vaultRepositoryRefreshTables = {
+  vaultRepositoryRefreshRequests: defineTable({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    dedupeKey: string(),
+    demand: vRepositoryRefreshDemand,
+    lifecycle: vRepositoryRefreshLifecycle,
+    createdAt: number(),
+    updatedAt: number(),
+  })
+    .index("by_userId_and_vaultId_and_dedupeKey", ["userId", "vaultId", "dedupeKey"])
+    .index("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", [
+      "userId",
+      "vaultId",
+      "dedupeKey",
+      "lifecycle.state",
+    ])
+    .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
+    .index("by_userId_and_lifecycle_state_and_updatedAt", [
+      "userId",
+      "lifecycle.state",
+      "updatedAt",
+    ])
+    .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
+    .index("by_lifecycle_state_and_lifecycle_notBefore", [
+      "lifecycle.state",
+      "lifecycle.notBefore",
+    ]),
+};
 /**
- * Full row shape stored in `repositoryRefreshRequests`.
+ * Full row shape stored in `vaultRepositoryRefreshRequests`.
  * Use constructors/transitions below instead of assembling this by hand.
  */
-export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
+export type RepositoryRefreshRequest = Infer<
+  typeof vaultRepositoryRefreshTables.vaultRepositoryRefreshRequests.validator
+>;
 
 // MARK: Enqueue Results
 // Enqueue results describe what happened to durable demand. They intentionally
@@ -386,23 +375,23 @@ export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 export const vEnqueueRepositoryRefreshResult = union(
   object({
     kind: literal("created"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("updated"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_queued"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_scheduled"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("already_running"),
-    requestId: id("repositoryRefreshRequests"),
+    requestId: id("vaultRepositoryRefreshRequests"),
   }),
   object({
     kind: literal("blocked"),

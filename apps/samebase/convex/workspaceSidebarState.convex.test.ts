@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
-import type { WorkspaceSidebarState } from "./workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "./userPreferenceModel";
 
 const RIGHT_PANE_STATE = {
   leftDesktopOpen: true,

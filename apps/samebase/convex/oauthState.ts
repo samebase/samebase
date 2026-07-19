@@ -22,13 +22,13 @@ export const createOauthState = internalMutation({
     createdAt: v.number(),
     expiresAt: v.number(),
   },
-  returns: v.id("oauthStates"),
+  returns: v.id("providerOAuthCallbackStates"),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user || user.accountDeletion) {
       throw new Error("Account deletion is in progress.");
     }
-    return await ctx.db.insert("oauthStates", {
+    return await ctx.db.insert("providerOAuthCallbackStates", {
       provider: args.provider,
       userId: args.userId,
       state: args.state,
@@ -49,7 +49,7 @@ export const getOauthStateByState = internalQuery({
   },
   handler: async (ctx, args) => {
     const record = await ctx.db
-      .query("oauthStates")
+      .query("providerOAuthCallbackStates")
       .withIndex("by_state", (q) => q.eq("state", args.state))
       .first();
     if (record?.provider !== args.provider) {
@@ -61,7 +61,7 @@ export const getOauthStateByState = internalQuery({
 
 export const deleteOauthState = internalMutation({
   args: {
-    id: v.id("oauthStates"),
+    id: v.id("providerOAuthCallbackStates"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

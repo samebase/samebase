@@ -16,7 +16,7 @@ async function hasActiveProvisioningRun(
   vaultId: Id<"vaults">,
 ): Promise<"queued" | "running" | null> {
   const queuedRun = await ctx.db
-    .query("appProvisioningRuns")
+    .query("workflow_vaultProvisioning_runs")
     .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "queued"))
     .first();
   if (queuedRun) {
@@ -24,7 +24,7 @@ async function hasActiveProvisioningRun(
   }
 
   const runningRun = await ctx.db
-    .query("appProvisioningRuns")
+    .query("workflow_vaultProvisioning_runs")
     .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "running"))
     .first();
   return runningRun ? "running" : null;
@@ -68,7 +68,7 @@ export async function readVaultDeletionEligibility(
   }
 
   const activeOwner = await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("workflow_vaultProvisioning_writeLocks")
     .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vault._id).eq("state", "active"))
     .first();
   if (activeOwner) {

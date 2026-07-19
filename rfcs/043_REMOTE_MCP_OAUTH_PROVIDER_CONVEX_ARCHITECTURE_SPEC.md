@@ -333,7 +333,7 @@ Fields:
 - `firstTokenExchangedAt?`
 - `metadataJson`
 
-### 2. `mcpAuthRequests`
+### 2. `mcpAuthorizationRequests`
 
 Pending authorization requests before user approval.
 
@@ -419,7 +419,7 @@ Fields:
 - `rotatedAt?`
 - `replacedByTokenHash?`
 
-### 7. `mcpAccessAudit`
+### 7. `audit_mcpAccess_events`
 
 Immutable audit trail for registration, approval, issuance, refresh, use, and revocation.
 
@@ -494,7 +494,7 @@ Rules:
    - short-lived opaque access token
    - long-lived opaque refresh token
 6. Only SHA-256 token hashes are stored in Convex for both access and refresh tokens.
-7. Issuance is recorded in `mcpAccessAudit`.
+7. Issuance is recorded in `audit_mcpAccess_events`.
 
 ### 4. MCP call
 
@@ -529,7 +529,7 @@ The consent screen must show:
 
 Recommended shape:
 
-1. `GET /oauth/mcp/authorize` creates `mcpAuthRequests`.
+1. `GET /oauth/mcp/authorize` creates `mcpAuthorizationRequests`.
 2. Convex redirects into an existing React route on `noter.md` for consent UI.
 3. The React app reads the pending request and lets the user approve or deny.
 4. Approval writes back to Convex, which completes the OAuth redirect.

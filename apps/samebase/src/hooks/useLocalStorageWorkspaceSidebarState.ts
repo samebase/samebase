@@ -1,6 +1,6 @@
 import { guard, isRecord } from "@samebase/dependent";
 import * as React from "react";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_VERSION } from "@/lib/appWorkspaceSidebarPreferences";
 import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";

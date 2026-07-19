@@ -22,7 +22,7 @@ async function seedRunningDeletion() {
       userId,
       expirationTime: Date.now() + 60_000,
     });
-    const runId = await ctx.db.insert("accountDeletionRuns", {
+    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
       identity: { state: "active", userId, email: "deleting@example.com" },
       completionCapability: "auth-cleanup-test",
       state: "running",

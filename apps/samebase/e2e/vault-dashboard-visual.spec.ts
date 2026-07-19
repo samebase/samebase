@@ -2,7 +2,7 @@ import { devices, expect, test, type Locator, type Page } from "@playwright/test
 import { PNG } from "pngjs";
 import type { VaultDashboardVisualMode } from "../src/components/vault-dashboard/VaultDashboardVisualFixture";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
-import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
@@ -281,11 +281,11 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
     fixture.getByTestId("rf__node-users").getByText("users", { exact: true }),
   ).toBeVisible();
   await expect(
-    fixture.getByTestId("rf__node-fileStaging").getByText("fileStaging", { exact: true }),
+    fixture.getByTestId("rf__node-fileStaging").getByText("vaultStagedFiles", { exact: true }),
   ).toBeVisible();
   const longTableName = fixture
-    .getByTestId("rf__node-vaultInfrastructureOwnership")
-    .getByText("vaultInfrastructureOwnership", { exact: true });
+    .getByTestId("rf__node-vaultProvisioningRunClaims")
+    .getByText("workflow_vaultProvisioning_writeLocks", { exact: true });
   await expect(longTableName).toBeVisible();
   await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
   await expect(fixture.locator(".react-flow__edge")).toHaveCount(10);

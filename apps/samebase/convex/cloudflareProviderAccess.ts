@@ -17,7 +17,7 @@ import {
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { toErrorMessage } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
-import type { CloudflareDefaultAccount } from "./schema";
+import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 

@@ -27,15 +27,16 @@ flowchart LR
   UI --> LM["chat.listThreadMessages"]
   LM --> LIST["listMessages"]
   LM --> SYNC["syncStreams"]
-  LM --> META["chatMessageMetadata"]
-  LM --> CTX["agentThreadContext"]
+  LM --> META["chatMessagePayloads"]
+  LM --> CTX["chatThreadContexts"]
 ```
 
 ## Agent Data Model
 
-- `agentThreadContext` - per-thread vault/repo/file context.
-- `chatMessageMetadata` - commit/prod-read/tool activity payloads keyed by agent message ID.
-- `aiProdAccessRequests` + `aiProdAccessAudit` - approval-first production read workflow.
+- `chatThreadContexts` - per-thread vault/repo/file context.
+- `chatMessagePayloads` - commit/prod-read/tool activity payloads keyed by agent message ID.
+- `aiProductionReadRequests` + `audit_aiProductionRead_events` - approval-first production read
+  workflow.
 
 ## Chat Module Map
 
@@ -71,7 +72,7 @@ flowchart LR
 ### Infrastructure Provisioning
 
 - Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
-- State tracking: `vaultInfrastructureTargets`, `vaultInfrastructureOwnership`,
+- State tracking: `workflow_vaultProvisioning_plans`, `workflow_vaultProvisioning_writeLocks`,
   `vaultConvexDeployments`, and `vaultCloudflareWorkers`
 - Domain tracking: `vaultDomains` table
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`
@@ -80,7 +81,8 @@ flowchart LR
 
 - Commit proposals in chat
 - Production read proposals (Convex/Cloudflare/logs/data)
-- Explicit approve/reject with audit trails (`aiProdAccessRequests`, `aiProdAccessAudit`)
+- Explicit approve/reject with audit trails (`aiProductionReadRequests`,
+  `audit_aiProductionRead_events`)
 
 ## Useful Local Commands
 

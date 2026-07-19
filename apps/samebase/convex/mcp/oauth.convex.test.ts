@@ -110,7 +110,7 @@ async function seedRefreshTokenFamily() {
         .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
         .collect();
       const audits = await ctx.db
-        .query("mcpAccessAudit")
+        .query("audit_mcpAccess_events")
         .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
         .collect();
 
@@ -141,7 +141,7 @@ async function seedRefreshTokenFamily() {
       grants: await ctx.db.query("mcpGrants").collect(),
       refreshTokens: await ctx.db.query("mcpRefreshTokens").collect(),
       accessTokens: await ctx.db.query("mcpAccessTokens").collect(),
-      audits: await ctx.db.query("mcpAccessAudit").collect(),
+      audits: await ctx.db.query("audit_mcpAccess_events").collect(),
     }));
   };
 
@@ -259,7 +259,7 @@ describe("MCP OAuth account deletion access", () => {
         userId: deletingUserId,
         expirationTime: now + 60_000,
       });
-      const runId = await ctx.db.insert("accountDeletionRuns", {
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: {
           state: "active",
           userId: deletingUserId,
@@ -316,7 +316,7 @@ describe("MCP OAuth account deletion access", () => {
       }),
     ).resolves.toBeDefined();
     await expect(
-      t.run(async (ctx) => await ctx.db.query("mcpAuthRequests").collect()),
+      t.run(async (ctx) => await ctx.db.query("mcpAuthorizationRequests").collect()),
     ).resolves.toHaveLength(1);
   });
 
@@ -335,7 +335,7 @@ describe("MCP OAuth account deletion access", () => {
         userId: deletingUserId,
         expirationTime: now + 60_000,
       });
-      const runId = await ctx.db.insert("accountDeletionRuns", {
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: {
           state: "active",
           userId: deletingUserId,
@@ -375,7 +375,7 @@ describe("MCP OAuth account deletion access", () => {
         { requestId: "mcpar_deleting_code_owner", userId: deletingUserId },
         { requestId: "mcpar_missing_code_owner", userId: missingUserId },
       ]) {
-        await ctx.db.insert("mcpAuthRequests", {
+        await ctx.db.insert("mcpAuthorizationRequests", {
           requestId: authRequest.requestId,
           clientId,
           redirectUri: "http://127.0.0.1/callback",
@@ -395,8 +395,8 @@ describe("MCP OAuth account deletion access", () => {
 
     const readIssuanceState = async () => {
       return await t.run(async (ctx) => ({
-        accessAudits: await ctx.db.query("mcpAccessAudit").collect(),
-        authRequests: await ctx.db.query("mcpAuthRequests").collect(),
+        accessAudits: await ctx.db.query("audit_mcpAccess_events").collect(),
+        authRequests: await ctx.db.query("mcpAuthorizationRequests").collect(),
         authorizationCodes: await ctx.db.query("mcpAuthorizationCodes").collect(),
         grants: await ctx.db.query("mcpGrants").collect(),
       }));
@@ -434,7 +434,7 @@ describe("MCP OAuth account deletion access", () => {
         userId,
         expirationTime: now + 60_000,
       });
-      const runId = await ctx.db.insert("accountDeletionRuns", {
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: { state: "active", userId, email: "deleting-mcp@example.test" },
         completionCapability: "mcp-deletion-test",
         state: "running",
@@ -467,7 +467,7 @@ describe("MCP OAuth account deletion access", () => {
         registrationStatus: "active",
         metadataJson: "{}",
       });
-      await ctx.db.insert("mcpAuthRequests", {
+      await ctx.db.insert("mcpAuthorizationRequests", {
         requestId: "mcpar_deleting_user",
         clientId,
         redirectUri: "http://127.0.0.1/callback",
@@ -527,7 +527,7 @@ describe("MCP OAuth account deletion access", () => {
       return await t.run(async (ctx) => ({
         accessTokens: await ctx.db.query("mcpAccessTokens").collect(),
         authorizationCodes: await ctx.db.query("mcpAuthorizationCodes").collect(),
-        audits: await ctx.db.query("mcpAccessAudit").collect(),
+        audits: await ctx.db.query("audit_mcpAccess_events").collect(),
         grants: await ctx.db.query("mcpGrants").collect(),
         refreshTokens: await ctx.db.query("mcpRefreshTokens").collect(),
       }));

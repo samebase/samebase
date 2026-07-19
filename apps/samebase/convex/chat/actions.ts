@@ -18,9 +18,9 @@ const allowedDataTableSchema = z.enum([
   "vaultConvexDeployments",
   "vaultDomains",
   "codespaces",
-  "fileStaging",
-  "aiProdAccessRequests",
-  "aiProdAccessAudit",
+  "vaultStagedFiles",
+  "aiProductionReadRequests",
+  "audit_aiProductionRead_events",
 ]);
 type AllowedDataTable = z.infer<typeof allowedDataTableSchema>;
 
@@ -144,7 +144,7 @@ export const generateResponse = internalAction({
 
 export const executeApprovedProdRead = internalAction({
   args: {
-    requestId: v.id("aiProdAccessRequests"),
+    requestId: v.id("aiProductionReadRequests"),
     proposalMessageId: v.string(),
   },
   returns: v.null(),

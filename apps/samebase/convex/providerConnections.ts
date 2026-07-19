@@ -7,43 +7,20 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { vMcpTokenHealth } from "./mcpTokenHealth";
-import { vCloudflareDefaultAccount, type CloudflareDefaultAccount } from "./schema";
+import {
+  vCloudflareDefaultAccount,
+  vCloudflareProviderAuth,
+  vProviderKind,
+  vStandardProviderAuth,
+  type CloudflareDefaultAccount,
+  type ProviderKind,
+} from "./providerConnectionModel";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
 } from "../shared/cloudflareTokenRefresh";
 
 const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
-
-const vProviderKind = union(literal("github"), literal("convex"), literal("cloudflare"));
-export type ProviderKind = Infer<typeof vProviderKind>;
-
-const vOAuthAuth = object({
-  method: literal("oauth"),
-  credential: string(),
-});
-const vCloudflareOAuthAuth = object({
-  method: literal("oauth"),
-  credential: string(),
-  refreshCredential: string(),
-  credentialExpiresAt: number(),
-});
-const vMcpOauthAuth = object({
-  method: literal("mcp_oauth"),
-  credential: string(),
-  refreshCredential: string(),
-  credentialExpiresAt: number(),
-  clientId: string(),
-});
-const vApiKeyAuth = object({
-  method: literal("api_key"),
-  credential: string(),
-});
-const vProviderAuth = union(vOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
-export type ProviderAuth = Infer<typeof vProviderAuth>;
-
-const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
-const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
 
 const vGithubConnectionUpsert = object({
   userId: id("users"),

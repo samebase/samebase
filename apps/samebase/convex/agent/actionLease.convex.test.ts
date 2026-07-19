@@ -13,7 +13,7 @@ async function seedRunningDeletion(t: ReturnType<typeof makeConvexTest>, userId:
       userId,
       expirationTime: now + 60_000,
     });
-    const runId = await ctx.db.insert("accountDeletionRuns", {
+    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
       identity: { state: "active", userId, email: "deleting@example.com" },
       completionCapability: "agent-action-lease-test",
       state: "running",
@@ -108,7 +108,7 @@ describe("Agent action deletion quiescence", () => {
         userId,
         expirationTime: now + 60_000,
       });
-      const runId = await ctx.db.insert("accountDeletionRuns", {
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: { state: "active", userId, email: "deleting@example.com" },
         completionCapability: "agent-action-lease-test",
         state: "running",

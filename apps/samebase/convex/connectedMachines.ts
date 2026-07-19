@@ -254,7 +254,7 @@ export const createMachineRegistrationRequest = internalMutation({
       expiresAt: args.expiresAt,
     } satisfies MachineRegistrationRequestRow;
     const existingRateLimit = await ctx.db
-      .query("machineRegistrationBootstrapRateLimits")
+      .query("machineRegistrationRateLimits")
       .withIndex("by_fingerprint", (q) => q.eq("fingerprint", args.bootstrapFingerprint))
       .first();
     const existingWindowStillActive =
@@ -292,7 +292,7 @@ export const createMachineRegistrationRequest = internalMutation({
           : args.createdAt,
       });
     } else {
-      await ctx.db.insert("machineRegistrationBootstrapRateLimits", {
+      await ctx.db.insert("machineRegistrationRateLimits", {
         fingerprint: args.bootstrapFingerprint,
         requestCount: 1,
         windowStartedAt: args.createdAt,

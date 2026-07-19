@@ -44,7 +44,7 @@ async function upsertDashboardSettings(
   patch: Partial<DashboardSettings>,
 ) {
   const existing = await ctx.db
-    .query("dashboardSettings")
+    .query("ui_user_settings")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
 
@@ -53,7 +53,7 @@ async function upsertDashboardSettings(
     return;
   }
 
-  await ctx.db.insert("dashboardSettings", {
+  await ctx.db.insert("ui_user_settings", {
     userId,
     ...getDefaultDashboardSettings(),
     ...patch,
@@ -66,7 +66,7 @@ export const getDashboardSettings = query({
   returns: vDashboardSettings,
   handler: async (ctx) => {
     const existing = await ctx.db
-      .query("dashboardSettings")
+      .query("ui_user_settings")
       .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
       .first();
 

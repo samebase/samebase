@@ -32,10 +32,10 @@ and stored in Convex.
 
 ## Data Model
 
-- `agentThreadContext`
-- `chatMessageMetadata`
-- `aiProdAccessRequests`
-- `aiProdAccessAudit`
+- `chatThreadContexts`
+- `chatMessagePayloads`
+- `aiProductionReadRequests`
+- `audit_aiProductionRead_events`
 
 ## Approval Flows
 

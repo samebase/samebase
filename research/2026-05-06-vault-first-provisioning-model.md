@@ -496,7 +496,7 @@ The likely affected tables include:
 11. `blobs`
 12. `folderExpansionState`
 13. `agentGraphNodeLayout`
-14. `agentThreadContext`
+14. `chatThreadContexts`
 15. `aiProdAccessRequests`
 16. `collaborativeUpdates`
 

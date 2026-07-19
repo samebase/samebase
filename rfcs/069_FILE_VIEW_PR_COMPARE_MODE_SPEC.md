@@ -42,8 +42,8 @@ Today the file view has only two sidebar modes:
 That is enough for browsing the current branch tree, but not for answering the question: "Which
 files are already part of this PR?"
 
-Current file-view data only overlays local `fileStaging` state onto the current branch tree. Once
-changes are committed to the branch and pushed, they disappear from staged-only navigation even
+Current file-view data only overlays local `vaultStagedFiles` state onto the current branch tree.
+Once changes are committed to the branch and pushed, they disappear from staged-only navigation even
 though they are still part of the current PR.
 
 This is why the operator loses the ability to quickly revisit older changed files after making more
@@ -55,8 +55,8 @@ commits on the same branch.
 
 `apps/noter/src/components/FileView.tsx` currently derives sidebar data from:
 
-1. the selected branch tree (`vault.treeData.tree` / `vaultBranchTrees`)
-2. current `fileStaging` rows for that branch
+1. the selected branch tree (`vault.treeData.tree` / `observations_vaultRepository_branchTrees`)
+2. current `vaultStagedFiles` rows for that branch
 
 That produces `finalTreeData`, which is sufficient for:
 
@@ -85,24 +85,24 @@ mode.
 
 Relevant current backend facts:
 
-1. `vaultRemoteBranches` stores:
+1. `observations_vaultRepository_branches` stores:
    - `pullRequestUrl`
    - `pullRequestNumber`
    - `pullRequestLabels`
    - `pullRequestTitle`
    - `pullRequestIsDraft`
-2. `vaultRemoteBranches` does not store PR base branch
+2. `observations_vaultRepository_branches` does not store PR base branch
 3. GitHub branch sync intentionally preserves older PR metadata when PR lookup fails, so persisted
    PR fields are not guaranteed to reflect live state
 4. there is no action that returns a PR/base-relative changed-file list
-5. `fileStaging` is the only in-app uncommitted-change model used by file view
+5. `vaultStagedFiles` is the only in-app uncommitted-change model used by file view
 
 ### Local Change Model
 
 For this surface, Noter currently has:
 
 1. branch commits visible through GitHub branch/tree state
-2. uncommitted local Noter changes visible through `fileStaging`
+2. uncommitted local Noter changes visible through `vaultStagedFiles`
 
 It does not currently have a separate file-view model for hosted-workspace dirty files from
 `git status`.
@@ -110,7 +110,7 @@ It does not currently have a separate file-view model for hosted-workspace dirty
 This means the requested "staged and unstaged" behavior should be interpreted in v1 as:
 
 1. committed branch changes already in the PR
-2. current Noter-local uncommitted changes in `fileStaging`
+2. current Noter-local uncommitted changes in `vaultStagedFiles`
 
 True sandbox working-tree diff integration is a separate follow-up.
 
@@ -140,8 +140,8 @@ Research on the GitHub API suggests two different data paths:
 1. For an open PR, use the PR file list endpoint.
    - This is the closest match to "show the files in the current PR".
    - It naturally respects PR base selection and PR diff semantics.
-   - These PR files are only the remote committed baseline; current `fileStaging` rows still need to
-     be applied on top.
+   - These PR files are only the remote committed baseline; current `vaultStagedFiles` rows still
+     need to be applied on top.
 2. When no open PR exists, fall back to branch-vs-default compare.
    - Use `compareCommitsWithBasehead`.
    - GitHub documents that file data is only present on the first page and is capped at 300 changed
@@ -154,7 +154,7 @@ GitHub's compare endpoint is not fully lossless for very large diffs.
 ## Goals
 
 1. Let the operator see files already changed in the current PR from inside file view.
-2. Include current `fileStaging` rows on top of the committed branch diff.
+2. Include current `vaultStagedFiles` rows on top of the committed branch diff.
 3. Keep `Simple View` and `All Files` intact.
 4. Keep commit review behavior stable and separate.
 5. Support committed-only deleted files in the compare list.
@@ -211,7 +211,7 @@ Why:
 
 ### 4. Resolve compare context live, not from cached PR metadata
 
-Do not add `pullRequestBaseBranch` to `vaultRemoteBranches` in v1.
+Do not add `pullRequestBaseBranch` to `observations_vaultRepository_branches` in v1.
 
 Instead, resolve the current branch's live open PR inside a new on-demand action.
 
@@ -439,7 +439,7 @@ That mode only filtered `finalTreeData`, which means:
 3. the product would drift back toward the review-coupled behavior already rejected in
    `specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md`
 
-### 2. Persist `pullRequestBaseBranch` in `vaultRemoteBranches`
+### 2. Persist `pullRequestBaseBranch` in `observations_vaultRepository_branches`
 
 Rejected for v1.
 
@@ -462,15 +462,15 @@ PR/default-base workflow first.
 Rejected for v1.
 
 That is a different data model than current Noter editing. The file-view surface today is built
-around GitHub branch state plus `fileStaging`, so that should remain the implementation boundary for
-the first slice.
+around GitHub branch state plus `vaultStagedFiles`, so that should remain the implementation
+boundary for the first slice.
 
 ## Acceptance Criteria
 
 1. File view exposes a third sidebar mode for changed files.
 2. The mode lists files already changed on the current branch relative to the live PR base branch,
    or the default branch when no PR exists.
-3. Current `fileStaging` changes appear in that same list.
+3. Current `vaultStagedFiles` changes appear in that same list.
 4. Review mode does not auto-toggle the sidebar into compare mode.
 5. `Simple View` and `All Files` persistence behavior remains unchanged.
 6. Command palette uses the same compare dataset when compare mode is active.

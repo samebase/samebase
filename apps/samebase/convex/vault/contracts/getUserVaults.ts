@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 
-import { vAppProvisioningRunStep } from "../../schema";
+import { vAppProvisioningRunStep } from "../../appProvisioningModel";
 import { vTreeRefreshFailureKind } from "../model";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
@@ -23,13 +23,13 @@ export const vSourceSetupSummary = union(
   }),
   object({
     status: literal("running"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningRunStep,
     updatedAt: number(),
   }),
   object({
     status: literal("failed"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningRunStep,
     message: string(),
     updatedAt: number(),
@@ -102,7 +102,7 @@ export const vProviderSetupSummary = union(
     status: literal("running"),
     provider: providerSetupProvider,
     source: providerSetupSource,
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningRunStep,
     updatedAt: number(),
   }),
@@ -110,7 +110,7 @@ export const vProviderSetupSummary = union(
     status: literal("failed"),
     provider: providerSetupProvider,
     source: providerSetupSource,
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningRunStep,
     message: string(),
     updatedAt: number(),
@@ -133,7 +133,7 @@ export const vVaultDeletionSummary = union(
   }),
   object({
     state: literal("deleting"),
-    runId: id("vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     requestedAt: number(),
     currentStep: vVaultDeletionStep,
     message: string(),
@@ -141,7 +141,7 @@ export const vVaultDeletionSummary = union(
   }),
   object({
     state: literal("delete_failed"),
-    runId: id("vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     failedAt: number(),
     currentStep: vVaultDeletionStep,
     message: string(),

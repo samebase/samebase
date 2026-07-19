@@ -44,7 +44,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function createAttachableVaultWithOwnership(args: { ownershipState: "active" | "failed" }) {
+async function createAttachableVaultWithWriteLock(args: { writeLockState: "active" | "failed" }) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -57,8 +57,8 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runState = args.ownershipState === "active" ? "running" : "failed";
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runState = args.writeLockState === "active" ? "running" : "failed";
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -88,10 +88,10 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       appRoot,
       createdAt: 25,
     });
-    await ctx.db.insert("vaultInfrastructureOwnership", {
+    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
       vaultId,
       runId,
-      state: args.ownershipState,
+      state: args.writeLockState,
       updatedAt: 20,
     });
 
@@ -114,7 +114,7 @@ async function createCloudflareConnectionVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
+    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -144,7 +144,7 @@ async function createCloudflareConnectionVault() {
       appRoot,
       createdAt: 25,
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -230,7 +230,7 @@ async function createClaimedInfrastructureVerification(args: { includeConvexConn
       connectedAt: 40,
       lastObservedAt: 40,
     });
-    return await ctx.db.insert("appProvisioningRuns", {
+    return await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: ids.userId,
       vaultId: ids.vaultId,
       repositoryFullName: "ada/manual-cloudflare",
@@ -283,12 +283,12 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const worker = await ctx.db
@@ -297,10 +297,10 @@ describe("vault Cloudflare attachment mutations", () => {
           q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
         )
         .first();
-      return { events, ownership, run, worker };
+      return { events, writeLock, run, worker };
     });
 
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       runId: ids.runId,
       state: "succeeded",
     });
@@ -450,7 +450,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const events = await t.run(async (ctx) => {
       return await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
     });
@@ -486,7 +486,7 @@ describe("vault Cloudflare attachment mutations", () => {
         currentStep: "attach_worker",
         updatedAt: 40,
       });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "active",
@@ -575,12 +575,12 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const worker = await ctx.db
@@ -589,10 +589,10 @@ describe("vault Cloudflare attachment mutations", () => {
           q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
         )
         .first();
-      return { events, ownership, run, worker };
+      return { events, writeLock, run, worker };
     });
 
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       runId: ids.runId,
       state: "active",
     });
@@ -665,7 +665,7 @@ describe("vault Cloudflare attachment mutations", () => {
         connectedAt: 30,
         lastObservedAt: 30,
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -675,7 +675,7 @@ describe("vault Cloudflare attachment mutations", () => {
         createdAt: 40,
         updatedAt: 40,
       });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         runId,
         state: "active",
@@ -740,7 +740,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -809,12 +809,12 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const worker = await ctx.db
@@ -823,10 +823,10 @@ describe("vault Cloudflare attachment mutations", () => {
           q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
         )
         .first();
-      return { events, ownership, run, worker };
+      return { events, writeLock, run, worker };
     });
 
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       runId,
       state: "succeeded",
     });
@@ -881,7 +881,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -962,7 +962,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1045,7 +1045,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "selected_existing",
     });
     const wireBuildsRunId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1253,7 +1253,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1307,12 +1307,12 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const worker = await ctx.db
@@ -1321,10 +1321,10 @@ describe("vault Cloudflare attachment mutations", () => {
           q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
         )
         .first();
-      return { events, ownership, run, worker };
+      return { events, writeLock, run, worker };
     });
 
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       runId,
       state: "succeeded",
     });
@@ -1426,7 +1426,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1470,7 +1470,7 @@ describe("vault Cloudflare attachment mutations", () => {
         )
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const domains = await ctx.db
@@ -1510,7 +1510,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const convexDeployment = await ctx.db
@@ -1545,7 +1545,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
       const convexDeployment = await ctx.db
@@ -1639,7 +1639,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1672,7 +1672,7 @@ describe("vault Cloudflare attachment mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
         .collect();
       const worker = await ctx.db
@@ -1782,7 +1782,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1868,7 +1868,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -1975,7 +1975,7 @@ describe("vault Cloudflare attachment mutations", () => {
       });
     });
     const runId = await t.run(async (ctx) => {
-      return await ctx.db.insert("appProvisioningRuns", {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -2130,10 +2130,10 @@ describe("vault Cloudflare attachment mutations", () => {
     ).rejects.toThrow("Vault app root not found.");
   });
 
-  it("lets the durable claim supersede stale active ownership", async () => {
+  it("lets a new lock acquisition supersede a stale active write lock", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
     const staleRunId = await t.run(async (ctx) => {
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -2143,7 +2143,7 @@ describe("vault Cloudflare attachment mutations", () => {
         createdAt: 10,
         updatedAt: 20,
       });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         runId,
         state: "active",
@@ -2164,18 +2164,18 @@ describe("vault Cloudflare attachment mutations", () => {
     ).resolves.toEqual({ claimed: true });
 
     const result = await t.run(async (ctx) => {
-      const [staleRun, ownership] = await Promise.all([
+      const [staleRun, writeLock] = await Promise.all([
         ctx.db.get(staleRunId),
         ctx.db
-          .query("vaultInfrastructureOwnership")
+          .query("workflow_vaultProvisioning_writeLocks")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .first(),
       ]);
 
-      return { ownership, staleRun };
+      return { writeLock, staleRun };
     });
 
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       runId: ids.runId,
       state: "active",
     });
@@ -2196,7 +2196,7 @@ describe("vault Cloudflare attachment mutations", () => {
       origin: "provisioned",
     });
     await t.run(async (ctx) => {
-      const otherRunId = await ctx.db.insert("appProvisioningRuns", {
+      const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-cloudflare",
@@ -2206,14 +2206,14 @@ describe("vault Cloudflare attachment mutations", () => {
         createdAt: 40,
         updatedAt: 40,
       });
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
-      if (!ownership) {
-        throw new Error("Expected active ownership.");
+      if (!writeLock) {
+        throw new Error("Expected active provisioning write lock.");
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: otherRunId,
         updatedAt: 40,
       });
@@ -2282,9 +2282,9 @@ describe("vault Cloudflare attachment mutations", () => {
     ).resolves.toEqual({ shouldDelete: true });
   });
 
-  it("rejects manual attachment while infrastructure ownership is active", async () => {
-    const { ids, t } = await createAttachableVaultWithOwnership({
-      ownershipState: "active",
+  it("rejects manual attachment while the provisioning write lock is active", async () => {
+    const { ids, t } = await createAttachableVaultWithWriteLock({
+      writeLockState: "active",
     });
 
     await expect(
@@ -2311,9 +2311,9 @@ describe("vault Cloudflare attachment mutations", () => {
     ).rejects.toThrow("Cloudflare provisioning is already running.");
   });
 
-  it("allows manual recovery after failed infrastructure ownership", async () => {
-    const { ids, t } = await createAttachableVaultWithOwnership({
-      ownershipState: "failed",
+  it("allows manual recovery after a failed provisioning write lock", async () => {
+    const { ids, t } = await createAttachableVaultWithWriteLock({
+      writeLockState: "failed",
     });
 
     await expect(

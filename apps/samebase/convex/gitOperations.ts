@@ -11,7 +11,7 @@ export const getBlobBySha = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("blobs")
+      .query("observations_vaultFiles_blobs")
       .withIndex("by_sha", (q) => q.eq("sha", args.sha))
       .first();
   },
@@ -33,7 +33,7 @@ export const saveFileBlob = internalMutation({
     // only used for debugging
     debugFilePath: v.optional(v.string()),
   },
-  returns: v.id("blobs"),
+  returns: v.id("observations_vaultFiles_blobs"),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
@@ -55,7 +55,7 @@ export const saveFileBlob = internalMutation({
 
     // Check if file blob already exists
     const existingBlob = await ctx.db
-      .query("blobs")
+      .query("observations_vaultFiles_blobs")
       .withIndex("by_sha", (q) => q.eq("sha", args.sha))
       .first();
 
@@ -64,7 +64,7 @@ export const saveFileBlob = internalMutation({
       return existingBlob._id;
     }
 
-    return await ctx.db.insert("blobs", {
+    return await ctx.db.insert("observations_vaultFiles_blobs", {
       vaultId: args.vaultId,
       sha: args.sha,
       size: args.size,

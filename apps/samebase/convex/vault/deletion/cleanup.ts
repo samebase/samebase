@@ -6,34 +6,34 @@ import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./mode
 const { id, literal, number, object, union } = v;
 
 const deleteOnlyByVaultCleanupTables = union(
-  literal("vaultBranchFilters"),
-  literal("vaultResourceLinksState"),
-  literal("collaborativeUpdates"),
-  literal("folderExpansionState"),
-  literal("vaultRemoteBranches"),
+  literal("ui_vaultBranches_filters"),
+  literal("ui_vaultResourceLinks_settings"),
+  literal("vaultStagedFileUpdates"),
+  literal("ui_vaultFileTree_folderExpansions"),
+  literal("observations_vaultRepository_branches"),
   literal("vaultDomains"),
   literal("vaultApps"),
   literal("vaultConvexDeployments"),
-  literal("vaultConvexSchemaSnapshots"),
-  literal("vaultConvexSchemaGraphLayouts"),
+  literal("observations_vaultConvexSchema_snapshots"),
+  literal("ui_vaultConvexSchemaGraph_nodeLayouts"),
   literal("vaultCloudflareWorkers"),
-  literal("vaultInfrastructureTargets"),
-  literal("vaultInfrastructureOwnership"),
+  literal("workflow_vaultProvisioning_plans"),
+  literal("workflow_vaultProvisioning_writeLocks"),
   literal("codespaces"),
-  literal("agentGraphNodeLayout"),
+  literal("ui_agentGraphNode_layouts"),
 );
 type DeleteOnlyByVaultCleanupTable = Infer<typeof deleteOnlyByVaultCleanupTables>;
 
 const vaultLocalCleanupTable = union(
   deleteOnlyByVaultCleanupTables,
-  literal("fileStaging"),
-  literal("blobs"),
-  literal("vaultBranchTrees"),
-  literal("aiProdAccessRequests"),
-  literal("appProvisioningEvents"),
-  literal("appProvisioningRuns"),
-  literal("agentThreadContext"),
-  literal("repositoryRefreshRequests"),
+  literal("vaultStagedFiles"),
+  literal("observations_vaultFiles_blobs"),
+  literal("observations_vaultRepository_branchTrees"),
+  literal("aiProductionReadRequests"),
+  literal("workflow_vaultProvisioning_events"),
+  literal("workflow_vaultProvisioning_runs"),
+  literal("chatThreadContexts"),
+  literal("vaultRepositoryRefreshRequests"),
 );
 type VaultLocalCleanupTable = Infer<typeof vaultLocalCleanupTable>;
 
@@ -92,7 +92,7 @@ function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLoca
 }
 
 function deleteStorageBackedByVaultBatch(
-  tableName: "fileStaging" | "blobs",
+  tableName: "vaultStagedFiles" | "observations_vaultFiles_blobs",
 ): VaultLocalCleanupHandler {
   return async function deleteStorageBackedByVault(ctx, args) {
     const rows = await ctx.db
@@ -111,7 +111,7 @@ function deleteStorageBackedByVaultBatch(
 
     for (const storageId of storageIds) {
       const survivingStaging = await ctx.db
-        .query("fileStaging")
+        .query("vaultStagedFiles")
         .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
         .first();
 
@@ -120,7 +120,7 @@ function deleteStorageBackedByVaultBatch(
       }
 
       const survivingBlob = await ctx.db
-        .query("blobs")
+        .query("observations_vaultFiles_blobs")
         .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
         .first();
 
@@ -140,7 +140,7 @@ async function deleteVaultBranchTreesBatch(
   args: VaultLocalCleanupArgs,
 ): Promise<number> {
   const rows = await ctx.db
-    .query("vaultBranchTrees")
+    .query("observations_vaultRepository_branchTrees")
     .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
   for (const row of rows) {
@@ -154,7 +154,7 @@ async function patchAiProdAccessRequestsBatch(
   args: VaultLocalCleanupArgs,
 ): Promise<number> {
   const rows = await ctx.db
-    .query("aiProdAccessRequests")
+    .query("aiProductionReadRequests")
     .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
   for (const row of rows) {
@@ -175,7 +175,7 @@ async function deleteAppProvisioningEventsBatch(
   args: VaultLocalCleanupArgs,
 ): Promise<number> {
   const rows = await ctx.db
-    .query("appProvisioningEvents")
+    .query("workflow_vaultProvisioning_events")
     .withIndex("by_vault_and_created_at", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
   for (const row of rows) {
@@ -189,7 +189,7 @@ async function deleteAppProvisioningRunsBatch(
   args: VaultLocalCleanupArgs,
 ): Promise<number> {
   const rows = await ctx.db
-    .query("appProvisioningRuns")
+    .query("workflow_vaultProvisioning_runs")
     .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
   for (const row of rows) {
@@ -203,14 +203,14 @@ async function deleteAgentThreadContextsBatch(
   args: VaultLocalCleanupArgs,
 ): Promise<number> {
   const contexts = await ctx.db
-    .query("agentThreadContext")
+    .query("chatThreadContexts")
     .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
   let rowsChanged = 0;
 
   for (const context of contexts) {
     const metadata = await ctx.db
-      .query("chatMessageMetadata")
+      .query("chatMessagePayloads")
       .withIndex("by_threadId", (q) => q.eq("threadId", context.threadId))
       .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE - rowsChanged);
 
@@ -239,7 +239,7 @@ async function deleteRepositoryRefreshRequestsBatch(
   args: VaultLocalCleanupArgs,
 ): Promise<number> {
   const rows = await ctx.db
-    .query("repositoryRefreshRequests")
+    .query("vaultRepositoryRefreshRequests")
     .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
 
@@ -252,35 +252,35 @@ async function deleteRepositoryRefreshRequestsBatch(
 
 const vaultLocalCleanupRegistry = [
   {
-    table: "vaultBranchFilters",
-    cleanup: deleteByVaultBatch("vaultBranchFilters"),
+    table: "ui_vaultBranches_filters",
+    cleanup: deleteByVaultBatch("ui_vaultBranches_filters"),
   },
   {
-    table: "vaultResourceLinksState",
-    cleanup: deleteByVaultBatch("vaultResourceLinksState"),
+    table: "ui_vaultResourceLinks_settings",
+    cleanup: deleteByVaultBatch("ui_vaultResourceLinks_settings"),
   },
   {
-    table: "fileStaging",
-    cleanup: deleteStorageBackedByVaultBatch("fileStaging"),
+    table: "vaultStagedFiles",
+    cleanup: deleteStorageBackedByVaultBatch("vaultStagedFiles"),
   },
   {
-    table: "collaborativeUpdates",
-    cleanup: deleteByVaultBatch("collaborativeUpdates"),
+    table: "vaultStagedFileUpdates",
+    cleanup: deleteByVaultBatch("vaultStagedFileUpdates"),
   },
   {
-    table: "blobs",
-    cleanup: deleteStorageBackedByVaultBatch("blobs"),
+    table: "observations_vaultFiles_blobs",
+    cleanup: deleteStorageBackedByVaultBatch("observations_vaultFiles_blobs"),
   },
   {
-    table: "folderExpansionState",
-    cleanup: deleteByVaultBatch("folderExpansionState"),
+    table: "ui_vaultFileTree_folderExpansions",
+    cleanup: deleteByVaultBatch("ui_vaultFileTree_folderExpansions"),
   },
   {
-    table: "vaultRemoteBranches",
-    cleanup: deleteByVaultBatch("vaultRemoteBranches"),
+    table: "observations_vaultRepository_branches",
+    cleanup: deleteByVaultBatch("observations_vaultRepository_branches"),
   },
   {
-    table: "vaultBranchTrees",
+    table: "observations_vaultRepository_branchTrees",
     cleanup: deleteVaultBranchTreesBatch,
   },
   {
@@ -296,51 +296,51 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultConvexDeployments"),
   },
   {
-    table: "vaultConvexSchemaSnapshots",
-    cleanup: deleteByVaultBatch("vaultConvexSchemaSnapshots"),
+    table: "observations_vaultConvexSchema_snapshots",
+    cleanup: deleteByVaultBatch("observations_vaultConvexSchema_snapshots"),
   },
   {
-    table: "vaultConvexSchemaGraphLayouts",
-    cleanup: deleteByVaultBatch("vaultConvexSchemaGraphLayouts"),
+    table: "ui_vaultConvexSchemaGraph_nodeLayouts",
+    cleanup: deleteByVaultBatch("ui_vaultConvexSchemaGraph_nodeLayouts"),
   },
   {
     table: "vaultCloudflareWorkers",
     cleanup: deleteByVaultBatch("vaultCloudflareWorkers"),
   },
   {
-    table: "vaultInfrastructureTargets",
-    cleanup: deleteByVaultBatch("vaultInfrastructureTargets"),
+    table: "workflow_vaultProvisioning_plans",
+    cleanup: deleteByVaultBatch("workflow_vaultProvisioning_plans"),
   },
   {
-    table: "vaultInfrastructureOwnership",
-    cleanup: deleteByVaultBatch("vaultInfrastructureOwnership"),
+    table: "workflow_vaultProvisioning_writeLocks",
+    cleanup: deleteByVaultBatch("workflow_vaultProvisioning_writeLocks"),
   },
   {
     table: "codespaces",
     cleanup: deleteByVaultBatch("codespaces"),
   },
   {
-    table: "agentGraphNodeLayout",
-    cleanup: deleteByVaultBatch("agentGraphNodeLayout"),
+    table: "ui_agentGraphNode_layouts",
+    cleanup: deleteByVaultBatch("ui_agentGraphNode_layouts"),
   },
   {
-    table: "aiProdAccessRequests",
+    table: "aiProductionReadRequests",
     cleanup: patchAiProdAccessRequestsBatch,
   },
   {
-    table: "agentThreadContext",
+    table: "chatThreadContexts",
     cleanup: deleteAgentThreadContextsBatch,
   },
   {
-    table: "repositoryRefreshRequests",
+    table: "vaultRepositoryRefreshRequests",
     cleanup: deleteRepositoryRefreshRequestsBatch,
   },
   {
-    table: "appProvisioningEvents",
+    table: "workflow_vaultProvisioning_events",
     cleanup: deleteAppProvisioningEventsBatch,
   },
   {
-    table: "appProvisioningRuns",
+    table: "workflow_vaultProvisioning_runs",
     cleanup: deleteAppProvisioningRunsBatch,
   },
 ] satisfies ReadonlyArray<{
@@ -349,30 +349,37 @@ const vaultLocalCleanupRegistry = [
 }>;
 
 const vaultLocalCleanupRegistryByStep = {
-  cleanup_editor_state: ["fileStaging", "collaborativeUpdates", "blobs"],
+  cleanup_editor_state: [
+    "vaultStagedFiles",
+    "vaultStagedFileUpdates",
+    "observations_vaultFiles_blobs",
+  ],
   cleanup_source_caches: [
-    "vaultBranchFilters",
-    "vaultResourceLinksState",
-    "folderExpansionState",
-    "vaultRemoteBranches",
-    "vaultBranchTrees",
-    "repositoryRefreshRequests",
+    "ui_vaultBranches_filters",
+    "ui_vaultResourceLinks_settings",
+    "ui_vaultFileTree_folderExpansions",
+    "observations_vaultRepository_branches",
+    "observations_vaultRepository_branchTrees",
+    "vaultRepositoryRefreshRequests",
   ],
   cleanup_runtime_state: [
     "vaultDomains",
     "vaultApps",
     "vaultConvexDeployments",
-    "vaultConvexSchemaSnapshots",
-    "vaultConvexSchemaGraphLayouts",
+    "observations_vaultConvexSchema_snapshots",
+    "ui_vaultConvexSchemaGraph_nodeLayouts",
     "vaultCloudflareWorkers",
-    "vaultInfrastructureTargets",
-    "vaultInfrastructureOwnership",
+    "workflow_vaultProvisioning_plans",
+    "workflow_vaultProvisioning_writeLocks",
     "codespaces",
-    "agentGraphNodeLayout",
+    "ui_agentGraphNode_layouts",
   ],
-  cleanup_access_state: ["aiProdAccessRequests"],
-  detach_agent_context: ["agentThreadContext"],
-  cleanup_provisioning_history: ["appProvisioningEvents", "appProvisioningRuns"],
+  cleanup_access_state: ["aiProductionReadRequests"],
+  detach_agent_context: ["chatThreadContexts"],
+  cleanup_provisioning_history: [
+    "workflow_vaultProvisioning_events",
+    "workflow_vaultProvisioning_runs",
+  ],
 } satisfies Record<VaultDeletionCleanupStep, readonly VaultLocalCleanupTable[]>;
 
 export async function deleteVaultLocalDataBatchForUser(

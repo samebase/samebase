@@ -16,7 +16,7 @@
 This behavior is no longer current. The PR-comment parser and branch-level Cloudflare preview row
 were replaced by the GitHub check snapshot model in `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`.
 Runtime code no longer reads or writes the branch-level Cloudflare preview projection, and the old
-`vaultRemoteBranches` schema fields have been removed.
+`observations_vaultRepository_branches` schema fields have been removed.
 
 The historical implementation notes below also predate the selected-vault branch pagination work in
 `rfcs/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md`. Current dashboard branch rows are
@@ -83,7 +83,7 @@ The operator requirement is branch-centric and PR-centric:
 
 1. The expected workflow starts from a draft PR.
 2. Cloudflare already posts the needed URLs into the PR.
-3. The branch list already stores PR metadata in `vaultRemoteBranches`.
+3. The branch list already stores PR metadata in `observations_vaultRepository_branches`.
 4. The dashboard only needs a user-facing branch link right now, not a full domain management
    system.
 
@@ -93,7 +93,7 @@ This makes a PR-comment-derived model smaller and less ambiguous than trying to 
 ## Current State
 
 As of 2026-04-20, the runtime already parses Cloudflare preview comments, caches preview metadata on
-`vaultRemoteBranches`, and renders the branch preview link in `VaultDashboard`.
+`observations_vaultRepository_branches`, and renders the branch preview link in `VaultDashboard`.
 
 The remaining gap is cache identity:
 
@@ -137,7 +137,7 @@ preview link for that row because the latest deploy did not produce a usable bra
 
 Preferred storage surface:
 
-- `vaultRemoteBranches`
+- `observations_vaultRepository_branches`
 
 Add optional fields such as:
 
@@ -158,7 +158,7 @@ Rationale:
 
 Add a dashboard-focused enrichment path that:
 
-1. reads `vaultRemoteBranches`
+1. reads `observations_vaultRepository_branches`
 2. clears cached preview metadata when a branch has no current `pullRequestNumber`
 3. skips GitHub comment fetches when the branch already has a cached preview for the same
    `pullRequestNumber`

@@ -1,3 +1,4 @@
+import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultDeletionState } from "./deletion/model";
@@ -21,22 +22,15 @@ export const vGithubTreeData = object({
   truncated: boolean(),
   tree: array(vGithubTree),
 });
-export type GithubTreeData = Infer<typeof vGithubTreeData>;
 
 /**
  * GitHub visibility values currently supported by Samebase's create and connect
  * flows.
  */
 export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
-export type GitHubRepositoryVisibility = Infer<typeof vGitHubRepositoryVisibility>;
 
 export const vTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
-
-const githubRepositoryCoordinatesFields = {
-  owner: string(),
-  name: string(),
-} as const;
 
 /**
  * Visibility is separate from coordinates because owner/name identify the repo
@@ -44,11 +38,6 @@ const githubRepositoryCoordinatesFields = {
  * as requested intent; connected states use it as the latest GitHub metadata
  * observed by Samebase.
  */
-const githubRepositoryWithVisibilityFields = {
-  ...githubRepositoryCoordinatesFields,
-  visibility: vGitHubRepositoryVisibility,
-} as const;
-
 export const vVaultConvexOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
 
@@ -81,30 +70,6 @@ export const vConvexDeployKeys = object({
   production: vConvexDeployKeyState,
   preview: vConvexDeployKeyState,
 });
-export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
-
-export const vConvexPreviewDeployment = union(
-  object({
-    state: literal("not_ensured"),
-  }),
-  object({
-    state: literal("ready"),
-    deploymentName: string(),
-    cloudUrl: string(),
-  }),
-);
-export type ConvexPreviewDeployment = Infer<typeof vConvexPreviewDeployment>;
-
-export const vVaultConvexAppRoot = string();
-export type VaultConvexAppRoot = Infer<typeof vVaultConvexAppRoot>;
-
-export const vVaultApp = object({
-  vaultId: id("vaults"),
-  userId: id("users"),
-  appRoot: string(),
-  createdAt: number(),
-});
-export type VaultApp = Infer<typeof vVaultApp>;
 
 export const vVaultProviderUpstreamPresence = union(
   object({
@@ -138,31 +103,8 @@ export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier
   return readVaultProviderUpstreamPresence(row).state === "present";
 }
 
-export const vVaultConvexDeployment = object({
-  vaultId: id("vaults"),
-  userId: id("users"),
-  appRoot: vVaultConvexAppRoot,
-  projectId: string(),
-  teamSlug: string(),
-  projectSlug: string(),
-  deploymentName: string(),
-  deploymentType: literal("prod"),
-  cloudUrl: string(),
-  siteUrl: string(),
-  previewDeployment: vConvexPreviewDeployment,
-  deployKeys: vConvexDeployKeys,
-  origin: vVaultConvexOrigin,
-  upstream: optional(vVaultProviderUpstreamPresence),
-  connectedAt: number(),
-  lastObservedAt: number(),
-});
-export type VaultConvexDeployment = Infer<typeof vVaultConvexDeployment>;
-
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
-
-export const vVaultCloudflareAppRoot = string();
-export type VaultCloudflareAppRoot = Infer<typeof vVaultCloudflareAppRoot>;
 
 const vaultCloudflareBuildConfigFields = {
   rootDirectory: string(),
@@ -206,7 +148,6 @@ export const vVaultCloudflareWorkersBuildTrigger = object({
   triggerUuid: string(),
   buildTokenUuid: string(),
 });
-export type VaultCloudflareWorkersBuildTrigger = Infer<typeof vVaultCloudflareWorkersBuildTrigger>;
 
 export const vVaultCloudflareConnectedBuilds = object({
   state: literal("connected"),
@@ -222,7 +163,6 @@ export const vVaultCloudflareBuilds = union(
   }),
   vVaultCloudflareConnectedBuilds,
 );
-export type VaultCloudflareBuilds = Infer<typeof vVaultCloudflareBuilds>;
 
 export const vVaultCloudflareConvexBuildAccess = union(
   object({
@@ -257,22 +197,6 @@ export function buildVaultCloudflareDeploymentWithConnectedBuilds(args: {
   };
 }
 
-export const vVaultCloudflareWorker = object({
-  vaultId: id("vaults"),
-  userId: id("users"),
-  appRoot: vVaultCloudflareAppRoot,
-  accountId: string(),
-  workerName: string(),
-  workerTag: string(),
-  workersDevUrl: optional(string()),
-  origin: vVaultCloudflareOrigin,
-  upstream: optional(vVaultProviderUpstreamPresence),
-  deployment: vVaultCloudflareDeployment,
-  connectedAt: number(),
-  lastObservedAt: number(),
-});
-export type VaultCloudflareWorker = Infer<typeof vVaultCloudflareWorker>;
-
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
  * vault state in Phase 1 so existing reads and mutations do not need a second
@@ -283,85 +207,225 @@ export type VaultCloudflareWorker = Infer<typeof vVaultCloudflareWorker>;
  * state into connected-only state or vault-scoped tables once that follow-up
  * project owns the callsites.
  */
-const vaultOperationalFields = {
-  userId: id("users"),
-  deletion: vVaultDeletionState,
-  lastTreeRefreshAt: optional(number()),
-  treeRefreshStartedAt: optional(number()),
-  lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
-  treeRefreshFailureMessage: optional(string()),
-  treeRefreshCooldownUntil: optional(number()),
-  activeCodespaceId: optional(id("codespaces")),
-  devcontainerConfig: optional(string()),
-} as const;
+export const vaultTables = {
+  /** Durable app containers with explicit repository connection states. */
+  vaults: defineTable(
+    union(
+      object({
+        state: literal("not_connected"),
+        userId: id("users"),
+        deletion: vVaultDeletionState,
+        lastTreeRefreshAt: optional(number()),
+        treeRefreshStartedAt: optional(number()),
+        lastTreeRefreshFailedAt: optional(number()),
+        treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
+        treeRefreshFailureMessage: optional(string()),
+        treeRefreshCooldownUntil: optional(number()),
+        activeCodespaceId: optional(id("codespaces")),
+        devcontainerConfig: optional(string()),
+      }),
+      object({
+        state: literal("provisioning"),
+        githubMode: literal("create_repository"),
+        userId: id("users"),
+        deletion: vVaultDeletionState,
+        lastTreeRefreshAt: optional(number()),
+        treeRefreshStartedAt: optional(number()),
+        lastTreeRefreshFailedAt: optional(number()),
+        treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
+        treeRefreshFailureMessage: optional(string()),
+        treeRefreshCooldownUntil: optional(number()),
+        activeCodespaceId: optional(id("codespaces")),
+        devcontainerConfig: optional(string()),
+        runId: id("workflow_vaultProvisioning_runs"),
+        startedAt: number(),
+        owner: string(),
+        name: string(),
+        visibility: vGitHubRepositoryVisibility,
+      }),
+      object({
+        state: literal("provisioning"),
+        githubMode: literal("connect_existing_repository"),
+        userId: id("users"),
+        deletion: vVaultDeletionState,
+        lastTreeRefreshAt: optional(number()),
+        treeRefreshStartedAt: optional(number()),
+        lastTreeRefreshFailedAt: optional(number()),
+        treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
+        treeRefreshFailureMessage: optional(string()),
+        treeRefreshCooldownUntil: optional(number()),
+        activeCodespaceId: optional(id("codespaces")),
+        devcontainerConfig: optional(string()),
+        runId: id("workflow_vaultProvisioning_runs"),
+        startedAt: number(),
+        owner: string(),
+        name: string(),
+      }),
+      object({
+        state: literal("connected"),
+        githubMode: literal("create_repository"),
+        userId: id("users"),
+        deletion: vVaultDeletionState,
+        lastTreeRefreshAt: optional(number()),
+        treeRefreshStartedAt: optional(number()),
+        lastTreeRefreshFailedAt: optional(number()),
+        treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
+        treeRefreshFailureMessage: optional(string()),
+        treeRefreshCooldownUntil: optional(number()),
+        activeCodespaceId: optional(id("codespaces")),
+        devcontainerConfig: optional(string()),
+        runId: id("workflow_vaultProvisioning_runs"),
+        ghRepoId: string(),
+        defaultBranch: string(),
+        connectedAt: number(),
+        owner: string(),
+        name: string(),
+        visibility: vGitHubRepositoryVisibility,
+      }),
+      object({
+        state: literal("connected"),
+        githubMode: literal("connect_existing_repository"),
+        userId: id("users"),
+        deletion: vVaultDeletionState,
+        lastTreeRefreshAt: optional(number()),
+        treeRefreshStartedAt: optional(number()),
+        lastTreeRefreshFailedAt: optional(number()),
+        treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
+        treeRefreshFailureMessage: optional(string()),
+        treeRefreshCooldownUntil: optional(number()),
+        activeCodespaceId: optional(id("codespaces")),
+        devcontainerConfig: optional(string()),
+        runId: id("workflow_vaultProvisioning_runs"),
+        ghRepoId: string(),
+        defaultBranch: string(),
+        connectedAt: number(),
+        owner: string(),
+        name: string(),
+        visibility: vGitHubRepositoryVisibility,
+      }),
+      object({
+        state: literal("failed"),
+        githubMode: literal("create_repository"),
+        userId: id("users"),
+        deletion: vVaultDeletionState,
+        lastTreeRefreshAt: optional(number()),
+        treeRefreshStartedAt: optional(number()),
+        lastTreeRefreshFailedAt: optional(number()),
+        treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
+        treeRefreshFailureMessage: optional(string()),
+        treeRefreshCooldownUntil: optional(number()),
+        activeCodespaceId: optional(id("codespaces")),
+        devcontainerConfig: optional(string()),
+        runId: id("workflow_vaultProvisioning_runs"),
+        failedAt: number(),
+        owner: string(),
+        name: string(),
+        visibility: vGitHubRepositoryVisibility,
+      }),
+      object({
+        state: literal("failed"),
+        githubMode: literal("connect_existing_repository"),
+        userId: id("users"),
+        deletion: vVaultDeletionState,
+        lastTreeRefreshAt: optional(number()),
+        treeRefreshStartedAt: optional(number()),
+        lastTreeRefreshFailedAt: optional(number()),
+        treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
+        treeRefreshFailureMessage: optional(string()),
+        treeRefreshCooldownUntil: optional(number()),
+        activeCodespaceId: optional(id("codespaces")),
+        devcontainerConfig: optional(string()),
+        runId: id("workflow_vaultProvisioning_runs"),
+        failedAt: number(),
+        owner: string(),
+        name: string(),
+      }),
+    ),
+  )
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
+    .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
+    .index("by_owner_and_name", ["owner", "name"])
+    .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
-const connectedRepositoryIdentityFields = {
-  ghRepoId: string(),
-  defaultBranch: string(),
-} as const;
+  /** Deployable app roots inside a repository-backed vault. */
+  vaultApps: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appRoot: string(),
+    createdAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"]),
 
-export const vVaultRow = union(
-  object({
-    ...vaultOperationalFields,
-    state: literal("not_connected"),
-  }),
-  object({
-    ...vaultOperationalFields,
-    state: literal("provisioning"),
-    githubMode: literal("create_repository"),
-    runId: id("appProvisioningRuns"),
-    startedAt: number(),
-
-    ...githubRepositoryWithVisibilityFields,
-  }),
-  object({
-    ...vaultOperationalFields,
-    state: literal("provisioning"),
-    githubMode: literal("connect_existing_repository"),
-    runId: id("appProvisioningRuns"),
-    startedAt: number(),
-
-    ...githubRepositoryCoordinatesFields,
-  }),
-  object({
-    ...vaultOperationalFields,
-    state: literal("connected"),
-    githubMode: literal("create_repository"),
-    runId: id("appProvisioningRuns"),
-    ...connectedRepositoryIdentityFields,
+  /** Cloudflare Workers connected to deployable app roots in a vault. */
+  vaultCloudflareWorkers: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appRoot: string(),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
+    workersDevUrl: optional(string()),
+    origin: vVaultCloudflareOrigin,
+    upstream: optional(vVaultProviderUpstreamPresence),
+    deployment: vVaultCloudflareDeployment,
     connectedAt: number(),
+    lastObservedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
 
-    ...githubRepositoryWithVisibilityFields,
-  }),
-  object({
-    ...vaultOperationalFields,
-    state: literal("connected"),
-    githubMode: literal("connect_existing_repository"),
-    runId: id("appProvisioningRuns"),
-
-    ...connectedRepositoryIdentityFields,
+  /** Convex deployments connected to a repository-backed vault. */
+  vaultConvexDeployments: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appRoot: string(),
+    projectId: string(),
+    teamSlug: string(),
+    projectSlug: string(),
+    deploymentName: string(),
+    deploymentType: literal("prod"),
+    cloudUrl: string(),
+    siteUrl: string(),
+    previewDeployment: union(
+      object({
+        state: literal("not_ensured"),
+      }),
+      object({
+        state: literal("ready"),
+        deploymentName: string(),
+        cloudUrl: string(),
+      }),
+    ),
+    deployKeys: vConvexDeployKeys,
+    origin: vVaultConvexOrigin,
+    upstream: optional(vVaultProviderUpstreamPresence),
     connectedAt: number(),
+    lastObservedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_vault_and_project", ["vaultId", "projectId"]),
 
-    ...githubRepositoryWithVisibilityFields,
-  }),
-  object({
-    ...vaultOperationalFields,
-    state: literal("failed"),
-    githubMode: literal("create_repository"),
-    runId: id("appProvisioningRuns"),
-    failedAt: number(),
-
-    ...githubRepositoryWithVisibilityFields,
-  }),
-  object({
-    ...vaultOperationalFields,
-    state: literal("failed"),
-    githubMode: literal("connect_existing_repository"),
-    runId: id("appProvisioningRuns"),
-    failedAt: number(),
-
-    ...githubRepositoryCoordinatesFields,
-  }),
-);
-export type VaultRow = Infer<typeof vVaultRow>;
+  /** Branch-to-domain mappings observed or provisioned for a vault. */
+  vaultDomains: defineTable({
+    vaultId: id("vaults"),
+    branch: string(),
+    kind: union(literal("main"), literal("branch_preview")),
+    url: string(),
+    source: union(
+      literal("cloudflare_workers_default"),
+      literal("cloudflare_workers_custom"),
+      literal("cloudflare_workers_preview"),
+    ),
+    active: boolean(),
+    lastSyncedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_vault_and_branch", ["vaultId", "branch"]),
+};

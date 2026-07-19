@@ -55,7 +55,7 @@ import {
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
-import { type GithubTree } from "../../../convex/schema";
+import { type GithubTree } from "../../../convex/vault/model";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
@@ -1764,7 +1764,7 @@ function FileViewInner({
   const selectedPreviewStagedFile = stagedFile ?? null;
   const sidebarSelectedFile = selectedFile;
   // Compare-only text files do not have staging rows, so their merge view has
-  // to come from the preview payload instead of fileStaging.
+  // to come from the preview payload instead of vaultStagedFiles.
   const selectedPreviewHasRichTextDiff = Boolean(
     selectedPreviewFile &&
     typeof selectedPreviewFile.richOldContent === "string" &&

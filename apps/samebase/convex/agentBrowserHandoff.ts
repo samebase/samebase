@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { vMcpOauthClientRegistrationStatus } from "./schema";
+import { vMcpOauthClientRegistrationStatus } from "./mcp/model";
 import {
   ACCESS_BROWSER_LOGIN_HANDOFF,
   canAccess,
@@ -99,7 +99,7 @@ async function writeAudit(
     userId?: Id<"users">;
   },
 ) {
-  await ctx.db.insert("mcpAccessAudit", {
+  await ctx.db.insert("audit_mcpAccess_events", {
     action: args.action,
     ...(args.clientId !== undefined ? { clientId: args.clientId } : {}),
     ...(args.detailsJson !== undefined ? { detailsJson: args.detailsJson } : {}),
@@ -140,7 +140,7 @@ export const createForMcp = internalMutation({
     }
 
     const recentHandoffs = await ctx.db
-      .query("agentBrowserHandoffs")
+      .query("mcpBrowserLoginTokens")
       .withIndex("by_grant_id", (q) => q.eq("grantId", args.grantId))
       .order("desc")
       .take(AGENT_BROWSER_HANDOFF_CREATE_RATE_LIMIT_MAX);
@@ -152,7 +152,7 @@ export const createForMcp = internalMutation({
       return error("rate_limited");
     }
 
-    const handoffId = await ctx.db.insert("agentBrowserHandoffs", args);
+    const handoffId = await ctx.db.insert("mcpBrowserLoginTokens", args);
     await ctx.scheduler.runAfter(
       Math.max(0, args.expiresAt - args.createdAt),
       internal.agentBrowserHandoff.deleteExpired,
@@ -170,7 +170,7 @@ export const createForMcp = internalMutation({
 
 export const deleteExpired = internalMutation({
   args: {
-    handoffId: id("agentBrowserHandoffs"),
+    handoffId: id("mcpBrowserLoginTokens"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -199,7 +199,7 @@ export const redeemForAuth = internalMutation({
   returns: redeemForAuthResultValidator,
   handler: async (ctx, args: RedeemForAuthArgs): Promise<RedeemForAuthResult> => {
     const handoff = await ctx.db
-      .query("agentBrowserHandoffs")
+      .query("mcpBrowserLoginTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .first();
     if (!handoff) {

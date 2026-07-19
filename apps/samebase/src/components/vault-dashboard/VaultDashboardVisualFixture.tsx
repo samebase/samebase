@@ -99,7 +99,7 @@ function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   return value;
 }
 
-function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
+function fakeProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
@@ -111,7 +111,7 @@ function fakeConvexDeploymentId(): Id<"vaultConvexDeployments"> {
   return "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-function fakeConvexSchemaSnapshotId(): Id<"vaultConvexSchemaSnapshots"> {
+function fakeConvexSchemaSnapshotId(): Id<"observations_vaultConvexSchema_snapshots"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
@@ -1064,7 +1064,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "vaultRemoteBranches",
+            name: "observations_vaultRepository_branches",
             source: "mixed",
             documentCount: 96,
             indexes: [{ name: "by_vault_branch", fields: ["vaultId", "branch"] }],
@@ -1091,7 +1091,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "vaultInfrastructureOwnership",
+            name: "workflow_vaultProvisioning_writeLocks",
             source: "declared",
             documentCount: 16,
             indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
@@ -1118,7 +1118,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "appProvisioningRuns",
+            name: "workflow_vaultProvisioning_runs",
             source: "declared",
             documentCount: 24,
             indexes: [{ name: "by_vault", fields: ["vaultId"] }],
@@ -1145,7 +1145,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "fileStaging",
+            name: "vaultStagedFiles",
             source: "mixed",
             documentCount: 318,
             indexes: [{ name: "by_vault_and_branch", fields: ["vaultId", "branch"] }],
@@ -1179,7 +1179,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "agentThreadContext",
+            name: "chatThreadContexts",
             source: "mixed",
             documentCount: 54,
             indexes: [{ name: "by_user", fields: ["userId"] }],
@@ -1257,43 +1257,43 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             source: "declared",
           },
           {
-            id: "declared:vaultRemoteBranches:vaultId:vaults",
-            fromTable: "vaultRemoteBranches",
+            id: "declared:observations_vaultRepository_branches:vaultId:vaults",
+            fromTable: "observations_vaultRepository_branches",
             fromField: "vaultId",
             toTable: "vaults",
             source: "declared",
           },
           {
-            id: "declared:vaultInfrastructureOwnership:userId:users",
-            fromTable: "vaultInfrastructureOwnership",
+            id: "declared:workflow_vaultProvisioning_writeLocks:userId:users",
+            fromTable: "workflow_vaultProvisioning_writeLocks",
             fromField: "userId",
             toTable: "users",
             source: "declared",
           },
           {
-            id: "declared:appProvisioningRuns:vaultId:vaults",
-            fromTable: "appProvisioningRuns",
+            id: "declared:workflow_vaultProvisioning_runs:vaultId:vaults",
+            fromTable: "workflow_vaultProvisioning_runs",
             fromField: "vaultId",
             toTable: "vaults",
             source: "declared",
           },
           {
-            id: "declared:fileStaging:vaultId:vaults",
-            fromTable: "fileStaging",
+            id: "declared:vaultStagedFiles:vaultId:vaults",
+            fromTable: "vaultStagedFiles",
             fromField: "vaultId",
             toTable: "vaults",
             source: "declared",
           },
           {
-            id: "declared:fileStaging:lastEditUserId:users",
-            fromTable: "fileStaging",
+            id: "declared:vaultStagedFiles:lastEditUserId:users",
+            fromTable: "vaultStagedFiles",
             fromField: "lastEditUserId",
             toTable: "users",
             source: "declared",
           },
           {
-            id: "declared:agentThreadContext:userId:users",
-            fromTable: "agentThreadContext",
+            id: "declared:chatThreadContexts:userId:users",
+            fromTable: "chatThreadContexts",
             fromField: "userId",
             toTable: "users",
             source: "declared",

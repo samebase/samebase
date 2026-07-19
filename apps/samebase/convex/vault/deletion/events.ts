@@ -8,12 +8,12 @@ const MAX_DELETION_EVENTS = 80;
 const MAX_DELETION_MESSAGE_LENGTH = 800;
 
 const deletionEventResult = object({
-  _id: id("vaultDeletionEvents"),
+  _id: id("workflow_vaultDeletion_events"),
   createdAt: number(),
   level: vVaultDeletionEventLevel,
   message: string(),
   repositoryFullName: string(),
-  runId: id("vaultDeletionRuns"),
+  runId: id("workflow_vaultDeletion_runs"),
   step: vVaultDeletionStep,
 });
 type DeletionEventResult = Infer<typeof deletionEventResult>;
@@ -29,7 +29,7 @@ export const append = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: id("vaultDeletionRuns"),
+    runId: id("workflow_vaultDeletion_runs"),
     step: vVaultDeletionStep,
     level: vVaultDeletionEventLevel,
     message: string(),
@@ -49,7 +49,7 @@ export const append = internalMutation({
       throw new Error("Deletion event does not match its run.");
     }
 
-    await ctx.db.insert("vaultDeletionEvents", {
+    await ctx.db.insert("workflow_vaultDeletion_events", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: args.repositoryFullName,
@@ -76,7 +76,7 @@ export const listForVault = query({
     }
 
     const events = await ctx.db
-      .query("vaultDeletionEvents")
+      .query("workflow_vaultDeletion_events")
       .withIndex("by_vault_and_created_at", (q) => q.eq("vaultId", args.vaultId))
       .order("desc")
       .take(MAX_DELETION_EVENTS);

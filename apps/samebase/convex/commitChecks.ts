@@ -5,9 +5,9 @@ import {
   vCommitCheckSource,
   vCommitCheckState,
   type CommitCheckState,
-  type GitHubCommitCheckSnapshot,
-  vGithubCommitCheckSnapshot,
-} from "./schema";
+  type GitHubCommitCheckSummary,
+  vGithubCommitCheckSummary,
+} from "./commitCheckModel";
 
 const { array, number, object, optional, string } = v;
 
@@ -56,18 +56,18 @@ export type GitHubCommitStatusSnapshotInput = {
   updatedAt?: string;
 };
 
-export async function getGitHubCommitCheckSnapshotsByCommitSha(
+export async function getGitHubCommitCheckSummariesByCommitSha(
   ctx: Pick<QueryCtx, "db">,
   args: {
     githubRepositoryId: string;
     commitShas: Iterable<string>;
   },
-): Promise<Map<string, GitHubCommitCheckSnapshot>> {
-  const snapshotsByCommitSha = new Map<string, GitHubCommitCheckSnapshot>();
-  const snapshots = await Promise.all(
+): Promise<Map<string, GitHubCommitCheckSummary>> {
+  const summariesByCommitSha = new Map<string, GitHubCommitCheckSummary>();
+  const summaries = await Promise.all(
     Array.from(new Set(args.commitShas)).map(async (commitSha) => {
       return await ctx.db
-        .query("githubCommitCheckSnapshots")
+        .query("derived_githubCommit_checkSummaries")
         .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
           q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
         )
@@ -75,13 +75,13 @@ export async function getGitHubCommitCheckSnapshotsByCommitSha(
     }),
   );
 
-  for (const snapshot of snapshots) {
-    if (snapshot) {
-      snapshotsByCommitSha.set(snapshot.commitSha, snapshot);
+  for (const summary of summaries) {
+    if (summary) {
+      summariesByCommitSha.set(summary.commitSha, summary);
     }
   }
 
-  return snapshotsByCommitSha;
+  return summariesByCommitSha;
 }
 
 function parseGitTimestamp(value: string | undefined): number | undefined {
@@ -351,12 +351,12 @@ export function selectBranchPreviewAliasUrlFromCommitCheckItems(
   return items.find((candidate) => candidate.previewAliasUrl)?.previewAliasUrl;
 }
 
-export function buildGitHubCommitCheckSnapshot(args: {
+export function buildGitHubCommitCheckSummary(args: {
   githubRepositoryId: string;
   commitSha: string;
   items: CommitCheckItemInput[];
   syncedAt: number;
-}): GitHubCommitCheckSnapshot {
+}): GitHubCommitCheckSummary {
   let checkRunCount = 0;
   let statusContextCount = 0;
   let successCount = 0;
@@ -440,7 +440,7 @@ async function deleteGitHubCommitCheckItems(
   },
 ): Promise<void> {
   const existingItems = await ctx.db
-    .query("githubCommitCheckItems")
+    .query("observations_githubCommit_checks")
     .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
       q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
@@ -451,22 +451,22 @@ async function deleteGitHubCommitCheckItems(
   }
 }
 
-async function deleteGitHubCommitCheckSnapshots(
+async function deleteGitHubCommitCheckSummaries(
   ctx: MutationCtx,
   args: {
     githubRepositoryId: string;
     commitSha: string;
   },
 ): Promise<void> {
-  const existingSnapshots = await ctx.db
-    .query("githubCommitCheckSnapshots")
+  const existingSummaries = await ctx.db
+    .query("derived_githubCommit_checkSummaries")
     .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
       q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
     .collect();
 
-  for (const snapshot of existingSnapshots) {
-    await ctx.db.delete(snapshot._id);
+  for (const summary of existingSummaries) {
+    await ctx.db.delete(summary._id);
   }
 }
 
@@ -477,40 +477,40 @@ export async function deleteGitHubCommitChecksUnreferencedByBranches(
     activeCommitShas: ReadonlySet<string>;
   },
 ): Promise<void> {
-  const existingSnapshots = await ctx.db
-    .query("githubCommitCheckSnapshots")
+  const existingSummaries = await ctx.db
+    .query("derived_githubCommit_checkSummaries")
     .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
       q.eq("githubRepositoryId", args.githubRepositoryId),
     )
     .collect();
 
-  for (const snapshot of existingSnapshots) {
-    if (args.activeCommitShas.has(snapshot.commitSha)) {
+  for (const summary of existingSummaries) {
+    if (args.activeCommitShas.has(summary.commitSha)) {
       continue;
     }
     await deleteGitHubCommitCheckItems(ctx, {
       githubRepositoryId: args.githubRepositoryId,
-      commitSha: snapshot.commitSha,
+      commitSha: summary.commitSha,
     });
-    await ctx.db.delete(snapshot._id);
+    await ctx.db.delete(summary._id);
   }
 }
 
-export const replaceGitHubCommitCheckSnapshot = internalMutation({
+export const replaceGitHubCommitChecks = internalMutation({
   args: {
     githubRepositoryId: string(),
     commitSha: string(),
     syncedAt: number(),
     items: array(commitCheckItemInputValidator),
   },
-  returns: vGithubCommitCheckSnapshot,
+  returns: vGithubCommitCheckSummary,
   handler: async (ctx, args) => {
-    const summary = buildGitHubCommitCheckSnapshot(args);
+    const summary = buildGitHubCommitCheckSummary(args);
 
     await deleteGitHubCommitCheckItems(ctx, args);
-    await deleteGitHubCommitCheckSnapshots(ctx, args);
+    await deleteGitHubCommitCheckSummaries(ctx, args);
     for (const item of args.items) {
-      await ctx.db.insert("githubCommitCheckItems", {
+      await ctx.db.insert("observations_githubCommit_checks", {
         githubRepositoryId: args.githubRepositoryId,
         commitSha: args.commitSha,
         ...item,
@@ -518,7 +518,7 @@ export const replaceGitHubCommitCheckSnapshot = internalMutation({
       });
     }
 
-    await ctx.db.insert("githubCommitCheckSnapshots", summary);
+    await ctx.db.insert("derived_githubCommit_checkSummaries", summary);
 
     return summary;
   },

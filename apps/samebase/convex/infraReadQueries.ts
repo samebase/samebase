@@ -8,9 +8,9 @@ export const vAllowedInfraReadTable = v.union(
   v.literal("vaultCloudflareWorkers"),
   v.literal("vaultDomains"),
   v.literal("codespaces"),
-  v.literal("fileStaging"),
-  v.literal("aiProdAccessRequests"),
-  v.literal("aiProdAccessAudit"),
+  v.literal("vaultStagedFiles"),
+  v.literal("aiProductionReadRequests"),
+  v.literal("audit_aiProductionRead_events"),
 );
 
 export const readTableSample = internalQuery({
@@ -74,29 +74,29 @@ export const readTableSample = internalQuery({
       return await ctx.db.query("codespaces").take(limit);
     }
 
-    if (args.table === "fileStaging") {
+    if (args.table === "vaultStagedFiles") {
       const vaultId = args.vaultId;
       if (vaultId) {
         return await ctx.db
-          .query("fileStaging")
+          .query("vaultStagedFiles")
           .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
           .take(limit);
       }
-      return await ctx.db.query("fileStaging").take(limit);
+      return await ctx.db.query("vaultStagedFiles").take(limit);
     }
 
-    if (args.table === "aiProdAccessRequests") {
+    if (args.table === "aiProductionReadRequests") {
       const vaultId = args.vaultId;
       if (vaultId) {
         return await ctx.db
-          .query("aiProdAccessRequests")
+          .query("aiProductionReadRequests")
           .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
           .take(limit);
       }
-      return await ctx.db.query("aiProdAccessRequests").take(limit);
+      return await ctx.db.query("aiProductionReadRequests").take(limit);
     }
 
-    return await ctx.db.query("aiProdAccessAudit").take(limit);
+    return await ctx.db.query("audit_aiProductionRead_events").take(limit);
   },
 });
 

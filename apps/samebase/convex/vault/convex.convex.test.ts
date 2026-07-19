@@ -66,7 +66,7 @@ async function createConvexConnectedVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
+    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/demo",
@@ -96,7 +96,7 @@ async function createConvexConnectedVault() {
       appRoot,
       createdAt: 25,
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/demo",
@@ -270,14 +270,14 @@ describe("vault Convex deployment connection actions", () => {
       vi.fn(async (input: Request) => {
         if (input.url.includes("/projects/1001/deployment")) {
           await t.run(async (ctx) => {
-            const ownership = await ctx.db
-              .query("vaultInfrastructureOwnership")
+            const writeLock = await ctx.db
+              .query("workflow_vaultProvisioning_writeLocks")
               .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
               .first();
-            if (!ownership) {
-              throw new Error("Expected active ownership row.");
+            if (!writeLock) {
+              throw new Error("Expected active provisioning write lock row.");
             }
-            await ctx.db.patch(ownership._id, {
+            await ctx.db.patch(writeLock._id, {
               state: "failed",
               updatedAt: 50,
             });
@@ -378,7 +378,7 @@ describe("vault Convex deployment connection actions", () => {
     );
     const { ids, t } = await createConvexConnectedVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("appProvisioningRuns", {
+      await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/demo",
@@ -485,7 +485,7 @@ describe("vault Convex deployment connection actions", () => {
     );
     const { ids, t } = await createConvexConnectedVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("appProvisioningRuns", {
+      await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/demo",

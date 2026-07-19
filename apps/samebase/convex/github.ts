@@ -21,7 +21,7 @@ import {
 } from "../shared/repositoryMedia";
 import { isRepositoryMetadataStale, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { readStagedFileKind } from "./stagingChanges";
-import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
+import type { PullRequestLabel as StoredPullRequestLabel } from "./vault/branchModel";
 
 const {
   array,
@@ -117,7 +117,7 @@ const updateRepositoryTreeTarget = union(
  *
  * The include* fields are internal execution policy knobs. They are required so
  * callers must state the cost they are asking for; they are not stored on
- * repositoryRefreshRequests.
+ * vaultRepositoryRefreshRequests.
  */
 const refreshRepositoryTreeForUserInput = union(
   object({
@@ -1076,7 +1076,7 @@ async function syncBranchHeadCommitCheckSnapshotsByBranch(
             repo: args.repo,
             branch,
           });
-          await ctx.runMutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
+          await ctx.runMutation(internal.commitChecks.replaceGitHubCommitChecks, {
             githubRepositoryId: args.githubRepositoryId,
             commitSha: snapshot.commitSha,
             syncedAt: args.syncedAt,

@@ -18,7 +18,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
@@ -42,7 +42,7 @@ describe("vault deletion workflow", () => {
         visibility: "private",
         connectedAt: 4,
       });
-      await ctx.db.insert("vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -73,7 +73,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
@@ -97,7 +97,7 @@ describe("vault deletion workflow", () => {
         visibility: "private",
         connectedAt: 4,
       });
-      await ctx.db.insert("vaultBranchTrees", {
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
         treeSHA: "tree",
@@ -129,7 +129,7 @@ describe("vault deletion workflow", () => {
         run: await ctx.db.get(deletionRunId),
         vault: await ctx.db.get(ids.vaultId),
         events: await ctx.db
-          .query("vaultDeletionEvents")
+          .query("workflow_vaultDeletion_events")
           .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRunId))
           .collect(),
       };
@@ -189,7 +189,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/existing-repo",
@@ -334,7 +334,7 @@ describe("vault deletion workflow", () => {
     });
     const remoteBranches = await t.run(async (ctx) => {
       return await ctx.db
-        .query("vaultRemoteBranches")
+        .query("observations_vaultRepository_branches")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
     });
@@ -390,7 +390,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
@@ -415,7 +415,7 @@ describe("vault deletion workflow", () => {
         connectedAt: 4,
       });
       for (let index = 0; index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1; index += 1) {
-        await ctx.db.insert("vaultBranchTrees", {
+        await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
           branch: `branch-${index}`,
           treeSHA: `tree-${index}`,
@@ -527,7 +527,7 @@ describe("vault deletion workflow", () => {
         run: await ctx.db.get(deletionRunId),
         vault: await ctx.db.get(ids.vaultId),
         branchTrees: await ctx.db
-          .query("vaultBranchTrees")
+          .query("observations_vaultRepository_branchTrees")
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         cloudflareWorkers: await ctx.db
@@ -535,7 +535,7 @@ describe("vault deletion workflow", () => {
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         events: await ctx.db
-          .query("vaultDeletionEvents")
+          .query("workflow_vaultDeletion_events")
           .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRunId))
           .collect(),
       };
@@ -568,7 +568,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/provisioning",
@@ -609,7 +609,7 @@ describe("vault deletion workflow", () => {
     const snapshot = await t.run(async (ctx) => {
       const vault = await ctx.db.get(ids.vaultId);
       const runs = await ctx.db
-        .query("vaultDeletionRuns")
+        .query("workflow_vaultDeletion_runs")
         .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
       return { runs, vault };
@@ -631,7 +631,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/existing",
@@ -686,7 +686,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/codespaces",
@@ -728,7 +728,7 @@ describe("vault deletion workflow", () => {
     const snapshot = await t.run(async (ctx) => {
       const vault = await ctx.db.get(ids.vaultId);
       const runs = await ctx.db
-        .query("vaultDeletionRuns")
+        .query("workflow_vaultDeletion_runs")
         .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
       return { runs, vault };
@@ -764,7 +764,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const setupRunId = await ctx.db.insert("appProvisioningRuns", {
+      const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/retry-me",
@@ -864,7 +864,7 @@ describe("vault deletion workflow", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const setupRunId = await ctx.db.insert("appProvisioningRuns", {
+      const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/retry-missing-provider",
@@ -919,7 +919,7 @@ describe("vault deletion workflow", () => {
     const snapshot = await t.run(async (ctx) => {
       const vault = await ctx.db.get(ids.vaultId);
       const runs = await ctx.db
-        .query("vaultDeletionRuns")
+        .query("workflow_vaultDeletion_runs")
         .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
       return { runs, vault };

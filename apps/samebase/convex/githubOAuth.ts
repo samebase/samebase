@@ -209,7 +209,7 @@ export const storeGithubOauthConnection = internalMutation({
     userId: v.id("users"),
     accessToken: v.string(),
     username: v.string(),
-    oauthStateId: v.id("oauthStates"),
+    oauthStateId: v.id("providerOAuthCallbackStates"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

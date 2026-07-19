@@ -71,9 +71,10 @@ once makes it available everywhere by policy.
    executors.
 4. `apps/noter/src/components/ChatFab.tsx` commit/prod-read approval cards are Noter-web specific
    and not reusable by MCP clients.
-5. `main` now includes branch-native repository state through `vaultRemoteBranches` and
-   `vaultBranchTrees`, with ahead/behind and PR-link metadata surfaced in vault/dashboard flows.
-   Shared tools must consume this model instead of assuming a single implicit branch.
+5. `main` now includes branch-native repository state through
+   `observations_vaultRepository_branches` and `observations_vaultRepository_branchTrees`, with
+   ahead/behind and PR-link metadata surfaced in vault/dashboard flows. Shared tools must consume
+   this model instead of assuming a single implicit branch.
 
 ## Architecture
 

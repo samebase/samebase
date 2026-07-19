@@ -7,7 +7,7 @@ const { boolean, id, object, optional, string } = v;
 
 const vCreateRepositoryResult = object({
   vaultId: id("vaults"),
-  runId: id("appProvisioningRuns"),
+  runId: id("workflow_vaultProvisioning_runs"),
 });
 
 export const createRepositoryContract = {

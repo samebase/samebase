@@ -20,16 +20,20 @@ export function AdminAccountDeletionsPage() {
     {},
     { initialNumItems: 25 },
   );
-  const [selectedRunId, setSelectedRunId] = useState<Id<"accountDeletionRuns"> | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<Id<"workflow_accountDeletion_runs"> | null>(
+    null,
+  );
   const detail = useQuery(
     api.accountDeletion.index.detailForAdmin,
     selectedRunId === null ? "skip" : { runId: selectedRunId },
   );
   const retry = useMutation(api.accountDeletion.index.retry);
-  const [retryingRunId, setRetryingRunId] = useState<Id<"accountDeletionRuns"> | null>(null);
+  const [retryingRunId, setRetryingRunId] = useState<Id<"workflow_accountDeletion_runs"> | null>(
+    null,
+  );
   const [retryError, setRetryError] = useState<string | null>(null);
 
-  const handleRetry = async (runId: Id<"accountDeletionRuns">) => {
+  const handleRetry = async (runId: Id<"workflow_accountDeletion_runs">) => {
     if (retryingRunId !== null) {
       return;
     }

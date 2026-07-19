@@ -13,7 +13,7 @@ import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { hasBranchStagingChanges } from "./branches";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
-import { vVaultResourceLinksState } from "./resourceLinksStateModel";
+import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
 import {
   getUserVaultsContract,
@@ -35,7 +35,7 @@ type SourceSetupVault = Extract<
   { githubMode: "create_repository" | "connect_existing_repository" }
 >;
 type VaultDomain = Doc<"vaultDomains">;
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
+type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type VaultApp = Doc<"vaultApps">;
 type ConnectedConvexDeployment = Doc<"vaultConvexDeployments">;
 type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
@@ -79,10 +79,10 @@ function resolveCloudflareWorkerUpstream(
 
 async function readLatestRunErrorMessage(
   ctx: Pick<QueryCtx, "db">,
-  runId: Id<"appProvisioningRuns">,
+  runId: Id<"workflow_vaultProvisioning_runs">,
 ): Promise<string | undefined> {
   const events = await ctx.db
-    .query("appProvisioningEvents")
+    .query("workflow_vaultProvisioning_events")
     .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
     .order("desc")
     .take(SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT);
@@ -160,7 +160,7 @@ function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
 export function readProviderSetupFailedNextAction(args: {
   provider: "convex" | "cloudflare";
   source: "managed" | "manual";
-  trigger?: Doc<"appProvisioningRuns">["trigger"];
+  trigger?: Doc<"workflow_vaultProvisioning_runs">["trigger"];
 }): Extract<ProviderSetupSummary, { status: "failed" }>["nextAction"] {
   if (args.source !== "manual") {
     return "retry_infrastructure_provisioning";
@@ -185,7 +185,7 @@ async function readProviderRunSummary(
   args: {
     provider: "convex" | "cloudflare";
     source: "managed" | "manual";
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     status: "running" | "failed";
     fallbackUpdatedAt: number;
   },
@@ -229,15 +229,16 @@ async function readProviderRunSummary(
 }
 
 /**
- * The create workflow can sync the first tree before infra ownership is claimed;
- * keep the setup log visible during that handoff instead of flashing empty UI.
+ * The create workflow can sync the first tree before it acquires the provisioning
+ * write lock; keep the setup log visible during that transition instead of
+ * flashing empty UI.
  */
 async function readRunningProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
     provider: "convex" | "cloudflare";
     source: "managed" | "manual";
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): Promise<Extract<ProviderSetupSummary, { status: "running" }> | null> {
   const run = await ctx.db.get(args.runId);
@@ -257,10 +258,10 @@ async function readRunningProviderRunSummary(
 
 async function readLatestDeletionEvent(
   ctx: Pick<QueryCtx, "db">,
-  runId: Id<"vaultDeletionRuns">,
-): Promise<Doc<"vaultDeletionEvents"> | null> {
+  runId: Id<"workflow_vaultDeletion_runs">,
+): Promise<Doc<"workflow_vaultDeletion_events"> | null> {
   return await ctx.db
-    .query("vaultDeletionEvents")
+    .query("workflow_vaultDeletion_events")
     .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
     .order("desc")
     .first();
@@ -322,12 +323,12 @@ async function resolveVaultDeletionSummary(
   }
 }
 
-async function readVaultInfrastructureOwnership(
+async function readVaultProvisioningWriteLock(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
+): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("workflow_vaultProvisioning_writeLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -337,7 +338,7 @@ async function hasCreatedConvexProjectForVault(
   vaultId: Id<"vaults">,
 ): Promise<boolean> {
   const runs = await ctx.db
-    .query("appProvisioningRuns")
+    .query("workflow_vaultProvisioning_runs")
     .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
     .collect();
   return runs.some(
@@ -346,7 +347,7 @@ async function hasCreatedConvexProjectForVault(
 }
 
 function readManualProviderFromRun(
-  run: Doc<"appProvisioningRuns"> | null,
+  run: Doc<"workflow_vaultProvisioning_runs"> | null,
 ): "convex" | "cloudflare" | null {
   switch (run?.trigger) {
     case "connect_convex_deployment":
@@ -393,31 +394,31 @@ async function resolveProviderSetupSummary(
   convexDeployments: ConnectedConvexDeployment[],
   cloudflareWorkers: ConnectedCloudflareWorker[],
 ): Promise<ProviderSetupSummary> {
-  const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
-  const ownershipRun = ownership ? await ctx.db.get(ownership.runId) : null;
-  const manualOwnershipProvider = readManualProviderFromRun(ownershipRun);
+  const writeLock = await readVaultProvisioningWriteLock(ctx, vault._id);
+  const writeLockRun = writeLock ? await ctx.db.get(writeLock.runId) : null;
+  const manualWriteLockProvider = readManualProviderFromRun(writeLockRun);
   if (
-    ownership &&
-    manualOwnershipProvider &&
-    (ownership.state === "active" || ownership.state === "failed")
+    writeLock &&
+    manualWriteLockProvider &&
+    (writeLock.state === "active" || writeLock.state === "failed")
   ) {
     return await readProviderRunSummary(ctx, {
-      provider: manualOwnershipProvider,
+      provider: manualWriteLockProvider,
       source: "manual",
-      runId: ownership.runId,
-      status: ownership.state === "failed" ? "failed" : "running",
-      fallbackUpdatedAt: ownership.updatedAt,
+      runId: writeLock.runId,
+      status: writeLock.state === "failed" ? "failed" : "running",
+      fallbackUpdatedAt: writeLock.updatedAt,
     });
   }
 
   if (convexDeployments.length === 0) {
-    if (ownership?.state === "active" || ownership?.state === "failed") {
+    if (writeLock?.state === "active" || writeLock?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "convex",
         source: "managed",
-        runId: ownership.runId,
-        status: ownership.state === "failed" ? "failed" : "running",
-        fallbackUpdatedAt: ownership.updatedAt,
+        runId: writeLock.runId,
+        status: writeLock.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: writeLock.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -428,13 +429,13 @@ async function resolveProviderSetupSummary(
     return runningCreateRun ?? { status: "not_applicable" };
   }
   if (cloudflareWorkers.length === 0) {
-    if (ownership?.state === "active" || ownership?.state === "failed") {
+    if (writeLock?.state === "active" || writeLock?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "cloudflare",
         source: "managed",
-        runId: ownership.runId,
-        status: ownership.state === "failed" ? "failed" : "running",
-        fallbackUpdatedAt: ownership.updatedAt,
+        runId: writeLock.runId,
+        status: writeLock.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: writeLock.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -444,13 +445,13 @@ async function resolveProviderSetupSummary(
     });
     return runningCreateRun ?? { status: "not_applicable" };
   }
-  if (ownership?.state === "active") {
+  if (writeLock?.state === "active") {
     return await readProviderRunSummary(ctx, {
       provider: "cloudflare",
       source: "managed",
-      runId: ownership.runId,
+      runId: writeLock.runId,
       status: "running",
-      fallbackUpdatedAt: ownership.updatedAt,
+      fallbackUpdatedAt: writeLock.updatedAt,
     });
   }
 
@@ -611,7 +612,7 @@ export const getUserVaultBranchFilters = query({
   handler: async (ctx) => {
     return (
       await ctx.db
-        .query("vaultBranchFilters")
+        .query("ui_vaultBranches_filters")
         .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
     ).map((vaultBranchFilter) => ({
@@ -630,7 +631,7 @@ export const getUserVaultResourceLinksState = query({
   handler: async (ctx) => {
     const states = (
       await ctx.db
-        .query("vaultResourceLinksState")
+        .query("ui_vaultResourceLinks_settings")
         .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
     ).map((state) => ({
@@ -657,7 +658,7 @@ export const setVaultResourceLinksOpen = mutation({
     }
 
     const existing = await ctx.db
-      .query("vaultResourceLinksState")
+      .query("ui_vaultResourceLinks_settings")
       .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     const nextState = {
@@ -670,7 +671,7 @@ export const setVaultResourceLinksOpen = mutation({
       return;
     }
 
-    await ctx.db.insert("vaultResourceLinksState", {
+    await ctx.db.insert("ui_vaultResourceLinks_settings", {
       userId,
       vaultId: args.vaultId,
       ...nextState,
@@ -693,7 +694,7 @@ export const setVaultBranchFilters = mutation({
     }
 
     const existing = await ctx.db
-      .query("vaultBranchFilters")
+      .query("ui_vaultBranches_filters")
       .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     const shouldPersist =
@@ -713,7 +714,7 @@ export const setVaultBranchFilters = mutation({
         includeNoLabel: args.includeNoLabel !== false,
       });
     } else {
-      await ctx.db.insert("vaultBranchFilters", {
+      await ctx.db.insert("ui_vaultBranches_filters", {
         userId,
         vaultId: args.vaultId,
         hiddenLabels: args.hiddenLabels,
@@ -754,8 +755,8 @@ export const createVaultAppRoot = mutation({
     }
 
     if (appRoot !== ROOT_VAULT_APP_ROOT && rootApp) {
-      const [rootConvexDeployment, rootCloudflareWorker, infrastructureOwnership] =
-        await Promise.all([
+      const [rootConvexDeployment, rootCloudflareWorker, provisioningWriteLock] = await Promise.all(
+        [
           ctx.db
             .query("vaultConvexDeployments")
             .withIndex("by_vault_and_appRoot", (q) =>
@@ -768,9 +769,10 @@ export const createVaultAppRoot = mutation({
               q.eq("vaultId", args.vaultId).eq("appRoot", ROOT_VAULT_APP_ROOT),
             )
             .first(),
-          readVaultInfrastructureOwnership(ctx, args.vaultId),
-        ]);
-      if (infrastructureOwnership?.state === "active") {
+          readVaultProvisioningWriteLock(ctx, args.vaultId),
+        ],
+      );
+      if (provisioningWriteLock?.state === "active") {
         throw new Error("Wait for provider setup before converting this vault to a monorepo.");
       }
       if (rootConvexDeployment || rootCloudflareWorker) {
@@ -801,7 +803,7 @@ export const listVaultAppRootFolderSuggestions = query({
     }
 
     const defaultBranchTree = await ctx.db
-      .query("vaultBranchTrees")
+      .query("observations_vaultRepository_branchTrees")
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", vault.defaultBranch),
       )
@@ -949,11 +951,11 @@ async function readUserVaults(
 
       const [stagingData, defaultBranchTree, hasCreatedConvexProject] = await Promise.all([
         ctx.db
-          .query("fileStaging")
+          .query("vaultStagedFiles")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
           .collect(),
         ctx.db
-          .query("vaultBranchTrees")
+          .query("observations_vaultRepository_branchTrees")
           .withIndex("by_vault_and_branch", (q) =>
             q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
           )

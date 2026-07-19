@@ -232,14 +232,12 @@ Key domain entities:
 - `users`
 - `providerConnections`
 - `vaults`
-- `vaultInfrastructureTargets`
-- `vaultInfrastructureOwnership`
+- `workflow_vaultProvisioning_plans`
+- `workflow_vaultProvisioning_writeLocks`
 - `vaultDomains`
-- `fileStaging`
-- `collaborativeUpdates`
-- `folderExpansionState`
-- `aiProdAccessRequests`
-- `aiProdAccessAudit`
+- `vaultStagedFiles`
+- `aiProductionReadRequests`
+- `audit_aiProductionRead_events`
 
 ## Convex CLI
 
@@ -292,9 +290,9 @@ Types and validation:
 - Let `pure(...)`/`sure(...)` infer inline validator inputs; no redundant `unknown` annotations.
 - When a schema exists, derive the type from it; one source-of-truth schema per boundary, with no
   parallel hand-written types, strict companions, or validator-issue translation.
-- Convex: result validators before handlers, `Infer<typeof ...>`, destructure validator builders
-  once; reserve the `v` prefix for reusable Convex validators (`vProviderAuth`), system-specific
-  prefixes elsewhere (`ajv...`).
+- Convex: table names follow `docs/data-modeling-vocabulary.md`; put result validators before
+  handlers, derive types with `Infer`, destructure builders once, reserve `v` for reusable
+  validators, and use system-specific prefixes elsewhere.
 - Required properties and args by default; every optional needs a current justification.
 - Put invariants in the state shape (discriminated unions, required variant fields, closed sets,
   validators that reject impossible rows); runtime transitions only for db/time/provider-dependent

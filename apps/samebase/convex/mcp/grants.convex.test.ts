@@ -160,7 +160,7 @@ describe("MCP grant management", () => {
         .withIndex("by_grant_id", (q) => q.eq("grantId", "mcpg_older"))
         .unique();
       const audits = await ctx.db
-        .query("mcpAccessAudit")
+        .query("audit_mcpAccess_events")
         .withIndex("by_grant_id", (q) => q.eq("grantId", "mcpg_older"))
         .collect();
       return { audits, grant };
@@ -200,7 +200,7 @@ describe("MCP grant management", () => {
         tokenHash: "refresh_hash",
         userId: ids.ownerId,
       });
-      await ctx.db.insert("agentBrowserHandoffs", {
+      await ctx.db.insert("mcpBrowserLoginTokens", {
         clientId: "mcpc_named",
         createdAt: now,
         expiresAt: now + 60_000,

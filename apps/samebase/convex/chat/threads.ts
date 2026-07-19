@@ -3,14 +3,14 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 type DbCtx = Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">;
 
-type ThreadContextDoc = Doc<"agentThreadContext">;
+type ThreadContextDoc = Doc<"chatThreadContexts">;
 
 export async function getThreadById(
   ctx: DbCtx,
   threadId: string,
 ): Promise<ThreadContextDoc | null> {
   return await ctx.db
-    .query("agentThreadContext")
+    .query("chatThreadContexts")
     .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
     .first();
 }

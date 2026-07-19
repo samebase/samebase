@@ -6,7 +6,9 @@ const toolActivityItemSchema = z.object({
   input: z.unknown(),
 });
 
-const requestIdSchema = z.custom<Id<"aiProdAccessRequests">>((value) => typeof value === "string");
+const requestIdSchema = z.custom<Id<"aiProductionReadRequests">>(
+  (value) => typeof value === "string",
+);
 
 const toolActivitySchema = z
   .object({

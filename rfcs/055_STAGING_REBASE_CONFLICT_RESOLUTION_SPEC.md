@@ -449,8 +449,8 @@ Acceptance:
 
 ## Open Questions
 
-1. Should conflict metadata live in `fileStaging` rows, or in a separate `stagingConflicts` table
-   keyed by staging id?
+1. Should conflict metadata live in `vaultStagedFiles` rows, or in a separate `stagingConflicts`
+   table keyed by staging id?
 2. Should the first implementation persist diff3 markers in `content`, or keep them separate and
    only render them in UI?
 3. For non-markdown files, should phase 1 use the same merge editor or a simpler source-only

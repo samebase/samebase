@@ -11,7 +11,7 @@ import {
 import { client } from "@/lib/convexClient";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTree } from "../../convex/schema";
+import { type GithubTree } from "../../convex/vault/model";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { setupEditorATA, parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";

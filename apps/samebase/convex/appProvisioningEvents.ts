@@ -1,19 +1,19 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { query } from "./functions";
-import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./schema";
+import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./appProvisioningModel";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
 const MAX_PROVISIONING_MESSAGE_LENGTH = 4000;
 
 const provisioningEventResult = object({
-  _id: id("appProvisioningEvents"),
+  _id: id("workflow_vaultProvisioning_events"),
   createdAt: number(),
   level: vAppProvisioningEventLevel,
   message: string(),
   repositoryFullName: string(),
-  runId: id("appProvisioningRuns"),
+  runId: id("workflow_vaultProvisioning_runs"),
   step: vAppProvisioningStep,
 });
 type ProvisioningEventResult = Infer<typeof provisioningEventResult>;
@@ -29,7 +29,7 @@ export const append = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningStep,
     level: vAppProvisioningEventLevel,
     message: string(),
@@ -49,7 +49,7 @@ export const append = internalMutation({
       throw new Error("Provisioning event does not match its run.");
     }
 
-    await ctx.db.insert("appProvisioningEvents", {
+    await ctx.db.insert("workflow_vaultProvisioning_events", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: args.repositoryFullName,
@@ -76,7 +76,7 @@ export const listForVault = query({
     }
 
     const events = await ctx.db
-      .query("appProvisioningEvents")
+      .query("workflow_vaultProvisioning_events")
       .withIndex("by_vault_and_created_at", (q) => q.eq("vaultId", args.vaultId))
       .order("desc")
       .take(MAX_PROVISIONING_EVENTS);

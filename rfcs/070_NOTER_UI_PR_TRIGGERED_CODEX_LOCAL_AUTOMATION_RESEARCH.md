@@ -68,7 +68,7 @@ Important current behavior:
 
 ### What Noter stores today and what it does not
 
-`agentThreadContext` in `apps/noter/convex/schema.ts` and messages persisted via
+`chatThreadContexts` in `apps/noter/convex/schema.ts` and messages persisted via
 `apps/noter/convex/chat/index.ts` belong to Noter's own Convex-backed chat product.
 
 That state is **not** the same thing as a Codex Desktop or Codex CLI thread today.

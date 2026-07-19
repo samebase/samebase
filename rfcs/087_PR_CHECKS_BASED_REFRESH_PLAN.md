@@ -107,14 +107,15 @@ The refresh system before this PR was already centralized enough to reuse:
    - `shouldHydrateCloudflarePreviewLinks` returned `false` for dashboard demand and `true` only for
      manual/source setup demand.
 2. `apps/samebase/convex/github.ts`
-   - `syncRepositoryMetadata` lists branches, lists open PRs, writes `vaultRemoteBranches`, then
-     optionally calls `getCloudflarePreviewLinksByBranch`.
+   - `syncRepositoryMetadata` lists branches, lists open PRs, writes
+     `observations_vaultRepository_branches`, then optionally calls
+     `getCloudflarePreviewLinksByBranch`.
    - `getOpenPullRequestsByBranch` uses `octokit.rest.pulls.list`.
    - `getLatestPullRequestCloudflarePreviewComment` uses `octokit.rest.issues.listComments`.
    - `parseCloudflarePreviewComment` is the only current Cloudflare preview parser.
 3. `apps/samebase/convex/schema.ts`
-   - `vaultRemoteBranches` stores branch head SHA, PR URL/number/title/labels/draft, and flat
-     Cloudflare preview cache fields.
+   - `observations_vaultRepository_branches` stores branch head SHA, PR
+     URL/number/title/labels/draft, and flat Cloudflare preview cache fields.
 4. `apps/samebase/convex/vault/branches.ts`
    - `syncVaultRemoteBranches` wrote PR metadata and cleared preview cache when the current PR
      number changed or disappeared.
@@ -153,7 +154,7 @@ The product-facing behavior should be provider-neutral:
 
 ## Data Model
 
-Do not store all check records as an unbounded array on `vaultRemoteBranches`.
+Do not store all check records as an unbounded array on `observations_vaultRepository_branches`.
 
 Add a child table for current PR check items:
 
@@ -186,7 +187,7 @@ Indexes:
 
 1. `by_vault_and_branch_and_pr` on `["vaultId", "branchName", "pullRequestNumber"]`
 
-Add one compact optional summary to `vaultRemoteBranches`:
+Add one compact optional summary to `observations_vaultRepository_branches`:
 
 ```ts
 type PullRequestStatusSummary = {
@@ -317,8 +318,9 @@ Status: implemented.
 3. The direct Cloudflare-only check hydration path has been replaced by the generic snapshot writer.
 4. The branch-level Cloudflare preview/log compatibility projection has been removed from runtime
    reads and writes.
-5. Production `vaultRemoteBranches` data has been cleared of the old Cloudflare preview fields.
-6. The deprecated schema fields have been removed from `vaultRemoteBranches`.
+5. Production `observations_vaultRepository_branches` data has been cleared of the old Cloudflare
+   preview fields.
+6. The deprecated schema fields have been removed from `observations_vaultRepository_branches`.
 7. Pending follow-up: archive or rewrite
    `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
    verified in production.

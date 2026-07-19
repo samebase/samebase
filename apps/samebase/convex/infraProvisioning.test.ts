@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
-import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./schema";
+import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./appProvisioningModel";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -27,7 +27,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: `ada/${args.repoName}`,
@@ -56,7 +56,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     }
 
     if (args.activeOwnership) {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
         runId,
         state: "active",
@@ -75,7 +75,7 @@ async function readRunAndFirstEvent(
   return await t.run(async (ctx) => {
     const run = await ctx.db.get(runId);
     const event = await ctx.db
-      .query("appProvisioningEvents")
+      .query("workflow_vaultProvisioning_events")
       .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
       .first();
     return { event, run };
@@ -253,7 +253,7 @@ describe("markWorkflowProvisioningFailed", () => {
     });
   });
 
-  it("marks active Convex child-run ownership as failed", async () => {
+  it("marks an active Convex child-run write lock as failed", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {
       repoName: "convex-failure",
@@ -274,23 +274,23 @@ describe("markWorkflowProvisioningFailed", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
-      return { ownership, run };
+      return { writeLock, run };
     });
 
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,
     });
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       state: "failed",
     });
   });
 
-  it("marks active composed create-app ownership as failed", async () => {
+  it("marks an active composed create-app write lock as failed", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {
       repoName: "composed-worker-failure",
@@ -310,22 +310,22 @@ describe("markWorkflowProvisioningFailed", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_run", (q) => q.eq("runId", ids.runId))
         .first();
       const event = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .first();
-      return { event, ownership, run };
+      return { event, writeLock, run };
     });
 
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,
     });
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       state: "failed",
     });
     expect(result.event).toMatchObject({

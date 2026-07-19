@@ -1,19 +1,7 @@
+import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
 const { id, literal, number, object, string, union } = v;
-
-export const vAccountDeletionMarker = union(
-  object({
-    state: literal("deleting"),
-    runId: id("accountDeletionRuns"),
-    requestedAt: number(),
-  }),
-  object({
-    state: literal("finalizing"),
-    runId: id("accountDeletionRuns"),
-    requestedAt: number(),
-  }),
-);
 
 export const vAccountDeletionStep = union(
   literal("request_accepted"),
@@ -180,78 +168,100 @@ export const INITIAL_ACCOUNT_DELETION_DATA_PROGRESS = {
   accessRequestsAndHistory: { state: "not_started" },
 } as const satisfies AccountDeletionDataProgress;
 
-const vAccountDeletionWorkflowNotStarted = object({
-  state: literal("not_started"),
-});
+export const accountDeletionTables = {
+  /** Account-deletion runs that are active or retained as scrubbed completion receipts. */
+  workflow_accountDeletion_runs: defineTable(
+    union(
+      object({
+        state: literal("queued"),
+        identity: object({
+          state: literal("active"),
+          userId: id("users"),
+          email: string(),
+        }),
+        completionCapability: string(),
+        currentStep: vAccountDeletionStep,
+        requestedAt: number(),
+        updatedAt: number(),
+        initiatingSessionId: id("authSessions"),
+        retryCount: number(),
+        outcomes: vAccountDeletionOutcomeSummary,
+        // Active runs created before durable data progress shipped remain readable
+        // and finish through the legacy cleanup path.
+        dataDeletion: v.optional(vAccountDeletionDataProgress),
+        workflow: object({
+          state: literal("not_started"),
+        }),
+      }),
+      object({
+        state: literal("running"),
+        identity: object({
+          state: literal("active"),
+          userId: id("users"),
+          email: string(),
+        }),
+        completionCapability: string(),
+        currentStep: vAccountDeletionStep,
+        requestedAt: number(),
+        updatedAt: number(),
+        initiatingSessionId: id("authSessions"),
+        retryCount: number(),
+        outcomes: vAccountDeletionOutcomeSummary,
+        dataDeletion: v.optional(vAccountDeletionDataProgress),
+        workflow: object({
+          state: literal("started"),
+          workflowId: string(),
+          attempt: number(),
+        }),
+      }),
+      object({
+        state: literal("needs_attention"),
+        identity: object({
+          state: literal("active"),
+          userId: id("users"),
+          email: string(),
+        }),
+        completionCapability: string(),
+        currentStep: vAccountDeletionStep,
+        requestedAt: number(),
+        updatedAt: number(),
+        initiatingSessionId: id("authSessions"),
+        retryCount: number(),
+        outcomes: vAccountDeletionOutcomeSummary,
+        dataDeletion: v.optional(vAccountDeletionDataProgress),
+        workflow: object({
+          state: literal("started"),
+          workflowId: string(),
+          attempt: number(),
+        }),
+        latestSafeError: string(),
+      }),
+      object({
+        state: literal("succeeded"),
+        identity: object({
+          state: literal("scrubbed"),
+        }),
+        currentStep: literal("finish"),
+        requestedAt: number(),
+        updatedAt: number(),
+        retryCount: number(),
+        completedAt: number(),
+        outcomes: vAccountDeletionOutcomeSummary,
+        // Receipts completed before public completion tracking shipped cannot be
+        // backfilled because their browser-only capability was never created.
+        completionCapability: v.optional(string()),
+      }),
+    ),
+  )
+    .index("by_completion_capability", ["completionCapability"])
+    .index("by_updated_at", ["updatedAt"]),
 
-const vAccountDeletionWorkflowStarted = object({
-  state: literal("started"),
-  workflowId: string(),
-  attempt: number(),
-});
-
-const activeIdentity = object({
-  state: literal("active"),
-  userId: id("users"),
-  email: string(),
-});
-
-const activeRunFields = {
-  identity: activeIdentity,
-  completionCapability: string(),
-  currentStep: vAccountDeletionStep,
-  requestedAt: number(),
-  updatedAt: number(),
-  initiatingSessionId: id("authSessions"),
-  retryCount: number(),
-  outcomes: vAccountDeletionOutcomeSummary,
-  // Active runs created before durable data progress shipped remain readable
-  // and finish through the legacy cleanup path.
-  dataDeletion: v.optional(vAccountDeletionDataProgress),
-} as const;
-
-const vQueuedAccountDeletionRun = object({
-  ...activeRunFields,
-  state: literal("queued"),
-  workflow: vAccountDeletionWorkflowNotStarted,
-});
-
-const vRunningAccountDeletionRun = object({
-  ...activeRunFields,
-  state: literal("running"),
-  workflow: vAccountDeletionWorkflowStarted,
-});
-
-const vNeedsAttentionAccountDeletionRun = object({
-  ...activeRunFields,
-  state: literal("needs_attention"),
-  workflow: vAccountDeletionWorkflowStarted,
-  latestSafeError: string(),
-});
-
-const scrubbedRunFields = {
-  identity: object({
-    state: literal("scrubbed"),
-  }),
-  state: literal("succeeded"),
-  currentStep: literal("finish"),
-  requestedAt: number(),
-  updatedAt: number(),
-  retryCount: number(),
-  completedAt: number(),
-  outcomes: vAccountDeletionOutcomeSummary,
-} as const;
-
-const vScrubbedAccountDeletionRun = object({
-  ...scrubbedRunFields,
-  // Receipts completed before public completion tracking shipped cannot be
-  // backfilled because their browser-only capability was never created.
-  completionCapability: v.optional(string()),
-});
-
-export const vAccountDeletionRun = union(
-  vQueuedAccountDeletionRun,
-  vRunningAccountDeletionRun,
-  vNeedsAttentionAccountDeletionRun,
-  vScrubbedAccountDeletionRun,
-);
+  /** Ordered identity-free progress messages for one account-deletion run. */
+  workflow_accountDeletion_events: defineTable({
+    runId: id("workflow_accountDeletion_runs"),
+    step: vAccountDeletionStep,
+    level: vAccountDeletionEventLevel,
+    message: string(),
+    createdAt: number(),
+  }).index("by_run_and_created_at", ["runId", "createdAt"]),
+};

@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("app provisioning workflow composition", () => {
-  it("reads the target app root and attached provider block state", async () => {
+  it("reads the planned app root and attached provider block state", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -17,7 +17,7 @@ describe("app provisioning workflow composition", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
         repositoryFullName: "ada/composed-app",
@@ -46,7 +46,7 @@ describe("app provisioning workflow composition", () => {
         appRoot: ".",
         createdAt: 25,
       });
-      await ctx.db.insert("vaultInfrastructureTargets", {
+      await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
         appRoot: ".",
         convex: {

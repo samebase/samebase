@@ -6,7 +6,7 @@ import * as React from "react";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 import {
   appWorkspaceMobilePanePrehydrationScript,
   appWorkspaceSidebarPrehydrationScript,

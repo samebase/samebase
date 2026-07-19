@@ -47,8 +47,8 @@ Turn the Netlify-removal RFC into a working implementation tracker with:
 
 1. Identify all deployments with Netlify-shaped data in:
    - `providerConnections`
-   - `oauthStates`
-   - `aiProdAccessRequests`
+   - `providerOAuthCallbackStates`
+   - `aiProductionReadRequests`
    - `vaults.hostingProvider`
    - `vaultInfrastructure`
    - `vaultDomains`
@@ -60,7 +60,7 @@ Turn the Netlify-removal RFC into a working implementation tracker with:
 1. Verify there are zero rows with:
    - `providerConnections.kind == "netlify"`
    - `oauthStates.provider == "netlify"`
-   - `aiProdAccessRequests.provider == "netlify"`
+   - `aiProductionReadRequests.provider == "netlify"`
    - `vaultDomains.source in {"netlify_default", "netlify_custom"}`
 2. Verify no deployment data still depends on Netlify-only compatibility fields that runtime code
    will remove in Phase 2.

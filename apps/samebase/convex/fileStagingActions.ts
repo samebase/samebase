@@ -9,7 +9,7 @@ import { createTwoFilesPatch, diffLines } from "diff";
 import { notEmpty } from "@samebase/dependent/main";
 import { action } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import type { GithubTree } from "./schema";
+import type { GithubTree } from "./vault/model";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
@@ -763,7 +763,7 @@ type StagedFileForCommit = {
 };
 type DraftSourceStagingSnapshot = Omit<StagedFileForCommit, "branch"> & {
   branch: string;
-  _id: Id<"fileStaging">;
+  _id: Id<"vaultStagedFiles">;
   ownerId: Id<"users">;
   vaultId: Id<"vaults">;
   lastEditTime: number;
@@ -1889,7 +1889,7 @@ export const renameFileInStaging = action({
 
 /**
  * Initial request to get the file.
- * Will call GitHub and populate the fileStaging table
+ * Will call GitHub and populate the vaultStagedFiles table.
  */
 export const getFileForEditing = action({
   access: "access_files_read",
@@ -2044,7 +2044,9 @@ export const getFileForEditing = action({
       });
 
       if (!savedBlob) {
-        throw new Error("File not found in blobs table after literally saving it there?!?");
+        throw new Error(
+          "File not found in observations_vaultFiles_blobs table after literally saving it there?!?",
+        );
       }
 
       if (typeof savedBlob.text !== "string") {

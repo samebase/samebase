@@ -18,7 +18,7 @@ async function createConvexConnectionVault() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
+    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -48,7 +48,7 @@ async function createConvexConnectionVault() {
       appRoot,
       createdAt: 25,
     });
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -108,18 +108,18 @@ describe("vault Convex deployment connection mutations", () => {
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .first(),
       ]);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
-      return { deployment, events, ownership, run };
+      return { deployment, events, writeLock, run };
     });
 
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       runId: ids.runId,
       state: "succeeded",
     });
@@ -284,7 +284,7 @@ describe("vault Convex deployment connection mutations", () => {
 
     const events = await t.run(async (ctx) => {
       return await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
     });
@@ -303,7 +303,7 @@ describe("vault Convex deployment connection mutations", () => {
         currentStep: "attach_convex",
         updatedAt: 40,
       });
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "active",
@@ -326,18 +326,18 @@ describe("vault Convex deployment connection mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
       const events = await ctx.db
-        .query("appProvisioningEvents")
+        .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
-      return { events, ownership, run };
+      return { events, writeLock, run };
     });
 
-    expect(result.ownership).toMatchObject({
+    expect(result.writeLock).toMatchObject({
       runId: ids.runId,
       state: "active",
     });
@@ -351,7 +351,7 @@ describe("vault Convex deployment connection mutations", () => {
   it("allows a failed Convex connection owner to be claimed again", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.run(async (ctx) => {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         runId: ids.runId,
         state: "failed",
@@ -366,23 +366,23 @@ describe("vault Convex deployment connection mutations", () => {
       }),
     ).resolves.toEqual({ claimed: true });
 
-    const ownership = await t.run(async (ctx) => {
+    const writeLock = await t.run(async (ctx) => {
       return await ctx.db
-        .query("vaultInfrastructureOwnership")
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
     });
-    expect(ownership).toMatchObject({ state: "active", runId: ids.runId });
+    expect(writeLock).toMatchObject({ state: "active", runId: ids.runId });
   });
 
-  it("does not attach when ownership was superseded", async () => {
+  it("does not attach when the write lock was superseded", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
       ...ids,
       appRoot,
     });
     await t.run(async (ctx) => {
-      const otherRunId = await ctx.db.insert("appProvisioningRuns", {
+      const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/manual-convex",
@@ -392,14 +392,14 @@ describe("vault Convex deployment connection mutations", () => {
         createdAt: 40,
         updatedAt: 40,
       });
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
-      if (!ownership) {
-        throw new Error("Expected active ownership.");
+      if (!writeLock) {
+        throw new Error("Expected active provisioning write lock.");
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: otherRunId,
         updatedAt: 40,
       });
@@ -445,14 +445,14 @@ describe("vault Convex deployment connection mutations", () => {
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
-      const ownership = await ctx.db
-        .query("vaultInfrastructureOwnership")
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
-      return { ownership, run };
+      return { writeLock, run };
     });
 
-    expect(result.ownership).toMatchObject({ state: "failed" });
+    expect(result.writeLock).toMatchObject({ state: "failed" });
     expect(result.run).toMatchObject({
       state: "failed",
       createdConvexProject: {

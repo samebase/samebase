@@ -112,7 +112,7 @@ async function insertDefaultVaultResourceLinksState(
     vaultId: Id<"vaults">;
   },
 ): Promise<void> {
-  await ctx.db.insert("vaultResourceLinksState", {
+  await ctx.db.insert("ui_vaultResourceLinks_settings", {
     userId: args.userId,
     vaultId: args.vaultId,
     resourceLinksOpen: true,
@@ -128,14 +128,14 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
   },
   returns: object({
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
   }),
   handler: async (
     ctx,
     args,
   ): Promise<{
     vaultId: Id<"vaults">;
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   }> => {
     const user = await ctx.db.get(args.userId);
     if (!user) {
@@ -167,7 +167,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       vaultId,
     });
     const repositoryFullName = `${owner}/${name}`;
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
       vaultId,
       repositoryFullName,
@@ -187,7 +187,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       owner,
       name,
     });
-    await ctx.db.insert("appProvisioningEvents", {
+    await ctx.db.insert("workflow_vaultProvisioning_events", {
       userId: args.userId,
       vaultId,
       repositoryFullName,
@@ -205,7 +205,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
 export const connectExistingRepositoryVaultGitHub = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ghRepoId: v.string(),
     ghRepoOwner: v.string(),
@@ -289,14 +289,14 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
   },
   returns: object({
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
   }),
   handler: async (
     ctx,
     args,
   ): Promise<{
     vaultId: Id<"vaults">;
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   }> => {
     const user = await ctx.db.get(args.userId);
     if (!user) {
@@ -329,7 +329,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       vaultId,
     });
     const repositoryFullName = `${owner}/${name}`;
-    const runId = await ctx.db.insert("appProvisioningRuns", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
       vaultId,
       repositoryFullName,
@@ -350,7 +350,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       name,
       visibility: args.visibility,
     });
-    await ctx.db.insert("appProvisioningEvents", {
+    await ctx.db.insert("workflow_vaultProvisioning_events", {
       userId: args.userId,
       vaultId,
       repositoryFullName,
@@ -360,7 +360,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       message: "Created the initializing Samebase vault.",
       createdAt: now,
     });
-    await ctx.db.insert("vaultInfrastructureTargets", {
+    await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
       appRoot: ROOT_VAULT_APP_ROOT,
       convex: {
@@ -392,7 +392,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
 export const connectSamebaseManagedVaultGitHub = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ghRepoId: string(),
     ghRepoOwner: string(),
@@ -454,7 +454,7 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
 
 export const markGithubProvisioningFailed = internalMutation({
   args: {
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
@@ -581,7 +581,7 @@ async function getVaultByRepositoryHelper(
       : undefined;
 
   const remoteBranches = await ctx.db
-    .query("vaultRemoteBranches")
+    .query("observations_vaultRepository_branches")
     .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
     .collect();
   const { defaultBranch, resolvedBranch, branchNotFound } = resolveVaultBranchSelection({
@@ -591,7 +591,7 @@ async function getVaultByRepositoryHelper(
   });
 
   const branchTree = await ctx.db
-    .query("vaultBranchTrees")
+    .query("observations_vaultRepository_branchTrees")
     .withIndex("by_vault_and_branch", (q) =>
       q.eq("vaultId", vault._id).eq("branch", resolvedBranch),
     )

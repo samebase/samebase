@@ -7,7 +7,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
-import type { AppProvisioningStep } from "../schema";
+import type { AppProvisioningStep } from "../appProvisioningModel";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
   isVaultProviderUpstreamPresent,
@@ -42,24 +42,26 @@ const convexInfrastructureRecordValidator = object({
   convexSiteUrl: string(),
 });
 
-type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
+type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type ConvexDeploymentConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type ConvexDeploymentConnectionReadCtx = Pick<QueryCtx, "db">;
 
-function isComposedInfrastructureRun(run: Doc<"appProvisioningRuns">): boolean {
+function isComposedInfrastructureRun(run: Doc<"workflow_vaultProvisioning_runs">): boolean {
   return run.trigger === "create" || run.trigger === "retry";
 }
 
-function isStandaloneConvexDeploymentConnectionRun(run: Doc<"appProvisioningRuns">): boolean {
+function isStandaloneConvexDeploymentConnectionRun(
+  run: Doc<"workflow_vaultProvisioning_runs">,
+): boolean {
   return run.trigger === "connect_convex_deployment";
 }
 
-async function getVaultInfrastructureOwnership(
+async function readVaultProvisioningWriteLock(
   ctx: ConvexDeploymentConnectionReadCtx,
   vaultId: Id<"vaults">,
-): Promise<VaultInfrastructureOwnership | null> {
+): Promise<VaultProvisioningWriteLock | null> {
   return await ctx.db
-    .query("vaultInfrastructureOwnership")
+    .query("workflow_vaultProvisioning_writeLocks")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
@@ -140,19 +142,19 @@ async function assertNoExistingConvexDeploymentTarget(
   }
 }
 
-function isActiveConvexDeploymentConnectionOwner(
-  ownership: VaultInfrastructureOwnership | null,
+function runHoldsConvexProvisioningWriteLock(
+  writeLock: VaultProvisioningWriteLock | null,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): boolean {
-  return ownership?.state === "active" && ownership.runId === args.runId;
+  return writeLock?.state === "active" && writeLock.runId === args.runId;
 }
 
 async function appendConvexDeploymentConnectionEvent(
   ctx: ConvexDeploymentConnectionEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
@@ -165,7 +167,7 @@ async function appendConvexDeploymentConnectionEvent(
 async function cancelSupersededConvexDeploymentConnectionRun(
   ctx: ConvexDeploymentConnectionEventCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): Promise<void> {
   await appendConvexDeploymentConnectionEvent(ctx, {
@@ -180,11 +182,11 @@ async function cancelSupersededConvexDeploymentConnectionRun(
 async function requireConvexDeploymentConnectionRun(
   ctx: ConvexDeploymentConnectionReadCtx,
   args: {
-    runId: Id<"appProvisioningRuns">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
-): Promise<Doc<"appProvisioningRuns">> {
+): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await ctx.db.get(args.runId);
   if (!run) {
     throw new Error("Convex deployment connection run not found.");
@@ -200,16 +202,16 @@ async function requireConvexDeploymentConnectionRun(
 }
 
 function hasFreshConvexDeploymentConnectionLock(args: {
-  ownership: VaultInfrastructureOwnership | null;
-  runId: Id<"appProvisioningRuns">;
+  writeLock: VaultProvisioningWriteLock | null;
+  runId: Id<"workflow_vaultProvisioning_runs">;
   now: number;
 }): boolean {
-  const ownership = args.ownership;
+  const writeLock = args.writeLock;
   if (
-    ownership &&
-    ownership.state === "active" &&
-    ownership.runId !== args.runId &&
-    args.now - ownership.updatedAt < CONVEX_CONNECTION_STALE_MS
+    writeLock &&
+    writeLock.state === "active" &&
+    writeLock.runId !== args.runId &&
+    args.now - writeLock.updatedAt < CONVEX_CONNECTION_STALE_MS
   ) {
     return true;
   }
@@ -246,7 +248,7 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
 export const claimConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -279,10 +281,10 @@ export const claimConvexDeploymentConnection = internalMutation({
     }
 
     const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
     if (
       hasFreshConvexDeploymentConnectionLock({
-        ownership,
+        writeLock,
         runId: args.runId,
         now,
       })
@@ -297,19 +299,19 @@ export const claimConvexDeploymentConnection = internalMutation({
       return { claimed: false };
     }
 
-    if (ownership) {
-      if (ownership.state === "active" && ownership.runId !== args.runId) {
+    if (writeLock) {
+      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
         await cancelSupersededConvexDeploymentConnectionRun(ctx, {
-          runId: ownership.runId,
+          runId: writeLock.runId,
         });
       }
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         runId: args.runId,
         state: "active",
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("vaultInfrastructureOwnership", {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: args.vaultId,
         runId: args.runId,
         state: "active",
@@ -332,7 +334,7 @@ export const claimConvexDeploymentConnection = internalMutation({
 export const readActiveConvexDeploymentConnection = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -348,8 +350,8 @@ export const readActiveConvexDeploymentConnection = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    const [ownership, deployment] = await Promise.all([
-      getVaultInfrastructureOwnership(ctx, args.vaultId),
+    const [writeLock, deployment] = await Promise.all([
+      readVaultProvisioningWriteLock(ctx, args.vaultId),
       readConvexDeploymentForAppRoot(ctx, {
         vaultId: args.vaultId,
         appRoot,
@@ -358,7 +360,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
     return {
       active:
         (!deployment || !isVaultProviderUpstreamPresent(deployment)) &&
-        isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId }),
+        runHoldsConvexProvisioningWriteLock(writeLock, { runId: args.runId }),
     };
   },
 });
@@ -366,7 +368,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
 export const attachDeploymentForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
     convex: convexInfrastructureRecordValidator,
@@ -409,15 +411,15 @@ export const attachDeploymentForRun = internalMutation({
       throw error;
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsConvexProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneConvexDeploymentConnectionRun(run)) {
         await cancelSupersededConvexDeploymentConnectionRun(ctx, {
           runId: args.runId,
         });
         return { attached: false };
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
 
     const now = Date.now();
@@ -481,7 +483,7 @@ export const attachDeploymentForRun = internalMutation({
 export const recordCreatedProjectForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     projectName: string(),
     projectId: string(),
@@ -511,7 +513,7 @@ export const recordCreatedProjectForRun = internalMutation({
 export const readReusableCreatedProjectForRun = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     projectName: string(),
   },
@@ -524,7 +526,7 @@ export const readReusableCreatedProjectForRun = internalQuery({
     }
 
     const runs = await ctx.db
-      .query("appProvisioningRuns")
+      .query("workflow_vaultProvisioning_runs")
       .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", args.vaultId))
       .collect();
     const reusableRuns = runs
@@ -548,7 +550,7 @@ export const readReusableCreatedProjectForRun = internalQuery({
 export const finishConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("appProvisioningRuns"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     appRoot: string(),
   },
@@ -560,15 +562,15 @@ export const finishConvexDeploymentConnection = internalMutation({
       throw new Error("Vault not found.");
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId })) {
+    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+    if (!writeLock || !runHoldsConvexProvisioningWriteLock(writeLock, { runId: args.runId })) {
       if (isStandaloneConvexDeploymentConnectionRun(run)) {
         await cancelSupersededConvexDeploymentConnectionRun(ctx, {
           runId: args.runId,
         });
         return null;
       }
-      throw new Error("Composed infrastructure run no longer owns provisioning.");
+      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const deployment = await readConvexDeploymentForAppRoot(ctx, {
@@ -580,7 +582,7 @@ export const finishConvexDeploymentConnection = internalMutation({
     }
 
     if (isStandaloneConvexDeploymentConnectionRun(run)) {
-      await ctx.db.patch(ownership._id, {
+      await ctx.db.patch(writeLock._id, {
         state: "succeeded",
         updatedAt: Date.now(),
       });

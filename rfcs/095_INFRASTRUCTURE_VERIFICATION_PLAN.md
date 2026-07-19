@@ -50,9 +50,9 @@ construction.
 ## The Rule: The Verifier Is Part Of The Block
 
 Each rfcs/090 block writes one durable registry axis (`source_setup` → the vault row and
-`vaultBranchTrees`, `wire_builds` → `deployment.builds`, `wire_convex_build_access` →
-`deployment.convexBuildAccess`, `attach_worker` → the Worker row, `attach_convex` → the deployment
-row). Verification pairs with that write, not with a central list:
+`observations_vaultRepository_branchTrees`, `wire_builds` → `deployment.builds`,
+`wire_convex_build_access` → `deployment.convexBuildAccess`, `attach_worker` → the Worker row,
+`attach_convex` → the deployment row). Verification pairs with that write, not with a central list:
 
 1. Every provisioning block that owns a durable registry axis declares its verification story in one
    registry entry: either a **verifier** for that axis, or a **not-verifiable declaration** carrying
@@ -144,11 +144,11 @@ row). Verification pairs with that write, not with a central list:
    refreshed today by Convex schema snapshot reads,
    `apps/samebase/convex/vault/convexSchemaGraph.ts:1291`). Phase 1 stamps it only on Worker rows a
    verifier confirmed or corrected — it means Cloudflare-trigger freshness, nothing broader.
-7. Existing run machinery. One `appProvisioningRuns` run per execution with trigger
+7. Existing run machinery. One `workflow_vaultProvisioning_runs` run per execution with trigger
    `verify_infrastructure` — one new literal in `vAppProvisioningRunTrigger`
    (`apps/samebase/convex/schema.ts:108`), the only validator edit in Phase 1 — fenced by the same
-   `vaultInfrastructureOwnership` claim pattern the blocks use. Verification refuses to start while
-   another run for the vault is active.
+   `workflow_vaultProvisioning_writeLocks` acquisition pattern the blocks use. Verification refuses
+   to start while another run for the vault is active.
 8. One contract, every surface. The `verify_infrastructure` contract module registers in the action
    catalog (`apps/samebase/convex/toolRuntime/actionCatalog.ts`, shipped v1656), which renders the
    MCP tool, the generated `/docs/actions/verify_infrastructure.md` page, llms.txt, and usage
@@ -229,7 +229,7 @@ creation fails, the run remains failed and a retry reconciles or recreates the t
 - **Fake verifiers**: the exhaustive registry invites writing a shallow verifier just to satisfy the
   type. `notVerifiable` with a reason is the honest and reviewable alternative; reviewers treat a
   verifier without an authoritative live read as a defect.
-- **Racing an active run**: excluded by ownership fencing (Locked Decision 7).
+- **Racing an active run**: excluded by the provisioning write lock (Locked Decision 7).
 - **Builds API drift**: the env-var listing endpoint is the same one `wire_convex_build_access`
   already uses for read-back verification; both go through one shared helper.
 

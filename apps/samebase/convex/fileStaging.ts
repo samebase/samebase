@@ -8,7 +8,7 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
-import type { GithubTree } from "./schema";
+import type { GithubTree } from "./vault/model";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
@@ -21,7 +21,7 @@ export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
 const vaultIdValidator = id("vaults");
-const fileStagingIdValidator = id("fileStaging");
+const fileStagingIdValidator = id("vaultStagedFiles");
 const storageIdValidator = id("_storage");
 const userIdValidator = id("users");
 const branchValidator = string();
@@ -461,13 +461,13 @@ export const deletePendingUploadBlob = mutation({
     });
 
     const stagedFile = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_storageId", (q) =>
         q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
       )
       .first();
     const cachedBlob = await ctx.db
-      .query("blobs")
+      .query("observations_vaultFiles_blobs")
       .withIndex("by_vault_and_storageId", (q) =>
         q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
       )
@@ -495,7 +495,7 @@ export const getByNewPath = query({
     }
 
     const staging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
       )
@@ -510,7 +510,7 @@ export const getByNewPathInternal = internalQuery({
   returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
       )
@@ -532,7 +532,7 @@ export const listStagedFiles = query({
       return [];
     }
     const files = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch),
       )
@@ -557,7 +557,7 @@ export const listStagedFilesBranchSummaries = query({
       return [];
     }
     const files = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
     return summarizeStagedFilesByBranch(files);
@@ -584,7 +584,7 @@ export const listStagedFilesBranchSummariesByVault = query({
       }
 
       const files = await ctx.db
-        .query("fileStaging")
+        .query("vaultStagedFiles")
         .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
         .collect();
       summariesByVault.push({
@@ -604,13 +604,13 @@ export const listAllStagedFiles = internalQuery({
     const files =
       args.branch === undefined
         ? await ctx.db
-            .query("fileStaging")
+            .query("vaultStagedFiles")
             .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
             .collect()
         : await (() => {
             const branch = args.branch;
             return ctx.db
-              .query("fileStaging")
+              .query("vaultStagedFiles")
               .withIndex("by_vault_and_branch", (q) =>
                 q.eq("vaultId", args.vaultId).eq("branch", branch),
               )
@@ -635,7 +635,7 @@ export const duplicateBranchStaging = internalMutation({
     }
 
     const existingTargetFiles = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.targetBranch),
       )
@@ -655,7 +655,7 @@ export const duplicateBranchStaging = internalMutation({
         continue;
       }
 
-      await ctx.db.insert("fileStaging", {
+      await ctx.db.insert("vaultStagedFiles", {
         ownerId: file.ownerId,
         vaultId: file.vaultId,
         fileDeleted: file.fileDeleted,
@@ -871,13 +871,13 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
   const stagingFiles =
     plan.stagingQuery.indexName === "by_vault"
       ? await ctx.db
-          .query("fileStaging")
+          .query("vaultStagedFiles")
           .withIndex("by_vault", (q) => q.eq("vaultId", plan.stagingQuery.vaultId))
           .collect()
       : await (() => {
           const branchScopedQuery = plan.stagingQuery;
           return ctx.db
-            .query("fileStaging")
+            .query("vaultStagedFiles")
             .withIndex("by_vault_and_branch", (q) =>
               q.eq("vaultId", branchScopedQuery.vaultId).eq("branch", branchScopedQuery.branch),
             )
@@ -938,10 +938,10 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
       args.branch === undefined
         ? cutoffTimestamp === undefined
           ? ctx.db
-              .query("collaborativeUpdates")
+              .query("vaultStagedFileUpdates")
               .withIndex("by_vault_and_timestamp", (q) => q.eq("vaultId", args.vaultId))
           : ctx.db
-              .query("collaborativeUpdates")
+              .query("vaultStagedFileUpdates")
               .withIndex("by_vault_and_timestamp", (q) =>
                 q.eq("vaultId", args.vaultId).lt("timestamp", cutoffTimestamp),
               )
@@ -949,12 +949,12 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
             const branch = args.branch;
             return cutoffTimestamp === undefined
               ? ctx.db
-                  .query("collaborativeUpdates")
+                  .query("vaultStagedFileUpdates")
                   .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
                     q.eq("vaultId", args.vaultId).eq("branch", branch),
                   )
               : ctx.db
-                  .query("collaborativeUpdates")
+                  .query("vaultStagedFileUpdates")
                   .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
                     q
                       .eq("vaultId", args.vaultId)
@@ -1000,7 +1000,7 @@ export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
   handler: async (ctx, args) => {
     const updates = [];
     for await (const update of ctx.db
-      .query("collaborativeUpdates")
+      .query("vaultStagedFileUpdates")
       .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
         q
           .eq("vaultId", args.vaultId)
@@ -1042,7 +1042,7 @@ export const markFileForDeletion = mutation({
     });
 
     const existingStaging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -1062,7 +1062,7 @@ export const markFileForDeletion = mutation({
       const snapshotSeed = await readDeletionSnapshotSeed(ctx, args.parentCommitSha);
 
       // Create new staging record for deletion
-      await ctx.db.insert("fileStaging", {
+      await ctx.db.insert("vaultStagedFiles", {
         ownerId: ctx.viewer.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
@@ -1100,7 +1100,7 @@ export const createFileInStaging = mutation({
 
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
@@ -1114,7 +1114,7 @@ export const createFileInStaging = mutation({
     }
 
     const existingPathInStaging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -1138,7 +1138,7 @@ export const createFileInStaging = mutation({
     const currentTimestamp = Date.now();
 
     // Create new staging record for a new file (parentCommitSha is null)
-    await ctx.db.insert("fileStaging", {
+    await ctx.db.insert("vaultStagedFiles", {
       ownerId: ctx.viewer.userId,
       vaultId: args.vaultId,
       filePath: args.filePath,
@@ -1169,7 +1169,7 @@ export const revertDeletedFileInStaging = mutation({
     });
 
     const existingStaging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -1265,7 +1265,7 @@ export const saveToStaging = internalMutation({
     });
 
     const existingStaging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
@@ -1298,7 +1298,7 @@ export const saveToStaging = internalMutation({
       });
     } else {
       // Create new staging record
-      await ctx.db.insert("fileStaging", {
+      await ctx.db.insert("vaultStagedFiles", {
         ownerId: args.userId,
         vaultId: args.vaultId,
         filePath: args.initialFilePath,
@@ -1316,7 +1316,7 @@ export const saveToStaging = internalMutation({
     }
 
     const staging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
@@ -1345,7 +1345,7 @@ export const internalMarkFileForDeletion = internalMutation({
     });
 
     const existingStaging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
@@ -1363,7 +1363,7 @@ export const internalMarkFileForDeletion = internalMutation({
     } else {
       const snapshotSeed = await readDeletionSnapshotSeed(ctx, args.parentCommitSha);
 
-      await ctx.db.insert("fileStaging", {
+      await ctx.db.insert("vaultStagedFiles", {
         ownerId: args.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
@@ -1398,14 +1398,14 @@ export const saveBinaryUploadToStaging = internalMutation({
 
     const currentTimestamp = Date.now();
     const existingStagingByPath = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
       .first();
 
     const existingStagingByInitialPath = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
@@ -1451,7 +1451,7 @@ export const saveBinaryUploadToStaging = internalMutation({
       let shouldDeletePreviousStorage = false;
       if (typeof previousStorageId === "string" && previousStorageId !== args.storageId) {
         const stagedFilesByVault = await ctx.db
-          .query("fileStaging")
+          .query("vaultStagedFiles")
           .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
           .collect();
         const storageReferenceCount = stagedFilesByVault.filter(
@@ -1505,7 +1505,7 @@ export const saveBinaryUploadToStaging = internalMutation({
       return updatedStaging;
     }
 
-    const insertedId = await ctx.db.insert("fileStaging", {
+    const insertedId = await ctx.db.insert("vaultStagedFiles", {
       ownerId: args.userId,
       vaultId: args.vaultId,
       fileDeleted: false,
@@ -1544,7 +1544,7 @@ export const rename = internalMutation({
     });
 
     const file = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
@@ -1565,7 +1565,7 @@ export const rename = internalMutation({
     }
 
     const existingAtNewPath = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
       )
@@ -1592,7 +1592,7 @@ export const rename = internalMutation({
     });
 
     const updatedFile = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
       )
@@ -1612,7 +1612,7 @@ export const getByOriginalPath = internalQuery({
   returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
     const staging = await ctx.db
-      .query("fileStaging")
+      .query("vaultStagedFiles")
       .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)

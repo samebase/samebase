@@ -31,8 +31,9 @@ setup failure.
 
 ## Current Problem
 
-The pre-vault-first runtime creates an `appProvisioningRuns` row before a vault exists, then creates
-the vault only after GitHub repository creation, starter seeding, and tree fetch succeed.
+The pre-vault-first runtime creates an `workflow_vaultProvisioning_runs` row before a vault exists,
+then creates the vault only after GitHub repository creation, starter seeding, and tree fetch
+succeed.
 
 That means failures before `create_vault` are durable in run/event tables, but they do not have the
 dashboard object users naturally expect to inspect and retry. It also pushes future
@@ -166,7 +167,7 @@ type VaultGitHubState =
       githubMode: "create_repository";
 
       /** Durable run that owns the in-flight create-repository operation. */
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
 
       /** Timestamp when this GitHub provisioning attempt started. */
       startedAt: number;
@@ -182,7 +183,7 @@ type VaultGitHubState =
       githubMode: "connect_existing_repository";
 
       /** Durable run that owns the in-flight existing-repo connection. */
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
 
       /** Timestamp when this GitHub connection attempt started. */
       startedAt: number;
@@ -195,7 +196,7 @@ type VaultGitHubState =
       githubMode: "create_repository" | "connect_existing_repository";
 
       /** Durable run that established this GitHub connection. */
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
 
       /** Immutable GitHub repository id; prevents in-place repo replacement. */
       ghRepoId: string;
@@ -220,7 +221,7 @@ type VaultGitHubState =
       githubMode: "create_repository";
 
       /** Durable run that recorded the failure. */
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
 
       /** Timestamp when the latest failure was recorded. */
       failedAt: number;
@@ -233,7 +234,7 @@ type VaultGitHubState =
       githubMode: "connect_existing_repository";
 
       /** Durable run that recorded the failure. */
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
 
       /** Timestamp when the latest failure was recorded. */
       failedAt: number;
@@ -400,9 +401,9 @@ sites consume connected-only state or vault-scoped child tables.
 
 Do not add new product meaning to vault-row `treeSHA` or `treeData`. During this project they are
 compatibility mirrors for legacy call sites; new or touched branch/tree behavior should prefer
-`vaultBranchTrees` and only fall back to the vault-row snapshot while the migration is still
-incomplete. Phase 4 removes those mirrors from the vault row instead of preserving two sources of
-tree truth.
+`observations_vaultRepository_branchTrees` and only fall back to the vault-row snapshot while the
+migration is still incomplete. Phase 4 removes those mirrors from the vault row instead of
+preserving two sources of tree truth.
 
 ## Compatibility Exit Gates
 
@@ -411,8 +412,8 @@ removal gate. The vault-first work currently tolerates these temporary layers:
 
 1. vault-row default-branch tree mirrors such as `treeSHA`, `treeData`, and default-branch
    `commitSHA`
-2. runtime fallback reads from vault-row tree mirrors when `vaultBranchTrees` should be the
-   canonical branch tree source
+2. runtime fallback reads from vault-row tree mirrors when
+   `observations_vaultRepository_branchTrees` should be the canonical branch tree source
 3. app provisioning run/event schema compatibility for historical pre-vault records, especially
    nullable run `vaultId` and optional event `runId`
 4. dashboard query compatibility that compresses source readiness into
@@ -442,8 +443,8 @@ For Samebase-managed repository creation:
 5. write `state: "connected", githubMode: "create_repository"` with the same `runId`, immutable repo
    identity, Convex and Cloudflare state initialized, and confirmed repository visibility stored
 6. seed the starter app
-7. sync default branch and tree cache state into `vaultBranchTrees`; during the compatibility
-   window, also update the temporary vault-row mirror
+7. sync default branch and tree cache state into `observations_vaultRepository_branchTrees`; during
+   the compatibility window, also update the temporary vault-row mirror
 8. provision Convex and Cloudflare state
 9. let the dashboard derive the vault summary from provider states
 
@@ -550,7 +551,7 @@ The current target state model is:
 2. `vaultConvexDeployments` stores connected Convex production deployments by `vaultId` + `appRoot`
 3. `vaultCloudflareWorkers` stores connected Cloudflare Workers by `vaultId` + `appRoot`
 4. dashboard labels such as creating, active, degraded, failed, or partial are derived from those
-   resource rows, active ownership, and run/event state
+   resource rows, the active provisioning write lock, and run/event state
 5. provider retry actions target the failed block run, not a generic aggregate infra status
 
 Top-level `vaults.infraState`, `vaults.infraLastError`, `vaults.infraLastProvisionedAt`, and
@@ -560,10 +561,10 @@ writes with explicit app-root resource rows and block-run state, then remove the
 from the vault row after production data is clean.
 
 `vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultDomains`, and
-`vaultInfrastructureOwnership` keep the external resource metadata and operational details needed to
-call providers, such as project ids, deployment names, account ids, deploy-key ids, domains,
-provisioning version, and ownership. They should not become a competing aggregate user-visible
-source of truth for whether the app is ready.
+`workflow_vaultProvisioning_writeLocks` keep the external resource metadata and operational details
+needed to call providers, such as project ids, deployment names, account ids, deploy-key ids,
+domains, provisioning version, and ownership. They should not become a competing aggregate
+user-visible source of truth for whether the app is ready.
 
 ## Migration
 
@@ -593,22 +594,22 @@ operator has confirmed the cleanup scope.
 The reset must include dependent vault-scoped tables, not only `vaults`. Likely affected tables
 include:
 
-1. `vaultBranchFilters`
-2. `vaultRemoteBranches`
-3. `vaultBranchTrees`
+1. `ui_vaultBranches_filters`
+2. `observations_vaultRepository_branches`
+3. `observations_vaultRepository_branchTrees`
 4. `vaultInfrastructure`
-5. `vaultInfrastructureOwnership`
-6. `appProvisioningRuns`
-7. `appProvisioningEvents`
+5. `workflow_vaultProvisioning_writeLocks`
+6. `workflow_vaultProvisioning_runs`
+7. `workflow_vaultProvisioning_events`
 8. `vaultDomains`
 9. `codespaces`
-10. `fileStaging`
-11. `blobs`
-12. `folderExpansionState`
-13. `agentGraphNodeLayout`
-14. `agentThreadContext`
-15. `aiProdAccessRequests`
-16. `collaborativeUpdates`
+10. `vaultStagedFiles`
+11. `observations_vaultFiles_blobs`
+12. `ui_vaultFileTree_folderExpansions`
+13. `ui_agentGraphNode_layouts`
+14. `chatThreadContexts`
+15. `aiProductionReadRequests`
+16. `vaultStagedFileUpdates`
 
 The cleanup must fail closed: if the cleanup cannot prove it is targeting the intended vault-scoped
 tables and rows, it must abort before deletion and report the failure outside the product flow. The
@@ -661,7 +662,7 @@ Scope:
 
 Connected GitHub state must not require a branch tree snapshot. Phase 2 may keep the vault-row tree
 fields as optional compatibility mirrors while current source views finish moving to
-`vaultBranchTrees`.
+`observations_vaultRepository_branchTrees`.
 
 Stop before building broad retry UX.
 
@@ -673,9 +674,9 @@ pre-GitHub vaults usable as source workspaces.
 Current Phase 2 gap: if `seed_starter` or `sync_tree` fails after the vault has connected GitHub
 identity, the vault stays correctly connected and no longer exposes infra provisioning, but the
 dashboard can still read as generic `setting up...`. Phase 3 must surface that run failure from
-`appProvisioningRuns` and `appProvisioningEvents` instead of leaving the user to infer it from
-missing tree state. This is a visibility gap, not a reason to move connected vaults back to
-top-level failed.
+`workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` instead of leaving the
+user to infer it from missing tree state. This is a visibility gap, not a reason to move connected
+vaults back to top-level failed.
 
 The existing provisioning textarea is still the right raw log surface. The problem is placement and
 summary state: today the textarea is rendered inside ready-vault developer tools, while the affected
@@ -696,13 +697,13 @@ type SourceSetupSummary =
   | { status: "ready" }
   | {
       status: "running";
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
       step: AppProvisioningRunStep;
       updatedAt: number;
     }
   | {
       status: "failed";
-      runId: Id<"appProvisioningRuns">;
+      runId: Id<"workflow_vaultProvisioning_runs">;
       step: AppProvisioningRunStep;
       message: string;
       updatedAt: number;
@@ -721,7 +722,7 @@ Scope:
 2. derive failure messages from provisioning events for the failed `runId`
 3. gate repo-backed actions behind connected GitHub state
 4. keep tree-dependent controls, including infra provisioning, gated on a usable default-branch tree
-   from `vaultBranchTrees` or the temporary mirror
+   from `observations_vaultRepository_branchTrees` or the temporary mirror
 5. show post-GitHub source setup failures, especially `seed_starter` and `sync_tree`, on connected
    Samebase-managed vault cards without replacing their connected GitHub state
 6. make provisioning logs visible for non-ready setup/failed cards that have provisioning events,
@@ -785,7 +786,8 @@ about the actual model.
 Scope:
 
 1. update file view, staging, branch refresh, chat, dashboard, and infrastructure paths to consume
-   `vaultBranchTrees` or explicit connected state instead of vault-row tree mirrors
+   `observations_vaultRepository_branchTrees` or explicit connected state instead of vault-row tree
+   mirrors
 2. stop writing default-branch tree mirrors once current runtime paths no longer read them, then
    remove `treeSHA`, `treeData`, and default-branch `commitSHA` mirrors from the vault row
 3. narrow app provisioning run/event schema so new and supported records always have a vault-owned
@@ -845,9 +847,9 @@ Scope:
 2. update provisioning code to compose Convex and Cloudflare blocks separately while preserving
    connected GitHub state
 3. replace dashboard and query reads of top-level `vaults.infra*` fields with summaries derived from
-   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultInfrastructureOwnership`, and
-   `appProvisioningRuns`
-4. keep provider resource metadata and operational ownership outside the vault row instead of
+   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `workflow_vaultProvisioning_writeLocks`, and
+   `workflow_vaultProvisioning_runs`
+4. keep provider resource metadata and the provisioning write lock outside the vault row instead of
    treating those details as user-visible readiness
 5. remove the top-level `vaults.infraState`, `vaults.infraLastError`,
    `vaults.infraLastProvisionedAt`, and `vaults.infraProvisioningStartedAt` mirrors after production
@@ -916,7 +918,7 @@ These items are intentionally outside the current New App reliability path:
    retry action should target one failed provider state, create a new run, update only that provider
    state's `runId`, and preserve older runs and events as history.
 3. Consider a generic restart-from-failed-step abstraction only after manual provider retry has
-   proven the state ownership model.
+   proven the provider-state model.
 
 ## Testing Plan
 
@@ -938,7 +940,8 @@ Backend:
 13. connected Samebase-managed vaults whose create run failed in `seed_starter` or `sync_tree`
     expose a dashboard source-setup failure summary derived from the run/events
 14. after compatibility cleanup, source, staging, dashboard, and infra paths read default-branch
-    tree state from `vaultBranchTrees` without vault-row tree mirror fallback
+    tree state from `observations_vaultRepository_branchTrees` without vault-row tree mirror
+    fallback
 15. after compatibility cleanup, supported provisioning events require `runId` and supported
     provisioning runs require `vaultId`
 16. Phase 5 replaces top-level `vaults.infra*` dashboard/provisioning reads with summaries derived
