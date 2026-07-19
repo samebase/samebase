@@ -104,11 +104,16 @@ function makeResourceRailCloudflareWorker(
 ): ResourceRailCloudflareWorker {
   return {
     appRoot: ".",
-    convexDeployKeys: { state: "not_applicable" },
-    githubRepositoryConnection: { state: "connected" },
-    upstream: { state: "present" },
-    lastObservedAt: 0,
+    accountId: "account-1",
     workerName: "demo-worker",
+    workerTag: "worker-tag-1",
+    origin: "selected_existing",
+    observation: {
+      state: "available",
+      observedAt: 0,
+      githubRepositoryConnection: "connected",
+      convexDeployKeys: "not_applicable",
+    },
     ...overrides,
   };
 }
@@ -119,12 +124,16 @@ function makeResourceRailConvexDeployment(
   return {
     appRoot: ".",
     projectId: "demo-project-id",
-    projectSlug: "demo-project",
-    teamSlug: "demo-team",
     deploymentName: "demo-production",
-    upstream: { state: "present" },
-    cloudUrl: "https://demo-production.convex.cloud",
-    siteUrl: "https://demo-production.convex.site",
+    origin: "selected_existing",
+    observation: {
+      state: "available",
+      observedAt: 0,
+      projectSlug: "demo-project",
+      teamSlug: "demo-team",
+      cloudUrl: "https://demo-production.convex.cloud",
+      siteUrl: "https://demo-production.convex.site",
+    },
     ...overrides,
   };
 }
@@ -437,16 +446,10 @@ describe("VaultBranchLinkContent", () => {
             remoteState: "active",
           }}
           convexDeployments={[
-            {
-              appRoot: ".",
+            makeResourceRailConvexDeployment({
               projectId: "project-1",
-              projectSlug: "samebase",
-              teamSlug: "samebase",
               deploymentName: "samebase-production",
-              cloudUrl: "https://samebase-production.convex.cloud",
-              siteUrl: "https://samebase-production.convex.site",
-              upstream: { state: "present" },
-            },
+            }),
           ]}
           schemaGraphAccessEnabled
         />
@@ -476,16 +479,10 @@ describe("VaultBranchLinkContent", () => {
             remoteState: "active",
           }}
           convexDeployments={[
-            {
-              appRoot: ".",
+            makeResourceRailConvexDeployment({
               projectId: "project-1",
-              projectSlug: "samebase",
-              teamSlug: "samebase",
               deploymentName: "samebase-production",
-              cloudUrl: "https://samebase-production.convex.cloud",
-              siteUrl: "https://samebase-production.convex.site",
-              upstream: { state: "present" },
-            },
+            }),
           ]}
         />
       </TestRouterProvider>,
@@ -674,20 +671,12 @@ describe("VaultDashboardRepositoryCard", () => {
       appRoots: [{ appRoot: "." }],
       cloudflareWorkers: [
         makeResourceRailCloudflareWorker({
-          upstream: {
-            state: "missing_upstream",
-            nextAction: "connect_cloudflare_worker",
-          },
-          workersDevUrl: "https://stale-worker.ada.workers.dev",
+          observation: { state: "missing", observedAt: 10 },
         }),
       ],
       convexDeployments: [
         makeResourceRailConvexDeployment({
-          upstream: {
-            state: "missing_upstream",
-            nextAction: "connect_convex_deployment",
-          },
-          deploymentDashboardUrl: "https://dashboard.convex.dev/t/ada/demo/demo-production",
+          observation: { state: "missing", observedAt: 10 },
         }),
       ],
     });
@@ -1856,7 +1845,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain('href="/vault/ada/demo?add-convex"');
   });
 
-  it("lets missing-upstream manual Convex deployments reopen the deployment dialog", () => {
+  it("lets missing live Convex deployments reopen the deployment dialog", () => {
     const addConvex = vi.fn();
     const state = buildVaultDashboardResourceRailState({
       addConvexOnClick: addConvex,
@@ -1866,10 +1855,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         appRoots: [{ appRoot: "." }],
         convexDeployments: [
           makeResourceRailConvexDeployment({
-            upstream: {
-              state: "missing_upstream",
-              nextAction: "connect_convex_deployment",
-            },
+            observation: { state: "missing", observedAt: 40 },
           }),
         ],
       }),
@@ -1879,7 +1865,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(convexRow).toMatchObject({
       provider: "convex",
       status: "failed",
-      value: "demo-project",
+      value: "demo-production",
       actions: [
         {
           kind: "add",
@@ -1908,11 +1894,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         appRoots: [{ appRoot: "." }],
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
-            githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
-            upstream: {
-              state: "missing_upstream",
-              nextAction: "connect_cloudflare_worker",
-            },
+            observation: { state: "missing", observedAt: 40 },
           }),
         ],
       }),
@@ -1953,10 +1935,8 @@ describe("buildVaultDashboardResourceRailState", () => {
         appRoots: [{ appRoot: "." }],
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
-            upstream: {
-              state: "missing_upstream",
-              nextAction: "retry_infrastructure_provisioning",
-            },
+            origin: "provisioned",
+            observation: { state: "missing", observedAt: 40 },
           }),
         ],
       }),
@@ -2030,26 +2010,18 @@ describe("buildVaultDashboardResourceRailState", () => {
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
-        convexDeployments: [
-          {
-            appRoot: ".",
-            projectId: "project-1",
-            projectSlug: "demo-project",
-            teamSlug: "ada-team",
-            deploymentName: "demo-production",
-            cloudUrl: "https://demo-production.convex.cloud",
-            siteUrl: "https://demo-production.convex.site",
-            upstream: { state: "present" },
-          },
-        ],
+        convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            convexDeployKeys: { state: "missing", nextAction: "wire_convex_build_access" },
-            githubRepositoryConnection: { state: "connected" },
-            lastObservedAt: 40,
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "missing",
+            },
           }),
         ],
         providerSetup: {
@@ -2081,26 +2053,33 @@ describe("buildVaultDashboardResourceRailState", () => {
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
         convexDeployments: [
-          {
-            appRoot: ".",
+          makeResourceRailConvexDeployment({
             projectId: "project-1",
-            projectSlug: "demo-project",
-            teamSlug: "ada-team",
-            deploymentName: "demo-production",
-            cloudUrl: "https://demo-production.convex.cloud",
-            siteUrl: "https://demo-production.convex.site",
-            upstream: { state: "present" },
-            projectSettingsDashboardUrl:
-              "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
-          },
+            observation: {
+              state: "available",
+              observedAt: 40,
+              projectSlug: "demo-project",
+              teamSlug: "ada-team",
+              cloudUrl: "https://demo-production.convex.cloud",
+              siteUrl: "https://demo-production.convex.site",
+              projectSettingsDashboardUrl:
+                "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
+            },
+          }),
         ],
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
             projectDashboardUrl:
               "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
         ],
       }),
@@ -2136,9 +2115,14 @@ describe("buildVaultDashboardResourceRailState", () => {
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "not_connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
         ],
       }),
@@ -2177,26 +2161,18 @@ describe("buildVaultDashboardResourceRailState", () => {
       verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
-        convexDeployments: [
-          {
-            appRoot: ".",
-            projectId: "project-1",
-            projectSlug: "demo-project",
-            teamSlug: "demo-team",
-            deploymentName: "demo-production",
-            cloudUrl: "https://demo-production.convex.cloud",
-            siteUrl: "https://demo-production.convex.site",
-            upstream: { state: "present" },
-          },
-        ],
+        convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            convexDeployKeys: { state: "missing", nextAction: "wire_convex_build_access" },
-            githubRepositoryConnection: { state: "connected" },
-            lastObservedAt: 40,
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "missing",
+            },
           }),
         ],
       }),
@@ -2236,9 +2212,14 @@ describe("buildVaultDashboardResourceRailState", () => {
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            githubRepositoryConnection: { state: "connected" },
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
         ],
       }),
@@ -2260,7 +2241,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain("Verify infrastructure");
   });
 
-  it("keeps the Cloudflare Worker row repairable after Convex build access fails before Builds are connected", () => {
+  it("keeps a live Cloudflare Worker observation repairable when GitHub is disconnected", () => {
     const connectCloudflareGithubRepo = vi.fn();
     const setCloudflareConvexDeployKeys = vi.fn();
     const verifyCloudflareInfrastructure = vi.fn();
@@ -2271,25 +2252,18 @@ describe("buildVaultDashboardResourceRailState", () => {
       verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
-        convexDeployments: [
-          {
-            appRoot: ".",
-            projectId: "project-1",
-            projectSlug: "demo-project",
-            teamSlug: "demo-team",
-            deploymentName: "demo-production",
-            cloudUrl: "https://demo-production.convex.cloud",
-            siteUrl: "https://demo-production.convex.site",
-            upstream: { state: "present" },
-          },
-        ],
+        convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            convexDeployKeys: { state: "not_applicable" },
-            githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "not_connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
         ],
         providerSetup: {
@@ -2316,7 +2290,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       provider: "cloudflare",
       status: "ready",
       value: "demo-worker",
-      description: "Cloudflare's saved Workers Builds trigger is missing.",
+      description: "Cloudflare is not connected to this GitHub repository.",
       actions: [
         { kind: "connect", label: "Connect GitHub repo", disabled: false },
         { kind: "verify", label: "Verify infrastructure", disabled: false },
@@ -2332,7 +2306,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(verifyCloudflareInfrastructure).toHaveBeenCalledWith(".");
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
-    expect(markup).toContain("Cloudflare&#x27;s saved Workers Builds trigger is missing.");
+    expect(markup).toContain("Cloudflare is not connected to this GitHub repository.");
     expect(markup).toContain("Connect GitHub repo");
     expect(markup).toContain("Verify infrastructure");
     expect(markup).not.toContain("?add-convex");
@@ -2349,26 +2323,18 @@ describe("buildVaultDashboardResourceRailState", () => {
       verifyCloudflareInfrastructureOnClick: verifyCloudflareInfrastructure,
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
-        convexDeployments: [
-          {
-            appRoot: ".",
-            projectId: "project-1",
-            projectSlug: "demo-project",
-            teamSlug: "demo-team",
-            deploymentName: "demo-production",
-            cloudUrl: "https://demo-production.convex.cloud",
-            siteUrl: "https://demo-production.convex.site",
-            upstream: { state: "present" },
-          },
-        ],
+        convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            convexDeployKeys: { state: "missing", nextAction: "wire_convex_build_access" },
-            githubRepositoryConnection: { state: "connected" },
-            lastObservedAt: 40,
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "missing",
+            },
           }),
         ],
         providerSetup: {
@@ -2429,7 +2395,13 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appRoot: ".",
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
         ],
       }),
@@ -2466,12 +2438,24 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appRoot: ".",
             workerName: "demo-worker",
-            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://demo-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
           makeResourceRailCloudflareWorker({
             appRoot: "apps/admin",
             workerName: "admin-worker",
-            workersDevUrl: "https://admin-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://admin-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
         ],
       }),
@@ -2508,18 +2492,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
-        convexDeployments: [
-          {
-            appRoot: ".",
-            projectId: "project-1",
-            projectSlug: "demo-project",
-            teamSlug: "demo-team",
-            deploymentName: "demo-production",
-            cloudUrl: "https://demo-production.convex.cloud",
-            siteUrl: "https://demo-production.convex.site",
-            upstream: { state: "present" },
-          },
-        ],
+        convexDeployments: [makeResourceRailConvexDeployment({ projectId: "project-1" })],
       }),
     });
 
@@ -2558,7 +2531,13 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appRoot: "apps/samebase",
             workerName: "samebase-worker",
-            workersDevUrl: "https://samebase-worker.ada.workers.dev",
+            observation: {
+              state: "available",
+              observedAt: 40,
+              workersDevUrl: "https://samebase-worker.ada.workers.dev",
+              githubRepositoryConnection: "connected",
+              convexDeployKeys: "not_applicable",
+            },
           }),
         ],
       }),

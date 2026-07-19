@@ -35,6 +35,40 @@ function jsonResponse(body: string): Response {
   });
 }
 
+function readConvexManagementObservation(url: string): Response | null {
+  if (url.endsWith("/projects/123")) {
+    return jsonResponse(
+      JSON.stringify({
+        createTime: 1,
+        id: "123",
+        name: "Demo",
+        prodDeploymentName: "demo-prod",
+        slug: "demo",
+        teamId: "1000",
+        teamSlug: "ada-team",
+      }),
+    );
+  }
+  if (url.endsWith("/deployments/demo-prod")) {
+    return jsonResponse(
+      JSON.stringify({
+        class: "s16",
+        createTime: 1,
+        deploymentType: "prod",
+        deploymentUrl: "https://demo.convex.cloud",
+        id: "456",
+        isDefault: true,
+        kind: "cloud",
+        name: "demo-prod",
+        projectId: "123",
+        reference: "prod",
+        region: "aws-us-east-1",
+      }),
+    );
+  }
+  return null;
+}
+
 async function seedDatabaseEditorVault(
   t: ReturnType<typeof makeConvexTest>,
   convexAuth: ConvexAuth,
@@ -87,21 +121,10 @@ async function seedDatabaseEditorVault(
       vaultId,
       userId,
       appRoot: ".",
-      projectId: "convex-project-id",
-      teamSlug: "ada-team",
-      projectSlug: "demo",
+      projectId: "123",
       deploymentName: "demo-prod",
-      deploymentType: "prod",
-      cloudUrl: "https://demo.convex.cloud",
-      siteUrl: "https://demo.convex.site",
-      previewDeployment: { state: "not_ensured" },
-      deployKeys: {
-        production: { state: "not_created" },
-        preview: { state: "not_created" },
-      },
       origin: "selected_existing",
       connectedAt: 25,
-      lastObservedAt: 25,
     });
 
     return userId;
@@ -129,6 +152,11 @@ describe("createEmbeddedDashboardCredentials", () => {
       vi.fn(async (input: Request) => {
         requests.push(input);
 
+        const observation = readConvexManagementObservation(input.url);
+        if (observation) {
+          return observation;
+        }
+
         if (input.url.endsWith("/create_deploy_key")) {
           return jsonResponse(`{"deployKey":"prod:demo-prod|oauth-embedded-secret"}`);
         }
@@ -152,12 +180,12 @@ describe("createEmbeddedDashboardCredentials", () => {
       deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
       adminKey: "prod:demo-prod|oauth-embedded-secret",
     });
-    expect(requests).toHaveLength(1);
-    expect(requests[0]?.url).toBe(
+    const createRequest = requests.find((request) => request.url.endsWith("/create_deploy_key"));
+    expect(createRequest?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/create_deploy_key",
     );
-    expect(requests[0]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
-    await expect(requests[0]?.json()).resolves.toEqual({
+    expect(createRequest?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
+    await expect(createRequest?.json()).resolves.toEqual({
       name: "samebase-embedded-data-demo-prod-1710003600000",
     });
 
@@ -170,12 +198,12 @@ describe("createEmbeddedDashboardCredentials", () => {
       deployKeyName: result.deployKeyName,
     });
 
-    expect(requests).toHaveLength(2);
-    expect(requests[1]?.url).toBe(
+    const deleteRequest = requests.find((request) => request.url.endsWith("/delete_deploy_key"));
+    expect(deleteRequest?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/delete_deploy_key",
     );
-    expect(requests[1]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
-    await expect(requests[1]?.json()).resolves.toEqual({
+    expect(deleteRequest?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
+    await expect(deleteRequest?.json()).resolves.toEqual({
       id: "samebase-embedded-data-demo-prod-1710003600000",
     });
   });
@@ -192,6 +220,11 @@ describe("createEmbeddedDashboardCredentials", () => {
       "fetch",
       vi.fn(async (input: Request) => {
         requests.push(input);
+
+        const observation = readConvexManagementObservation(input.url);
+        if (observation) {
+          return observation;
+        }
 
         if (input.url.endsWith("/create_deploy_key")) {
           return jsonResponse(`{"deployKey":"prod:demo-prod|embedded-secret"}`);
@@ -216,12 +249,12 @@ describe("createEmbeddedDashboardCredentials", () => {
       deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
       adminKey: "prod:demo-prod|embedded-secret",
     });
-    expect(requests).toHaveLength(1);
-    expect(requests[0]?.url).toBe(
+    const createRequest = requests.find((request) => request.url.endsWith("/create_deploy_key"));
+    expect(createRequest?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/create_deploy_key",
     );
-    expect(requests[0]?.headers.get("Authorization")).toBe("Bearer convex-api-key");
-    await expect(requests[0]?.json()).resolves.toEqual({
+    expect(createRequest?.headers.get("Authorization")).toBe("Bearer convex-api-key");
+    await expect(createRequest?.json()).resolves.toEqual({
       allowedActions: ["deployment:data:view", "deployment:data:write"],
       expiresAt: 1_710_003_600_000,
       name: "samebase-embedded-data-demo-prod-1710003600000",
@@ -236,12 +269,12 @@ describe("createEmbeddedDashboardCredentials", () => {
       deployKeyName: result.deployKeyName,
     });
 
-    expect(requests).toHaveLength(2);
-    expect(requests[1]?.url).toBe(
+    const deleteRequest = requests.find((request) => request.url.endsWith("/delete_deploy_key"));
+    expect(deleteRequest?.url).toBe(
       "https://api.convex.dev/v1/deployments/demo-prod/delete_deploy_key",
     );
-    expect(requests[1]?.headers.get("Authorization")).toBe("Bearer convex-api-key");
-    await expect(requests[1]?.json()).resolves.toEqual({
+    expect(deleteRequest?.headers.get("Authorization")).toBe("Bearer convex-api-key");
+    await expect(deleteRequest?.json()).resolves.toEqual({
       id: "samebase-embedded-data-demo-prod-1710003600000",
     });
   });

@@ -137,21 +137,10 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       vaultId,
       userId,
       appRoot: ".",
-      projectId: "convex-project-id",
-      teamSlug: "ada-team",
-      projectSlug: "demo",
+      projectId: "123",
       deploymentName: "demo-prod",
-      deploymentType: "prod",
-      cloudUrl: "https://demo.convex.cloud",
-      siteUrl: "https://demo.convex.site",
-      previewDeployment: { state: "not_ensured" },
-      deployKeys: {
-        production: { state: "not_created" },
-        preview: { state: "not_created" },
-      },
       origin: "selected_existing",
       connectedAt: 25,
-      lastObservedAt: 25,
     });
 
     return { deploymentId, userId, vaultId };
@@ -204,6 +193,32 @@ function installSchemaGraphFetchStub(requests: RecordedRequest[]) {
         ...(body === undefined ? {} : { body }),
       });
 
+      if (url.endsWith("/projects/123")) {
+        return jsonResponse({
+          createTime: 1,
+          id: "123",
+          name: "Demo",
+          prodDeploymentName: "demo-prod",
+          slug: "demo",
+          teamId: "1000",
+          teamSlug: "ada-team",
+        });
+      }
+      if (url.endsWith("/deployments/demo-prod")) {
+        return jsonResponse({
+          class: "s16",
+          createTime: 1,
+          deploymentType: "prod",
+          deploymentUrl: "https://demo.convex.cloud",
+          id: "456",
+          isDefault: true,
+          kind: "cloud",
+          name: "demo-prod",
+          projectId: "123",
+          reference: "prod",
+          region: "aws-us-east-1",
+        });
+      }
       if (url.endsWith("/create_deploy_key")) {
         return jsonResponse({ deployKey: "prod:demo-prod|schema-secret" });
       }

@@ -49,20 +49,9 @@ async function createExistingRepositoryVaultWithConvex(args: {
       userId,
       appRoot,
       projectId: "convex-project",
-      teamSlug: "ada-team",
-      projectSlug: "manual-convex",
       deploymentName: "manual-convex-prod",
-      deploymentType: "prod",
-      cloudUrl: "https://manual-convex-prod.convex.cloud",
-      siteUrl: "https://manual-convex-prod.convex.site",
-      previewDeployment: { state: "not_ensured" },
-      deployKeys: {
-        production: { state: "not_created" },
-        preview: { state: "not_created" },
-      },
       origin: args.origin,
       connectedAt: 14,
-      lastObservedAt: 14,
     });
     if (args.origin === "provisioned") {
       await ctx.db.insert("providerConnections", {
@@ -140,20 +129,9 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
         userId,
         appRoot,
         projectId: "convex-project",
-        teamSlug: "ada-team",
-        projectSlug: "managed-convex",
         deploymentName: "managed-convex-prod",
-        deploymentType: "prod",
-        cloudUrl: "https://managed-convex-prod.convex.cloud",
-        siteUrl: "https://managed-convex-prod.convex.site",
-        previewDeployment: { state: "not_ensured" },
-        deployKeys: {
-          production: { state: "not_created" },
-          preview: { state: "not_created" },
-        },
         origin: "provisioned",
         connectedAt: 14,
-        lastObservedAt: 14,
       });
     }
 
