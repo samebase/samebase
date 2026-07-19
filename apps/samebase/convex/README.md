@@ -73,7 +73,7 @@ flowchart LR
 
 - Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
 - State tracking: `workflow_vaultProvisioning_plans`, `workflow_vaultProvisioning_writeLocks`,
-  `vaultConvexDeployments`, and `vaultCloudflareWorkers`
+  `vaultConvexProjects`, and `vaultCloudflareWorkers`
 - Domain tracking: `vaultDomains` table
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`
 

@@ -60,7 +60,7 @@ type VaultConvexSchemaGraphContentProps = {
   refreshError: string | null;
   refreshPending: boolean;
   variant?: VaultConvexSchemaGraphVariant;
-  onDeploymentChange?: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onDeploymentChange?: (deploymentId: Id<"vaultConvexProjects">) => void;
   onRefresh?: () => void;
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
 };
@@ -73,7 +73,7 @@ type VaultConvexSchemaGraphController = {
   state: ConvexSchemaGraphState | null | undefined;
   refreshError: string | null;
   refreshPending: boolean;
-  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onDeploymentChange: (deploymentId: Id<"vaultConvexProjects">) => void;
   onRefresh: () => void;
   onSaveLayout: (nodeId: string, x: number, y: number) => void;
 };
@@ -941,7 +941,7 @@ function VaultConvexSchemaGraphRouteSidebar({
   state: VaultConvexSchemaGraphState | null | undefined;
   refreshError: string | null;
   refreshPending: boolean;
-  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onDeploymentChange: (deploymentId: Id<"vaultConvexProjects">) => void;
   onRefresh: () => void;
 }) {
   const snapshot = state?.snapshot ?? null;
@@ -1103,7 +1103,7 @@ function useVaultConvexSchemaGraphController({
   appRoot?: string;
   vaultId: Id<"vaults">;
 }): VaultConvexSchemaGraphController {
-  const [selectedDeploymentId, setSelectedDeploymentId] = useState<Id<"vaultConvexDeployments">>();
+  const [selectedDeploymentId, setSelectedDeploymentId] = useState<Id<"vaultConvexProjects">>();
   const [refreshPending, setRefreshPending] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [layoutError, setLayoutError] = useState<string | null>(null);
@@ -1234,7 +1234,7 @@ export function VaultConvexSchemaGraphRouteWorkspaceContent({
   state: VaultConvexSchemaGraphState | null | undefined;
   refreshError: string | null;
   refreshPending: boolean;
-  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onDeploymentChange: (deploymentId: Id<"vaultConvexProjects">) => void;
   onRefresh: () => void;
   onSaveLayout: (nodeId: string, x: number, y: number) => void;
 }) {

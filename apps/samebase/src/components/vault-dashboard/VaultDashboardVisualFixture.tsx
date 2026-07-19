@@ -105,7 +105,7 @@ function fakeProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-function fakeConvexDeploymentId(): Id<"vaultConvexDeployments"> {
+function fakeConvexDeploymentId(): Id<"vaultConvexProjects"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";

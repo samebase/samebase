@@ -1,13 +1,9 @@
 import { v, type Infer } from "convex/values";
 
 import { vAppProvisioningRunStep } from "../../appProvisioningModel";
-import { vTreeRefreshFailureKind, vVaultCloudflareOrigin, vVaultConvexOrigin } from "../model";
+import { vTreeRefreshFailureKind } from "../model";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
-import {
-  vCloudflareWorkerObservation,
-  vConvexDeploymentObservation,
-} from "../providerResourceObservationModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -49,6 +45,7 @@ const vProviderSetupFailedNextAction = union(
   literal("connect_cloudflare_worker"),
   literal("wire_builds"),
   literal("wire_convex_build_access"),
+  literal("verify_infrastructure"),
 );
 
 export const vProviderSetupSummary = union(
@@ -133,29 +130,34 @@ const vUserVaultsResult = array(
     hasCloudflareProvision: boolean(),
     canRemoveConvexProvision: boolean(),
     canRemoveCloudflareProvision: boolean(),
-    appRoots: array(
+    apps: array(
       object({
-        appRoot: string(),
+        appId: id("vaultApps"),
+        rootDirectory: string(),
       }),
     ),
     cloudflareWorkers: array(
       object({
-        appRoot: string(),
+        workerId: id("vaultCloudflareWorkers"),
+        appId: id("vaultApps"),
         accountId: string(),
         workerName: string(),
         workerTag: string(),
-        origin: vVaultCloudflareOrigin,
-        projectDashboardUrl: optional(string()),
-        observation: vCloudflareWorkerObservation,
       }),
     ),
-    convexDeployments: array(
+    convexProjects: array(
       object({
-        appRoot: string(),
+        convexProjectId: id("vaultConvexProjects"),
+        appId: id("vaultApps"),
+        teamId: string(),
         projectId: string(),
-        deploymentName: string(),
-        origin: vVaultConvexOrigin,
-        observation: vConvexDeploymentObservation,
+      }),
+    ),
+    workerConvexProjectDependencies: array(
+      object({
+        dependencyId: id("vaultWorkerConvexProjectDependencies"),
+        workerId: id("vaultCloudflareWorkers"),
+        convexProjectId: id("vaultConvexProjects"),
       }),
     ),
   }),
@@ -171,7 +173,7 @@ export const getUserVaultsContract = {
     title: "List Samebase apps",
     name: "vault_dashboard_getUserVaults",
     description:
-      "List the Samebase apps and repositories available to the authenticated user, including provisioning state and stable provider attachment coordinates. Provider observations are loaded separately from the providers.",
+      "List the Samebase apps and repositories available to the authenticated user, including the durable app and provider-resource graph.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -180,10 +182,9 @@ export const getUserVaultsContract = {
     },
     inputDescriptions: {},
   } satisfies AppFunctionMcpMetadata,
-  doc: `Returns every app the authenticated account can see, with source setup, provider operation
-evidence, deletion state, and stable provider attachment coordinates. The resource observation is
-\`not_requested\` in this database query. Use the live provider observation action before presenting
-or acting on current Worker, Workers Builds, deploy-key, Convex URL, or upstream existence state.`,
+  doc: `Returns every vault the authenticated account can see. Provider resources are stable
+identities and explicit relationships only. Current Cloudflare and Convex state is intentionally
+loaded from those providers when a relevant view opens; it is not mirrored by this query.`,
 } as const;
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;

@@ -4,7 +4,7 @@ import { clamp } from "./jsonUtils";
 
 export const vAllowedInfraReadTable = v.union(
   v.literal("vaults"),
-  v.literal("vaultConvexDeployments"),
+  v.literal("vaultConvexProjects"),
   v.literal("vaultCloudflareWorkers"),
   v.literal("vaultDomains"),
   v.literal("codespaces"),
@@ -30,15 +30,15 @@ export const readTableSample = internalQuery({
       return await ctx.db.query("vaults").take(limit);
     }
 
-    if (args.table === "vaultConvexDeployments") {
+    if (args.table === "vaultConvexProjects") {
       const vaultId = args.vaultId;
       if (vaultId) {
         return await ctx.db
-          .query("vaultConvexDeployments")
+          .query("vaultConvexProjects")
           .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
           .take(limit);
       }
-      return await ctx.db.query("vaultConvexDeployments").take(limit);
+      return await ctx.db.query("vaultConvexProjects").take(limit);
     }
 
     if (args.table === "vaultCloudflareWorkers") {
@@ -118,7 +118,7 @@ export const getVaultReadContext = internalQuery({
 
     const [convexDeployments, cloudflareWorkers, convexConnectionRaw] = await Promise.all([
       ctx.db
-        .query("vaultConvexDeployments")
+        .query("vaultConvexProjects")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
       ctx.db

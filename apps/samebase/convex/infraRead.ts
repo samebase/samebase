@@ -23,6 +23,7 @@ import {
 } from "./cloudflareApi/client";
 import { clamp } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
+import { readConvexProductionDeployment } from "./vault/convexProjectResources";
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -41,7 +42,7 @@ async function loadVaultContext(
   ctx: ActionCtx,
   vaultId: Id<"vaults">,
 ): Promise<{
-  convexDeployments: Doc<"vaultConvexDeployments">[];
+  convexDeployments: Doc<"vaultConvexProjects">[];
   vault: Doc<"vaults"> | null;
   cloudflareWorkers: Doc<"vaultCloudflareWorkers">[];
   vaultUserId: Id<"users"> | null;
@@ -66,19 +67,19 @@ async function loadVaultContext(
   };
 }
 
-function requireConvexDeploymentForInfraRead(
-  deployments: Doc<"vaultConvexDeployments">[],
+function requireConvexProjectForInfraRead(
+  projects: Doc<"vaultConvexProjects">[],
   vaultId: Id<"vaults">,
-): Doc<"vaultConvexDeployments"> {
-  if (deployments.length === 0) {
+): Doc<"vaultConvexProjects"> {
+  if (projects.length === 0) {
     throw new Error(getVaultInfraError(vaultId));
   }
-  if (deployments.length > 1) {
+  if (projects.length > 1) {
     throw new Error(
-      "Multiple Convex deployments are connected. Choose an app root before reading production.",
+      "Multiple Convex projects are attached. Choose a project before reading production.",
     );
   }
-  return deployments[0];
+  return projects[0];
 }
 
 function requireCloudflareWorkerForInfraRead(
@@ -90,7 +91,7 @@ function requireCloudflareWorkerForInfraRead(
   }
   if (workers.length > 1) {
     throw new Error(
-      "Multiple Cloudflare Workers are connected. Choose an app root before reading production.",
+      "Multiple Cloudflare Workers are attached. Choose a Worker before reading production.",
     );
   }
   return workers[0];
@@ -170,15 +171,25 @@ export const getConvexDeploymentStatus = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
-    const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
+    const project = requireConvexProjectForInfraRead(convexDeployments, args.vaultId);
 
     const convexToken = resolveConvexToken(convexConnection);
+    if (resolveConvexTeamId(convexConnection) !== project.teamId) {
+      throw new Error("Connect the Convex team that owns this project.");
+    }
+    const deployment = await readConvexProductionDeployment({
+      token: convexToken,
+      projectId: project.projectId,
+    });
+    if (!deployment) {
+      throw new Error("Convex project has no production deployment.");
+    }
     const endpoint = formatConvexManagementApiEndpoint({
       path: "/deployments/{deployment_name}",
       method: "GET",
       params: {
         path: {
-          deployment_name: deployment.deploymentName,
+          deployment_name: deployment.name,
         },
       },
     });
@@ -186,12 +197,12 @@ export const getConvexDeploymentStatus = internalAction({
       convexToken,
       "GET",
       "/deployments/{deployment_name}",
-      { params: { path: { deployment_name: deployment.deploymentName } } },
+      { params: { path: { deployment_name: deployment.name } } },
     );
     const raw = JSON.stringify(deploymentStatus, null, 2);
 
     return {
-      summary: `Convex deployment status for ${deployment.deploymentName}`,
+      summary: `Convex deployment status for ${deployment.name}`,
       endpoint,
       raw,
       rowCount: 1,
@@ -207,15 +218,18 @@ export const getConvexLogs = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
-    const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
+    const project = requireConvexProjectForInfraRead(convexDeployments, args.vaultId);
 
     const convexToken = resolveConvexToken(convexConnection);
+    if (resolveConvexTeamId(convexConnection) !== project.teamId) {
+      throw new Error("Connect the Convex team that owns this project.");
+    }
     const endpoint = formatConvexManagementApiEndpoint({
       path: "/projects/{project_id}/list_deployments",
       method: "GET",
       params: {
         path: {
-          project_id: deployment.projectId,
+          project_id: project.projectId,
         },
       },
     });
@@ -223,7 +237,7 @@ export const getConvexLogs = internalAction({
       convexToken,
       "GET",
       "/projects/{project_id}/list_deployments",
-      { params: { path: { project_id: deployment.projectId } } },
+      { params: { path: { project_id: project.projectId } } },
     );
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
@@ -236,7 +250,7 @@ export const getConvexLogs = internalAction({
     }
 
     return {
-      summary: `Convex deployment activity snapshot for project ${deployment.projectId}`,
+      summary: `Convex deployment activity snapshot for project ${project.projectId}`,
       endpoint,
       raw: lines.join("\n") || "No deployment activity entries returned.",
       logLineCount: lines.length,

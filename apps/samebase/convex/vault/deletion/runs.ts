@@ -75,12 +75,12 @@ async function requireProviderConnection(
   throw new Error(providerConnectionMessage(args.kind));
 }
 
-async function listVaultConvexDeployments(
+async function listVaultConvexProjects(
   ctx: MutationCtx,
   vaultId: Id<"vaults">,
-): Promise<Doc<"vaultConvexDeployments">[]> {
+): Promise<Doc<"vaultConvexProjects">[]> {
   return await ctx.db
-    .query("vaultConvexDeployments")
+    .query("vaultConvexProjects")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .collect();
 }
@@ -159,11 +159,11 @@ async function buildConvexPlan(
   ctx: MutationCtx,
   args: {
     vault: Doc<"vaults">;
-    convexDeployments: Doc<"vaultConvexDeployments">[];
+    convexProjects: Doc<"vaultConvexProjects">[];
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan["convex"]> {
-  const { vault, convexDeployments, options } = args;
+  const { vault, convexProjects, options } = args;
   if (!options.removeConvexProvision) {
     return { action: "skip", reason: "not_requested" };
   }
@@ -175,9 +175,9 @@ async function buildConvexPlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  for (const deployment of convexDeployments) {
-    if (deployment.origin === "provisioned") {
-      createdProjectIds.push(deployment.projectId);
+  for (const project of convexProjects) {
+    if (project.origin === "provisioned") {
+      createdProjectIds.push(project.projectId);
     }
   }
 
@@ -190,7 +190,7 @@ async function buildConvexPlan(
     return projectPlan;
   }
 
-  if (convexDeployments.length > 0) {
+  if (convexProjects.length > 0) {
     return { action: "skip", reason: "not_managed" };
   }
 
@@ -220,9 +220,9 @@ async function buildCloudflarePlan(
     .filter((worker) => worker.origin === "provisioned")
     .sort(
       (left, right) =>
-        left.appRoot.localeCompare(right.appRoot) ||
         left.workerName.localeCompare(right.workerName) ||
-        left.accountId.localeCompare(right.accountId),
+        left.accountId.localeCompare(right.accountId) ||
+        left.workerTag.localeCompare(right.workerTag),
     );
   if (provisionedWorkers.length === 0) {
     return { action: "skip", reason: "not_recorded" };
@@ -255,7 +255,7 @@ async function buildDeletionPlan(
   ctx: MutationCtx,
   args: {
     vault: Exclude<Doc<"vaults">, { state: "not_connected" | "provisioning" }>;
-    convexDeployments: Doc<"vaultConvexDeployments">[];
+    convexProjects: Doc<"vaultConvexProjects">[];
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan> {
@@ -443,10 +443,10 @@ export const createInitialRun = internalMutation({
       throw new Error("Vault is not ready to delete yet.");
     }
 
-    const convexDeployments = await listVaultConvexDeployments(ctx, args.vaultId);
+    const convexProjects = await listVaultConvexProjects(ctx, args.vaultId);
     const plan = await buildDeletionPlan(ctx, {
       vault,
-      convexDeployments,
+      convexProjects,
       options: args.options,
     });
     const now = Date.now();

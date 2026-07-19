@@ -8,7 +8,7 @@ import {
 } from "../_generated/server";
 import { query } from "../functions";
 import {
-  buildVaultCloudflareBuildConfigForAppRoot,
+  buildVaultCloudflareBuildConfigForRootDirectory,
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
 } from "./model";
@@ -372,8 +372,8 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
         state: "planned",
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
-        build: buildVaultCloudflareBuildConfigForAppRoot({
-          appRoot: ROOT_VAULT_APP_ROOT,
+        build: buildVaultCloudflareBuildConfigForRootDirectory({
+          rootDirectory: VAULT_ROOT_DIRECTORY,
         }),
       },
       createdAt: now,

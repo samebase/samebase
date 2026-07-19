@@ -12,7 +12,6 @@ import {
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { hasBranchStagingChanges } from "./branches";
-import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
@@ -23,7 +22,6 @@ import {
   type UserVaultResult,
   type UserVaultsResult,
   type VaultDeletionSummary,
-  vProviderSetupSummary,
 } from "./contracts/getUserVaults";
 
 const { array, boolean, id, object, optional, string } = v;
@@ -31,16 +29,12 @@ type SourceSetupVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository" | "connect_existing_repository" }
 >;
-type VaultDomain = Doc<"vaultDomains">;
 type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type VaultApp = Doc<"vaultApps">;
-type ConnectedConvexDeployment = Doc<"vaultConvexDeployments">;
-type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
+type ConvexProject = Doc<"vaultConvexProjects">;
+type CloudflareWorker = Doc<"vaultCloudflareWorkers">;
+type WorkerConvexProjectDependency = Doc<"vaultWorkerConvexProjectDependencies">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
-
-function canRemoveConvexProvisionForDeployment(deployment: ConnectedConvexDeployment): boolean {
-  return deployment.origin === "provisioned";
-}
 
 async function readLatestRunErrorMessage(
   ctx: Pick<QueryCtx, "db">,
@@ -136,6 +130,7 @@ export function readProviderSetupFailedNextAction(args: {
     case "connect_cloudflare_worker":
     case "wire_builds":
     case "wire_convex_build_access":
+    case "verify_infrastructure":
       return args.trigger;
     default:
       // Run row missing (fallback summaries): the connect flow is the safe
@@ -297,19 +292,6 @@ async function readVaultProvisioningWriteLock(
     .first();
 }
 
-async function hasCreatedConvexProjectForVault(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<boolean> {
-  const runs = await ctx.db
-    .query("workflow_vaultProvisioning_runs")
-    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
-    .collect();
-  return runs.some(
-    (run) => run.trigger === "connect_convex_deployment" && run.createdConvexProject,
-  );
-}
-
 function readManualProviderFromRun(
   run: Doc<"workflow_vaultProvisioning_runs"> | null,
 ): "convex" | "cloudflare" | null {
@@ -319,6 +301,7 @@ function readManualProviderFromRun(
     case "connect_cloudflare_worker":
     case "wire_builds":
     case "wire_convex_build_access":
+    case "verify_infrastructure":
       return "cloudflare";
     default:
       return null;
@@ -328,8 +311,8 @@ function readManualProviderFromRun(
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: ConnectedVault,
-  convexDeployments: ConnectedConvexDeployment[],
-  cloudflareWorkers: ConnectedCloudflareWorker[],
+  convexProjects: ConvexProject[],
+  cloudflareWorkers: CloudflareWorker[],
 ): Promise<ProviderSetupSummary> {
   const writeLock = await readVaultProvisioningWriteLock(ctx, vault._id);
   const writeLockRun = writeLock ? await ctx.db.get(writeLock.runId) : null;
@@ -348,7 +331,7 @@ async function resolveProviderSetupSummary(
     });
   }
 
-  if (convexDeployments.length === 0) {
+  if (convexProjects.length === 0) {
     if (writeLock?.state === "active" || writeLock?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "convex",
@@ -395,17 +378,6 @@ async function resolveProviderSetupSummary(
   return { status: "ready" };
 }
 
-function compareVaultDomainSortOrder(left: VaultDomain, right: VaultDomain): number {
-  const leftKindOrder = left.kind === "main" ? 0 : 1;
-  const rightKindOrder = right.kind === "main" ? 0 : 1;
-  return (
-    leftKindOrder - rightKindOrder ||
-    left.branch.localeCompare(right.branch) ||
-    left.url.localeCompare(right.url) ||
-    left.source.localeCompare(right.source)
-  );
-}
-
 function compareVaultAppSortOrder(left: VaultApp, right: VaultApp): number {
   const leftRootOrder = left.rootDirectory === VAULT_ROOT_DIRECTORY ? 0 : 1;
   const rightRootOrder = right.rootDirectory === VAULT_ROOT_DIRECTORY ? 0 : 1;
@@ -416,42 +388,32 @@ function compareVaultAppSortOrder(left: VaultApp, right: VaultApp): number {
   );
 }
 
-function compareCloudflareWorkerSortOrder(
-  left: ConnectedCloudflareWorker,
-  right: ConnectedCloudflareWorker,
-): number {
-  const leftRootOrder = left.appRoot === "." ? 0 : 1;
-  const rightRootOrder = right.appRoot === "." ? 0 : 1;
+function compareCloudflareWorkerSortOrder(left: CloudflareWorker, right: CloudflareWorker): number {
   return (
-    leftRootOrder - rightRootOrder ||
-    left.appRoot.localeCompare(right.appRoot) ||
+    left.appId.localeCompare(right.appId) ||
     left.workerName.localeCompare(right.workerName) ||
-    left.accountId.localeCompare(right.accountId)
+    left.accountId.localeCompare(right.accountId) ||
+    left._id.localeCompare(right._id)
   );
 }
 
-function compareConvexDeploymentSortOrder(
-  left: ConnectedConvexDeployment,
-  right: ConnectedConvexDeployment,
-): number {
-  const leftRootOrder = left.appRoot === "." ? 0 : 1;
-  const rightRootOrder = right.appRoot === "." ? 0 : 1;
+function compareConvexProjectSortOrder(left: ConvexProject, right: ConvexProject): number {
   return (
-    leftRootOrder - rightRootOrder ||
-    left.appRoot.localeCompare(right.appRoot) ||
-    left.projectId.localeCompare(right.projectId)
+    left.appId.localeCompare(right.appId) ||
+    left.projectId.localeCompare(right.projectId) ||
+    left._id.localeCompare(right._id)
   );
 }
 
-async function readConvexDeploymentsForVault(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<ConnectedConvexDeployment[]> {
-  const deployments = await ctx.db
-    .query("vaultConvexDeployments")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .collect();
-  return deployments.sort(compareConvexDeploymentSortOrder);
+function compareWorkerConvexProjectDependencySortOrder(
+  left: WorkerConvexProjectDependency,
+  right: WorkerConvexProjectDependency,
+): number {
+  return (
+    left.workerId.localeCompare(right.workerId) ||
+    left.convexProjectId.localeCompare(right.convexProjectId) ||
+    left._id.localeCompare(right._id)
+  );
 }
 
 async function readVaultAppsForVault(
@@ -465,43 +427,12 @@ async function readVaultAppsForVault(
   return apps.sort(compareVaultAppSortOrder);
 }
 
-async function readCloudflareWorkersForVault(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<ConnectedCloudflareWorker[]> {
-  const workers = await ctx.db
-    .query("vaultCloudflareWorkers")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .collect();
-  return workers.sort(compareCloudflareWorkerSortOrder);
-}
-
 const vVaultBranchFilters = object({
   vaultId: id("vaults"),
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
   includeNoLabel: optional(boolean()),
 });
-
-/**
- * Dashboard URLs fail closed when provider metadata is partial. Trim before
- * checking presence and encode every segment before handing it to the browser.
- */
-function buildCloudflareWorkerDashboardUrl(
-  cloudflare: Pick<ConnectedCloudflareWorker, "accountId" | "workerName"> | null | undefined,
-): string | undefined {
-  if (!cloudflare) {
-    return undefined;
-  }
-
-  const accountId = cloudflare.accountId.trim();
-  const workerName = cloudflare.workerName.trim();
-  if (accountId.length === 0 || workerName.length === 0) {
-    return undefined;
-  }
-
-  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/workers/services/view/${encodeURIComponent(workerName)}/production/deployments`;
-}
 
 // MARK: Public
 
@@ -625,13 +556,13 @@ export const setVaultBranchFilters = mutation({
   },
 });
 
-export const createVaultAppRoot = mutation({
+export const createVaultApp = mutation({
   access: "access_repo_connect",
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    rootDirectory: string(),
   },
-  returns: v.null(),
+  returns: id("vaultApps"),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
@@ -639,52 +570,18 @@ export const createVaultAppRoot = mutation({
       throw new Error("Vault not found.");
     }
 
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const rootDirectory = normalizeVaultRootDirectory(
-      appRoot === ROOT_VAULT_APP_ROOT ? VAULT_ROOT_DIRECTORY : appRoot,
-    );
-    const apps = await ctx.db
+    const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
+    const existingApp = await ctx.db
       .query("vaultApps")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
-    const existingApp = apps.find((app) => app.rootDirectory === rootDirectory);
-    const rootApp = apps.find((app) => app.rootDirectory === VAULT_ROOT_DIRECTORY);
-    const hasFolderApp = apps.some((app) => app.rootDirectory !== VAULT_ROOT_DIRECTORY);
-    if (rootDirectory === VAULT_ROOT_DIRECTORY && hasFolderApp) {
-      throw new Error("Monorepo vaults cannot add the repository root as an app.");
-    }
+      .withIndex("by_vault_and_root_directory", (q) =>
+        q.eq("vaultId", args.vaultId).eq("rootDirectory", rootDirectory),
+      )
+      .unique();
     if (existingApp) {
-      throw new Error("Vault already has this app root.");
+      throw new Error("Vault already has this root directory.");
     }
 
-    if (rootDirectory !== VAULT_ROOT_DIRECTORY && rootApp) {
-      const [rootConvexDeployment, rootCloudflareWorker, provisioningWriteLock] = await Promise.all(
-        [
-          ctx.db
-            .query("vaultConvexDeployments")
-            .withIndex("by_vault_and_appRoot", (q) =>
-              q.eq("vaultId", args.vaultId).eq("appRoot", ROOT_VAULT_APP_ROOT),
-            )
-            .first(),
-          ctx.db
-            .query("vaultCloudflareWorkers")
-            .withIndex("by_vault_and_appRoot", (q) =>
-              q.eq("vaultId", args.vaultId).eq("appRoot", ROOT_VAULT_APP_ROOT),
-            )
-            .first(),
-          readVaultProvisioningWriteLock(ctx, args.vaultId),
-        ],
-      );
-      if (provisioningWriteLock?.state === "active") {
-        throw new Error("Wait for provider setup before converting this vault to a monorepo.");
-      }
-      if (rootConvexDeployment || rootCloudflareWorker) {
-        throw new Error("Disconnect root providers before converting this vault to a monorepo.");
-      }
-      await ctx.db.delete(rootApp._id);
-    }
-
-    await ctx.db.insert("vaultApps", {
+    return await ctx.db.insert("vaultApps", {
       vaultId: args.vaultId,
       userId,
       rootDirectory,
@@ -693,7 +590,7 @@ export const createVaultAppRoot = mutation({
   },
 });
 
-export const listVaultAppRootFolderSuggestions = query({
+export const listVaultRootDirectorySuggestions = query({
   access: "access_repo_connect",
   args: {
     vaultId: id("vaults"),
@@ -726,18 +623,67 @@ export const listVaultAppRootFolderSuggestions = query({
   },
 });
 
-// Get user's vaults with optional file staging stats
+function groupVaultRows<Row extends { vaultId: Id<"vaults"> }>(
+  rows: Row[],
+): Map<Id<"vaults">, Row[]> {
+  const rowsByVault = new Map<Id<"vaults">, Row[]>();
+  for (const row of rows) {
+    const vaultRows = rowsByVault.get(row.vaultId);
+    if (vaultRows) {
+      vaultRows.push(row);
+    } else {
+      rowsByVault.set(row.vaultId, [row]);
+    }
+  }
+  return rowsByVault;
+}
+
+async function hasCreatedConvexProjectForVault(
+  ctx: Pick<QueryCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<boolean> {
+  const runs = ctx.db
+    .query("workflow_vaultProvisioning_runs")
+    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId));
+  for await (const run of runs) {
+    if (run.trigger === "connect_convex_deployment" && run.createdConvexProject) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function readUserVaults(
   ctx: Pick<QueryCtx, "db">,
   userId: Id<"users">,
 ): Promise<UserVaultsResult> {
-  // Get user's vaults
-  const vaults = await ctx.db
-    .query("vaults")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect();
-  // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
-  // gated until a connected vault has branch data.
+  const [vaults, userApps, userConvexProjects, userCloudflareWorkers, userDependencies] =
+    await Promise.all([
+      ctx.db
+        .query("vaults")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("vaultApps")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("vaultConvexProjects")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("vaultWorkerConvexProjectDependencies")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+    ]);
+  const appsByVault = groupVaultRows(userApps);
+  const convexProjectsByVault = groupVaultRows(userConvexProjects);
+  const cloudflareWorkersByVault = groupVaultRows(userCloudflareWorkers);
+  const dependenciesByVault = groupVaultRows(userDependencies);
   const connectedVaults = vaults.filter(isConnectedVault);
   const initializingVaultResults: UserVaultResult[] = [];
   for (const vault of vaults) {
@@ -773,39 +719,62 @@ async function readUserVaults(
       hasCloudflareProvision: false,
       canRemoveConvexProvision: false,
       canRemoveCloudflareProvision: false,
-      appRoots: [],
+      apps: [],
       cloudflareWorkers: [],
-      convexDeployments: [],
+      convexProjects: [],
+      workerConvexProjectDependencies: [],
     });
   }
 
-  // Get staging stats for each vault
   const vaultResults: UserVaultResult[] = await Promise.all(
     connectedVaults.map(async (vault) => {
       const deletion = await resolveVaultDeletionSummary(ctx, vault);
-      const appRoots = await readVaultAppsForVault(ctx, vault._id);
-      const convexDeployments = await readConvexDeploymentsForVault(ctx, vault._id);
-      const cloudflareWorkers = await readCloudflareWorkersForVault(ctx, vault._id);
-      const hasConvexProvision = convexDeployments.length > 0;
+      const apps = (appsByVault.get(vault._id) ?? []).sort(compareVaultAppSortOrder);
+      const convexProjects = (convexProjectsByVault.get(vault._id) ?? []).sort(
+        compareConvexProjectSortOrder,
+      );
+      const cloudflareWorkers = (cloudflareWorkersByVault.get(vault._id) ?? []).sort(
+        compareCloudflareWorkerSortOrder,
+      );
+      const dependencies = (dependenciesByVault.get(vault._id) ?? []).sort(
+        compareWorkerConvexProjectDependencySortOrder,
+      );
+      const appIds = new Set(apps.map((app) => app._id));
+      const workerIds = new Set(cloudflareWorkers.map((worker) => worker._id));
+      const convexProjectIds = new Set(convexProjects.map((project) => project._id));
+      if (
+        cloudflareWorkers.some((worker) => !appIds.has(worker.appId)) ||
+        convexProjects.some((project) => !appIds.has(project.appId)) ||
+        dependencies.some(
+          (dependency) =>
+            !workerIds.has(dependency.workerId) ||
+            !convexProjectIds.has(dependency.convexProjectId),
+        )
+      ) {
+        throw new Error("Vault resource graph is inconsistent.");
+      }
+      const hasConvexProvision = convexProjects.length > 0;
       const hasCloudflareProvision = cloudflareWorkers.length > 0;
-      const convexDeploymentSummaries = convexDeployments.map((deployment) => ({
-        appRoot: deployment.appRoot,
-        projectId: deployment.projectId,
-        deploymentName: deployment.deploymentName,
-        origin: deployment.origin,
-        observation: { state: "not_requested" as const },
-      }));
       const canRemoveCloudflareProvision = cloudflareWorkers.some(
         (worker) => worker.origin === "provisioned",
       );
       const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
-        appRoot: worker.appRoot,
+        workerId: worker._id,
+        appId: worker.appId,
         accountId: worker.accountId,
         workerName: worker.workerName,
         workerTag: worker.workerTag,
-        origin: worker.origin,
-        projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),
-        observation: { state: "not_requested" as const },
+      }));
+      const convexProjectSummaries = convexProjects.map((project) => ({
+        convexProjectId: project._id,
+        appId: project.appId,
+        teamId: project.teamId,
+        projectId: project.projectId,
+      }));
+      const dependencySummaries = dependencies.map((dependency) => ({
+        dependencyId: dependency._id,
+        workerId: dependency.workerId,
+        convexProjectId: dependency.convexProjectId,
       }));
       if (deletion.state !== "not_deleting") {
         return {
@@ -833,12 +802,13 @@ async function readUserVaults(
           hasCloudflareProvision,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision,
-          appRoots: appRoots.map((app) => ({
-            appRoot:
-              app.rootDirectory === VAULT_ROOT_DIRECTORY ? ROOT_VAULT_APP_ROOT : app.rootDirectory,
+          apps: apps.map((app) => ({
+            appId: app._id,
+            rootDirectory: app.rootDirectory,
           })),
           cloudflareWorkers: cloudflareWorkerSummaries,
-          convexDeployments: convexDeploymentSummaries,
+          convexProjects: convexProjectSummaries,
+          workerConvexProjectDependencies: dependencySummaries,
         };
       }
 
@@ -868,11 +838,11 @@ async function readUserVaults(
         vault,
       });
       const providerSetup = hasUsableDefaultBranchTree
-        ? await resolveProviderSetupSummary(ctx, vault, convexDeployments, cloudflareWorkers)
+        ? await resolveProviderSetupSummary(ctx, vault, convexProjects, cloudflareWorkers)
         : { status: "not_applicable" as const };
       const canRemoveConvexProvision =
         hasCreatedConvexProject ||
-        convexDeployments.some((deployment) => canRemoveConvexProvisionForDeployment(deployment));
+        convexProjects.some((project) => project.origin === "provisioned");
       return {
         _id: vault._id,
         _creationTime: vault._creationTime,
@@ -898,12 +868,13 @@ async function readUserVaults(
         hasCloudflareProvision,
         canRemoveConvexProvision,
         canRemoveCloudflareProvision,
-        appRoots: appRoots.map((app) => ({
-          appRoot:
-            app.rootDirectory === VAULT_ROOT_DIRECTORY ? ROOT_VAULT_APP_ROOT : app.rootDirectory,
+        apps: apps.map((app) => ({
+          appId: app._id,
+          rootDirectory: app.rootDirectory,
         })),
         cloudflareWorkers: cloudflareWorkerSummaries,
-        convexDeployments: convexDeploymentSummaries,
+        convexProjects: convexProjectSummaries,
+        workerConvexProjectDependencies: dependencySummaries,
       };
     }),
   );
@@ -944,76 +915,5 @@ export const getUserVaultsForUser = internalQuery({
     }
 
     return await readUserVaults(ctx, args.userId);
-  },
-});
-
-export const getVaultInfrastructure = query({
-  access: "access_dashboard",
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  returns: v.union(
-    v.object({
-      providerSetup: vProviderSetupSummary,
-      convexDeployments: v.array(
-        v.object({
-          appRoot: v.string(),
-          projectId: v.string(),
-          deploymentName: v.string(),
-        }),
-      ),
-      domains: v.array(
-        v.object({
-          branch: v.string(),
-          kind: v.union(v.literal("main"), v.literal("branch_preview")),
-          url: v.string(),
-          source: v.union(
-            v.literal("cloudflare_workers_default"),
-            v.literal("cloudflare_workers_custom"),
-            v.literal("cloudflare_workers_preview"),
-          ),
-          active: v.boolean(),
-        }),
-      ),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== ctx.viewer.userId) {
-      return null;
-    }
-    if (!isLiveConnectedVault(vault)) {
-      return null;
-    }
-
-    const convexDeployments = await readConvexDeploymentsForVault(ctx, args.vaultId);
-
-    const domains = await ctx.db
-      .query("vaultDomains")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
-    const cloudflareWorkers = await readCloudflareWorkersForVault(ctx, args.vaultId);
-
-    return {
-      providerSetup: await resolveProviderSetupSummary(
-        ctx,
-        vault,
-        convexDeployments,
-        cloudflareWorkers,
-      ),
-      convexDeployments: convexDeployments.map((deployment) => ({
-        appRoot: deployment.appRoot,
-        projectId: deployment.projectId,
-        deploymentName: deployment.deploymentName,
-      })),
-      domains: [...domains].sort(compareVaultDomainSortOrder).map((domain) => ({
-        branch: domain.branch,
-        kind: domain.kind,
-        url: domain.url,
-        source: domain.source,
-        active: domain.active,
-      })),
-    };
   },
 });

@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
+import { normalizeVaultRootDirectory } from "../../shared/vaultRootDirectory";
 import { vVaultDeletionState } from "./deletion/model";
 export { parseRepositoryFullName } from "../../shared/repoName";
 
@@ -38,70 +38,73 @@ export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
  * as requested intent; connected states use it as the latest GitHub metadata
  * observed by Samebase.
  */
-export const vVaultConvexOrigin = union(literal("provisioned"), literal("selected_existing"));
-export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
-
-export const vVaultConvexDeploymentAttachmentSnapshot = object({
-  attachmentId: id("vaultConvexDeployments"),
-  connectedAt: number(),
-  projectId: string(),
-  deploymentName: string(),
-  origin: vVaultConvexOrigin,
-});
-export type VaultConvexDeploymentAttachmentSnapshot = Infer<
-  typeof vVaultConvexDeploymentAttachmentSnapshot
->;
-
-export const vVaultConvexDeploymentAttachmentIntent = union(
-  object({ mode: literal("attach") }),
-  object({
-    mode: literal("replace_missing"),
-    expected: vVaultConvexDeploymentAttachmentSnapshot,
-  }),
-);
-export type VaultConvexDeploymentAttachmentIntent = Infer<
-  typeof vVaultConvexDeploymentAttachmentIntent
->;
-
-export const vVaultConvexConnectionTarget = union(
+export const vVaultConvexProjectConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     projectId: string(),
   }),
   object({
     mode: literal("create_project"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     projectName: string(),
   }),
 );
-export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
+export type VaultConvexProjectConnectionTarget = Infer<typeof vVaultConvexProjectConnectionTarget>;
 
-export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
-export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
-
-export const vVaultCloudflareWorkerAttachmentSnapshot = object({
-  attachmentId: id("vaultCloudflareWorkers"),
-  connectedAt: number(),
-  accountId: string(),
-  workerName: string(),
-  workerTag: string(),
-  origin: vVaultCloudflareOrigin,
-});
-export type VaultCloudflareWorkerAttachmentSnapshot = Infer<
-  typeof vVaultCloudflareWorkerAttachmentSnapshot
->;
-
-export const vVaultCloudflareWorkerAttachmentIntent = union(
-  object({ mode: literal("attach") }),
+export const vConvexDeployKeyState = union(
   object({
-    mode: literal("replace_missing"),
-    expected: vVaultCloudflareWorkerAttachmentSnapshot,
+    state: literal("not_created"),
+  }),
+  object({
+    state: literal("created"),
+    id: string(),
   }),
 );
-export type VaultCloudflareWorkerAttachmentIntent = Infer<
-  typeof vVaultCloudflareWorkerAttachmentIntent
->;
+export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
+
+export const vConvexDeployKeys = object({
+  production: vConvexDeployKeyState,
+  preview: vConvexDeployKeyState,
+});
+
+export const vVaultProviderUpstreamPresence = union(
+  object({
+    state: literal("present"),
+  }),
+  object({
+    state: literal("missing_upstream"),
+  }),
+);
+export type VaultProviderUpstreamPresence = Infer<typeof vVaultProviderUpstreamPresence>;
+
+export const VAULT_PROVIDER_UPSTREAM_PRESENT = {
+  state: "present",
+} as const satisfies VaultProviderUpstreamPresence;
+
+export const VAULT_PROVIDER_UPSTREAM_MISSING = {
+  state: "missing_upstream",
+} as const satisfies VaultProviderUpstreamPresence;
+
+type VaultProviderUpstreamCarrier = {
+  upstream?: VaultProviderUpstreamPresence;
+};
+
+export function readVaultProviderUpstreamPresence(
+  row: VaultProviderUpstreamCarrier,
+): VaultProviderUpstreamPresence {
+  return row.upstream ?? VAULT_PROVIDER_UPSTREAM_PRESENT;
+}
+
+export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
+  return readVaultProviderUpstreamPresence(row).state === "present";
+}
+
+export const vVaultProviderResourceOrigin = union(
+  literal("provisioned"),
+  literal("selected_existing"),
+);
+export type VaultProviderResourceOrigin = Infer<typeof vVaultProviderResourceOrigin>;
 
 const vaultCloudflareBuildConfigFields = {
   rootDirectory: string(),
@@ -114,16 +117,15 @@ const vaultCloudflareBuildConfigFields = {
 export const vVaultCloudflareBuildConfig = object(vaultCloudflareBuildConfigFields);
 export type VaultCloudflareBuildConfig = Infer<typeof vVaultCloudflareBuildConfig>;
 
-export function buildVaultCloudflareBuildConfigForAppRoot(args: {
-  appRoot: string;
+export function buildVaultCloudflareBuildConfigForRootDirectory(args: {
+  rootDirectory: string;
 }): VaultCloudflareBuildConfig {
-  const appRoot = normalizeVaultAppRoot(args.appRoot);
-  const rootDirectory = appRoot === "." ? "/" : appRoot;
+  const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
   const pathIncludes =
-    appRoot === "."
+    rootDirectory === "/"
       ? ["*"]
       : [
-          `${appRoot}/*`,
+          `${rootDirectory}/*`,
           "packages/dependent/*",
           "pnpm-lock.yaml",
           "pnpm-workspace.yaml",
@@ -153,6 +155,46 @@ export const vVaultCloudflareConnectedBuilds = object({
   preview: vVaultCloudflareWorkersBuildTrigger,
 });
 export type VaultCloudflareConnectedBuilds = Infer<typeof vVaultCloudflareConnectedBuilds>;
+
+export const vVaultCloudflareBuilds = union(
+  object({
+    state: literal("not_connected"),
+  }),
+  vVaultCloudflareConnectedBuilds,
+);
+
+export const vVaultCloudflareConvexBuildAccess = union(
+  object({
+    state: literal("not_wired"),
+  }),
+  object({
+    state: literal("wired"),
+  }),
+);
+export type VaultCloudflareConvexBuildAccess = Infer<typeof vVaultCloudflareConvexBuildAccess>;
+
+export const vVaultCloudflareDeployment = object({
+  builds: vVaultCloudflareBuilds,
+  convexBuildAccess: vVaultCloudflareConvexBuildAccess,
+});
+export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
+
+export function buildVaultCloudflareDeploymentNotConfigured(): VaultCloudflareDeployment {
+  return {
+    builds: { state: "not_connected" },
+    convexBuildAccess: { state: "not_wired" },
+  };
+}
+
+export function buildVaultCloudflareDeploymentWithConnectedBuilds(args: {
+  builds: VaultCloudflareConnectedBuilds;
+  convexBuildAccess: VaultCloudflareConvexBuildAccess;
+}): VaultCloudflareDeployment {
+  return {
+    builds: args.builds,
+    convexBuildAccess: args.convexBuildAccess,
+  };
+}
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
@@ -316,38 +358,53 @@ export const vaultTables = {
     .index("by_user", ["userId"])
     .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
 
-  /** Cloudflare Workers connected to deployable app roots in a vault. */
+  /** Stable Cloudflare Worker identities attached to apps in a vault. */
   vaultCloudflareWorkers: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    origin: vVaultCloudflareOrigin,
-    connectedAt: number(),
+    origin: vVaultProviderResourceOrigin,
+    createdAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
-    .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
+    .index("by_app", ["appId"])
+    .index("by_user_and_account_and_worker", ["userId", "accountId", "workerName"])
+    .index("by_user_and_account_and_worker_tag", ["userId", "accountId", "workerTag"]),
 
-  /** Convex deployments connected to a repository-backed vault. */
-  vaultConvexDeployments: defineTable({
+  /** Stable Convex project identities attached to apps in a vault. */
+  vaultConvexProjects: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),
-    appRoot: string(),
+    appId: id("vaultApps"),
+    teamId: string(),
     projectId: string(),
-    deploymentName: string(),
-    origin: vVaultConvexOrigin,
-    connectedAt: number(),
+    origin: vVaultProviderResourceOrigin,
+    createdAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
-    .index("by_vault_and_project", ["vaultId", "projectId"]),
+    .index("by_app", ["appId"])
+    .index("by_user_and_team_and_project", ["userId", "teamId", "projectId"]),
 
-  /** Branch-to-domain mappings retained until live build observations replace branch preview readers. */
+  /** Explicit build-time dependencies between attached Workers and Convex projects. */
+  vaultWorkerConvexProjectDependencies: defineTable({
+    vaultId: id("vaults"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    convexProjectId: id("vaultConvexProjects"),
+    createdAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_worker", ["workerId"])
+    .index("by_convex_project", ["convexProjectId"])
+    .index("by_worker_and_convex_project", ["workerId", "convexProjectId"]),
+
+  /** Branch-to-domain mappings observed or provisioned for a vault. */
   vaultDomains: defineTable({
     vaultId: id("vaults"),
     branch: string(),

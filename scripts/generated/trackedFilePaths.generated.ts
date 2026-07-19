@@ -734,6 +734,8 @@ export const trackedFilePaths = [
   "apps/samebase/shared/urlSearchParams.ts",
   "apps/samebase/shared/vaultAppRoot.test.ts",
   "apps/samebase/shared/vaultAppRoot.ts",
+  "apps/samebase/shared/vaultRootDirectory.test.ts",
+  "apps/samebase/shared/vaultRootDirectory.ts",
   "apps/samebase/skills-lock.json",
   "apps/samebase/src/GetStarted/ConvexLogo.tsx",
   "apps/samebase/src/GetStarted/GetStartedDialog.tsx",
