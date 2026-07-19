@@ -1,5 +1,6 @@
 import { Composition } from "remotion";
 
+import { LogoHype, logoHypeDurationInFrames, logoHypeFps } from "./compositions/logo-hype/LogoHype";
 import { RemotionTour } from "./compositions/remotion-tour/RemotionTour";
 import { TicTacToeRecording } from "./compositions/tic-tac-toe/TicTacToeRecording";
 import {
@@ -11,6 +12,14 @@ import { ticTacToeRecordingCrop } from "./compositions/tic-tac-toe/ticTacToeReco
 export function RemotionRoot() {
   return (
     <>
+      <Composition
+        id="LogoHype"
+        component={LogoHype}
+        durationInFrames={logoHypeDurationInFrames}
+        fps={logoHypeFps}
+        height={1080}
+        width={1920}
+      />
       <Composition
         id="RemotionTour"
         component={RemotionTour}

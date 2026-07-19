@@ -92,6 +92,7 @@ export const trackedFilePaths = [
   "apps/remotion-studio/public/media/.gitkeep",
   "apps/remotion-studio/remotion.config.ts",
   "apps/remotion-studio/src/Root.tsx",
+  "apps/remotion-studio/src/compositions/logo-hype/LogoHype.tsx",
   "apps/remotion-studio/src/compositions/remotion-tour/RemotionTour.tsx",
   "apps/remotion-studio/src/compositions/tic-tac-toe/TicTacToeRecording.tsx",
   "apps/remotion-studio/src/compositions/tic-tac-toe/ticTacToeEdit.ts",

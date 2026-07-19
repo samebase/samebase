@@ -20,6 +20,7 @@ appear in Studio immediately.
 
 ## Compositions
 
+- `LogoHype` explores frame-driven Three.js motion using the shared Samebase logo model.
 - `RemotionTour` demonstrates Remotion's frame-based editing model.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
@@ -80,6 +81,7 @@ Do not commit:
 
 - `pnpm --filter @samebase/remotion-studio dev`: open Remotion Studio.
 - `pnpm --filter @samebase/remotion-studio check`: typecheck and lint.
+- `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the Three.js logo experiment.
 - `pnpm --filter @samebase/remotion-studio render`: render the teaching composition.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
 
