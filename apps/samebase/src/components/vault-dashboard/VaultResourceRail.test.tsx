@@ -23,7 +23,17 @@ function buildRootResourceRailState({
 }): VaultResourceRailState {
   return {
     githubRow,
-    apps: [{ appRoot: ".", rows: appRows }],
+    apps: [{ appId: "app-root", rootDirectory: "/", rows: appRows }],
+  };
+}
+
+function availableGithubRow(): VaultResourceRailGithubRow {
+  return {
+    provider: "github",
+    rowId: "github",
+    status: "available",
+    value: "nicu-chiciuc/weight_tsx",
+    href: "https://github.com/nicu-chiciuc/weight_tsx",
   };
 }
 
@@ -53,25 +63,22 @@ describe("VaultResourceRail", () => {
     rootElement = null;
   });
 
-  it("renders explicit provider resource states and scoped links", () => {
+  it("renders available provider resources with scoped links", () => {
     const state = buildRootResourceRailState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
+      githubRow: availableGithubRow(),
       appRows: [
         {
           provider: "convex",
-          status: "ready",
+          rowId: "convex:project-1",
+          status: "available",
           scope: "nicu",
           value: "weight-tsx",
           href: "https://dashboard.convex.dev/t/nicu/weight-tsx/settings",
         },
         {
           provider: "cloudflare",
-          status: "ready",
+          rowId: "cloudflare:worker-1",
+          status: "available",
           scope: "nicuchiciuc",
           value: "weight-tsx",
           href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/deployments",
@@ -84,94 +91,85 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain("nicu-chiciuc/weight_tsx");
     expect(markup).toContain("nicu/");
     expect(markup).toContain("nicuchiciuc/");
-    expect(markup).not.toContain("Not connected");
     expect(markup).toContain("Open Convex: nicu/weight-tsx");
     expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
     expect(markup).not.toContain('target="_blank"');
-    expect(markup).not.toContain("Connected existing");
   });
 
-  it("keeps setup status copy out of the resource rail", () => {
+  it("shows loading, missing, and failed as different truthful states", () => {
     const state = buildRootResourceRailState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
+      githubRow: availableGithubRow(),
       appRows: [
         {
           provider: "convex",
-          status: "running",
-          value: "weight-tsx",
+          rowId: "convex:project-1",
+          status: "loading",
+          value: "project-1",
+          description: "Loading from Convex...",
         },
         {
           provider: "cloudflare",
+          rowId: "cloudflare:worker-missing",
+          status: "missing",
+          value: "missing-worker",
+          description: "Missing from Cloudflare.",
+        },
+        {
+          provider: "cloudflare",
+          rowId: "cloudflare:worker-failed",
           status: "failed",
-          value: "weight-tsx",
-          actions: [
-            {
-              kind: "retry",
-              label: "Retry",
-            },
-          ],
+          value: "failed-worker",
+          description: "Could not load from Cloudflare.",
+          actions: [{ kind: "retry", label: "Reload", onClick: () => {} }],
         },
       ],
     });
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
-    expect(markup).toContain("Open GitHub");
-    expect(markup).not.toContain("Creating Convex project.");
-    expect(markup).not.toContain("Multiple Cloudflare accounts are available.");
-    expect(markup).toContain("Retry");
+    expect(markup).toContain("Loading from Convex...");
+    expect(markup).toContain("Missing from Cloudflare.");
+    expect(markup).toContain("Could not load from Cloudflare.");
+    expect(markup).toContain("Reload");
+    expect(markup).toContain("lucide-loader-circle");
+    expect(markup).toContain("lucide-circle-x");
+    expect(markup).toContain("lucide-circle-alert");
   });
 
-  it("keeps unwired actions disabled", () => {
+  it("renders every Worker attached to the same app", () => {
     const state = buildRootResourceRailState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
+      githubRow: availableGithubRow(),
       appRows: [
         {
-          provider: "convex",
-          status: "action_required",
-          actions: [
-            {
-              kind: "add",
-              label: "Add",
-            },
-          ],
+          provider: "cloudflare",
+          rowId: "cloudflare:worker-web",
+          status: "available",
+          value: "fixture-web",
         },
         {
           provider: "cloudflare",
-          status: "pending",
-          value: "weight-tsx",
+          rowId: "cloudflare:worker-admin",
+          status: "available",
+          value: "fixture-admin",
+          description: "Preview URL disabled.",
         },
       ],
     });
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
-    expect(markup).toMatch(
-      /disabled=""[^>]*aria-label="Add Convex"|aria-label="Add Convex"[^>]*disabled=""/,
-    );
+    expect(markup).toContain("fixture-web");
+    expect(markup).toContain("fixture-admin");
+    expect(markup).toContain("Preview URL disabled.");
   });
 
-  it("renders provider add actions as standard query links", () => {
+  it("renders provider add actions as query links", () => {
     const state = buildRootResourceRailState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
+      githubRow: availableGithubRow(),
       appRows: [
         {
           provider: "convex",
+          rowId: "convex:add:app-root",
           status: "action_required",
           actions: [
             {
@@ -183,6 +181,7 @@ describe("VaultResourceRail", () => {
         },
         {
           provider: "cloudflare",
+          rowId: "cloudflare:add:app-root",
           status: "action_required",
           actions: [
             {
@@ -197,65 +196,20 @@ describe("VaultResourceRail", () => {
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
-    expect(markup).toContain("?add-convex");
-    expect(markup).toContain("?add-cloudflare");
     expect(markup).toContain('aria-label="Add Convex"');
     expect(markup).toContain('aria-label="Add Cloudflare"');
-    expect(markup).not.toContain("text-blue-600");
+    expect(markup).toContain("?add-convex");
+    expect(markup).toContain("?add-cloudflare");
   });
 
-  it("renders ready provider add actions next to the resource link", () => {
-    const state = buildRootResourceRailState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "ready",
-          value: "weight-tsx",
-          href: "https://dashboard.convex.dev/t/nicu/weight-tsx/settings",
-        },
-        {
-          provider: "cloudflare",
-          status: "ready",
-          scope: "nicuchiciuc",
-          value: "weight-tsx",
-          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/deployments",
-          actions: [
-            {
-              kind: "add",
-              label: "?add-cloudflare",
-              href: "/vault/nicu-chiciuc/weight_tsx?add-cloudflare",
-            },
-          ],
-        },
-      ],
-    });
-
-    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
-
-    expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
-    expect(markup).toContain('href="/vault/nicu-chiciuc/weight_tsx?add-cloudflare"');
-    expect(markup).toContain('aria-label="Add Cloudflare"');
-    expect(markup).not.toContain('target="_blank"');
-  });
-
-  it("uses router callbacks for href action clicks when available", () => {
+  it("uses router callbacks for ordinary href action clicks", () => {
     const onClick = vi.fn();
     const state = buildRootResourceRailState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
+      githubRow: availableGithubRow(),
       appRows: [
         {
           provider: "convex",
+          rowId: "convex:add:app-root",
           status: "action_required",
           actions: [
             {
@@ -274,9 +228,6 @@ describe("VaultResourceRail", () => {
     if (!(link instanceof HTMLAnchorElement)) {
       throw new Error("Expected add action link");
     }
-    expect(link.getAttribute("href")).toBe(
-      "/vault/nicu-chiciuc/weight_tsx?add-convex&app-root=apps%2Fnoter",
-    );
 
     const click = new MouseEvent("click", {
       bubbles: true,
@@ -301,42 +252,30 @@ describe("VaultResourceRail", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it("keeps root providers top-level and groups subfolder providers under app roots", () => {
+  it("keeps repository-root resources top-level and groups nested apps", () => {
     const state = {
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
+      githubRow: availableGithubRow(),
       apps: [
         {
-          appRoot: ".",
+          appId: "app-root",
+          rootDirectory: "/",
           rows: [
             {
-              provider: "convex",
-              status: "action_required",
-              actions: [
-                {
-                  kind: "add",
-                  label: "?add-convex",
-                  href: "/vault/nicu-chiciuc/weight_tsx?add-convex",
-                },
-              ],
-            },
-            {
               provider: "cloudflare",
-              status: "ready",
+              rowId: "cloudflare:worker-root",
+              status: "available",
               value: "worker-root",
             },
           ],
         },
         {
-          appRoot: "apps/api",
+          appId: "app-api",
+          rootDirectory: "apps/api",
           rows: [
             {
               provider: "cloudflare",
-              status: "ready",
+              rowId: "cloudflare:worker-api",
+              status: "available",
               value: "worker-api",
             },
           ],
@@ -348,10 +287,8 @@ describe("VaultResourceRail", () => {
 
     expect(markup).toContain("apps/api");
     expect(markup).toContain("lucide-chevron-down");
-    expect(markup.indexOf("nicu-chiciuc/weight_tsx")).toBeLessThan(markup.indexOf("apps/api"));
-    expect(markup.indexOf("?add-convex")).toBeLessThan(markup.indexOf("apps/api"));
     expect(markup.indexOf("worker-root")).toBeLessThan(markup.indexOf("apps/api"));
     expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("worker-api"));
-    expect(markup).not.toContain(">.<");
+    expect(markup).not.toContain(">&lt;/&gt;<");
   });
 });

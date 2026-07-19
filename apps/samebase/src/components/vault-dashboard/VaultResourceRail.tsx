@@ -6,10 +6,9 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { cn } from "@/lib/utils";
 import {
+  CircleAlert,
   ChevronDown,
-  Clock,
   GitBranch,
-  KeyRound,
   Loader2,
   Plus,
   RotateCw,
@@ -18,7 +17,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, type MouseEvent } from "react";
 
-type VaultResourceRailActionKind = "add" | "connect" | "retry" | "set";
+type VaultResourceRailActionKind = "add" | "connect" | "retry";
 
 export type VaultResourceRailAction = {
   ariaLabel?: string;
@@ -36,39 +35,48 @@ export type VaultResourceRailActionList = readonly [
 
 export type VaultResourceRailProvider = "cloudflare" | "convex" | "github";
 
-type VaultResourceRailPendingRow<TProvider extends VaultResourceRailProvider> = {
+type VaultResourceRailLoadingRow<TProvider extends VaultResourceRailProvider> = {
+  description?: string;
   provider: TProvider;
+  rowId: string;
   scope?: string;
-  status: "pending";
+  status: "loading";
   value: string;
 };
 
-type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> = {
-  provider: TProvider;
-  scope?: string;
-  status: "running";
-  value: string;
-};
-
-type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
+type VaultResourceRailAvailableRow<TProvider extends VaultResourceRailProvider> = {
   actions?: VaultResourceRailActionList;
   description?: string;
   href?: string;
   provider: TProvider;
+  rowId: string;
   scope?: string;
-  status: "ready";
+  status: "available";
+  value: string;
+};
+
+type VaultResourceRailMissingRow<TProvider extends VaultResourceRailProvider> = {
+  actions?: VaultResourceRailActionList;
+  description?: string;
+  provider: TProvider;
+  rowId: string;
+  scope?: string;
+  status: "missing";
   value: string;
 };
 
 type VaultResourceRailActionRequiredRow<TProvider extends VaultResourceRailProvider> = {
   actions: VaultResourceRailActionList;
   provider: TProvider;
+  rowId: string;
   status: "action_required";
 };
 
 type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
   actions?: VaultResourceRailActionList;
+  description?: string;
   provider: TProvider;
+  rowId: string;
   scope?: string;
   status: "failed";
   value: string;
@@ -78,13 +86,14 @@ export type VaultResourceRailRowState<
   TProvider extends VaultResourceRailProvider = VaultResourceRailProvider,
 > =
   | VaultResourceRailActionRequiredRow<TProvider>
+  | VaultResourceRailAvailableRow<TProvider>
   | VaultResourceRailFailedRow<TProvider>
-  | VaultResourceRailPendingRow<TProvider>
-  | VaultResourceRailReadyRow<TProvider>
-  | VaultResourceRailRunningRow<TProvider>;
+  | VaultResourceRailLoadingRow<TProvider>
+  | VaultResourceRailMissingRow<TProvider>;
 
 export type VaultResourceRailAppState = {
-  appRoot: string;
+  appId: string;
+  rootDirectory: string;
   rows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
 };
 
@@ -93,7 +102,7 @@ export type VaultResourceRailState = {
   githubRow: VaultResourceRailRowState<"github">;
 };
 
-type VaultResourceRailIconStatus = "failed" | "pending" | "running";
+type VaultResourceRailIconStatus = "failed" | "loading" | "missing";
 
 const PROVIDER_LABELS = {
   cloudflare: "Cloudflare",
@@ -111,13 +120,12 @@ const ACTION_ICONS = {
   add: Plus,
   connect: GitBranch,
   retry: RotateCw,
-  set: KeyRound,
 } satisfies Record<VaultResourceRailActionKind, LucideIcon>;
 
 const STATUS_ICON_CLASS_NAMES = {
   failed: "h-3.5 w-3.5 text-destructive",
-  pending: "h-3.5 w-3.5 text-muted-foreground",
-  running: "h-3.5 w-3.5 animate-spin text-muted-foreground",
+  loading: "h-3.5 w-3.5 animate-spin text-muted-foreground",
+  missing: "h-3.5 w-3.5 text-destructive",
 } satisfies Record<VaultResourceRailIconStatus, string>;
 
 const RESOURCE_LINK_ROW_CLASS_NAME =
@@ -142,14 +150,14 @@ const APP_PROVIDER_ROWS_CLASS_NAME = "grid min-w-0 gap-0.5 pl-6";
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
   switch (status) {
     case "failed":
-      return XCircle;
-    case "pending":
-      return Clock;
-    case "running":
+      return CircleAlert;
+    case "loading":
       return Loader2;
+    case "missing":
+      return XCircle;
   }
   status satisfies never;
-  return Clock;
+  return CircleAlert;
 }
 
 function getRowActions(row: VaultResourceRailRowState): VaultResourceRailActionList | undefined {
@@ -157,10 +165,10 @@ function getRowActions(row: VaultResourceRailRowState): VaultResourceRailActionL
     case "action_required":
     case "failed":
       return row.actions;
-    case "ready":
+    case "available":
+    case "missing":
       return row.actions;
-    case "pending":
-    case "running":
+    case "loading":
       return undefined;
   }
   row satisfies never;
@@ -179,7 +187,6 @@ function getActionLabel(args: {
     case "add":
       return `Add ${PROVIDER_LABELS[args.provider]}`;
     case "connect":
-    case "set":
     case "retry":
       return `${args.action.label} ${PROVIDER_LABELS[args.provider]}`;
   }
@@ -190,11 +197,11 @@ function getActionLabel(args: {
 function getRowIconStatus(row: VaultResourceRailRowState): VaultResourceRailIconStatus | undefined {
   switch (row.status) {
     case "failed":
-    case "pending":
-    case "running":
+    case "loading":
+    case "missing":
       return row.status;
     case "action_required":
-    case "ready":
+    case "available":
       return undefined;
   }
   row satisfies never;
@@ -203,12 +210,12 @@ function getRowIconStatus(row: VaultResourceRailRowState): VaultResourceRailIcon
 
 function getRowDescription(row: VaultResourceRailRowState): string | undefined {
   switch (row.status) {
-    case "ready":
+    case "available":
+    case "failed":
+    case "loading":
+    case "missing":
       return row.description;
     case "action_required":
-    case "failed":
-    case "pending":
-    case "running":
       return undefined;
   }
   row satisfies never;
@@ -296,10 +303,10 @@ function getRowValue(row: VaultResourceRailRowState): string | undefined {
   switch (row.status) {
     case "action_required":
       return undefined;
+    case "available":
     case "failed":
-    case "pending":
-    case "ready":
-    case "running":
+    case "loading":
+    case "missing":
       return row.value;
   }
   row satisfies never;
@@ -310,10 +317,10 @@ function getRowScope(row: VaultResourceRailRowState): string | undefined {
   switch (row.status) {
     case "action_required":
       return undefined;
+    case "available":
     case "failed":
-    case "pending":
-    case "ready":
-    case "running":
+    case "loading":
+    case "missing":
       return row.scope;
   }
   row satisfies never;
@@ -367,7 +374,7 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
     </div>
   );
 
-  if (row.status === "ready" && row.href && actions) {
+  if (row.status === "available" && row.href && (actions || row.description)) {
     return (
       <div data-provider={row.provider} className={RESOURCE_ROW_CLASS_NAME} title={providerLabel}>
         <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
@@ -386,7 +393,7 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
               value={row.value}
             />
           </a>
-          <VaultResourceRailActions actions={actions} provider={row.provider} />
+          {actions ? <VaultResourceRailActions actions={actions} provider={row.provider} /> : null}
           {row.description ? (
             <span className={RESOURCE_DESCRIPTION_CLASS_NAME}>{row.description}</span>
           ) : null}
@@ -395,7 +402,7 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
     );
   }
 
-  if (row.status === "ready" && row.href) {
+  if (row.status === "available" && row.href) {
     return (
       <a
         data-provider={row.provider}
@@ -432,23 +439,23 @@ export function VaultResourceRail({ state }: { state: VaultResourceRailState }) 
       <div className="grid min-w-0 gap-0.5">
         <VaultResourceRailItem row={state.githubRow} />
         {state.apps.map((app) =>
-          app.appRoot === "." ? (
-            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+          app.rootDirectory === "/" ? (
+            <div key={app.appId} className="grid min-w-0 gap-0.5">
               {app.rows.map((row) => (
-                <VaultResourceRailItem key={row.provider} row={row} />
+                <VaultResourceRailItem key={row.rowId} row={row} />
               ))}
             </div>
           ) : (
-            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+            <div key={app.appId} className="grid min-w-0 gap-0.5">
               <div className={APP_ROOT_CLASS_NAME}>
                 <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
                   <ChevronDown className={APP_ROOT_ICON_CLASS_NAME} aria-hidden="true" />
                 </span>
-                <span className={APP_ROOT_VALUE_CLASS_NAME}>{app.appRoot}</span>
+                <span className={APP_ROOT_VALUE_CLASS_NAME}>{app.rootDirectory}</span>
               </div>
               <div className={APP_PROVIDER_ROWS_CLASS_NAME}>
                 {app.rows.map((row) => (
-                  <VaultResourceRailItem key={row.provider} row={row} />
+                  <VaultResourceRailItem key={row.rowId} row={row} />
                 ))}
               </div>
             </div>
