@@ -1,5 +1,5 @@
 export type FaceColorKey = "left" | "right" | "top";
-import { GRID_SIZE, isWithinVoxelGrid, parseVoxelKey } from "./voxel";
+import { GRID_SIZE, isWithinVoxelGrid, parseVoxelKey } from "./voxel.ts";
 
 type Rectangle = {
   column: number;

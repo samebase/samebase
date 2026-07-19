@@ -2,7 +2,7 @@ import {
   LOGO_SECONDARY_LEFT_FACE_STYLE,
   LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
   type LogoLeftFaceStyle,
-} from "./leftFaceStyle";
+} from "./leftFaceStyle.ts";
 
 export const LOGO_FACE_TREATMENTS = ["duotone", "striped"] as const;
 export type LogoFaceTreatment = (typeof LOGO_FACE_TREATMENTS)[number];

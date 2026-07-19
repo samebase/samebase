@@ -5,7 +5,7 @@ import {
   serializeVoxelState,
   type LogoGridSize,
   type VoxelCoordinate,
-} from "./voxel";
+} from "./voxel.ts";
 
 export type LogoFaceHexColors = {
   left: `#${string}`;
