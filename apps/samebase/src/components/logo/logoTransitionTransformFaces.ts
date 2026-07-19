@@ -1,8 +1,8 @@
+import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "@/components/logo/logoStaticSvgContract";
 import {
-  LOGO_THREE_SVG_VIEWBOX_SIZE,
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logo/logoStaticSvgContract";
+} from "@samebase/logo-model/identity";
 import {
   DEFAULT_FACE_COLORS,
   getTailwindColorHex,

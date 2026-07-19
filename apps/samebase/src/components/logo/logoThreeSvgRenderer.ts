@@ -5,14 +5,14 @@ import {
   normalizeLogoLeftFaceStyle,
   type LogoLeftFaceStyle,
   type LogoStripedLeftFaceStyle,
-} from "./logoLeftFaceStyle";
-import { toRenderedRotationDegrees } from "./logoRotationMath";
+} from "@samebase/logo-model/left-face-style";
+import { toRenderedRotationDegrees } from "@samebase/logo-model/rotation";
 import { getTailwindColorHex, type FaceColorKey, type FaceColors } from "./logoTailwindColors";
 import {
   buildLogoSurfaceQuads,
   type LogoSurfaceQuad,
   type LogoSurfaceVertex,
-} from "./logoSurfaceModel";
+} from "@samebase/logo-model/surface";
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_LOGO_GRID_SIZE,
@@ -25,7 +25,7 @@ import {
   normalizeLogoFractalDepth,
   parseVoxelKey,
   type VoxelCoordinate,
-} from "./logoVoxelState";
+} from "@samebase/logo-model/voxel";
 
 export type LogoProjectedPoint = {
   x: number;

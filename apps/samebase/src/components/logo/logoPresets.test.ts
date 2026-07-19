@@ -13,7 +13,7 @@ import {
   createDefaultVoxelState,
   parseVoxelState,
   voxelKey,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 
 describe("logoPresets", () => {
   it("keeps the 3x3 checker preset aligned with the route default", () => {

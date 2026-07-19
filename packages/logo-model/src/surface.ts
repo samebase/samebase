@@ -1,5 +1,5 @@
-import { type FaceColorKey } from "./logoTailwindColors";
-import { GRID_SIZE, isWithinVoxelGrid, parseVoxelKey } from "./logoVoxelState";
+export type FaceColorKey = "left" | "right" | "top";
+import { GRID_SIZE, isWithinVoxelGrid, parseVoxelKey } from "./voxel";
 
 type Rectangle = {
   column: number;

@@ -74,6 +74,7 @@
     "@polar-sh/sdk": "^0.46.0",
     "@prosemark/core": "^0.0.7",
     "@samebase/dependent": "workspace:*",
+    "@samebase/logo-model": "workspace:*",
     "@samebase/sure": "workspace:*",
     "@tanstack/react-pacer": "^0.22.1",
     "@tanstack/react-query": "^5.83.0",

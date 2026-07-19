@@ -16,7 +16,7 @@ import {
   parseVoxelKey,
   readLogoGridSize,
   voxelKey,
-} from "@/components/logo/logoVoxelState";
+} from "../src/voxel";
 
 function readTestVoxelKey(key: string) {
   const coordinate = parseVoxelKey(key);

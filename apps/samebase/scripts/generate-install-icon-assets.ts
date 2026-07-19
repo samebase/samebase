@@ -146,7 +146,7 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
 
   try {
     const faceTreatmentModule = readRecord(
-      await server.ssrLoadModule("/src/components/logo/logoFaceTreatment.ts"),
+      await server.ssrLoadModule("@samebase/logo-model/face-treatment"),
       "logo face treatment module",
     );
     const compactIdentityModule = readRecord(

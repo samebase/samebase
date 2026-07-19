@@ -8,13 +8,15 @@ import {
 import {
   DEFAULT_LOGO_FACE_TREATMENT,
   LOGO_FACE_TREATMENTS,
-} from "@/components/logo/logoFaceTreatment";
+} from "@samebase/logo-model/face-treatment";
 import {
   LOGO_IDENTITY_VIEW_CONTRACTS,
-  STATIC_LOGO_ELEVATION_DEGREES,
   getLogoIdentityAssetPath,
-  type LogoIdentityViewId,
 } from "@/components/logo/logoStaticSvgContract";
+import {
+  STATIC_LOGO_ELEVATION_DEGREES,
+  type LogoIdentityViewId,
+} from "@samebase/logo-model/identity";
 
 function readPublicAsset(assetPath: string) {
   return readFileSync(

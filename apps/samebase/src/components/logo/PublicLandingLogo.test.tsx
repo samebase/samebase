@@ -8,12 +8,12 @@ import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
-import { LOGO_SECONDARY_LEFT_FACE_STYLE } from "@/components/logo/logoLeftFaceStyle";
+import { LOGO_SECONDARY_LEFT_FACE_STYLE } from "@samebase/logo-model/left-face-style";
 import {
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   type LogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
-import { STATIC_LOGO_GRID_SIZE } from "@/components/logo/logoStaticSvgContract";
+import { STATIC_LOGO_GRID_SIZE } from "@samebase/logo-model/identity";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -22,7 +22,7 @@ import {
   createFilledVoxelSet,
   createLogoFractalVoxelGrid,
   serializeVoxelState,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { resolveAppThemeColorState, syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import {
   clearPublicLandingLogoStaticFallbackPrehydration,

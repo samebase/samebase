@@ -17,7 +17,7 @@ import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/l
 import {
   normalizeLogoLeftFaceStyle,
   readLogoLeftFaceStyle,
-} from "@/components/logo/logoLeftFaceStyle";
+} from "@samebase/logo-model/left-face-style";
 import {
   clampLogoFractalDepthForRenderer,
   type LogoDepthRenderer,
@@ -35,8 +35,8 @@ import {
   serializeVoxelState,
   type LogoGridSize,
   type LogoVoxelGrid,
-} from "@/components/logo/logoVoxelState";
-import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
+} from "@samebase/logo-model/voxel";
+import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
 import { readLogoThemeColors } from "@/lib/appThemeColorSearch";
 import {

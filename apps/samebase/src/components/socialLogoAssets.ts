@@ -1,4 +1,7 @@
-import { DEFAULT_LOGO_FACE_TREATMENT, type LogoFaceTreatment } from "./logo/logoFaceTreatment";
+import {
+  DEFAULT_LOGO_FACE_TREATMENT,
+  type LogoFaceTreatment,
+} from "@samebase/logo-model/face-treatment";
 import { createLogoIdentityViewSvgMarkup } from "./logo/logoStaticSvgAsset";
 import { SAMEBASE_BRAND_COPY } from "../lib/samebaseBrandCopy";
 

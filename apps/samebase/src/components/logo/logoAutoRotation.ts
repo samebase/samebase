@@ -1,4 +1,4 @@
-import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
+import { normalizeRotationDegrees } from "@samebase/logo-model/voxel";
 
 const LOGO_AUTO_ROTATE_DEGREES_PER_SECOND = 12;
 

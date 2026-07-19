@@ -5,7 +5,7 @@ import {
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_4,
   MAX_LOGO_GRID_SIZE,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import {
   clearVaultDashboardQueryDialogSearch,
   readCanonicalRouteAddressForRootSearch,

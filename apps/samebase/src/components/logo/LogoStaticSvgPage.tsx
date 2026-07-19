@@ -1,13 +1,13 @@
 import { DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE } from "@/components/logo/logoStaticSvgContract";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { readLogoLeftFaceStyle } from "@/components/logo/logoLeftFaceStyle";
+import { readLogoLeftFaceStyle } from "@samebase/logo-model/left-face-style";
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
   createDefaultFilledVoxelSet,
   normalizeLogoGridSize,
   parseVoxelState,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { Button } from "@/components/ui/button";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { type LogoRouteSearch } from "@/routeSearch/logo";

@@ -2,10 +2,12 @@ import { NLogoScene } from "@/components/logo/NLogoScene";
 import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
   DEFAULT_STATIC_LOGO_SVG_URL,
+} from "@/components/logo/logoStaticSvgContract";
+import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logo/logoStaticSvgContract";
+} from "@samebase/logo-model/identity";
 import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { useEffect, useRef, useState } from "react";
 

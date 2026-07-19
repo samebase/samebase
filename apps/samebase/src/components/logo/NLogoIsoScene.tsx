@@ -34,7 +34,7 @@ import {
   type VoxelCoordinate,
   type VoxelEdit,
   voxelKey,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import {
   useEffect,
   useRef,

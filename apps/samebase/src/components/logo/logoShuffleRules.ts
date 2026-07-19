@@ -1,14 +1,10 @@
-import {
-  isWithinVoxelGrid,
-  type VoxelCoordinate,
-  voxelKey,
-} from "@/components/logo/logoVoxelState";
+import { isWithinVoxelGrid, type VoxelCoordinate, voxelKey } from "@samebase/logo-model/voxel";
 import {
   dotProduct,
   getCameraLocalVector,
   type Vector3,
   type LogoRotationAxisMode,
-} from "@/components/logo/logoRotationMath";
+} from "@samebase/logo-model/rotation";
 
 const SHUFFLE_FACE_DIRECTIONS = [
   {

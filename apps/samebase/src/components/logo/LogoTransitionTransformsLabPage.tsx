@@ -3,12 +3,12 @@ import { Link } from "@tanstack/react-router";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logo/logoStaticSvgContract";
+} from "@samebase/logo-model/identity";
 import {
   TRANSFORM_LAB_VIEW_BOX,
   createTransformLabScene,
 } from "@/components/logo/logoTransitionTransformFaces";
-import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
+import { normalizeRotationDegrees } from "@samebase/logo-model/voxel";
 import { useEffect, useMemo, useState } from "react";
 
 const ROTATION_PRESETS = [0, 45, 90, 135, 180, 225, 270, 315] as const;

@@ -1,0 +1,30 @@
+{
+  "name": "@samebase/logo-model",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Renderer-independent Samebase logo geometry and identity contracts",
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    "./face-treatment": "./src/faceTreatment.ts",
+    "./identity": "./src/identity.ts",
+    "./left-face-style": "./src/leftFaceStyle.ts",
+    "./rotation": "./src/rotation.ts",
+    "./surface": "./src/surface.ts",
+    "./voxel": "./src/voxel.ts"
+  },
+  "scripts": {
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/logo-model/tsconfig.json --report-unused-disable-directives packages/logo-model/src packages/logo-model/test",
+    "test": "pnpm --dir ../.. exec vp test packages/logo-model/test",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/logo-model/tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@samebase/dependent": "workspace:*"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

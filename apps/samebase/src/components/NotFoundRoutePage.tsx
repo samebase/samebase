@@ -1,7 +1,7 @@
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
-import { MENGER_SPONGE_VOXEL_STATE } from "@/components/logo/logoVoxelState";
+import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
 import { NOT_FOUND_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";

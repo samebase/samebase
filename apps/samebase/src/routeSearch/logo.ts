@@ -1,6 +1,6 @@
 import { includes } from "@samebase/dependent";
 import { keys } from "@samebase/dependent/object";
-import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
+import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
@@ -44,7 +44,7 @@ import {
   type LogoLeftFaceStyle,
   type LogoLeftFaceStyleKind,
   type LogoLeftFaceStripeBasis,
-} from "@/components/logo/logoLeftFaceStyle";
+} from "@samebase/logo-model/left-face-style";
 import {
   RouteSearchSchema_appThemeColor,
   buildLogoThemeColorSearch,
@@ -77,7 +77,7 @@ import {
   parseVoxelState,
   serializeVoxelState,
   type LogoGridSize,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { DEFAULT_LOGO_PRESET_ID, LOGO_PRESETS, getLogoPreset } from "@/components/logo/logoPresets";
 import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";

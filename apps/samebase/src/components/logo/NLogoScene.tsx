@@ -5,7 +5,7 @@ import {
   getWorldScreenVerticalAxis,
   toRenderedRotationDegrees,
   type LogoRotationAxisMode,
-} from "@/components/logo/logoRotationMath";
+} from "@samebase/logo-model/rotation";
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import { type LogoShuffleParallelMoves } from "@/components/logo/logoShuffleAnimation";
 import {
@@ -17,13 +17,13 @@ import {
   getLogoLeftFaceStripeBasisScale,
   normalizeLogoLeftFaceStyle,
   type LogoLeftFaceStyle,
-} from "@/components/logo/logoLeftFaceStyle";
+} from "@samebase/logo-model/left-face-style";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   buildLogoSurfaceQuads,
   getLogoSurfaceFitRadius,
   type LogoSurfaceQuad,
-} from "@/components/logo/logoSurfaceModel";
+} from "@samebase/logo-model/surface";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
   getLogoPresentationTiltTransitionAlpha,
@@ -44,7 +44,7 @@ import {
   type VoxelCoordinate,
   type VoxelEdit,
   voxelKey,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { type LogoViewDragConfig, type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import { useEffect, useRef, type MutableRefObject } from "react";

@@ -5,7 +5,7 @@ import {
   type LogoRotationAxisMode,
   scaleVector,
   type Vector3,
-} from "@/components/logo/logoRotationMath";
+} from "@samebase/logo-model/rotation";
 import {
   createLogoRasterProjection as getRasterProjection,
   LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING,
@@ -26,7 +26,7 @@ import {
   parseVoxelState,
   voxelKey,
   type VoxelCoordinate,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import { useCallback, useEffect, useRef } from "react";

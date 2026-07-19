@@ -1,5 +1,5 @@
 import { isRecord } from "@samebase/dependent";
-import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
+import { normalizeRotationDegrees } from "@samebase/logo-model/voxel";
 
 export const PUBLIC_LANDING_LOGO_VIEW_STATE_KEY = "public-landing";
 export const DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY = "dashboard-empty";
