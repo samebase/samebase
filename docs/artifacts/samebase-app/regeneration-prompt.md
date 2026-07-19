@@ -87,15 +87,18 @@ For a Workers/TanStack Start version:
   TypeScript runner.
 - Use the Convex deploy-key contract: `CONVEX_DEPLOY_KEY` for the production
   branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches.
+- Treat `SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` as Samebase's readable
+  Cloudflare Builds marker. Write the same marker to both triggers during
+  Samebase-managed setup. The generated app must not consume it.
 - In the generated template docs, explain the Cloudflare Workers Builds UI
   limitation that motivates the separate preview key: the API supports per-trigger
   build variables for production and preview triggers, but the dashboard setup
   path does not expose a Pages-style production/preview selector for build
   variables. Explain that the build script reads `WORKERS_CI_BRANCH`, picks the
   right secret, and keeps preview builds from falling back to the production key.
-- For Samebase-managed setup, write both deploy-key secrets onto every Workers
-  Builds trigger so the Cloudflare dashboard's visible build-variable table shows
-  the full required pair.
+- For Samebase-managed setup, write both deploy-key secrets and the readable
+  project marker onto every Workers Builds trigger so Cloudflare contains the
+  complete declared configuration.
 - Document the current Convex permission split: production `CONVEX_DEPLOY_KEY`
   is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
   `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,

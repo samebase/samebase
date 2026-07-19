@@ -172,8 +172,10 @@ For a Workers version of the artifact:
   not expose a Pages-style production/preview selector for build variables.
 - Keep Convex deploy-key names aligned with Samebase production and Samebase-provisioned generated
   apps: `CONVEX_DEPLOY_KEY` for `main` and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches.
-- Samebase automation should write both deploy-key build secrets onto every Workers Builds trigger
-  so the Cloudflare dashboard's visible build-variable table shows the full required pair.
+- Samebase automation should write both deploy-key build secrets and the non-secret
+  `SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` marker onto every Workers Builds trigger. The
+  generated app consumes only the deploy keys. Samebase reads the marker from Cloudflare instead of
+  persisting a Worker-to-project relationship.
 - Explain why the preview key is separate: the build script reads `WORKERS_CI_BRANCH`, selects the
   branch-appropriate secret, and keeps preview builds from falling back to the production
   `CONVEX_DEPLOY_KEY`. This keeps dashboard-managed setup safe despite the missing
