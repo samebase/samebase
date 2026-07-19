@@ -117,14 +117,6 @@ function fakeConvexProjectId(value: string): Id<"vaultConvexProjects"> {
   return value;
 }
 
-function fakeWorkerConvexProjectDependencyId(
-  value: string,
-): Id<"vaultWorkerConvexProjectDependencies"> {
-  // @ts-expect-error Convex ids are strings at runtime; this fixture only
-  // needs a stable value for static rendering.
-  return value;
-}
-
 function fakeProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -598,13 +590,6 @@ const LIST_SPACING_VAULT = {
       projectId: "samebase",
     },
   ],
-  workerConvexProjectDependencies: [
-    {
-      dependencyId: fakeWorkerConvexProjectDependencyId("dependency-samebase"),
-      workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
-      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-    },
-  ],
 } satisfies VaultDashboardVault;
 
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8e");
@@ -638,7 +623,6 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
       projectId: "tmp-my-super-app-2",
     },
   ],
-  workerConvexProjectDependencies: [],
 } satisfies VaultDashboardVault;
 
 const SIDEBAR_LIST_SELECTED_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8c");
@@ -792,6 +776,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                   classification: "available",
                   evidence: { state: "none" },
                 },
+                builds: { state: "not_connected" },
               },
             ],
           }}

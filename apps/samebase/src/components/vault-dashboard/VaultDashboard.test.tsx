@@ -164,7 +164,6 @@ function makeResourceRailBuilderVault(
     apps: [],
     cloudflareWorkers: [],
     convexProjects: [],
-    workerConvexProjectDependencies: [],
   };
   return { ...vault, ...overrides };
 }
@@ -1615,6 +1614,10 @@ describe("buildVaultDashboardResourceRailState", () => {
                 rootDirectory: "/",
               },
             },
+            builds: {
+              state: "connected",
+              convexBuildAccess: { state: "not_configured" },
+            },
           },
           {
             state: "available",
@@ -1626,6 +1629,7 @@ describe("buildVaultDashboardResourceRailState", () => {
               classification: "available",
               evidence: { state: "none" },
             },
+            builds: { state: "not_connected" },
           },
         ],
       },
@@ -1799,6 +1803,18 @@ describe("buildVaultDashboardResourceRailState", () => {
                   repoName: "ada/demo",
                   triggerName: "production",
                   rootDirectory: "/",
+                },
+              },
+              builds: {
+                state: "connected",
+                convexBuildAccess: {
+                  state: "configured",
+                  convexProject: {
+                    state: "attached",
+                    convexProjectId,
+                    teamId: "team-1",
+                    projectId: "project-1",
+                  },
                 },
               },
             },

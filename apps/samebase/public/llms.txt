@@ -50,7 +50,7 @@ Degraded app states name their remedy in a `nextAction` field whose values are t
 - [Connect Convex project](https://samebase.com/docs/actions/connect_convex_project.md): Attach an existing Convex project to a Samebase app without copying its deployments into Samebase.
 - [Connect Cloudflare Worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Attach an existing Cloudflare Worker identity to a Samebase app after validating it against the repository.
 - [Wire Workers Builds](https://samebase.com/docs/actions/wire_builds.md): Connect the app's Cloudflare Worker to its GitHub repository through Workers Builds: production and preview triggers, so pushes deploy and pull requests get previews.
-- [Wire Convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys for the app and place both CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY into its Workers Builds triggers.
+- [Wire Convex build access](https://samebase.com/docs/actions/wire_convex_build_access.md): Mint Convex deploy keys and write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers.
 - [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
 - [Create browser handoff](https://samebase.com/docs/actions/create_browser_handoff.md): Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.
 

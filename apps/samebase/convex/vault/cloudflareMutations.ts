@@ -5,9 +5,9 @@ import { internalMutation, internalQuery, type QueryCtx } from "../_generated/se
 import { vVaultProviderResourceOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { array, id, object, string } = v;
+const { id, object, string } = v;
 
-export const vWorkerConfigurationContext = object({
+const workerConfigurationContextFields = {
   ghRepoId: string(),
   owner: string(),
   name: string(),
@@ -16,16 +16,21 @@ export const vWorkerConfigurationContext = object({
   accountId: string(),
   workerName: string(),
   workerTag: string(),
-  convexProjects: array(
-    object({
-      dependencyId: id("vaultWorkerConvexProjectDependencies"),
-      convexProjectId: id("vaultConvexProjects"),
-      teamId: string(),
-      projectId: string(),
-    }),
-  ),
-});
+};
+export const vWorkerConfigurationContext = object(workerConfigurationContextFields);
 export type WorkerConfigurationContext = Infer<typeof vWorkerConfigurationContext>;
+
+export const vWorkerConvexProjectConfigurationContext = object({
+  ...workerConfigurationContextFields,
+  convexProject: object({
+    convexProjectId: id("vaultConvexProjects"),
+    teamId: string(),
+    projectId: string(),
+  }),
+});
+export type WorkerConvexProjectConfigurationContext = Infer<
+  typeof vWorkerConvexProjectConfigurationContext
+>;
 
 type WorkerGraphReadCtx = Pick<QueryCtx, "db">;
 
@@ -185,25 +190,6 @@ export const readWorkerConfigurationContext = internalQuery({
       userId: args.userId,
       appId: worker.appId,
     });
-    const dependencies = await ctx.db
-      .query("vaultWorkerConvexProjectDependencies")
-      .withIndex("by_worker", (q) => q.eq("workerId", worker._id))
-      .collect();
-    const projects = await Promise.all(
-      dependencies.map(async (dependency) => {
-        const project = await requireConvexProject(ctx, {
-          vaultId: args.vaultId,
-          userId: args.userId,
-          convexProjectId: dependency.convexProjectId,
-        });
-        return {
-          dependencyId: dependency._id,
-          convexProjectId: project._id,
-          teamId: project.teamId,
-          projectId: project.projectId,
-        };
-      }),
-    );
     return {
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
@@ -213,62 +199,43 @@ export const readWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      convexProjects: projects.sort(
-        (left, right) =>
-          left.projectId.localeCompare(right.projectId) ||
-          left.convexProjectId.localeCompare(right.convexProjectId),
-      ),
     };
   },
 });
 
-export const attachWorkerConvexProjectDependency = internalMutation({
+export const readWorkerConvexProjectConfigurationContext = internalQuery({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
     workerId: id("vaultCloudflareWorkers"),
     convexProjectId: id("vaultConvexProjects"),
   },
-  returns: id("vaultWorkerConvexProjectDependencies"),
-  handler: async (ctx, args): Promise<Id<"vaultWorkerConvexProjectDependencies">> => {
-    await Promise.all([
+  returns: vWorkerConvexProjectConfigurationContext,
+  handler: async (ctx, args) => {
+    const [vault, worker, project] = await Promise.all([
       requireConnectedVault(ctx, args),
       requireWorker(ctx, args),
       requireConvexProject(ctx, args),
     ]);
-    const existing = await ctx.db
-      .query("vaultWorkerConvexProjectDependencies")
-      .withIndex("by_worker_and_convex_project", (q) =>
-        q.eq("workerId", args.workerId).eq("convexProjectId", args.convexProjectId),
-      )
-      .unique();
-    if (existing) {
-      return existing._id;
-    }
-    return await ctx.db.insert("vaultWorkerConvexProjectDependencies", {
+    const app = await requireVaultApp(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
-      workerId: args.workerId,
-      convexProjectId: args.convexProjectId,
-      createdAt: Date.now(),
+      appId: worker.appId,
     });
-  },
-});
-
-export const removeWorkerConvexProjectDependency = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-    dependencyId: id("vaultWorkerConvexProjectDependencies"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    await requireConnectedVault(ctx, args);
-    const dependency = await ctx.db.get(args.dependencyId);
-    if (!dependency || dependency.vaultId !== args.vaultId || dependency.userId !== args.userId) {
-      throw new Error("Worker dependency not found.");
-    }
-    await ctx.db.delete(dependency._id);
-    return null;
+    return {
+      ghRepoId: vault.ghRepoId,
+      owner: vault.owner,
+      name: vault.name,
+      defaultBranch: vault.defaultBranch,
+      rootDirectory: app.rootDirectory,
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+      convexProject: {
+        convexProjectId: project._id,
+        teamId: project.teamId,
+        projectId: project.projectId,
+      },
+    };
   },
 });

@@ -65,6 +65,8 @@ const CLOUDFLARE_GITHUB_APP_RECOVERY_URL =
 const BUILD_TOKEN_PAGE_SIZE = 100;
 const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
+const SAMEBASE_CONVEX_PROJECT = "SAMEBASE_CONVEX_PROJECT";
+const SAMEBASE_CONVEX_PROJECT_MARKER_VERSION = "v1";
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   if (error instanceof CloudflareApiError && !error.path.includes("/builds/triggers/")) {
@@ -147,6 +149,7 @@ function requireCloudflareString(value: string | null | undefined, message: stri
 export function buildCloudflareWorkersEnvVars(vars: {
   productionConvexDeployKey: string;
   previewConvexDeployKey: string;
+  convexProject: SamebaseConvexProjectReference;
 }): CloudflareBuildEnvVars {
   return {
     [CONVEX_DEPLOY_KEY]: {
@@ -157,7 +160,37 @@ export function buildCloudflareWorkersEnvVars(vars: {
       value: vars.previewConvexDeployKey,
       is_secret: true,
     },
+    [SAMEBASE_CONVEX_PROJECT]: {
+      value: buildSamebaseConvexProjectMarker(vars.convexProject),
+      is_secret: false,
+    },
   };
+}
+
+export type SamebaseConvexProjectReference = {
+  teamId: string;
+  projectId: string;
+};
+
+export function buildSamebaseConvexProjectMarker(project: SamebaseConvexProjectReference): string {
+  const teamId = project.teamId.trim();
+  const projectId = project.projectId.trim();
+  if (!teamId || !projectId || teamId.includes(":") || projectId.includes(":")) {
+    throw new Error("Convex project identity cannot be encoded for Cloudflare Builds.");
+  }
+  return `${SAMEBASE_CONVEX_PROJECT_MARKER_VERSION}:${teamId}:${projectId}`;
+}
+
+function parseSamebaseConvexProjectMarker(value: string): SamebaseConvexProjectReference | null {
+  const parts = value.split(":");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [version, teamId, projectId] = parts;
+  if (version !== SAMEBASE_CONVEX_PROJECT_MARKER_VERSION || !teamId || !projectId) {
+    return null;
+  }
+  return { teamId, projectId };
 }
 
 type CloudflareWorkerIdentity = {
@@ -1724,23 +1757,13 @@ export type CloudflareWorkersBuilds = {
 export type CloudflareConnectedWorkersBuilds = CloudflareWorkersBuilds & {
   state: "connected";
 };
-type CloudflareInfrastructureObservationConvexBuildAccessResult =
-  | "confirmed"
-  | "contradicted"
-  | "not_checked";
-type CloudflareConnectedBuildsVerificationResult =
-  | {
-      builds: "adopted";
-      build: CloudflareConnectedWorkersBuilds;
-    }
-  | {
-      builds: "confirmed";
-      build: CloudflareConnectedWorkersBuilds;
-    }
-  | {
-      builds: "contradicted" | "not_checked";
-    };
-
+export type CloudflareConvexBuildAccessObservation =
+  | { state: "not_configured" }
+  | { state: "configured"; convexProject: SamebaseConvexProjectReference }
+  | { state: "incomplete"; convexProject: SamebaseConvexProjectReference }
+  | { state: "target_unknown" }
+  | { state: "inconsistent" }
+  | { state: "invalid" };
 type CloudflareAuthMethod = "api_key" | "oauth" | "mcp_oauth";
 
 type ConfigureCloudflareWorkerBuildsArgs = {
@@ -1788,34 +1811,7 @@ type WireCloudflareWorkerConvexBuildAccessArgs = {
   accountId: string;
   build: Pick<CloudflareWorkersBuilds, "production" | "preview">;
   convex: CloudflareProvisionConvexState;
-  recordApiCall?: ProviderApiCallRecorder;
-};
-
-export type CloudflareWorkerInfrastructureObservationResult =
-  | {
-      worker: "confirmed";
-      builds: "adopted";
-      connectedBuilds: CloudflareConnectedWorkersBuilds;
-      convexBuildAccess: CloudflareInfrastructureObservationConvexBuildAccessResult;
-    }
-  | {
-      worker: "confirmed" | "missing_upstream";
-      builds: "confirmed" | "contradicted" | "not_checked";
-      convexBuildAccess: CloudflareInfrastructureObservationConvexBuildAccessResult;
-    };
-
-type ObserveCloudflareWorkerInfrastructureArgs = {
-  vaultId: string;
-  workerName: string;
-  workerTag: string;
-  cloudflareToken: string;
-  cloudflareAuthMethod: CloudflareAuthMethod;
-  accountId: string;
-  defaultBranch: string;
-  expectedRepoId: string;
-  build: CloudflareConnectedWorkersBuilds | { state: "not_connected" };
-  buildConfig: CloudflareBuildConfig;
-  verifyConvexBuildAccess: boolean;
+  convexProject: SamebaseConvexProjectReference;
   recordApiCall?: ProviderApiCallRecorder;
 };
 
@@ -1860,42 +1856,36 @@ function assertExpectedBuildTriggerStillExists(args: {
   });
 }
 
-function hasConfirmedRecordedBuildTrigger(args: {
-  triggers: readonly CloudflareBuildTrigger[];
-  kind: CloudflareBuildTriggerKind;
-  defaultBranch: string;
-  triggerUuid: string;
-  expectedRepoId: string;
-  expectedRootDirectory: string;
-}): boolean {
-  const expectedRootDirectory = requireNormalizedCloudflareBuildRoot(
-    args.expectedRootDirectory,
-    "Expected app root",
-  );
-  const trigger = args.triggers.find(
-    (candidate) => !candidate.deleted_on && candidate.trigger_uuid === args.triggerUuid,
-  );
-  if (!trigger) {
-    return false;
-  }
-  return (
-    matchesAdoptableTriggerKind({
-      trigger,
-      kind: args.kind,
-      defaultBranch: args.defaultBranch,
-    }) &&
-    readTriggerRepositoryId(trigger) === args.expectedRepoId &&
-    normalizeCloudflareBuildRoot(trigger.root_directory) === expectedRootDirectory
-  );
-}
-
-function hasCloudflareBuildEnvironmentVariable(args: {
+function hasSecretCloudflareBuildEnvironmentVariable(args: {
   envVars: CloudflareBuildEnvVarsResponse;
   key: string;
 }): boolean {
-  // Build variable values are write-only in Cloudflare, so the verifier uses
-  // variable names as the authoritative repair signal.
-  return Object.prototype.hasOwnProperty.call(args.envVars, args.key);
+  if (!Object.prototype.hasOwnProperty.call(args.envVars, args.key)) {
+    return false;
+  }
+  const variable = args.envVars[args.key];
+  return variable.is_secret === true;
+}
+
+type SamebaseConvexProjectMarkerObservation =
+  | { state: "missing" }
+  | { state: "invalid" }
+  | { state: "available"; value: string; convexProject: SamebaseConvexProjectReference };
+
+function readSamebaseConvexProjectMarker(
+  envVars: CloudflareBuildEnvVarsResponse,
+): SamebaseConvexProjectMarkerObservation {
+  if (!Object.prototype.hasOwnProperty.call(envVars, SAMEBASE_CONVEX_PROJECT)) {
+    return { state: "missing" };
+  }
+  const variable = envVars[SAMEBASE_CONVEX_PROJECT];
+  if (variable.is_secret !== false || !variable.value) {
+    return { state: "invalid" };
+  }
+  const convexProject = parseSamebaseConvexProjectMarker(variable.value);
+  return convexProject
+    ? { state: "available", value: variable.value, convexProject }
+    : { state: "invalid" };
 }
 
 function matchesAdoptableTriggerKind(args: {
@@ -2034,79 +2024,123 @@ function readMatchingCloudflareWorkerBuilds(args: {
   };
 }
 
-function verifyConnectedBuilds(args: {
-  triggers: readonly CloudflareBuildTrigger[];
-  defaultBranch: string;
-  expectedRepoId: string;
-  build: CloudflareConnectedWorkersBuilds | { state: "not_connected" };
-  buildConfig: CloudflareBuildConfig;
-}): CloudflareConnectedBuildsVerificationResult {
-  if (args.build.state === "not_connected") {
-    const connectedBuilds = readMatchingCloudflareWorkerBuilds({
-      triggers: args.triggers,
-      defaultBranch: args.defaultBranch,
-      expectedRepoId: args.expectedRepoId,
-      buildConfig: args.buildConfig,
-    });
-    return connectedBuilds
-      ? {
-          builds: "adopted",
-          build: connectedBuilds,
-        }
-      : {
-          builds: "not_checked",
-        };
-  }
-
-  const productionTriggerConfirmed = hasConfirmedRecordedBuildTrigger({
-    triggers: args.triggers,
-    kind: "production",
-    defaultBranch: args.defaultBranch,
-    triggerUuid: args.build.production.triggerUuid,
-    expectedRepoId: args.expectedRepoId,
-    expectedRootDirectory: args.buildConfig.rootDir,
-  });
-  const previewTriggerConfirmed = hasConfirmedRecordedBuildTrigger({
-    triggers: args.triggers,
-    kind: "preview",
-    defaultBranch: args.defaultBranch,
-    triggerUuid: args.build.preview.triggerUuid,
-    expectedRepoId: args.expectedRepoId,
-    expectedRootDirectory: args.buildConfig.rootDir,
-  });
-  return productionTriggerConfirmed && previewTriggerConfirmed
-    ? {
-        builds: "confirmed",
-        build: args.build,
-      }
-    : {
-        builds: "contradicted",
-      };
-}
-
 function verifyConvexBuildAccess(args: {
   productionEnvVars: CloudflareBuildEnvVarsResponse;
   previewEnvVars: CloudflareBuildEnvVarsResponse;
-}): "confirmed" | "contradicted" {
+}): CloudflareConvexBuildAccessObservation {
+  const productionMarker = readSamebaseConvexProjectMarker(args.productionEnvVars);
+  const previewMarker = readSamebaseConvexProjectMarker(args.previewEnvVars);
+  const productionConvexDeployKeyPresent = hasSecretCloudflareBuildEnvironmentVariable({
+    envVars: args.productionEnvVars,
+    key: CONVEX_DEPLOY_KEY,
+  });
+  const productionPreviewConvexDeployKeyPresent = hasSecretCloudflareBuildEnvironmentVariable({
+    envVars: args.productionEnvVars,
+    key: PREVIEW_CONVEX_DEPLOY_KEY,
+  });
+  const previewConvexDeployKeyPresent = hasSecretCloudflareBuildEnvironmentVariable({
+    envVars: args.previewEnvVars,
+    key: CONVEX_DEPLOY_KEY,
+  });
+  const previewPreviewConvexDeployKeyPresent = hasSecretCloudflareBuildEnvironmentVariable({
+    envVars: args.previewEnvVars,
+    key: PREVIEW_CONVEX_DEPLOY_KEY,
+  });
   const productionDeployKeysPresent =
-    hasCloudflareBuildEnvironmentVariable({
-      envVars: args.productionEnvVars,
-      key: CONVEX_DEPLOY_KEY,
-    }) &&
-    hasCloudflareBuildEnvironmentVariable({
-      envVars: args.productionEnvVars,
-      key: PREVIEW_CONVEX_DEPLOY_KEY,
-    });
+    productionConvexDeployKeyPresent && productionPreviewConvexDeployKeyPresent;
   const previewDeployKeysPresent =
-    hasCloudflareBuildEnvironmentVariable({
-      envVars: args.previewEnvVars,
-      key: CONVEX_DEPLOY_KEY,
-    }) &&
-    hasCloudflareBuildEnvironmentVariable({
-      envVars: args.previewEnvVars,
-      key: PREVIEW_CONVEX_DEPLOY_KEY,
-    });
-  return productionDeployKeysPresent && previewDeployKeysPresent ? "confirmed" : "contradicted";
+    previewConvexDeployKeyPresent && previewPreviewConvexDeployKeyPresent;
+  if (productionMarker.state === "invalid" || previewMarker.state === "invalid") {
+    return { state: "invalid" };
+  }
+  if (productionMarker.state === "missing" || previewMarker.state === "missing") {
+    if (productionMarker.state !== previewMarker.state) {
+      return { state: "inconsistent" };
+    }
+    return productionConvexDeployKeyPresent ||
+      productionPreviewConvexDeployKeyPresent ||
+      previewConvexDeployKeyPresent ||
+      previewPreviewConvexDeployKeyPresent
+      ? { state: "target_unknown" }
+      : { state: "not_configured" };
+  }
+  if (productionMarker.value !== previewMarker.value) {
+    return { state: "inconsistent" };
+  }
+  return productionDeployKeysPresent && previewDeployKeysPresent
+    ? { state: "configured", convexProject: productionMarker.convexProject }
+    : { state: "incomplete", convexProject: productionMarker.convexProject };
+}
+
+export type CloudflareWorkerBuildsObservation =
+  | { state: "not_connected" }
+  | {
+      state: "connected";
+      build: CloudflareConnectedWorkersBuilds;
+      convexBuildAccess: CloudflareConvexBuildAccessObservation;
+    };
+
+export type CloudflareWorkerDeploymentDiscovery = {
+  repository: CloudflareWorkerRepositoryDiscovery;
+  builds: CloudflareWorkerBuildsObservation;
+};
+
+export async function readCloudflareWorkerDeploymentDiscoveryForIdentity(
+  args: {
+    token: string;
+    accountId: string;
+    workerTag: string;
+    defaultBranch: string;
+    expectedRepoId: string;
+    buildConfig: CloudflareBuildConfig;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerDeploymentDiscovery> {
+  const triggers = await listBuildTriggers({
+    token: args.token,
+    accountId: args.accountId,
+    workerTag: args.workerTag,
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
+  const repository = classifyCloudflareWorkerRepositoryDiscovery({
+    triggers,
+    expectedRepoId: args.expectedRepoId,
+    expectedRootDirectory: args.buildConfig.rootDir,
+  });
+  const build = readMatchingCloudflareWorkerBuilds({
+    triggers,
+    defaultBranch: args.defaultBranch,
+    expectedRepoId: args.expectedRepoId,
+    buildConfig: args.buildConfig,
+  });
+  if (!build) {
+    return { repository, builds: { state: "not_connected" } };
+  }
+
+  const [productionEnvVars, previewEnvVars] = await Promise.all([
+    listTriggerEnvironmentVariables({
+      token: args.token,
+      accountId: args.accountId,
+      triggerUuid: build.production.triggerUuid,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    }),
+    listTriggerEnvironmentVariables({
+      token: args.token,
+      accountId: args.accountId,
+      triggerUuid: build.preview.triggerUuid,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    }),
+  ]);
+  return {
+    repository,
+    builds: {
+      state: "connected",
+      build,
+      convexBuildAccess: verifyConvexBuildAccess({ productionEnvVars, previewEnvVars }),
+    },
+  };
 }
 
 async function configureCloudflareWorkerBuilds(
@@ -2270,171 +2304,6 @@ export async function wireCloudflareWorkerBuilds(
   }
 }
 
-export async function observeCloudflareWorkerInfrastructure(
-  args: ObserveCloudflareWorkerInfrastructureArgs,
-): Promise<CloudflareWorkerInfrastructureObservationResult> {
-  console.log("infra:cloudflare:observe:start", {
-    vaultId: args.vaultId,
-    accountId: args.accountId,
-    workerName: args.workerName,
-    workerTag: args.workerTag,
-  });
-
-  const transport = resolveCloudflareApiTransport(args.cloudflareAuthMethod);
-  let step = "read_build_triggers";
-  try {
-    const triggers = await listBuildTriggers({
-      token: args.cloudflareToken,
-      accountId: args.accountId,
-      workerTag: args.workerTag,
-      transport,
-      recordApiCall: args.recordApiCall,
-    });
-    const buildsResult = verifyConnectedBuilds({
-      triggers,
-      defaultBranch: args.defaultBranch,
-      expectedRepoId: args.expectedRepoId,
-      build: args.build,
-      buildConfig: args.buildConfig,
-    });
-    switch (buildsResult.builds) {
-      case "adopted":
-        break;
-      case "not_checked":
-        console.log("infra:cloudflare:observe:builds_not_connected", {
-          vaultId: args.vaultId,
-          accountId: args.accountId,
-          workerName: args.workerName,
-          workerTag: args.workerTag,
-        });
-        return {
-          worker: "confirmed",
-          builds: "not_checked",
-          convexBuildAccess: "not_checked",
-        };
-      case "contradicted":
-        console.log("infra:cloudflare:observe:builds_contradicted", {
-          vaultId: args.vaultId,
-          accountId: args.accountId,
-          workerName: args.workerName,
-          workerTag: args.workerTag,
-        });
-        return {
-          worker: "confirmed",
-          builds: "contradicted",
-          convexBuildAccess: "not_checked",
-        };
-      case "confirmed":
-        break;
-      default:
-        buildsResult satisfies never;
-    }
-    if (!args.verifyConvexBuildAccess) {
-      console.log(`infra:cloudflare:observe:builds_${buildsResult.builds}`, {
-        vaultId: args.vaultId,
-        accountId: args.accountId,
-        workerName: args.workerName,
-        workerTag: args.workerTag,
-      });
-      if (buildsResult.builds === "adopted") {
-        return {
-          worker: "confirmed",
-          builds: "adopted",
-          connectedBuilds: buildsResult.build,
-          convexBuildAccess: "not_checked",
-        };
-      }
-      return {
-        worker: "confirmed",
-        builds: "confirmed",
-        convexBuildAccess: "not_checked",
-      };
-    }
-
-    step = "read_build_environment_variables";
-    const [productionEnvVars, previewEnvVars] = await Promise.all([
-      listTriggerEnvironmentVariables({
-        token: args.cloudflareToken,
-        accountId: args.accountId,
-        triggerUuid: buildsResult.build.production.triggerUuid,
-        transport,
-        recordApiCall: args.recordApiCall,
-      }),
-      listTriggerEnvironmentVariables({
-        token: args.cloudflareToken,
-        accountId: args.accountId,
-        triggerUuid: buildsResult.build.preview.triggerUuid,
-        transport,
-        recordApiCall: args.recordApiCall,
-      }),
-    ]);
-    const convexBuildAccess = verifyConvexBuildAccess({
-      productionEnvVars,
-      previewEnvVars,
-    });
-
-    console.log("infra:cloudflare:observe:success", {
-      vaultId: args.vaultId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      convexBuildAccess,
-    });
-    if (buildsResult.builds === "adopted") {
-      return {
-        worker: "confirmed",
-        builds: "adopted",
-        connectedBuilds: buildsResult.build,
-        convexBuildAccess,
-      };
-    }
-    return {
-      worker: "confirmed",
-      builds: "confirmed",
-      convexBuildAccess,
-    };
-  } catch (error) {
-    if (
-      step === "read_build_environment_variables" &&
-      isCloudflareBuildTriggerNotFoundError(error)
-    ) {
-      console.log("infra:cloudflare:observe:build_trigger_missing_upstream", {
-        vaultId: args.vaultId,
-        accountId: args.accountId,
-        workerName: args.workerName,
-        workerTag: args.workerTag,
-      });
-      return {
-        worker: "confirmed",
-        builds: "contradicted",
-        convexBuildAccess: "not_checked",
-      };
-    }
-    if (isCloudflareWorkerNotFoundError(error)) {
-      console.log("infra:cloudflare:observe:worker_missing_upstream", {
-        vaultId: args.vaultId,
-        accountId: args.accountId,
-        workerName: args.workerName,
-        workerTag: args.workerTag,
-      });
-      return {
-        worker: "missing_upstream",
-        builds: "not_checked",
-        convexBuildAccess: "not_checked",
-      };
-    }
-    console.error("infra:cloudflare:observe:failed", {
-      vaultId: args.vaultId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      step,
-      message: toErrorMessage(error),
-    });
-    throw error;
-  }
-}
-
 export async function wireCloudflareWorkerConvexBuildAccess(
   args: WireCloudflareWorkerConvexBuildAccessArgs,
 ): Promise<void> {
@@ -2485,6 +2354,7 @@ export async function wireCloudflareWorkerConvexBuildAccess(
     const convexEnvVars = buildCloudflareWorkersEnvVars({
       productionConvexDeployKey: args.convex.production.deployKey,
       previewConvexDeployKey: args.convex.preview.deployKey,
+      convexProject: args.convexProject,
     });
     await Promise.all([
       setTriggerEnvironmentVariables({

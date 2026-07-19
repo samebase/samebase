@@ -33,7 +33,6 @@ type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type VaultApp = Doc<"vaultApps">;
 type ConvexProject = Doc<"vaultConvexProjects">;
 type CloudflareWorker = Doc<"vaultCloudflareWorkers">;
-type WorkerConvexProjectDependency = Doc<"vaultWorkerConvexProjectDependencies">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
 async function readLatestRunErrorMessage(
@@ -403,17 +402,6 @@ function compareConvexProjectSortOrder(left: ConvexProject, right: ConvexProject
   );
 }
 
-function compareWorkerConvexProjectDependencySortOrder(
-  left: WorkerConvexProjectDependency,
-  right: WorkerConvexProjectDependency,
-): number {
-  return (
-    left.workerId.localeCompare(right.workerId) ||
-    left.convexProjectId.localeCompare(right.convexProjectId) ||
-    left._id.localeCompare(right._id)
-  );
-}
-
 async function readVaultAppsForVault(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
@@ -655,33 +643,27 @@ async function readUserVaults(
   ctx: Pick<QueryCtx, "db">,
   userId: Id<"users">,
 ): Promise<UserVaultsResult> {
-  const [vaults, userApps, userConvexProjects, userCloudflareWorkers, userDependencies] =
-    await Promise.all([
-      ctx.db
-        .query("vaults")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultApps")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultConvexProjects")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("vaultWorkerConvexProjectDependencies")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-    ]);
+  const [vaults, userApps, userConvexProjects, userCloudflareWorkers] = await Promise.all([
+    ctx.db
+      .query("vaults")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultApps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultConvexProjects")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+  ]);
   const appsByVault = groupVaultRows(userApps);
   const convexProjectsByVault = groupVaultRows(userConvexProjects);
   const cloudflareWorkersByVault = groupVaultRows(userCloudflareWorkers);
-  const dependenciesByVault = groupVaultRows(userDependencies);
   const connectedVaults = vaults.filter(isConnectedVault);
   const initializingVaultResults: UserVaultResult[] = [];
   for (const vault of vaults) {
@@ -720,7 +702,6 @@ async function readUserVaults(
       apps: [],
       cloudflareWorkers: [],
       convexProjects: [],
-      workerConvexProjectDependencies: [],
     });
   }
 
@@ -734,20 +715,10 @@ async function readUserVaults(
       const cloudflareWorkers = (cloudflareWorkersByVault.get(vault._id) ?? []).sort(
         compareCloudflareWorkerSortOrder,
       );
-      const dependencies = (dependenciesByVault.get(vault._id) ?? []).sort(
-        compareWorkerConvexProjectDependencySortOrder,
-      );
       const appIds = new Set(apps.map((app) => app._id));
-      const workerIds = new Set(cloudflareWorkers.map((worker) => worker._id));
-      const convexProjectIds = new Set(convexProjects.map((project) => project._id));
       if (
         cloudflareWorkers.some((worker) => !appIds.has(worker.appId)) ||
-        convexProjects.some((project) => !appIds.has(project.appId)) ||
-        dependencies.some(
-          (dependency) =>
-            !workerIds.has(dependency.workerId) ||
-            !convexProjectIds.has(dependency.convexProjectId),
-        )
+        convexProjects.some((project) => !appIds.has(project.appId))
       ) {
         throw new Error("Vault resource graph is inconsistent.");
       }
@@ -768,11 +739,6 @@ async function readUserVaults(
         appId: project.appId,
         teamId: project.teamId,
         projectId: project.projectId,
-      }));
-      const dependencySummaries = dependencies.map((dependency) => ({
-        dependencyId: dependency._id,
-        workerId: dependency.workerId,
-        convexProjectId: dependency.convexProjectId,
       }));
       if (deletion.state !== "not_deleting") {
         return {
@@ -806,7 +772,6 @@ async function readUserVaults(
           })),
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexProjects: convexProjectSummaries,
-          workerConvexProjectDependencies: dependencySummaries,
         };
       }
 
@@ -872,7 +837,6 @@ async function readUserVaults(
         })),
         cloudflareWorkers: cloudflareWorkerSummaries,
         convexProjects: convexProjectSummaries,
-        workerConvexProjectDependencies: dependencySummaries,
       };
     }),
   );

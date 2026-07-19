@@ -143,59 +143,6 @@ export function buildVaultCloudflareBuildConfigForRootDirectory(args: {
   };
 }
 
-export const vVaultCloudflareWorkersBuildTrigger = object({
-  triggerUuid: string(),
-  buildTokenUuid: string(),
-});
-
-export const vVaultCloudflareConnectedBuilds = object({
-  state: literal("connected"),
-  ...vaultCloudflareBuildConfigFields,
-  production: vVaultCloudflareWorkersBuildTrigger,
-  preview: vVaultCloudflareWorkersBuildTrigger,
-});
-export type VaultCloudflareConnectedBuilds = Infer<typeof vVaultCloudflareConnectedBuilds>;
-
-export const vVaultCloudflareBuilds = union(
-  object({
-    state: literal("not_connected"),
-  }),
-  vVaultCloudflareConnectedBuilds,
-);
-
-export const vVaultCloudflareConvexBuildAccess = union(
-  object({
-    state: literal("not_wired"),
-  }),
-  object({
-    state: literal("wired"),
-  }),
-);
-export type VaultCloudflareConvexBuildAccess = Infer<typeof vVaultCloudflareConvexBuildAccess>;
-
-export const vVaultCloudflareDeployment = object({
-  builds: vVaultCloudflareBuilds,
-  convexBuildAccess: vVaultCloudflareConvexBuildAccess,
-});
-export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
-
-export function buildVaultCloudflareDeploymentNotConfigured(): VaultCloudflareDeployment {
-  return {
-    builds: { state: "not_connected" },
-    convexBuildAccess: { state: "not_wired" },
-  };
-}
-
-export function buildVaultCloudflareDeploymentWithConnectedBuilds(args: {
-  builds: VaultCloudflareConnectedBuilds;
-  convexBuildAccess: VaultCloudflareConvexBuildAccess;
-}): VaultCloudflareDeployment {
-  return {
-    builds: args.builds,
-    convexBuildAccess: args.convexBuildAccess,
-  };
-}
-
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
  * vault state in Phase 1 so existing reads and mutations do not need a second
@@ -389,20 +336,6 @@ export const vaultTables = {
     .index("by_user", ["userId"])
     .index("by_app", ["appId"])
     .index("by_user_and_team_and_project", ["userId", "teamId", "projectId"]),
-
-  /** Explicit build-time dependencies between attached Workers and Convex projects. */
-  vaultWorkerConvexProjectDependencies: defineTable({
-    vaultId: id("vaults"),
-    userId: id("users"),
-    workerId: id("vaultCloudflareWorkers"),
-    convexProjectId: id("vaultConvexProjects"),
-    createdAt: number(),
-  })
-    .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
-    .index("by_worker", ["workerId"])
-    .index("by_convex_project", ["convexProjectId"])
-    .index("by_worker_and_convex_project", ["workerId", "convexProjectId"]),
 
   /** Branch-to-domain mappings observed or provisioned for a vault. */
   vaultDomains: defineTable({

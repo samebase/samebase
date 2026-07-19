@@ -4,9 +4,9 @@
 
 MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · read_only
 
-Returns every vault the authenticated account can see. Provider resources are stable identities and
-explicit relationships only. Current Cloudflare and Convex state is intentionally loaded from those
-providers when a relevant view opens; it is not mirrored by this query.
+Returns every vault the authenticated account can see. Provider resources are stable identities
+only. Current Cloudflare and Convex state, including the Worker-to-project marker, is loaded from
+those providers when a relevant view opens; it is not mirrored by this query.
 
 ## Arguments
 
@@ -759,25 +759,6 @@ JSON Schema for the tool's `structuredContent`:
               "required": ["convexProjectId", "appId", "teamId", "projectId"],
               "additionalProperties": false
             }
-          },
-          "workerConvexProjectDependencies": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "dependencyId": {
-                  "type": "string"
-                },
-                "workerId": {
-                  "type": "string"
-                },
-                "convexProjectId": {
-                  "type": "string"
-                }
-              },
-              "required": ["dependencyId", "workerId", "convexProjectId"],
-              "additionalProperties": false
-            }
           }
         },
         "required": [
@@ -799,8 +780,7 @@ JSON Schema for the tool's `structuredContent`:
           "canRemoveCloudflareProvision",
           "apps",
           "cloudflareWorkers",
-          "convexProjects",
-          "workerConvexProjectDependencies"
+          "convexProjects"
         ],
         "additionalProperties": false
       }

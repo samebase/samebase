@@ -113,22 +113,22 @@ describe("vault Cloudflare Worker graph mutations", () => {
         .withIndex("by_app", (q) => q.eq("appId", ids.primary.appId))
         .collect();
     });
-    expect(workers.sort((left, right) => left.workerName.localeCompare(right.workerName))).toMatchObject(
-      [
-        {
-          _id: provisionedWorkerId,
-          appId: ids.primary.appId,
-          origin: "provisioned",
-          workerName: "provisioned-worker",
-        },
-        {
-          _id: selectedWorkerId,
-          appId: ids.primary.appId,
-          origin: "selected_existing",
-          workerName: "selected-worker",
-        },
-      ],
-    );
+    expect(
+      workers.sort((left, right) => left.workerName.localeCompare(right.workerName)),
+    ).toMatchObject([
+      {
+        _id: provisionedWorkerId,
+        appId: ids.primary.appId,
+        origin: "provisioned",
+        workerName: "provisioned-worker",
+      },
+      {
+        _id: selectedWorkerId,
+        appId: ids.primary.appId,
+        origin: "selected_existing",
+        workerName: "selected-worker",
+      },
+    ]);
   });
 
   it("rejects duplicate provider names or tags elsewhere in the user's graph", async () => {
@@ -190,7 +190,7 @@ describe("vault Cloudflare Worker graph mutations", () => {
     ).rejects.toThrow("Vault not found.");
   });
 
-  it("attaches, orders, and removes explicit Worker-to-project dependencies", async () => {
+  it("reads an explicitly selected Worker and Convex project without persisting a relationship", async () => {
     const { ids, t } = await createGraphFixture();
     const workerId = await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
       vaultId: ids.primary.vaultId,
@@ -201,31 +201,14 @@ describe("vault Cloudflare Worker graph mutations", () => {
       workerTag: "web-tag",
       origin: "selected_existing",
     });
-    const zetaProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+    const convexProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
       vaultId: ids.primary.vaultId,
       userId: ids.userId,
-      appId: ids.primary.appId,
+      appId: ids.primary.nestedAppId,
       teamId: "team-1",
-      projectId: "zeta-project",
-      origin: "selected_existing",
-    });
-    const alphaProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
-      vaultId: ids.primary.vaultId,
-      userId: ids.userId,
-      appId: ids.primary.appId,
-      teamId: "team-1",
-      projectId: "alpha-project",
+      projectId: "shared-backend",
       origin: "provisioned",
     });
-    const zetaDependencyId = await t.mutation(
-      internal.vault.cloudflareMutations.attachWorkerConvexProjectDependency,
-      {
-        vaultId: ids.primary.vaultId,
-        userId: ids.userId,
-        workerId,
-        convexProjectId: zetaProjectId,
-      },
-    );
     const foreignProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
       vaultId: ids.secondary.vaultId,
       userId: ids.userId,
@@ -235,51 +218,43 @@ describe("vault Cloudflare Worker graph mutations", () => {
       origin: "selected_existing",
     });
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorkerConvexProjectDependency, {
+      t.query(internal.vault.cloudflareMutations.readWorkerConvexProjectConfigurationContext, {
         vaultId: ids.primary.vaultId,
         userId: ids.userId,
         workerId,
         convexProjectId: foreignProjectId,
       }),
     ).rejects.toThrow("Convex project attachment not found.");
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.removeWorkerConvexProjectDependency, {
-        vaultId: ids.secondary.vaultId,
-        userId: ids.userId,
-        dependencyId: zetaDependencyId,
-      }),
-    ).rejects.toThrow("Worker dependency not found.");
-    const alphaDependencyId = await t.mutation(
-      internal.vault.cloudflareMutations.attachWorkerConvexProjectDependency,
-      {
-        vaultId: ids.primary.vaultId,
-        userId: ids.userId,
-        workerId,
-        convexProjectId: alphaProjectId,
-      },
-    );
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorkerConvexProjectDependency, {
-        vaultId: ids.primary.vaultId,
-        userId: ids.userId,
-        workerId,
-        convexProjectId: alphaProjectId,
-      }),
-    ).resolves.toEqual(alphaDependencyId);
 
-    const beforeRemoval = await t.query(
-      internal.vault.cloudflareMutations.readWorkerConfigurationContext,
-      {
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readWorkerConvexProjectConfigurationContext, {
         vaultId: ids.primary.vaultId,
         userId: ids.userId,
         workerId,
+        convexProjectId,
+      }),
+    ).resolves.toMatchObject({
+      ghRepoId: "github-ada",
+      owner: "ada",
+      name: "repository",
+      defaultBranch: "main",
+      rootDirectory: "/",
+      accountId: "account-1",
+      workerName: "web-worker",
+      workerTag: "web-tag",
+      convexProject: {
+        convexProjectId,
+        teamId: "team-1",
+        projectId: "shared-backend",
       },
-    );
-    expect(beforeRemoval.convexProjects.map((project) => project.projectId)).toEqual([
-      "alpha-project",
-      "zeta-project",
-    ]);
-    expect(beforeRemoval).toMatchObject({
+    });
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readWorkerConfigurationContext, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        workerId,
+      }),
+    ).resolves.toEqual({
       ghRepoId: "github-ada",
       owner: "ada",
       name: "repository",
@@ -289,22 +264,5 @@ describe("vault Cloudflare Worker graph mutations", () => {
       workerName: "web-worker",
       workerTag: "web-tag",
     });
-
-    await t.mutation(internal.vault.cloudflareMutations.removeWorkerConvexProjectDependency, {
-      vaultId: ids.primary.vaultId,
-      userId: ids.userId,
-      dependencyId: alphaDependencyId,
-    });
-    const afterRemoval = await t.query(
-      internal.vault.cloudflareMutations.readWorkerConfigurationContext,
-      {
-        vaultId: ids.primary.vaultId,
-        userId: ids.userId,
-        workerId,
-      },
-    );
-    expect(afterRemoval.convexProjects.map((project) => project.projectId)).toEqual([
-      "zeta-project",
-    ]);
   });
 });

@@ -8,8 +8,9 @@ import { action } from "../functions";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   readCloudflareWorkerIdentity,
-  readCloudflareWorkerRepositoryDiscoveryForIdentity,
+  readCloudflareWorkerDeploymentDiscoveryForIdentity,
   readCloudflareWorkersDevAvailability,
+  type CloudflareConvexBuildAccessObservation,
 } from "../cloudflareResources";
 import { vCloudflareWorkerRepositoryEvidence } from "./contracts/cloudflareListWorkers";
 import {
@@ -18,6 +19,7 @@ import {
   readConvexProjectResource,
 } from "./convexProjectResources";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
+import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
 
 const { array, id, literal, number, object, string, union } = v;
 
@@ -31,6 +33,31 @@ const vCloudflareRepositoryDiscovery = object({
   ),
   evidence: vCloudflareWorkerRepositoryEvidence,
 });
+const vObservedConvexProject = union(
+  object({
+    state: literal("attached"),
+    convexProjectId: id("vaultConvexProjects"),
+    teamId: string(),
+    projectId: string(),
+  }),
+  object({
+    state: literal("external"),
+    teamId: string(),
+    projectId: string(),
+  }),
+);
+const vCloudflareConvexBuildAccess = union(
+  object({ state: literal("not_configured") }),
+  object({ state: literal("configured"), convexProject: vObservedConvexProject }),
+  object({ state: literal("incomplete"), convexProject: vObservedConvexProject }),
+  object({ state: literal("target_unknown") }),
+  object({ state: literal("inconsistent") }),
+  object({ state: literal("invalid") }),
+);
+const vCloudflareBuildsObservation = union(
+  object({ state: literal("not_connected") }),
+  object({ state: literal("connected"), convexBuildAccess: vCloudflareConvexBuildAccess }),
+);
 const vWorkersDevObservation = union(
   object({ state: literal("enabled"), url: string() }),
   object({ state: literal("disabled") }),
@@ -44,6 +71,7 @@ const vCloudflareWorkerObservation = union(
     workerTag: string(),
     workersDev: vWorkersDevObservation,
     repository: vCloudflareRepositoryDiscovery,
+    builds: vCloudflareBuildsObservation,
   }),
   object({
     state: literal("missing"),
@@ -90,6 +118,40 @@ const vConvexProjectObservation = union(
 );
 type CloudflareWorkerObservation = Infer<typeof vCloudflareWorkerObservation>;
 type ConvexProjectObservation = Infer<typeof vConvexProjectObservation>;
+
+function resolveObservedConvexBuildAccess(
+  observation: CloudflareConvexBuildAccessObservation,
+  projects: VaultProviderObservationContext["convexProjects"],
+) {
+  switch (observation.state) {
+    case "configured":
+    case "incomplete": {
+      const attached = projects.find(
+        (project) =>
+          project.teamId === observation.convexProject.teamId &&
+          project.projectId === observation.convexProject.projectId,
+      );
+      return {
+        state: observation.state,
+        convexProject: attached
+          ? {
+              state: "attached" as const,
+              convexProjectId: attached.convexProjectId,
+              teamId: attached.teamId,
+              projectId: attached.projectId,
+            }
+          : { state: "external" as const, ...observation.convexProject },
+      };
+    }
+    case "not_configured":
+    case "target_unknown":
+    case "inconsistent":
+    case "invalid":
+      return observation;
+  }
+  observation satisfies never;
+  return observation;
+}
 
 async function readObservationContext(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -157,21 +219,31 @@ export const observeCloudflareWorkers = action({
               workerId: worker.workerId,
             };
           }
-          const [workersDev, repository] = await Promise.all([
+          const config = buildVaultCloudflareBuildConfigForRootDirectory({
+            rootDirectory: worker.rootDirectory,
+          });
+          const [workersDev, deployment] = await Promise.all([
             readCloudflareWorkersDevAvailability({
               token,
               transport,
               accountId: worker.accountId,
               workerName: worker.workerName,
             }).catch(() => ({ state: "failed" as const, reason: "request_failed" as const })),
-            readCloudflareWorkerRepositoryDiscoveryForIdentity({
+            readCloudflareWorkerDeploymentDiscoveryForIdentity({
               token,
               transport,
               accountId: worker.accountId,
-              workerName: worker.workerName,
               workerTag: worker.workerTag,
+              defaultBranch: context.defaultBranch,
               expectedRepoId: context.ghRepoId,
-              expectedRootDirectory: worker.rootDirectory,
+              buildConfig: {
+                rootDir: config.rootDirectory,
+                buildCommand: config.buildCommand,
+                deployCommand: config.deployCommand,
+                previewDeployCommand: config.previewDeployCommand,
+                pathIncludes: config.pathIncludes,
+                pathExcludes: config.pathExcludes,
+              },
             }),
           ]);
           return {
@@ -180,7 +252,17 @@ export const observeCloudflareWorkers = action({
             workerId: worker.workerId,
             workerTag: identity.workerTag,
             workersDev,
-            repository,
+            repository: deployment.repository,
+            builds:
+              deployment.builds.state === "not_connected"
+                ? deployment.builds
+                : {
+                    state: "connected" as const,
+                    convexBuildAccess: resolveObservedConvexBuildAccess(
+                      deployment.builds.convexBuildAccess,
+                      context.convexProjects,
+                    ),
+                  },
           };
         } catch {
           return {

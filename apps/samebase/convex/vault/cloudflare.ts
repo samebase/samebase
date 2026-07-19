@@ -33,7 +33,10 @@ import type { McpTokenHealth } from "../mcpTokenHealth";
 import { vaultSuffix } from "../slugUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
-import type { WorkerConfigurationContext } from "./cloudflareMutations";
+import type {
+  WorkerConfigurationContext,
+  WorkerConvexProjectConfigurationContext,
+} from "./cloudflareMutations";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import {
   cloudflareListAccountsContract,
@@ -183,6 +186,21 @@ async function readWorkerConfigurationContext(
   );
 }
 
+async function readWorkerConvexProjectConfigurationContext(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    workerId: Id<"vaultCloudflareWorkers">;
+    convexProjectId: Id<"vaultConvexProjects">;
+  },
+): Promise<WorkerConvexProjectConfigurationContext> {
+  return await ctx.runQuery(
+    internal.vault.cloudflareMutations.readWorkerConvexProjectConfigurationContext,
+    args,
+  );
+}
+
 export async function connectExistingCloudflareWorkerForUser(
   ctx: ActionCtx,
   args: {
@@ -295,20 +313,18 @@ function toCloudflareBuildConfig(rootDirectory: string): CloudflareBuildConfig {
   };
 }
 
-async function wireBuildsForWorker(
+async function wireBuildsForWorkerContext(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
     vaultId: Id<"vaults">;
-    workerId: Id<"vaultCloudflareWorkers">;
     triggerInitialBuild: boolean;
   },
+  context: WorkerConfigurationContext,
 ): Promise<{
   build: CloudflareConnectedWorkersBuilds;
   connection: CloudflareActionConnection;
-  context: WorkerConfigurationContext;
 }> {
-  const context = await readWorkerConfigurationContext(ctx, args);
   const [connection, githubAccessToken] = await Promise.all([
     resolveCloudflareConnection(ctx, args.userId),
     resolveGitHubAccessToken(ctx, args.userId),
@@ -339,7 +355,20 @@ async function wireBuildsForWorker(
     accountId: context.accountId,
     buildConfig: toCloudflareBuildConfig(context.rootDirectory),
   });
-  return { build, connection, context };
+  return { build, connection };
+}
+
+async function wireBuildsForWorker(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    workerId: Id<"vaultCloudflareWorkers">;
+    triggerInitialBuild: boolean;
+  },
+): Promise<void> {
+  const context = await readWorkerConfigurationContext(ctx, args);
+  await wireBuildsForWorkerContext(ctx, args, context);
 }
 
 export async function wireCloudflareConvexBuildAccessForUser(
@@ -351,16 +380,8 @@ export async function wireCloudflareConvexBuildAccessForUser(
     convexProjectId: Id<"vaultConvexProjects">;
   },
 ): Promise<void> {
-  const { build, connection, context } = await wireBuildsForWorker(ctx, {
-    ...args,
-    triggerInitialBuild: false,
-  });
-  const project = context.convexProjects.find(
-    (candidate) => candidate.convexProjectId === args.convexProjectId,
-  );
-  if (!project) {
-    throw new Error("The Worker does not have an explicit dependency on this Convex project.");
-  }
+  const context = await readWorkerConvexProjectConfigurationContext(ctx, args);
+  const project = context.convexProject;
   const convexConnection = await resolveConvexProvisioningConnection(ctx, args.userId);
   if (convexConnection.convexTeamId !== project.teamId) {
     throw new Error("Connect the Convex team that owns the selected project and try again.");
@@ -372,6 +393,11 @@ export async function wireCloudflareConvexBuildAccessForUser(
   if (!deployment) {
     throw new Error("The selected Convex project has no production deployment.");
   }
+  const { build, connection } = await wireBuildsForWorkerContext(
+    ctx,
+    { userId: args.userId, vaultId: args.vaultId, triggerInitialBuild: false },
+    context,
+  );
 
   const keyName = `samebase-${vaultSuffix(args.vaultId)}-${vaultSuffix(args.workerId)}`;
   const productionKeyName = `${keyName}-production`;
@@ -426,6 +452,10 @@ export async function wireCloudflareConvexBuildAccessForUser(
       convex: {
         production: { deployKey: production.deployKey },
         preview: { deployKey: preview.deployKey },
+      },
+      convexProject: {
+        teamId: project.teamId,
+        projectId: project.projectId,
       },
     });
   } catch (error) {
@@ -552,39 +582,6 @@ export const createWorker = action({
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
     await createWorkerForUser(ctx, { ...args, userId: ctx.viewer.userId });
-    return null;
-  },
-});
-
-export const attachConvexProjectDependency = action({
-  access: "access_app_create",
-  args: {
-    vaultId: id("vaults"),
-    workerId: id("vaultCloudflareWorkers"),
-    convexProjectId: id("vaultConvexProjects"),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args): Promise<null> => {
-    await ctx.runMutation(internal.vault.cloudflareMutations.attachWorkerConvexProjectDependency, {
-      ...args,
-      userId: ctx.viewer.userId,
-    });
-    return null;
-  },
-});
-
-export const removeConvexProjectDependency = action({
-  access: "access_app_create",
-  args: {
-    vaultId: id("vaults"),
-    dependencyId: id("vaultWorkerConvexProjectDependencies"),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args): Promise<null> => {
-    await ctx.runMutation(internal.vault.cloudflareMutations.removeWorkerConvexProjectDependency, {
-      ...args,
-      userId: ctx.viewer.userId,
-    });
     return null;
   },
 });

@@ -153,13 +153,6 @@ const vUserVaultsResult = array(
         projectId: string(),
       }),
     ),
-    workerConvexProjectDependencies: array(
-      object({
-        dependencyId: id("vaultWorkerConvexProjectDependencies"),
-        workerId: id("vaultCloudflareWorkers"),
-        convexProjectId: id("vaultConvexProjects"),
-      }),
-    ),
   }),
 );
 
@@ -183,7 +176,7 @@ export const getUserVaultsContract = {
     inputDescriptions: {},
   } satisfies AppFunctionMcpMetadata,
   doc: `Returns every vault the authenticated account can see. Provider resources are stable
-identities and explicit relationships only. Current Cloudflare and Convex state is intentionally
+identities only. Current Cloudflare and Convex state, including the Worker-to-project marker, is
 loaded from those providers when a relevant view opens; it is not mirrored by this query.`,
 } as const;
 

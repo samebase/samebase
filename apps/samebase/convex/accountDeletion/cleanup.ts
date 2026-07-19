@@ -56,7 +56,6 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   vaultApps: "vault_local",
   vaultCloudflareWorkers: "vault_local",
   vaultConvexProjects: "vault_local",
-  vaultWorkerConvexProjectDependencies: "vault_local",
   observations_vaultConvexSchema_snapshots: "vault_local",
   ui_vaultConvexSchemaGraph_nodeLayouts: "vault_local",
   observations_vaultRepository_branches: "vault_local",
@@ -398,7 +397,6 @@ function vaultCleanupPhase(
     case "vaultDomains":
     case "vaultApps":
     case "vaultConvexProjects":
-    case "vaultWorkerConvexProjectDependencies":
     case "observations_vaultConvexSchema_snapshots":
     case "ui_vaultConvexSchemaGraph_nodeLayouts":
     case "vaultCloudflareWorkers":

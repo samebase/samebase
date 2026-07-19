@@ -7,6 +7,7 @@ const { array, id, object, string } = v;
 
 const vVaultProviderObservationContext = object({
   ghRepoId: string(),
+  defaultBranch: string(),
   cloudflareWorkers: array(
     object({
       workerId: id("vaultCloudflareWorkers"),
@@ -24,9 +25,7 @@ const vVaultProviderObservationContext = object({
     }),
   ),
 });
-export type VaultProviderObservationContext = Infer<
-  typeof vVaultProviderObservationContext
->;
+export type VaultProviderObservationContext = Infer<typeof vVaultProviderObservationContext>;
 
 export const readVaultProviderObservationContext = internalQuery({
   args: {
@@ -57,6 +56,7 @@ export const readVaultProviderObservationContext = internalQuery({
 
     return {
       ghRepoId: vault.ghRepoId,
+      defaultBranch: vault.defaultBranch,
       cloudflareWorkers: workers
         .map((worker) => {
           const app = appsById.get(worker.appId);
