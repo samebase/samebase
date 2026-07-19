@@ -450,7 +450,7 @@ export const cloudflareWireConvexBuildAccessTool = internalAction({
     }
 
     try {
-      await wireCloudflareConvexBuildAccessForUser(ctx, wireArgs);
+      await wireCloudflareConvexBuildAccessForUser(ctx, wireArgs, { state: "configure" });
       return {
         status: "ok",
         text: "Configured Convex build access.",

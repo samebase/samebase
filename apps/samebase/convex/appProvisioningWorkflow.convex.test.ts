@@ -1,7 +1,60 @@
-import { describe, expect, it } from "vite-plus/test";
+import { v } from "convex/values";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
+import { internalAction } from "./_generated/server";
 import { makeConvexTest } from "./test.setup";
+
+const workflowCloudflareActions = vi.hoisted(() => {
+  const build = {
+    production: { triggerUuid: "production-trigger" },
+    preview: { triggerUuid: "preview-trigger" },
+  };
+  return {
+    build,
+    wireBuilds: vi.fn(async (_args: unknown) => build),
+    wireConvexBuildAccess: vi.fn(async (_args: unknown) => null),
+  };
+});
+
+vi.mock("./vault/cloudflare", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./vault/cloudflare")>();
+  const { id, null: nullValue, object, string } = v;
+  const preparedBuilds = object({
+    production: object({ triggerUuid: string() }),
+    preview: object({ triggerUuid: string() }),
+  });
+  return {
+    ...actual,
+    wireBuildsForWorkflow: internalAction({
+      args: {
+        vaultId: id("vaults"),
+        runId: id("workflow_vaultProvisioning_runs"),
+        userId: id("users"),
+        workerId: id("vaultCloudflareWorkers"),
+      },
+      returns: preparedBuilds,
+      handler: async (_ctx, args) => {
+        return await workflowCloudflareActions.wireBuilds(args);
+      },
+    }),
+    wireConvexBuildAccessForWorkflow: internalAction({
+      args: {
+        vaultId: id("vaults"),
+        runId: id("workflow_vaultProvisioning_runs"),
+        userId: id("users"),
+        workerId: id("vaultCloudflareWorkers"),
+        convexProjectId: id("vaultConvexProjects"),
+        build: preparedBuilds,
+      },
+      returns: nullValue(),
+      handler: async (_ctx, args): Promise<null> => {
+        await workflowCloudflareActions.wireConvexBuildAccess(args);
+        return null;
+      },
+    }),
+  };
+});
 
 async function createComposedVault() {
   const t = makeConvexTest();
@@ -73,7 +126,42 @@ async function createComposedVault() {
   return { ids, t };
 }
 
+async function attachComposedResources({
+  ids,
+  t,
+}: Awaited<ReturnType<typeof createComposedVault>>) {
+  return await t.run(async (ctx) => {
+    const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      appId: ids.appId,
+      teamId: "convex-team",
+      projectId: "convex-project",
+      origin: "provisioned",
+      createdAt: 40,
+    });
+    const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      appId: ids.appId,
+      accountId: "cloudflare-account",
+      workerName: "composed-app",
+      workerTag: "composed-worker-tag",
+      origin: "provisioned",
+      createdAt: 50,
+    });
+    return { convexProjectId, workerId };
+  });
+}
+
 describe("app provisioning workflow composition", () => {
+  beforeEach(() => {
+    workflowCloudflareActions.wireBuilds.mockReset();
+    workflowCloudflareActions.wireBuilds.mockResolvedValue(workflowCloudflareActions.build);
+    workflowCloudflareActions.wireConvexBuildAccess.mockReset();
+    workflowCloudflareActions.wireConvexBuildAccess.mockResolvedValue(null);
+  });
+
   it("maps the legacy root plan to the repository-root app and reads attachments", async () => {
     const { ids, t } = await createComposedVault();
 
@@ -86,37 +174,17 @@ describe("app provisioning workflow composition", () => {
       appId: ids.appId,
       appRoot: ".",
       convex: {
+        state: "missing",
         projectName: "composed-app",
-        attached: false,
       },
       cloudflare: {
+        state: "missing",
         accountId: "cloudflare-account",
         workerName: "composed-app",
-        attached: false,
       },
     });
 
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultConvexProjects", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appId: ids.appId,
-        teamId: "convex-team",
-        projectId: "convex-project",
-        origin: "provisioned",
-        createdAt: 40,
-      });
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appId: ids.appId,
-        accountId: "cloudflare-account",
-        workerName: "composed-app",
-        workerTag: "composed-worker-tag",
-        origin: "provisioned",
-        createdAt: 50,
-      });
-    });
+    const attachments = await attachComposedResources({ ids, t });
 
     await expect(
       t.query(internal.appProvisioningWorkflow.readComposedInfrastructureState, {
@@ -124,9 +192,95 @@ describe("app provisioning workflow composition", () => {
         vaultId: ids.vaultId,
       }),
     ).resolves.toMatchObject({
-      convex: { attached: true },
-      cloudflare: { attached: true },
+      convex: { state: "attached", convexProjectId: attachments.convexProjectId },
+      cloudflare: { state: "attached", workerId: attachments.workerId },
     });
+  });
+
+  it("wires Builds and Convex access before completing managed infrastructure", async () => {
+    const { ids, t } = await createComposedVault();
+    const attachments = await attachComposedResources({ ids, t });
+    vi.useFakeTimers();
+    try {
+      await t.mutation(internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      });
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(workflowCloudflareActions.wireBuilds).toHaveBeenCalledWith({
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      userId: ids.userId,
+      workerId: attachments.workerId,
+    });
+    expect(workflowCloudflareActions.wireConvexBuildAccess).toHaveBeenCalledWith({
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      userId: ids.userId,
+      workerId: attachments.workerId,
+      convexProjectId: attachments.convexProjectId,
+      build: workflowCloudflareActions.build,
+    });
+    expect(workflowCloudflareActions.wireBuilds.mock.invocationCallOrder[0]).toBeLessThan(
+      workflowCloudflareActions.wireConvexBuildAccess.mock.invocationCallOrder[0],
+    );
+
+    const result = await t.run(async (ctx) => {
+      const events = await ctx.db
+        .query("workflow_vaultProvisioning_events")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+      return {
+        run: await ctx.db.get(ids.runId),
+        steps: events.map((event) => event.step),
+      };
+    });
+    expect(result.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    expect(result.steps).toEqual([
+      "claim_infra",
+      "claim_infra",
+      "wire_builds",
+      "wire_convex_build_access",
+      "finish",
+    ]);
+  });
+
+  it("does not report success when Convex build access wiring fails", async () => {
+    const { ids, t } = await createComposedVault();
+    await attachComposedResources({ ids, t });
+    workflowCloudflareActions.wireConvexBuildAccess.mockRejectedValueOnce(
+      new Error("Could not set build variables."),
+    );
+    vi.useFakeTimers();
+    try {
+      await t.mutation(internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      });
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const result = await t.run(async (ctx) => {
+      const events = await ctx.db
+        .query("workflow_vaultProvisioning_events")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+      return {
+        run: await ctx.db.get(ids.runId),
+        steps: events.map((event) => event.step),
+      };
+    });
+    expect(result.run).toMatchObject({
+      state: "failed",
+      currentStep: "wire_convex_build_access",
+    });
+    expect(result.steps).not.toContain("finish");
   });
 
   it("never takes an active provisioning lock from another run", async () => {
@@ -159,11 +313,12 @@ describe("app provisioning workflow composition", () => {
     ).resolves.toEqual({ claimed: false });
 
     await expect(
-      t.run(async (ctx) =>
-        await ctx.db
-          .query("workflow_vaultProvisioning_writeLocks")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .unique(),
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+            .unique(),
       ),
     ).resolves.toMatchObject({ runId: ids.runId, state: "active" });
   });

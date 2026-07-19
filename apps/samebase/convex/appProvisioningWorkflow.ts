@@ -11,7 +11,7 @@ import { ROOT_VAULT_APP_ROOT } from "../shared/vaultAppRoot";
 import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "../shared/vaultRootDirectory";
 
 const workflow = new WorkflowManager(components.workflow);
-const { boolean, id, null: nullValue, object, string } = v;
+const { boolean, id, literal, null: nullValue, object, string, union } = v;
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
   initialBackoffMs: 1_000,
@@ -25,17 +25,37 @@ const createAppDescription = v.union(string(), v.null());
 const composedInfrastructureState = object({
   appId: id("vaultApps"),
   appRoot: string(),
-  convex: object({
-    projectName: string(),
-    attached: boolean(),
-  }),
-  cloudflare: object({
-    accountId: string(),
-    workerName: string(),
-    attached: boolean(),
-  }),
+  convex: union(
+    object({
+      state: literal("missing"),
+      projectName: string(),
+    }),
+    object({
+      state: literal("attached"),
+      projectName: string(),
+      convexProjectId: id("vaultConvexProjects"),
+    }),
+  ),
+  cloudflare: union(
+    object({
+      state: literal("missing"),
+      accountId: string(),
+      workerName: string(),
+    }),
+    object({
+      state: literal("attached"),
+      accountId: string(),
+      workerName: string(),
+      workerId: id("vaultCloudflareWorkers"),
+    }),
+  ),
 });
 type ComposedInfrastructureState = Infer<typeof composedInfrastructureState>;
+const composedCloudflareBuilds = object({
+  production: object({ triggerUuid: string() }),
+  preview: object({ triggerUuid: string() }),
+});
+type ComposedCloudflareBuilds = Infer<typeof composedCloudflareBuilds>;
 const composedInfrastructureRetryContext = object({
   userId: id("users"),
 });
@@ -102,15 +122,28 @@ export const readComposedInfrastructureState = internalQuery({
     return {
       appId: app._id,
       appRoot: plan.appRoot,
-      convex: {
-        projectName: plan.convex.projectName,
-        attached: convexProject !== null,
-      },
-      cloudflare: {
-        accountId: plan.cloudflare.accountId,
-        workerName: plan.cloudflare.workerName,
-        attached: worker !== null,
-      },
+      convex: convexProject
+        ? {
+            state: "attached",
+            projectName: plan.convex.projectName,
+            convexProjectId: convexProject._id,
+          }
+        : {
+            state: "missing",
+            projectName: plan.convex.projectName,
+          },
+      cloudflare: worker
+        ? {
+            state: "attached",
+            accountId: plan.cloudflare.accountId,
+            workerName: plan.cloudflare.workerName,
+            workerId: worker._id,
+          }
+        : {
+            state: "missing",
+            accountId: plan.cloudflare.accountId,
+            workerName: plan.cloudflare.workerName,
+          },
     };
   },
 });
@@ -171,11 +204,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
-    if (
-      writeLock &&
-      writeLock.state === "active" &&
-      writeLock.runId !== args.runId
-    ) {
+    if (writeLock && writeLock.state === "active" && writeLock.runId !== args.runId) {
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId: args.runId,
         step: "claim_infra",
@@ -320,13 +349,13 @@ async function runComposedConvexAttachment(
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
-): Promise<void> {
-  if (args.state.convex.attached) {
-    return;
+): Promise<Id<"vaultConvexProjects">> {
+  if (args.state.convex.state === "attached") {
+    return args.state.convex.convexProjectId;
   }
 
   try {
-    await step.runAction(
+    return await step.runAction(
       internal.vault.convex.ensureConvexProjectConnection,
       {
         vaultId: args.vaultId,
@@ -358,13 +387,13 @@ async function runComposedCloudflareAttachment(
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
-): Promise<void> {
-  if (args.state.cloudflare.attached) {
-    return;
+): Promise<Id<"vaultCloudflareWorkers">> {
+  if (args.state.cloudflare.state === "attached") {
+    return args.state.cloudflare.workerId;
   }
 
   try {
-    await step.runAction(
+    return await step.runAction(
       internal.vault.cloudflare.ensureCloudflareWorkerConnection,
       {
         vaultId: args.vaultId,
@@ -380,6 +409,70 @@ async function runComposedCloudflareAttachment(
     await markComposedInfrastructureRunFailed(step, {
       runId: args.parentRunId,
       name: "mark_attach_worker_failed",
+      error,
+    });
+    throw error;
+  }
+}
+
+async function runComposedCloudflareBuildsWiring(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    parentRunId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    workerId: Id<"vaultCloudflareWorkers">;
+  },
+): Promise<ComposedCloudflareBuilds> {
+  try {
+    return await step.runAction(
+      internal.vault.cloudflare.wireBuildsForWorkflow,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        workerId: args.workerId,
+      },
+      { name: "wire_builds", retry: false },
+    );
+  } catch (error) {
+    await markComposedInfrastructureRunFailed(step, {
+      runId: args.parentRunId,
+      name: "mark_wire_builds_failed",
+      error,
+    });
+    throw error;
+  }
+}
+
+async function runComposedCloudflareConvexBuildAccessWiring(
+  step: WorkflowCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    parentRunId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    workerId: Id<"vaultCloudflareWorkers">;
+    convexProjectId: Id<"vaultConvexProjects">;
+    build: ComposedCloudflareBuilds;
+  },
+): Promise<void> {
+  try {
+    await step.runAction(
+      internal.vault.cloudflare.wireConvexBuildAccessForWorkflow,
+      {
+        vaultId: args.vaultId,
+        runId: args.parentRunId,
+        userId: args.userId,
+        workerId: args.workerId,
+        convexProjectId: args.convexProjectId,
+        build: args.build,
+      },
+      { name: "wire_convex_build_access", retry: false },
+    );
+  } catch (error) {
+    await markComposedInfrastructureRunFailed(step, {
+      runId: args.parentRunId,
+      name: "mark_wire_convex_build_access_failed",
       error,
     });
     throw error;
@@ -412,14 +505,14 @@ async function runComposedInfrastructure(
     return;
   }
 
-  if (!initialState.convex.attached) {
+  if (initialState.convex.state === "missing") {
     await appendComposedInfrastructureParentEvent(step, {
       runId: args.parentRunId,
       step: "attach_convex",
       message: "Attaching Convex project.",
     });
   }
-  await runComposedConvexAttachment(step, {
+  const convexProjectId = await runComposedConvexAttachment(step, {
     vaultId: args.vaultId,
     parentRunId: args.parentRunId,
     userId: args.userId,
@@ -431,18 +524,44 @@ async function runComposedInfrastructure(
     userId: args.userId,
     name: "read_infra_after_convex",
   });
-  if (!afterConvex.cloudflare.attached) {
+  if (afterConvex.cloudflare.state === "missing") {
     await appendComposedInfrastructureParentEvent(step, {
       runId: args.parentRunId,
       step: "attach_worker",
       message: "Attaching Cloudflare Worker.",
     });
   }
-  await runComposedCloudflareAttachment(step, {
+  const workerId = await runComposedCloudflareAttachment(step, {
     vaultId: args.vaultId,
     parentRunId: args.parentRunId,
     userId: args.userId,
     state: afterConvex,
+  });
+
+  await appendComposedInfrastructureParentEvent(step, {
+    runId: args.parentRunId,
+    step: "wire_builds",
+    message: "Connecting Cloudflare Builds to GitHub.",
+  });
+  const build = await runComposedCloudflareBuildsWiring(step, {
+    vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
+    userId: args.userId,
+    workerId,
+  });
+
+  await appendComposedInfrastructureParentEvent(step, {
+    runId: args.parentRunId,
+    step: "wire_convex_build_access",
+    message: "Setting Convex deploy keys.",
+  });
+  await runComposedCloudflareConvexBuildAccessWiring(step, {
+    vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
+    userId: args.userId,
+    workerId,
+    convexProjectId,
+    build,
   });
 
   await step.runMutation(
@@ -460,7 +579,7 @@ async function runComposedInfrastructure(
       runId: args.parentRunId,
       step: "finish",
       level: "info",
-      message: "App provider resources are attached.",
+      message: "App provider resources are attached and configured.",
       state: "succeeded",
     },
     { name: "finish_composed_infra" },

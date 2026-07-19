@@ -50,7 +50,7 @@ import { cloudflareConnectExistingWorkerContract } from "./contracts/cloudflareC
 import { cloudflareWireBuildsContract } from "./contracts/cloudflareWireBuilds";
 import { cloudflareWireConvexBuildAccessContract } from "./contracts/cloudflareWireConvexBuildAccess";
 
-const { id, null: nullValue, string } = v;
+const { id, null: nullValue, object, string } = v;
 
 type CloudflareAccountResult = Infer<typeof vCloudflareAccountResult>;
 type CloudflareWorkerResult = Infer<typeof vCloudflareWorkerResult>;
@@ -74,6 +74,15 @@ type CloudflareActionConnection = {
   transport: CloudflareApiTransport;
   tokenHealth?: McpTokenHealth;
 };
+
+const vPreparedCloudflareWorkerBuilds = object({
+  production: object({ triggerUuid: string() }),
+  preview: object({ triggerUuid: string() }),
+});
+type PreparedCloudflareWorkerBuilds = Infer<typeof vPreparedCloudflareWorkerBuilds>;
+type CloudflareWorkerBuildPreparation =
+  | { state: "configure" }
+  | { state: "prepared"; build: PreparedCloudflareWorkerBuilds };
 
 async function resolveCloudflareConnection(
   ctx: Pick<ActionCtx, "runAction">,
@@ -366,9 +375,13 @@ async function wireBuildsForWorker(
     workerId: Id<"vaultCloudflareWorkers">;
     triggerInitialBuild: boolean;
   },
-): Promise<void> {
+): Promise<PreparedCloudflareWorkerBuilds> {
   const context = await readWorkerConfigurationContext(ctx, args);
-  await wireBuildsForWorkerContext(ctx, args, context);
+  const { build } = await wireBuildsForWorkerContext(ctx, args, context);
+  return {
+    production: { triggerUuid: build.production.triggerUuid },
+    preview: { triggerUuid: build.preview.triggerUuid },
+  };
 }
 
 export async function wireCloudflareConvexBuildAccessForUser(
@@ -379,6 +392,7 @@ export async function wireCloudflareConvexBuildAccessForUser(
     workerId: Id<"vaultCloudflareWorkers">;
     convexProjectId: Id<"vaultConvexProjects">;
   },
+  buildPreparation: CloudflareWorkerBuildPreparation,
 ): Promise<void> {
   const context = await readWorkerConvexProjectConfigurationContext(ctx, args);
   const project = context.convexProject;
@@ -393,11 +407,23 @@ export async function wireCloudflareConvexBuildAccessForUser(
   if (!deployment) {
     throw new Error("The selected Convex project has no production deployment.");
   }
-  const { build, connection } = await wireBuildsForWorkerContext(
-    ctx,
-    { userId: args.userId, vaultId: args.vaultId, triggerInitialBuild: false },
-    context,
-  );
+  let build: PreparedCloudflareWorkerBuilds;
+  let connection: CloudflareActionConnection;
+  if (buildPreparation.state === "configure") {
+    ({ build, connection } = await wireBuildsForWorkerContext(
+      ctx,
+      { userId: args.userId, vaultId: args.vaultId, triggerInitialBuild: false },
+      context,
+    ));
+  } else {
+    build = buildPreparation.build;
+    connection = await resolveCloudflareConnection(ctx, args.userId);
+    await resolveAccount({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: context.accountId,
+    });
+  }
 
   const keyName = `samebase-${vaultSuffix(args.vaultId)}-${vaultSuffix(args.workerId)}`;
   const productionKeyName = `${keyName}-production`;
@@ -603,10 +629,14 @@ export const wireConvexBuildAccess = action({
   returns: cloudflareWireConvexBuildAccessContract.returns,
   mcp: cloudflareWireConvexBuildAccessContract.mcp,
   handler: async (ctx, args): Promise<null> => {
-    await wireCloudflareConvexBuildAccessForUser(ctx, {
-      ...args,
-      userId: ctx.viewer.userId,
-    });
+    await wireCloudflareConvexBuildAccessForUser(
+      ctx,
+      {
+        ...args,
+        userId: ctx.viewer.userId,
+      },
+      { state: "configure" },
+    );
     return null;
   },
 });
@@ -621,9 +651,54 @@ export const ensureCloudflareWorkerConnection = internalAction({
     accountId: string(),
     workerName: string(),
   },
+  returns: id("vaultCloudflareWorkers"),
+  handler: async (
+    ctx,
+    { vaultId, userId, appId, accountId, workerName },
+  ): Promise<Id<"vaultCloudflareWorkers">> => {
+    return await createWorkerForUser(ctx, { vaultId, userId, appId, accountId, workerName });
+  },
+});
+
+export const wireBuildsForWorkflow = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("workflow_vaultProvisioning_runs"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+  },
+  returns: vPreparedCloudflareWorkerBuilds,
+  handler: async (ctx, { vaultId, userId, workerId }): Promise<PreparedCloudflareWorkerBuilds> => {
+    return await wireBuildsForWorker(ctx, {
+      vaultId,
+      userId,
+      workerId,
+      triggerInitialBuild: false,
+    });
+  },
+});
+
+export const wireConvexBuildAccessForWorkflow = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("workflow_vaultProvisioning_runs"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    convexProjectId: id("vaultConvexProjects"),
+    build: vPreparedCloudflareWorkerBuilds,
+  },
   returns: nullValue(),
-  handler: async (ctx, { vaultId, userId, appId, accountId, workerName }): Promise<null> => {
-    await createWorkerForUser(ctx, { vaultId, userId, appId, accountId, workerName });
+  handler: async (ctx, { vaultId, userId, workerId, convexProjectId, build }): Promise<null> => {
+    await wireCloudflareConvexBuildAccessForUser(
+      ctx,
+      {
+        vaultId,
+        userId,
+        workerId,
+        convexProjectId,
+      },
+      { state: "prepared", build },
+    );
     return null;
   },
 });

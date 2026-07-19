@@ -1809,7 +1809,10 @@ type WireCloudflareWorkerConvexBuildAccessArgs = {
   cloudflareToken: string;
   cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
-  build: Pick<CloudflareWorkersBuilds, "production" | "preview">;
+  build: {
+    production: { triggerUuid: string };
+    preview: { triggerUuid: string };
+  };
   convex: CloudflareProvisionConvexState;
   convexProject: SamebaseConvexProjectReference;
   recordApiCall?: ProviderApiCallRecorder;

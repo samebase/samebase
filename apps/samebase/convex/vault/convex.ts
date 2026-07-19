@@ -238,26 +238,24 @@ export const ensureConvexProjectConnection = internalAction({
     userId: id("users"),
     target: vVaultConvexProjectConnectionTarget,
   },
-  returns: nullValue(),
-  handler: async (ctx, { vaultId, userId, target }): Promise<null> => {
+  returns: id("vaultConvexProjects"),
+  handler: async (ctx, { vaultId, userId, target }): Promise<Id<"vaultConvexProjects">> => {
     switch (target.mode) {
       case "connect_existing_project": {
-        await connectExistingConvexProjectForUser(ctx, {
+        return await connectExistingConvexProjectForUser(ctx, {
           vaultId,
           userId,
           appId: target.appId,
           projectId: target.projectId,
         });
-        return null;
       }
       case "create_project": {
-        await createProjectForUser(ctx, {
+        return await createProjectForUser(ctx, {
           vaultId,
           userId,
           appId: target.appId,
           projectName: target.projectName,
         });
-        return null;
       }
     }
     target satisfies never;

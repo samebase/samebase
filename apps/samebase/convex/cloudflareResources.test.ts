@@ -909,11 +909,9 @@ describe("cloudflare resources", () => {
       build: {
         production: {
           triggerUuid: "production-trigger",
-          buildTokenUuid: "build-token",
         },
         preview: {
           triggerUuid: "preview-trigger",
-          buildTokenUuid: "build-token",
         },
       },
       convex: {
@@ -1022,11 +1020,9 @@ describe("cloudflare resources", () => {
         build: {
           production: {
             triggerUuid: "production-trigger",
-            buildTokenUuid: "build-token",
           },
           preview: {
             triggerUuid: "preview-trigger",
-            buildTokenUuid: "build-token",
           },
         },
         convex: {
@@ -1098,11 +1094,9 @@ describe("cloudflare resources", () => {
         build: {
           production: {
             triggerUuid: "production-trigger",
-            buildTokenUuid: "build-token",
           },
           preview: {
             triggerUuid: "preview-trigger",
-            buildTokenUuid: "build-token",
           },
         },
         convex: {
