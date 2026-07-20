@@ -7,7 +7,10 @@ import type {
   VaultResourceRailState,
 } from "./VaultResourceRail";
 import type {
+  VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerObservation,
+  VaultCloudflareWorkerBuildsObservation,
+  VaultCloudflareWorkerConvexBuildAccessObservation,
   VaultConvexProjectObservation,
   VaultProviderObservationState,
 } from "./useVaultProviderObservations";
@@ -111,7 +114,7 @@ function buildRemoveMissingAttachmentAction(args: {
 }
 
 function formatCloudflareRepositoryState(
-  observation: Extract<VaultCloudflareWorkerObservation, { state: "available" }>,
+  observation: Extract<VaultCloudflareWorkerBuildsObservation, { state: "available" }>,
 ): { description?: string; canConnect: boolean } {
   const evidence = observation.repository.evidence;
   switch (evidence.state) {
@@ -240,17 +243,14 @@ function formatCloudflareConvexBuildAccessState({
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
-  observation: Extract<VaultCloudflareWorkerObservation, { state: "available" }>;
+  observation: Extract<VaultCloudflareWorkerConvexBuildAccessObservation, { state: "available" }>;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
   workerId: Id<"vaultCloudflareWorkers">;
 }): { actions?: VaultResourceRailActionList; description?: string } {
-  if (observation.builds.state === "not_connected") {
-    return {};
-  }
-  const access = observation.builds.convexBuildAccess;
+  const access = observation.convexBuildAccess;
   if (access.state === "configured" && access.convexProject.state === "attached") {
     return {
       description: `Convex deploy keys use ${access.convexProject.projectId}.`,
@@ -312,7 +312,7 @@ function buildCloudflareRow({
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
-  observationState: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
+  observationState: VaultCloudflareProviderObservationState;
   removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -325,23 +325,23 @@ function buildCloudflareRow({
     rowId: `cloudflare:${worker.workerId}`,
     value: worker.workerName,
   };
-  if (observationState.state === "loading") {
+  if (observationState.workers.state === "loading") {
     return {
       ...base,
       status: "loading",
       description: "Loading from Cloudflare...",
     };
   }
-  if (observationState.state === "failed") {
+  if (observationState.workers.state === "failed") {
     return {
       ...base,
       status: "failed",
       description: "Could not load from Cloudflare.",
-      actions: [buildReloadAction(observationState.reload)],
+      actions: [buildReloadAction(observationState.workers.reload)],
     };
   }
 
-  const observation = observationState.observations.find(
+  const observation = observationState.workers.observations.find(
     (candidate) => candidate.workerId === worker.workerId,
   );
   if (!observation) {
@@ -349,7 +349,7 @@ function buildCloudflareRow({
       ...base,
       status: "failed",
       description: "Could not load this Worker.",
-      actions: [buildReloadAction(observationState.reload)],
+      actions: [buildReloadAction(observationState.workers.reload)],
     };
   }
   switch (observation.state) {
@@ -376,20 +376,48 @@ function buildCloudflareRow({
           observation.reason === "connection_required"
             ? "Connect Cloudflare to load this Worker."
             : "Could not load from Cloudflare.",
-        actions: [buildReloadAction(observationState.reload)],
+        actions: [buildReloadAction(observationState.workers.reload)],
       };
     case "available": {
-      const repositoryState = formatCloudflareRepositoryState(observation);
-      const convexBuildAccessState = formatCloudflareConvexBuildAccessState({
-        convexProjects,
-        isRotatingConvexDeployKeysForWorkersBuilds,
-        observation,
-        rotateConvexDeployKeysForWorkersBuildsOnClick,
-        workerId: worker.workerId,
-      });
-      const isConfiguring = isConfiguringWorkersBuildsForGitHub?.(worker.workerId) ?? false;
-      const actions: VaultResourceRailActionList | undefined = repositoryState.canConnect
-        ? [
+      const availableBase = {
+        ...base,
+        status: "available" as const,
+        href: buildCloudflareDashboardUrl(worker),
+        scope: resolveCloudflareWorkersSubdomain(observation, worker.workerName),
+      };
+      const previewDescription = formatCloudflarePreviewState(observation);
+      if (observationState.builds.state === "loading") {
+        return {
+          ...availableBase,
+          description: previewDescription,
+          loadingDescription: "Loading Workers Builds...",
+        };
+      }
+      if (observationState.builds.state === "failed") {
+        return {
+          ...availableBase,
+          actions: [buildReloadAction(observationState.builds.reload)],
+          description: joinDescriptions(previewDescription, "Could not load Workers Builds."),
+        };
+      }
+
+      const buildsObservation = observationState.builds.observations.find(
+        (candidate) => candidate.workerId === worker.workerId,
+      );
+      if (!buildsObservation || buildsObservation.state === "failed") {
+        return {
+          ...availableBase,
+          actions: [buildReloadAction(observationState.builds.reload)],
+          description: joinDescriptions(previewDescription, "Could not load Workers Builds."),
+        };
+      }
+
+      const repositoryState = formatCloudflareRepositoryState(buildsObservation);
+      if (repositoryState.canConnect) {
+        const isConfiguring = isConfiguringWorkersBuildsForGitHub?.(worker.workerId) ?? false;
+        return {
+          ...availableBase,
+          actions: [
             {
               kind: "connect",
               label: isConfiguring
@@ -400,19 +428,65 @@ function buildCloudflareRow({
                 ? () => configureWorkersBuildsForGitHubOnClick(worker.workerId)
                 : undefined,
             },
-          ]
-        : convexBuildAccessState.actions;
+          ],
+          description: joinDescriptions(previewDescription, repositoryState.description),
+        };
+      }
+      if (buildsObservation.builds.state === "not_connected") {
+        return {
+          ...availableBase,
+          description: joinDescriptions(previewDescription, repositoryState.description),
+        };
+      }
+      if (observationState.convexBuildAccess.state === "loading") {
+        return {
+          ...availableBase,
+          description: joinDescriptions(previewDescription, repositoryState.description),
+          loadingDescription: "Loading Convex deploy keys...",
+        };
+      }
+      if (observationState.convexBuildAccess.state === "failed") {
+        return {
+          ...availableBase,
+          actions: [buildReloadAction(observationState.convexBuildAccess.reload)],
+          description: joinDescriptions(
+            previewDescription,
+            repositoryState.description,
+            "Could not load Convex deploy keys.",
+          ),
+        };
+      }
+
+      const buildAccessObservation = observationState.convexBuildAccess.observations.find(
+        (candidate) => candidate.workerId === worker.workerId,
+      );
+      if (!buildAccessObservation || buildAccessObservation.state === "failed") {
+        return {
+          ...availableBase,
+          actions: [buildReloadAction(observationState.convexBuildAccess.reload)],
+          description: joinDescriptions(
+            previewDescription,
+            repositoryState.description,
+            "Could not load Convex deploy keys.",
+          ),
+        };
+      }
+
+      const convexBuildAccessState = formatCloudflareConvexBuildAccessState({
+        convexProjects,
+        isRotatingConvexDeployKeysForWorkersBuilds,
+        observation: buildAccessObservation,
+        rotateConvexDeployKeysForWorkersBuildsOnClick,
+        workerId: worker.workerId,
+      });
       return {
-        ...base,
-        status: "available",
-        actions,
+        ...availableBase,
+        actions: convexBuildAccessState.actions,
         description: joinDescriptions(
-          formatCloudflarePreviewState(observation),
+          previewDescription,
           repositoryState.description,
           convexBuildAccessState.description,
         ),
-        href: buildCloudflareDashboardUrl(worker),
-        scope: resolveCloudflareWorkersSubdomain(observation, worker.workerName),
       };
     }
   }
@@ -537,7 +611,7 @@ function buildAppRows({
   addCloudflareWorkerOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
   buildAddConvexHref?: (rootDirectory: string) => string;
   addConvexOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
-  cloudflareObservations: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
+  cloudflareObservations: VaultCloudflareProviderObservationState;
   configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
@@ -654,7 +728,7 @@ export function buildVaultDashboardResourceRailState({
   configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   buildAddAppRootHref?: () => string;
   addAppRootOnClick?: () => void;
-  cloudflareObservations: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
+  cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   githubRepositoryUrl: string;
   isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;

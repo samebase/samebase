@@ -148,7 +148,7 @@ import {
 } from "@/components/vault-dashboard/vaultProductionApps";
 import {
   useVaultProviderObservations,
-  type VaultCloudflareWorkerObservation,
+  type VaultCloudflareProviderObservationState,
   type VaultConvexProjectObservation,
   type VaultProviderObservationState,
 } from "@/components/vault-dashboard/useVaultProviderObservations";
@@ -2936,7 +2936,7 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
 type VaultDashboardViewProps = {
   deleteModeActive: boolean;
   developerToolsVisible: boolean;
-  cloudflareObservations: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
+  cloudflareObservations: VaultCloudflareProviderObservationState;
   cloudflareWorkerConfigurationActionInFlight: CloudflareWorkerConfigurationActionInFlight | null;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isRemovingVault: boolean;
@@ -4470,8 +4470,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       });
     } finally {
       setCloudflareWorkerConfigurationActionInFlight(null);
-      if (providerObservations.cloudflare.state !== "loading") {
-        providerObservations.cloudflare.reload();
+      if (providerObservations.cloudflare.builds.state !== "loading") {
+        providerObservations.cloudflare.builds.reload();
       }
     }
   };
@@ -4501,8 +4501,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       });
     } finally {
       setCloudflareWorkerConfigurationActionInFlight(null);
-      if (providerObservations.cloudflare.state !== "loading") {
-        providerObservations.cloudflare.reload();
+      if (providerObservations.cloudflare.convexBuildAccess.state !== "loading") {
+        providerObservations.cloudflare.convexBuildAccess.reload();
       }
     }
   };

@@ -111,6 +111,7 @@ const SCENARIOS = [
               scope: "samebase",
               value: "fixture-web",
               href: "https://dash.cloudflare.com/?to=/account/workers/services/view/fixture-web/production/deployments",
+              loadingDescription: "Loading Workers Builds...",
             },
             {
               provider: "cloudflare",
