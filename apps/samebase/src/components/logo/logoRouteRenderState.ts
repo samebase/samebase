@@ -180,16 +180,18 @@ function readRouteViewState({
   defaultView,
   enableViewSnapping,
   routeSearch,
+  searchDefaultView,
   snapFallbackView,
 }: {
   defaultView: LogoViewState;
   enableViewSnapping: boolean;
   routeSearch: LogoIsoRouteSearch;
+  searchDefaultView: LogoViewState;
   snapFallbackView: boolean;
 }): LogoViewState & { viewSnapEnabled: boolean } {
   const viewSnapEnabled = readRouteViewSnapEnabled(routeSearch, enableViewSnapping);
   const hasSearchView = hasRouteViewSearch(routeSearch);
-  const fallbackView = hasSearchView ? DEFAULT_LOGO_ROUTE_VIEW_STATE : defaultView;
+  const fallbackView = hasSearchView ? searchDefaultView : defaultView;
   const view = {
     elevationDegrees: readRouteElevationDegrees(routeSearch, fallbackView),
     rotationDegrees: readRouteRotationDegrees(routeSearch, fallbackView),
@@ -212,18 +214,21 @@ export function readLogoRouteRenderState({
   enableViewSnapping = true,
   renderMode = "three",
   routeSearch,
+  searchDefaultView = DEFAULT_LOGO_ROUTE_VIEW_STATE,
   snapFallbackView = true,
 }: {
   defaultView?: LogoViewState;
   enableViewSnapping?: boolean;
   renderMode?: LogoRouteRenderMode;
   routeSearch: LogoIsoRouteSearch;
+  searchDefaultView?: LogoViewState;
   snapFallbackView?: boolean;
 }): LogoRouteRenderState {
   const view = readRouteViewState({
     defaultView,
     enableViewSnapping,
     routeSearch,
+    searchDefaultView,
     snapFallbackView,
   });
   const gridSize = readRouteGridSize(routeSearch);

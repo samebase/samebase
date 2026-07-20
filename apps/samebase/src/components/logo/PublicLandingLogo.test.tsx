@@ -41,7 +41,7 @@ import { type LogoRouteSearch } from "@/routeSearch/logo";
 type MockLandingLogoSceneProps = {
   elevationDegrees: number;
   onInteractionStart?: () => void;
-  onInteractionEnd?: () => void;
+  onInteractionEnd?: (finalView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onRenderReady?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   presentationTiltTarget?: LogoPresentationTiltTarget;
@@ -464,7 +464,10 @@ describe("PublicLandingLogo", () => {
     });
 
     await act(async () => {
-      sceneProps.onInteractionEnd?.();
+      sceneProps.onInteractionEnd?.({
+        elevationDegrees: 0,
+        rotationDegrees: 0,
+      });
     });
 
     const replacedSearch = replacedSearches[0];
@@ -480,6 +483,90 @@ describe("PublicLandingLogo", () => {
     }
     expect(finalSceneProps.elevationDegrees).toBe(0);
     expect(finalSceneProps.rotationDegrees).toBe(0);
+  });
+
+  it("writes both custom-default view axes after a horizontal drag", async () => {
+    installImmediateIdleCallback();
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+    const replacedSearches: LogoRouteSearch[] = [];
+    function renderLogo(routeSearch: LogoRouteSearch) {
+      localRoot.render(
+        <PublicLandingLogo
+          defaultView={{ elevationDegrees: 0, rotationDegrees: 0 }}
+          replaceRouteSearch={(nextSearch) => {
+            replacedSearches.push(nextSearch);
+            flushSync(() => {
+              renderLogo(nextSearch);
+            });
+          }}
+          routeSearch={routeSearch}
+        />,
+      );
+    }
+
+    await act(async () => {
+      renderLogo({});
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const draggedView = {
+      elevationDegrees: 0,
+      rotationDegrees: 5.6,
+    };
+    const sceneProps = latestLandingLogoSceneProps.current;
+    if (sceneProps === null) {
+      throw new Error("Expected mocked logo scene props before horizontal drag.");
+    }
+
+    await act(async () => {
+      sceneProps.onViewChange(draggedView);
+    });
+    await act(async () => {
+      sceneProps.onInteractionEnd?.(draggedView);
+    });
+
+    expect(replacedSearches[0]).toMatchObject({
+      elev: 0,
+      rot: 5.6,
+    });
+    const finalSceneProps = latestLandingLogoSceneProps.current;
+    if (finalSceneProps === null) {
+      throw new Error("Expected mocked logo scene props after horizontal drag.");
+    }
+    expect(finalSceneProps.elevationDegrees).toBe(0);
+    expect(finalSceneProps.rotationDegrees).toBe(5.6);
+  });
+
+  it("uses the supplied view default for a missing route axis", async () => {
+    installImmediateIdleCallback();
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          defaultView={{ elevationDegrees: 0, rotationDegrees: 0 }}
+          routeSearch={{ rot: 5.6 }}
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const sceneProps = latestLandingLogoSceneProps.current;
+    if (sceneProps === null) {
+      throw new Error("Expected mocked logo scene props for partial route view.");
+    }
+    expect(sceneProps.elevationDegrees).toBe(0);
+    expect(sceneProps.rotationDegrees).toBe(5.6);
   });
 
   it("keeps the shuffled voxel grid stable after a persisted view drag", async () => {
@@ -519,7 +606,10 @@ describe("PublicLandingLogo", () => {
     });
 
     await act(async () => {
-      latestLandingLogoSceneProps.current?.onInteractionEnd?.();
+      latestLandingLogoSceneProps.current?.onInteractionEnd?.({
+        elevationDegrees: 16.7,
+        rotationDegrees: 5.8,
+      });
     });
 
     expect(latestLandingLogoSceneProps.current?.voxelGrid).toBe(initialVoxelGrid);

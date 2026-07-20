@@ -45,7 +45,7 @@ import {
   type LogoRouteSearch,
 } from "@/routeSearch/logo";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
 
@@ -87,18 +87,16 @@ function buildPublicLandingLogoRouteSearch({
     rotationDegrees: view.rotationDegrees,
     themeModeSearch: routeSearch,
   });
+  const hasExplicitView =
+    nextSearch.freeView === true ||
+    view.elevationDegrees !== defaultView.elevationDegrees ||
+    view.rotationDegrees !== defaultView.rotationDegrees;
 
   return preserveLogoRouteDevModeSearch(
     {
       ...nextSearch,
-      elev:
-        view.elevationDegrees !== defaultView.elevationDegrees
-          ? Number(view.elevationDegrees.toFixed(1))
-          : undefined,
-      rot:
-        view.rotationDegrees !== defaultView.rotationDegrees
-          ? Number(view.rotationDegrees.toFixed(1))
-          : undefined,
+      elev: hasExplicitView ? Number(view.elevationDegrees.toFixed(1)) : undefined,
+      rot: hasExplicitView ? Number(view.rotationDegrees.toFixed(1)) : undefined,
     },
     routeSearch,
   );
@@ -161,9 +159,20 @@ export function PublicLandingLogo({
         },
         enableViewSnapping,
         routeSearch,
+        searchDefaultView: {
+          elevationDegrees: defaultView.elevationDegrees,
+          rotationDegrees: defaultView.rotationDegrees,
+        },
         snapFallbackView: false,
       }),
-    [defaultElevationDegrees, defaultRotationDegrees, enableViewSnapping, routeSearch],
+    [
+      defaultElevationDegrees,
+      defaultRotationDegrees,
+      defaultView.elevationDegrees,
+      defaultView.rotationDegrees,
+      enableViewSnapping,
+      routeSearch,
+    ],
   );
   const logoTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const { backgroundColor, faceColors } = logoTheme;
@@ -201,7 +210,6 @@ export function PublicLandingLogo({
     NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   );
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
   const shouldHideQuerySvgFallbackUntilSceneReady =
@@ -223,14 +231,6 @@ export function PublicLandingLogo({
     enabled: routeState.autoShuffleEnabled && !prefersReducedMotion,
     parallelMoves: routeState.shuffleParallelMoves,
   };
-  const persistLatestLogoView = useCallback(() => {
-    persistRotatedLogoViewState({
-      key: viewStateKey,
-      persistence: viewStatePersistence,
-      view: latestViewRef.current,
-    });
-  }, [viewStateKey, viewStatePersistence]);
-
   useLayoutEffect(() => {
     // The first hydrated render must keep the SSG opacity class so React does
     // not leave an unpatched class mismatch on the server-rendered image.
@@ -251,7 +251,8 @@ export function PublicLandingLogo({
       rotationDegrees: routeState.rotationDegrees,
     };
 
-    latestViewRef.current = nextView;
+    // Back, Forward, and caller-owned route changes replace the local
+    // interaction view as one complete pose.
     lastFrameTimeRef.current = null;
     autoRotateResumeStartedAtRef.current = null;
     setView((currentView) =>
@@ -449,7 +450,6 @@ export function PublicLandingLogo({
               speedMultiplier,
             ),
           };
-          latestViewRef.current = nextView;
           return nextView;
         });
       }
@@ -509,14 +509,18 @@ export function PublicLandingLogo({
                 autoRotateResumeStartedAtRef.current = null;
                 setIsAutoRotating(false);
               }}
-              onInteractionEnd={() => {
-                persistLatestLogoView();
+              onInteractionEnd={(finalView) => {
+                persistRotatedLogoViewState({
+                  key: viewStateKey,
+                  persistence: viewStatePersistence,
+                  view: finalView,
+                });
                 replaceRouteSearch?.(
                   buildPublicLandingLogoRouteSearch({
                     defaultView,
                     routeSearch,
                     routeState,
-                    view: latestViewRef.current,
+                    view: finalView,
                   }),
                 );
                 if (!isAutoRotateRequested) {
@@ -534,7 +538,6 @@ export function PublicLandingLogo({
                 setDidSceneFail(true);
               }}
               onViewChange={(nextView) => {
-                latestViewRef.current = nextView;
                 setView(nextView);
               }}
               onVoxelEdit={ignoreLogoVoxelEdit}

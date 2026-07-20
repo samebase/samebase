@@ -27,7 +27,6 @@ import {
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
   getLogoPresentationTiltTransitionAlpha,
-  NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   resolveLogoPresentationTiltTarget,
   type LogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
@@ -50,7 +49,11 @@ import {
   type VoxelEdit,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
-import { resolveLogoViewState, type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
+import {
+  resolveLogoViewState,
+  type LogoViewDragConfig,
+  type LogoViewState,
+} from "@/components/logo/logoViewDrag";
 import {
   useEffect,
   useRef,
@@ -248,9 +251,9 @@ type LogoGeometryRenderState = {
 
 type SceneInteraction = {
   button: 0 | null;
+  currentView: LogoViewState;
   pointerId: number | null;
-  startElevationDegrees: number;
-  startRotationDegrees: number;
+  startView: LogoViewState;
   startX: number;
   startY: number;
   status: "idle" | "pending" | "dragging";
@@ -385,7 +388,7 @@ type NLogoSceneProps = {
   leftFaceStyle?: LogoLeftFaceStyle;
   opacity: number;
   onInteractionStart?: () => void;
-  onInteractionEnd?: () => void;
+  onInteractionEnd?: (finalView: LogoViewState) => void;
   onRenderReady?: () => void;
   onRenderUnavailable?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
@@ -2127,8 +2130,7 @@ export function NLogoScene({
   const baseGridSizeRef = useRef(baseGridSize);
   const backgroundColorRef = useRef(backgroundColor);
   const editModeRef = useRef(editMode);
-  const rotationDegreesRef = useRef(rotationDegrees);
-  const elevationDegreesRef = useRef(elevationDegrees);
+  const renderViewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
   const rotationAxisModeRef = useRef(rotationAxisMode);
   const voxelGridRef = useRef(voxelGrid);
   const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
@@ -2146,20 +2148,16 @@ export function NLogoScene({
   const animateLeftFaceStripesRef = useRef(animateLeftFaceStripes);
   const leftFaceStripeAnimationStartedAtRef = useRef<number | null>(null);
   const shuffleAnimationRef = useRef(shuffleAnimation);
-  const onInteractionStartRef = useRef(onInteractionStart);
-  const onInteractionEndRef = useRef(onInteractionEnd);
   const onRenderReadyRef = useRef(onRenderReady);
   const onRenderUnavailableRef = useRef(onRenderUnavailable);
-  const onViewChangeRef = useRef(onViewChange);
-  const onVoxelEditRef = useRef(onVoxelEdit);
   const renderSceneRef = useRef<(timestampMs: number) => void>(() => {});
   const syncAnimationLoopRef = useRef<() => void>(() => {});
   const lastMovedCubeKeyRef = useRef<string | null>(null);
   const interactionRef = useRef<SceneInteraction>({
     button: null,
+    currentView: { elevationDegrees, rotationDegrees },
     pointerId: null,
-    startElevationDegrees: elevationDegrees,
-    startRotationDegrees: rotationDegrees,
+    startView: { elevationDegrees, rotationDegrees },
     startX: 0,
     startY: 0,
     status: "idle",
@@ -2190,14 +2188,11 @@ export function NLogoScene({
   }, [voxelEditingEnabled]);
 
   useEffect(() => {
-    rotationDegreesRef.current = rotationDegrees;
+    // The persistent Three.js scene mirrors the controlled view as one pose,
+    // never as independently updated elevation and rotation values.
+    renderViewRef.current = { elevationDegrees, rotationDegrees };
     renderSceneRef.current(performance.now());
-  }, [rotationDegrees]);
-
-  useEffect(() => {
-    elevationDegreesRef.current = elevationDegrees;
-    renderSceneRef.current(performance.now());
-  }, [elevationDegrees]);
+  }, [elevationDegrees, rotationDegrees]);
 
   useEffect(() => {
     presentationTiltTargetRef.current = resolveLogoPresentationTiltTarget(presentationTiltTarget);
@@ -2229,14 +2224,6 @@ export function NLogoScene({
   }, [distanceScale]);
 
   useEffect(() => {
-    onInteractionStartRef.current = onInteractionStart;
-  }, [onInteractionStart]);
-
-  useEffect(() => {
-    onInteractionEndRef.current = onInteractionEnd;
-  }, [onInteractionEnd]);
-
-  useEffect(() => {
     opacityRef.current = opacity;
   }, [opacity]);
 
@@ -2247,14 +2234,6 @@ export function NLogoScene({
   useEffect(() => {
     onRenderUnavailableRef.current = onRenderUnavailable;
   }, [onRenderUnavailable]);
-
-  useEffect(() => {
-    onViewChangeRef.current = onViewChange;
-  }, [onViewChange]);
-
-  useEffect(() => {
-    onVoxelEditRef.current = onVoxelEdit;
-  }, [onVoxelEdit]);
 
   useEffect(() => {
     const wasEnabled = shuffleAnimationRef.current.enabled;
@@ -2370,30 +2349,37 @@ export function NLogoScene({
       resolveLogoSceneCameraDepthBounds(getCameraFitRadius()).distance;
 
     const updateCameraPosition = () => {
-      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(elevationDegreesRef.current);
+      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(
+        renderViewRef.current.elevationDegrees,
+      );
       camera.position.set(cameraX, cameraY, cameraZ).setLength(getCameraDistance());
-      const [upX, upY, upZ] = getWorldScreenVerticalAxis(elevationDegreesRef.current);
+      const [upX, upY, upZ] = getWorldScreenVerticalAxis(renderViewRef.current.elevationDegrees);
       camera.up.set(upX, upY, upZ);
       camera.lookAt(0, 0, 0);
     };
 
     const applyLogoRotation = () => {
       const [axisX, axisY, axisZ] = getLogoRotationAxis({
-        elevationDegrees: elevationDegreesRef.current,
+        elevationDegrees: renderViewRef.current.elevationDegrees,
         mode: rotationAxisModeRef.current,
       });
       rotationAxisVector.set(axisX, axisY, axisZ);
       logoGroup.quaternion.setFromAxisAngle(
         rotationAxisVector,
-        THREE.MathUtils.degToRad(toRenderedRotationDegrees(rotationDegreesRef.current)),
+        THREE.MathUtils.degToRad(toRenderedRotationDegrees(renderViewRef.current.rotationDegrees)),
       );
     };
 
     const updatePresentationTiltTargetQuaternion = () => {
-      const target =
-        interactionRef.current.status === "idle"
-          ? presentationTiltTargetRef.current
-          : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      if (interactionRef.current.status !== "idle") {
+        // Direct manipulation owns the rendered pose until drop. Holding the
+        // current presentation quaternion prevents an unrelated pitch change
+        // during a horizontal drag.
+        presentationTiltTargetQuaternion.copy(presentationTiltGroup.quaternion);
+        return;
+      }
+
+      const target = presentationTiltTargetRef.current;
       const magnitude = Math.hypot(target.horizontal, target.vertical);
       if (magnitude === 0) {
         presentationTiltTargetQuaternion.identity();
@@ -2533,11 +2519,11 @@ export function NLogoScene({
       if (sceneState && shuffleAnimationRef.current.enabled) {
         syncCubeShuffleAnimation(
           sceneState,
-          elevationDegreesRef.current,
+          renderViewRef.current.elevationDegrees,
           lastMovedCubeKeyRef,
           shuffleAnimationRef.current.parallelMoves,
           rotationAxisModeRef.current,
-          rotationDegreesRef.current,
+          renderViewRef.current.rotationDegrees,
           timestampMs,
         );
       }
@@ -2813,23 +2799,25 @@ export function NLogoScene({
   };
 
   const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
-    const wasDragging = interactionRef.current.status === "dragging";
+    const interaction = interactionRef.current;
+    const wasDragging = interaction.status === "dragging";
+    const finalView = interaction.currentView;
     if (target.hasPointerCapture(pointerId)) {
       target.releasePointerCapture(pointerId);
-    }
-    if (wasDragging) {
-      onInteractionEndRef.current?.();
     }
 
     interactionRef.current = {
       button: null,
+      currentView: finalView,
       pointerId: null,
-      startElevationDegrees: elevationDegreesRef.current,
-      startRotationDegrees: rotationDegreesRef.current,
+      startView: finalView,
       startX: 0,
       startY: 0,
       status: "idle",
     };
+    if (wasDragging) {
+      onInteractionEnd?.(finalView);
+    }
     renderSceneRef.current(performance.now());
     syncAnimationLoopRef.current();
   };
@@ -2840,11 +2828,12 @@ export function NLogoScene({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    const currentView = { elevationDegrees, rotationDegrees };
     interactionRef.current = {
       button: event.button,
+      currentView,
       pointerId: event.pointerId,
-      startElevationDegrees: elevationDegreesRef.current,
-      startRotationDegrees: rotationDegreesRef.current,
+      startView: currentView,
       startX: event.clientX,
       startY: event.clientY,
       status: "pending",
@@ -2863,27 +2852,27 @@ export function NLogoScene({
     const deltaY = event.clientY - interaction.startY;
 
     if (interaction.status === "pending" && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX) {
-      interactionRef.current.status = "dragging";
-      onInteractionStartRef.current?.();
+      interaction.status = "dragging";
+      onInteractionStart?.();
     }
 
-    if (interactionRef.current.status !== "dragging") {
+    if (interaction.status !== "dragging") {
       return;
     }
 
     const disableSnap = event.altKey || event.shiftKey;
-    onViewChangeRef.current(
-      resolveLogoViewState({
-        config: viewDragConfig,
-        disableSnap,
-        view: {
-          elevationDegrees:
-            interaction.startElevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-          rotationDegrees:
-            interaction.startRotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
-        },
-      }),
-    );
+    const nextView = resolveLogoViewState({
+      config: viewDragConfig,
+      disableSnap,
+      view: {
+        elevationDegrees:
+          interaction.startView.elevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+        rotationDegrees:
+          interaction.startView.rotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
+      },
+    });
+    interaction.currentView = nextView;
+    onViewChange(nextView);
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -2895,7 +2884,7 @@ export function NLogoScene({
     if (interaction.status !== "dragging") {
       const edit = pickVoxelEdit(event.clientX, event.clientY, editModeRef.current);
       if (edit) {
-        onVoxelEditRef.current(edit);
+        onVoxelEdit(edit);
       }
     }
 

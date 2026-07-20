@@ -1663,6 +1663,41 @@ test("public landing logo becomes draggable after the SVG fallback is removed", 
   await expectLandingLogoCanBeDragged(page);
 });
 
+test("public landing horizontal drag keeps its elevation after drop", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect
+    .poll(() => readLandingLogoSceneView(landingLogoScene))
+    .toEqual({
+      elevationDegrees: "0.000",
+      rotationDegrees: "0.000",
+    });
+
+  const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (canvasBounds === null) {
+    return;
+  }
+
+  const centerX = canvasBounds.x + canvasBounds.width / 2;
+  const centerY = canvasBounds.y + canvasBounds.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 16, centerY);
+
+  const heldView = {
+    elevationDegrees: "0.000",
+    rotationDegrees: "5.600",
+  };
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
+
+  await page.mouse.up();
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
+  expect(new URL(page.url()).search).toBe("?elev=0&rot=5.6");
+});
+
 test("public landing logo composes pointer tilt with the dragged view", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
