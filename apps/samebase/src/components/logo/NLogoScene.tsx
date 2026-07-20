@@ -27,9 +27,8 @@ import {
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
   getLogoPresentationTiltDampingAlpha,
-  LOGO_PRESENTATION_TILT_MAX_DEGREES,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-  normalizeLogoPresentationTiltTarget,
+  resolveLogoPresentationTiltTarget,
   type LogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
 import {
@@ -2139,7 +2138,7 @@ export function NLogoScene({
   const leftFaceStyleRef = useRef(normalizeLogoLeftFaceStyle(leftFaceStyle));
   const opacityRef = useRef(opacity);
   const presentationTiltTargetRef = useRef(
-    normalizeLogoPresentationTiltTarget(presentationTiltTarget),
+    resolveLogoPresentationTiltTarget(presentationTiltTarget),
   );
   const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
   const animateFaceColorsRef = useRef(animateFaceColors);
@@ -2201,7 +2200,7 @@ export function NLogoScene({
   }, [elevationDegrees]);
 
   useEffect(() => {
-    presentationTiltTargetRef.current = normalizeLogoPresentationTiltTarget(presentationTiltTarget);
+    presentationTiltTargetRef.current = resolveLogoPresentationTiltTarget(presentationTiltTarget);
     renderSceneRef.current(performance.now());
     syncAnimationLoopRef.current();
   }, [presentationTiltTarget]);
@@ -2409,7 +2408,7 @@ export function NLogoScene({
         .normalize();
       presentationTiltTargetQuaternion.setFromAxisAngle(
         presentationTiltAxisVector,
-        THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_MAX_DEGREES * magnitude),
+        THREE.MathUtils.degToRad(magnitude),
       );
     };
 

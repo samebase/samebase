@@ -3,7 +3,7 @@ import {
   getLogoPresentationTiltDampingAlpha,
   getPointerLogoPresentationTiltTarget,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-  normalizeLogoPresentationTiltTarget,
+  resolveLogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
 
 const BOUNDS = {
@@ -43,7 +43,7 @@ describe("logo presentation tilt", () => {
     ).toBe(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
   });
 
-  it("reaches half strength after 1.25 shortest-side distances outside the grab surface", () => {
+  it("adds six degrees per 1.25 shortest-side distances without a cap", () => {
     const near = getPointerLogoPresentationTiltTarget({
       bounds: BOUNDS,
       clientX: 550,
@@ -56,31 +56,31 @@ describe("logo presentation tilt", () => {
     });
 
     expect(near.vertical).toBe(0);
-    expect(near.horizontal).toBe(0.5);
-    expect(far).toEqual({ horizontal: 1, vertical: 0 });
+    expect(near.horizontal).toBeCloseTo(6);
+    expect(far).toEqual({ horizontal: 12, vertical: 0 });
   });
 
-  it("preserves direction while capping diagonal strength", () => {
+  it("preserves direction while allowing diagonal strength beyond twelve degrees", () => {
     const target = getPointerLogoPresentationTiltTarget({
       bounds: BOUNDS,
       clientX: 800,
       clientY: -400,
     });
 
-    expect(target.horizontal).toBeCloseTo(Math.SQRT1_2);
-    expect(target.vertical).toBeCloseTo(Math.SQRT1_2);
-    expect(Math.hypot(target.horizontal, target.vertical)).toBeCloseTo(1);
+    expect(target.horizontal).toBeCloseTo(12);
+    expect(target.vertical).toBeCloseTo(12);
+    expect(Math.hypot(target.horizontal, target.vertical)).toBeGreaterThan(12);
   });
 
-  it("normalizes interchangeable input sources to the renderer contract", () => {
-    expect(normalizeLogoPresentationTiltTarget(undefined)).toBe(
+  it("resolves interchangeable degree inputs to the renderer contract", () => {
+    expect(resolveLogoPresentationTiltTarget(undefined)).toBe(
       NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
     );
-    expect(normalizeLogoPresentationTiltTarget({ horizontal: 3, vertical: 4 })).toEqual({
-      horizontal: 0.6,
-      vertical: 0.8,
+    expect(resolveLogoPresentationTiltTarget({ horizontal: 3, vertical: 4 })).toEqual({
+      horizontal: 3,
+      vertical: 4,
     });
-    expect(normalizeLogoPresentationTiltTarget({ horizontal: Number.NaN, vertical: 0 })).toBe(
+    expect(resolveLogoPresentationTiltTarget({ horizontal: Number.NaN, vertical: 0 })).toBe(
       NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
     );
   });

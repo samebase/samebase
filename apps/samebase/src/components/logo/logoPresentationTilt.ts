@@ -1,8 +1,8 @@
-/** Normalized screen-space input shared by pointer and future motion sources. */
+/** Screen-space tilt angles shared by pointer and future motion sources. */
 export type LogoPresentationTiltTarget = Readonly<{
-  /** Positive values point toward the right side of the screen. */
+  /** Positive degrees tilt toward the right side of the screen. */
   horizontal: number;
-  /** Positive values point toward the top of the screen. */
+  /** Positive degrees tilt toward the top of the screen. */
   vertical: number;
 }>;
 
@@ -10,7 +10,6 @@ export const NEUTRAL_LOGO_PRESENTATION_TILT_TARGET: LogoPresentationTiltTarget =
   horizontal: 0,
   vertical: 0,
 };
-export const LOGO_PRESENTATION_TILT_MAX_DEGREES = 12;
 
 const LOGO_PRESENTATION_TILT_DAMPING_PER_SECOND = 18;
 const LOGO_PRESENTATION_TILT_MAX_FRAME_SECONDS = 0.064;
@@ -30,7 +29,7 @@ export function getLogoPresentationTiltDampingAlpha(deltaSeconds: number) {
   );
 }
 
-export function normalizeLogoPresentationTiltTarget(
+export function resolveLogoPresentationTiltTarget(
   target: LogoPresentationTiltTarget | undefined,
 ): LogoPresentationTiltTarget {
   if (!target) {
@@ -41,14 +40,8 @@ export function normalizeLogoPresentationTiltTarget(
   if (!Number.isFinite(magnitude) || magnitude === 0) {
     return NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
   }
-  if (magnitude <= 1) {
-    return target;
-  }
 
-  return {
-    horizontal: target.horizontal / magnitude,
-    vertical: target.vertical / magnitude,
-  };
+  return target;
 }
 
 export function getPointerLogoPresentationTiltTarget({
@@ -78,14 +71,10 @@ export function getPointerLogoPresentationTiltTarget({
     return NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
   }
 
-  const tiltDegrees = Math.min(
-    (distance / shortestSide) * POINTER_TILT_DEGREES_PER_SHORTEST_SIDE,
-    LOGO_PRESENTATION_TILT_MAX_DEGREES,
-  );
-  const strength = tiltDegrees / LOGO_PRESENTATION_TILT_MAX_DEGREES;
+  const tiltDegrees = (distance / shortestSide) * POINTER_TILT_DEGREES_PER_SHORTEST_SIDE;
 
   return {
-    horizontal: (outsideX / distance) * strength,
-    vertical: outsideY === 0 ? 0 : (-outsideY / distance) * strength,
+    horizontal: (outsideX / distance) * tiltDegrees,
+    vertical: outsideY === 0 ? 0 : (-outsideY / distance) * tiltDegrees,
   };
 }

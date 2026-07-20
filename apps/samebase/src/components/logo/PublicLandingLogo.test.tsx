@@ -274,11 +274,11 @@ describe("PublicLandingLogo", () => {
     });
 
     await act(async () => {
-      dispatchPrimaryMouseMove(window.innerWidth, 200);
+      dispatchPrimaryMouseMove(550, 200);
     });
 
     expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
-      horizontal: 1,
+      horizontal: 6,
       vertical: 0,
     });
     expect(latestLandingLogoSceneProps.current?.elevationDegrees).toBe(
