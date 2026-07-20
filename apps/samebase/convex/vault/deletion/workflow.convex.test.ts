@@ -213,15 +213,31 @@ describe("vault deletion workflow", () => {
         visibility: "private",
         connectedAt: 8,
       });
+      const appId = await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        rootDirectory: "/",
+        createdAt: 6,
+      });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         userId,
-        appRoot: ".",
+        appId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        connectedAt: 6,
+        createdAt: 7,
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appId,
+        accountId: "cloudflare-account",
+        workerName: "existing-repo-selected-worker",
+        workerTag: "selected-worker-tag",
+        origin: "selected_existing",
+        createdAt: 8,
       });
 
       return { userId, vaultId };
@@ -244,15 +260,66 @@ describe("vault deletion workflow", () => {
     if (run?.snapshot.state !== "retained_for_retry") {
       throw new Error("Deletion run did not retain a retry plan.");
     }
-    expect(run.snapshot.plan).toMatchObject({
-      target: {
-        kind: "existing_repository",
-      },
-      cloudflare: {
-        action: "delete_worker",
+    expect(run.snapshot.plan.target).toMatchObject({
+      kind: "existing_repository",
+    });
+    expect(run.snapshot.plan.cloudflare).toEqual({
+      action: "delete_worker",
+      accountId: "cloudflare-account",
+      workerName: "existing-repo-worker",
+      workerTag: "worker-tag",
+    });
+  });
+
+  it("keeps an attached Cloudflare Worker when provider cleanup is not selected", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      const appId = await ctx.db.insert("vaultApps", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        rootDirectory: "/",
+        createdAt: 6,
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId,
         accountId: "cloudflare-account",
-        workerName: "existing-repo-worker",
-        workerTag: "worker-tag",
+        workerName: "unchecked-worker",
+        workerTag: "unchecked-worker-tag",
+        origin: "provisioned",
+        createdAt: 7,
+      });
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
+      },
+    });
+    const snapshot = await t.run(async (ctx) => ({
+      run: await ctx.db.get(deletionRunId),
+      workers: await ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .collect(),
+    }));
+
+    expect(snapshot.workers).toHaveLength(1);
+    expect(snapshot.run).toMatchObject({
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          cloudflare: {
+            action: "skip",
+            reason: "not_requested",
+          },
+        },
       },
     });
   });
@@ -422,15 +489,21 @@ describe("vault deletion workflow", () => {
           lastTreeRefreshAt: 5 + index,
         });
       }
+      const appId = await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        rootDirectory: "/",
+        createdAt: 6,
+      });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         userId,
-        appRoot: ".",
+        appId,
         accountId: "cloudflare-account",
         workerName: "delete-me-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        connectedAt: 6,
+        createdAt: 7,
       });
 
       return { userId, vaultId };
@@ -749,6 +822,17 @@ describe("vault deletion workflow", () => {
         email: "nicu@samebase.com",
         isApproved: true,
       });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "test-github-api-key",
+        },
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 2,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
         deletion: { state: "not_deleting" },
@@ -786,7 +870,7 @@ describe("vault deletion workflow", () => {
       vaultId: ids.vaultId,
       options: {
         removeCodespaces: false,
-        removeGithubRepo: false,
+        removeGithubRepo: true,
         removeConvexProvision: false,
         removeCloudflareProvision: false,
       },
@@ -814,7 +898,17 @@ describe("vault deletion workflow", () => {
 
     expect(snapshot.failedRun).toMatchObject({
       state: "failed",
-      snapshot: { state: "retained_for_retry" },
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          githubRepository: {
+            action: "delete_repository",
+            ghRepoId: "789",
+            owner: "ada",
+            name: "retry-me",
+          },
+        },
+      },
     });
     expect(snapshot.retryRun).toMatchObject({
       state: "running",
@@ -824,6 +918,7 @@ describe("vault deletion workflow", () => {
       },
       snapshot: { state: "retained_for_retry" },
     });
+    expect(snapshot.retryRun?.snapshot).toEqual(snapshot.failedRun?.snapshot);
     expect(snapshot.vault?.deletion).toMatchObject({
       state: "deleting",
       runId: retry.deletionRunId,

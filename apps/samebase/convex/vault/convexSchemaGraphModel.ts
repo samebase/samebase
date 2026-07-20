@@ -58,14 +58,13 @@ export type ConvexSchemaGraph = Infer<typeof vConvexSchemaGraph>;
 
 export const vaultConvexSchemaGraphTables = {
   /**
-   * One fetched Convex deployment schema, including raw provider responses and
-   * the normalized graph rendered by the vault dashboard.
+   * One fetched production-deployment schema linked to its stable Convex project.
    */
   observations_vaultConvexSchema_snapshots: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
-    deploymentId: id("vaultConvexDeployments"),
-    appRoot: string(),
+    convexProjectId: id("vaultConvexProjects"),
+    rootDirectory: string(),
     deploymentName: string(),
     schemaHash: string(),
     graph: vConvexSchemaGraph,
@@ -75,19 +74,19 @@ export const vaultConvexSchemaGraphTables = {
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_deployment_and_fetched_at", ["deploymentId", "fetchedAt"]),
+    .index("by_project_and_fetched_at", ["convexProjectId", "fetchedAt"]),
 
   /** Per-user node positions kept separate from refreshed schema snapshots. */
   ui_vaultConvexSchemaGraph_nodeLayouts: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
-    deploymentId: id("vaultConvexDeployments"),
+    convexProjectId: id("vaultConvexProjects"),
     nodeId: string(),
     x: number(),
     y: number(),
     updatedAt: number(),
   })
     .index("by_vault", ["vaultId"])
-    .index("by_user_vault_deployment", ["userId", "vaultId", "deploymentId"])
-    .index("by_user_vault_deployment_node", ["userId", "vaultId", "deploymentId", "nodeId"]),
+    .index("by_user_vault_project", ["userId", "vaultId", "convexProjectId"])
+    .index("by_user_vault_project_node", ["userId", "vaultId", "convexProjectId", "nodeId"]),
 };

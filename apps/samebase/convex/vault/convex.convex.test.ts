@@ -3,9 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
-const appRoot = ".";
-const attachmentIntent = { mode: "attach" } as const;
-
 function jsonResponse(body: string): Response {
   return new Response(body, {
     status: 200,
@@ -36,38 +33,25 @@ async function createConvexConnectedUser() {
     return userId;
   });
 
-  return t.withIdentity({
-    subject: `${userId}|test-session`,
-    tokenIdentifier: `test:${userId}`,
-  });
+  return {
+    asUser: t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    }),
+    t,
+    userId,
+  };
 }
 
 async function createConvexConnectedVault() {
-  const t = makeConvexTest();
-  const ids = await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
-      name: "Ada",
-      email: "ada@example.com",
-      isApproved: true,
-    });
-    await ctx.db.insert("providerConnections", {
-      kind: "convex",
-      userId,
-      auth: {
-        method: "oauth",
-        credential: "test-convex-token",
-      },
-      teamId: "1000",
-      teamSlug: "samebase-team",
-      createdAt: 1,
-      updatedAt: 2,
-    });
+  const { asUser, t, userId } = await createConvexConnectedUser();
+  const { appId, vaultId } = await t.run(async (ctx) => {
     const vaultId = await ctx.db.insert("vaults", {
       userId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/demo",
@@ -83,87 +67,50 @@ async function createConvexConnectedVault() {
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
-      runId: sourceRunId,
+      runId,
       ghRepoId: "123",
       owner: "ada",
       name: "demo",
       visibility: "private",
       defaultBranch: "main",
-      connectedAt: 12,
+      connectedAt: 20,
     });
-    await ctx.db.insert("vaultApps", {
+    const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
-      appRoot,
+      rootDirectory: "/",
       createdAt: 25,
     });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
-      vaultId,
-      repositoryFullName: "ada/demo",
-      trigger: "connect_convex_deployment",
-      state: "queued",
-      currentStep: "run_created",
-      createdAt: 30,
-      updatedAt: 30,
-    });
-
-    return { runId, userId, vaultId };
+    return { appId, vaultId };
   });
 
-  return { ids, t };
+  return { appId, asUser, t, userId, vaultId };
 }
 
-describe("vault Convex deployment connection actions", () => {
+describe("vault Convex project operations", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
   it("lists every project for the connected team", async () => {
-    const requests: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {
-        requests.push(input.url);
-
         if (input.url.includes("/teams/1000/projects")) {
           return jsonResponse(`{
             "items": [
-              {
-                "createTime": 1710000000000,
-                "id": 1001,
-                "name": "Alpha Project",
-                "slug": "alpha",
-                "teamId": 1000,
-                "teamSlug": "samebase-team"
-              },
-              {
-                "createTime": 1710000000001,
-                "id": 1002,
-                "name": "Beta Project",
-                "slug": "beta",
-                "teamId": 1000,
-                "teamSlug": "samebase-team"
-              },
-              {
-                "createTime": 1710000000002,
-                "id": 1003,
-                "name": "Samebase",
-                "slug": "samebase",
-                "teamId": 1000,
-                "teamSlug": "samebase-team"
-              }
+              {"createTime":1710000000001,"id":1002,"name":"Beta Project","slug":"beta","teamId":1000,"teamSlug":"samebase-team"},
+              {"createTime":1710000000000,"id":1001,"name":"Alpha Project","slug":"alpha","teamId":1000,"teamSlug":"samebase-team"}
             ],
-            "pagination": { "hasMore": false }
+            "pagination": {"hasMore":false}
           }`);
         }
-
         throw new Error(`Unexpected Convex request: ${input.url}`);
       }),
     );
 
-    const asUser = await createConvexConnectedUser();
+    const { asUser } = await createConvexConnectedUser();
 
     await expect(asUser.action(api.vault.convex.listProjects)).resolves.toEqual([
       {
@@ -178,527 +125,327 @@ describe("vault Convex deployment connection actions", () => {
         projectSlug: "beta",
         teamSlug: "samebase-team",
       },
-      {
-        projectId: "1003",
-        projectName: "Samebase",
-        projectSlug: "samebase",
-        teamSlug: "samebase-team",
-      },
     ]);
-    expect(requests.filter((url) => url.includes("/list_deployments"))).toHaveLength(0);
   });
 
-  it("connects a selected project default production deployment", async () => {
+  it("attaches an existing project without copying deployment state", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {
-        if (input.url.includes("/projects/1001/deployment")) {
-          return jsonResponse(`{
-            "class": "s16",
-            "createTime": 1710000000200,
-            "deploymentType": "prod",
-            "deploymentUrl": "https://alpha-prod.convex.cloud",
-            "id": 2002,
-            "isDefault": true,
-            "kind": "cloud",
-            "name": "alpha-prod",
-            "projectId": 1001,
-            "reference": "prod",
-            "region": "aws-us-east-1"
-          }`);
-        }
-
         if (input.url.includes("/projects/1001")) {
           return jsonResponse(`{
-            "createTime": 1710000000000,
-            "id": 1001,
-            "name": "Alpha Project",
-            "slug": "alpha",
-            "teamId": 1000,
-            "teamSlug": "samebase-team"
+            "createTime":1710000000000,
+            "id":1001,
+            "name":"Alpha Project",
+            "slug":"alpha",
+            "teamId":1000,
+            "teamSlug":"samebase-team"
           }`);
         }
-
         throw new Error(`Unexpected Convex request: ${input.url}`);
       }),
     );
-    const { ids, t } = await createConvexConnectedVault();
+    const { appId, asUser, t, vaultId } = await createConvexConnectedVault();
 
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent,
-    });
     await expect(
-      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
-        attachmentIntent,
-        target: {
-          mode: "connect_existing_project",
-          appRoot,
-          projectId: "1001",
-        },
+      asUser.action(api.vault.convex.connectExistingProject, {
+        vaultId,
+        appId,
+        projectId: "1001",
       }),
     ).resolves.toBeNull();
 
-    const deployment = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query("vaultConvexDeployments")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .first(),
+    const project = await t.run(async (ctx) =>
+      ctx.db
+        .query("vaultConvexProjects")
+        .withIndex("by_app", (q) => q.eq("appId", appId))
+        .unique(),
     );
-
-    expect(deployment).toMatchObject({
-      appRoot,
+    expect(project).toMatchObject({
+      appId,
+      teamId: "1000",
       projectId: "1001",
-      deploymentName: "alpha-prod",
       origin: "selected_existing",
     });
   });
 
-  it("rechecks that the old Convex deployment is missing before replacing its attachment", async () => {
+  it("creates and records a project as provisioned", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {
-        if (
-          input.url.includes("/projects/9999") ||
-          input.url.includes("/deployments/deleted-prod")
-        ) {
-          return new Response("not found", { status: 404 });
-        }
-        if (input.url.includes("/projects/1001/deployment")) {
-          return jsonResponse(`{
-            "class": "s16",
-            "createTime": 1710000000200,
-            "deploymentType": "prod",
-            "deploymentUrl": "https://alpha-prod.convex.cloud",
-            "id": 2002,
-            "isDefault": true,
-            "kind": "cloud",
-            "name": "alpha-prod",
-            "projectId": 1001,
-            "reference": "prod",
-            "region": "aws-us-east-1"
-          }`);
-        }
-        if (input.url.includes("/projects/1001")) {
-          return jsonResponse(`{
-            "createTime": 1710000000000,
-            "id": 1001,
-            "name": "Alpha Project",
-            "slug": "alpha",
-            "teamId": 1000,
-            "teamSlug": "samebase-team"
-          }`);
-        }
-        throw new Error(`Unexpected Convex request: ${input.url}`);
-      }),
-    );
-    const { ids, t } = await createConvexConnectedVault();
-    const attachmentId = await t.run(async (ctx) => {
-      return await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "9999",
-        deploymentName: "deleted-prod",
-        origin: "provisioned",
-        connectedAt: 40,
-      });
-    });
-    const replacementIntent = await t.query(
-      internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        appRoot,
-      },
-    );
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent: replacementIntent,
-    });
-
-    await expect(
-      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
-        attachmentIntent: replacementIntent,
-        target: {
-          mode: "connect_existing_project",
-          appRoot,
-          projectId: "1001",
-        },
-      }),
-    ).resolves.toBeNull();
-
-    const deployment = await t.run(async (ctx) => await ctx.db.get(attachmentId));
-    expect(deployment).toMatchObject({
-      _id: attachmentId,
-      projectId: "1001",
-      deploymentName: "alpha-prod",
-      origin: "selected_existing",
-    });
-  });
-
-  it("refuses replacement while the attached Convex deployment still exists", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: Request) => {
-        if (input.url.includes("/deployments/deleted-prod")) {
-          return jsonResponse(`{
-            "class": "s16",
-            "createTime": 1710000000200,
-            "deploymentType": "prod",
-            "deploymentUrl": "https://deleted-prod.convex.cloud",
-            "id": 2002,
-            "isDefault": true,
-            "kind": "cloud",
-            "name": "deleted-prod",
-            "projectId": 9999,
-            "reference": "prod",
-            "region": "aws-us-east-1"
-          }`);
-        }
-        if (input.url.includes("/projects/9999")) {
-          return jsonResponse(`{
-            "createTime": 1710000000000,
-            "id": 9999,
-            "name": "Deleted Project",
-            "slug": "deleted-project",
-            "teamId": 1000,
-            "teamSlug": "samebase-team"
-          }`);
-        }
-        throw new Error(`Unexpected Convex request: ${input.url}`);
-      }),
-    );
-    const { ids, t } = await createConvexConnectedVault();
-    const attachmentId = await t.run(async (ctx) => {
-      return await ctx.db.insert("vaultConvexDeployments", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        projectId: "9999",
-        deploymentName: "deleted-prod",
-        origin: "provisioned",
-        connectedAt: 40,
-      });
-    });
-    const replacementIntent = await t.query(
-      internal.vault.convexMutations.requireConvexDeploymentConnectionVault,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        appRoot,
-      },
-    );
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent: replacementIntent,
-    });
-
-    await expect(
-      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
-        attachmentIntent: replacementIntent,
-        target: {
-          mode: "connect_existing_project",
-          appRoot,
-          projectId: "1001",
-        },
-      }),
-    ).rejects.toThrow("still exists and cannot be replaced");
-
-    const deployment = await t.run(async (ctx) => await ctx.db.get(attachmentId));
-    expect(deployment).toMatchObject({
-      projectId: "9999",
-      deploymentName: "deleted-prod",
-      connectedAt: 40,
-    });
-  });
-
-  it("treats a superseded attach as canceled instead of failed", async () => {
-    const { ids, t } = await createConvexConnectedVault();
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent,
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: Request) => {
-        if (input.url.includes("/projects/1001/deployment")) {
-          await t.run(async (ctx) => {
-            const writeLock = await ctx.db
-              .query("workflow_vaultProvisioning_writeLocks")
-              .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-              .first();
-            if (!writeLock) {
-              throw new Error("Expected active provisioning write lock row.");
-            }
-            await ctx.db.patch(writeLock._id, {
-              state: "failed",
-              updatedAt: 50,
-            });
-          });
-          return jsonResponse(`{
-            "class": "s16",
-            "createTime": 1710000000100,
-            "deploymentType": "prod",
-            "deploymentUrl": "https://alpha-prod.convex.cloud",
-            "id": 2001,
-            "isDefault": true,
-            "kind": "cloud",
-            "name": "alpha-prod",
-            "projectId": 1001,
-            "reference": "prod",
-            "region": "aws-us-east-1"
-          }`);
-        }
-
-        if (input.url.includes("/projects/1001")) {
-          return jsonResponse(`{
-            "createTime": 1710000000000,
-            "id": 1001,
-            "name": "Alpha Project",
-            "slug": "alpha",
-            "teamId": 1000,
-            "teamSlug": "samebase-team"
-          }`);
-        }
-
-        throw new Error(`Unexpected Convex request: ${input.url}`);
-      }),
-    );
-
-    await expect(
-      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
-        attachmentIntent,
-        target: {
-          mode: "connect_existing_project",
-          appRoot,
-          projectId: "1001",
-        },
-      }),
-    ).resolves.toBeNull();
-
-    const result = await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-      const deployment = await ctx.db
-        .query("vaultConvexDeployments")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-      return { deployment, run };
-    });
-
-    expect(result.run).toMatchObject({
-      state: "canceled",
-      currentStep: "claim_infra",
-    });
-    expect(result.deployment).toBeNull();
-  });
-
-  it("reuses a previously created Convex project when retrying project creation", async () => {
-    const requests: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: Request) => {
-        requests.push(input.url);
-
-        if (input.url.includes("/projects/1001/deployment")) {
-          return jsonResponse(`{
-            "class": "s16",
-            "createTime": 1710000000100,
-            "deploymentType": "prod",
-            "deploymentUrl": "https://alpha-prod.convex.cloud",
-            "id": 2001,
-            "isDefault": true,
-            "kind": "cloud",
-            "name": "alpha-prod",
-            "projectId": 1001,
-            "reference": "prod",
-            "region": "aws-us-east-1"
-          }`);
-        }
-
-        if (input.url.includes("/projects/1001")) {
-          return jsonResponse(`{
-            "createTime": 1710000000000,
-            "id": 1001,
-            "name": "alpha-project",
-            "slug": "alpha-project",
-            "teamId": 1000,
-            "teamSlug": "samebase-team"
-          }`);
-        }
-
-        throw new Error(`Unexpected Convex request: ${input.url}`);
-      }),
-    );
-    const { ids, t } = await createConvexConnectedVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/demo",
-        trigger: "connect_convex_deployment",
-        createdConvexProject: {
-          projectName: "alpha-project",
-          projectId: "1001",
-          projectSlug: "alpha-project",
-        },
-        state: "failed",
-        currentStep: "attach_convex",
-        lastError: "Convex attach failed.",
-        createdAt: 20,
-        updatedAt: 25,
-        completedAt: 25,
-      });
-    });
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent,
-    });
-
-    await expect(
-      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
-        attachmentIntent,
-        target: {
-          mode: "create_project",
-          appRoot,
-          projectName: "alpha-project",
-        },
-      }),
-    ).resolves.toBeNull();
-
-    const deployment = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query("vaultConvexDeployments")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .first(),
-    );
-    expect(deployment).toMatchObject({
-      appRoot,
-      projectId: "1001",
-      deploymentName: "alpha-prod",
-      origin: "provisioned",
-    });
-    expect(requests.some((url) => url.includes("/create_project"))).toBe(false);
-    expect(requests.some((url) => url.includes("/teams/1000/projects"))).toBe(false);
-  });
-
-  it("recreates a previously created Convex project after the upstream project was deleted", async () => {
-    const requests: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: Request) => {
-        requests.push(input.url);
-
-        if (input.url.includes("/projects/1001")) {
-          return new Response("project not found", { status: 404 });
-        }
-
         if (input.url.includes("/teams/1000/projects")) {
           return jsonResponse('{"items":[],"pagination":{"hasMore":false}}');
         }
-
         if (input.url.includes("/teams/1000/create_project")) {
-          return jsonResponse(`{
-            "id": 1002,
-            "projectId": 1002,
-            "slug": "alpha-project-recreated"
-          }`);
+          return jsonResponse('{"id":1002,"projectId":1002,"slug":"alpha"}');
         }
-
-        if (input.url.includes("/projects/1002/deployment")) {
-          return jsonResponse(`{
-            "class": "s16",
-            "createTime": 1710000000200,
-            "deploymentType": "prod",
-            "deploymentUrl": "https://alpha-recreated.convex.cloud",
-            "id": 2002,
-            "isDefault": true,
-            "kind": "cloud",
-            "name": "alpha-recreated-prod",
-            "projectId": 1002,
-            "reference": "prod",
-            "region": "aws-us-east-1"
-          }`);
-        }
-
         if (input.url.includes("/projects/1002")) {
           return jsonResponse(`{
-            "createTime": 1710000000000,
-            "id": 1002,
-            "name": "alpha-project",
-            "slug": "alpha-project-recreated",
-            "teamId": 1000,
-            "teamSlug": "samebase-team"
+            "createTime":1710000000000,
+            "id":1002,
+            "name":"alpha",
+            "slug":"alpha",
+            "teamId":1000,
+            "teamSlug":"samebase-team"
           }`);
         }
-
         throw new Error(`Unexpected Convex request: ${input.url}`);
       }),
     );
-    const { ids, t } = await createConvexConnectedVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/demo",
-        trigger: "connect_convex_deployment",
-        createdConvexProject: {
-          projectName: "alpha-project",
-          projectId: "1001",
-          projectSlug: "alpha-project",
-        },
-        state: "failed",
-        currentStep: "attach_convex",
-        lastError: "Convex attach failed.",
-        createdAt: 20,
-        updatedAt: 25,
-        completedAt: 25,
-      });
-    });
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
-      ...ids,
-      appRoot,
-      attachmentIntent,
-    });
+    const { appId, asUser, t, vaultId } = await createConvexConnectedVault();
 
     await expect(
-      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
-        ...ids,
-        attachmentIntent,
-        target: {
-          mode: "create_project",
-          appRoot,
-          projectName: "alpha-project",
-        },
+      asUser.action(api.vault.convex.createProject, {
+        vaultId,
+        appId,
+        projectName: "alpha",
       }),
     ).resolves.toBeNull();
 
-    const deployment = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query("vaultConvexDeployments")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .first(),
+    const project = await t.run(async (ctx) =>
+      ctx.db
+        .query("vaultConvexProjects")
+        .withIndex("by_app", (q) => q.eq("appId", appId))
+        .unique(),
     );
-    expect(deployment).toMatchObject({
-      appRoot,
+    expect(project).toMatchObject({
+      appId,
+      teamId: "1000",
       projectId: "1002",
-      deploymentName: "alpha-recreated-prod",
       origin: "provisioned",
     });
-    expect(requests.some((url) => url.includes("/teams/1000/projects"))).toBe(true);
-    expect(requests.some((url) => url.includes("/teams/1000/create_project"))).toBe(true);
+  });
+
+  it("does not delete a newly created project after its attachment loses a race", async () => {
+    const { appId, asUser, t, userId, vaultId } = await createConvexConnectedVault();
+    const existingAttachmentId = await t.run(async (ctx) => {
+      const otherAppId = await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        rootDirectory: "apps/other",
+        createdAt: 30,
+      });
+      return await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        userId,
+        appId: otherAppId,
+        teamId: "1000",
+        projectId: "1002",
+        origin: "selected_existing",
+        createdAt: 31,
+      });
+    });
+    const requests: { method: string; url: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push({ method: input.method, url: input.url });
+        if (input.url.includes("/teams/1000/projects")) {
+          return jsonResponse('{"items":[],"pagination":{"hasMore":false}}');
+        }
+        if (input.url.includes("/teams/1000/create_project")) {
+          return jsonResponse('{"id":1002,"projectId":1002,"slug":"alpha"}');
+        }
+        if (input.method === "GET" && input.url.includes("/projects/1002")) {
+          return jsonResponse(`{
+            "createTime":1710000000000,
+            "id":1002,
+            "name":"alpha",
+            "slug":"alpha",
+            "teamId":1000,
+            "teamSlug":"samebase-team"
+          }`);
+        }
+        throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+      }),
+    );
+
+    await expect(
+      asUser.action(api.vault.convex.createProject, {
+        vaultId,
+        appId,
+        projectName: "alpha",
+      }),
+    ).rejects.toThrow("Convex project is already attached.");
+    expect(
+      requests.some(
+        (request) => request.method === "POST" && request.url.includes("/projects/1002/delete"),
+      ),
+    ).toBe(false);
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(existingAttachmentId)),
+    ).resolves.toMatchObject({ projectId: "1002" });
+    await expect(t.run(async (ctx) => await ctx.db.get(appId))).resolves.toMatchObject({
+      rootDirectory: "/",
+    });
+  });
+
+  it("removes an attachment only after Convex confirms the project is missing", async () => {
+    const { appId, asUser, t, userId, vaultId } = await createConvexConnectedVault();
+    const convexProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId,
+      userId,
+      appId,
+      teamId: "1000",
+      projectId: "1003",
+      origin: "selected_existing",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        if (input.url.includes("/projects/1003")) {
+          return new Response("missing", { status: 404 });
+        }
+        throw new Error(`Unexpected Convex request: ${input.url}`);
+      }),
+    );
+
+    await expect(
+      asUser.action(api.vault.convex.removeMissingProject, { vaultId, convexProjectId }),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toBeNull();
+  });
+
+  it("keeps an attachment when another Convex team is connected", async () => {
+    const { appId, asUser, t, userId, vaultId } = await createConvexConnectedVault();
+    const convexProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId,
+      userId,
+      appId,
+      teamId: "2000",
+      projectId: "2003",
+      origin: "selected_existing",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      asUser.action(api.vault.convex.removeMissingProject, { vaultId, convexProjectId }),
+    ).rejects.toThrow("Connect the Convex team that owns this project before removing it.");
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
+      teamId: "2000",
+      projectId: "2003",
+    });
+  });
+
+  it("does not report a project as missing when another Convex team is connected", async () => {
+    const { appId, asUser, t, userId, vaultId } = await createConvexConnectedVault();
+    const convexProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId,
+      userId,
+      appId,
+      teamId: "2000",
+      projectId: "2004",
+      origin: "selected_existing",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      asUser.action(api.vault.providerObservations.observeConvexProjects, { vaultId }),
+    ).resolves.toMatchObject([
+      {
+        state: "failed",
+        convexProjectId,
+        reason: "connection_required",
+      },
+    ]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("stops a managed retry when the previous project create result is unknown", async () => {
+    const { appId, t, userId, vaultId } = await createConvexConnectedVault();
+    const runId = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "retry",
+        state: "running",
+        currentStep: "attach_convex",
+        createdAt: 30,
+        updatedAt: 30,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        runId,
+        state: "active",
+        updatedAt: 30,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_plans", {
+        vaultId,
+        userId,
+        appRoot: ".",
+        convex: {
+          state: "creating",
+          projectName: "demo",
+          teamId: "1000",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "account-id",
+          workerName: "demo",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 30,
+        updatedAt: 30,
+      });
+      return runId;
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexProjectConnection, {
+        vaultId,
+        runId,
+        userId,
+        target: { mode: "create_project", appId, projectName: "demo" },
+      }),
+    ).rejects.toThrow("previous Convex project create may have completed");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps an attachment when the project still exists", async () => {
+    const { appId, asUser, t, userId, vaultId } = await createConvexConnectedVault();
+    const convexProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId,
+      userId,
+      appId,
+      teamId: "1000",
+      projectId: "1004",
+      origin: "selected_existing",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        if (input.url.includes("/projects/1004")) {
+          return jsonResponse(`{
+            "createTime":1710000000000,
+            "id":1004,
+            "name":"Still here",
+            "slug":"still-here",
+            "teamId":1000,
+            "teamSlug":"samebase-team"
+          }`);
+        }
+        throw new Error(`Unexpected Convex request: ${input.url}`);
+      }),
+    );
+
+    await expect(
+      asUser.action(api.vault.convex.removeMissingProject, { vaultId, convexProjectId }),
+    ).rejects.toThrow("Convex project still exists.");
+    await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
+      projectId: "1004",
+    });
   });
 });

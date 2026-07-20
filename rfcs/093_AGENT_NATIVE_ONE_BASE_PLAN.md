@@ -119,8 +119,8 @@ rule:
 
 **Samebase wraps an operation only when at least one of these holds:**
 
-1. It spans more than one provider in a single transaction (`createRepository`, `wire_builds`,
-   `wire_convex_build_access`).
+1. It spans more than one provider in a single transaction (`createRepository`,
+   `configure_workers_builds_for_github`, `rotate_convex_deploy_keys_for_workers_builds`).
 2. It must update the durable registry to stay truthful (attach, import, retry). The record that
    "this repo + this deployment + this Worker + these triggers + these keys are one app, currently
    in state X" is the thing no provider console or CLI session holds: provider tools have 100%

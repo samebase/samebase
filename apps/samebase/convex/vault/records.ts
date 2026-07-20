@@ -8,11 +8,12 @@ import {
 } from "../_generated/server";
 import { query } from "../functions";
 import {
-  buildVaultCloudflareBuildConfigForAppRoot,
+  buildVaultCloudflareBuildConfigForRootDirectory,
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
 } from "./model";
 import { ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
+import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import {
   assertConnectedVault,
   isConnectedVault,
@@ -362,6 +363,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
+      userId: args.userId,
       appRoot: ROOT_VAULT_APP_ROOT,
       convex: {
         state: "planned",
@@ -371,8 +373,8 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
         state: "planned",
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
-        build: buildVaultCloudflareBuildConfigForAppRoot({
-          appRoot: ROOT_VAULT_APP_ROOT,
+        build: buildVaultCloudflareBuildConfigForRootDirectory({
+          rootDirectory: VAULT_ROOT_DIRECTORY,
         }),
       },
       createdAt: now,
@@ -381,7 +383,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     await ctx.db.insert("vaultApps", {
       vaultId,
       userId: args.userId,
-      appRoot: ROOT_VAULT_APP_ROOT,
+      rootDirectory: VAULT_ROOT_DIRECTORY,
       createdAt: now,
     });
 

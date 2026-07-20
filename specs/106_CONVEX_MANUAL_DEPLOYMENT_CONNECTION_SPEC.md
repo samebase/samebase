@@ -15,26 +15,26 @@
 
 ## Summary
 
-Convex deployment connection is a vault resource attachment. It is separate from provider credential
-connection and separate from deployment wiring.
+Convex project connection is a vault resource attachment. It is separate from provider credential
+connection and separate from deployment configuration.
 
 The dashboard resource rail should let a ready GitHub-connected vault:
 
 - connect an existing Convex project from the connected Convex team
 - create a new Convex project with a production deployment
 
-Both flows attach the selected or created project's default production deployment to
-`vaultConvexDeployments`, keyed by vault and app root. That row stores only the stable provider
-coordinates and attachment provenance.
+Both flows attach the selected or created Convex project to `vaultConvexProjects`, keyed by app.
+That row stores only the stable project coordinates and attachment provenance. Production,
+development, and preview deployments remain live Convex resources rather than attachment fields.
 
 ## Goals
 
 - Let an existing GitHub vault attach an existing Convex project.
-- Let an existing GitHub vault create a new Convex project and attach its production deployment.
+- Let an existing GitHub vault create and attach a new Convex project.
 - Store the attached Convex identity on the vault as the durable product state.
 - Observe Convex dashboard/link metadata directly from Convex when it is needed.
-- Queue attach/create work as a durable Workflow run so the dialog only waits for submission and the
-  vault header can show provider-specific progress.
+- Keep attach/create as an explicit request whose dialog stays open until the provider operation and
+  stable attachment write finish.
 - Preserve per-resource cleanup safety through an explicit resource origin.
 
 ## Non-goals
@@ -48,35 +48,37 @@ coordinates and attachment provenance.
 
 ## State Model
 
-`vaultConvexDeployments` owns the attached Convex production resource identity for one vault app
-root:
+`vaultConvexProjects` owns the attached Convex project identity for one vault app:
 
 ```ts
-type VaultConvexDeployment = {
+type VaultConvexProject = {
   vaultId: Id<"vaults">;
   userId: Id<"users">;
-  appRoot: string;
+  appId: Id<"vaultApps">;
+  teamId: string;
   projectId: string;
-  deploymentName: string;
   origin: "provisioned" | "selected_existing";
-  connectedAt: number;
+  createdAt: number;
 };
 ```
+
+One Samebase app can attach at most one Convex project. A shared backend is represented once as its
+own app rather than duplicated beneath each Worker app that consumes it.
 
 No internal backwards-compatibility adapter is kept for older connected-row shapes. Local/operator
 data can be cleared instead of carrying old `vault.convex` or `vaultInfrastructure` state forward.
 
-`origin` answers how this vault attached to the Convex production deployment:
+`origin` answers how this vault attached to the Convex project:
 
-- `provisioned` means Samebase created the project/deployment during an explicit create flow.
+- `provisioned` means Samebase created the project during an explicit create flow.
 - `selected_existing` means the user chose an existing project from Convex inventory.
 
 Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
 flows, while `selected_existing` projects are external.
 
-Project and deployment existence, slugs, URLs, preview deployments, and deploy keys remain owned by
-Convex. Samebase reads them as a bounded live observation for the requested vault and does not write
-the result into the attachment row.
+Project and deployment existence, slugs, URLs, production, development and preview deployments, and
+deploy keys remain owned by Convex. Samebase reads them as a bounded live observation for the
+requested vault and does not write the result into the attachment row.
 
 ## Provider Scope
 
@@ -95,69 +97,70 @@ Existing project connection should:
 
 1. list visible projects for the connected team
 2. show deterministic inventory rows with project id, project name, project slug, and team slug
-3. re-read the selected project and its default production deployment server-side before attaching
+3. re-read the selected project server-side before attaching
 
 The server must verify:
 
 - the project belongs to the connected Convex team
-- the project's default production deployment exists
-- the default deployment belongs to the selected project
-- the default deployment is a cloud production deployment
 
 The existing-project picker lists every project returned by Convex's team project inventory. The
-create flow still creates and attaches the default production deployment for the new project.
+create flow asks Convex to create the project with a production deployment, but the attachment
+identity remains the project.
 
 Project creation should:
 
 1. validate the requested Convex project name
 2. ensure no visible project in the connected team already has that name or slug
 3. create the project with a production deployment
-4. immediately record the created project id on the Workflow run
-5. read the project and default production deployment back from Convex
-6. attach the resulting deployment with `origin: "provisioned"`
+4. read the project back from Convex
+5. attach the project with `origin: "provisioned"`
 
-If a created project cannot be attached after the provider create call, the workflow should fail
-closed with the created project id retained on the run. Automatic rollback deletion is not part of
-this slice because project deletion is more destructive than deleting an empty Worker; cleanup
-remains available through the explicit vault delete path for provisioned resources.
+If a manual create action cannot attach the new project after the provider create call, it reports
+that the provider create may have succeeded and leaves inspection or cleanup to Convex. It must not
+automatically delete the project because another concurrent request may already have attached that
+identity. Attaching a project selected from existing Convex inventory never deletes or otherwise
+changes that project when the local attachment fails.
 
-## Durable Execution
+Managed app creation is different: its Workflow checkpoints the newly created project identity so a
+retry can reuse it. The checkpoint is `{ teamId, projectId }`, matching the stable provider
+identity. Samebase records the `created` checkpoint and stable `provisioned` project attachment in
+one database transaction. A `creating` checkpoint is written before the provider request. If the
+request may have completed but its result was not recorded, retry and cleanup stop for operator
+inspection rather than adopting or deleting a same-named project.
 
-Manual Convex attach/create uses `workflow_vaultProvisioning_runs` with trigger
-`connect_convex_deployment`.
+An exact Convex project identity can be attached to only one Samebase app, even across Samebase
+users. This matches the approved model where a shared backend is represented once as its own app,
+not duplicated beneath every Worker that consumes it.
 
-The run is intentionally narrow:
+## Explicit Execution
 
-1. claim provider work for the vault
-2. verify or create the Convex project/deployment
-3. write `vaultConvexDeployments`
-4. attach the deployment to the target app root
-5. mark the run complete
+Manual Convex attach/create runs as one explicit action:
 
-The modal submit action should return after the Workflow is queued. The modal closes by clearing
-`add-convex`, and the vault header/resource rail shows the Convex row as running, failed, or ready
-from subscribed dashboard state.
+1. verify or create the Convex project
+2. write `vaultConvexProjects`
+3. return success
 
-A failed manual Convex run should keep the Convex row failed while offering the same connection
-dialog again, so the operator can choose an existing project or create a new project without waiting
-for hidden state cleanup.
+The dialog remains open and disabled while the action runs. It closes by clearing `add-convex` only
+after success and shows the returned error otherwise. Manual attachment does not create a
+provisioning run or persist intermediate provider state.
 
-## Missing Deployment Replacement
+## Missing Project Recovery
 
-When a live Convex observation reports that the attached project or production deployment is
-missing, the same connection dialog can select or create its replacement. A failed or unavailable
-provider read does not authorize replacement.
+When a live Convex observation proves that the attached project no longer exists, the resource row
+offers `Remove from Samebase`. The action reads Convex again and deletes only the unchanged
+`vaultConvexProjects` attachment after it confirms the recorded project is still missing. It never
+deletes a Convex project.
 
-The server derives a one-run replacement intent from the current attachment row. Before queuing the
-Workflow and again after claiming its write lock, it reads the recorded project and deployment from
-Convex and confirms that their recorded identity is missing. The Workflow then compare-and-swaps the
-exact recorded attachment snapshot and patches the same `vaultConvexDeployments` row with the
-replacement identity. A changed attachment snapshot cancels the run instead of overwriting newer
-state.
+A failed or unavailable provider read does not authorize attachment removal. After removal, the
+ordinary `?add-convex` flow can attach or create a project without a replacement-specific state
+machine.
 
-The replacement intent is Workflow input, not durable provider state. Samebase does not persist the
-missing observation, duplicate the Convex resource, or delete the attachment row while a replacement
-is in progress.
+The active Convex provider connection must name the attachment's `teamId` before Samebase performs
+the confirming read. A `404` obtained under another team is not proof that the project is missing.
+
+If the project still exists but its default production deployment is missing, the project attachment
+remains valid. Samebase reports the missing deployment and leaves repair or project deletion to
+Convex.
 
 ## Route Semantics
 
@@ -166,19 +169,17 @@ route.
 
 The dialog closes by clearing `add-convex` while preserving the selected vault route.
 
-## Deployment Wiring
+## Deployment Configuration
 
-Deployment wiring is separate from Convex attach/create. The two wiring relationships are:
+Deployment configuration is separate from Convex attach/create. The two provider configurations are:
 
 - repository source to Convex functions/schema deployment
 - Cloudflare Workers Builds to Convex build access through deploy keys
 
-Attaching or creating a Convex production deployment does not imply either wiring relationship
-exists. If a Worker already has connected builds, Samebase can later run `wire_convex_build_access`
-to ensure the preview deployment, mint deploy keys, patch Cloudflare trigger environment variables,
-and record the explicit operation result in workflow events. It does not persist a current
-deploy-key state on the Worker or deployment attachment. When the next live observation finds
-missing keys, the dashboard shows the Cloudflare row message
-`Cloudflare does not have this Convex deployment's deploy keys.` with a `Set Convex deploy keys`
-action when the same app root has both an attached Convex deployment and connected Cloudflare
-Builds.
+Attaching or creating a Convex project does not imply either provider configuration exists. If a
+Worker already has connected Builds, Samebase can later run
+`rotate_convex_deploy_keys_for_workers_builds` for one explicitly selected attached project. The
+action mints deploy keys and writes them together with
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` to both Cloudflare
+triggers. It does not persist a current deploy-key state or a Worker-to-project dependency row. The
+next dashboard read derives the relationship from Cloudflare's live marker and variable names.

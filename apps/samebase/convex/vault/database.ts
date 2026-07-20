@@ -4,14 +4,13 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import type { AuthenticatedAppViewer } from "../functions";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
+import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
   createConvexDeploymentDeployKey,
   deleteConvexDeploymentDeployKey,
   type ConvexDeployKeyAllowedAction,
 } from "./convexDeployKeys";
-import { isConvexCloudDeployment, requestConvexManagementApi } from "../convexManagementApi/client";
-import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
+import { readConvexProductionDeployment } from "./convexProjectResources";
 
 const { literal, null: nullValue, object, string, union } = v;
 
@@ -49,7 +48,7 @@ type VaultDatabaseLookup = {
   defaultBranch: string | undefined;
 } | null;
 type VaultDatabaseReadContext = {
-  convexDeployments: Doc<"vaultConvexDeployments">[];
+  convexDeployments: Doc<"vaultConvexProjects">[];
   convexConnection: Extract<Doc<"providerConnections">, { kind: "convex" }> | null;
 };
 type VaultDatabaseActionCtx = Pick<ActionCtx, "runQuery"> & {
@@ -57,7 +56,7 @@ type VaultDatabaseActionCtx = Pick<ActionCtx, "runQuery"> & {
 };
 type ReadyVaultDatabaseDeploymentContext = {
   kind: "ready";
-  deployment: Doc<"vaultConvexDeployments">;
+  deployment: ConvexCloudDeployment;
   convexConnection: Extract<Doc<"providerConnections">, { kind: "convex" }>;
 };
 type VaultDatabaseDeploymentContext =
@@ -90,10 +89,9 @@ async function readVaultDatabaseDeploymentContext(
     owner: string;
     repoName: string;
     branch: string;
-    appRoot: string;
+    convexProjectId: Id<"vaultConvexProjects">;
   },
 ): Promise<VaultDatabaseDeploymentContext> {
-  const appRoot = normalizeVaultAppRoot(args.appRoot);
   const vault: VaultDatabaseLookup = await ctx.runQuery(
     internal.vault.records.getByRepositoryFullName,
     {
@@ -125,17 +123,27 @@ async function readVaultDatabaseDeploymentContext(
       vaultId: vault._id,
     },
   );
-  const deployment = vaultContext.convexDeployments.find(
-    (candidate) => candidate.appRoot === appRoot,
+  const project = vaultContext.convexDeployments.find(
+    (candidate) => candidate._id === args.convexProjectId,
   );
 
-  if (!deployment) {
+  if (!project) {
     return { kind: "missing_deployment" };
   }
 
   const convexConnection = vaultContext.convexConnection;
   if (!convexConnection) {
     return { kind: "missing_connection" };
+  }
+  if (convexConnection.teamId !== project.teamId) {
+    return { kind: "missing_connection" };
+  }
+  const deployment = await readConvexProductionDeployment({
+    token: convexConnection.auth.credential,
+    projectId: project.projectId,
+  });
+  if (!deployment) {
+    return { kind: "missing_deployment" };
   }
 
   return {
@@ -151,7 +159,7 @@ export const createEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    appRoot: string(),
+    convexProjectId: v.id("vaultConvexProjects"),
   },
   returns: embeddedDashboardCredentialsResult,
   handler: async (ctx, args): Promise<EmbeddedDashboardCredentialsResult> => {
@@ -160,46 +168,15 @@ export const createEmbeddedDashboardCredentials = action({
       return context;
     }
 
-    let deploymentUrl: string;
-    try {
-      const [project, deployment] = await Promise.all([
-        requestConvexManagementApi(
-          context.convexConnection.auth.credential,
-          "GET",
-          "/projects/{project_id}",
-          { params: { path: { project_id: context.deployment.projectId } } },
-        ),
-        requestConvexManagementApi(
-          context.convexConnection.auth.credential,
-          "GET",
-          "/deployments/{deployment_name}",
-          { params: { path: { deployment_name: context.deployment.deploymentName } } },
-        ),
-      ]);
-      if (
-        project.teamId !== context.convexConnection.teamId ||
-        !isConvexCloudDeployment(deployment) ||
-        deployment.projectId !== context.deployment.projectId
-      ) {
-        return { kind: "missing_deployment" };
-      }
-      deploymentUrl = deployment.deploymentUrl;
-    } catch (error) {
-      if (isConvexManagementNotFoundError(error)) {
-        return { kind: "missing_deployment" };
-      }
-      throw error;
-    }
-
     const expiresAt = Date.now() + EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS;
     const deployKeyName = buildEmbeddedDashboardDeployKeyName({
-      deploymentName: context.deployment.deploymentName,
+      deploymentName: context.deployment.name,
       expiresAt,
     });
     const deployKey = await createConvexDeploymentDeployKey({
       allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
       authMethod: context.convexConnection.auth.method,
-      deploymentName: context.deployment.deploymentName,
+      deploymentName: context.deployment.name,
       expiresAt,
       name: deployKeyName,
       token: context.convexConnection.auth.credential,
@@ -207,8 +184,8 @@ export const createEmbeddedDashboardCredentials = action({
 
     return {
       kind: "ready",
-      deploymentUrl,
-      deploymentName: context.deployment.deploymentName,
+      deploymentUrl: context.deployment.deploymentUrl,
+      deploymentName: context.deployment.name,
       deployKeyName,
       adminKey: deployKey,
     };
@@ -221,7 +198,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    appRoot: string(),
+    convexProjectId: v.id("vaultConvexProjects"),
     deployKeyName: string(),
   },
   returns: nullValue(),
@@ -230,7 +207,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     if (
       context.kind !== "ready" ||
       !isEmbeddedDashboardDeployKeyName({
-        deploymentName: context.deployment.deploymentName,
+        deploymentName: context.deployment.name,
         deployKeyName: args.deployKeyName,
       })
     ) {
@@ -238,7 +215,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     }
 
     await deleteConvexDeploymentDeployKey({
-      deploymentName: context.deployment.deploymentName,
+      deploymentName: context.deployment.name,
       name: args.deployKeyName,
       token: context.convexConnection.auth.credential,
     });

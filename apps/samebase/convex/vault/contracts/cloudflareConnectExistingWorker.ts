@@ -10,7 +10,7 @@ export const cloudflareConnectExistingWorkerContract = {
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     accountId: string(),
     workerName: string(),
   },
@@ -19,7 +19,7 @@ export const cloudflareConnectExistingWorkerContract = {
     title: "Connect Cloudflare Worker",
     name: "vault_cloudflare_connectExistingWorker",
     description:
-      "Attach an existing Cloudflare Worker to a Samebase app (manual attach): validates the Worker against the repository and starts the connection run.",
+      "Attach an existing Cloudflare Worker identity to a Samebase app after validating it against the repository.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -28,17 +28,13 @@ export const cloudflareConnectExistingWorkerContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app to attach the Worker to.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      appId: "Stable Samebase vault app id returned by get_user_vaults.",
       accountId: "Cloudflare account id from list_cloudflare_accounts.",
       workerName: "Worker name from list_cloudflare_workers (recommended or available only).",
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `The manual Cloudflare attach: binds an existing Worker (validated against the app's
-repository; a Worker wired to a different repository is rejected rather than adopted) and starts
-the connection run. This is also the remedy \`get_user_vaults\` names as
-\`nextAction: "connect_cloudflare_worker"\` after a failed manual Cloudflare attach.
-
-Writes Samebase's Worker record and the connection run; follow with \`wire_builds\` and
-\`wire_convex_build_access\` if the Worker's Builds trigger or deploy keys are missing (the status
-axes name exactly that). Progress and failure are readable through \`get_user_vaults\`.`,
+repository; a Worker configured for a different repository is rejected rather than adopted).
+Samebase
+stores only the stable Worker identity. Current Worker state is read live from Cloudflare.`,
 } as const;

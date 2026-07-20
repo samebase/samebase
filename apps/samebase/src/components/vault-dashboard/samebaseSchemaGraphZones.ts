@@ -132,7 +132,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   vaultRepositoryRefreshRequests: "repository",
 
   vaultCloudflareWorkers: "infrastructure",
-  vaultConvexDeployments: "infrastructure",
+  vaultConvexProjects: "infrastructure",
   observations_vaultConvexSchema_snapshots: "infrastructure",
   ui_vaultConvexSchemaGraph_nodeLayouts: "infrastructure",
   workflow_vaultProvisioning_plans: "infrastructure",

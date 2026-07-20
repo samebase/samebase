@@ -36,19 +36,6 @@ type ConvexDeployKeyResult = {
   deployKey: string;
 };
 
-type ConvexDeployKey = components["schemas"]["PlatformDeployKeyResponse"];
-
-function compareConvexDeployKeys(left: ConvexDeployKey, right: ConvexDeployKey): number {
-  return left.creationTime - right.creationTime || left.id.localeCompare(right.id);
-}
-
-export function buildConvexBuildAccessDeployKeyNames(vaultId: Id<"vaults">) {
-  return {
-    production: `samebase-cloudflare-production-v1-${vaultId}`,
-    preview: `samebase-cloudflare-preview-v1-${vaultId}`,
-  };
-}
-
 function requireConvexCloudDeployment(args: {
   deployment: PlatformDeploymentResponse;
   deploymentType: "prod" | "dev";
@@ -235,7 +222,7 @@ export async function createConvexDeployKey(args: {
 export async function deleteConvexDeployKey(args: {
   convexToken: string;
   deploymentName: string;
-  deployKeyIdentifier: string;
+  deployKeySecretOrName: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   await requestConvexManagementApi(
@@ -244,42 +231,28 @@ export async function deleteConvexDeployKey(args: {
     "/deployments/{deployment_name}/delete_deploy_key",
     {
       params: { path: { deployment_name: args.deploymentName } },
-      body: { id: args.deployKeyIdentifier },
+      body: { id: args.deployKeySecretOrName },
       recordApiCall: args.recordApiCall,
     },
   );
 }
 
-export async function deleteConvexDeployKeysByName(args: {
+export async function deleteConvexDeployKeyByName(args: {
   convexToken: string;
   deploymentName: string;
   name: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
-  const deployKeys = await requestConvexManagementApi(
-    args.convexToken,
-    "GET",
-    "/deployments/{deployment_name}/list_deploy_keys",
-    {
-      params: { path: { deployment_name: args.deploymentName } },
+  try {
+    await deleteConvexDeployKey({
+      convexToken: args.convexToken,
+      deploymentName: args.deploymentName,
+      deployKeySecretOrName: args.name,
       recordApiCall: args.recordApiCall,
-    },
-  );
-  const matchingKeys = deployKeys
-    .filter((deployKey) => deployKey.name === args.name)
-    .sort(compareConvexDeployKeys);
-  for (const deployKey of matchingKeys) {
-    try {
-      await deleteConvexDeployKey({
-        convexToken: args.convexToken,
-        deploymentName: args.deploymentName,
-        deployKeyIdentifier: deployKey.id,
-        recordApiCall: args.recordApiCall,
-      });
-    } catch (error) {
-      if (!isConvexManagementNotFoundError(error)) {
-        throw error;
-      }
+    });
+  } catch (error) {
+    if (!isConvexManagementNotFoundError(error)) {
+      throw error;
     }
   }
 }
@@ -311,7 +284,7 @@ export async function createConvexPreviewDeployKey(args: {
 export async function deleteConvexPreviewDeployKey(args: {
   convexToken: string;
   projectId: string;
-  deployKeyIdentifier: string;
+  deployKeySecretOrName: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   await requestConvexManagementApi(
@@ -320,45 +293,28 @@ export async function deleteConvexPreviewDeployKey(args: {
     "/projects/{project_id}/delete_preview_deploy_key",
     {
       params: { path: { project_id: args.projectId } },
-      body: { id: args.deployKeyIdentifier },
+      body: { id: args.deployKeySecretOrName },
       recordApiCall: args.recordApiCall,
     },
   );
 }
 
-export async function deleteConvexPreviewDeployKeysByName(args: {
+export async function deleteConvexPreviewDeployKeyByName(args: {
   convexToken: string;
   projectId: string;
   name: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
-  const { items } = await requestConvexManagementApi(
-    args.convexToken,
-    "GET",
-    "/projects/{project_id}/list_preview_deploy_keys",
-    {
-      params: {
-        path: { project_id: args.projectId },
-        query: { includeManaged: true },
-      },
+  try {
+    await deleteConvexPreviewDeployKey({
+      convexToken: args.convexToken,
+      projectId: args.projectId,
+      deployKeySecretOrName: args.name,
       recordApiCall: args.recordApiCall,
-    },
-  );
-  const matchingKeys = items
-    .filter((deployKey) => deployKey.name === args.name)
-    .sort(compareConvexDeployKeys);
-  for (const deployKey of matchingKeys) {
-    try {
-      await deleteConvexPreviewDeployKey({
-        convexToken: args.convexToken,
-        projectId: args.projectId,
-        deployKeyIdentifier: deployKey.id,
-        recordApiCall: args.recordApiCall,
-      });
-    } catch (error) {
-      if (!isConvexManagementNotFoundError(error)) {
-        throw error;
-      }
+    });
+  } catch (error) {
+    if (!isConvexManagementNotFoundError(error)) {
+      throw error;
     }
   }
 }
@@ -658,9 +614,9 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Convex connection is required to provision infrastructure.",
   "Convex project name",
   "Convex deployment connection did not attach a deployment.",
-  "Cloudflare Worker is required before wiring Convex build access.",
-  "Cloudflare Workers Builds are required before wiring Convex build access.",
-  "Convex deployment is required before wiring Convex build access.",
+  "Cloudflare Worker is required before rotating Convex deploy keys for Workers Builds.",
+  "Cloudflare Workers Builds are required before rotating Convex deploy keys.",
+  "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not match the vault repo.",
 ];
@@ -777,66 +733,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
         vault.githubMode === "connect_existing_repository"
           ? "app:connect_existing:failed"
           : "app:provision:failed",
-        {
-          vaultId,
-          repo: run.repositoryFullName,
-          step: run.currentStep,
-          message: args.message,
-        },
-      );
-      return null;
-    }
-
-    if (run.trigger === "connect_convex_deployment") {
-      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
-      const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
-        runId: args.runId,
-      });
-      if (writeLock && holdsProvisioningWriteLock) {
-        await ctx.db.patch(writeLock._id, {
-          state: "failed",
-          updatedAt: now,
-        });
-      }
-      await recordWorkflowRunFailure(ctx, {
-        eventStep,
-        now,
-        run,
-        safeRunError,
-      });
-      console.error("convex:deployment_connection:failed", {
-        vaultId,
-        repo: run.repositoryFullName,
-        step: run.currentStep,
-        message: args.message,
-      });
-      return null;
-    }
-
-    if (
-      run.trigger === "connect_cloudflare_worker" ||
-      run.trigger === "wire_builds" ||
-      run.trigger === "wire_convex_build_access"
-    ) {
-      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
-      if (writeLock && runHoldsProvisioningWriteLock(writeLock, { runId: args.runId })) {
-        await ctx.db.patch(writeLock._id, {
-          state: "failed",
-          updatedAt: now,
-        });
-      }
-      await recordWorkflowRunFailure(ctx, {
-        eventStep,
-        now,
-        run,
-        safeRunError,
-      });
-      console.error(
-        run.trigger === "wire_convex_build_access"
-          ? "cloudflare:convex_build_access_wiring:failed"
-          : run.trigger === "wire_builds"
-            ? "cloudflare:builds_wiring:failed"
-            : "cloudflare:worker_connection:failed",
         {
           vaultId,
           repo: run.repositoryFullName,

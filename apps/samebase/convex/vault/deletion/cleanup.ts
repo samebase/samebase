@@ -13,7 +13,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("observations_vaultRepository_branches"),
   literal("vaultDomains"),
   literal("vaultApps"),
-  literal("vaultConvexDeployments"),
+  literal("vaultConvexProjects"),
   literal("observations_vaultConvexSchema_snapshots"),
   literal("ui_vaultConvexSchemaGraph_nodeLayouts"),
   literal("vaultCloudflareWorkers"),
@@ -288,12 +288,8 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultDomains"),
   },
   {
-    table: "vaultApps",
-    cleanup: deleteByVaultBatch("vaultApps"),
-  },
-  {
-    table: "vaultConvexDeployments",
-    cleanup: deleteByVaultBatch("vaultConvexDeployments"),
+    table: "vaultConvexProjects",
+    cleanup: deleteByVaultBatch("vaultConvexProjects"),
   },
   {
     table: "observations_vaultConvexSchema_snapshots",
@@ -306,6 +302,10 @@ const vaultLocalCleanupRegistry = [
   {
     table: "vaultCloudflareWorkers",
     cleanup: deleteByVaultBatch("vaultCloudflareWorkers"),
+  },
+  {
+    table: "vaultApps",
+    cleanup: deleteByVaultBatch("vaultApps"),
   },
   {
     table: "workflow_vaultProvisioning_plans",
@@ -364,11 +364,11 @@ const vaultLocalCleanupRegistryByStep = {
   ],
   cleanup_runtime_state: [
     "vaultDomains",
-    "vaultApps",
-    "vaultConvexDeployments",
+    "vaultConvexProjects",
     "observations_vaultConvexSchema_snapshots",
     "ui_vaultConvexSchemaGraph_nodeLayouts",
     "vaultCloudflareWorkers",
+    "vaultApps",
     "workflow_vaultProvisioning_plans",
     "workflow_vaultProvisioning_writeLocks",
     "codespaces",

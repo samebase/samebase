@@ -71,11 +71,11 @@ const contractSourceByMcpName: Record<string, string> = {
   vault_cloudflare_connectExistingWorker: samebaseAppFilePath(
     "convex/vault/contracts/cloudflareConnectExistingWorker.ts",
   ),
-  vault_cloudflare_wireBuilds: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareWireBuilds.ts",
+  vault_cloudflare_configureWorkersBuildsForGitHub: samebaseAppFilePath(
+    "convex/vault/contracts/cloudflareConfigureWorkersBuildsForGitHub.ts",
   ),
-  vault_cloudflare_wireConvexBuildAccess: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareWireConvexBuildAccess.ts",
+  vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds: samebaseAppFilePath(
+    "convex/vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds.ts",
   ),
   vault_actions_retryInfrastructureProvisioning: samebaseAppFilePath(
     "convex/vault/contracts/retryInfrastructureProvisioning.ts",
@@ -290,7 +290,8 @@ HTML pages. Action and operate docs are raw markdown only.
 ## Actions
 
 Every operational action has one contract, and these are the same actions the dashboard buttons run.
-Degraded app states name their remedy in a \`nextAction\` field whose values are these action ids.
+Inventory reports live provider state and stable Samebase resource ids. Choose an explicit action
+whose contract matches the observed state and required ids, then reread inventory.
 
 ${actionLines}
 

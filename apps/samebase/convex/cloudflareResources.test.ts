@@ -11,18 +11,19 @@ import {
   buildCloudflareWorkersEnvVars,
   CloudflareApiError,
   classifyCloudflareWorkerRepositoryDiscovery,
+  deleteCloudflareResources,
   isCloudflareGitHubAppRepositoryAuthorizationError,
   isCloudflareBuildTriggerNotFoundError,
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNotFoundError,
   isWorkersBuildsInvalidTokenMessage,
+  readCloudflareWorkerDeploymentDiscoveryForIdentity,
   readCloudflareWorkerRepositoryDiscovery,
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
-  observeCloudflareWorkerInfrastructure,
-  wireCloudflareWorkerConvexBuildAccess,
-  wireCloudflareWorkerBuilds,
+  rotateConvexDeployKeysForCloudflareWorkerBuilds,
+  configureCloudflareWorkerBuildsForGitHub,
 } from "./cloudflareResources";
 import {
   normalizeCloudflareAccounts,
@@ -84,8 +85,8 @@ const cloudflareWorkerSubdomainDisabledEnvelope = JSON.stringify({
   result: { enabled: false },
 });
 
-function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
-  typeof wireCloudflareWorkerBuilds
+function buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(): Parameters<
+  typeof configureCloudflareWorkerBuildsForGitHub
 >[0] {
   return {
     owner: "ada",
@@ -111,15 +112,13 @@ function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
   };
 }
 
-function buildTestObserveCloudflareWorkerInfrastructureArgs(): Parameters<
-  typeof observeCloudflareWorkerInfrastructure
+function buildTestCloudflareWorkerDeploymentDiscoveryArgs(): Parameters<
+  typeof readCloudflareWorkerDeploymentDiscoveryForIdentity
 >[0] {
   return {
-    vaultId: "vault-id",
-    workerName: "samebase-app",
     workerTag: "worker-tag",
-    cloudflareToken: "oauth-token",
-    cloudflareAuthMethod: "oauth",
+    token: "oauth-token",
+    transport: "direct",
     accountId: "account-id",
     defaultBranch: "main",
     expectedRepoId: "123",
@@ -131,24 +130,6 @@ function buildTestObserveCloudflareWorkerInfrastructureArgs(): Parameters<
       pathIncludes: ["**/*"],
       pathExcludes: [],
     },
-    build: {
-      state: "connected",
-      rootDirectory: ".",
-      buildCommand: "pnpm build",
-      deployCommand: "pnpm deploy",
-      previewDeployCommand: "pnpm deploy:preview",
-      pathIncludes: ["**/*"],
-      pathExcludes: [],
-      production: {
-        triggerUuid: "production-trigger",
-        buildTokenUuid: "build-token",
-      },
-      preview: {
-        triggerUuid: "preview-trigger",
-        buildTokenUuid: "build-token",
-      },
-    },
-    verifyConvexBuildAccess: true,
   };
 }
 
@@ -157,10 +138,6 @@ function cloudflareSuccessResponse(result: unknown): Response {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-function cloudflareMcpSuccessResult(result: unknown): string {
-  return JSON.stringify({ success: true, errors: [], messages: [], result });
 }
 
 function buildRecordedEnvironmentVariables(body: unknown): RecordedCloudflareEnvironmentVariables {
@@ -433,11 +410,56 @@ describe("cloudflare resources", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
-  it("uses both Convex deploy keys for Workers builds", () => {
+  it("deletes a Worker by its immutable tag", async () => {
+    const requests: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+        const path = new URL(url).pathname;
+        requests.push({ method, path });
+        if (
+          method === "GET" &&
+          path === "/client/v4/accounts/account-id/builds/workers/immutable-worker-tag/triggers"
+        ) {
+          return cloudflareSuccessResponse([]);
+        }
+        if (
+          method === "DELETE" &&
+          path === "/client/v4/accounts/account-id/workers/workers/immutable-worker-tag"
+        ) {
+          return cloudflareSuccessResponse(null);
+        }
+        throw new Error(`Unexpected Cloudflare request: ${method} ${path}`);
+      }),
+    );
+
+    await deleteCloudflareResources({
+      accountId: "account-id",
+      workerTag: "immutable-worker-tag",
+      cloudflareToken: "cloudflare-token",
+      transport: "direct",
+    });
+
+    expect(requests).toEqual([
+      {
+        method: "GET",
+        path: "/client/v4/accounts/account-id/builds/workers/immutable-worker-tag/triggers",
+      },
+      {
+        method: "DELETE",
+        path: "/client/v4/accounts/account-id/workers/workers/immutable-worker-tag",
+      },
+    ]);
+  });
+
+  it("uses both Convex deploy keys and the readable project marker for Workers builds", () => {
     expect(
       buildCloudflareWorkersEnvVars({
         productionConvexDeployKey: "prod-key",
         previewConvexDeployKey: "preview-key",
+        convexProject: { teamId: "team-1", projectId: "project-1" },
       }),
     ).toEqual({
       CONVEX_DEPLOY_KEY: {
@@ -448,36 +470,42 @@ describe("cloudflare resources", () => {
         value: "preview-key",
         is_secret: true,
       },
+      SAMEBASE_CONVEX_PROJECT: {
+        value: "version=1&teamId=team-1&projectId=project-1",
+        is_secret: false,
+      },
     });
   });
 
-  it("verifies recorded Cloudflare infrastructure when triggers and deploy-key variables exist", async () => {
+  it("observes a configured Convex project regardless of marker parameter order", async () => {
     const requests: RecordedCloudflareRequest[] = [];
+    const variables = {
+      CONVEX_DEPLOY_KEY: {
+        created_on: "2026-07-20T00:00:00Z",
+        is_secret: true,
+        value: null,
+      },
+      PREVIEW_CONVEX_DEPLOY_KEY: {
+        created_on: "2026-07-20T00:00:00Z",
+        is_secret: true,
+        value: null,
+      },
+      SAMEBASE_CONVEX_PROJECT: {
+        created_on: "2026-07-20T00:00:00Z",
+        is_secret: false,
+        value: "version=1&teamId=team-1&projectId=project-1",
+      },
+    };
     stubEnsureCloudflareResourcesFetch({
       requests,
       readEnvVars: {
-        "production-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-        },
+        "production-trigger": variables,
         "preview-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
+          ...variables,
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: "projectId=project-1&version=1&teamId=team-1",
           },
         },
       },
@@ -485,423 +513,158 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "confirmed",
-      convexBuildAccess: "confirmed",
-    });
-    expect(
-      requests.filter((request) => request.path.includes("environment_variables")),
-    ).toHaveLength(2);
-  });
-
-  it("adopts matching Workers Builds triggers when the Worker was attached before Builds were recorded", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      triggers: [
-        {
-          trigger_uuid: "production-trigger",
-          build_token_uuid: "production-build-token",
-          branch_includes: ["main"],
-          branch_excludes: [],
-          build_command: "pnpm build",
-          deploy_command: "pnpm deploy",
-          root_directory: ".",
-          path_includes: ["**/*"],
-          path_excludes: [],
-          repo_connection: {
-            repo_connection_uuid: "repo-connection",
-            repo_id: "123",
-            repo_name: "ada/samebase-app",
-          },
-        },
-        {
-          trigger_uuid: "preview-trigger",
-          build_token_uuid: "preview-build-token",
-          branch_includes: ["*"],
-          branch_excludes: ["main"],
-          build_command: "pnpm build",
-          deploy_command: "pnpm deploy:preview",
-          root_directory: ".",
-          path_includes: ["**/*"],
-          path_excludes: [],
-          repo_connection: {
-            repo_connection_uuid: "repo-connection",
-            repo_id: "123",
-            repo_name: "ada/samebase-app",
-          },
-        },
-      ],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        build: { state: "not_connected" },
-        verifyConvexBuildAccess: false,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "adopted",
-      connectedBuilds: {
-        state: "connected",
-        rootDirectory: ".",
-        buildCommand: "pnpm build",
-        deployCommand: "pnpm deploy",
-        previewDeployCommand: "pnpm deploy:preview",
-        pathIncludes: ["**/*"],
-        pathExcludes: [],
-        production: {
-          triggerUuid: "production-trigger",
-          buildTokenUuid: "production-build-token",
-        },
-        preview: {
-          triggerUuid: "preview-trigger",
-          buildTokenUuid: "preview-build-token",
-        },
-      },
-      convexBuildAccess: "not_checked",
-    });
-    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
-  });
-
-  it("verifies deploy-key variables while adopting Builds whose registry claims wired access", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      readEnvVars: {
-        "production-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-        },
-        "preview-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-        },
-      },
-      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        build: { state: "not_connected" },
-        verifyConvexBuildAccess: true,
-      }),
+      readCloudflareWorkerDeploymentDiscoveryForIdentity(
+        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      ),
     ).resolves.toMatchObject({
-      worker: "confirmed",
-      builds: "adopted",
-      convexBuildAccess: "contradicted",
+      repository: { classification: "recommended" },
+      builds: {
+        state: "connected",
+        convexBuildAccess: {
+          state: "configured",
+          convexProject: { teamId: "team-1", projectId: "project-1" },
+        },
+      },
     });
     expect(
       requests.filter((request) => request.path.includes("environment_variables")),
     ).toHaveLength(2);
   });
 
-  it("adopts Workers Builds triggers when the existing trigger config is customized", async () => {
+  it("distinguishes incomplete build access from a missing relationship", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
-      triggers: [
-        {
-          trigger_uuid: "production-trigger",
-          build_token_uuid: "production-build-token",
-          branch_includes: ["main"],
-          branch_excludes: [],
-          build_command: "npm run build",
-          deploy_command: "pnpm deploy",
-          root_directory: ".",
-          path_includes: ["**/*"],
-          path_excludes: [],
-          repo_connection: {
-            repo_connection_uuid: "repo-connection",
-            repo_id: "123",
-            repo_name: "ada/samebase-app",
+      readEnvVars: {
+        "production-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+          PREVIEW_CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: "version=1&teamId=team-1&projectId=project-1",
           },
         },
-        {
-          trigger_uuid: "preview-trigger",
-          build_token_uuid: "preview-build-token",
-          branch_includes: ["*"],
-          branch_excludes: ["main"],
-          build_command: "npm run build",
-          deploy_command: "pnpm deploy:preview",
-          root_directory: ".",
-          path_includes: ["**/*"],
-          path_excludes: [],
-          repo_connection: {
-            repo_connection_uuid: "repo-connection",
-            repo_id: "123",
-            repo_name: "ada/samebase-app",
+        "preview-trigger": {
+          CONVEX_DEPLOY_KEY: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: true,
+            value: null,
+          },
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: "version=1&teamId=team-1&projectId=project-1",
           },
         },
-      ],
+      },
+      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
     });
 
     await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        build: { state: "not_connected" },
-        verifyConvexBuildAccess: false,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "adopted",
-      connectedBuilds: {
+      readCloudflareWorkerDeploymentDiscoveryForIdentity(
+        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      ),
+    ).resolves.toMatchObject({
+      builds: {
         state: "connected",
-        rootDirectory: ".",
-        buildCommand: "npm run build",
-        deployCommand: "pnpm deploy",
-        previewDeployCommand: "pnpm deploy:preview",
-        pathIncludes: ["**/*"],
-        pathExcludes: [],
-        production: {
-          triggerUuid: "production-trigger",
-          buildTokenUuid: "production-build-token",
-        },
-        preview: {
-          triggerUuid: "preview-trigger",
-          buildTokenUuid: "preview-build-token",
+        convexBuildAccess: {
+          state: "incomplete",
+          convexProject: { teamId: "team-1", projectId: "project-1" },
         },
       },
-      convexBuildAccess: "not_checked",
     });
-    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
-  it("does not adopt a trigger pair whose shared build configuration differs", async () => {
+  it("reports an unknown target when secret names exist without a marker", async () => {
     const requests: RecordedCloudflareRequest[] = [];
+    const variables = {
+      CONVEX_DEPLOY_KEY: {
+        created_on: "2026-07-20T00:00:00Z",
+        is_secret: true,
+        value: null,
+      },
+      PREVIEW_CONVEX_DEPLOY_KEY: {
+        created_on: "2026-07-20T00:00:00Z",
+        is_secret: true,
+        value: null,
+      },
+    };
     stubEnsureCloudflareResourcesFetch({
       requests,
-      triggers: [
-        buildMatchingProductionTrigger({ build_command: "npm run build" }),
-        buildMatchingPreviewTrigger({ build_command: "pnpm build" }),
-      ],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        build: { state: "not_connected" },
-        verifyConvexBuildAccess: false,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "not_checked",
-      convexBuildAccess: "not_checked",
-    });
-    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
-  });
-
-  it("marks the attached Worker missing when Cloudflare no longer returns it", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      missingWorker: true,
-      triggers: [],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "missing_upstream",
-      builds: "not_checked",
-      convexBuildAccess: "not_checked",
-    });
-    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
-  });
-
-  it("contradicts Builds when an attached trigger disappears during environment verification", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      missingTrigger: "production-trigger",
+      readEnvVars: {
+        "production-trigger": variables,
+        "preview-trigger": variables,
+      },
       triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
     });
 
     await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "contradicted",
-      convexBuildAccess: "not_checked",
+      readCloudflareWorkerDeploymentDiscoveryForIdentity(
+        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      ),
+    ).resolves.toMatchObject({
+      builds: {
+        state: "connected",
+        convexBuildAccess: { state: "target_unknown" },
+      },
     });
   });
 
-  it("contradicts Builds when MCP reports a missing trigger", async () => {
-    callCloudflareMcpToolMock
-      .mockResolvedValueOnce(
-        cloudflareMcpSuccessResult([
-          buildMatchingProductionTrigger(),
-          buildMatchingPreviewTrigger(),
-        ]),
-      )
-      .mockRejectedValueOnce(
-        new Error("Cloudflare MCP tool call failed: Error: Cloudflare API error: 12000: Not found"),
-      )
-      .mockResolvedValueOnce(cloudflareMcpSuccessResult({}));
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        cloudflareToken: "api-key-token",
-        cloudflareAuthMethod: "api_key",
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "contradicted",
-      convexBuildAccess: "not_checked",
-    });
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(3);
-  });
-
-  it("does not classify an MCP timeout as a missing trigger", async () => {
-    callCloudflareMcpToolMock
-      .mockResolvedValueOnce(
-        cloudflareMcpSuccessResult([
-          buildMatchingProductionTrigger(),
-          buildMatchingPreviewTrigger(),
-        ]),
-      )
-      .mockRejectedValueOnce(new Error("Cloudflare MCP tool call timed out."))
-      .mockResolvedValueOnce(cloudflareMcpSuccessResult({}));
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        cloudflareToken: "api-key-token",
-        cloudflareAuthMethod: "api_key",
-        verifyConvexBuildAccess: true,
-      }),
-    ).rejects.toThrow("Cloudflare MCP tool call timed out");
-  });
-
-  it("confirms connected Builds with customized commands and path filters", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      triggers: [
-        buildMatchingProductionTrigger({
-          build_command: "npm run build:app",
-          deploy_command: "npm run deploy:prod",
-          path_includes: ["apps/web/**"],
-          path_excludes: ["apps/web/docs/**"],
-        }),
-        buildMatchingPreviewTrigger({
-          build_command: "npm run build:app",
-          deploy_command: "npm run deploy:preview",
-          path_includes: ["apps/web/**"],
-          path_excludes: ["apps/web/docs/**"],
-        }),
-      ],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: false,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "confirmed",
-      convexBuildAccess: "not_checked",
-    });
-  });
-
-  it("contradicts connected Builds when a recorded trigger is missing", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      triggers: [buildMatchingPreviewTrigger()],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "contradicted",
-      convexBuildAccess: "not_checked",
-    });
-    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
-  });
-
-  it("contradicts connected Builds when a recorded trigger is rebound to another repo", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      triggers: [
-        buildMatchingProductionTrigger({
-          repo_connection: {
-            repo_connection_uuid: "other-repo-connection",
-            repo_id: "999",
-            repo_name: "ada/other-app",
-          },
-        }),
-        buildMatchingPreviewTrigger(),
-      ],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "contradicted",
-      convexBuildAccess: "not_checked",
-    });
-    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
-  });
-
-  it("contradicts Convex build access when a trigger misses a deploy-key variable", async () => {
+  it("reports an unknown target when only one secret survives without a marker", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
       readEnvVars: {
         "production-trigger": {
           CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
+            created_on: "2026-07-20T00:00:00Z",
             is_secret: true,
             value: null,
+          },
+        },
+        "preview-trigger": {},
+      },
+      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
+    });
+
+    await expect(
+      readCloudflareWorkerDeploymentDiscoveryForIdentity(
+        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      ),
+    ).resolves.toMatchObject({
+      builds: {
+        state: "connected",
+        convexBuildAccess: { state: "target_unknown" },
+      },
+    });
+  });
+
+  it("reports inconsistent markers instead of selecting one trigger", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      readEnvVars: {
+        "production-trigger": {
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: "version=1&teamId=team-1&projectId=project-1",
           },
         },
         "preview-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: "version=1&teamId=team-1&projectId=project-2",
           },
         },
       },
@@ -909,67 +672,39 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "confirmed",
-      convexBuildAccess: "contradicted",
-    });
-  });
-
-  it("contradicts Convex build access when deploy-key variables exist only on the production trigger", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      readEnvVars: {
-        "production-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-        },
+      readCloudflareWorkerDeploymentDiscoveryForIdentity(
+        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      ),
+    ).resolves.toMatchObject({
+      builds: {
+        state: "connected",
+        convexBuildAccess: { state: "inconsistent" },
       },
-      triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
-    });
-
-    await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "confirmed",
-      convexBuildAccess: "contradicted",
     });
   });
 
-  it("contradicts Convex build access when deploy-key variables are split by trigger", async () => {
+  it.each([
+    "v1:team-1:project-1",
+    "version=2&teamId=team-1&projectId=project-1",
+    "version=1&teamId=team-1&teamId=team-2&projectId=project-1",
+    "version=1&teamId=team-1&projectId=project-1&extra=value",
+  ])("reports a malformed marker as invalid", async (marker) => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
       readEnvVars: {
         "production-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: marker,
           },
         },
         "preview-trigger": {
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-05T00:00:00Z",
-            is_secret: true,
-            value: null,
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: marker,
           },
         },
       },
@@ -977,15 +712,33 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      observeCloudflareWorkerInfrastructure({
-        ...buildTestObserveCloudflareWorkerInfrastructureArgs(),
-        verifyConvexBuildAccess: true,
-      }),
-    ).resolves.toEqual({
-      worker: "confirmed",
-      builds: "confirmed",
-      convexBuildAccess: "contradicted",
+      readCloudflareWorkerDeploymentDiscoveryForIdentity(
+        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      ),
+    ).resolves.toMatchObject({
+      builds: {
+        state: "connected",
+        convexBuildAccess: { state: "invalid" },
+      },
     });
+  });
+
+  it("does not read build variables until both Builds triggers exist", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [buildMatchingProductionTrigger()],
+    });
+
+    await expect(
+      readCloudflareWorkerDeploymentDiscoveryForIdentity(
+        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      ),
+    ).resolves.toMatchObject({
+      repository: { classification: "recommended" },
+      builds: { state: "not_connected" },
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
   it("wires Workers Builds without patching Convex environment variables", async () => {
@@ -995,7 +748,9 @@ describe("cloudflare resources", () => {
       triggers: [],
     });
 
-    const build = await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    const build = await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(build).toMatchObject({
       production: {
@@ -1025,8 +780,8 @@ describe("cloudflare resources", () => {
       triggers: [],
     });
 
-    await wireCloudflareWorkerBuilds({
-      ...buildTestWireCloudflareWorkerBuildsArgs(),
+    await configureCloudflareWorkerBuildsForGitHub({
+      ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
       triggerInitialBuild: false,
     });
 
@@ -1073,8 +828,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).resolves.toMatchObject({
@@ -1102,8 +857,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).rejects.toThrow("Workers Builds trigger creation failed");
@@ -1129,8 +884,8 @@ describe("cloudflare resources", () => {
       triggers: [],
     });
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).resolves.toMatchObject({
@@ -1148,8 +903,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).rejects.toThrow("Workers Builds trigger creation failed");
@@ -1199,7 +954,7 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerConvexBuildAccess({
+    await rotateConvexDeployKeysForCloudflareWorkerBuilds({
       defaultBranch: "main",
       expectedRepoId: "123",
       repositoryFullName: "ada/samebase-app",
@@ -1213,11 +968,9 @@ describe("cloudflare resources", () => {
       build: {
         production: {
           triggerUuid: "production-trigger",
-          buildTokenUuid: "build-token",
         },
         preview: {
           triggerUuid: "preview-trigger",
-          buildTokenUuid: "build-token",
         },
       },
       convex: {
@@ -1228,6 +981,7 @@ describe("cloudflare resources", () => {
           deployKey: "preview-key",
         },
       },
+      convexProject: { teamId: "team-1", projectId: "project-1" },
     });
 
     const productionPatchIndex = requests.findIndex(
@@ -1271,6 +1025,7 @@ describe("cloudflare resources", () => {
     const convexEnvVars = buildCloudflareWorkersEnvVars({
       productionConvexDeployKey: "prod-key",
       previewConvexDeployKey: "preview-key",
+      convexProject: { teamId: "team-1", projectId: "project-1" },
     });
     expect(requests[productionPatchIndex]?.body).toEqual(convexEnvVars);
     expect(requests[previewPatchIndex]?.body).toEqual(convexEnvVars);
@@ -1310,7 +1065,7 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerConvexBuildAccess({
+      rotateConvexDeployKeysForCloudflareWorkerBuilds({
         defaultBranch: "main",
         expectedRepoId: "123",
         repositoryFullName: "ada/samebase-app",
@@ -1324,11 +1079,9 @@ describe("cloudflare resources", () => {
         build: {
           production: {
             triggerUuid: "production-trigger",
-            buildTokenUuid: "build-token",
           },
           preview: {
             triggerUuid: "preview-trigger",
-            buildTokenUuid: "build-token",
           },
         },
         convex: {
@@ -1339,9 +1092,10 @@ describe("cloudflare resources", () => {
             deployKey: "preview-key",
           },
         },
+        convexProject: { teamId: "team-1", projectId: "project-1" },
       }),
     ).rejects.toThrow(
-      "Cloudflare production Workers Builds trigger production-trigger is missing build environment variable PREVIEW_CONVEX_DEPLOY_KEY after wiring.",
+      "Cloudflare production Workers Builds trigger production-trigger is missing build environment variable PREVIEW_CONVEX_DEPLOY_KEY after deploy-key rotation.",
     );
 
     expect(
@@ -1385,7 +1139,7 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerConvexBuildAccess({
+      rotateConvexDeployKeysForCloudflareWorkerBuilds({
         defaultBranch: "main",
         expectedRepoId: "123",
         repositoryFullName: "ada/samebase-app",
@@ -1399,11 +1153,9 @@ describe("cloudflare resources", () => {
         build: {
           production: {
             triggerUuid: "production-trigger",
-            buildTokenUuid: "build-token",
           },
           preview: {
             triggerUuid: "preview-trigger",
-            buildTokenUuid: "build-token",
           },
         },
         convex: {
@@ -1414,6 +1166,7 @@ describe("cloudflare resources", () => {
             deployKey: "preview-key",
           },
         },
+        convexProject: { teamId: "team-1", projectId: "project-1" },
       }),
     ).rejects.toThrow(
       "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: its existing production Workers Builds trigger is connected to root directory apps/admin. Expected /. Disconnect Builds in Cloudflare or choose another Worker.",
@@ -1566,7 +1319,9 @@ describe("cloudflare resources", () => {
     );
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
     ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
   });
 
@@ -1618,7 +1373,9 @@ describe("cloudflare resources", () => {
 
     let caughtError: unknown;
     try {
-      await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+      await configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      );
     } catch (error) {
       caughtError = error;
     }
@@ -1638,8 +1395,8 @@ describe("cloudflare resources", () => {
     );
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         cloudflareToken: "api-key-token",
         cloudflareAuthMethod: "api_key",
       }),
@@ -1667,7 +1424,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(
       requests.some(
@@ -1703,7 +1462,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(requests).toEqual(
       expect.arrayContaining([
@@ -1744,7 +1505,9 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
     ).rejects.toThrow("multiple matching trigger candidates");
     expect(
       requests.some(
@@ -1776,7 +1539,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(requests).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1815,7 +1580,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(
       requests.some(
         (request) =>
@@ -1859,7 +1626,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(
       requests.some(
         (request) =>
@@ -1904,7 +1673,9 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
     ).rejects.toThrow("Cloudflare did not return enough repository identity");
     expect(
       requests.some(
@@ -1920,7 +1691,7 @@ describe("cloudflare resources", () => {
     ).toBe(false);
   });
 
-  it("does not delete a conflicting trigger whose repository binding changes during wiring", async () => {
+  it("does not delete a conflicting trigger whose repository binding changes during configuration", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     const conflictingTrigger = buildMatchingProductionTrigger({
       trigger_uuid: "existing-production-trigger",
@@ -1946,8 +1717,10 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
-    ).rejects.toThrow("repository binding changed during wiring");
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
+    ).rejects.toThrow("repository binding changed during configuration");
     expect(
       requests.some(
         (request) => request.method === "DELETE" && request.path.includes("/builds/triggers/"),
@@ -1975,7 +1748,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(
       requests.some(
         (request) =>
@@ -2021,7 +1796,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(
       requests.some(
@@ -2514,7 +2291,7 @@ describe("cloudflare resources", () => {
       }),
     );
 
-    await wireCloudflareWorkerBuilds({
+    await configureCloudflareWorkerBuildsForGitHub({
       owner: "ada",
       repo: "samebase-app",
       ghRepoId: "123",

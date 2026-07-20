@@ -45,7 +45,7 @@ export const createRepositoryContract = {
   } satisfies AppFunctionMcpMetadata,
   doc: `Creates a complete Samebase app in one action: a GitHub repository under the caller's
 connected owner, seeded with the starter template, a Convex project and dev/prod deployments, a
-Cloudflare Worker, Workers Builds wired to the repository (push to the default branch deploys,
+Cloudflare Worker, Workers Builds configured for the repository (push to the default branch deploys,
 pull requests get preview deploys), and Convex deploy keys placed into the build triggers.
 
 Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the
@@ -59,9 +59,9 @@ Workers Builds triggers that each carry \`CONVEX_DEPLOY_KEY\` and
 Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through \`get_user_vaults\`: while running, \`providerSetup\`
-carries the current step; on failure it carries the failed step, a message, and the \`nextAction\`
-that repairs it (\`retry_infrastructure_provisioning\` for managed runs). Cost: the created
-resources run on the providers' free tiers; an idle app costs $0/month.`,
+carries the current step; on failure it carries the failed step and a message. Repair it with
+\`retry_infrastructure_provisioning\`. Cost: the created resources run on the providers' free
+tiers; an idle app costs $0/month.`,
 } as const;
 
 const createRepositoryArgsValidator = object(createRepositoryContract.args);

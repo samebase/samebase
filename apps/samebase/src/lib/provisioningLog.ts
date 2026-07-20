@@ -12,8 +12,8 @@ export type ProvisioningLogStep =
   | "claim_infra"
   | "attach_convex"
   | "attach_worker"
-  | "wire_builds"
-  | "wire_convex_build_access"
+  | "configure_workers_builds_for_github"
+  | "rotate_convex_deploy_keys_for_workers_builds"
   | "record_domains"
   | "finish";
 
@@ -51,8 +51,8 @@ const provisioningStepLabels = {
   claim_infra: "claim infra",
   attach_convex: "attach Convex",
   attach_worker: "attach Worker",
-  wire_builds: "wire Builds",
-  wire_convex_build_access: "wire Convex build access",
+  configure_workers_builds_for_github: "configure Workers Builds for GitHub",
+  rotate_convex_deploy_keys_for_workers_builds: "rotate Convex deploy keys for Workers Builds",
   record_domains: "record domains",
   finish: "finish",
 } satisfies Record<ProvisioningLogStep, string>;

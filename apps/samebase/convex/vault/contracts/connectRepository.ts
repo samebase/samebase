@@ -36,7 +36,7 @@ export const connectRepositoryContract = {
 (access is what is checked, not ownership): creates the vault,
 syncs the tree, and leaves the providers deliberately unconfigured. Importing never touches
 Convex or Cloudflare. This is the adoption entry point for existing projects; attach providers
-afterwards with \`connect_convex_deployment\` and \`connect_cloudflare_worker\`, or leave the app
+afterwards with \`connect_convex_project\` and \`connect_cloudflare_worker\`, or leave the app
 GitHub-only (watching and editing a repository is a supported use on its own).
 
 Preconditions: a GitHub provider connection, and read access to the repository. Nothing is created

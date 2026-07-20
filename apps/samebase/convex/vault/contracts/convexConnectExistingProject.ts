@@ -6,19 +6,19 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 const { id, string } = v;
 
 export const convexConnectExistingProjectContract = {
-  id: "connect_convex_deployment",
+  id: "connect_convex_project",
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     projectId: string(),
   },
   returns: v.null(),
   mcp: {
-    title: "Connect Convex deployment",
+    title: "Connect Convex project",
     name: "vault_convex_connectExistingProject",
     description:
-      "Attach an existing Convex project to a Samebase app (manual attach): records the deployment and starts the connection run.",
+      "Attach an existing Convex project to a Samebase app without copying its deployments into Samebase.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -27,16 +27,11 @@ export const convexConnectExistingProjectContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app to attach the Convex project to.",
-      appRoot: 'App root within the repository ("." for single-app repositories).',
+      appId: "Stable Samebase vault app id returned by get_user_vaults.",
       projectId: "Convex project id from list_convex_projects.",
     },
   } satisfies AppFunctionMcpMetadata,
-  doc: `The manual Convex attach: binds an existing Convex project (from
-\`list_convex_projects\`) to the app's record and starts the connection run. This is also the
-remedy \`get_user_vaults\` names as \`nextAction: "connect_convex_deployment"\` after a failed
-manual Convex attach. Rerunning it with a valid target is the repair.
-
-Writes Samebase's deployment record and reads the project from Convex; it does not modify the
-project itself. Progress and failure are readable through \`get_user_vaults\`
-(\`providerSetup\` with step, message, and \`nextAction\`).`,
+  doc: `Attaches an existing Convex project from \`list_convex_projects\` to a stable vault app.
+Samebase stores the project identity only. Production, development, and preview deployments remain
+provider-owned children and are read from Convex when a relevant view opens.`,
 } as const;

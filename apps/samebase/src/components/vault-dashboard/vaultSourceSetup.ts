@@ -35,10 +35,10 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
       return "attach Convex";
     case "attach_worker":
       return "attach Worker";
-    case "wire_builds":
-      return "wire Builds";
-    case "wire_convex_build_access":
-      return "wire Convex build access";
+    case "configure_workers_builds_for_github":
+      return "configure Workers Builds for GitHub";
+    case "rotate_convex_deploy_keys_for_workers_builds":
+      return "rotate Convex deploy keys for Workers Builds";
     case "record_domains":
       return "record domains";
     case "finish":

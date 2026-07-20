@@ -5,18 +5,13 @@
 MCP tool `vault_cloudflare_connectExistingWorker` · scope `access_app_create` · write
 
 The manual Cloudflare attach: binds an existing Worker (validated against the app's repository; a
-Worker wired to a different repository is rejected rather than adopted) and starts the connection
-run. This is also the remedy `get_user_vaults` names as `nextAction: "connect_cloudflare_worker"`
-after a failed manual Cloudflare attach.
-
-Writes Samebase's Worker record and the connection run; follow with `wire_builds` and
-`wire_convex_build_access` if the Worker's Builds trigger or deploy keys are missing (the status
-axes name exactly that). Progress and failure are readable through `get_user_vaults`.
+Worker configured for a different repository is rejected rather than adopted). Samebase stores only
+the stable Worker identity. Current Worker state is read live from Cloudflare.
 
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault id of the app to attach the Worker to.
-- `appRoot` (string, required): App root within the repository ("." for single-app repositories).
+- `appId` (string, required): Stable Samebase vault app id returned by get_user_vaults.
 - `accountId` (string, required): Cloudflare account id from list_cloudflare_accounts.
 - `workerName` (string, required): Worker name from list_cloudflare_workers (recommended or
   available only).

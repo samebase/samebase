@@ -61,34 +61,37 @@ Convex-domain deploy-key state.
 
 ## Building Blocks
 
-| #   | Block                                      | Provider effects                                                                                     | Durable state written                                 | Status                                                |
-| --- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
-| 1   | `source_setup` (create or import repo)     | GitHub repo create / fetch, seed, tree sync                                                          | vault row, `observations_vaultRepository_branchTrees` | exists                                                |
-| 2   | `attach_convex` (create or select project) | Convex project/deployment reads or create                                                            | `vaultConvexDeployments` row                          | exists (spec 106)                                     |
-| 3   | `attach_worker` (create or select Worker)  | Worker create or list-verify                                                                         | `vaultCloudflareWorkers` row                          | exists (spec 105); selection becomes discovery-driven |
-| 4   | `wire_builds`                              | repo connection, prod+preview triggers, build token, first build when no Convex env wiring is needed | `builds` axis on the Worker row                       | new                                                   |
-| 5   | `wire_convex_build_access`                 | mint prod+preview deploy keys, PATCH trigger env vars                                                | `convexBuildAccess` axis + `deployKeys` slots         | new                                                   |
+| #   | Block                                          | Provider effects                                                                                     | Durable state written                                 | Status                                                |
+| --- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| 1   | `source_setup` (create or import repo)         | GitHub repo create / fetch, seed, tree sync                                                          | vault row, `observations_vaultRepository_branchTrees` | exists                                                |
+| 2   | `attach_convex` (create or select project)     | Convex project/deployment reads or create                                                            | `vaultConvexDeployments` row                          | exists (spec 106)                                     |
+| 3   | `attach_worker` (create or select Worker)      | Worker create or list-verify                                                                         | `vaultCloudflareWorkers` row                          | exists (spec 105); selection becomes discovery-driven |
+| 4   | `configure_workers_builds_for_github`          | repo connection, prod+preview triggers, build token, first build when no Convex env wiring is needed | `builds` axis on the Worker row                       | new                                                   |
+| 5   | `rotate_convex_deploy_keys_for_workers_builds` | mint prod+preview deploy keys, PATCH trigger env vars                                                | `convexBuildAccess` axis + `deployKeys` slots         | new                                                   |
 
 Rules:
 
-- `wire_builds` takes an attached Worker (either origin) and the vault's connected GitHub repo. It
-  has no Convex inputs. Trigger env vars at this stage carry no Convex values.
-- `wire_convex_build_access` requires `attach_convex` and `wire_builds` to have completed. It
-  ensures the preview deployment (persisting its identity, unlike today), mints the two deploy keys,
-  records their ids on the Convex row, and PATCHes the Workers Builds env vars with both
-  `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` on every recorded trigger. This mirrors the
-  Cloudflare dashboard's visible build-variable table while the build script still selects the
-  branch-appropriate key from `WORKERS_CI_BRANCH`. This block patches only those deploy-key
-  variables; key material never touches the workflow journal (existing doctrine).
+- `configure_workers_builds_for_github` takes an attached Worker (either origin) and the vault's
+  connected GitHub repo. It has no Convex inputs. Trigger env vars at this stage carry no Convex
+  values.
+- `rotate_convex_deploy_keys_for_workers_builds` requires `attach_convex` and
+  `configure_workers_builds_for_github` to have completed. It ensures the preview deployment
+  (persisting its identity, unlike today), mints the two deploy keys, records their ids on the
+  Convex row, and PATCHes the Workers Builds env vars with both `CONVEX_DEPLOY_KEY` and
+  `PREVIEW_CONVEX_DEPLOY_KEY` on every recorded trigger. This mirrors the Cloudflare dashboard's
+  visible build-variable table while the build script still selects the branch-appropriate key from
+  `WORKERS_CI_BRANCH`. This block patches only those deploy-key variables; key material never
+  touches the workflow journal (existing doctrine).
 - The temporary dashboard repair path exposes the same blocks after manual or partial setup:
-  `Connect GitHub repo` runs `wire_builds` when an attached Worker is not connected to the vault's
-  GitHub repository, and `Set Convex deploy keys` runs `wire_convex_build_access` when the same app
-  root has Convex, connected Builds, and missing Convex build access.
+  `Configure Workers Builds for GitHub` runs `configure_workers_builds_for_github` when an attached
+  Worker is not connected to the vault's GitHub repository, and
+  `Rotate Convex deploy keys for Workers Builds` runs `rotate_convex_deploy_keys_for_workers_builds`
+  when the same app root has Convex, connected Builds, and missing Convex build access.
 - Blocks keep the existing run machinery: one `workflow_vaultProvisioning_runs` run per block
   execution, the acquire/ensure/finish write-lock pattern, and events for progress. The triplicated
   lock-acquisition helper stack should collapse into one shared implementation as blocks land.
-- Failure isolation: a failed `wire_builds` never deletes the attached Worker. Rollback deletes only
-  what the failing block itself created in that run.
+- Failure isolation: a failed `configure_workers_builds_for_github` never deletes the attached
+  Worker. Rollback deletes only what the failing block itself created in that run.
 
 Flow compositions:
 
@@ -173,14 +176,16 @@ Verification probes required before implementation (one-time, live):
    `matchesTriggerKind` adopts existing triggers by branch shape only and the upsert path PATCHes
    them without checking `repo_connection.repo_id`, so provisioning onto a Worker whose triggers
    point at a different repo silently reuses wrong-repo triggers. Stop before any schema change.
-2. **Phase 1 — state split + `wire_builds`.** Narrow the Worker `deployment` shape to the two-axis
-   model; local/operator data can be cleared instead of carrying internal backwards compatibility.
-   `wire_builds` as its own run (new trigger vocabulary), exposed on any attached Worker regardless
-   of origin. Auto-queue it only after Samebase provisions a new Worker; selected existing Workers
-   require an explicit user action. Convex-backed app roots defer the first build until Phase 2
-   writes build env vars; Convex-less roots can trigger immediately. Stop before Convex wiring.
-3. **Phase 2 — `wire_convex_build_access`.** Persist preview-deployment identity; deploy-key minting
-   with slot recording owned by the Convex domain; env-var PATCH. Stop before discovery UI.
+2. **Phase 1: state split + `configure_workers_builds_for_github`.** Narrow the Worker `deployment`
+   shape to the two-axis model; local/operator data can be cleared instead of carrying internal
+   backwards compatibility. `configure_workers_builds_for_github` as its own run (new trigger
+   vocabulary), exposed on any attached Worker regardless of origin. Auto-queue it only after
+   Samebase provisions a new Worker; selected existing Workers require an explicit user action.
+   Convex-backed app roots defer the first build until Phase 2 writes build env vars; Convex-less
+   roots can trigger immediately. Stop before Convex wiring.
+3. **Phase 2: `rotate_convex_deploy_keys_for_workers_builds`.** Persist preview-deployment identity;
+   deploy-key minting with slot recording owned by the Convex domain; env-var PATCH. Stop before
+   discovery UI.
 4. **Phase 3 — discovery.** Repo-id scan behind the add-Cloudflare dialog; preselected candidates
    with evidence. Stop before touching the full flow.
 5. **Phase 4 — recompose the full flow.** `provisionApp` drives blocks 2–5 instead of

@@ -1,15 +1,15 @@
 # Cloudflare Manual Worker Connection
 
 Cloudflare Worker connection is a vault resource attachment. It is separate from provider credential
-connection and separate from deployment wiring.
+connection and separate from deployment configuration.
 
 ## Goals
 
 - Let a vault attach an existing Cloudflare Worker from a selected Cloudflare account.
 - Let a vault create a new Cloudflare Worker in a selected Cloudflare account.
 - Store the attached Worker identity on the vault as the durable source of truth.
-- Queue attach/create work as a durable Workflow run so the dialog only waits for submission and the
-  vault header can show progress.
+- Keep attach/create as an explicit request whose dialog stays open until the provider operation and
+  stable attachment write finish.
 - Keep the stored state brand-neutral so a future product rename does not leave product names in DB
   literals.
 
@@ -17,7 +17,7 @@ connection and separate from deployment wiring.
 
 - Do not configure Workers Builds in this slice.
 - Do not connect GitHub to Cloudflare in this slice.
-- Do not set Convex deploy keys in Workers Builds in this slice.
+- Do not rotate or install Convex deploy keys in Workers Builds in this slice.
 - Do not delete Cloudflare Workers that were selected as existing external resources.
 
 ## State Model
@@ -28,12 +28,12 @@ connection and separate from deployment wiring.
 type VaultCloudflareWorker = {
   vaultId: Id<"vaults">;
   userId: Id<"users">;
-  appRoot: string;
+  appId: Id<"vaultApps">;
   accountId: string;
   workerName: string;
   workerTag: string;
   origin: "provisioned" | "selected_existing";
-  connectedAt: number;
+  createdAt: number;
 };
 ```
 
@@ -41,17 +41,18 @@ The app must not require the account-level workers.dev subdomain endpoint before
 creating a Worker. The real Cloudflare MCP OAuth grant can verify accounts and Worker identity while
 that specific endpoint can return an authentication error; attachment should still succeed.
 
-`appRoot` answers which deployable root inside the repository this Worker serves. Samebase should
-show Cloudflare's observed root-directory evidence in the picker before attachment when it is known.
+The attached `vaultApps` row owns the Worker's `rootDirectory`. It has exactly the same meaning and
+spelling as Cloudflare's `root_directory`. Samebase should show Cloudflare's observed root-directory
+evidence in the picker before attachment when it is known.
 
 `origin` answers how this vault attached to the Worker.
 
-`connectedAt` answers when this vault attached the Worker.
+`createdAt` answers when this vault attached the Worker.
 
 Cleanup ownership is derived from `origin`: `provisioned` Workers can be deleted by managed cleanup
 flows, while `selected_existing` Workers are external.
 
-Worker existence, workers.dev URLs, repository wiring, build triggers, and Convex deploy-key
+Worker existence, workers.dev URLs, repository configuration, build triggers, and Convex deploy-key
 variables are read directly from Cloudflare as a bounded live observation. They are not fields on
 the attachment row and the observation is not written back to the database.
 
@@ -87,17 +88,38 @@ should not be the durable connected Worker identity.
 The desired plan shape is:
 
 ```ts
-type VaultProvisioningPlanCloudflare = {
-  state: "planned";
-  accountId: string;
-  workerName: string;
-  build: VaultCloudflareBuildConfig;
-};
+type VaultProvisioningPlanCloudflare =
+  | {
+      state: "planned";
+      accountId: string;
+      workerName: string;
+      build: VaultCloudflareBuildConfig;
+    }
+  | {
+      state: "creating";
+      accountId: string;
+      workerName: string;
+      build: VaultCloudflareBuildConfig;
+    }
+  | {
+      state: "created";
+      accountId: string;
+      workerName: string;
+      workerTag: string;
+      build: VaultCloudflareBuildConfig;
+    };
 ```
 
-Full-app provisioning can use this plan to keep retries deterministic. The plan keeps the planned
-name, selected account, and intended build config. Once a Worker is attached, the Worker identity
-belongs in `vaultCloudflareWorkers`.
+Full-app provisioning uses this plan to keep retries deterministic. `creating` is written before the
+external create request. If the action stops before recording the returned immutable Worker tag,
+retry stops for operator inspection rather than adopting a same-named Worker. `created` lets retry
+reuse the exact confirmed Worker. Samebase records `created` and the stable `provisioned`
+`vaultCloudflareWorkers` attachment in one database transaction. Explicit vault deletion derives
+ownership only from that attachment.
+
+An exact Cloudflare Worker identity can be attached to only one Samebase app, even across Samebase
+users. This keeps a provisioned attachment an exclusive deletion-ownership record rather than a
+shared reference that one vault could remove underneath another.
 
 Because existing data is not a compatibility constraint for this slice, full-app Cloudflare
 provisioning should fail closed if the plan is missing instead of reconstructing a plan from legacy
@@ -117,44 +139,29 @@ Manual Worker creation should check that the vault is still attachable before ma
 create call. The external create must not be the first operation that discovers the vault is already
 attached or unavailable.
 
-## Durable Execution
+## Explicit Execution
 
-Manual Worker attach/create uses `workflow_vaultProvisioning_runs` with trigger
-`connect_cloudflare_worker`. The run is intentionally narrow: it claims Cloudflare provider work,
-ensures the selected or newly created Worker, writes `vaultCloudflareWorkers`, then marks the run
-complete.
+Manual Worker attach/create runs as one explicit action. The dialog remains open and disabled while
+the action reads Cloudflare and writes `vaultCloudflareWorkers`; it closes only after success and
+shows the returned error otherwise. It does not create a provisioning run or persist intermediate
+provider state.
 
-Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
-run is active or failed, dashboard state is derived from `workflow_vaultProvisioning_writeLocks`
-plus the run events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable
-resource identity.
+If Samebase creates a Worker and the stable attachment write then fails, the action reports that the
+provider create may have succeeded and leaves inspection or cleanup to Cloudflare. It must not
+automatically delete the Worker because another concurrent request may already have attached that
+identity. Attaching a Worker selected from existing Cloudflare inventory never deletes or otherwise
+changes that Worker when the local attachment fails.
 
-The modal submit action should return after the Workflow is queued. The modal then closes by
-clearing `add-cloudflare`, and the vault header/resource rail shows the Cloudflare row as running,
-failed, or ready from subscribed dashboard state.
+## Missing Worker Recovery
 
-## Missing Worker Replacement
+When a live Cloudflare observation reports that the recorded Worker name is absent or now has a
+different Worker tag, the resource row offers `Remove from Samebase`. The action reads Cloudflare
+again and deletes only the unchanged `vaultCloudflareWorkers` attachment after it confirms the
+recorded identity is still missing. It never deletes a Cloudflare Worker.
 
-When a live Cloudflare observation reports that the attached Worker identity is missing, the same
-connection dialog can select or create its replacement. A failed or unavailable provider read does
-not authorize replacement.
-
-The server derives a one-run replacement intent from the current attachment row. Before queuing the
-Workflow and again after claiming its write lock, it reads the recorded Worker name from Cloudflare
-and confirms that the recorded Worker tag no longer exists at that name. The Workflow then
-compare-and-swaps the exact recorded attachment snapshot and patches the same
-`vaultCloudflareWorkers` row with the replacement identity. A changed attachment snapshot cancels
-the run instead of overwriting newer state.
-
-The replacement intent is Workflow input, not durable provider state. Samebase does not persist the
-missing observation, duplicate the Cloudflare resource, or delete the attachment row while a
-replacement is in progress.
-
-If a created Worker cannot be attached to the vault after the provider create call, the Workflow
-must delete that created Worker before surfacing failure unless the vault now points at the same
-Cloudflare account and Worker name from a newer run. A failed manual Cloudflare run should keep the
-Cloudflare row failed while offering the same connection dialog again, so the operator can pick an
-existing Worker or create a new one without waiting for hidden state cleanup.
+A failed or unavailable provider read does not authorize attachment removal. After removal, the
+ordinary `?add-cloudflare` flow can attach or create a Worker without a replacement-specific state
+machine.
 
 ## Route Semantics
 
@@ -163,17 +170,23 @@ vault route.
 
 The dialog closes by clearing `add-cloudflare` while preserving the selected vault route.
 
-## Deployment Wiring
+## Deployment Configuration
 
-Deployment wiring is separate from Worker attach/create. The two wiring relationships are:
+Deployment configuration is separate from Worker attach/create. The two provider configurations are:
 
 - GitHub to Cloudflare Workers Builds.
 - Cloudflare Workers Builds to Convex build access through deploy keys.
 
-Attaching a Worker does not imply either wiring relationship exists. Samebase-provisioned Workers
-created by full app provisioning auto-queue `wire_builds`; selected existing Workers require an
-explicit user action so Samebase does not mutate a preexisting Cloudflare setup without approval.
-After attach, the dashboard exposes that explicit action as `Connect GitHub repo` when the Worker is
-not connected to the vault's GitHub repository through Cloudflare Workers Builds. If the same app
-root also has an attached Convex deployment after Builds is connected, the dashboard exposes
-`Set Convex deploy keys` to run `wire_convex_build_access`.
+Attaching a Worker does not imply either provider configuration exists. Samebase-provisioned Workers
+created by full app provisioning continue through `configure_workers_builds_for_github`; selected
+existing Workers require an explicit user action so Samebase does not mutate a preexisting
+Cloudflare setup without approval. After attach, the dashboard exposes that explicit action as
+`Configure Workers Builds for GitHub` when the Worker is not connected to the vault's GitHub
+repository through Cloudflare Workers Builds.
+
+After Builds is connected, `Rotate Convex deploy keys for Workers Builds` takes one explicitly
+selected attached Convex project. Samebase writes both secret deploy-key variables and the readable
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to the production
+and preview triggers. That Cloudflare configuration is the live relationship. Attaching resources
+does not create a Worker-to-project relationship, and Samebase does not persist a completed
+dependency row.

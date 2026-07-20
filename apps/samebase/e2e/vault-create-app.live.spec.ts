@@ -109,14 +109,18 @@ async function createCloudflareWorkerFromDashboard(page: Page, workerName: strin
   await expect(
     page.getByText("Cloudflare is not connected to this GitHub repository."),
   ).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByRole("button", { name: "Connect GitHub repo Cloudflare" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Set Convex deploy keys Cloudflare" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("button", { name: "Configure Workers Builds for GitHub Cloudflare" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" }),
+  ).toHaveCount(0);
 }
 
-async function connectCloudflareWorkerToGithub(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Connect GitHub repo Cloudflare" }).click();
+async function configureWorkersBuildsForGitHub(page: Page): Promise<void> {
+  await page
+    .getByRole("button", { name: "Configure Workers Builds for GitHub Cloudflare" })
+    .click();
   await expect(
     page.getByText("Cloudflare is not connected to this GitHub repository."),
   ).toHaveCount(0, { timeout: 180_000 });
@@ -149,18 +153,20 @@ async function createConvexProjectFromDashboard(page: Page, projectName: string)
     page.getByText("Cloudflare does not have this Convex deployment's deploy keys."),
   ).toBeVisible({ timeout: 180_000 });
   await expect(
-    page.getByRole("button", { name: "Set Convex deploy keys Cloudflare" }),
+    page.getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" }),
   ).toBeVisible();
 }
 
 async function setCloudflareConvexDeployKeys(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Set Convex deploy keys Cloudflare" }).click();
+  await page
+    .getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" })
+    .click();
   await expect(
     page.getByText("Cloudflare does not have this Convex deployment's deploy keys."),
   ).toHaveCount(0, { timeout: 180_000 });
-  await expect(page.getByRole("button", { name: "Set Convex deploy keys Cloudflare" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" }),
+  ).toHaveCount(0);
 }
 
 async function createAppIfAvailable(page: Page, repoName: string): Promise<void> {
@@ -413,7 +419,7 @@ test.describe("vault create app live flow", () => {
 
       await useExistingRepositoryAsRootApp(page);
       await createCloudflareWorkerFromDashboard(page, resourceName);
-      await connectCloudflareWorkerToGithub(page);
+      await configureWorkersBuildsForGitHub(page);
       await createConvexProjectFromDashboard(page, resourceName);
       await setCloudflareConvexDeployKeys(page);
     } finally {

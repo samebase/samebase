@@ -20,8 +20,8 @@ export type SamebaseUsageMcpToolName =
   | "vault_cloudflare_listWorkers"
   | "vault_convex_connectExistingProject"
   | "vault_cloudflare_connectExistingWorker"
-  | "vault_cloudflare_wireBuilds"
-  | "vault_cloudflare_wireConvexBuildAccess"
+  | "vault_cloudflare_configureWorkersBuildsForGitHub"
+  | "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds"
   | "vault_actions_retryInfrastructureProvisioning"
   | "create_browser_handoff"
   | "unknown";

@@ -6,8 +6,8 @@ MCP tool `vault_convex_listProjects` · scope `access_app_create` · read_only
 
 Discovery read for the manual Convex attach flow: returns the projects on the caller's connected
 Convex account (id, name, slug, team slug). Use it to pick the `projectId` argument for
-`connect_convex_deployment`. Requires a Convex provider connection; reads from Convex's API and
-writes nothing.
+`connect_convex_project`. Requires a Convex provider connection; reads from Convex's API and writes
+nothing.
 
 ## Arguments
 

@@ -29,6 +29,8 @@ import {
   type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react";
+import { ROOT_VAULT_APP_ROOT } from "../../../shared/vaultAppRoot";
+import { VAULT_ROOT_DIRECTORY } from "../../../shared/vaultRootDirectory";
 
 type ConvexSchemaGraphState = NonNullable<(typeof api.vault.convexSchemaGraph.get)["_returnType"]>;
 export type VaultConvexSchemaGraphState = ConvexSchemaGraphState;
@@ -60,7 +62,7 @@ type VaultConvexSchemaGraphContentProps = {
   refreshError: string | null;
   refreshPending: boolean;
   variant?: VaultConvexSchemaGraphVariant;
-  onDeploymentChange?: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onProjectChange?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   onRefresh?: () => void;
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
 };
@@ -73,7 +75,7 @@ type VaultConvexSchemaGraphController = {
   state: ConvexSchemaGraphState | null | undefined;
   refreshError: string | null;
   refreshPending: boolean;
-  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onProjectChange: (convexProjectId: Id<"vaultConvexProjects">) => void;
   onRefresh: () => void;
   onSaveLayout: (nodeId: string, x: number, y: number) => void;
 };
@@ -842,26 +844,26 @@ export function VaultConvexSchemaGraphContent({
   refreshError,
   refreshPending,
   variant = "dashboard",
-  onDeploymentChange,
+  onProjectChange,
   onRefresh,
   onSaveLayout,
 }: VaultConvexSchemaGraphContentProps) {
   const snapshot = state.snapshot;
-  const selectedDeploymentId = state.selectedDeploymentId ?? undefined;
-  const selectedDeployment = state.deployments.find(
-    (deployment) => deployment._id === state.selectedDeploymentId,
+  const selectedConvexProjectId = state.selectedConvexProjectId ?? undefined;
+  const selectedProject = state.projects.find(
+    (project) => project.convexProjectId === state.selectedConvexProjectId,
   );
-  const showDeploymentSelect =
-    state.deployments.length > 0 && (state.deployments.length > 1 || !selectedDeployment);
+  const showProjectSelect =
+    state.projects.length > 0 && (state.projects.length > 1 || !selectedProject);
 
-  const handleDeploymentValueChange = useCallback(
+  const handleProjectValueChange = useCallback(
     (value: string) => {
-      const deployment = state.deployments.find((item) => item._id === value);
-      if (deployment) {
-        onDeploymentChange?.(deployment._id);
+      const project = state.projects.find((item) => item.convexProjectId === value);
+      if (project) {
+        onProjectChange?.(project.convexProjectId);
       }
     },
-    [onDeploymentChange, state.deployments],
+    [onProjectChange, state.projects],
   );
 
   return (
@@ -875,23 +877,23 @@ export function VaultConvexSchemaGraphContent({
           <div className="mt-0.5 min-w-0 truncate text-xs text-muted-foreground">
             {snapshot
               ? `${snapshot.graph.tables.length} tables · ${snapshot.graph.relationships.length} relationships · ${formatSnapshotTimestamp(snapshot.fetchedAt)}`
-              : selectedDeployment
-                ? `${selectedDeployment.deploymentName} has no snapshot`
-                : "No Convex deployment"}
+              : selectedProject
+                ? `${selectedProject.projectId} has no snapshot`
+                : "No Convex project"}
           </div>
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {showDeploymentSelect ? (
-            <Select value={selectedDeploymentId} onValueChange={handleDeploymentValueChange}>
+          {showProjectSelect ? (
+            <Select value={selectedConvexProjectId} onValueChange={handleProjectValueChange}>
               <SelectTrigger className="h-8 min-w-44 max-w-60 text-xs">
                 <SelectValue placeholder="Select deployment" />
               </SelectTrigger>
               <AppSelectContent>
-                {state.deployments.map((deployment) => (
-                  <AppSelectItem key={deployment._id} value={deployment._id}>
-                    {deployment.appRoot === "."
-                      ? deployment.deploymentName
-                      : `${deployment.appRoot}: ${deployment.deploymentName}`}
+                {state.projects.map((project) => (
+                  <AppSelectItem key={project.convexProjectId} value={project.convexProjectId}>
+                    {project.rootDirectory === "/"
+                      ? project.projectId
+                      : `${project.rootDirectory}: ${project.projectId}`}
                   </AppSelectItem>
                 ))}
               </AppSelectContent>
@@ -901,7 +903,7 @@ export function VaultConvexSchemaGraphContent({
             type="button"
             variant="outline"
             size="sm"
-            disabled={!state.selectedDeploymentId || refreshPending || !onRefresh}
+            disabled={!state.selectedConvexProjectId || refreshPending || !onRefresh}
             onClick={onRefresh}
           >
             {refreshPending ? (
@@ -934,40 +936,40 @@ function VaultConvexSchemaGraphRouteSidebar({
   state,
   refreshError,
   refreshPending,
-  onDeploymentChange,
+  onProjectChange,
   onRefresh,
 }: {
   context: VaultConvexSchemaGraphRouteContext;
   state: VaultConvexSchemaGraphState | null | undefined;
   refreshError: string | null;
   refreshPending: boolean;
-  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onProjectChange: (convexProjectId: Id<"vaultConvexProjects">) => void;
   onRefresh: () => void;
 }) {
   const snapshot = state?.snapshot ?? null;
-  const selectedDeploymentId = state?.selectedDeploymentId ?? undefined;
-  const selectedDeployment = state?.deployments.find(
-    (deployment) => deployment._id === state.selectedDeploymentId,
+  const selectedConvexProjectId = state?.selectedConvexProjectId ?? undefined;
+  const selectedProject = state?.projects.find(
+    (project) => project.convexProjectId === state.selectedConvexProjectId,
   );
-  const showDeploymentSelect =
+  const showProjectSelect =
     state !== null &&
     state !== undefined &&
-    state.deployments.length > 0 &&
-    (state.deployments.length > 1 || !selectedDeployment);
+    state.projects.length > 0 &&
+    (state.projects.length > 1 || !selectedProject);
   const zoneSummaries = useMemo(
     () =>
       snapshot ? buildSchemaZoneSummaries(snapshot.graph.tables, snapshot.graph.relationships) : [],
     [snapshot],
   );
 
-  const handleDeploymentValueChange = useCallback(
+  const handleProjectValueChange = useCallback(
     (value: string) => {
-      const deployment = state?.deployments.find((item) => item._id === value);
-      if (deployment) {
-        onDeploymentChange(deployment._id);
+      const project = state?.projects.find((item) => item.convexProjectId === value);
+      if (project) {
+        onProjectChange(project.convexProjectId);
       }
     },
-    [onDeploymentChange, state?.deployments],
+    [onProjectChange, state?.projects],
   );
 
   return (
@@ -992,29 +994,29 @@ function VaultConvexSchemaGraphRouteSidebar({
         </div>
       ) : state === null ? (
         <div className="text-xs text-muted-foreground">Schema unavailable.</div>
-      ) : state.deployments.length === 0 ? (
-        <div className="text-xs text-muted-foreground">No Convex deployment.</div>
+      ) : state.projects.length === 0 ? (
+        <div className="text-xs text-muted-foreground">No Convex project.</div>
       ) : (
         <>
           <div className="grid gap-2">
-            {showDeploymentSelect ? (
-              <Select value={selectedDeploymentId} onValueChange={handleDeploymentValueChange}>
+            {showProjectSelect ? (
+              <Select value={selectedConvexProjectId} onValueChange={handleProjectValueChange}>
                 <SelectTrigger className="h-8 w-full text-xs">
                   <SelectValue placeholder="Select deployment" />
                 </SelectTrigger>
                 <AppSelectContent>
-                  {state.deployments.map((deployment) => (
-                    <AppSelectItem key={deployment._id} value={deployment._id}>
-                      {deployment.appRoot === "."
-                        ? deployment.deploymentName
-                        : `${deployment.appRoot}: ${deployment.deploymentName}`}
+                  {state.projects.map((project) => (
+                    <AppSelectItem key={project.convexProjectId} value={project.convexProjectId}>
+                      {project.rootDirectory === "/"
+                        ? project.projectId
+                        : `${project.rootDirectory}: ${project.projectId}`}
                     </AppSelectItem>
                   ))}
                 </AppSelectContent>
               </Select>
             ) : (
               <div className="min-w-0 truncate text-xs text-muted-foreground">
-                {selectedDeployment?.deploymentName}
+                {selectedProject?.projectId}
               </div>
             )}
             <Button
@@ -1022,7 +1024,7 @@ function VaultConvexSchemaGraphRouteSidebar({
               variant="outline"
               size="sm"
               className="w-full"
-              disabled={!state.selectedDeploymentId || refreshPending}
+              disabled={!state.selectedConvexProjectId || refreshPending}
               onClick={onRefresh}
             >
               {refreshPending ? (
@@ -1103,54 +1105,86 @@ function useVaultConvexSchemaGraphController({
   appRoot?: string;
   vaultId: Id<"vaults">;
 }): VaultConvexSchemaGraphController {
-  const [selectedDeploymentId, setSelectedDeploymentId] = useState<Id<"vaultConvexDeployments">>();
+  const [selectedConvexProjectId, setSelectedConvexProjectId] =
+    useState<Id<"vaultConvexProjects">>();
   const [refreshPending, setRefreshPending] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [layoutError, setLayoutError] = useState<string | null>(null);
   const queryArgs = useMemo(
     () =>
-      selectedDeploymentId
-        ? { vaultId, deploymentId: selectedDeploymentId }
-        : appRoot !== undefined
-          ? { vaultId, appRoot }
-          : { vaultId },
-    [appRoot, selectedDeploymentId, vaultId],
+      selectedConvexProjectId ? { vaultId, convexProjectId: selectedConvexProjectId } : { vaultId },
+    [selectedConvexProjectId, vaultId],
   );
-  const state = useQuery(api.vault.convexSchemaGraph.get, queryArgs);
+  const queriedState = useQuery(api.vault.convexSchemaGraph.get, queryArgs);
   const refresh = useAction(api.vault.convexSchemaGraph.refresh);
   const saveLayout = useMutation(api.vault.convexSchemaGraph.saveLayout);
 
   useEffect(() => {
-    setSelectedDeploymentId(undefined);
+    setSelectedConvexProjectId(undefined);
   }, [appRoot, vaultId]);
 
+  useEffect(() => {
+    if (!appRoot || selectedConvexProjectId || !queriedState) {
+      return;
+    }
+    const rootDirectory = appRoot === ROOT_VAULT_APP_ROOT ? VAULT_ROOT_DIRECTORY : appRoot;
+    const project = queriedState.projects.find(
+      (candidate) => candidate.rootDirectory === rootDirectory,
+    );
+    if (project && project.convexProjectId !== queriedState.selectedConvexProjectId) {
+      setSelectedConvexProjectId(project.convexProjectId);
+    }
+  }, [appRoot, queriedState, selectedConvexProjectId]);
+
+  const routeProject =
+    appRoot && queriedState && !selectedConvexProjectId
+      ? queriedState.projects.find(
+          (candidate) =>
+            candidate.rootDirectory ===
+            (appRoot === ROOT_VAULT_APP_ROOT ? VAULT_ROOT_DIRECTORY : appRoot),
+        )
+      : undefined;
+  const state =
+    queriedState && appRoot && !selectedConvexProjectId
+      ? routeProject
+        ? routeProject.convexProjectId === queriedState.selectedConvexProjectId
+          ? queriedState
+          : undefined
+        : {
+            ...queriedState,
+            selectedConvexProjectId: null,
+            snapshot: null,
+            layout: [],
+          }
+      : queriedState;
+
   const handleRefresh = useCallback(async () => {
-    const deploymentId = state?.selectedDeploymentId;
-    if (!deploymentId) {
+    const convexProjectId = state?.selectedConvexProjectId;
+    if (!convexProjectId) {
       return;
     }
     setRefreshPending(true);
     setRefreshError(null);
     try {
-      await refresh({ vaultId, deploymentId });
+      await refresh({ vaultId, convexProjectId });
       toast({ title: "Convex schema refreshed" });
     } catch (error) {
       setRefreshError(error instanceof Error ? error.message : "Could not refresh schema.");
     } finally {
       setRefreshPending(false);
     }
-  }, [refresh, state?.selectedDeploymentId, vaultId]);
+  }, [refresh, state?.selectedConvexProjectId, vaultId]);
 
   const handleSaveLayout = useCallback(
     (nodeId: string, x: number, y: number) => {
-      const deploymentId = state?.selectedDeploymentId;
-      if (!deploymentId) {
+      const convexProjectId = state?.selectedConvexProjectId;
+      if (!convexProjectId) {
         return;
       }
       setLayoutError(null);
       void saveLayout({
         vaultId,
-        deploymentId,
+        convexProjectId,
         nodeId,
         x,
         y,
@@ -1158,14 +1192,14 @@ function useVaultConvexSchemaGraphController({
         setLayoutError(error instanceof Error ? error.message : "Could not save graph layout.");
       });
     },
-    [saveLayout, state?.selectedDeploymentId, vaultId],
+    [saveLayout, state?.selectedConvexProjectId, vaultId],
   );
 
   return {
     state,
     refreshPending,
     refreshError: refreshError ?? layoutError,
-    onDeploymentChange: setSelectedDeploymentId,
+    onProjectChange: setSelectedConvexProjectId,
     onRefresh: () => {
       void handleRefresh();
     },
@@ -1197,11 +1231,11 @@ export function VaultConvexSchemaGraph({
     );
   }
 
-  if (state === null || state.deployments.length === 0) {
+  if (state === null || state.projects.length === 0) {
     if (variant === "route") {
       return (
         <VaultConvexSchemaGraphStatus variant={variant}>
-          No Convex deployment.
+          No Convex project.
         </VaultConvexSchemaGraphStatus>
       );
     }
@@ -1214,7 +1248,7 @@ export function VaultConvexSchemaGraph({
       variant={variant}
       refreshPending={controller.refreshPending}
       refreshError={controller.refreshError}
-      onDeploymentChange={controller.onDeploymentChange}
+      onProjectChange={controller.onProjectChange}
       onRefresh={controller.onRefresh}
       onSaveLayout={controller.onSaveLayout}
     />
@@ -1226,7 +1260,7 @@ export function VaultConvexSchemaGraphRouteWorkspaceContent({
   state,
   refreshError,
   refreshPending,
-  onDeploymentChange,
+  onProjectChange,
   onRefresh,
   onSaveLayout,
 }: {
@@ -1234,7 +1268,7 @@ export function VaultConvexSchemaGraphRouteWorkspaceContent({
   state: VaultConvexSchemaGraphState | null | undefined;
   refreshError: string | null;
   refreshPending: boolean;
-  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onProjectChange: (convexProjectId: Id<"vaultConvexProjects">) => void;
   onRefresh: () => void;
   onSaveLayout: (nodeId: string, x: number, y: number) => void;
 }) {
@@ -1247,7 +1281,7 @@ export function VaultConvexSchemaGraphRouteWorkspaceContent({
             state={state}
             refreshPending={refreshPending}
             refreshError={refreshError}
-            onDeploymentChange={onDeploymentChange}
+            onProjectChange={onProjectChange}
             onRefresh={onRefresh}
           />
         ),
@@ -1262,9 +1296,9 @@ export function VaultConvexSchemaGraphRouteWorkspaceContent({
           <VaultConvexSchemaGraphCanvasStatus>
             Schema unavailable.
           </VaultConvexSchemaGraphCanvasStatus>
-        ) : state.deployments.length === 0 ? (
+        ) : state.projects.length === 0 ? (
           <VaultConvexSchemaGraphCanvasStatus>
-            No Convex deployment.
+            No Convex project.
           </VaultConvexSchemaGraphCanvasStatus>
         ) : (
           <VaultConvexSchemaGraphCanvas state={state} variant="route" onSaveLayout={onSaveLayout} />
@@ -1292,7 +1326,7 @@ export function VaultConvexSchemaGraphRouteWorkspace({
       state={controller.state}
       refreshPending={controller.refreshPending}
       refreshError={controller.refreshError}
-      onDeploymentChange={controller.onDeploymentChange}
+      onProjectChange={controller.onProjectChange}
       onRefresh={controller.onRefresh}
       onSaveLayout={controller.onSaveLayout}
     />

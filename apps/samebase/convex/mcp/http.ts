@@ -30,8 +30,8 @@ import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareLis
 import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
 import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
-import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
-import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import {
@@ -72,7 +72,7 @@ const MCP_SERVER_INSTRUCTIONS = `Samebase manages app inventory and the joins be
 
 After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until provisioning reaches a terminal ready or failed state. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
-An inventory nextAction value is an action contract ID, not necessarily a callable MCP tool name. Match it to the live tool contract, call that repair action, then reread inventory.
+Inventory reports live provider state and stable Samebase resource IDs. Match the observed state and required IDs to an explicit action contract, call that action, then reread inventory.
 
 Make code changes, run setup and validation, and commit or push in the returned GitHub repository. Use provider-native tools for logs, general environment values, migrations, custom domains, and terminal build state when Samebase does not expose that read. The current action and provider-boundary docs are indexed at https://samebase.com/llms.txt.`;
 const mcpToolCallParams = object({
@@ -215,20 +215,23 @@ async function callCloudflareConnectExistingWorkerMcpTool(
   );
 }
 
-async function callCloudflareWireBuildsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+async function callCloudflareConfigureWorkersBuildsForGitHubMcpTool(
+  ctx: ActionCtx,
+  invocation: McpToolInvocation,
+) {
   return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareWireBuildsTool,
+    internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool,
     // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
     buildMcpToolInvocationArgs(invocation),
   );
 }
 
-async function callCloudflareWireConvexBuildAccessMcpTool(
+async function callCloudflareRotateConvexDeployKeysForWorkersBuildsMcpTool(
   ctx: ActionCtx,
   invocation: McpToolInvocation,
 ) {
   return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareWireConvexBuildAccessTool,
+    internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysForWorkersBuildsTool,
     // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
     buildMcpToolInvocationArgs(invocation),
   );
@@ -378,30 +381,30 @@ const mcpToolCatalog = [
     call: callCloudflareConnectExistingWorkerMcpTool,
   },
   {
-    access: cloudflareWireBuildsContract.access,
-    title: cloudflareWireBuildsContract.mcp.title,
-    name: cloudflareWireBuildsContract.mcp.name,
-    description: cloudflareWireBuildsContract.mcp.description,
-    annotations: cloudflareWireBuildsContract.mcp.annotations,
+    access: cloudflareConfigureWorkersBuildsForGitHubContract.access,
+    title: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.title,
+    name: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name,
+    description: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.description,
+    annotations: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.annotations,
     inputSchema: convexArgsToToolInputSchema(
-      cloudflareWireBuildsContract.args,
-      cloudflareWireBuildsContract.mcp.inputDescriptions,
+      cloudflareConfigureWorkersBuildsForGitHubContract.args,
+      cloudflareConfigureWorkersBuildsForGitHubContract.mcp.inputDescriptions,
     ),
     outputSchema: undefined,
-    call: callCloudflareWireBuildsMcpTool,
+    call: callCloudflareConfigureWorkersBuildsForGitHubMcpTool,
   },
   {
-    access: cloudflareWireConvexBuildAccessContract.access,
-    title: cloudflareWireConvexBuildAccessContract.mcp.title,
-    name: cloudflareWireConvexBuildAccessContract.mcp.name,
-    description: cloudflareWireConvexBuildAccessContract.mcp.description,
-    annotations: cloudflareWireConvexBuildAccessContract.mcp.annotations,
+    access: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.access,
+    title: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.title,
+    name: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name,
+    description: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.description,
+    annotations: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.annotations,
     inputSchema: convexArgsToToolInputSchema(
-      cloudflareWireConvexBuildAccessContract.args,
-      cloudflareWireConvexBuildAccessContract.mcp.inputDescriptions,
+      cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
+      cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.inputDescriptions,
     ),
     outputSchema: undefined,
-    call: callCloudflareWireConvexBuildAccessMcpTool,
+    call: callCloudflareRotateConvexDeployKeysForWorkersBuildsMcpTool,
   },
   {
     access: retryInfrastructureProvisioningContract.access,
@@ -647,11 +650,11 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   if (toolName === cloudflareConnectExistingWorkerContract.mcp.name) {
     return "vault_cloudflare_connectExistingWorker";
   }
-  if (toolName === cloudflareWireBuildsContract.mcp.name) {
-    return "vault_cloudflare_wireBuilds";
+  if (toolName === cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name) {
+    return "vault_cloudflare_configureWorkersBuildsForGitHub";
   }
-  if (toolName === cloudflareWireConvexBuildAccessContract.mcp.name) {
-    return "vault_cloudflare_wireConvexBuildAccess";
+  if (toolName === cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name) {
+    return "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds";
   }
   if (toolName === retryInfrastructureProvisioningContract.mcp.name) {
     return "vault_actions_retryInfrastructureProvisioning";

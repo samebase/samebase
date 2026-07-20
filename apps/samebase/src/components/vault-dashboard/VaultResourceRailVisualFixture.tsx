@@ -13,279 +13,44 @@ export type VaultResourceRailVisualMode = "vault-resource-rail";
 
 type VaultResourceRailFixtureScenario = {
   repositoryName: string;
-  title: string;
   state: VaultResourceRailState;
 };
 
 const noop = () => {};
 
-const ADD_VAULT_VALUES = {
-  cloudflare: "tmp-my-new-app",
-  convex: "tmp-my-new-app",
-  github: "nicu-chiciuc/tmp-my-new-app",
-} as const;
-
-const ADD_VAULT_READY_VALUES = {
-  cloudflare: "tmp-my-new-app",
-  convex: "tmp-my-new-app",
-  github: "nicu-chiciuc/tmp-my-new-app",
-} as const;
-
-const ADD_VAULT_READY_SCOPES = {
-  cloudflare: "nicuchiciuc",
-  convex: "nicu",
-} as const;
-
-const ADD_VAULT_READY_URLS = {
-  cloudflare:
-    "https://dash.cloudflare.com/?to=/workers/services/view/tmp-my-new-app/production/overview",
-  convex: "https://dashboard.convex.dev/t/nicu/tmp-my-new-app/settings",
-  github: "https://github.com/nicu-chiciuc/tmp-my-new-app",
-} as const;
-
-function buildRootFixtureState({
-  appRows,
-  githubRow,
-}: {
-  appRows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
-  githubRow: VaultResourceRailRowState<"github">;
-}): VaultResourceRailState {
+function availableGithubRow(repositoryFullName: string): VaultResourceRailRowState<"github"> {
   return {
-    githubRow,
-    apps: [{ appRoot: ".", rows: appRows }],
+    provider: "github",
+    rowId: "github",
+    status: "available",
+    value: repositoryFullName,
+    href: `https://github.com/${repositoryFullName}`,
   };
 }
 
-const ADD_VAULT_FLOW_SCENARIOS = [
+const SCENARIOS = [
   {
-    title: "Creating repository",
-    repositoryName: "tmp-my-new-app",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "running",
-        value: ADD_VAULT_VALUES.github,
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "pending",
-          value: ADD_VAULT_VALUES.convex,
-        },
-        {
-          provider: "cloudflare",
-          status: "pending",
-          value: ADD_VAULT_VALUES.cloudflare,
-        },
-      ],
-    }),
-  },
-  {
-    title: "Provisioning Convex",
-    repositoryName: "tmp-my-new-app",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: ADD_VAULT_READY_VALUES.github,
-        href: ADD_VAULT_READY_URLS.github,
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "running",
-          value: ADD_VAULT_VALUES.convex,
-        },
-        {
-          provider: "cloudflare",
-          status: "pending",
-          value: ADD_VAULT_VALUES.cloudflare,
-        },
-      ],
-    }),
-  },
-  {
-    title: "Provisioning Cloudflare",
-    repositoryName: "tmp-my-new-app",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: ADD_VAULT_READY_VALUES.github,
-        href: ADD_VAULT_READY_URLS.github,
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "ready",
-          scope: ADD_VAULT_READY_SCOPES.convex,
-          value: ADD_VAULT_READY_VALUES.convex,
-          href: ADD_VAULT_READY_URLS.convex,
-        },
-        {
-          provider: "cloudflare",
-          status: "running",
-          value: ADD_VAULT_VALUES.cloudflare,
-        },
-      ],
-    }),
-  },
-  {
-    title: "Ready",
-    repositoryName: "tmp-my-new-app",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: ADD_VAULT_READY_VALUES.github,
-        href: ADD_VAULT_READY_URLS.github,
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "ready",
-          scope: ADD_VAULT_READY_SCOPES.convex,
-          value: ADD_VAULT_READY_VALUES.convex,
-          href: ADD_VAULT_READY_URLS.convex,
-        },
-        {
-          provider: "cloudflare",
-          status: "ready",
-          scope: ADD_VAULT_READY_SCOPES.cloudflare,
-          value: ADD_VAULT_READY_VALUES.cloudflare,
-          href: ADD_VAULT_READY_URLS.cloudflare,
-        },
-      ],
-    }),
-  },
-  {
-    title: "Cloudflare failed",
-    repositoryName: "tmp-my-new-app",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: ADD_VAULT_READY_VALUES.github,
-        href: ADD_VAULT_READY_URLS.github,
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "ready",
-          scope: ADD_VAULT_READY_SCOPES.convex,
-          value: ADD_VAULT_READY_VALUES.convex,
-          href: ADD_VAULT_READY_URLS.convex,
-        },
-        {
-          provider: "cloudflare",
-          status: "failed",
-          value: ADD_VAULT_VALUES.cloudflare,
-          actions: [
-            {
-              kind: "retry",
-              label: "Retry",
-              onClick: noop,
-            },
-          ],
-        },
-      ],
-    }),
-  },
-  {
-    title: "Cloudflare retrying",
-    repositoryName: "tmp-my-new-app",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: ADD_VAULT_READY_VALUES.github,
-        href: ADD_VAULT_READY_URLS.github,
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "ready",
-          scope: ADD_VAULT_READY_SCOPES.convex,
-          value: ADD_VAULT_READY_VALUES.convex,
-          href: ADD_VAULT_READY_URLS.convex,
-        },
-        {
-          provider: "cloudflare",
-          status: "failed",
-          value: ADD_VAULT_VALUES.cloudflare,
-          actions: [
-            {
-              kind: "retry",
-              label: "Retrying...",
-              disabled: true,
-            },
-          ],
-        },
-      ],
-    }),
-  },
-  {
-    title: "Monorepo apps",
-    repositoryName: "samebase",
+    repositoryName: "loading-provider-data",
     state: {
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "samebase/samebase",
-        href: "https://github.com/samebase/samebase",
-      },
+      githubRow: availableGithubRow("samebase/loading-provider-data"),
       apps: [
         {
-          appRoot: ".",
+          appId: "app-root",
+          rootDirectory: "/",
           rows: [
             {
               provider: "convex",
-              status: "ready",
-              scope: "samebase",
-              value: "samebase",
-              href: "https://dashboard.convex.dev/t/samebase/samebase/settings",
-            },
-          ],
-        },
-        {
-          appRoot: "apps/domain-router",
-          rows: [
-            {
-              provider: "convex",
-              status: "ready",
-              scope: "samebase",
-              value: "samebase-domains",
-              href: "https://dashboard.convex.dev/t/samebase/samebase-domains/settings",
+              rowId: "convex:project-loading",
+              status: "loading",
+              value: "loading-provider-data",
+              description: "Loading from Convex...",
             },
             {
               provider: "cloudflare",
-              status: "ready",
-              scope: "nicuchiciuc",
-              value: "domain-router",
-              href: "https://dash.cloudflare.com/?to=/workers/services/view/domain-router/production/overview",
-            },
-          ],
-        },
-        {
-          appRoot: "apps/samebase",
-          rows: [
-            {
-              provider: "convex",
-              status: "action_required",
-              actions: [
-                {
-                  kind: "add",
-                  label: "?add-convex",
-                  href: "/vault/samebase/samebase?add-convex&app-root=apps%2Fsamebase",
-                },
-              ],
-            },
-            {
-              provider: "cloudflare",
-              status: "ready",
-              scope: "nicuchiciuc",
-              value: "samebase-worker",
-              href: "https://dash.cloudflare.com/?to=/workers/services/view/samebase-worker/production/overview",
+              rowId: "cloudflare:worker-loading",
+              status: "loading",
+              value: "loading-provider-data",
+              description: "Loading from Cloudflare...",
             },
           ],
         },
@@ -293,58 +58,142 @@ const ADD_VAULT_FLOW_SCENARIOS = [
     },
   },
   {
-    title: "Existing repository",
-    repositoryName: "weight_tsx",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
-      appRows: [
+    repositoryName: "shared-convex-monorepo-fixture",
+    state: {
+      githubRow: availableGithubRow("samebase/shared-convex-monorepo-fixture"),
+      apps: [
         {
-          provider: "convex",
-          status: "action_required",
-          actions: [
+          appId: "app-backend",
+          rootDirectory: "convex",
+          rows: [
             {
-              kind: "add",
-              label: "?add-convex",
-              href: "/vault/nicu-chiciuc/weight_tsx?add-convex",
+              provider: "convex",
+              rowId: "convex:shared-project",
+              status: "available",
+              scope: "samebase",
+              value: "shared-convex-monorepo-fixture",
+              href: "https://dashboard.convex.dev/t/samebase/shared-convex-monorepo-fixture/settings",
+            },
+            {
+              provider: "cloudflare",
+              rowId: "cloudflare:add:app-backend",
+              status: "action_required",
+              actions: [
+                {
+                  kind: "add",
+                  label: "?add-cloudflare",
+                  href: "/vault/samebase/shared-convex-monorepo-fixture?add-cloudflare&app-root=convex",
+                },
+              ],
             },
           ],
         },
         {
-          provider: "cloudflare",
-          status: "action_required",
-          actions: [
+          appId: "app-web",
+          rootDirectory: "apps/web",
+          rows: [
             {
-              kind: "add",
-              label: "?add-cloudflare",
-              href: "/vault/nicu-chiciuc/weight_tsx?add-cloudflare",
+              provider: "convex",
+              rowId: "convex:add:app-web",
+              status: "action_required",
+              actions: [
+                {
+                  kind: "add",
+                  label: "?add-convex",
+                  href: "/vault/samebase/shared-convex-monorepo-fixture?add-convex&app-root=apps%2Fweb",
+                },
+              ],
+            },
+            {
+              provider: "cloudflare",
+              rowId: "cloudflare:worker-web",
+              status: "available",
+              scope: "samebase",
+              value: "fixture-web",
+              href: "https://dash.cloudflare.com/?to=/account/workers/services/view/fixture-web/production/deployments",
+            },
+            {
+              provider: "cloudflare",
+              rowId: "cloudflare:worker-web-previewless",
+              status: "available",
+              value: "fixture-web-previewless",
+              href: "https://dash.cloudflare.com/?to=/account/workers/services/view/fixture-web-previewless/production/deployments",
+              description: "Preview URL disabled.",
             },
           ],
         },
       ],
-    }),
+    },
+  },
+  {
+    repositoryName: "provider-errors",
+    state: {
+      githubRow: availableGithubRow("samebase/provider-errors"),
+      apps: [
+        {
+          appId: "app-root",
+          rootDirectory: "/",
+          rows: [
+            {
+              provider: "convex",
+              rowId: "convex:project-missing",
+              status: "missing",
+              value: "deleted-project",
+              description: "Missing from Convex.",
+              actions: [{ kind: "remove", label: "Remove from Samebase", onClick: noop }],
+            },
+            {
+              provider: "cloudflare",
+              rowId: "cloudflare:worker-failed",
+              status: "failed",
+              value: "unavailable-worker",
+              description: "Could not load from Cloudflare.",
+              actions: [{ kind: "retry", label: "Reload", onClick: noop }],
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    repositoryName: "existing-repository",
+    state: {
+      githubRow: availableGithubRow("samebase/existing-repository"),
+      apps: [
+        {
+          appId: "app-root",
+          rootDirectory: "/",
+          rows: [
+            {
+              provider: "convex",
+              rowId: "convex:add:app-root",
+              status: "action_required",
+              actions: [
+                {
+                  kind: "add",
+                  label: "?add-convex",
+                  href: "/vault/samebase/existing-repository?add-convex",
+                },
+              ],
+            },
+            {
+              provider: "cloudflare",
+              rowId: "cloudflare:add:app-root",
+              status: "action_required",
+              actions: [
+                {
+                  kind: "add",
+                  label: "?add-cloudflare",
+                  href: "/vault/samebase/existing-repository?add-cloudflare",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   },
 ] satisfies readonly VaultResourceRailFixtureScenario[];
-
-function VaultResourceRailFixtureCard({
-  scenario,
-}: {
-  scenario: VaultResourceRailFixtureScenario;
-}) {
-  return (
-    <VaultDashboardRepositoryCard
-      isReady={true}
-      repositoryName={scenario.repositoryName}
-      repositoryLinks={<VaultResourceRail state={scenario.state} />}
-      repositoryLinksOpen={true}
-      onRepositoryLinksOpenChange={() => {}}
-    />
-  );
-}
 
 export function VaultResourceRailVisualFixture() {
   return (
@@ -353,10 +202,14 @@ export function VaultResourceRailVisualFixture() {
       main={{
         content: (
           <VaultDashboardRepositoryList>
-            {ADD_VAULT_FLOW_SCENARIOS.map((scenario, index) => (
-              <VaultResourceRailFixtureCard
-                key={`${scenario.title}:${index}`}
-                scenario={scenario}
+            {SCENARIOS.map((scenario) => (
+              <VaultDashboardRepositoryCard
+                key={scenario.repositoryName}
+                isReady={true}
+                repositoryName={scenario.repositoryName}
+                repositoryLinks={<VaultResourceRail state={scenario.state} />}
+                repositoryLinksOpen={true}
+                onRepositoryLinksOpenChange={() => {}}
               />
             ))}
           </VaultDashboardRepositoryList>

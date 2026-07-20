@@ -9,7 +9,7 @@ export const appInfo = {
   display_name: "Samebase",
   subtitle: "Create and connect web apps",
   description:
-    "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect app state and repair provider wiring from one inventory.",
+    "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect app state and run explicit provider configuration from one inventory.",
   category: "DEVELOPER_TOOLS",
 } as const;
 
@@ -70,20 +70,19 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
     destructive_justification: noDestructiveActions,
   },
   vault_convex_connectExistingProject: {
-    read_only_justification:
-      "Records an existing Convex project on the Samebase app and starts the connection run.",
+    read_only_justification: "Records an existing Convex project on the Samebase app.",
     open_world_justification:
       "Reads the chosen project from Convex and records Samebase state; the project itself is not modified.",
     destructive_justification: noDestructiveActions,
   },
   vault_cloudflare_connectExistingWorker: {
     read_only_justification:
-      "Records an existing Cloudflare Worker on the Samebase app and starts the connection run; Workers wired to a different repository are rejected rather than adopted.",
+      "Records an existing Cloudflare Worker on the Samebase app; Workers configured for a different repository are rejected rather than adopted.",
     open_world_justification:
-      "Reads Worker metadata from Cloudflare and records Samebase state; rejects Workers wired to other repositories.",
+      "Reads Worker metadata from Cloudflare and records Samebase state; rejects Workers configured for other repositories.",
     destructive_justification: noDestructiveActions,
   },
-  vault_cloudflare_wireBuilds: {
+  vault_cloudflare_configureWorkersBuildsForGitHub: {
     read_only_justification:
       "Creates or updates the app's own Workers Builds production and preview triggers connecting its Worker to its repository, and may create a Workers Builds API token under API-key auth.",
     open_world_justification:
@@ -91,7 +90,7 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
     destructive_justification:
       "May update the app's own existing build trigger configuration; does not delete user data, repositories, deployments, or Workers.",
   },
-  vault_cloudflare_wireConvexBuildAccess: {
+  vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds: {
     read_only_justification:
       "Rotates the app's Convex deploy keys and writes them into its Workers Builds trigger variables.",
     open_world_justification:
@@ -178,13 +177,14 @@ export const testCases = [
     expected_output_url: null,
   },
   {
-    description: "Repair a Worker whose Builds connection is missing, guided by nextAction.",
+    description: "Configure Workers Builds for GitHub when that configuration is missing.",
     user_prompt:
       "One of my Samebase apps says its Cloudflare Worker is not connected to GitHub. Fix it.",
     file_attachment_urls: null,
-    tools_triggered: "vault_dashboard_getUserVaults, vault_cloudflare_wireBuilds",
+    tools_triggered:
+      "vault_dashboard_getUserVaults, vault_cloudflare_configureWorkersBuildsForGitHub",
     expected_output:
-      "Reads the app state, finds the worker whose githubRepositoryConnection carries nextAction wire_builds, and starts the Builds wiring run for that app root.",
+      "Reads the app state, finds the Worker whose live repository configuration is missing, and configures its production and preview Workers Builds triggers for GitHub using the vault and Worker ids.",
     expected_output_url: null,
   },
   {

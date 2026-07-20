@@ -167,7 +167,7 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_cloudflare_wireBuilds",
+        name: "vault_cloudflare_configureWorkersBuildsForGitHub",
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
@@ -175,11 +175,11 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_cloudflare_wireConvexBuildAccess",
+        name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
-          destructiveHint: false,
+          destructiveHint: true,
         },
       }),
       expect.objectContaining({
@@ -238,9 +238,9 @@ describe("MCP tool listing access", () => {
         additionalProperties: false,
       },
     });
-    expect(tools.find((tool) => tool.name === "vault_cloudflare_wireBuilds")).not.toHaveProperty(
-      "outputSchema",
-    );
+    expect(
+      tools.find((tool) => tool.name === "vault_cloudflare_configureWorkersBuildsForGitHub"),
+    ).not.toHaveProperty("outputSchema");
   });
 });
 
@@ -278,12 +278,12 @@ describe("MCP usage attribution dimensions", () => {
     expect(readMcpToolNameForUsage({ name: "vault_cloudflare_connectExistingWorker" })).toBe(
       "vault_cloudflare_connectExistingWorker",
     );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_wireBuilds" })).toBe(
-      "vault_cloudflare_wireBuilds",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_wireConvexBuildAccess" })).toBe(
-      "vault_cloudflare_wireConvexBuildAccess",
-    );
+    expect(
+      readMcpToolNameForUsage({ name: "vault_cloudflare_configureWorkersBuildsForGitHub" }),
+    ).toBe("vault_cloudflare_configureWorkersBuildsForGitHub");
+    expect(
+      readMcpToolNameForUsage({ name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds" }),
+    ).toBe("vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds");
     expect(readMcpToolNameForUsage({ name: "vault_actions_retryInfrastructureProvisioning" })).toBe(
       "vault_actions_retryInfrastructureProvisioning",
     );

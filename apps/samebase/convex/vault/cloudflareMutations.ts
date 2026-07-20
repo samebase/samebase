@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { v, type Infer } from "convex/values";
+
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -7,469 +7,204 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
-import type { AppProvisioningStep } from "../appProvisioningModel";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-import {
-  buildVaultCloudflareBuildConfigForAppRoot,
-  vVaultCloudflareBuildConfig,
-  vVaultCloudflareConnectedBuilds,
-  vVaultCloudflareWorkerAttachmentIntent,
-  vVaultCloudflareOrigin,
-  type VaultCloudflareWorkerAttachmentIntent,
-  type VaultCloudflareWorkerAttachmentSnapshot,
-} from "./model";
+import { vVaultProviderResourceOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, literal, null: nullValue, object, string, union } = v;
-const CLOUDFLARE_CONNECTION_STALE_MS = 10 * 60 * 1000;
+const { id, literal, null: nullValue, object, string, union } = v;
 
-const cloudflareBuildsWiringState = union(
-  object({
-    active: literal(false),
-  }),
-  object({
-    active: literal(true),
-    owner: string(),
-    repo: string(),
-    ghRepoId: string(),
-    defaultBranch: string(),
-    hasConvexDeployment: boolean(),
-    buildConfig: vVaultCloudflareBuildConfig,
-    worker: object({
-      accountId: string(),
-      workerName: string(),
-      workerTag: string(),
-    }),
-  }),
-);
-const cloudflareWorkerDiscoveryContext = object({
+const workerConfigurationContextFields = {
   ghRepoId: string(),
-  repositoryFullName: string(),
-  expectedRootDirectory: string(),
-});
-const vConvexPreviewDeploymentReady = object({
-  state: literal("ready"),
-  deploymentName: string(),
-  cloudUrl: string(),
-});
-const cloudflareConvexBuildAccessWiringState = union(
-  object({
-    active: literal(false),
+  owner: string(),
+  name: string(),
+  defaultBranch: string(),
+  rootDirectory: string(),
+  accountId: string(),
+  workerName: string(),
+  workerTag: string(),
+};
+export const vWorkerConfigurationContext = object(workerConfigurationContextFields);
+export type WorkerConfigurationContext = Infer<typeof vWorkerConfigurationContext>;
+
+export const vWorkerConvexProjectConfigurationContext = object({
+  ...workerConfigurationContextFields,
+  convexProject: object({
+    convexProjectId: id("vaultConvexProjects"),
+    teamId: string(),
+    projectId: string(),
   }),
-  object({
-    active: literal(true),
-    ghRepoId: string(),
-    repositoryFullName: string(),
-    defaultBranch: string(),
-    worker: object({
-      accountId: string(),
-      workerName: string(),
-      workerTag: string(),
-    }),
-    convex: object({
-      projectId: string(),
-      deploymentName: string(),
-    }),
-  }),
-);
-type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
-type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
-type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
+});
+export type WorkerConvexProjectConfigurationContext = Infer<
+  typeof vWorkerConvexProjectConfigurationContext
+>;
 
-function isComposedInfrastructureRun(run: Doc<"workflow_vaultProvisioning_runs">): boolean {
-  return run.trigger === "create" || run.trigger === "retry";
+type WorkerGraphReadCtx = Pick<QueryCtx, "db">;
+
+async function requireConnectedVault(
+  ctx: WorkerGraphReadCtx,
+  args: { vaultId: Id<"vaults">; userId: Id<"users"> },
+) {
+  const vault = await ctx.db.get(args.vaultId);
+  if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    throw new Error("Vault not found.");
+  }
+  return vault;
 }
 
-function isStandaloneCloudflareWorkerConnectionRun(
-  run: Doc<"workflow_vaultProvisioning_runs">,
-): boolean {
-  return run.trigger === "connect_cloudflare_worker";
-}
-
-function isStandaloneCloudflareBuildsWiringRun(
-  run: Doc<"workflow_vaultProvisioning_runs">,
-): boolean {
-  return run.trigger === "wire_builds";
-}
-
-function isStandaloneCloudflareConvexBuildAccessWiringRun(
-  run: Doc<"workflow_vaultProvisioning_runs">,
-): boolean {
-  return run.trigger === "wire_convex_build_access";
-}
-
-async function readVaultProvisioningWriteLock(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  vaultId: Id<"vaults">,
-): Promise<VaultProvisioningWriteLock | null> {
-  return await ctx.db
-    .query("workflow_vaultProvisioning_writeLocks")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .first();
-}
-
-function runHoldsCloudflareProvisioningWriteLock(
-  writeLock: VaultProvisioningWriteLock | null,
+async function requireActiveManagedProvisioning(
+  ctx: WorkerGraphReadCtx,
   args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
     runId: Id<"workflow_vaultProvisioning_runs">;
   },
-): boolean {
-  return writeLock?.state === "active" && writeLock.runId === args.runId;
-}
-
-async function readCloudflareWorkerForAppRoot(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    appRoot: string;
-  },
-): Promise<Doc<"vaultCloudflareWorkers"> | null> {
-  return await ctx.db
-    .query("vaultCloudflareWorkers")
-    .withIndex("by_vault_and_appRoot", (q) =>
-      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
-    )
-    .first();
-}
-
-async function readConvexDeploymentForAppRoot(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    appRoot: string;
-  },
-): Promise<Doc<"vaultConvexDeployments"> | null> {
-  return await ctx.db
-    .query("vaultConvexDeployments")
-    .withIndex("by_vault_and_appRoot", (q) =>
-      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
-    )
-    .first();
-}
-
-async function assertVaultAppRootExists(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    appRoot: string;
-  },
-): Promise<void> {
-  const app = await ctx.db
-    .query("vaultApps")
-    .withIndex("by_vault_and_appRoot", (q) =>
-      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
-    )
-    .first();
-  if (!app) {
-    throw new Error("Vault app root not found.");
+): Promise<Doc<"workflow_vaultProvisioning_plans">> {
+  const [run, writeLock, plan] = await Promise.all([
+    ctx.db.get(args.runId),
+    ctx.db
+      .query("workflow_vaultProvisioning_writeLocks")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .unique(),
+    ctx.db
+      .query("workflow_vaultProvisioning_plans")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .unique(),
+  ]);
+  if (
+    !run ||
+    run.vaultId !== args.vaultId ||
+    run.userId !== args.userId ||
+    (run.trigger !== "create" && run.trigger !== "retry")
+  ) {
+    throw new Error("Managed provisioning run does not match vault.");
   }
+  if (!writeLock || writeLock.state !== "active" || writeLock.runId !== args.runId) {
+    throw new Error("Managed provisioning run no longer holds the write lock.");
+  }
+  if (!plan || plan.userId !== args.userId) {
+    throw new Error("Infrastructure provisioning plan not found for vault.");
+  }
+  return plan;
 }
 
-async function readCloudflareWorkerByProviderIdentity(
-  ctx: CloudflareWorkerConnectionReadCtx,
+async function requireVaultApp(
+  ctx: WorkerGraphReadCtx,
+  args: { vaultId: Id<"vaults">; userId: Id<"users">; appId: Id<"vaultApps"> },
+) {
+  const app = await ctx.db.get(args.appId);
+  if (!app || app.vaultId !== args.vaultId || app.userId !== args.userId) {
+    throw new Error("Vault app not found.");
+  }
+  return app;
+}
+
+async function requireWorker(
+  ctx: WorkerGraphReadCtx,
   args: {
     vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    workerId: Id<"vaultCloudflareWorkers">;
+  },
+) {
+  const worker = await ctx.db.get(args.workerId);
+  if (!worker || worker.vaultId !== args.vaultId || worker.userId !== args.userId) {
+    throw new Error("Cloudflare Worker attachment not found.");
+  }
+  return worker;
+}
+
+async function requireConvexProject(
+  ctx: WorkerGraphReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    convexProjectId: Id<"vaultConvexProjects">;
+  },
+) {
+  const project = await ctx.db.get(args.convexProjectId);
+  if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+    throw new Error("Convex project attachment not found.");
+  }
+  return project;
+}
+
+async function insertWorker(
+  ctx: Pick<MutationCtx, "db">,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    appId: Id<"vaultApps">;
     accountId: string;
     workerName: string;
+    workerTag: string;
+    origin: "provisioned" | "selected_existing";
   },
-): Promise<Doc<"vaultCloudflareWorkers"> | null> {
-  return await ctx.db
-    .query("vaultCloudflareWorkers")
-    .withIndex("by_vault_and_account_and_worker", (q) =>
-      q
-        .eq("vaultId", args.vaultId)
-        .eq("accountId", args.accountId)
-        .eq("workerName", args.workerName),
-    )
-    .first();
-}
-
-async function assertNoExistingCloudflareWorkerTarget(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    appRoot: string;
-    accountId?: string;
-    workerName?: string;
-  },
-): Promise<void> {
-  const existingAppRootWorker = await readCloudflareWorkerForAppRoot(ctx, args);
-  if (existingAppRootWorker) {
-    throw new Error("Vault already has a Cloudflare Worker for this app root.");
-  }
-  if (args.accountId && args.workerName) {
-    const existingWorker = await readCloudflareWorkerByProviderIdentity(ctx, {
-      vaultId: args.vaultId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-    });
-    if (existingWorker) {
-      throw new Error("Cloudflare Worker is already attached to this vault.");
-    }
-  }
-}
-
-function toCloudflareWorkerAttachmentSnapshot(
-  worker: Doc<"vaultCloudflareWorkers">,
-): VaultCloudflareWorkerAttachmentSnapshot {
-  return {
-    attachmentId: worker._id,
-    connectedAt: worker.connectedAt,
-    accountId: worker.accountId,
-    workerName: worker.workerName,
-    workerTag: worker.workerTag,
-    origin: worker.origin,
-  };
-}
-
-function matchesCloudflareWorkerAttachmentSnapshot(
-  worker: Doc<"vaultCloudflareWorkers">,
-  expected: VaultCloudflareWorkerAttachmentSnapshot,
-): boolean {
-  return (
-    worker._id === expected.attachmentId &&
-    worker.connectedAt === expected.connectedAt &&
-    worker.accountId === expected.accountId &&
-    worker.workerName === expected.workerName &&
-    worker.workerTag === expected.workerTag &&
-    worker.origin === expected.origin
-  );
-}
-
-async function assertCloudflareWorkerTargetMatchesIntent(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    appRoot: string;
-    attachmentIntent: VaultCloudflareWorkerAttachmentIntent;
-    accountId?: string;
-    workerName?: string;
-  },
-): Promise<void> {
-  const existingAppRootWorker = await readCloudflareWorkerForAppRoot(ctx, args);
-  switch (args.attachmentIntent.mode) {
-    case "attach":
-      if (existingAppRootWorker) {
-        throw new Error("Vault already has a Cloudflare Worker for this app root.");
-      }
-      break;
-    case "replace_missing":
-      if (
-        !existingAppRootWorker ||
-        !matchesCloudflareWorkerAttachmentSnapshot(
-          existingAppRootWorker,
-          args.attachmentIntent.expected,
-        )
-      ) {
-        throw new Error("Cloudflare Worker attachment changed before it could be replaced.");
-      }
-      break;
-    default:
-      args.attachmentIntent satisfies never;
-  }
-
-  if (args.accountId && args.workerName) {
-    const existingWorker = await readCloudflareWorkerByProviderIdentity(ctx, {
-      vaultId: args.vaultId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-    });
+): Promise<Id<"vaultCloudflareWorkers">> {
+  const [sameName, sameTag] = await Promise.all([
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_account_and_worker", (q) =>
+        q.eq("accountId", args.accountId).eq("workerName", args.workerName),
+      )
+      .unique(),
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_account_and_worker_tag", (q) =>
+        q.eq("accountId", args.accountId).eq("workerTag", args.workerTag),
+      )
+      .unique(),
+  ]);
+  const existing = sameName ?? sameTag;
+  if (existing) {
     if (
-      existingWorker &&
-      (args.attachmentIntent.mode === "attach" ||
-        existingWorker._id !== args.attachmentIntent.expected.attachmentId)
+      existing.vaultId === args.vaultId &&
+      existing.appId === args.appId &&
+      existing.accountId === args.accountId &&
+      existing.workerName === args.workerName &&
+      existing.workerTag === args.workerTag
     ) {
-      throw new Error("Cloudflare Worker is already attached to this vault.");
+      if (args.origin === "provisioned" && existing.origin !== "provisioned") {
+        await ctx.db.patch(existing._id, { origin: "provisioned" });
+      }
+      return existing._id;
     }
+    throw new Error("Cloudflare Worker is already attached.");
   }
-}
-
-async function appendCloudflareWorkerConnectionEvent(
-  ctx: CloudflareWorkerConnectionEventCtx,
-  args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    step: AppProvisioningStep;
-    level: "info" | "warn" | "error";
-    message: string;
-    state: "unchanged" | "queued" | "running" | "succeeded" | "failed" | "canceled";
-  },
-): Promise<void> {
-  await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, args);
-}
-
-async function cancelSupersededCloudflareWorkerConnectionRun(
-  ctx: CloudflareWorkerConnectionEventCtx,
-  args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-  },
-): Promise<void> {
-  await appendCloudflareWorkerConnectionEvent(ctx, {
-    runId: args.runId,
-    step: "claim_infra",
-    level: "warn",
-    message: "Cloudflare provisioning was superseded by a newer run.",
-    state: "canceled",
+  return await ctx.db.insert("vaultCloudflareWorkers", {
+    vaultId: args.vaultId,
+    userId: args.userId,
+    appId: args.appId,
+    accountId: args.accountId,
+    workerName: args.workerName,
+    workerTag: args.workerTag,
+    origin: args.origin,
+    createdAt: Date.now(),
   });
 }
 
-async function requireCloudflareWorkerConnectionRun(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    vaultId: Id<"vaults">;
-  },
-): Promise<Doc<"workflow_vaultProvisioning_runs">> {
-  const run = await ctx.db.get(args.runId);
-  if (!run) {
-    throw new Error("Cloudflare Worker connection run not found.");
-  }
-  if (
-    run.userId !== args.userId ||
-    run.vaultId !== args.vaultId ||
-    (!isStandaloneCloudflareWorkerConnectionRun(run) && !isComposedInfrastructureRun(run))
-  ) {
-    throw new Error("Cloudflare Worker connection run does not match vault.");
-  }
-  return run;
-}
-
-async function requireCloudflareBuildsWiringRun(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    vaultId: Id<"vaults">;
-  },
-): Promise<Doc<"workflow_vaultProvisioning_runs">> {
-  const run = await ctx.db.get(args.runId);
-  if (!run) {
-    throw new Error("Cloudflare Workers Builds wiring run not found.");
-  }
-  if (
-    run.userId !== args.userId ||
-    run.vaultId !== args.vaultId ||
-    (!isStandaloneCloudflareBuildsWiringRun(run) && !isComposedInfrastructureRun(run))
-  ) {
-    throw new Error("Cloudflare Workers Builds wiring run does not match vault.");
-  }
-  return run;
-}
-
-async function requireCloudflareConvexBuildAccessWiringRun(
-  ctx: CloudflareWorkerConnectionReadCtx,
-  args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    vaultId: Id<"vaults">;
-  },
-): Promise<Doc<"workflow_vaultProvisioning_runs">> {
-  const run = await ctx.db.get(args.runId);
-  if (!run) {
-    throw new Error("Cloudflare Convex build access wiring run not found.");
-  }
-  if (
-    run.userId !== args.userId ||
-    run.vaultId !== args.vaultId ||
-    (!isStandaloneCloudflareConvexBuildAccessWiringRun(run) && !isComposedInfrastructureRun(run))
-  ) {
-    throw new Error("Cloudflare Convex build access wiring run does not match vault.");
-  }
-  return run;
-}
-
-async function assertNoActiveCloudflareProvisioning(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<void> {
-  const writeLock = await ctx.db
-    .query("workflow_vaultProvisioning_writeLocks")
-    .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "active"))
-    .first();
-  if (writeLock) {
-    throw new Error("Cloudflare provisioning is already running.");
-  }
-}
-
-export const requireAttachableVault = internalQuery({
+export const readWorkerAttachmentContext = internalQuery({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
-    appRoot: string(),
+    appId: id("vaultApps"),
   },
-  returns: nullValue(),
+  returns: object({
+    ghRepoId: string(),
+    owner: string(),
+    name: string(),
+    defaultBranch: string(),
+    rootDirectory: string(),
+  }),
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    await assertNoExistingCloudflareWorkerTarget(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
-
-    return null;
-  },
-});
-
-export const requireCloudflareWorkerConnectionVault = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: vVaultCloudflareWorkerAttachmentIntent,
-  handler: async (ctx, args): Promise<VaultCloudflareWorkerAttachmentIntent> => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    const existingWorker = await readCloudflareWorkerForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-
-    return existingWorker
-      ? {
-          mode: "replace_missing",
-          expected: toCloudflareWorkerAttachmentSnapshot(existingWorker),
-        }
-      : { mode: "attach" };
-  },
-});
-
-export const readCloudflareWorkerDiscoveryContext = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: cloudflareWorkerDiscoveryContext,
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
+    const [vault, app] = await Promise.all([
+      requireConnectedVault(ctx, args),
+      requireVaultApp(ctx, args),
+    ]);
     return {
       ghRepoId: vault.ghRepoId,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
-      expectedRootDirectory: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }).rootDirectory,
+      owner: vault.owner,
+      name: vault.name,
+      defaultBranch: vault.defaultBranch,
+      rootDirectory: app.rootDirectory,
     };
   },
 });
@@ -478,953 +213,223 @@ export const attachWorker = internalMutation({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    origin: vVaultCloudflareOrigin,
+    origin: vVaultProviderResourceOrigin,
+  },
+  returns: id("vaultCloudflareWorkers"),
+  handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
+    await Promise.all([requireConnectedVault(ctx, args), requireVaultApp(ctx, args)]);
+    return await insertWorker(ctx, args);
+  },
+});
+
+export const removeMissingWorkerAttachment = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
   },
   returns: nullValue(),
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
+  handler: async (ctx, args): Promise<null> => {
+    await requireConnectedVault(ctx, args);
+    const worker = await requireWorker(ctx, args);
+    if (
+      worker.accountId !== args.accountId ||
+      worker.workerName !== args.workerName ||
+      worker.workerTag !== args.workerTag
+    ) {
+      throw new Error("Cloudflare Worker attachment changed before removal.");
     }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    await assertNoExistingCloudflareWorkerTarget(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-      accountId: args.accountId,
-      workerName: args.workerName,
-    });
-    await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
-
-    const now = Date.now();
-    await ctx.db.insert("vaultCloudflareWorkers", {
-      vaultId: args.vaultId,
-      userId: args.userId,
-      appRoot,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      origin: args.origin,
-      connectedAt: now,
-    });
-
+    await ctx.db.delete(worker._id);
     return null;
   },
 });
 
-export const claimCloudflareWorkerConnection = internalMutation({
+export const readManagedWorkerCreateCheckpoint = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    appRoot: string(),
+    runId: id("workflow_vaultProvisioning_runs"),
     accountId: string(),
     workerName: string(),
-    origin: vVaultCloudflareOrigin,
-    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
-  returns: object({ claimed: boolean() }),
+  returns: union(
+    object({ state: literal("planned") }),
+    object({ state: literal("creating") }),
+    object({
+      state: literal("created"),
+      workerTag: string(),
+    }),
+  ),
   handler: async (ctx, args) => {
-    await requireCloudflareWorkerConnectionRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
+    const plan = await requireActiveManagedProvisioning(ctx, args);
+    if (
+      plan.cloudflare.accountId !== args.accountId ||
+      plan.cloudflare.workerName !== args.workerName
+    ) {
+      throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    try {
-      await assertCloudflareWorkerTargetMatchesIntent(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-        attachmentIntent: args.attachmentIntent,
+    switch (plan.cloudflare.state) {
+      case "planned":
+        return { state: "planned" as const };
+      case "creating":
+        return { state: "creating" as const };
+      case "created":
+        return {
+          state: "created" as const,
+          workerTag: plan.cloudflare.workerTag,
+        };
+    }
+  },
+});
+
+export const beginManagedWorkerCreate = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    runId: id("workflow_vaultProvisioning_runs"),
+    accountId: string(),
+    workerName: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const plan = await requireActiveManagedProvisioning(ctx, args);
+    if (
+      plan.cloudflare.accountId !== args.accountId ||
+      plan.cloudflare.workerName !== args.workerName
+    ) {
+      throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
+    }
+    if (plan.cloudflare.state !== "planned") {
+      throw new Error("Managed Cloudflare Worker creation already started.");
+    }
+    await ctx.db.patch(plan._id, {
+      cloudflare: {
+        state: "creating",
         accountId: args.accountId,
         workerName: args.workerName,
-      });
-    } catch (error) {
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "claim_infra",
-        level: "warn",
-        message: error instanceof Error ? error.message : "Cloudflare Worker is already attached.",
-        state: "canceled",
-      });
-      return { claimed: false };
-    }
-
-    const now = Date.now();
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (
-      writeLock &&
-      writeLock.state === "active" &&
-      writeLock.runId !== args.runId &&
-      now - writeLock.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "claim_infra",
-        level: "warn",
-        message: "Cloudflare Worker connection is already running.",
-        state: "canceled",
-      });
-      return { claimed: false };
-    }
-
-    if (writeLock) {
-      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: writeLock.runId,
-        });
-      }
-      await ctx.db.patch(writeLock._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "claim_infra",
-      level: "info",
-      message: `Started Cloudflare Worker connection for ${appRoot}.`,
-      state: "running",
+        build: plan.cloudflare.build,
+      },
+      updatedAt: Date.now(),
     });
-
-    return { claimed: true };
+    return null;
   },
 });
 
-export const readActiveCloudflareWorkerConnection = internalQuery({
+export const recordManagedWorkerCreated = internalMutation({
   args: {
     vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    appRoot: string(),
-    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
-  },
-  returns: object({ active: boolean() }),
-  handler: async (ctx, args) => {
-    await requireCloudflareWorkerConnectionRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    const [writeLock, worker] = await Promise.all([
-      readVaultProvisioningWriteLock(ctx, args.vaultId),
-      readCloudflareWorkerForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-    ]);
-    const targetStillMatches =
-      args.attachmentIntent.mode === "attach"
-        ? !worker
-        : worker !== null &&
-          matchesCloudflareWorkerAttachmentSnapshot(worker, args.attachmentIntent.expected);
-    return {
-      active:
-        targetStillMatches &&
-        runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId }),
-    };
-  },
-});
-
-export const attachWorkerForRun = internalMutation({
-  args: {
-    vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
+    appId: id("vaultApps"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    origin: vVaultCloudflareOrigin,
-    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
   },
-  returns: object({ attached: boolean() }),
-  handler: async (ctx, args) => {
-    const run = await requireCloudflareWorkerConnectionRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
+  returns: id("vaultCloudflareWorkers"),
+  handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
+    const [plan] = await Promise.all([
+      requireActiveManagedProvisioning(ctx, args),
+      requireVaultApp(ctx, args),
+    ]);
+    if (
+      plan.cloudflare.accountId !== args.accountId ||
+      plan.cloudflare.workerName !== args.workerName
+    ) {
+      throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    const existingAppRootWorker = await readCloudflareWorkerForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    try {
-      await assertCloudflareWorkerTargetMatchesIntent(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-        attachmentIntent: args.attachmentIntent,
-        accountId: args.accountId,
-        workerName: args.workerName,
-      });
-    } catch (error) {
-      if (isStandaloneCloudflareWorkerConnectionRun(run)) {
-        await appendCloudflareWorkerConnectionEvent(ctx, {
-          runId: args.runId,
-          step: "attach_worker",
-          level: "warn",
-          message:
-            error instanceof Error ? error.message : "Cloudflare Worker is already attached.",
-          state: "canceled",
-        });
-        return { attached: false };
+    if (plan.cloudflare.state === "created") {
+      if (plan.cloudflare.workerTag !== args.workerTag) {
+        throw new Error("Managed Cloudflare Worker checkpoint already names another Worker.");
       }
-      throw error;
+      return await insertWorker(ctx, { ...args, origin: "provisioned" });
     }
-
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      if (isStandaloneCloudflareWorkerConnectionRun(run)) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: args.runId,
-        });
-        return { attached: false };
-      }
-      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
+    if (plan.cloudflare.state !== "creating") {
+      throw new Error("Managed Cloudflare Worker creation was not started.");
     }
-
-    const now = Date.now();
-    if (args.attachmentIntent.mode === "replace_missing") {
-      if (!existingAppRootWorker) {
-        throw new Error("Cloudflare Worker attachment disappeared before replacement.");
-      }
-      await ctx.db.patch(existingAppRootWorker._id, {
+    await ctx.db.patch(plan._id, {
+      cloudflare: {
+        state: "created",
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
-        origin: args.origin,
-        connectedAt: now,
-      });
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "attach_worker",
-        level: "info",
-        message: `Cloudflare Worker ready for ${appRoot}: ${args.workerName}.`,
-        state: "running",
-      });
+        build: plan.cloudflare.build,
+      },
+      updatedAt: Date.now(),
+    });
+    return await insertWorker(ctx, { ...args, origin: "provisioned" });
+  },
+});
 
-      return { attached: true };
-    }
-
-    if (existingAppRootWorker) {
-      throw new Error("Vault already has a Cloudflare Worker for this app root.");
-    }
-
-    await ctx.db.insert("vaultCloudflareWorkers", {
+export const readWorkerConfigurationContext = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+  },
+  returns: vWorkerConfigurationContext,
+  handler: async (ctx, args) => {
+    const [vault, worker] = await Promise.all([
+      requireConnectedVault(ctx, args),
+      requireWorker(ctx, args),
+    ]);
+    const app = await requireVaultApp(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
-      appRoot,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      origin: args.origin,
-      connectedAt: now,
-    });
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "attach_worker",
-      level: "info",
-      message: `Cloudflare Worker ready for ${appRoot}: ${args.workerName}.`,
-      state: "running",
-    });
-
-    return { attached: true };
-  },
-});
-
-export const readCreatedWorkerRollbackSafety = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-    accountId: string(),
-    workerName: string(),
-    workerTag: string(),
-  },
-  returns: object({ shouldDelete: boolean() }),
-  handler: async (ctx, args) => {
-    await requireCloudflareWorkerConnectionRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      return { shouldDelete: true };
-    }
-
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const worker = await readCloudflareWorkerForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
+      appId: worker.appId,
     });
     return {
-      shouldDelete:
-        !worker ||
-        worker.accountId !== args.accountId ||
-        worker.workerName !== args.workerName ||
-        worker.workerTag !== args.workerTag,
-    };
-  },
-});
-
-export const finishCloudflareWorkerConnection = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-    attachmentIntent: vVaultCloudflareWorkerAttachmentIntent,
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const run = await requireCloudflareWorkerConnectionRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      if (isStandaloneCloudflareWorkerConnectionRun(run)) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: args.runId,
-        });
-        return null;
-      }
-      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const worker = await readCloudflareWorkerForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    if (!worker) {
-      throw new Error("Cloudflare Worker connection did not attach a Worker.");
-    }
-    if (
-      args.attachmentIntent.mode === "replace_missing" &&
-      matchesCloudflareWorkerAttachmentSnapshot(worker, args.attachmentIntent.expected)
-    ) {
-      throw new Error("Cloudflare Worker connection did not replace the missing Worker.");
-    }
-
-    const now = Date.now();
-    if (isStandaloneCloudflareWorkerConnectionRun(run)) {
-      await ctx.db.patch(writeLock._id, {
-        state: "succeeded",
-        updatedAt: now,
-      });
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "finish",
-        level: "info",
-        message: "Cloudflare Worker is connected.",
-        state: "succeeded",
-      });
-      return null;
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "attach_worker",
-      level: "info",
-      message: "Cloudflare Worker is connected.",
-      state: "running",
-    });
-
-    return null;
-  },
-});
-
-export const claimCloudflareBuildsWiring = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: object({ claimed: boolean() }),
-  handler: async (ctx, args) => {
-    await requireCloudflareBuildsWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    const worker = await readCloudflareWorkerForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    if (!worker) {
-      throw new Error("Cloudflare Worker is required before wiring Workers Builds.");
-    }
-    const now = Date.now();
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (
-      writeLock &&
-      writeLock.state === "active" &&
-      writeLock.runId !== args.runId &&
-      now - writeLock.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "claim_infra",
-        level: "warn",
-        message: "Cloudflare provisioning is already running.",
-        state: "canceled",
-      });
-      return { claimed: false };
-    }
-
-    if (writeLock) {
-      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: writeLock.runId,
-        });
-      }
-      await ctx.db.patch(writeLock._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "claim_infra",
-      level: "info",
-      message: `Started Cloudflare Workers Builds wiring for ${appRoot}.`,
-      state: "running",
-    });
-
-    return { claimed: true };
-  },
-});
-
-export const readActiveCloudflareBuildsWiring = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: cloudflareBuildsWiringState,
-  handler: async (ctx, args) => {
-    await requireCloudflareBuildsWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    const [convexDeployment, writeLock, worker] = await Promise.all([
-      readConvexDeploymentForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-      readVaultProvisioningWriteLock(ctx, args.vaultId),
-      readCloudflareWorkerForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-    ]);
-    if (!worker || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      return { active: false as const };
-    }
-
-    return {
-      active: true as const,
+      ghRepoId: vault.ghRepoId,
       owner: vault.owner,
-      repo: vault.name,
-      ghRepoId: vault.ghRepoId,
+      name: vault.name,
       defaultBranch: vault.defaultBranch,
-      hasConvexDeployment: convexDeployment !== null,
-      buildConfig: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }),
-      worker: {
-        accountId: worker.accountId,
-        workerName: worker.workerName,
-        workerTag: worker.workerTag,
-      },
+      rootDirectory: app.rootDirectory,
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
     };
   },
 });
 
-export const recordCloudflareBuildsForRun = internalMutation({
+export const readWorkerConvexProjectConfigurationContext = internalQuery({
   args: {
     vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    appRoot: string(),
-    builds: vVaultCloudflareConnectedBuilds,
+    workerId: id("vaultCloudflareWorkers"),
+    convexProjectId: id("vaultConvexProjects"),
   },
-  returns: object({ applied: boolean() }),
+  returns: vWorkerConvexProjectConfigurationContext,
   handler: async (ctx, args) => {
-    const run = await requireCloudflareBuildsWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      return { applied: false };
-    }
-
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      if (isStandaloneCloudflareBuildsWiringRun(run)) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: args.runId,
-        });
-        return { applied: false };
-      }
-      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const worker = await readCloudflareWorkerForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    if (!worker) {
-      throw new Error("Cloudflare Worker is required before recording Workers Builds.");
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "wire_builds",
-      level: "info",
-      message: `Cloudflare Workers Builds connected for ${appRoot}.`,
-      state: "running",
-    });
-
-    return { applied: true };
-  },
-});
-
-export const finishCloudflareBuildsWiring = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: object({
-    convexBuildAccessRunId: union(id("workflow_vaultProvisioning_runs"), nullValue()),
-  }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ convexBuildAccessRunId: Id<"workflow_vaultProvisioning_runs"> | null }> => {
-    const run = await requireCloudflareBuildsWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      if (isStandaloneCloudflareBuildsWiringRun(run)) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: args.runId,
-        });
-        return { convexBuildAccessRunId: null };
-      }
-      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const [convexDeployment, worker] = await Promise.all([
-      readConvexDeploymentForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-      readCloudflareWorkerForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
+    const [vault, worker, project] = await Promise.all([
+      requireConnectedVault(ctx, args),
+      requireWorker(ctx, args),
+      requireConvexProject(ctx, args),
     ]);
-    if (!worker) {
-      throw new Error("Cloudflare Worker is required after wiring Workers Builds.");
-    }
-    const needsConvexBuildAccess = convexDeployment !== null;
-    const convexBuildAccessRunId: Id<"workflow_vaultProvisioning_runs"> | null =
-      needsConvexBuildAccess && isStandaloneCloudflareBuildsWiringRun(run)
-        ? await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-            vaultId: args.vaultId,
-            userId: args.userId,
-            trigger: "wire_convex_build_access",
-          })
-        : null;
-
-    const now = Date.now();
-    if (isStandaloneCloudflareBuildsWiringRun(run)) {
-      await ctx.db.patch(writeLock._id, {
-        state: "succeeded",
-        updatedAt: now,
-      });
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "finish",
-        level: "info",
-        message: "Cloudflare Workers Builds are connected.",
-        state: "succeeded",
-      });
-      return { convexBuildAccessRunId };
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "wire_builds",
-      level: "info",
-      message: "Cloudflare Workers Builds are connected.",
-      state: "running",
-    });
-
-    return { convexBuildAccessRunId };
-  },
-});
-
-export const claimCloudflareConvexBuildAccessWiring = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: object({ claimed: boolean() }),
-  handler: async (ctx, args) => {
-    await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
+    const app = await requireVaultApp(ctx, {
       vaultId: args.vaultId,
-      appRoot,
+      userId: args.userId,
+      appId: worker.appId,
     });
-    const [convexDeployment, worker] = await Promise.all([
-      readConvexDeploymentForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-      readCloudflareWorkerForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-    ]);
-    if (!convexDeployment) {
-      throw new Error("Convex deployment is required before wiring Convex build access.");
-    }
-    if (!worker) {
-      throw new Error("Cloudflare Worker is required before wiring Convex build access.");
-    }
-    const now = Date.now();
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (
-      writeLock &&
-      writeLock.state === "active" &&
-      writeLock.runId !== args.runId &&
-      now - writeLock.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
-    ) {
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "claim_infra",
-        level: "warn",
-        message: "Cloudflare provisioning is already running.",
-        state: "canceled",
-      });
-      return { claimed: false };
-    }
-
-    if (writeLock) {
-      if (writeLock.state === "active" && writeLock.runId !== args.runId) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: writeLock.runId,
-        });
-      }
-      await ctx.db.patch(writeLock._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "claim_infra",
-      level: "info",
-      message: `Started Convex build access wiring for ${appRoot}.`,
-      state: "running",
-    });
-
-    return { claimed: true };
-  },
-});
-
-export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: cloudflareConvexBuildAccessWiringState,
-  handler: async (ctx, args) => {
-    await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await assertVaultAppRootExists(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    const [convexDeployment, writeLock, worker] = await Promise.all([
-      readConvexDeploymentForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-      readVaultProvisioningWriteLock(ctx, args.vaultId),
-      readCloudflareWorkerForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-    ]);
-    if (
-      !convexDeployment ||
-      !worker ||
-      !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })
-    ) {
-      return { active: false as const };
-    }
-
     return {
-      active: true as const,
       ghRepoId: vault.ghRepoId,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
+      owner: vault.owner,
+      name: vault.name,
       defaultBranch: vault.defaultBranch,
-      worker: {
-        accountId: worker.accountId,
-        workerName: worker.workerName,
-        workerTag: worker.workerTag,
-      },
-      convex: {
-        projectId: convexDeployment.projectId,
-        deploymentName: convexDeployment.deploymentName,
+      rootDirectory: app.rootDirectory,
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+      convexProject: {
+        convexProjectId: project._id,
+        teamId: project.teamId,
+        projectId: project.projectId,
       },
     };
-  },
-});
-
-export const recordCloudflareConvexBuildAccessDeployKeyReady = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-    deployment: union(literal("production"), literal("preview")),
-  },
-  returns: object({ applied: boolean() }),
-  handler: async (ctx, args) => {
-    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      return { applied: false };
-    }
-
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: args.runId,
-        });
-        return { applied: false };
-      }
-      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const convexDeployment = await readConvexDeploymentForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    if (!convexDeployment) {
-      throw new Error("Convex deployment is required before recording deploy key identity.");
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "wire_convex_build_access",
-      level: "info",
-      message:
-        args.deployment === "production"
-          ? "Convex production deploy key ready."
-          : "Convex preview deploy key ready.",
-      state: "running",
-    });
-
-    return { applied: true };
-  },
-});
-
-export const recordCloudflareConvexBuildAccessForRun = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-    previewDeployment: vConvexPreviewDeploymentReady,
-  },
-  returns: object({ applied: boolean() }),
-  handler: async (ctx, args) => {
-    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      return { applied: false };
-    }
-
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: args.runId,
-        });
-        return { applied: false };
-      }
-      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const [convexDeployment, worker] = await Promise.all([
-      readConvexDeploymentForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-      readCloudflareWorkerForAppRoot(ctx, {
-        vaultId: args.vaultId,
-        appRoot,
-      }),
-    ]);
-    if (!convexDeployment) {
-      throw new Error("Convex deployment is required before recording Convex build access.");
-    }
-    if (!worker) {
-      throw new Error("Cloudflare Worker is required before recording Convex build access.");
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "wire_convex_build_access",
-      level: "info",
-      message: `Convex build access wired for ${appRoot}.`,
-      state: "running",
-    });
-
-    return { applied: true };
-  },
-});
-
-export const finishCloudflareConvexBuildAccessWiring = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    appRoot: string(),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
-
-    const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
-    if (!writeLock || !runHoldsCloudflareProvisioningWriteLock(writeLock, { runId: args.runId })) {
-      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
-        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-          runId: args.runId,
-        });
-        return null;
-      }
-      throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
-    }
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
-    const worker = await readCloudflareWorkerForAppRoot(ctx, {
-      vaultId: args.vaultId,
-      appRoot,
-    });
-    if (!worker) {
-      throw new Error("Cloudflare Worker is required after wiring Convex build access.");
-    }
-
-    const now = Date.now();
-    if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
-      await ctx.db.patch(writeLock._id, {
-        state: "succeeded",
-        updatedAt: now,
-      });
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "finish",
-        level: "info",
-        message: "Convex build access is wired.",
-        state: "succeeded",
-      });
-      return null;
-    }
-
-    await appendCloudflareWorkerConnectionEvent(ctx, {
-      runId: args.runId,
-      step: "wire_convex_build_access",
-      level: "info",
-      message: "Convex build access is wired.",
-      state: "running",
-    });
-
-    return null;
   },
 });

@@ -99,13 +99,31 @@ function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   return value;
 }
 
+function fakeVaultAppId(value: string): Id<"vaultApps"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
+function fakeCloudflareWorkerId(value: string): Id<"vaultCloudflareWorkers"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
+function fakeConvexProjectId(value: string): Id<"vaultConvexProjects"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
 function fakeProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-function fakeConvexDeploymentId(): Id<"vaultConvexDeployments"> {
+function fakeConvexDeploymentId(): Id<"vaultConvexProjects"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
@@ -517,6 +535,11 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
 ];
 
 const LIST_SPACING_VAULT_ID = fakeVaultId();
+const LIST_SPACING_DOMAIN_APP_ID = fakeVaultAppId("app-domain-router");
+const LIST_SPACING_SAMEBASE_APP_ID = fakeVaultAppId("app-samebase");
+const LIST_SPACING_DOMAIN_WORKER_ID = fakeCloudflareWorkerId("worker-domain-router");
+const LIST_SPACING_SAMEBASE_WORKER_ID = fakeCloudflareWorkerId("worker-samebase");
+const LIST_SPACING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-samebase");
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
   _creationTime: FIXTURE_NOW - 900_000,
@@ -539,62 +562,40 @@ const LIST_SPACING_VAULT = {
   hasCloudflareProvision: true,
   canRemoveConvexProvision: true,
   canRemoveCloudflareProvision: true,
-  appRoots: [{ appRoot: "apps/domain-router" }, { appRoot: "apps/samebase" }],
+  apps: [
+    { appId: LIST_SPACING_DOMAIN_APP_ID, rootDirectory: "apps/domain-router" },
+    { appId: LIST_SPACING_SAMEBASE_APP_ID, rootDirectory: "apps/samebase" },
+  ],
   cloudflareWorkers: [
     {
-      appRoot: "apps/domain-router",
+      workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+      appId: LIST_SPACING_DOMAIN_APP_ID,
       accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "domain-router",
-      workerTag: "domain-router",
-      origin: "provisioned",
-      projectDashboardUrl:
-        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/deployments",
-      observation: {
-        state: "available",
-        observedAt: FIXTURE_NOW - 12_000,
-        workersDevUrl: "https://domain-router.nicu.workers.dev",
-        githubRepositoryConnection: "connected",
-        convexDeployKeys: "not_applicable",
-      },
+      workerTag: "domain-router-tag",
     },
     {
-      appRoot: "apps/samebase",
+      workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
+      appId: LIST_SPACING_SAMEBASE_APP_ID,
       accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "samebase-worker",
-      workerTag: "samebase-worker",
-      origin: "provisioned",
-      projectDashboardUrl:
-        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/deployments",
-      observation: {
-        state: "available",
-        observedAt: FIXTURE_NOW - 12_000,
-        workersDevUrl: "https://samebase-worker.nicu.workers.dev",
-        githubRepositoryConnection: "connected",
-        convexDeployKeys: "set",
-      },
+      workerTag: "samebase-worker-tag",
     },
   ],
-  convexDeployments: [
+  convexProjects: [
     {
-      appRoot: "apps/samebase",
+      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
+      appId: LIST_SPACING_SAMEBASE_APP_ID,
+      teamId: "samebase-team-id",
       projectId: "samebase",
-      deploymentName: "calm-swan-123",
-      origin: "provisioned",
-      observation: {
-        state: "available",
-        observedAt: FIXTURE_NOW - 12_000,
-        projectSlug: "samebase",
-        teamSlug: "nicu",
-        cloudUrl: "https://calm-swan-123.convex.cloud",
-        siteUrl: "https://calm-swan-123.convex.site",
-        projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/settings",
-        deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
-      },
     },
   ],
 } satisfies VaultDashboardVault;
 
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8e");
+const CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID = fakeCloudflareWorkerId(
+  "jh76f8cc9pq3m7r1s8v5x2z4n6k0b3d9",
+);
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   ...LIST_SPACING_VAULT,
   _id: CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID,
@@ -606,54 +607,30 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   fileCount: 9,
   lastTreeRefreshAt: FIXTURE_NOW - 3_480_000,
   sourceSetup: { status: "ready" },
-  providerSetup: {
-    status: "failed",
-    provider: "cloudflare",
-    source: "manual",
-    runId: fakeProvisioningRunId(),
-    step: "wire_convex_build_access",
-    message:
-      "Cannot connect Cloudflare Worker 4d41accaab0042ef83bc3fc78e1ec644 to nicu-chiciuc/tmp-my-super-app-2: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
-    updatedAt: FIXTURE_NOW - 1_000,
-    nextAction: "wire_convex_build_access",
-  },
-  appRoots: [{ appRoot: "." }],
+  providerSetup: { status: "not_applicable" },
+  apps: [{ appId: LIST_SPACING_DOMAIN_APP_ID, rootDirectory: "/" }],
   cloudflareWorkers: [
     {
-      appRoot: ".",
+      workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+      appId: LIST_SPACING_DOMAIN_APP_ID,
       accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "tmp-my-super-app-234",
-      workerTag: "tmp-my-super-app-234",
-      origin: "provisioned",
-      projectDashboardUrl:
-        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/tmp-my-super-app-234/production/deployments",
-      observation: {
-        state: "available",
-        observedAt: FIXTURE_NOW - 2_000,
-        workersDevUrl: "https://tmp-my-super-app-234.pfp.workers.dev",
-        githubRepositoryConnection: "not_connected",
-        convexDeployKeys: "not_applicable",
-      },
+      workerTag: "tmp-my-super-app-234-tag",
+    },
+    {
+      workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
+      appId: LIST_SPACING_DOMAIN_APP_ID,
+      accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+      workerName: "tmp-my-super-app-admin",
+      workerTag: "tmp-my-super-app-admin-tag",
     },
   ],
-  convexDeployments: [
+  convexProjects: [
     {
-      appRoot: ".",
+      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
+      appId: LIST_SPACING_DOMAIN_APP_ID,
+      teamId: "nicu-team-id",
       projectId: "tmp-my-super-app-2",
-      deploymentName: "valiant-panda-123",
-      origin: "provisioned",
-      observation: {
-        state: "available",
-        observedAt: FIXTURE_NOW - 2_000,
-        projectSlug: "tmp-my-super-app-2",
-        teamSlug: "nicu",
-        cloudUrl: "https://valiant-panda-123.convex.cloud",
-        siteUrl: "https://valiant-panda-123.convex.site",
-        projectSettingsDashboardUrl:
-          "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/settings",
-        deploymentDashboardUrl:
-          "https://dashboard.convex.dev/t/nicu/tmp-my-super-app-2/valiant-panda-123",
-      },
     },
   ],
 } satisfies VaultDashboardVault;
@@ -731,8 +708,11 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
-          cloudflareWorkerRepairActionInFlight={null}
+          cloudflareObservations={{ state: "loading" }}
+          cloudflareWorkerConfigurationActionInFlight={null}
+          convexObservations={{ state: "loading" }}
           isRemovingVault={false}
+          providerAttachmentRemovalInFlight={null}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
@@ -760,9 +740,12 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           schemaGraphAccessEnabled
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          onConnectCloudflareGithubRepository={() => {}}
+          onConfigureWorkersBuildsForGitHub={() => {}}
+          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRemoveMissingCloudflareWorker={() => {}}
+          onRemoveMissingConvexProject={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={(vaultId, nextVaultBranchFilters) => {
@@ -775,7 +758,6 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
               setResourceLinksOpen(nextOpen);
             }
           }}
-          onSetCloudflareConvexDeployKeys={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -793,8 +775,55 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
-          cloudflareWorkerRepairActionInFlight={null}
+          cloudflareObservations={{
+            state: "loaded",
+            reload: () => {},
+            observations: [
+              {
+                state: "available",
+                observedAt: FIXTURE_NOW,
+                workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+                workerTag: "tmp-my-super-app-234-tag",
+                workersDev: {
+                  state: "enabled",
+                  url: "https://tmp-my-super-app-234.pfp.workers.dev",
+                },
+                repository: {
+                  classification: "available",
+                  evidence: { state: "none" },
+                },
+                builds: { state: "not_connected" },
+              },
+              {
+                state: "available",
+                observedAt: FIXTURE_NOW,
+                workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
+                workerTag: "tmp-my-super-app-admin-tag",
+                workersDev: {
+                  state: "enabled",
+                  url: "https://tmp-my-super-app-admin.pfp.workers.dev",
+                },
+                repository: {
+                  classification: "recommended",
+                  evidence: {
+                    state: "matching_repo",
+                    repoId: "123",
+                    repoName: "nicu-chiciuc/tmp-my-super-app-2",
+                    triggerName: "Production Deploy",
+                    rootDirectory: "/",
+                  },
+                },
+                builds: {
+                  state: "connected",
+                  convexBuildAccess: { state: "not_configured" },
+                },
+              },
+            ],
+          }}
+          cloudflareWorkerConfigurationActionInFlight={null}
+          convexObservations={{ state: "loading" }}
           isRemovingVault={false}
+          providerAttachmentRemovalInFlight={null}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
@@ -813,14 +842,16 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           }
           schemaGraphAccessEnabled={false}
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          onConnectCloudflareGithubRepository={() => {}}
+          onConfigureWorkersBuildsForGitHub={() => {}}
+          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRemoveMissingCloudflareWorker={() => {}}
+          onRemoveMissingConvexProject={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
-          onSetCloudflareConvexDeployKeys={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -849,8 +880,11 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
           <VaultDashboardView
             deleteModeActive={false}
             developerToolsVisible={false}
-            cloudflareWorkerRepairActionInFlight={null}
+            cloudflareObservations={{ state: "loading" }}
+            cloudflareWorkerConfigurationActionInFlight={null}
+            convexObservations={{ state: "loading" }}
             isRemovingVault={false}
+            providerAttachmentRemovalInFlight={null}
             retryingDeletionRunId={null}
             retryingInfrastructureVaultId={null}
             now={FIXTURE_NOW}
@@ -881,14 +915,16 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             persistedVaultResourceLinksOpenByVaultId={new Map()}
             schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-            onConnectCloudflareGithubRepository={() => {}}
+            onConfigureWorkersBuildsForGitHub={() => {}}
+            onRotateConvexDeployKeysForWorkersBuilds={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onManualRepositoryRefresh={() => {}}
+            onRemoveMissingCloudflareWorker={() => {}}
+            onRemoveMissingConvexProject={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
             onSaveVaultBranchFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
-            onSetCloudflareConvexDeployKeys={() => {}}
           />
         }
       />
@@ -952,16 +988,17 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
 }
 
 function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
-  const deploymentId = fakeConvexDeploymentId();
+  const convexProjectId = fakeConvexDeploymentId();
   return {
-    deployments: [
+    projects: [
       {
-        _id: deploymentId,
-        appRoot: ".",
-        deploymentName: "samebase-prod",
+        convexProjectId,
+        appId: fakeVaultAppId("schema-app"),
+        rootDirectory: "/",
+        projectId: "samebase-project",
       },
     ],
-    selectedDeploymentId: deploymentId,
+    selectedConvexProjectId: convexProjectId,
     snapshot: {
       _id: fakeConvexSchemaSnapshotId(),
       fetchedAt: Date.parse("2026-06-29T09:00:00Z"),
@@ -1392,7 +1429,7 @@ function VaultConvexSchemaRouteMobileFixture() {
       state={graphState}
       refreshPending={false}
       refreshError={null}
-      onDeploymentChange={() => {}}
+      onProjectChange={() => {}}
       onRefresh={() => {}}
       onSaveLayout={handleSaveLayout}
     />
@@ -1469,10 +1506,11 @@ function FixtureCloudflareConnectDialog() {
       selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
       selectedWorkerName="app-start-workers"
       vault={{
-        fixedAppRoot: "apps/atelier",
+        appId: fakeVaultAppId("app-atelier"),
         id: fakeVaultId(),
         repositoryFullName: "samebase/atelier",
         repositoryName: "atelier",
+        rootDirectory: "apps/atelier",
       }}
       workers={FIXTURE_CLOUDFLARE_WORKERS}
     />
@@ -1568,7 +1606,7 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardAppRootDialog
-          appRoot="."
+          appRoot="/"
           error={null}
           folderSuggestions={[]}
           isSubmitting={false}
@@ -1634,7 +1672,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
-          appRoot="."
+          appRoot="/"
           appRootReadOnly={false}
           createProjectName="samebase-app"
           projects={[
@@ -1658,10 +1696,11 @@ function VaultDashboardConnectConvexOpenFixture() {
           open={true}
           selectedProjectId="jaded-heron-123"
           vault={{
-            fixedAppRoot: ".",
+            appId: fakeVaultAppId("app-root"),
             id: fakeVaultId(),
             repositoryFullName: "samebase/app",
             repositoryName: "samebase-app",
+            rootDirectory: "/",
           }}
         />
       </TestRouterProvider>
@@ -1800,17 +1839,17 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
             onRepositoryLinksOpenChange={() => {}}
             setupSection={
               <VaultProviderSetupSection
+                isRetrying={false}
+                onRetry={() => {}}
                 repositoryFullName="noter-guest/tmp-manual-test"
                 providerSetup={{
                   status: "failed",
                   provider: "cloudflare",
-                  source: "managed",
                   runId: fakeProvisioningRunId(),
                   step: "attach_worker",
                   message:
                     "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include noter-guest/tmp-manual-test, then retry.",
                   updatedAt: Date.parse("2026-06-24T12:00:00Z"),
-                  nextAction: "retry_infrastructure_provisioning",
                 }}
               />
             }
@@ -2115,7 +2154,8 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                       })}
                       productionApps={[
                         {
-                          appRoot: ".",
+                          appId: fakeVaultAppId("production-root"),
+                          rootDirectory: "/",
                           links: [
                             {
                               href: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",

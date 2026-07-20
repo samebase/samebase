@@ -51,8 +51,8 @@ export function resolveVaultProviderSetupStepProvider(
     case "attach_convex":
       return "convex";
     case "attach_worker":
-    case "wire_builds":
-    case "wire_convex_build_access":
+    case "configure_workers_builds_for_github":
+    case "rotate_convex_deploy_keys_for_workers_builds":
     case "record_domains":
       return "cloudflare";
     case "run_created":

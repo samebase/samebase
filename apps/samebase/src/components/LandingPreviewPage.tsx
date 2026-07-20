@@ -181,7 +181,7 @@ const LANDING_INVENTORY_ROWS: readonly {
     convex: { kind: "attached", value: "shop-admin" },
     github: "you/shop",
     root: "apps/admin",
-    state: { kind: "repair", action: "wire builds" },
+    state: { kind: "repair", action: "configure Workers Builds for GitHub" },
   },
 ];
 

@@ -1,4 +1,4 @@
-import { entries } from "@samebase/dependent/object";
+import { entries, fromEntries } from "@samebase/dependent/object";
 
 export type UrlSearchParamValue = string | undefined;
 type UrlSearchParamsInput<Params> = {
@@ -37,6 +37,22 @@ export function createUrlSearchParams<const Params extends UrlSearchParamsInput<
   params: Params,
 ): URLSearchParams {
   return new NativeURLSearchParams(readDefinedUrlSearchParamEntries(params));
+}
+
+export function readUrlSearchParamsRecord(search: string): Record<string, string | string[]> {
+  const valuesByKey = new Map<string, string | string[]>();
+  for (const [key, value] of new NativeURLSearchParams(search)) {
+    const existing = valuesByKey.get(key);
+    valuesByKey.set(
+      key,
+      existing === undefined
+        ? value
+        : typeof existing === "string"
+          ? [existing, value]
+          : [...existing, value],
+    );
+  }
+  return fromEntries([...valuesByKey.entries()]);
 }
 
 function readUrlInput(baseUrl: string | URL): UrlInput {

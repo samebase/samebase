@@ -46,38 +46,24 @@ async function createConnectedVault() {
 }
 
 describe("infra read app-root targeting", () => {
-  it("requires a Convex deployment attachment", async () => {
-    const { ids, t } = await createConnectedVault();
-
-    await expect(
-      t.action(internal.infraRead.getConvexDeploymentStatus, {
-        vaultId: ids.vaultId,
-      }),
-    ).rejects.toThrow("Infrastructure not found");
-  });
-
-  it("requires a Cloudflare Worker attachment", async () => {
-    const { ids, t } = await createConnectedVault();
-
-    await expect(
-      t.action(internal.infraRead.getCloudflareWorkerStatus, {
-        vaultId: ids.vaultId,
-      }),
-    ).rejects.toThrow("Infrastructure not found");
-  });
-
-  it("fails closed when multiple Convex deployments are connected", async () => {
+  it("fails closed when multiple Convex projects are attached", async () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
-      for (const appRoot of ["apps/api", "apps/web"]) {
-        await ctx.db.insert("vaultConvexDeployments", {
+      for (const rootDirectory of ["apps/api", "apps/web"]) {
+        const appId = await ctx.db.insert("vaultApps", {
           vaultId: ids.vaultId,
           userId: ids.userId,
-          appRoot,
-          projectId: `${appRoot}-project`,
-          deploymentName: `${appRoot.replace("/", "-")}-prod`,
+          rootDirectory,
+          createdAt: 30,
+        });
+        await ctx.db.insert("vaultConvexProjects", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          appId,
+          teamId: "team-id",
+          projectId: `${rootDirectory}-project`,
           origin: "selected_existing",
-          connectedAt: 30,
+          createdAt: 30,
         });
       }
     });
@@ -86,22 +72,28 @@ describe("infra read app-root targeting", () => {
       t.action(internal.infraRead.getConvexDeploymentStatus, {
         vaultId: ids.vaultId,
       }),
-    ).rejects.toThrow("Multiple Convex deployments are connected.");
+    ).rejects.toThrow("Multiple Convex projects are attached.");
   });
 
-  it("fails closed when multiple Cloudflare Workers are connected", async () => {
+  it("fails closed when multiple Cloudflare Workers are attached", async () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
-      for (const appRoot of ["apps/api", "apps/web"]) {
+      for (const rootDirectory of ["apps/api", "apps/web"]) {
+        const appId = await ctx.db.insert("vaultApps", {
+          vaultId: ids.vaultId,
+          userId: ids.userId,
+          rootDirectory,
+          createdAt: 30,
+        });
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId: ids.vaultId,
           userId: ids.userId,
-          appRoot,
+          appId,
           accountId: "cloudflare-account",
-          workerName: appRoot.replace("/", "-"),
-          workerTag: `${appRoot.replace("/", "-")}-tag`,
+          workerName: rootDirectory.replace("/", "-"),
+          workerTag: `${rootDirectory.replace("/", "-")}-tag`,
           origin: "selected_existing",
-          connectedAt: 30,
+          createdAt: 30,
         });
       }
     });
@@ -110,6 +102,6 @@ describe("infra read app-root targeting", () => {
       t.action(internal.infraRead.getCloudflareWorkerStatus, {
         vaultId: ids.vaultId,
       }),
-    ).rejects.toThrow("Multiple Cloudflare Workers are connected.");
+    ).rejects.toThrow("Multiple Cloudflare Workers are attached.");
   });
 });

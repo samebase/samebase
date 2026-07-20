@@ -10,8 +10,8 @@ import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareLis
 import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
 import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
-import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
-import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
@@ -30,8 +30,8 @@ import {
   listCloudflareAccountsForUser,
   listCloudflareWorkersForUser,
   connectExistingCloudflareWorkerForUser,
-  wireCloudflareBuildsForUser,
-  wireCloudflareConvexBuildAccessForUser,
+  configureWorkersBuildsForGitHubForUser,
+  rotateConvexDeployKeysForWorkersBuildsForUser,
 } from "../vault/cloudflare";
 import { internal } from "../_generated/api";
 import { mcpScopeAllowsAccess } from "./mcpScopes";
@@ -329,7 +329,7 @@ export const convexConnectExistingProjectTool = internalAction({
       await connectExistingConvexProjectForUser(ctx, connectArgs);
       return {
         status: "ok",
-        text: "Started connect_convex_deployment run.",
+        text: "Attached the Convex project.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -372,7 +372,7 @@ export const cloudflareConnectExistingWorkerTool = internalAction({
       await connectExistingCloudflareWorkerForUser(ctx, connectArgs);
       return {
         status: "ok",
-        text: "Started connect_cloudflare_worker run.",
+        text: "Attached the Cloudflare Worker.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -384,76 +384,40 @@ export const cloudflareConnectExistingWorkerTool = internalAction({
   },
 });
 
-const cloudflareWireBuildsToolResultValidator = object({
+const cloudflareConfigureWorkersBuildsForGitHubToolResultValidator = object({
   status: toolStatus,
   text: string(),
   structuredContent: optional(nullValue()),
 });
-type CloudflareWireBuildsToolResult = Infer<typeof cloudflareWireBuildsToolResultValidator>;
-
-export const cloudflareWireBuildsTool = internalAction({
-  args: object({
-    userId: id("users"),
-    grantedScopes: array(string()),
-    ...cloudflareWireBuildsContract.args,
-  }),
-  returns: cloudflareWireBuildsToolResultValidator,
-  handler: async (ctx, { grantedScopes, ...wireArgs }): Promise<CloudflareWireBuildsToolResult> => {
-    if (!mcpScopeAllowsAccess(cloudflareWireBuildsContract.access, grantedScopes)) {
-      return {
-        status: "blocked",
-        text: `Insufficient scope for ${cloudflareWireBuildsContract.mcp.name}.`,
-      };
-    }
-
-    try {
-      await wireCloudflareBuildsForUser(ctx, wireArgs);
-      return {
-        status: "ok",
-        text: "Started wire_builds run.",
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Tool execution failed.";
-      return {
-        status: "error",
-        text: message,
-      };
-    }
-  },
-});
-
-const cloudflareWireConvexBuildAccessToolResultValidator = object({
-  status: toolStatus,
-  text: string(),
-  structuredContent: optional(nullValue()),
-});
-type CloudflareWireConvexBuildAccessToolResult = Infer<
-  typeof cloudflareWireConvexBuildAccessToolResultValidator
+type CloudflareConfigureWorkersBuildsForGitHubToolResult = Infer<
+  typeof cloudflareConfigureWorkersBuildsForGitHubToolResultValidator
 >;
 
-export const cloudflareWireConvexBuildAccessTool = internalAction({
+export const cloudflareConfigureWorkersBuildsForGitHubTool = internalAction({
   args: object({
     userId: id("users"),
     grantedScopes: array(string()),
-    ...cloudflareWireConvexBuildAccessContract.args,
+    ...cloudflareConfigureWorkersBuildsForGitHubContract.args,
   }),
-  returns: cloudflareWireConvexBuildAccessToolResultValidator,
+  returns: cloudflareConfigureWorkersBuildsForGitHubToolResultValidator,
   handler: async (
     ctx,
-    { grantedScopes, ...wireArgs },
-  ): Promise<CloudflareWireConvexBuildAccessToolResult> => {
-    if (!mcpScopeAllowsAccess(cloudflareWireConvexBuildAccessContract.access, grantedScopes)) {
+    { grantedScopes, ...operationArgs },
+  ): Promise<CloudflareConfigureWorkersBuildsForGitHubToolResult> => {
+    if (
+      !mcpScopeAllowsAccess(cloudflareConfigureWorkersBuildsForGitHubContract.access, grantedScopes)
+    ) {
       return {
         status: "blocked",
-        text: `Insufficient scope for ${cloudflareWireConvexBuildAccessContract.mcp.name}.`,
+        text: `Insufficient scope for ${cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name}.`,
       };
     }
 
     try {
-      await wireCloudflareConvexBuildAccessForUser(ctx, wireArgs);
+      await configureWorkersBuildsForGitHubForUser(ctx, operationArgs);
       return {
         status: "ok",
-        text: "Started wire_convex_build_access run.",
+        text: "Configured Workers Builds for GitHub.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -464,6 +428,58 @@ export const cloudflareWireConvexBuildAccessTool = internalAction({
     }
   },
 });
+
+const cloudflareRotateConvexDeployKeysForWorkersBuildsToolResultValidator = object({
+  status: toolStatus,
+  text: string(),
+  structuredContent: optional(nullValue()),
+});
+type CloudflareRotateConvexDeployKeysForWorkersBuildsToolResult = Infer<
+  typeof cloudflareRotateConvexDeployKeysForWorkersBuildsToolResultValidator
+>;
+
+export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = internalAction({
+  args: object({
+    userId: id("users"),
+    grantedScopes: array(string()),
+    ...cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
+  }),
+  returns: cloudflareRotateConvexDeployKeysForWorkersBuildsToolResultValidator,
+  handler: async (
+    ctx,
+    { grantedScopes, ...operationArgs },
+  ): Promise<CloudflareRotateConvexDeployKeysForWorkersBuildsToolResult> => {
+    if (
+      !mcpScopeAllowsAccess(
+        cloudflareRotateConvexDeployKeysForWorkersBuildsContract.access,
+        grantedScopes,
+      )
+    ) {
+      return {
+        status: "blocked",
+        text: `Insufficient scope for ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name}.`,
+      };
+    }
+
+    try {
+      await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, operationArgs, {
+        state: "configure",
+      });
+      return {
+        status: "ok",
+        text: "Rotated Convex deploy keys for Workers Builds.",
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Tool execution failed.";
+      return {
+        status: "error",
+        text: message,
+      };
+    }
+  },
+});
+
+// Current provider state is observed live; there is no verification mutation tool.
 
 const retryInfrastructureProvisioningToolResultValidator = object({
   status: toolStatus,

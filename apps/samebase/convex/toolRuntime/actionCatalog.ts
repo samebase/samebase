@@ -7,8 +7,8 @@ import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareLis
 import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
 import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
-import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
-import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
@@ -16,8 +16,8 @@ import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/c
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with
 its Convex function, and every agent-facing surface renders from this list: the MCP tool catalog,
 the supported OAuth scopes, usage attribution names, the generated /docs/actions pages, llms.txt
-entries, and the ChatGPT submission file. `id` is the catalog vocabulary (snake_case; also the
-`nextAction` value space), `mcp.name` is the wire-level MCP tool name.
+entries, and the ChatGPT submission file. `id` is the catalog vocabulary in snake_case;
+`mcp.name` is the wire-level MCP tool name.
 
 Order is the presentation order in generated docs: the status noun first, then create/import, then
 discovery reads, then attach, then repairs.
@@ -32,8 +32,8 @@ export const actionContracts = [
   cloudflareListWorkersContract,
   convexConnectExistingProjectContract,
   cloudflareConnectExistingWorkerContract,
-  cloudflareWireBuildsContract,
-  cloudflareWireConvexBuildAccessContract,
+  cloudflareConfigureWorkersBuildsForGitHubContract,
+  cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
   createBrowserHandoffContract,
 ] as const;
