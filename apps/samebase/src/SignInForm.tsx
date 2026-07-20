@@ -1,6 +1,7 @@
 import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { LOGO_IDENTITY_VIEW_CONTRACTS } from "@/components/logo/logoStaticSvgContract";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -15,6 +16,8 @@ type SignInFormProps = {
   landingPageMarkdown: string;
   topNotice: ReactNode;
 };
+
+const [LANDING_LOGO_STARTING_VIEW] = LOGO_IDENTITY_VIEW_CONTRACTS;
 
 export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: SignInFormProps) {
   const navigate = useNavigate();
@@ -33,6 +36,7 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
           <PublicLandingLogo
             animateLeftFaceStripes
             autoRotate={landingDevModeEnabled}
+            defaultView={LANDING_LOGO_STARTING_VIEW}
             enablePointerTilt
             enableViewSnapping={!landingDevModeEnabled}
             replaceRouteSearch={(nextSearch) => {

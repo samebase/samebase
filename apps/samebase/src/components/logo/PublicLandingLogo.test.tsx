@@ -406,7 +406,7 @@ describe("PublicLandingLogo", () => {
     );
   });
 
-  it("keeps cleared route view at the committed default instead of mount-time device view", async () => {
+  it("keeps cleared route view at the supplied default instead of mount-time device view", async () => {
     installImmediateIdleCallback();
     window.localStorage.setItem(
       "samebase:logo-view:dashboard-empty",
@@ -424,6 +424,7 @@ describe("PublicLandingLogo", () => {
     function renderLogo(routeSearch: LogoRouteSearch) {
       localRoot.render(
         <PublicLandingLogo
+          defaultView={{ elevationDegrees: 0, rotationDegrees: 0 }}
           replaceRouteSearch={(nextSearch) => {
             replacedSearches.push(nextSearch);
             flushSync(() => {
@@ -453,8 +454,8 @@ describe("PublicLandingLogo", () => {
 
     await act(async () => {
       sceneProps.onViewChange({
-        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
-        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        elevationDegrees: 0,
+        rotationDegrees: 0,
       });
     });
 
@@ -473,8 +474,8 @@ describe("PublicLandingLogo", () => {
     if (finalSceneProps === null) {
       throw new Error("Expected mocked logo scene props after cleared route search.");
     }
-    expect(finalSceneProps.elevationDegrees).toBe(DEFAULT_ELEVATION_DEGREES);
-    expect(finalSceneProps.rotationDegrees).toBe(DEFAULT_ROTATION_DEGREES);
+    expect(finalSceneProps.elevationDegrees).toBe(0);
+    expect(finalSceneProps.rotationDegrees).toBe(0);
   });
 
   it("keeps the shuffled voxel grid stable after a persisted view drag", async () => {

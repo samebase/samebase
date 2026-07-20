@@ -970,8 +970,8 @@ async function expectLandingLogoCanBeDragged(page: Page) {
 
   const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
   expect(viewBeforeDrag).toEqual({
-    elevationDegrees: "35.264",
-    rotationDegrees: "45.000",
+    elevationDegrees: "0.000",
+    rotationDegrees: "0.000",
   });
 
   const canvasBounds = await landingLogoCanvas.boundingBox();
@@ -1599,6 +1599,8 @@ test("public landing logo tilts toward the pointer outside its grab surface", as
   const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
   const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
   await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
+  await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
 
   const stageBounds = await landingLogoStage.boundingBox();
   expect(stageBounds).not.toBeNull();
@@ -1610,7 +1612,7 @@ test("public landing logo tilts toward the pointer outside its grab surface", as
     stageBounds.x + stageBounds.width + 250,
     stageBounds.y + stageBounds.height / 2,
   );
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(1_000);
 
   await expect(landingLogoStage).toHaveScreenshot(
     "public-landing-logo-pointer-right.png",
@@ -1665,14 +1667,20 @@ test("public landing logo composes pointer tilt with the dragged view", async ({
 
   const centerX = canvasBounds.x + canvasBounds.width / 2;
   const centerY = canvasBounds.y + canvasBounds.height / 2;
+  const startingView = await readLandingLogoSceneView(landingLogoScene);
   await page.mouse.move(centerX, centerY);
   await page.waitForTimeout(250);
   await page.mouse.down();
   await page.mouse.move(centerX + 320, centerY, { steps: 12 });
-
-  const heldView = await readLandingLogoSceneView(landingLogoScene);
   await page.mouse.up();
-  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
+  await page.waitForTimeout(250);
+
+  const droppedView = await readLandingLogoSceneView(landingLogoScene);
+  expect(droppedView).not.toEqual(startingView);
+
+  await page.mouse.move(centerX - 320, centerY);
+  await page.waitForTimeout(1_000);
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(droppedView);
 });
 
 test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) => {

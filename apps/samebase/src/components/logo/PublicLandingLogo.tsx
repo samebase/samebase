@@ -71,21 +71,35 @@ let didLandingLogoSceneRenderFail = false;
 function ignoreLogoVoxelEdit() {}
 
 function buildPublicLandingLogoRouteSearch({
+  defaultView,
   routeSearch,
   routeState,
   view,
 }: {
+  defaultView: RotatedLogoViewState;
   routeSearch: LogoRouteSearch;
   routeState: LogoRouteRenderState;
   view: RotatedLogoViewState;
 }): LogoRouteSearch {
+  const nextSearch = buildLogoRouteSearch({
+    ...routeState,
+    elevationDegrees: view.elevationDegrees,
+    rotationDegrees: view.rotationDegrees,
+    themeModeSearch: routeSearch,
+  });
+
   return preserveLogoRouteDevModeSearch(
-    buildLogoRouteSearch({
-      ...routeState,
-      elevationDegrees: view.elevationDegrees,
-      rotationDegrees: view.rotationDegrees,
-      themeModeSearch: routeSearch,
-    }),
+    {
+      ...nextSearch,
+      elev:
+        view.elevationDegrees !== defaultView.elevationDegrees
+          ? Number(view.elevationDegrees.toFixed(1))
+          : undefined,
+      rot:
+        view.rotationDegrees !== defaultView.rotationDegrees
+          ? Number(view.rotationDegrees.toFixed(1))
+          : undefined,
+    },
     routeSearch,
   );
 }
@@ -97,6 +111,7 @@ function easeOutCubic(value: number) {
 export function PublicLandingLogo({
   animateLeftFaceStripes = false,
   autoRotate = false,
+  defaultView = DEFAULT_LANDING_LOGO_VIEW,
   enablePointerTilt = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
@@ -109,6 +124,7 @@ export function PublicLandingLogo({
 }: {
   animateLeftFaceStripes?: boolean;
   autoRotate?: boolean;
+  defaultView?: RotatedLogoViewState;
   enablePointerTilt?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
@@ -129,13 +145,13 @@ export function PublicLandingLogo({
     loadInteractiveScene ? cachedLandingLogoScene : null,
   );
   const [didSceneFail, setDidSceneFail] = useState(() => didLandingLogoSceneRenderFail);
-  const defaultView = readRotatedLogoViewState({
-    defaultView: DEFAULT_LANDING_LOGO_VIEW,
+  const resolvedInitialView = readRotatedLogoViewState({
+    defaultView,
     key: viewStateKey,
     persistence: viewStatePersistence,
   });
-  const defaultElevationDegrees = defaultView.elevationDegrees;
-  const defaultRotationDegrees = defaultView.rotationDegrees;
+  const defaultElevationDegrees = resolvedInitialView.elevationDegrees;
+  const defaultRotationDegrees = resolvedInitialView.rotationDegrees;
   const routeState = useMemo(
     () =>
       readLogoRouteRenderState({
@@ -495,6 +511,7 @@ export function PublicLandingLogo({
                 persistLatestLogoView();
                 replaceRouteSearch?.(
                   buildPublicLandingLogoRouteSearch({
+                    defaultView,
                     routeSearch,
                     routeState,
                     view: latestViewRef.current,
