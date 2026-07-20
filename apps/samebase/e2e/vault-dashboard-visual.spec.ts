@@ -704,11 +704,11 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
     fixture.getByText("Cloudflare is not connected to this GitHub repository."),
   ).toBeVisible();
   await expect(
-    fixture.getByRole("button", { name: "Connect GitHub repo Cloudflare" }),
+    fixture.getByRole("button", { name: "Configure Workers Builds for GitHub Cloudflare" }),
   ).toBeVisible();
   await expect(
     fixture.getByRole("button", {
-      name: "Set Convex deploy keys for tmp-my-super-app-2",
+      name: "Rotate Convex deploy keys for Workers Builds for tmp-my-super-app-2",
     }),
   ).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-dashboard-cloudflare-build-trigger-missing.png", {

@@ -15,8 +15,8 @@ import {
   listCloudflareWorkersWithRepositoryDiscovery,
   readCloudflareWorkerIdentity,
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
-  wireCloudflareWorkerBuilds,
-  wireCloudflareWorkerConvexBuildAccess,
+  configureCloudflareWorkerBuildsForGitHub,
+  rotateConvexDeployKeysForCloudflareWorkerBuilds,
   type CloudflareBuildConfig,
   type CloudflareConnectedWorkersBuilds,
 } from "../cloudflareResources";
@@ -48,8 +48,8 @@ import {
   vCloudflareWorkerResult,
 } from "./contracts/cloudflareListWorkers";
 import { cloudflareConnectExistingWorkerContract } from "./contracts/cloudflareConnectExistingWorker";
-import { cloudflareWireBuildsContract } from "./contracts/cloudflareWireBuilds";
-import { cloudflareWireConvexBuildAccessContract } from "./contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "./contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 
 const { id, null: nullValue, object, string } = v;
 
@@ -438,7 +438,7 @@ function toCloudflareBuildConfig(rootDirectory: string): CloudflareBuildConfig {
   };
 }
 
-async function wireBuildsForWorkerContext(
+async function configureWorkersBuildsForGitHubForWorkerContext(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
@@ -465,7 +465,7 @@ async function wireBuildsForWorkerContext(
     repo: context.name,
     expectedRepoId: context.ghRepoId,
   });
-  const build = await wireCloudflareWorkerBuilds({
+  const build = await configureCloudflareWorkerBuildsForGitHub({
     owner: context.owner,
     repo: context.name,
     ghRepoId: context.ghRepoId,
@@ -483,7 +483,7 @@ async function wireBuildsForWorkerContext(
   return { build, connection };
 }
 
-async function wireBuildsForWorker(
+async function configureWorkersBuildsForGitHubForWorker(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
@@ -493,14 +493,14 @@ async function wireBuildsForWorker(
   },
 ): Promise<PreparedCloudflareWorkerBuilds> {
   const context = await readWorkerConfigurationContext(ctx, args);
-  const { build } = await wireBuildsForWorkerContext(ctx, args, context);
+  const { build } = await configureWorkersBuildsForGitHubForWorkerContext(ctx, args, context);
   return {
     production: { triggerUuid: build.production.triggerUuid },
     preview: { triggerUuid: build.preview.triggerUuid },
   };
 }
 
-export async function wireCloudflareConvexBuildAccessForUser(
+export async function rotateConvexDeployKeysForWorkersBuildsForUser(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
@@ -526,7 +526,7 @@ export async function wireCloudflareConvexBuildAccessForUser(
   let build: PreparedCloudflareWorkerBuilds;
   let connection: CloudflareActionConnection;
   if (buildPreparation.state === "configure") {
-    ({ build, connection } = await wireBuildsForWorkerContext(
+    ({ build, connection } = await configureWorkersBuildsForGitHubForWorkerContext(
       ctx,
       { userId: args.userId, vaultId: args.vaultId, triggerInitialBuild: false },
       context,
@@ -579,7 +579,7 @@ export async function wireCloudflareConvexBuildAccessForUser(
   }
 
   try {
-    await wireCloudflareWorkerConvexBuildAccess({
+    await rotateConvexDeployKeysForCloudflareWorkerBuilds({
       defaultBranch: context.defaultBranch,
       expectedRepoId: context.ghRepoId,
       repositoryFullName: `${context.owner}/${context.name}`,
@@ -625,7 +625,7 @@ export async function listCloudflareAccountsForUser(
   return await listAccountsForConnection(connection);
 }
 
-export async function wireCloudflareBuildsForUser(
+export async function configureWorkersBuildsForGitHubForUser(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
@@ -633,7 +633,7 @@ export async function wireCloudflareBuildsForUser(
     workerId: Id<"vaultCloudflareWorkers">;
   },
 ): Promise<void> {
-  await wireBuildsForWorker(ctx, { ...args, triggerInitialBuild: true });
+  await configureWorkersBuildsForGitHubForWorker(ctx, { ...args, triggerInitialBuild: true });
 }
 
 export const listAccounts = action({
@@ -770,24 +770,24 @@ export const removeMissingWorker = action({
   },
 });
 
-export const wireBuilds = action({
-  access: cloudflareWireBuildsContract.access,
-  args: cloudflareWireBuildsContract.args,
-  returns: cloudflareWireBuildsContract.returns,
-  mcp: cloudflareWireBuildsContract.mcp,
+export const configureWorkersBuildsForGitHub = action({
+  access: cloudflareConfigureWorkersBuildsForGitHubContract.access,
+  args: cloudflareConfigureWorkersBuildsForGitHubContract.args,
+  returns: cloudflareConfigureWorkersBuildsForGitHubContract.returns,
+  mcp: cloudflareConfigureWorkersBuildsForGitHubContract.mcp,
   handler: async (ctx, args): Promise<null> => {
-    await wireCloudflareBuildsForUser(ctx, { ...args, userId: ctx.viewer.userId });
+    await configureWorkersBuildsForGitHubForUser(ctx, { ...args, userId: ctx.viewer.userId });
     return null;
   },
 });
 
-export const wireConvexBuildAccess = action({
-  access: cloudflareWireConvexBuildAccessContract.access,
-  args: cloudflareWireConvexBuildAccessContract.args,
-  returns: cloudflareWireConvexBuildAccessContract.returns,
-  mcp: cloudflareWireConvexBuildAccessContract.mcp,
+export const rotateConvexDeployKeysForWorkersBuilds = action({
+  access: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.access,
+  args: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
+  returns: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.returns,
+  mcp: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp,
   handler: async (ctx, args): Promise<null> => {
-    await wireCloudflareConvexBuildAccessForUser(
+    await rotateConvexDeployKeysForWorkersBuildsForUser(
       ctx,
       {
         ...args,
@@ -825,7 +825,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
   },
 });
 
-export const wireBuildsForWorkflow = internalAction({
+export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
   args: {
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
@@ -834,7 +834,7 @@ export const wireBuildsForWorkflow = internalAction({
   },
   returns: vPreparedCloudflareWorkerBuilds,
   handler: async (ctx, { vaultId, userId, workerId }): Promise<PreparedCloudflareWorkerBuilds> => {
-    return await wireBuildsForWorker(ctx, {
+    return await configureWorkersBuildsForGitHubForWorker(ctx, {
       vaultId,
       userId,
       workerId,
@@ -843,7 +843,7 @@ export const wireBuildsForWorkflow = internalAction({
   },
 });
 
-export const wireConvexBuildAccessForWorkflow = internalAction({
+export const rotateConvexDeployKeysForWorkersBuildsForWorkflow = internalAction({
   args: {
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
@@ -854,7 +854,7 @@ export const wireConvexBuildAccessForWorkflow = internalAction({
   },
   returns: nullValue(),
   handler: async (ctx, { vaultId, userId, workerId, convexProjectId, build }): Promise<null> => {
-    await wireCloudflareConvexBuildAccessForUser(
+    await rotateConvexDeployKeysForWorkersBuildsForUser(
       ctx,
       {
         vaultId,

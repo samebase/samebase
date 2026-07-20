@@ -6,8 +6,8 @@ start an idea, so starting one never costs money.
 ## What stays free
 
 The standard flow is computationally cheap, so it can stay free: create an app, import repositories,
-provision Convex and Cloudflare, wire builds and deploy keys, watch it from the dashboard, and run
-the same actions from a coding agent over MCP.
+provision Convex and Cloudflare, configure Workers Builds and rotate deploy keys, watch it from the
+dashboard, and run the same actions from a coding agent over MCP.
 
 Samebase never resells your infrastructure. The code lives in your GitHub, the backend in your
 Convex team, the Worker in your Cloudflare account. The providers bill you directly, and a small app

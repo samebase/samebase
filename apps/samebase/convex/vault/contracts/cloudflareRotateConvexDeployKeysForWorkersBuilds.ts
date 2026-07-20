@@ -5,8 +5,8 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 
 const { id } = v;
 
-export const cloudflareWireConvexBuildAccessContract = {
-  id: "wire_convex_build_access",
+export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
+  id: "rotate_convex_deploy_keys_for_workers_builds",
   access: ACCESS_APP_CREATE,
   args: {
     vaultId: id("vaults"),
@@ -15,20 +15,20 @@ export const cloudflareWireConvexBuildAccessContract = {
   },
   returns: v.null(),
   mcp: {
-    title: "Wire Convex build access",
-    name: "vault_cloudflare_wireConvexBuildAccess",
+    title: "Rotate Convex deploy keys for Workers Builds",
+    name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
     description:
-      "Mint Convex deploy keys and write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers.",
+      "Rotate Samebase-named production and preview Convex deploy keys, then write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
       openWorldHint: true,
-      destructiveHint: false,
+      destructiveHint: true,
     },
     inputDescriptions: {
       vaultId: "Samebase vault id containing both resources.",
       workerId: "Stable Samebase Worker attachment id returned by get_user_vaults.",
-      convexProjectId: "Attached Convex project selected for this wiring operation.",
+      convexProjectId: "Attached Convex project selected for this deploy-key rotation.",
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `The repair for builds that cannot deploy the backend: mints production and preview deploy
@@ -39,6 +39,7 @@ variables back, and verifies the marker value, secrecy flags, and required varia
 starting the production build.
 
 The Worker and project must both be attached to the vault. Their selection is input to this one
-operation, not a persisted dependency. Samebase rotates its named keys by reading Convex live and
-stores no completed Worker-to-project, key, or trigger mirror in Convex.`,
+operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.
+Samebase reads Convex live and stores no completed Worker-to-project, key, or trigger mirror in
+Convex.`,
 } as const;

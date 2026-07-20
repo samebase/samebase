@@ -669,7 +669,7 @@ describe("VaultDashboardRepositoryCard", () => {
           deleteModeActive={false}
           developerToolsVisible={false}
           cloudflareObservations={{ state: "loading" }}
-          cloudflareWorkerRepairActionInFlight={null}
+          cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
           providerAttachmentRemovalInFlight={null}
@@ -689,8 +689,8 @@ describe("VaultDashboardRepositoryCard", () => {
           persistedVaultResourceLinksOpenByVaultId={new Map()}
           schemaGraphAccessEnabled={false}
           rootRouteSearch={rootRouteSearch}
-          onConnectCloudflareGithubRepository={() => {}}
-          onWireCloudflareConvexBuildAccess={() => {}}
+          onConfigureWorkersBuildsForGitHub={() => {}}
+          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRemoveMissingCloudflareWorker={() => {}}
@@ -875,7 +875,7 @@ describe("resolveVaultProviderSetupStatus", () => {
       status: "running",
       provider: "cloudflare",
       runId: fakeRunId(),
-      step: "wire_convex_build_access",
+      step: "rotate_convex_deploy_keys_for_workers_builds",
       updatedAt: 0,
     } satisfies ResourceRailBuilderVault["providerSetup"];
 
@@ -1699,12 +1699,12 @@ describe("buildVaultDashboardResourceRailState", () => {
     ]);
   });
 
-  it("offers explicit vault-wide Convex key wiring without inferring by app root", () => {
+  it("offers explicit vault-wide Convex key rotation without inferring by app root", () => {
     const frontendAppId = fakeVaultAppId("app-frontend");
     const backendAppId = fakeVaultAppId("app-backend");
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
-    const wireConvexBuildAccessOnClick = vi.fn();
+    const rotateConvexDeployKeysForWorkersBuildsOnClick = vi.fn();
     const vault = makeResourceRailBuilderVault({
       apps: [
         { appId: frontendAppId, rootDirectory: "apps/web" },
@@ -1730,7 +1730,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         observations: [cloudflareObservation],
       },
       convexObservations: { state: "loading" },
-      wireConvexBuildAccessOnClick,
+      rotateConvexDeployKeysForWorkersBuildsOnClick,
     });
     const row = getResourceRailAppRow(state, "apps/web", "cloudflare");
     expect(row).toMatchObject({
@@ -1739,7 +1739,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       actions: [
         {
           kind: "configure",
-          label: "Set Convex deploy keys",
+          label: "Rotate Convex deploy keys for Workers Builds",
           disabled: false,
         },
       ],
@@ -1748,7 +1748,10 @@ describe("buildVaultDashboardResourceRailState", () => {
       throw new Error("Expected an explicit Convex build access action.");
     }
     row.actions[0].onClick?.();
-    expect(wireConvexBuildAccessOnClick).toHaveBeenCalledWith(workerId, convexProjectId);
+    expect(rotateConvexDeployKeysForWorkersBuildsOnClick).toHaveBeenCalledWith(
+      workerId,
+      convexProjectId,
+    );
 
     const pendingState = buildVaultDashboardResourceRailState({
       vault,
@@ -1759,11 +1762,11 @@ describe("buildVaultDashboardResourceRailState", () => {
         observations: [cloudflareObservation],
       },
       convexObservations: { state: "loading" },
-      wireConvexBuildAccessOnClick,
-      isWiringConvexBuildAccess: () => true,
+      rotateConvexDeployKeysForWorkersBuildsOnClick,
+      isRotatingConvexDeployKeysForWorkersBuilds: () => true,
     });
     expect(getResourceRailAppRow(pendingState, "apps/web", "cloudflare")).toMatchObject({
-      actions: [{ label: "Setting Convex deploy keys...", disabled: true }],
+      actions: [{ label: "Rotating Convex deploy keys for Workers Builds...", disabled: true }],
     });
   });
 
@@ -1808,7 +1811,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           ],
         },
         convexObservations: { state: "loading" },
-        wireConvexBuildAccessOnClick: () => {},
+        rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
       });
 
     expect(
@@ -1846,7 +1849,10 @@ describe("buildVaultDashboardResourceRailState", () => {
     ).toMatchObject({
       description:
         "Convex deploy keys target external-team/external-project, which is not attached to this vault.",
-      actions: [{ label: "Set keys: alpha-project" }, { label: "Set keys: beta-project" }],
+      actions: [
+        { label: "Rotate keys for alpha-project" },
+        { label: "Rotate keys for beta-project" },
+      ],
     });
 
     expect(

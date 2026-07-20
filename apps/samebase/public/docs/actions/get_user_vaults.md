@@ -157,10 +157,10 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "attach_worker"
                       },
                       {
-                        "const": "wire_builds"
+                        "const": "configure_workers_builds_for_github"
                       },
                       {
-                        "const": "wire_convex_build_access"
+                        "const": "rotate_convex_deploy_keys_for_workers_builds"
                       },
                       {
                         "const": "record_domains"
@@ -225,10 +225,10 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "attach_worker"
                       },
                       {
-                        "const": "wire_builds"
+                        "const": "configure_workers_builds_for_github"
                       },
                       {
-                        "const": "wire_convex_build_access"
+                        "const": "rotate_convex_deploy_keys_for_workers_builds"
                       },
                       {
                         "const": "record_domains"
@@ -330,10 +330,10 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "attach_worker"
                       },
                       {
-                        "const": "wire_builds"
+                        "const": "configure_workers_builds_for_github"
                       },
                       {
-                        "const": "wire_convex_build_access"
+                        "const": "rotate_convex_deploy_keys_for_workers_builds"
                       },
                       {
                         "const": "record_domains"
@@ -408,10 +408,10 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "attach_worker"
                       },
                       {
-                        "const": "wire_builds"
+                        "const": "configure_workers_builds_for_github"
                       },
                       {
-                        "const": "wire_convex_build_access"
+                        "const": "rotate_convex_deploy_keys_for_workers_builds"
                       },
                       {
                         "const": "record_domains"

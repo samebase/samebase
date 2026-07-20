@@ -6,8 +6,8 @@ MCP tool `vault_actions_createRepository` · scope `access_app_create` · write
 
 Creates a complete Samebase app in one action: a GitHub repository under the caller's connected
 owner, seeded with the starter template, a Convex project and dev/prod deployments, a Cloudflare
-Worker, Workers Builds wired to the repository (push to the default branch deploys, pull requests
-get preview deploys), and Convex deploy keys placed into the build triggers.
+Worker, Workers Builds configured for the repository (push to the default branch deploys, pull
+requests get preview deploys), and Convex deploy keys placed into the build triggers.
 
 Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the target
 names must be available on each provider. A name collision fails the call immediately before any

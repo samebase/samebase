@@ -180,16 +180,16 @@ function joinDescriptions(...descriptions: (string | undefined)[]): string | und
 
 function buildConvexBuildAccessActions({
   convexProjects,
-  isWiringConvexBuildAccess,
-  wireConvexBuildAccessOnClick,
+  isRotatingConvexDeployKeysForWorkersBuilds,
+  rotateConvexDeployKeysForWorkersBuildsOnClick,
   workerId,
 }: {
   convexProjects: readonly VaultDashboardConvexProject[];
-  isWiringConvexBuildAccess?: (
+  isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
-  wireConvexBuildAccessOnClick?: (
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
@@ -204,22 +204,23 @@ function buildConvexBuildAccessActions({
     return undefined;
   }
   const actions = sortedProjects.map((project) => {
-    const isWiring = isWiringConvexBuildAccess?.(workerId, project.convexProjectId) ?? false;
+    const isRotating =
+      isRotatingConvexDeployKeysForWorkersBuilds?.(workerId, project.convexProjectId) ?? false;
     const label =
       sortedProjects.length === 1
-        ? isWiring
-          ? "Setting Convex deploy keys..."
-          : "Set Convex deploy keys"
-        : isWiring
-          ? `Setting keys: ${project.projectId}...`
-          : `Set keys: ${project.projectId}`;
+        ? isRotating
+          ? "Rotating Convex deploy keys for Workers Builds..."
+          : "Rotate Convex deploy keys for Workers Builds"
+        : isRotating
+          ? `Rotating keys for ${project.projectId}...`
+          : `Rotate keys for ${project.projectId}`;
     return {
       kind: "configure" as const,
       label,
       ariaLabel: `${label} for ${project.projectId}`,
-      disabled: isWiring || !wireConvexBuildAccessOnClick,
-      onClick: wireConvexBuildAccessOnClick
-        ? () => wireConvexBuildAccessOnClick(workerId, project.convexProjectId)
+      disabled: isRotating || !rotateConvexDeployKeysForWorkersBuildsOnClick,
+      onClick: rotateConvexDeployKeysForWorkersBuildsOnClick
+        ? () => rotateConvexDeployKeysForWorkersBuildsOnClick(workerId, project.convexProjectId)
         : undefined,
     };
   });
@@ -229,18 +230,18 @@ function buildConvexBuildAccessActions({
 
 function formatCloudflareConvexBuildAccessState({
   convexProjects,
-  isWiringConvexBuildAccess,
+  isRotatingConvexDeployKeysForWorkersBuilds,
   observation,
-  wireConvexBuildAccessOnClick,
+  rotateConvexDeployKeysForWorkersBuildsOnClick,
   workerId,
 }: {
   convexProjects: readonly VaultDashboardConvexProject[];
-  isWiringConvexBuildAccess?: (
+  isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
   observation: Extract<VaultCloudflareWorkerObservation, { state: "available" }>;
-  wireConvexBuildAccessOnClick?: (
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
@@ -258,8 +259,8 @@ function formatCloudflareConvexBuildAccessState({
 
   const actions = buildConvexBuildAccessActions({
     convexProjects,
-    isWiringConvexBuildAccess,
-    wireConvexBuildAccessOnClick,
+    isRotatingConvexDeployKeysForWorkersBuilds,
+    rotateConvexDeployKeysForWorkersBuildsOnClick,
     workerId,
   });
   switch (access.state) {
@@ -294,26 +295,26 @@ function formatCloudflareConvexBuildAccessState({
 
 function buildCloudflareRow({
   convexProjects,
-  connectCloudflareGithubRepoOnClick,
-  isConnectingCloudflareGithubRepo,
+  configureWorkersBuildsForGitHubOnClick,
+  isConfiguringWorkersBuildsForGitHub,
   isRemovingMissingCloudflareWorker,
-  isWiringConvexBuildAccess,
+  isRotatingConvexDeployKeysForWorkersBuilds,
   observationState,
   removeMissingCloudflareWorkerOnClick,
-  wireConvexBuildAccessOnClick,
+  rotateConvexDeployKeysForWorkersBuildsOnClick,
   worker,
 }: {
   convexProjects: readonly VaultDashboardConvexProject[];
-  connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
-  isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isWiringConvexBuildAccess?: (
+  isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
   observationState: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
   removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
-  wireConvexBuildAccessOnClick?: (
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
@@ -381,20 +382,22 @@ function buildCloudflareRow({
       const repositoryState = formatCloudflareRepositoryState(observation);
       const convexBuildAccessState = formatCloudflareConvexBuildAccessState({
         convexProjects,
-        isWiringConvexBuildAccess,
+        isRotatingConvexDeployKeysForWorkersBuilds,
         observation,
-        wireConvexBuildAccessOnClick,
+        rotateConvexDeployKeysForWorkersBuildsOnClick,
         workerId: worker.workerId,
       });
-      const isConnecting = isConnectingCloudflareGithubRepo?.(worker.workerId) ?? false;
+      const isConfiguring = isConfiguringWorkersBuildsForGitHub?.(worker.workerId) ?? false;
       const actions: VaultResourceRailActionList | undefined = repositoryState.canConnect
         ? [
             {
               kind: "connect",
-              label: isConnecting ? "Connecting GitHub repo..." : "Connect GitHub repo",
-              disabled: isConnecting || !connectCloudflareGithubRepoOnClick,
-              onClick: connectCloudflareGithubRepoOnClick
-                ? () => connectCloudflareGithubRepoOnClick(worker.workerId)
+              label: isConfiguring
+                ? "Configuring Workers Builds for GitHub..."
+                : "Configure Workers Builds for GitHub",
+              disabled: isConfiguring || !configureWorkersBuildsForGitHubOnClick,
+              onClick: configureWorkersBuildsForGitHubOnClick
+                ? () => configureWorkersBuildsForGitHubOnClick(worker.workerId)
                 : undefined,
             },
           ]
@@ -518,16 +521,16 @@ function buildAppRows({
   buildAddConvexHref,
   addConvexOnClick,
   cloudflareObservations,
-  connectCloudflareGithubRepoOnClick,
+  configureWorkersBuildsForGitHubOnClick,
   convexObservations,
-  isConnectingCloudflareGithubRepo,
+  isConfiguringWorkersBuildsForGitHub,
   isRemovingMissingCloudflareWorker,
   isRemovingMissingConvexProject,
-  isWiringConvexBuildAccess,
+  isRotatingConvexDeployKeysForWorkersBuilds,
   removeMissingCloudflareWorkerOnClick,
   removeMissingConvexProjectOnClick,
   vault,
-  wireConvexBuildAccessOnClick,
+  rotateConvexDeployKeysForWorkersBuildsOnClick,
 }: {
   app: VaultDashboardApp;
   buildAddCloudflareWorkerHref?: (rootDirectory: string) => string;
@@ -535,19 +538,19 @@ function buildAppRows({
   buildAddConvexHref?: (rootDirectory: string) => string;
   addConvexOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
   cloudflareObservations: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
-  connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
-  isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
-  isWiringConvexBuildAccess?: (
+  isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
   removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
-  wireConvexBuildAccessOnClick?: (
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
@@ -594,13 +597,13 @@ function buildAppRows({
     ...workers.map((worker) =>
       buildCloudflareRow({
         convexProjects: vault.convexProjects,
-        connectCloudflareGithubRepoOnClick,
-        isConnectingCloudflareGithubRepo,
+        configureWorkersBuildsForGitHubOnClick,
+        isConfiguringWorkersBuildsForGitHub,
         isRemovingMissingCloudflareWorker,
-        isWiringConvexBuildAccess,
+        isRotatingConvexDeployKeysForWorkersBuilds,
         observationState: cloudflareObservations,
         removeMissingCloudflareWorkerOnClick,
-        wireConvexBuildAccessOnClick,
+        rotateConvexDeployKeysForWorkersBuildsOnClick,
         worker,
       }),
     ),
@@ -629,42 +632,42 @@ export function buildVaultDashboardResourceRailState({
   addCloudflareWorkerOnClick,
   buildAddConvexHref,
   addConvexOnClick,
-  connectCloudflareGithubRepoOnClick,
+  configureWorkersBuildsForGitHubOnClick,
   buildAddAppRootHref,
   addAppRootOnClick,
   cloudflareObservations,
   convexObservations,
   githubRepositoryUrl,
-  isConnectingCloudflareGithubRepo,
+  isConfiguringWorkersBuildsForGitHub,
   isRemovingMissingCloudflareWorker,
   isRemovingMissingConvexProject,
-  isWiringConvexBuildAccess,
+  isRotatingConvexDeployKeysForWorkersBuilds,
   removeMissingCloudflareWorkerOnClick,
   removeMissingConvexProjectOnClick,
   vault,
-  wireConvexBuildAccessOnClick,
+  rotateConvexDeployKeysForWorkersBuildsOnClick,
 }: {
   buildAddCloudflareWorkerHref?: (rootDirectory: string) => string;
   addCloudflareWorkerOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
   buildAddConvexHref?: (rootDirectory: string) => string;
   addConvexOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
-  connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   buildAddAppRootHref?: () => string;
   addAppRootOnClick?: () => void;
   cloudflareObservations: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   githubRepositoryUrl: string;
-  isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
-  isWiringConvexBuildAccess?: (
+  isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
   removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
-  wireConvexBuildAccessOnClick?: (
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
@@ -730,16 +733,16 @@ export function buildVaultDashboardResourceRailState({
           buildAddConvexHref,
           addConvexOnClick,
           cloudflareObservations,
-          connectCloudflareGithubRepoOnClick,
+          configureWorkersBuildsForGitHubOnClick,
           convexObservations,
-          isConnectingCloudflareGithubRepo,
+          isConfiguringWorkersBuildsForGitHub,
           isRemovingMissingCloudflareWorker,
           isRemovingMissingConvexProject,
-          isWiringConvexBuildAccess,
+          isRotatingConvexDeployKeysForWorkersBuilds,
           removeMissingCloudflareWorkerOnClick,
           removeMissingConvexProjectOnClick,
           vault,
-          wireConvexBuildAccessOnClick,
+          rotateConvexDeployKeysForWorkersBuildsOnClick,
         }),
       })),
   };

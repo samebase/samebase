@@ -415,7 +415,7 @@ async function runComposedCloudflareAttachment(
   }
 }
 
-async function runComposedCloudflareBuildsWiring(
+async function runComposedWorkersBuildsGitHubConfiguration(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
@@ -426,26 +426,26 @@ async function runComposedCloudflareBuildsWiring(
 ): Promise<ComposedCloudflareBuilds> {
   try {
     return await step.runAction(
-      internal.vault.cloudflare.wireBuildsForWorkflow,
+      internal.vault.cloudflare.configureWorkersBuildsForGitHubForWorkflow,
       {
         vaultId: args.vaultId,
         runId: args.parentRunId,
         userId: args.userId,
         workerId: args.workerId,
       },
-      { name: "wire_builds", retry: false },
+      { name: "configure_workers_builds_for_github", retry: false },
     );
   } catch (error) {
     await markComposedInfrastructureRunFailed(step, {
       runId: args.parentRunId,
-      name: "mark_wire_builds_failed",
+      name: "mark_configure_workers_builds_for_github_failed",
       error,
     });
     throw error;
   }
 }
 
-async function runComposedCloudflareConvexBuildAccessWiring(
+async function runComposedConvexDeployKeyRotation(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
@@ -458,7 +458,7 @@ async function runComposedCloudflareConvexBuildAccessWiring(
 ): Promise<void> {
   try {
     await step.runAction(
-      internal.vault.cloudflare.wireConvexBuildAccessForWorkflow,
+      internal.vault.cloudflare.rotateConvexDeployKeysForWorkersBuildsForWorkflow,
       {
         vaultId: args.vaultId,
         runId: args.parentRunId,
@@ -467,12 +467,12 @@ async function runComposedCloudflareConvexBuildAccessWiring(
         convexProjectId: args.convexProjectId,
         build: args.build,
       },
-      { name: "wire_convex_build_access", retry: false },
+      { name: "rotate_convex_deploy_keys_for_workers_builds", retry: false },
     );
   } catch (error) {
     await markComposedInfrastructureRunFailed(step, {
       runId: args.parentRunId,
-      name: "mark_wire_convex_build_access_failed",
+      name: "mark_rotate_convex_deploy_keys_for_workers_builds_failed",
       error,
     });
     throw error;
@@ -540,10 +540,10 @@ async function runComposedInfrastructure(
 
   await appendComposedInfrastructureParentEvent(step, {
     runId: args.parentRunId,
-    step: "wire_builds",
-    message: "Connecting Cloudflare Builds to GitHub.",
+    step: "configure_workers_builds_for_github",
+    message: "Configuring Workers Builds for GitHub.",
   });
-  const build = await runComposedCloudflareBuildsWiring(step, {
+  const build = await runComposedWorkersBuildsGitHubConfiguration(step, {
     vaultId: args.vaultId,
     parentRunId: args.parentRunId,
     userId: args.userId,
@@ -552,10 +552,10 @@ async function runComposedInfrastructure(
 
   await appendComposedInfrastructureParentEvent(step, {
     runId: args.parentRunId,
-    step: "wire_convex_build_access",
-    message: "Setting Convex deploy keys.",
+    step: "rotate_convex_deploy_keys_for_workers_builds",
+    message: "Rotating Convex deploy keys for Workers Builds.",
   });
-  await runComposedCloudflareConvexBuildAccessWiring(step, {
+  await runComposedConvexDeployKeyRotation(step, {
     vaultId: args.vaultId,
     parentRunId: args.parentRunId,
     userId: args.userId,

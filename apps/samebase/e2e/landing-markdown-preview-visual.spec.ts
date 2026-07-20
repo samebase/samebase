@@ -195,7 +195,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(inventoryTable).toContainText("birdlog.you.workers.dev");
   await expect(inventoryTable).toContainText("github-only");
   await expect(inventoryTable).toContainText("not attached");
-  await expect(inventoryTable).toContainText("wire builds");
+  await expect(inventoryTable).toContainText("configure Workers Builds for GitHub");
   await expect(article).toContainText("several roots in one monorepo");
   await expect(article).toContainText("cost follows real usage");
   await expect(article).toContainText("Samebase runs on Samebase.");
@@ -338,7 +338,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   // Below the @3xl container width the inventory renders as stacked per-app
   // cards instead of the five-column table.
   await expect(article.locator("table")).toBeHidden();
-  await expect(article).toContainText("wire builds");
+  await expect(article).toContainText("configure Workers Builds for GitHub");
 
   await expect(page).toHaveScreenshot("landing-preview-overview-narrow-pane.png", {
     animations: "disabled",

@@ -10,8 +10,8 @@ import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareLis
 import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
 import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
-import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
-import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
@@ -30,8 +30,8 @@ import {
   listCloudflareAccountsForUser,
   listCloudflareWorkersForUser,
   connectExistingCloudflareWorkerForUser,
-  wireCloudflareBuildsForUser,
-  wireCloudflareConvexBuildAccessForUser,
+  configureWorkersBuildsForGitHubForUser,
+  rotateConvexDeployKeysForWorkersBuildsForUser,
 } from "../vault/cloudflare";
 import { internal } from "../_generated/api";
 import { mcpScopeAllowsAccess } from "./mcpScopes";
@@ -384,33 +384,40 @@ export const cloudflareConnectExistingWorkerTool = internalAction({
   },
 });
 
-const cloudflareWireBuildsToolResultValidator = object({
+const cloudflareConfigureWorkersBuildsForGitHubToolResultValidator = object({
   status: toolStatus,
   text: string(),
   structuredContent: optional(nullValue()),
 });
-type CloudflareWireBuildsToolResult = Infer<typeof cloudflareWireBuildsToolResultValidator>;
+type CloudflareConfigureWorkersBuildsForGitHubToolResult = Infer<
+  typeof cloudflareConfigureWorkersBuildsForGitHubToolResultValidator
+>;
 
-export const cloudflareWireBuildsTool = internalAction({
+export const cloudflareConfigureWorkersBuildsForGitHubTool = internalAction({
   args: object({
     userId: id("users"),
     grantedScopes: array(string()),
-    ...cloudflareWireBuildsContract.args,
+    ...cloudflareConfigureWorkersBuildsForGitHubContract.args,
   }),
-  returns: cloudflareWireBuildsToolResultValidator,
-  handler: async (ctx, { grantedScopes, ...wireArgs }): Promise<CloudflareWireBuildsToolResult> => {
-    if (!mcpScopeAllowsAccess(cloudflareWireBuildsContract.access, grantedScopes)) {
+  returns: cloudflareConfigureWorkersBuildsForGitHubToolResultValidator,
+  handler: async (
+    ctx,
+    { grantedScopes, ...operationArgs },
+  ): Promise<CloudflareConfigureWorkersBuildsForGitHubToolResult> => {
+    if (
+      !mcpScopeAllowsAccess(cloudflareConfigureWorkersBuildsForGitHubContract.access, grantedScopes)
+    ) {
       return {
         status: "blocked",
-        text: `Insufficient scope for ${cloudflareWireBuildsContract.mcp.name}.`,
+        text: `Insufficient scope for ${cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name}.`,
       };
     }
 
     try {
-      await wireCloudflareBuildsForUser(ctx, wireArgs);
+      await configureWorkersBuildsForGitHubForUser(ctx, operationArgs);
       return {
         status: "ok",
-        text: "Configured Cloudflare Workers Builds.",
+        text: "Configured Workers Builds for GitHub.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -422,38 +429,45 @@ export const cloudflareWireBuildsTool = internalAction({
   },
 });
 
-const cloudflareWireConvexBuildAccessToolResultValidator = object({
+const cloudflareRotateConvexDeployKeysForWorkersBuildsToolResultValidator = object({
   status: toolStatus,
   text: string(),
   structuredContent: optional(nullValue()),
 });
-type CloudflareWireConvexBuildAccessToolResult = Infer<
-  typeof cloudflareWireConvexBuildAccessToolResultValidator
+type CloudflareRotateConvexDeployKeysForWorkersBuildsToolResult = Infer<
+  typeof cloudflareRotateConvexDeployKeysForWorkersBuildsToolResultValidator
 >;
 
-export const cloudflareWireConvexBuildAccessTool = internalAction({
+export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = internalAction({
   args: object({
     userId: id("users"),
     grantedScopes: array(string()),
-    ...cloudflareWireConvexBuildAccessContract.args,
+    ...cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
   }),
-  returns: cloudflareWireConvexBuildAccessToolResultValidator,
+  returns: cloudflareRotateConvexDeployKeysForWorkersBuildsToolResultValidator,
   handler: async (
     ctx,
-    { grantedScopes, ...wireArgs },
-  ): Promise<CloudflareWireConvexBuildAccessToolResult> => {
-    if (!mcpScopeAllowsAccess(cloudflareWireConvexBuildAccessContract.access, grantedScopes)) {
+    { grantedScopes, ...operationArgs },
+  ): Promise<CloudflareRotateConvexDeployKeysForWorkersBuildsToolResult> => {
+    if (
+      !mcpScopeAllowsAccess(
+        cloudflareRotateConvexDeployKeysForWorkersBuildsContract.access,
+        grantedScopes,
+      )
+    ) {
       return {
         status: "blocked",
-        text: `Insufficient scope for ${cloudflareWireConvexBuildAccessContract.mcp.name}.`,
+        text: `Insufficient scope for ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name}.`,
       };
     }
 
     try {
-      await wireCloudflareConvexBuildAccessForUser(ctx, wireArgs, { state: "configure" });
+      await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, operationArgs, {
+        state: "configure",
+      });
       return {
         status: "ok",
-        text: "Configured Convex build access.",
+        text: "Rotated Convex deploy keys for Workers Builds.",
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";

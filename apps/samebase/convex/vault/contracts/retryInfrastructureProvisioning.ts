@@ -33,6 +33,7 @@ whose resources already exist, so completed work is not redone. It does not requ
 prior failed run.
 
 Only valid for live Samebase-managed apps, which are apps created by \`create_repository\`; imported
-repositories repair through the explicit manual attach and wire actions instead. Progress is
+repositories repair through the explicit manual attachment and provider-configuration actions
+instead. Progress is
 readable through \`get_user_vaults\` while the run executes.`,
 } as const;

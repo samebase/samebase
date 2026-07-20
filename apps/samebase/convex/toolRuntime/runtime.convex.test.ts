@@ -152,19 +152,22 @@ describe("toolRuntime scope enforcement", () => {
       text: "Insufficient scope for vault_cloudflare_connectExistingWorker.",
     });
 
-    const wireBuilds = await t.action(internal.toolRuntime.runtime.cloudflareWireBuildsTool, {
-      userId,
-      grantedScopes,
-      vaultId,
-      workerId,
-    });
-    expect(wireBuilds).toMatchObject({
+    const configureWorkersBuildsForGitHub = await t.action(
+      internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool,
+      {
+        userId,
+        grantedScopes,
+        vaultId,
+        workerId,
+      },
+    );
+    expect(configureWorkersBuildsForGitHub).toMatchObject({
       status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_wireBuilds.",
+      text: "Insufficient scope for vault_cloudflare_configureWorkersBuildsForGitHub.",
     });
 
-    const wireConvexBuildAccess = await t.action(
-      internal.toolRuntime.runtime.cloudflareWireConvexBuildAccessTool,
+    const rotateConvexDeployKeysForWorkersBuilds = await t.action(
+      internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysForWorkersBuildsTool,
       {
         userId,
         grantedScopes,
@@ -173,9 +176,9 @@ describe("toolRuntime scope enforcement", () => {
         convexProjectId,
       },
     );
-    expect(wireConvexBuildAccess).toMatchObject({
+    expect(rotateConvexDeployKeysForWorkersBuilds).toMatchObject({
       status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_wireConvexBuildAccess.",
+      text: "Insufficient scope for vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds.",
     });
 
     const retry = await t.action(internal.toolRuntime.runtime.retryInfrastructureProvisioningTool, {

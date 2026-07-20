@@ -34,6 +34,7 @@ export const cloudflareConnectExistingWorkerContract = {
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `The manual Cloudflare attach: binds an existing Worker (validated against the app's
-repository; a Worker wired to a different repository is rejected rather than adopted). Samebase
+repository; a Worker configured for a different repository is rejected rather than adopted).
+Samebase
 stores only the stable Worker identity. Current Worker state is read live from Cloudflare.`,
 } as const;

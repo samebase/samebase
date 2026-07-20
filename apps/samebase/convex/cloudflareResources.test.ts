@@ -22,8 +22,8 @@ import {
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
-  wireCloudflareWorkerConvexBuildAccess,
-  wireCloudflareWorkerBuilds,
+  rotateConvexDeployKeysForCloudflareWorkerBuilds,
+  configureCloudflareWorkerBuildsForGitHub,
 } from "./cloudflareResources";
 import {
   normalizeCloudflareAccounts,
@@ -85,8 +85,8 @@ const cloudflareWorkerSubdomainDisabledEnvelope = JSON.stringify({
   result: { enabled: false },
 });
 
-function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
-  typeof wireCloudflareWorkerBuilds
+function buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(): Parameters<
+  typeof configureCloudflareWorkerBuildsForGitHub
 >[0] {
   return {
     owner: "ada",
@@ -736,7 +736,9 @@ describe("cloudflare resources", () => {
       triggers: [],
     });
 
-    const build = await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    const build = await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(build).toMatchObject({
       production: {
@@ -766,8 +768,8 @@ describe("cloudflare resources", () => {
       triggers: [],
     });
 
-    await wireCloudflareWorkerBuilds({
-      ...buildTestWireCloudflareWorkerBuildsArgs(),
+    await configureCloudflareWorkerBuildsForGitHub({
+      ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
       triggerInitialBuild: false,
     });
 
@@ -814,8 +816,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).resolves.toMatchObject({
@@ -843,8 +845,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).rejects.toThrow("Workers Builds trigger creation failed");
@@ -870,8 +872,8 @@ describe("cloudflare resources", () => {
       triggers: [],
     });
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).resolves.toMatchObject({
@@ -889,8 +891,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         triggerInitialBuild: false,
       }),
     ).rejects.toThrow("Workers Builds trigger creation failed");
@@ -940,7 +942,7 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerConvexBuildAccess({
+    await rotateConvexDeployKeysForCloudflareWorkerBuilds({
       defaultBranch: "main",
       expectedRepoId: "123",
       repositoryFullName: "ada/samebase-app",
@@ -1051,7 +1053,7 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerConvexBuildAccess({
+      rotateConvexDeployKeysForCloudflareWorkerBuilds({
         defaultBranch: "main",
         expectedRepoId: "123",
         repositoryFullName: "ada/samebase-app",
@@ -1081,7 +1083,7 @@ describe("cloudflare resources", () => {
         convexProject: { teamId: "team-1", projectId: "project-1" },
       }),
     ).rejects.toThrow(
-      "Cloudflare production Workers Builds trigger production-trigger is missing build environment variable PREVIEW_CONVEX_DEPLOY_KEY after wiring.",
+      "Cloudflare production Workers Builds trigger production-trigger is missing build environment variable PREVIEW_CONVEX_DEPLOY_KEY after deploy-key rotation.",
     );
 
     expect(
@@ -1125,7 +1127,7 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerConvexBuildAccess({
+      rotateConvexDeployKeysForCloudflareWorkerBuilds({
         defaultBranch: "main",
         expectedRepoId: "123",
         repositoryFullName: "ada/samebase-app",
@@ -1305,7 +1307,9 @@ describe("cloudflare resources", () => {
     );
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
     ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
   });
 
@@ -1357,7 +1361,9 @@ describe("cloudflare resources", () => {
 
     let caughtError: unknown;
     try {
-      await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+      await configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      );
     } catch (error) {
       caughtError = error;
     }
@@ -1377,8 +1383,8 @@ describe("cloudflare resources", () => {
     );
 
     await expect(
-      wireCloudflareWorkerBuilds({
-        ...buildTestWireCloudflareWorkerBuildsArgs(),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
         cloudflareToken: "api-key-token",
         cloudflareAuthMethod: "api_key",
       }),
@@ -1406,7 +1412,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(
       requests.some(
@@ -1442,7 +1450,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(requests).toEqual(
       expect.arrayContaining([
@@ -1483,7 +1493,9 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
     ).rejects.toThrow("multiple matching trigger candidates");
     expect(
       requests.some(
@@ -1515,7 +1527,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(requests).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1554,7 +1568,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(
       requests.some(
         (request) =>
@@ -1598,7 +1614,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(
       requests.some(
         (request) =>
@@ -1643,7 +1661,9 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
     ).rejects.toThrow("Cloudflare did not return enough repository identity");
     expect(
       requests.some(
@@ -1659,7 +1679,7 @@ describe("cloudflare resources", () => {
     ).toBe(false);
   });
 
-  it("does not delete a conflicting trigger whose repository binding changes during wiring", async () => {
+  it("does not delete a conflicting trigger whose repository binding changes during configuration", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     const conflictingTrigger = buildMatchingProductionTrigger({
       trigger_uuid: "existing-production-trigger",
@@ -1685,8 +1705,10 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs()),
-    ).rejects.toThrow("repository binding changed during wiring");
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
+    ).rejects.toThrow("repository binding changed during configuration");
     expect(
       requests.some(
         (request) => request.method === "DELETE" && request.path.includes("/builds/triggers/"),
@@ -1714,7 +1736,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
     expect(
       requests.some(
         (request) =>
@@ -1760,7 +1784,9 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+    await configureCloudflareWorkerBuildsForGitHub(
+      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+    );
 
     expect(
       requests.some(
@@ -2253,7 +2279,7 @@ describe("cloudflare resources", () => {
       }),
     );
 
-    await wireCloudflareWorkerBuilds({
+    await configureCloudflareWorkerBuildsForGitHub({
       owner: "ada",
       repo: "samebase-app",
       ghRepoId: "123",

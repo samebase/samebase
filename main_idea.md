@@ -7,8 +7,8 @@ panes layout and big agent context, which are not that important to thing I'm th
 I’m working on Samebase: a Convex + Cloudflare Workers + GitHub app provisioning/control plane.
 
 The hardest current problem is that create-app, imported repos, manual Worker attachment, manual
-Convex attachment, Workers Builds wiring, Convex deploy-key wiring, retry, preview status, and
-cleanup have drifted into separate paths. Prior agents repeatedly hit issues around the old
+Convex attachment, Workers Builds configuration, Convex deploy-key rotation, retry, preview status,
+and cleanup have drifted into separate paths. Prior agents repeatedly hit issues around the old
 ensure_cloudflare mega-step, wrong-repo trigger adoption, preview deploy keys, Cloudflare build
 variables, and dashboard states that look incomplete after successful provisioning.
 
@@ -73,8 +73,8 @@ Deliverable:
 
 ```md
 Samebase needs humans and agents to understand the same operational actions: create app, connect
-Worker, connect Convex, wire builds, set Convex deploy keys, retry provisioning, clean previews,
-list apps, open PR/deploy status.
+Worker, connect Convex, configure Workers Builds for GitHub, rotate Convex deploy keys, retry
+provisioning, clean previews, list apps, open PR/deploy status.
 
 We have discussed an action-contract catalog: docs that are human-readable, raw-file/public-repo
 accessible, and also exposed through MCP resources/tools. The risk is duplicating Convex function

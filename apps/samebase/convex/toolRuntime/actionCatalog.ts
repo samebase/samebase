@@ -7,8 +7,8 @@ import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareLis
 import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
 import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
 import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
-import { cloudflareWireBuildsContract } from "../vault/contracts/cloudflareWireBuilds";
-import { cloudflareWireConvexBuildAccessContract } from "../vault/contracts/cloudflareWireConvexBuildAccess";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
@@ -32,8 +32,8 @@ export const actionContracts = [
   cloudflareListWorkersContract,
   convexConnectExistingProjectContract,
   cloudflareConnectExistingWorkerContract,
-  cloudflareWireBuildsContract,
-  cloudflareWireConvexBuildAccessContract,
+  cloudflareConfigureWorkersBuildsForGitHubContract,
+  cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
   createBrowserHandoffContract,
 ] as const;

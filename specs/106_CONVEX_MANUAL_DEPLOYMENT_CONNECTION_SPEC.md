@@ -16,7 +16,7 @@
 ## Summary
 
 Convex project connection is a vault resource attachment. It is separate from provider credential
-connection and separate from deployment wiring.
+connection and separate from deployment configuration.
 
 The dashboard resource rail should let a ready GitHub-connected vault:
 
@@ -169,16 +169,17 @@ route.
 
 The dialog closes by clearing `add-convex` while preserving the selected vault route.
 
-## Deployment Wiring
+## Deployment Configuration
 
-Deployment wiring is separate from Convex attach/create. The two wiring relationships are:
+Deployment configuration is separate from Convex attach/create. The two provider configurations are:
 
 - repository source to Convex functions/schema deployment
 - Cloudflare Workers Builds to Convex build access through deploy keys
 
-Attaching or creating a Convex project does not imply either wiring relationship exists. If a Worker
-already has connected Builds, Samebase can later run `wire_convex_build_access` for one explicitly
-selected attached project. The action mints deploy keys and writes them together with
+Attaching or creating a Convex project does not imply either provider configuration exists. If a
+Worker already has connected Builds, Samebase can later run
+`rotate_convex_deploy_keys_for_workers_builds` for one explicitly selected attached project. The
+action mints deploy keys and writes them together with
 `SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` to both Cloudflare triggers. It does not persist a
 current deploy-key state or a Worker-to-project dependency row. The next dashboard read derives the
 relationship from Cloudflare's live marker and variable names.

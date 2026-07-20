@@ -45,7 +45,7 @@ export const createRepositoryContract = {
   } satisfies AppFunctionMcpMetadata,
   doc: `Creates a complete Samebase app in one action: a GitHub repository under the caller's
 connected owner, seeded with the starter template, a Convex project and dev/prod deployments, a
-Cloudflare Worker, Workers Builds wired to the repository (push to the default branch deploys,
+Cloudflare Worker, Workers Builds configured for the repository (push to the default branch deploys,
 pull requests get preview deploys), and Convex deploy keys placed into the build triggers.
 
 Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the

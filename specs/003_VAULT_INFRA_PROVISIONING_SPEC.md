@@ -21,8 +21,9 @@ resource attachment:
 1. create/connect the GitHub source and sync the default-branch tree
 2. attach or create the Convex project for the target app
 3. attach or create the Cloudflare Worker for the target app
-4. wire the Worker to GitHub through Workers Builds
-5. wire Workers Builds to the selected Convex project, then start the first production build
+4. configure the Worker's Workers Builds triggers for GitHub
+5. rotate and install the selected Convex project's deploy keys, then start the first production
+   build
 
 Provisioning is asynchronous. Retries reuse provider identities that were successfully checkpointed.
 Vault creation succeeds even if downstream provisioning partially fails.
@@ -121,8 +122,8 @@ Indexes:
 - `origin: "provisioned" | "selected_existing"`, `createdAt`
 
 This table is the durable attachment between a vault app and a Cloudflare Worker. Current
-workers.dev URLs, Worker existence, Workers Builds triggers, repository wiring, and Convex deploy
-keys are provider state and must not be mirrored into this row.
+workers.dev URLs, Worker existence, Workers Builds triggers, repository configuration, and Convex
+deploy keys are provider state and must not be mirrored into this row.
 
 ### Worker-to-Convex build relationship
 
@@ -137,7 +138,7 @@ to that project. A user who changes the keys directly in Cloudflare must also up
 marker.
 
 Samebase does not persist a Worker-to-project dependency row or attachment field. The selected
-project may exist as active workflow input while an explicit wiring operation runs, but completed
+project may exist as active workflow input while an explicit provider operation runs, but completed
 relationship state is read from Cloudflare. Multiple Workers may declare the same Convex project.
 One Worker has one observable target only when its production and preview markers agree.
 
@@ -230,8 +231,8 @@ Repository default branch:
 - `appProvisioningWorkflow.provisionApp(...)`
 - `vault/convex.ensureConvexProjectConnection(...)`
 - `vault/cloudflare.ensureCloudflareWorkerConnection(...)`
-- `vault/cloudflare.wireCloudflareBuildsForUser(...)`
-- `vault/cloudflare.wireCloudflareConvexBuildAccessForUser(...)`
+- `vault/cloudflare.configureWorkersBuildsForGitHubForUser(...)`
+- `vault/cloudflare.rotateConvexDeployKeysForWorkersBuildsForUser(...)`
 
 ## Provisioning Flow
 
@@ -254,14 +255,14 @@ sequenceDiagram
   WF->>CFB: attach_worker child run
   CFB->>CFL: create/read Worker
   CFB->>DB: write vaultCloudflareWorkers
-  WF->>CFB: wire_builds child run
+  WF->>CFB: configure_workers_builds_for_github child run
   CFB->>CFL: connect GitHub repo + create build triggers
-  CFB->>DB: record wiring operation event
-  WF->>CFB: wire_convex_build_access child run
+  CFB->>DB: record Workers Builds configuration event
+  WF->>CFB: rotate_convex_deploy_keys_for_workers_builds child run
   CFB->>CVX: mint production + project preview deploy keys
   CFB->>CFL: patch keys + SAMEBASE_CONVEX_PROJECT on both triggers
   CFB->>CFL: start first production build
-  CFB->>DB: record deploy-key wiring operation event
+  CFB->>DB: record deploy-key rotation event
   WF->>DB: mark parent run succeeded
 ```
 
@@ -269,8 +270,9 @@ sequenceDiagram
 
 - `vaultConvexProjects` exists when `attach_convex` has attached the app's project.
 - `vaultCloudflareWorkers` exists when `attach_worker` has attached the app's Worker.
-- `wire_builds` and `wire_convex_build_access` do not change either attachment row. Their provider
-  writes are observed live when a caller next requests current state.
+- `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
+  change either attachment row. Their provider writes are observed live when a caller next requests
+  current state.
 - `workflow_vaultProvisioning_writeLocks` records the active/succeeded/failed writer run.
 - `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record managed app
   creation and retry progress. Explicit manual provider attachment does not create a Workflow run.
@@ -289,14 +291,16 @@ In `VaultDashboard`:
   explicit local attachment removal. The server repeats the provider read before deleting the
   Samebase attachment. A failed provider read never authorizes removal.
 - An attached Cloudflare Worker whose Builds connection is missing shows
-  `Cloudflare is not connected to this GitHub repository.` with a `Connect GitHub repo` action.
-- An attached Cloudflare Worker with connected Builds can be wired to one explicitly selected
-  attached Convex project through `Set Convex deploy keys`. The action patches `CONVEX_DEPLOY_KEY`,
-  `PREVIEW_CONVEX_DEPLOY_KEY`, and `SAMEBASE_CONVEX_PROJECT` into both triggers. The selected
-  project is operation input, not a persisted Samebase dependency row.
-- The dashboard derives the current wiring state from the two live Cloudflare triggers. Loading,
-  configured, not configured, incomplete, target unknown, inconsistent, externally configured, and
-  provider-read failure are distinct states.
+  `Cloudflare is not connected to this GitHub repository.` with a
+  `Configure Workers Builds for GitHub` action.
+- An attached Cloudflare Worker with connected Builds can receive deploy keys for one explicitly
+  selected attached Convex project through `Rotate Convex deploy keys for Workers Builds`. The
+  action patches `CONVEX_DEPLOY_KEY`, `PREVIEW_CONVEX_DEPLOY_KEY`, and `SAMEBASE_CONVEX_PROJECT`
+  into both triggers. The selected project is operation input, not a persisted Samebase dependency
+  row.
+- The dashboard derives the current deploy-key configuration state from the two live Cloudflare
+  triggers. Loading, configured, not configured, incomplete, target unknown, inconsistent,
+  externally configured, and provider-read failure are distinct states.
 
 Dashboard external links:
 

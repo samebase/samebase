@@ -1562,7 +1562,7 @@ async function upsertBuildTrigger(
         })
       ) {
         throw new Error(
-          `Cannot replace ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: its repository binding changed during wiring. Retry the operation.`,
+          `Cannot replace ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: its repository binding changed during configuration. Retry the operation.`,
         );
       }
       await deleteBuildTrigger({
@@ -1690,7 +1690,7 @@ function assertTriggerEnvironmentVariables(args: {
   );
   if (missingKeys.length > 0) {
     throw new Error(
-      `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} is missing build environment variable ${missingKeys.join(", ")} after wiring.`,
+      `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} is missing build environment variable ${missingKeys.join(", ")} after deploy-key rotation.`,
     );
   }
 
@@ -1781,7 +1781,7 @@ type ConfigureCloudflareWorkerBuildsArgs = {
   recordApiCall?: ProviderApiCallRecorder;
 };
 
-type WireCloudflareWorkerBuildsArgs = {
+type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
   owner: string;
   repo: string;
   ghRepoId: string;
@@ -1798,7 +1798,7 @@ type WireCloudflareWorkerBuildsArgs = {
   recordApiCall?: ProviderApiCallRecorder;
 };
 
-type WireCloudflareWorkerConvexBuildAccessArgs = {
+type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
   defaultBranch: string;
   expectedRepoId: string;
   repositoryFullName: string;
@@ -1834,7 +1834,7 @@ function assertExpectedBuildTriggerStillExists(args: {
   );
   if (!trigger) {
     throw new Error(
-      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: Cloudflare did not return the existing ${triggerName} Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.`,
+      `Cannot configure Workers Builds for Cloudflare Worker ${args.workerTag} and ${args.repositoryFullName}: Cloudflare did not return the existing ${triggerName} trigger. Retry the operation or choose another Worker.`,
     );
   }
   if (
@@ -1845,7 +1845,7 @@ function assertExpectedBuildTriggerStillExists(args: {
     })
   ) {
     throw new Error(
-      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: its existing ${triggerName} Workers Builds trigger no longer matches the expected branch filters. Retry Workers Builds wiring or choose another Worker.`,
+      `Cannot configure Workers Builds for Cloudflare Worker ${args.workerTag} and ${args.repositoryFullName}: its existing ${triggerName} trigger no longer matches the expected branch filters. Retry the operation or choose another Worker.`,
     );
   }
 
@@ -2242,10 +2242,10 @@ async function configureCloudflareWorkerBuilds(
   };
 }
 
-export async function wireCloudflareWorkerBuilds(
-  args: WireCloudflareWorkerBuildsArgs,
+export async function configureCloudflareWorkerBuildsForGitHub(
+  args: ConfigureCloudflareWorkerBuildsForGitHubArgs,
 ): Promise<CloudflareConnectedWorkersBuilds> {
-  console.log("infra:cloudflare:builds:wire:start", {
+  console.log("infra:cloudflare:workers_builds:configure_github:start", {
     vaultId: args.vaultId,
     accountId: args.accountId,
     workerName: args.workerName,
@@ -2284,7 +2284,7 @@ export async function wireCloudflareWorkerBuilds(
       });
     }
 
-    console.log("infra:cloudflare:builds:wire:success", {
+    console.log("infra:cloudflare:workers_builds:configure_github:success", {
       vaultId: args.vaultId,
       accountId: args.accountId,
       workerName: args.workerName,
@@ -2294,7 +2294,7 @@ export async function wireCloudflareWorkerBuilds(
 
     return build;
   } catch (error) {
-    console.error("infra:cloudflare:builds:wire:failed", {
+    console.error("infra:cloudflare:workers_builds:configure_github:failed", {
       vaultId: args.vaultId,
       accountId: args.accountId,
       workerName: args.workerName,
@@ -2307,10 +2307,10 @@ export async function wireCloudflareWorkerBuilds(
   }
 }
 
-export async function wireCloudflareWorkerConvexBuildAccess(
-  args: WireCloudflareWorkerConvexBuildAccessArgs,
+export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
+  args: RotateConvexDeployKeysForCloudflareWorkerBuildsArgs,
 ): Promise<void> {
-  console.log("infra:cloudflare:convex_build_access:wire:start", {
+  console.log("infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:start", {
     vaultId: args.vaultId,
     accountId: args.accountId,
     workerName: args.workerName,
@@ -2418,14 +2418,14 @@ export async function wireCloudflareWorkerConvexBuildAccess(
       recordApiCall: args.recordApiCall,
     });
 
-    console.log("infra:cloudflare:convex_build_access:wire:success", {
+    console.log("infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:success", {
       vaultId: args.vaultId,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
     });
   } catch (error) {
-    console.error("infra:cloudflare:convex_build_access:wire:failed", {
+    console.error("infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:failed", {
       vaultId: args.vaultId,
       accountId: args.accountId,
       workerName: args.workerName,

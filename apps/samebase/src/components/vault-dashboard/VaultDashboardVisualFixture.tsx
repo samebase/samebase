@@ -709,7 +709,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           deleteModeActive={false}
           developerToolsVisible={false}
           cloudflareObservations={{ state: "loading" }}
-          cloudflareWorkerRepairActionInFlight={null}
+          cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
           providerAttachmentRemovalInFlight={null}
@@ -740,8 +740,8 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           schemaGraphAccessEnabled
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          onConnectCloudflareGithubRepository={() => {}}
-          onWireCloudflareConvexBuildAccess={() => {}}
+          onConfigureWorkersBuildsForGitHub={() => {}}
+          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRemoveMissingCloudflareWorker={() => {}}
@@ -820,7 +820,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
               },
             ],
           }}
-          cloudflareWorkerRepairActionInFlight={null}
+          cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
           providerAttachmentRemovalInFlight={null}
@@ -842,8 +842,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           }
           schemaGraphAccessEnabled={false}
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          onConnectCloudflareGithubRepository={() => {}}
-          onWireCloudflareConvexBuildAccess={() => {}}
+          onConfigureWorkersBuildsForGitHub={() => {}}
+          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRemoveMissingCloudflareWorker={() => {}}
@@ -881,7 +881,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             deleteModeActive={false}
             developerToolsVisible={false}
             cloudflareObservations={{ state: "loading" }}
-            cloudflareWorkerRepairActionInFlight={null}
+            cloudflareWorkerConfigurationActionInFlight={null}
             convexObservations={{ state: "loading" }}
             isRemovingVault={false}
             providerAttachmentRemovalInFlight={null}
@@ -915,8 +915,8 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             persistedVaultResourceLinksOpenByVaultId={new Map()}
             schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-            onConnectCloudflareGithubRepository={() => {}}
-            onWireCloudflareConvexBuildAccess={() => {}}
+            onConfigureWorkersBuildsForGitHub={() => {}}
+            onRotateConvexDeployKeysForWorkersBuilds={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onManualRepositoryRefresh={() => {}}
             onRemoveMissingCloudflareWorker={() => {}}

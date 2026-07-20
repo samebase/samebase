@@ -337,14 +337,14 @@ type VaultDashboardDeletionStep = Extract<
   VaultDashboardDeletion,
   { state: "deleting" | "delete_failed" }
 >["currentStep"];
-type CloudflareWorkerRepairActionInFlight =
+type CloudflareWorkerConfigurationActionInFlight =
   | {
-      kind: "connect_github_repo";
+      kind: "configure_workers_builds_for_github";
       vaultId: Id<"vaults">;
       workerId: Id<"vaultCloudflareWorkers">;
     }
   | {
-      kind: "wire_convex_build_access";
+      kind: "rotate_convex_deploy_keys_for_workers_builds";
       vaultId: Id<"vaults">;
       workerId: Id<"vaultCloudflareWorkers">;
       convexProjectId: Id<"vaultConvexProjects">;
@@ -2937,7 +2937,7 @@ type VaultDashboardViewProps = {
   deleteModeActive: boolean;
   developerToolsVisible: boolean;
   cloudflareObservations: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
-  cloudflareWorkerRepairActionInFlight: CloudflareWorkerRepairActionInFlight | null;
+  cloudflareWorkerConfigurationActionInFlight: CloudflareWorkerConfigurationActionInFlight | null;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isRemovingVault: boolean;
   providerAttachmentRemovalInFlight: ProviderAttachmentRemovalInFlight | null;
@@ -2952,11 +2952,11 @@ type VaultDashboardViewProps = {
   persistedVaultResourceLinksOpenByVaultId: Map<string, boolean>;
   schemaGraphAccessEnabled: boolean;
   rootRouteSearch: RootRouteSearch;
-  onConnectCloudflareGithubRepository: (
+  onConfigureWorkersBuildsForGitHub: (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
   ) => void;
-  onWireCloudflareConvexBuildAccess: (
+  onRotateConvexDeployKeysForWorkersBuilds: (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
@@ -3131,7 +3131,7 @@ export function VaultDashboardView({
   deleteModeActive,
   developerToolsVisible,
   cloudflareObservations,
-  cloudflareWorkerRepairActionInFlight,
+  cloudflareWorkerConfigurationActionInFlight,
   convexObservations,
   isRemovingVault,
   providerAttachmentRemovalInFlight,
@@ -3146,8 +3146,8 @@ export function VaultDashboardView({
   persistedVaultResourceLinksOpenByVaultId,
   schemaGraphAccessEnabled,
   rootRouteSearch,
-  onConnectCloudflareGithubRepository,
-  onWireCloudflareConvexBuildAccess,
+  onConfigureWorkersBuildsForGitHub,
+  onRotateConvexDeployKeysForWorkersBuilds,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
   onRemoveMissingCloudflareWorker,
@@ -3235,8 +3235,8 @@ export function VaultDashboardView({
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
         const developerToolsOpen =
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
-        const isCloudflareWorkerRepairActionInFlight =
-          cloudflareWorkerRepairActionInFlight !== null;
+        const isCloudflareWorkerConfigurationActionInFlight =
+          cloudflareWorkerConfigurationActionInFlight !== null;
         const resourceRailState = buildVaultDashboardResourceRailState({
           buildAddAppRootHref: () =>
             buildVaultDashboardAddAppRootHref({
@@ -3266,18 +3266,19 @@ export function VaultDashboardView({
           addConvexOnClick: (_appId, rootDirectory) => {
             openProviderAddDialog({ appRoot: rootDirectory, provider: "convex" });
           },
-          connectCloudflareGithubRepoOnClick: isCloudflareWorkerRepairActionInFlight
+          configureWorkersBuildsForGitHubOnClick: isCloudflareWorkerConfigurationActionInFlight
             ? undefined
             : (workerId) => {
-                onConnectCloudflareGithubRepository(vault._id, workerId);
+                onConfigureWorkersBuildsForGitHub(vault._id, workerId);
               },
           cloudflareObservations,
           convexObservations,
           githubRepositoryUrl,
-          isConnectingCloudflareGithubRepo: (workerId) =>
-            cloudflareWorkerRepairActionInFlight?.kind === "connect_github_repo" &&
-            cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
-            cloudflareWorkerRepairActionInFlight.workerId === workerId,
+          isConfiguringWorkersBuildsForGitHub: (workerId) =>
+            cloudflareWorkerConfigurationActionInFlight?.kind ===
+              "configure_workers_builds_for_github" &&
+            cloudflareWorkerConfigurationActionInFlight.vaultId === vault._id &&
+            cloudflareWorkerConfigurationActionInFlight.workerId === workerId,
           isRemovingMissingCloudflareWorker: (workerId) =>
             providerAttachmentRemovalInFlight?.provider === "cloudflare" &&
             providerAttachmentRemovalInFlight.vaultId === vault._id &&
@@ -3286,11 +3287,12 @@ export function VaultDashboardView({
             providerAttachmentRemovalInFlight?.provider === "convex" &&
             providerAttachmentRemovalInFlight.vaultId === vault._id &&
             providerAttachmentRemovalInFlight.convexProjectId === convexProjectId,
-          isWiringConvexBuildAccess: (workerId, convexProjectId) =>
-            cloudflareWorkerRepairActionInFlight?.kind === "wire_convex_build_access" &&
-            cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
-            cloudflareWorkerRepairActionInFlight.workerId === workerId &&
-            cloudflareWorkerRepairActionInFlight.convexProjectId === convexProjectId,
+          isRotatingConvexDeployKeysForWorkersBuilds: (workerId, convexProjectId) =>
+            cloudflareWorkerConfigurationActionInFlight?.kind ===
+              "rotate_convex_deploy_keys_for_workers_builds" &&
+            cloudflareWorkerConfigurationActionInFlight.vaultId === vault._id &&
+            cloudflareWorkerConfigurationActionInFlight.workerId === workerId &&
+            cloudflareWorkerConfigurationActionInFlight.convexProjectId === convexProjectId,
           vault,
           removeMissingCloudflareWorkerOnClick: providerAttachmentRemovalInFlight
             ? undefined
@@ -3302,11 +3304,12 @@ export function VaultDashboardView({
             : (convexProjectId) => {
                 onRemoveMissingConvexProject(vault._id, convexProjectId);
               },
-          wireConvexBuildAccessOnClick: isCloudflareWorkerRepairActionInFlight
-            ? undefined
-            : (workerId, convexProjectId) => {
-                onWireCloudflareConvexBuildAccess(vault._id, workerId, convexProjectId);
-              },
+          rotateConvexDeployKeysForWorkersBuildsOnClick:
+            isCloudflareWorkerConfigurationActionInFlight
+              ? undefined
+              : (workerId, convexProjectId) => {
+                  onRotateConvexDeployKeysForWorkersBuilds(vault._id, workerId, convexProjectId);
+                },
         });
         const productionApps = buildVaultProductionApps({
           cloudflareObservations,
@@ -3611,10 +3614,16 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
   const removeMissingCloudflareWorker = useAction(api.vault.cloudflare.removeMissingWorker);
   const removeMissingConvexProject = useAction(api.vault.convex.removeMissingProject);
-  const wireCloudflareBuilds = useAction(api.vault.cloudflare.wireBuilds);
-  const wireCloudflareConvexBuildAccess = useAction(api.vault.cloudflare.wireConvexBuildAccess);
-  const [cloudflareWorkerRepairActionInFlight, setCloudflareWorkerRepairActionInFlight] =
-    useState<CloudflareWorkerRepairActionInFlight | null>(null);
+  const configureWorkersBuildsForGitHub = useAction(
+    api.vault.cloudflare.configureWorkersBuildsForGitHub,
+  );
+  const rotateConvexDeployKeysForWorkersBuilds = useAction(
+    api.vault.cloudflare.rotateConvexDeployKeysForWorkersBuilds,
+  );
+  const [
+    cloudflareWorkerConfigurationActionInFlight,
+    setCloudflareWorkerConfigurationActionInFlight,
+  ] = useState<CloudflareWorkerConfigurationActionInFlight | null>(null);
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
     useState<Id<"vaults"> | null>(null);
   const [providerAttachmentRemovalInFlight, setProviderAttachmentRemovalInFlight] =
@@ -4438,60 +4447,60 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
-  const handleConnectCloudflareGithubRepository = async (
+  const handleConfigureWorkersBuildsForGitHub = async (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
   ) => {
-    if (cloudflareWorkerRepairActionInFlight) {
+    if (cloudflareWorkerConfigurationActionInFlight) {
       return;
     }
 
-    setCloudflareWorkerRepairActionInFlight({
-      kind: "connect_github_repo",
+    setCloudflareWorkerConfigurationActionInFlight({
+      kind: "configure_workers_builds_for_github",
       vaultId,
       workerId,
     });
     try {
-      await wireCloudflareBuilds({ workerId, vaultId });
+      await configureWorkersBuildsForGitHub({ workerId, vaultId });
     } catch (error) {
       toast({
-        title: "Could not connect Cloudflare to GitHub",
+        title: "Could not configure Workers Builds for GitHub",
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
-      setCloudflareWorkerRepairActionInFlight(null);
+      setCloudflareWorkerConfigurationActionInFlight(null);
       if (providerObservations.cloudflare.state !== "loading") {
         providerObservations.cloudflare.reload();
       }
     }
   };
 
-  const handleWireCloudflareConvexBuildAccess = async (
+  const handleRotateConvexDeployKeysForWorkersBuilds = async (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => {
-    if (cloudflareWorkerRepairActionInFlight) {
+    if (cloudflareWorkerConfigurationActionInFlight) {
       return;
     }
 
-    setCloudflareWorkerRepairActionInFlight({
-      kind: "wire_convex_build_access",
+    setCloudflareWorkerConfigurationActionInFlight({
+      kind: "rotate_convex_deploy_keys_for_workers_builds",
       vaultId,
       workerId,
       convexProjectId,
     });
     try {
-      await wireCloudflareConvexBuildAccess({ convexProjectId, workerId, vaultId });
+      await rotateConvexDeployKeysForWorkersBuilds({ convexProjectId, workerId, vaultId });
     } catch (error) {
       toast({
-        title: "Could not set Convex deploy keys",
+        title: "Could not rotate Convex deploy keys for Workers Builds",
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
-      setCloudflareWorkerRepairActionInFlight(null);
+      setCloudflareWorkerConfigurationActionInFlight(null);
       if (providerObservations.cloudflare.state !== "loading") {
         providerObservations.cloudflare.reload();
       }
@@ -4628,7 +4637,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         deleteModeActive={deleteModeActive}
         developerToolsVisible={developerToolsVisible}
         cloudflareObservations={providerObservations.cloudflare}
-        cloudflareWorkerRepairActionInFlight={cloudflareWorkerRepairActionInFlight}
+        cloudflareWorkerConfigurationActionInFlight={cloudflareWorkerConfigurationActionInFlight}
         convexObservations={providerObservations.convex}
         isRemovingVault={isDeleting || isCommitting}
         providerAttachmentRemovalInFlight={providerAttachmentRemovalInFlight}
@@ -4651,11 +4660,11 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
         schemaGraphAccessEnabled={schemaGraphAccessEnabled}
         rootRouteSearch={rootRouteSearch}
-        onConnectCloudflareGithubRepository={(vaultId, workerId) => {
-          void handleConnectCloudflareGithubRepository(vaultId, workerId);
+        onConfigureWorkersBuildsForGitHub={(vaultId, workerId) => {
+          void handleConfigureWorkersBuildsForGitHub(vaultId, workerId);
         }}
-        onWireCloudflareConvexBuildAccess={(vaultId, workerId, convexProjectId) => {
-          void handleWireCloudflareConvexBuildAccess(vaultId, workerId, convexProjectId);
+        onRotateConvexDeployKeysForWorkersBuilds={(vaultId, workerId, convexProjectId) => {
+          void handleRotateConvexDeployKeysForWorkersBuilds(vaultId, workerId, convexProjectId);
         }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
         onManualRepositoryRefresh={enqueueManualRepositoryRefresh}

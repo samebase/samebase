@@ -658,9 +658,9 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Convex connection is required to provision infrastructure.",
   "Convex project name",
   "Convex deployment connection did not attach a deployment.",
-  "Cloudflare Worker is required before wiring Convex build access.",
-  "Cloudflare Workers Builds are required before wiring Convex build access.",
-  "Convex deployment is required before wiring Convex build access.",
+  "Cloudflare Worker is required before rotating Convex deploy keys for Workers Builds.",
+  "Cloudflare Workers Builds are required before rotating Convex deploy keys.",
+  "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not match the vault repo.",
 ];

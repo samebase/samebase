@@ -20,8 +20,8 @@ export const vAppProvisioningStep = union(
   literal("claim_infra"),
   literal("attach_convex"),
   literal("attach_worker"),
-  literal("wire_builds"),
-  literal("wire_convex_build_access"),
+  literal("configure_workers_builds_for_github"),
+  literal("rotate_convex_deploy_keys_for_workers_builds"),
   literal("record_domains"),
   literal("finish"),
 );
@@ -40,8 +40,8 @@ export const vAppProvisioningRunStep = union(
   literal("claim_infra"),
   literal("attach_convex"),
   literal("attach_worker"),
-  literal("wire_builds"),
-  literal("wire_convex_build_access"),
+  literal("configure_workers_builds_for_github"),
+  literal("rotate_convex_deploy_keys_for_workers_builds"),
   literal("record_domains"),
   literal("finish"),
 );

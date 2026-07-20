@@ -12,8 +12,8 @@ const workflowCloudflareActions = vi.hoisted(() => {
   };
   return {
     build,
-    wireBuilds: vi.fn(async (_args: unknown) => build),
-    wireConvexBuildAccess: vi.fn(async (_args: unknown) => null),
+    configureWorkersBuildsForGitHub: vi.fn(async (_args: unknown) => build),
+    rotateConvexDeployKeysForWorkersBuilds: vi.fn(async (_args: unknown) => null),
   };
 });
 
@@ -26,7 +26,7 @@ vi.mock("./vault/cloudflare", async (importOriginal) => {
   });
   return {
     ...actual,
-    wireBuildsForWorkflow: internalAction({
+    configureWorkersBuildsForGitHubForWorkflow: internalAction({
       args: {
         vaultId: id("vaults"),
         runId: id("workflow_vaultProvisioning_runs"),
@@ -35,10 +35,10 @@ vi.mock("./vault/cloudflare", async (importOriginal) => {
       },
       returns: preparedBuilds,
       handler: async (_ctx, args) => {
-        return await workflowCloudflareActions.wireBuilds(args);
+        return await workflowCloudflareActions.configureWorkersBuildsForGitHub(args);
       },
     }),
-    wireConvexBuildAccessForWorkflow: internalAction({
+    rotateConvexDeployKeysForWorkersBuildsForWorkflow: internalAction({
       args: {
         vaultId: id("vaults"),
         runId: id("workflow_vaultProvisioning_runs"),
@@ -49,7 +49,7 @@ vi.mock("./vault/cloudflare", async (importOriginal) => {
       },
       returns: nullValue(),
       handler: async (_ctx, args): Promise<null> => {
-        await workflowCloudflareActions.wireConvexBuildAccess(args);
+        await workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds(args);
         return null;
       },
     }),
@@ -157,10 +157,12 @@ async function attachComposedResources({
 
 describe("app provisioning workflow composition", () => {
   beforeEach(() => {
-    workflowCloudflareActions.wireBuilds.mockReset();
-    workflowCloudflareActions.wireBuilds.mockResolvedValue(workflowCloudflareActions.build);
-    workflowCloudflareActions.wireConvexBuildAccess.mockReset();
-    workflowCloudflareActions.wireConvexBuildAccess.mockResolvedValue(null);
+    workflowCloudflareActions.configureWorkersBuildsForGitHub.mockReset();
+    workflowCloudflareActions.configureWorkersBuildsForGitHub.mockResolvedValue(
+      workflowCloudflareActions.build,
+    );
+    workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mockReset();
+    workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mockResolvedValue(null);
   });
 
   it("maps the legacy root plan to the repository-root app and reads attachments", async () => {
@@ -198,7 +200,7 @@ describe("app provisioning workflow composition", () => {
     });
   });
 
-  it("wires Builds and Convex access before completing managed infrastructure", async () => {
+  it("configures Workers Builds and rotates Convex deploy keys before completing managed infrastructure", async () => {
     const { ids, t } = await createComposedVault();
     const attachments = await attachComposedResources({ ids, t });
     vi.useFakeTimers();
@@ -212,13 +214,13 @@ describe("app provisioning workflow composition", () => {
       vi.useRealTimers();
     }
 
-    expect(workflowCloudflareActions.wireBuilds).toHaveBeenCalledWith({
+    expect(workflowCloudflareActions.configureWorkersBuildsForGitHub).toHaveBeenCalledWith({
       vaultId: ids.vaultId,
       runId: ids.runId,
       userId: ids.userId,
       workerId: attachments.workerId,
     });
-    expect(workflowCloudflareActions.wireConvexBuildAccess).toHaveBeenCalledWith({
+    expect(workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds).toHaveBeenCalledWith({
       vaultId: ids.vaultId,
       runId: ids.runId,
       userId: ids.userId,
@@ -226,8 +228,10 @@ describe("app provisioning workflow composition", () => {
       convexProjectId: attachments.convexProjectId,
       build: workflowCloudflareActions.build,
     });
-    expect(workflowCloudflareActions.wireBuilds.mock.invocationCallOrder[0]).toBeLessThan(
-      workflowCloudflareActions.wireConvexBuildAccess.mock.invocationCallOrder[0],
+    expect(
+      workflowCloudflareActions.configureWorkersBuildsForGitHub.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mock.invocationCallOrder[0],
     );
 
     const result = await t.run(async (ctx) => {
@@ -244,16 +248,16 @@ describe("app provisioning workflow composition", () => {
     expect(result.steps).toEqual([
       "claim_infra",
       "claim_infra",
-      "wire_builds",
-      "wire_convex_build_access",
+      "configure_workers_builds_for_github",
+      "rotate_convex_deploy_keys_for_workers_builds",
       "finish",
     ]);
   });
 
-  it("does not report success when Convex build access wiring fails", async () => {
+  it("does not report success when Convex deploy-key rotation fails", async () => {
     const { ids, t } = await createComposedVault();
     await attachComposedResources({ ids, t });
-    workflowCloudflareActions.wireConvexBuildAccess.mockRejectedValueOnce(
+    workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mockRejectedValueOnce(
       new Error("Could not set build variables."),
     );
     vi.useFakeTimers();
@@ -279,7 +283,7 @@ describe("app provisioning workflow composition", () => {
     });
     expect(result.run).toMatchObject({
       state: "failed",
-      currentStep: "wire_convex_build_access",
+      currentStep: "rotate_convex_deploy_keys_for_workers_builds",
     });
     expect(result.steps).not.toContain("finish");
   });
