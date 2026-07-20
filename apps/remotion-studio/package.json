@@ -11,7 +11,6 @@
     "dev": "remotion studio",
     "lint": "eslint src",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
-    "render": "remotion render RemotionTour out/remotion-tour.mp4",
     "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4",
     "typecheck": "pnpm --dir ../.. exec tsgo -p apps/remotion-studio/tsconfig.json --pretty false"
   },
