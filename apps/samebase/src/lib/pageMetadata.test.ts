@@ -298,6 +298,15 @@ describe("page metadata", () => {
       rel: "canonical",
       href: "https://samebase.com/",
     });
+    const structuredDataScript = rootHead.scripts.find(
+      (script) => script.type === "application/ld+json",
+    );
+    if (!structuredDataScript) {
+      throw new Error("Expected structured identity metadata.");
+    }
+    expect(structuredDataScript.children).toContain(
+      '"logo":"https://samebase.com/samebase-icon.svg"',
+    );
     expect(rootHead.meta).toContainEqual({
       property: "og:url",
       content: "https://samebase.com/",
@@ -313,6 +322,18 @@ describe("page metadata", () => {
     expect(rootHead.links).toContainEqual({
       rel: "manifest",
       href: "/manifest.webmanifest",
+    });
+    expect(rootHead.links).toContainEqual({
+      rel: "icon",
+      type: "image/png",
+      href: "/favicon.png",
+      sizes: "16x16",
+    });
+    expect(rootHead.links).toContainEqual({
+      rel: "icon",
+      type: "image/png",
+      href: "/favicon-32.png",
+      sizes: "32x32",
     });
     expect(rootHead.links).toContainEqual({
       rel: "icon",

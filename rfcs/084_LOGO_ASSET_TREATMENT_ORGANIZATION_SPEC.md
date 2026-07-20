@@ -28,8 +28,7 @@ Implemented recommendation:
 3. keep existing root public URLs as stable aliases for metadata, manifest, crawlers, and external
    references
 4. make the default treatment switch by changing one exported default and regenerating aliases
-5. leave browser favicons as their own role unless the product explicitly wants favicon treatment
-   work
+5. keep expressive treatment variants separate from the treatmentless compact icon source
 
 This makes a future treatment change a small default flip plus generated asset refresh, not a
 repo-wide hunt for unrelated icon and logo paths.
@@ -156,6 +155,9 @@ Treatment-named source assets should live under `apps/noter/public/brand/`:
 
 ```text
 apps/noter/public/brand/
+  icon/
+    compact-v1.svg
+    compact-v1-maskable.svg
   logo/
     v1-side-primary-duotone.svg
     v1-side-primary-striped.svg
@@ -163,19 +165,6 @@ apps/noter/public/brand/
     v2-side-diagonal-striped.svg
     v3-spatial-duotone.svg
     v3-spatial-striped.svg
-  install/
-    install-icon-duotone.svg
-    install-icon-striped.svg
-    icon-192-duotone.png
-    icon-192-striped.png
-    icon-512-duotone.png
-    icon-512-striped.png
-    icon-maskable-192-duotone.png
-    icon-maskable-192-striped.png
-    icon-maskable-512-duotone.png
-    icon-maskable-512-striped.png
-    apple-touch-icon-duotone.png
-    apple-touch-icon-striped.png
   social/
     noter-social-card-duotone.svg
     noter-social-card-striped.svg
@@ -191,6 +180,7 @@ The existing root paths stay as stable aliases:
 apps/noter/public/logo-v1-side-primary.svg
 apps/noter/public/logo-v2-side-diagonal.svg
 apps/noter/public/logo-static.svg
+apps/noter/public/samebase-icon.svg
 apps/noter/public/install-icon.svg
 apps/noter/public/icon-192.png
 apps/noter/public/icon-512.png
@@ -202,9 +192,9 @@ apps/noter/public/favicon-32.png
 apps/noter/public/noter-social-card.png
 ```
 
-Do not use root names like `icon-stripes.ico` as the source of truth. A name like that says the
-treatment, but it drops role, size, maskability, and current file format. Prefer
-`brand/install/icon-512-striped.png` as the named source and `/icon-512.png` as the served alias.
+Do not use root names like `icon-stripes.ico` as the source of truth. Compact icon roles use the
+treatmentless `brand/icon/compact-v1.svg` source and stable root aliases. Treatment names remain
+meaningful only for expressive logo and social assets.
 
 ## Code Contract
 
@@ -247,11 +237,10 @@ Stable aliases should also live in this module:
 
 ```ts
 export const DEFAULT_STATIC_LOGO_SVG_URL = "/logo-static.svg";
-export const LOGO_IDENTITY_EDIT_MARK_SVG_URL = "/logo-v2-side-diagonal.svg";
 ```
 
-Those constants preserve current callers. Callers that only need the current product logo should not
-know whether the current default treatment is duotone or striped.
+The compact icon contract separately owns `/samebase-icon.svg`. Callers that only need the current
+expressive product logo should not know whether the current default treatment is duotone or striped.
 
 ## Rendering Contract
 
@@ -290,18 +279,15 @@ phase.
 
 ## Generation Contract
 
-Generation should produce two kinds of output:
+Expressive asset generation should produce two kinds of output:
 
 1. treatment-named source assets under `public/brand/`
 2. stable root aliases for the current default treatment
 
-The Vite sync plugin may continue to keep SVG aliases current. Install asset generation should stop
-reading an ambiguous root SVG as the conceptual source. It can still write root aliases, but the job
-should derive from:
-
-1. `DEFAULT_LOGO_FACE_TREATMENT`
-2. `getLogoIdentityAssetPath({ viewId: "spatial", treatment })`
-3. the shared SVG generator
+The Vite sync plugin may continue to keep SVG aliases current. Compact icon generation derives
+favicon, Apple, manifest, maskable, ChatGPT plugin, and in-app identity assets from the dedicated
+version 1 compact source. It does not produce duotone or striped install variants because those
+treatment names do not describe the flat mark.
 
 Social and profile assets now have generated SVG sources and PNG outputs for both treatments.
 
@@ -312,9 +298,10 @@ Unit tests should cover the contract directly:
 1. each identity view has both duotone and striped generated SVG assets
 2. stable root aliases equal the default treatment output
 3. the default striped root aliases do not contain the secondary left-face fill
-4. install icons are regenerated from the default treatment
+4. every compact raster is regenerated from the treatmentless version 1 source with exact square
+   geometry
 5. metadata and manifest tests keep the stable root URLs, not the treatment-named source URLs
-6. favicon metadata keeps the root favicon URLs unless a separate favicon project changes them
+6. favicon metadata keeps the stable root favicon URLs
 
 Visual coverage should include:
 
@@ -339,7 +326,7 @@ default striped output.
 
 ### Phase 3: Generate Named Brand Assets
 
-Generated and committed treatment-named logo, install, social-card, and profile-banner assets under
+Generated and committed treatment-named logo, social-card, and profile-banner assets under
 `apps/noter/public/brand/`. Static asset tests keep root logo aliases synchronized with the current
 default treatment.
 
@@ -353,6 +340,10 @@ secondary as the product default.
 
 Keep stable root aliases indefinitely. Keep duotone named source assets as long as they are useful
 for comparison or rollback.
+
+The later compact-identity consolidation replaced treatment-named install derivatives with one clean
+version 1 source under `brand/icon/`. Stable favicon, install, Apple, manifest, and ChatGPT plugin
+URLs remain unchanged.
 
 Delete unused experimental assets such as `logo_pick.svg` only in a separate cleanup if no shipped
 or test surface depends on them.

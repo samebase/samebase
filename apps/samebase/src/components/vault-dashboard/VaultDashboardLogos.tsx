@@ -1,8 +1,6 @@
+import { COMPACT_IDENTITY_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { GitPullRequestCreateArrow, GitPullRequestDraft } from "lucide-react";
-import { LOGO_IDENTITY_EDIT_MARK_SVG_URL } from "@/components/logo/logoStaticSvgContract";
-
-const SAMEBASE_LOGO_ICON_SRC = LOGO_IDENTITY_EDIT_MARK_SVG_URL;
 
 export function GitHubProviderLogo() {
   return <GitHubLogoIcon className="h-4 w-4" />;
@@ -12,7 +10,7 @@ export function SamebaseLogoMark() {
   return (
     <span className="inline-flex items-center justify-center">
       <img
-        src={SAMEBASE_LOGO_ICON_SRC}
+        src={COMPACT_IDENTITY_SVG_URL}
         alt=""
         aria-hidden="true"
         className="h-4 w-4"

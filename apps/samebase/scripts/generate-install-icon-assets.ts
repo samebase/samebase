@@ -8,13 +8,7 @@ import { includes } from "@samebase/dependent/main";
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(appDir, "public");
 
-// Chrome can install either a browser-badged shortcut or a WebAPK. Keep both
-// Android-facing icon exports inside the same safe inset so launcher crops do
-// not make the mark feel zoomed in.
-const ANDROID_HOME_SCREEN_ICON_BOX_RATIO = 464 / 512;
-
-type IconJob = { boxRatio?: number; canvasSize: number; filename: string };
-type CompactIconJob = IconJob & { colors: number };
+type IconJob = { canvasSize: number; filename: string };
 const logoFaceTreatmentValues = ["duotone", "striped"] as const;
 type LogoFaceTreatment = (typeof logoFaceTreatmentValues)[number];
 type LogoIdentitySvgAsset = {
@@ -22,8 +16,9 @@ type LogoIdentitySvgAsset = {
   markup: string;
 };
 type LogoAssetModules = {
-  createInstallIconSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
+  createCompactIdentitySvgMarkup: () => string;
   createLogoIdentitySvgAssets: () => LogoIdentitySvgAsset[];
+  createMaskableCompactIdentitySvgMarkup: () => string;
   createSamebaseSocialCardSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
   createSamebaseXProfileBannerSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
   defaultLogoFaceTreatment: LogoFaceTreatment;
@@ -37,40 +32,18 @@ type SocialAsset = {
 
 type UnknownFunction = (...args: unknown[]) => unknown;
 
-const iconJobs: IconJob[] = [
-  {
-    canvasSize: 192,
-    filename: "icon-192.png",
-    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
-  },
-  {
-    canvasSize: 512,
-    filename: "icon-512.png",
-    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
-  },
-  {
-    canvasSize: 192,
-    filename: "icon-maskable-192.png",
-    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
-  },
-  {
-    canvasSize: 512,
-    filename: "icon-maskable-512.png",
-    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
-  },
-  {
-    canvasSize: 180,
-    filename: "apple-touch-icon.png",
-  },
+const compactIdentityIconJobs: IconJob[] = [
+  { canvasSize: 16, filename: "favicon.png" },
+  { canvasSize: 32, filename: "favicon-32.png" },
+  { canvasSize: 180, filename: "apple-touch-icon.png" },
+  { canvasSize: 192, filename: "icon-192.png" },
+  { canvasSize: 256, filename: "chatgpt-app-icon.png" },
+  { canvasSize: 512, filename: "icon-512.png" },
 ];
 
-const compactIconJobs: CompactIconJob[] = [
-  {
-    canvasSize: 256,
-    filename: "chatgpt-app-icon.png",
-    boxRatio: 232 / 256,
-    colors: 32,
-  },
+const maskableCompactIdentityIconJobs: IconJob[] = [
+  { canvasSize: 192, filename: "icon-maskable-192.png" },
+  { canvasSize: 512, filename: "icon-maskable-512.png" },
 ];
 
 const socialAssets: SocialAsset[] = [
@@ -172,9 +145,9 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       await server.ssrLoadModule("/src/components/logo/logoFaceTreatment.ts"),
       "logo face treatment module",
     );
-    const installIconModule = readRecord(
-      await server.ssrLoadModule("/src/components/installIconSvgAsset.ts"),
-      "install icon SVG asset module",
+    const compactIdentityModule = readRecord(
+      await server.ssrLoadModule("/src/components/compactIdentitySvgAsset.ts"),
+      "compact identity SVG asset module",
     );
     const logoStaticModule = readRecord(
       await server.ssrLoadModule("/src/components/logo/logoStaticSvgAsset.ts"),
@@ -189,9 +162,13 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       throw new Error("Expected DEFAULT_LOGO_FACE_TREATMENT to be a logo face treatment.");
     }
 
-    const createInstallIconSvgMarkup = readUnknownFunction(
-      installIconModule,
-      "createInstallIconSvgMarkup",
+    const createCompactIdentitySvgMarkup = readUnknownFunction(
+      compactIdentityModule,
+      "createCompactIdentitySvgMarkup",
+    );
+    const createMaskableCompactIdentitySvgMarkup = readUnknownFunction(
+      compactIdentityModule,
+      "createMaskableCompactIdentitySvgMarkup",
     );
     const createLogoIdentitySvgAssets = readUnknownFunction(
       logoStaticModule,
@@ -207,10 +184,15 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
     );
 
     return {
-      createInstallIconSvgMarkup: (args) =>
-        readStringResult(createInstallIconSvgMarkup(args), "createInstallIconSvgMarkup"),
+      createCompactIdentitySvgMarkup: () =>
+        readStringResult(createCompactIdentitySvgMarkup(), "createCompactIdentitySvgMarkup"),
       createLogoIdentitySvgAssets: () =>
         readLogoIdentitySvgAssetsResult(createLogoIdentitySvgAssets()),
+      createMaskableCompactIdentitySvgMarkup: () =>
+        readStringResult(
+          createMaskableCompactIdentitySvgMarkup(),
+          "createMaskableCompactIdentitySvgMarkup",
+        ),
       createSamebaseSocialCardSvgMarkup: (args) =>
         readStringResult(
           createSamebaseSocialCardSvgMarkup(args),
@@ -243,12 +225,7 @@ function copyTextAsset(sourceAssetPath: string, targetAssetPath: string): void {
   writeTextAsset(targetAssetPath, readFileSync(toPublicPath(sourceAssetPath), "utf8"));
 }
 
-function createTreatmentFilename(filename: string, treatment: LogoFaceTreatment): string {
-  return filename.replace(/(\.[^.]+)$/, `-${treatment}$1`);
-}
-
 function generateIconPng({
-  boxRatio = 1,
   canvasSize,
   inputAssetPath,
   outputAssetPath,
@@ -256,61 +233,19 @@ function generateIconPng({
   inputAssetPath: string;
   outputAssetPath: string;
 }) {
-  const iconSize = Math.round(canvasSize * boxRatio);
   const outputPath = toPublicPath(outputAssetPath);
   mkdirSync(path.dirname(outputPath), { recursive: true });
 
   execFileSync(
-    "magick",
+    "rsvg-convert",
     [
       toPublicPath(inputAssetPath),
-      "-resize",
-      `${iconSize}x${iconSize}`,
-      "-background",
-      "white",
-      "-gravity",
-      "center",
-      "-extent",
-      `${canvasSize}x${canvasSize}`,
-      "-strip",
+      "--width",
+      String(canvasSize),
+      "--height",
+      String(canvasSize),
+      "--output",
       outputPath,
-    ],
-    { stdio: "inherit" },
-  );
-}
-
-function generateCompactIconPng({
-  boxRatio = 1,
-  canvasSize,
-  colors,
-  inputAssetPath,
-  outputAssetPath,
-}: CompactIconJob & {
-  inputAssetPath: string;
-  outputAssetPath: string;
-}) {
-  const iconSize = Math.round(canvasSize * boxRatio);
-  const outputPath = toPublicPath(outputAssetPath);
-  mkdirSync(path.dirname(outputPath), { recursive: true });
-
-  execFileSync(
-    "magick",
-    [
-      toPublicPath(inputAssetPath),
-      "-resize",
-      `${iconSize}x${iconSize}`,
-      "-background",
-      "white",
-      "-gravity",
-      "center",
-      "-extent",
-      `${canvasSize}x${canvasSize}`,
-      "-strip",
-      "-depth",
-      "8",
-      "-colors",
-      String(colors),
-      `PNG8:${outputPath}`,
     ],
     { stdio: "inherit" },
   );
@@ -330,42 +265,25 @@ function syncLogoIdentitySvgAssets(modules: LogoAssetModules) {
   }
 }
 
-function syncInstallIconAssets(modules: LogoAssetModules) {
-  for (const faceTreatment of modules.logoFaceTreatments) {
-    const brandInstallSvgPath = `/brand/install/install-icon-${faceTreatment}.svg`;
-    writeTextAsset(brandInstallSvgPath, modules.createInstallIconSvgMarkup({ faceTreatment }));
+function syncCompactIdentityAssets(modules: LogoAssetModules) {
+  const sourceAssetPath = "/brand/icon/compact-v1.svg";
+  const maskableSourceAssetPath = "/brand/icon/compact-v1-maskable.svg";
+  writeTextAsset(sourceAssetPath, modules.createCompactIdentitySvgMarkup());
+  writeTextAsset(maskableSourceAssetPath, modules.createMaskableCompactIdentitySvgMarkup());
+  copyTextAsset(sourceAssetPath, "/samebase-icon.svg");
+  copyTextAsset(sourceAssetPath, "/install-icon.svg");
 
-    for (const job of iconJobs) {
-      generateIconPng({
-        ...job,
-        inputAssetPath: brandInstallSvgPath,
-        outputAssetPath: `/brand/install/${createTreatmentFilename(job.filename, faceTreatment)}`,
-      });
-    }
-    for (const job of compactIconJobs) {
-      generateCompactIconPng({
-        ...job,
-        inputAssetPath: brandInstallSvgPath,
-        outputAssetPath: `/brand/install/${createTreatmentFilename(job.filename, faceTreatment)}`,
-      });
-    }
-  }
-
-  copyTextAsset(
-    `/brand/install/install-icon-${modules.defaultLogoFaceTreatment}.svg`,
-    "/install-icon.svg",
-  );
-  for (const job of iconJobs) {
+  for (const job of compactIdentityIconJobs) {
     generateIconPng({
       ...job,
-      inputAssetPath: "/install-icon.svg",
+      inputAssetPath: sourceAssetPath,
       outputAssetPath: `/${job.filename}`,
     });
   }
-  for (const job of compactIconJobs) {
-    generateCompactIconPng({
+  for (const job of maskableCompactIdentityIconJobs) {
+    generateIconPng({
       ...job,
-      inputAssetPath: "/install-icon.svg",
+      inputAssetPath: maskableSourceAssetPath,
       outputAssetPath: `/${job.filename}`,
     });
   }
@@ -390,5 +308,5 @@ function syncSocialAssets(modules: LogoAssetModules) {
 
 const logoAssetModules = await loadLogoAssetModules();
 syncLogoIdentitySvgAssets(logoAssetModules);
-syncInstallIconAssets(logoAssetModules);
+syncCompactIdentityAssets(logoAssetModules);
 syncSocialAssets(logoAssetModules);

@@ -1,3 +1,4 @@
+import { COMPACT_IDENTITY_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebarPrehydration";
 import { agentBrowserHandoffPrehydrationScript } from "@/lib/agentBrowserHandoffPrehydration";
 import { appAuthPresentationPrehydrationScript } from "@/lib/appAuthPresentationPrehydration";
@@ -12,7 +13,7 @@ const structuredData = {
       name: SAMEBASE_BRAND_COPY.productName,
       alternateName: SAMEBASE_BRAND_COPY.siteName,
       url: "https://samebase.com/",
-      logo: "https://samebase.com/logo-static.svg",
+      logo: `https://samebase.com${COMPACT_IDENTITY_SVG_URL}`,
       sameAs: ["https://github.com/samebase/samebase"],
     },
     {
