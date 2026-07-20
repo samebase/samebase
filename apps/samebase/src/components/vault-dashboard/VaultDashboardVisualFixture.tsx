@@ -1,13 +1,8 @@
-import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { useCallback, useState, type ReactNode } from "react";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
-import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
-  VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
   VaultConvexSchemaGraphContent,
@@ -16,18 +11,13 @@ import {
   type VaultConvexSchemaGraphState,
 } from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
-import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
-  VaultBranchHeaderControls,
-  VaultBranchSection,
-  VaultBranchLinkRow,
   VaultDashboardView,
   VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
-  VaultDashboardRepositoryExternalLinks,
   VaultDashboardVaultList,
   VaultDashboardVaultPickerPane,
   type VaultDeleteDialogTarget,
@@ -37,10 +27,11 @@ import {
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import {
-  filterVaultRemoteBranches,
-  getDefaultVaultBranchFilters,
-  type VaultBranchFilters,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+  filterVaultPullRequests,
+  getDefaultVaultPullRequestFilters,
+  type VaultPullRequestFilters,
+} from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
+import type { VaultPullRequestObservation } from "@/hooks/useVaultPullRequestObservations";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -58,40 +49,15 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-cloudflare-build-trigger-missing"
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-sticky-header"
-  | "vault-dashboard-large-branch-list"
   | "vault-dashboard-root-picker"
   | "vault-dashboard-sidebar-list"
   | "vault-dashboard-list-spacing"
   | "vault-convex-schema-graph"
   | "vault-convex-schema-route-mobile"
-  | "vault-last-updated-status"
-  | "vault-branch-filters"
-  | "vault-branch-pr-labels"
-  | "vault-branch-mobile-alignment";
+  | "vault-pull-request-filters";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
-
-function ignoreFixtureLoadMore(_numItems: number): void {}
-
-type FixtureRefreshCountState = {
-  refreshCount: number;
-};
-
-const FIXTURE_REFRESH_COUNT_INITIAL_STATE: FixtureRefreshCountState = {
-  refreshCount: 0,
-};
-
-function useFixtureRefreshCountStore() {
-  return useCreateStore(FIXTURE_REFRESH_COUNT_INITIAL_STATE, ({ setState }) => ({
-    incrementRefreshCount: () => {
-      setState((state) => ({
-        ...state,
-        refreshCount: state.refreshCount + 1,
-      }));
-    },
-  }));
-}
 
 function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
@@ -190,52 +156,13 @@ const FIXTURE_CLOUDFLARE_WORKERS = [
   fixtureAvailableCloudflareWorker("tsx-tsx-md", "abcb6778514d4e58b6f9a747d92f9234"),
 ];
 
-type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
-
-interface FixtureVaultBranchRow {
-  branch: FixtureVaultBranch;
-}
-
-function fixtureVaultBranch(
-  branch: Omit<FixtureVaultBranch, "commits" | "isProtected" | "lastSyncedAt" | "remoteState"> & {
-    commits?: FixtureVaultBranch["commits"];
-    remoteState?: FixtureVaultBranch["remoteState"];
-  },
-): FixtureVaultBranch {
-  return {
-    commits: branch.commits ?? [{ sha: branch.headCommitSha }],
-    isProtected: false,
-    lastSyncedAt: FIXTURE_NOW,
-    remoteState: "active",
-    ...branch,
-  };
-}
-
 function FixtureRepositoryLinks() {
   return (
-    <VaultDashboardRepositoryExternalLinks
-      repositoryFullName="samebase/samebase"
-      links={[
-        {
-          href: "https://github.com/samebase/samebase",
-          key: "github",
-          label: "GitHub",
-          title: "Open GitHub repository",
-        },
-        {
-          href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/deployments",
-          key: "cloudflare",
-          label: "Cloudflare",
-          title: "Open Cloudflare Worker",
-        },
-        {
-          href: "https://dashboard.convex.dev/t/nicu/samebase/settings",
-          key: "convexProjectSettings",
-          label: "Project settings",
-          title: "Open Convex project settings",
-        },
-      ]}
-    />
+    <div className="flex flex-wrap gap-3 text-sm">
+      <a href="https://github.com/samebase/samebase">GitHub</a>
+      <a href="https://dash.cloudflare.com">Cloudflare</a>
+      <a href="https://dashboard.convex.dev/t/nicu/samebase/settings">Project settings</a>
+    </div>
   );
 }
 
@@ -257,282 +184,6 @@ const fixtureDeleteDialogTarget = {
   canRemoveConvexProvision: true,
   canRemoveCloudflareProvision: true,
 } satisfies VaultDeleteDialogTarget;
-
-function FixtureVaultLastUpdatedStatusCard() {
-  const refreshCountStore = useFixtureRefreshCountStore();
-  const refreshCount = useSelector(refreshCountStore, (state) => state.refreshCount);
-  const { incrementRefreshCount } = refreshCountStore.actions;
-
-  return (
-    <div
-      data-testid="vault-dashboard-visual-fixture"
-      data-mode="vault-last-updated-status"
-      data-refresh-count={refreshCount}
-      className="mx-auto w-full max-w-[360px]"
-    >
-      <div className="relative corner-notch-1 border p-4">
-        <div className="space-y-3">
-          <div className="flex flex-col items-start pr-10">
-            <h3 className="min-w-0 font-semibold">
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="min-w-0 truncate">
-                  <span className="font-normal text-muted-foreground">samebase/</span>
-                  <span>samebase</span>
-                </span>
-              </span>
-            </h3>
-            <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <VaultLastUpdatedStatus
-                lastSyncedAt={FIXTURE_NOW - 12_000}
-                now={FIXTURE_NOW}
-                onRefresh={incrementRefreshCount}
-                repositoryFullName="samebase/samebase"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
-  {
-    branch: fixtureVaultBranch({
-      name: "main",
-      headCommitSha: "1234567890abcdef1234567890abcdef12345678",
-      isDefault: true,
-      aheadBy: 0,
-      behindBy: 0,
-      commits: [
-        {
-          sha: "1234567890abcdef1234567890abcdef12345678",
-          title: "Track branch checks in the dashboard model",
-          checks: {
-            state: "success",
-            totalCount: 4,
-            checkRunCount: 4,
-            statusContextCount: 0,
-            successCount: 4,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
-            syncedAt: FIXTURE_NOW - 12_000,
-          },
-        },
-        {
-          sha: "0fedcba9876543210fedcba9876543210fedcba9",
-          title: "Extract the vault dashboard view model",
-          checks: {
-            state: "neutral",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 2,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 1,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/122",
-            syncedAt: FIXTURE_NOW - 180_000,
-          },
-        },
-      ],
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/dashboard-main-pane-spacing",
-      headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-      isDefault: false,
-      aheadBy: 2,
-      behindBy: 0,
-      pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
-      pullRequestNumber: 321,
-      pullRequestTitle: "Use the full dashboard main pane",
-      commits: [
-        {
-          sha: "abcdef1234567890abcdef1234567890abcdef12",
-          title: "Use the full dashboard main pane",
-          checks: {
-            state: "running",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 1,
-            failureCount: 0,
-            runningCount: 2,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/321",
-            syncedAt: FIXTURE_NOW - 2_000,
-          },
-        },
-        {
-          sha: "654321abcdef1234567890abcdef1234567890ab",
-          title: "Remove the card shell around branch rows",
-          checks: {
-            state: "success",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 3,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/320",
-            syncedAt: FIXTURE_NOW - 420_000,
-          },
-        },
-      ],
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/branch-expansion-state",
-      headCommitSha: "456789abcdef1234567890abcdef1234567890ab",
-      isDefault: false,
-      aheadBy: 1,
-      behindBy: 0,
-      pullRequestUrl: "https://github.com/samebase/samebase/pull/322",
-      pullRequestNumber: 322,
-      pullRequestTitle: "Persist branch list expansion",
-      commits: [
-        {
-          sha: "456789abcdef1234567890abcdef1234567890ab",
-          title: "Persist branch list expansion",
-          checks: {
-            state: "failure",
-            totalCount: 5,
-            checkRunCount: 5,
-            statusContextCount: 0,
-            successCount: 3,
-            failureCount: 1,
-            runningCount: 0,
-            neutralCount: 1,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/322",
-            syncedAt: FIXTURE_NOW - 64_000,
-          },
-        },
-      ],
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/checks-history-window",
-      headCommitSha: "e1234567890abcdef1234567890abcdef12345678",
-      isDefault: false,
-      aheadBy: 5,
-      behindBy: 2,
-      pullRequestUrl: "https://github.com/samebase/samebase/pull/323",
-      pullRequestNumber: 323,
-      pullRequestTitle: "Show a bounded checks history",
-      commits: [
-        {
-          sha: "e1234567890abcdef1234567890abcdef12345678",
-          title: "Show a bounded checks history",
-          checks: {
-            state: "running",
-            totalCount: 4,
-            checkRunCount: 4,
-            statusContextCount: 0,
-            successCount: 2,
-            failureCount: 0,
-            runningCount: 1,
-            neutralCount: 1,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/323",
-            syncedAt: FIXTURE_NOW - 16_000,
-          },
-        },
-        {
-          sha: "d234567890abcdef1234567890abcdef12345678",
-          title: "Add branch row commit stack",
-          checks: {
-            state: "success",
-            totalCount: 3,
-            checkRunCount: 3,
-            statusContextCount: 0,
-            successCount: 3,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/3221",
-            syncedAt: FIXTURE_NOW - 240_000,
-          },
-        },
-      ],
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/quiet-mobile-frame",
-      headCommitSha: "789abcdef1234567890abcdef1234567890abcd",
-      isDefault: false,
-      aheadBy: 1,
-      behindBy: 1,
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/research-branch-collapse",
-      headCommitSha: "def1234567890abcdef1234567890abcdef12345",
-      isDefault: false,
-      aheadBy: 0,
-      behindBy: 2,
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/mobile-keyboard-lift",
-      headCommitSha: "f1234567890abcdef1234567890abcdef1234567",
-      isDefault: false,
-      aheadBy: 1,
-      behindBy: 0,
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/preview-status-refresh",
-      headCommitSha: "a234567890abcdef1234567890abcdef12345678",
-      isDefault: false,
-      aheadBy: 0,
-      behindBy: 1,
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/branch-cleanup-guard",
-      headCommitSha: "b34567890abcdef1234567890abcdef123456789",
-      isDefault: false,
-      aheadBy: 2,
-      behindBy: 0,
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/archive-doc-taxonomy",
-      headCommitSha: "c4567890abcdef1234567890abcdef1234567890",
-      isDefault: false,
-      aheadBy: 1,
-      behindBy: 3,
-    }),
-  },
-  {
-    branch: fixtureVaultBranch({
-      name: "codex/vault-filter-polish",
-      headCommitSha: "d567890abcdef1234567890abcdef12345678901",
-      isDefault: false,
-      aheadBy: 0,
-      behindBy: 2,
-    }),
-  },
-];
 
 const LIST_SPACING_VAULT_ID = fakeVaultId();
 const LIST_SPACING_DOMAIN_APP_ID = fakeVaultAppId("app-domain-router");
@@ -660,43 +311,295 @@ const SIDEBAR_LIST_VAULTS = [
   },
 ] satisfies VaultDashboardVault[];
 
-const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
-  branch: fixtureVaultBranch({
-    name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
-    headCommitSha: "1234567890abcdef1234567890abcdef12345678",
-    isDefault: index === 0,
-    aheadBy: index === 0 ? 0 : index % 4,
-    behindBy: index === 0 ? 0 : index % 3,
-    pullRequestLabels:
-      index > 0 && index % 7 === 0 ? [{ name: "hidden", color: "#6f42c1" }] : undefined,
-  }),
-}));
+const FIXTURE_NO_CHECKS = {
+  state: "none",
+  totalCount: 0,
+  checkRunCount: 0,
+  statusContextCount: 0,
+  successCount: 0,
+  failureCount: 0,
+  runningCount: 0,
+  neutralCount: 0,
+  unknownCount: 0,
+} as const;
 
-const LARGE_BRANCH_COUNT = 1000;
-const LARGE_BRANCH_INITIAL_PAGE_SIZE = 25;
-const LARGE_BRANCHES: FixtureVaultBranch[] = Array.from(
-  { length: LARGE_BRANCH_COUNT },
-  (_, index) =>
-    fixtureVaultBranch({
-      name: index === 0 ? "main" : `codex/large-branch-${String(index).padStart(4, "0")}`,
-      headCommitSha: index.toString(16).padStart(40, "0"),
-      isDefault: index === 0,
-      aheadBy: index === 0 ? 0 : index % 5,
-      behindBy: index === 0 ? 0 : index % 3,
-    }),
-);
+type FixturePullRequest = Extract<
+  VaultPullRequestObservation,
+  { page: unknown }
+>["page"]["pullRequests"][number];
+
+function fixturePullRequest({
+  index,
+  labels = [],
+  checks = FIXTURE_NO_CHECKS,
+  isDraft = false,
+}: {
+  index: number;
+  labels?: FixturePullRequest["labels"];
+  checks?: FixturePullRequest["checks"];
+  isDraft?: boolean;
+}): FixturePullRequest {
+  const number = 1_260 - index;
+  const nodeId = `pull-request:${number}`;
+  const branchName = `codex/live-provider-truth-${String(index + 1).padStart(2, "0")}`;
+  const headOid = (index + 1).toString(16).padStart(40, "0");
+  const url = `https://github.com/samebase/samebase/pull/${number}`;
+
+  return {
+    nodeId,
+    number,
+    title:
+      index === 0
+        ? "Show the exact preview for each pull request"
+        : `Live provider update ${number}`,
+    url,
+    isDraft,
+    isCrossRepository: false,
+    additions: 40 + index,
+    deletions: 10 + index,
+    changedFiles: 3 + index,
+    updatedAt: FIXTURE_NOW - index * 60_000,
+    baseRefName: "main",
+    headRefName: branchName,
+    headRepository: {
+      state: "available",
+      nodeId: "repository:samebase/samebase",
+      nameWithOwner: "samebase/samebase",
+      owner: "samebase",
+    },
+    labels,
+    head: {
+      baseRepositoryNodeId: "repository:samebase/samebase",
+      pullRequestNodeId: nodeId,
+      pullRequestNumber: number,
+      pullRequestUrl: url,
+      headRepositoryNodeId: "repository:samebase/samebase",
+      headRefName: branchName,
+      headCommitNodeId: `commit:${headOid}`,
+      headOid,
+    },
+    checks,
+  };
+}
+
+const LIST_SPACING_PULL_REQUESTS = [
+  fixturePullRequest({
+    index: 0,
+    labels: [
+      { name: "needs review", color: "bf8700" },
+      { name: "customer", color: "1a7f37" },
+    ],
+    checks: {
+      ...FIXTURE_NO_CHECKS,
+      state: "success",
+      totalCount: 4,
+      checkRunCount: 4,
+      successCount: 4,
+    },
+  }),
+  fixturePullRequest({
+    index: 1,
+    labels: [{ name: "research", color: "0969da" }],
+    checks: {
+      ...FIXTURE_NO_CHECKS,
+      state: "running",
+      totalCount: 3,
+      checkRunCount: 3,
+      successCount: 1,
+      runningCount: 2,
+    },
+  }),
+  fixturePullRequest({ index: 2, isDraft: true }),
+];
+
+function fixturePullRequestObservation(
+  pullRequests: readonly FixturePullRequest[],
+): VaultPullRequestObservation {
+  const observedAt = FIXTURE_NOW - 12_000;
+  const filteredPullRequests = [...pullRequests];
+  const byPullRequestNodeId = new Map(
+    filteredPullRequests.map((pullRequest) => [
+      pullRequest.nodeId,
+      {
+        head: pullRequest.head,
+        workers:
+          pullRequest.number === 1260
+            ? [
+                {
+                  state: "available" as const,
+                  workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
+                  appId: LIST_SPACING_SAMEBASE_APP_ID,
+                  rootDirectory: "apps/samebase",
+                  workerName: "samebase-worker",
+                  buildUuid: "build-preview-1260",
+                  buildState: "success" as const,
+                  createdAt: FIXTURE_NOW - 180_000,
+                  startedAt: FIXTURE_NOW - 170_000,
+                  finishedAt: FIXTURE_NOW - 120_000,
+                  convexPreview: {
+                    state: "available" as const,
+                    convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
+                    deploymentName: "precise-otter-1260",
+                    deploymentUrl: "https://precise-otter-1260.convex.cloud",
+                    dashboardUrl:
+                      "https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1260",
+                  },
+                },
+              ]
+            : pullRequest.number === 1259
+              ? [
+                  {
+                    state: "available" as const,
+                    workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+                    appId: LIST_SPACING_DOMAIN_APP_ID,
+                    rootDirectory: "apps/domain-router",
+                    workerName: "domain-router",
+                    buildUuid: "build-preview-1259",
+                    buildState: "running" as const,
+                    createdAt: FIXTURE_NOW - 30_000,
+                    startedAt: FIXTURE_NOW - 20_000,
+                    finishedAt: null,
+                    convexPreview: {
+                      state: "unavailable" as const,
+                      reason: "build_not_successful" as const,
+                    },
+                  },
+                ]
+              : [],
+      },
+    ]),
+  );
+
+  return {
+    state: "current",
+    page: {
+      state: "current",
+      observedAt,
+      freshUntil: observedAt + 60_000,
+      repositoryNodeId: "repository:samebase/samebase",
+      repositoryDatabaseId: "919458151",
+      repositoryFullName: "samebase/samebase",
+      defaultBranch: {
+        state: "ready",
+        name: "main",
+        headCommitNodeId: "commit:main",
+        headOid: "1234567890abcdef1234567890abcdef12345678",
+        checks: FIXTURE_NO_CHECKS,
+      },
+      providerOpenPullRequestCount: filteredPullRequests.length,
+      scannedPullRequestCount: filteredPullRequests.length,
+      providerSequenceDrifted: false,
+      pullRequests: filteredPullRequests,
+      continuation: { kind: "complete" },
+      requestUsage: {
+        requestCount: 1,
+        cost: 1,
+        limit: 5_000,
+        remaining: 4_999,
+        resetAt: FIXTURE_NOW + 60 * 60_000,
+      },
+    },
+    refreshProblem: null,
+    refreshing: false,
+    pullRequests: filteredPullRequests,
+    resourceState: "current",
+    resourcesByPullRequestNodeId: new Map(
+      Array.from(byPullRequestNodeId, ([pullRequestNodeId, observation]) => [
+        pullRequestNodeId,
+        { state: "current" as const, observation },
+      ]),
+    ),
+    hasMore: false,
+    scanGuardrailReached: false,
+    isLoadingMore: false,
+    canLoadMore: false,
+    loadMoreProblem: null,
+    reload: () => {},
+    reloadResources: () => {},
+    loadMore: () => {},
+  };
+}
+
+const STICKY_HEADER_PULL_REQUESTS = [
+  ...LIST_SPACING_PULL_REQUESTS.slice(0, 2),
+  ...Array.from({ length: 23 }, (_, index) => fixturePullRequest({ index: index + 3 })),
+];
 
 function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisualMode }) {
-  const [vaultBranchFilters, setVaultBranchFilters] = useState(() =>
-    getDefaultVaultBranchFilters(),
+  const [vaultPullRequestFilters, setVaultPullRequestFilters] = useState(() =>
+    mode === "vault-pull-request-filters"
+      ? {
+          hiddenLabels: ["research"],
+          includeDrafts: false,
+          includeNoLabel: false,
+        }
+      : getDefaultVaultPullRequestFilters(),
   );
   const [resourceLinksOpen, setResourceLinksOpen] = useState(false);
-  const persistedVaultBranchFiltersByVaultId = new Map<string, VaultBranchFilters>([
-    [LIST_SPACING_VAULT_ID, vaultBranchFilters],
+  const sourcePullRequests =
+    mode === "vault-dashboard-sticky-header"
+      ? STICKY_HEADER_PULL_REQUESTS
+      : LIST_SPACING_PULL_REQUESTS;
+  const filteredPullRequests = filterVaultPullRequests(sourcePullRequests, vaultPullRequestFilters);
+  const persistedVaultPullRequestFiltersByVaultId = new Map<string, VaultPullRequestFilters>([
+    [LIST_SPACING_VAULT_ID, vaultPullRequestFilters],
   ]);
   const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>([
     [LIST_SPACING_VAULT_ID, resourceLinksOpen],
   ]);
+  const dashboardView = (
+    <VaultDashboardView
+      deleteModeActive={false}
+      developerToolsVisible={false}
+      cloudflareObservations={{ state: "loading" }}
+      cloudflareWorkerConfigurationActionInFlight={null}
+      convexObservations={{ state: "loading" }}
+      isRemovingVault={false}
+      providerAttachmentRemovalInFlight={null}
+      pullRequestObservation={fixturePullRequestObservation(filteredPullRequests)}
+      retryingDeletionRunId={null}
+      retryingInfrastructureVaultId={null}
+      now={FIXTURE_NOW}
+      viewModel={{
+        vaults: [LIST_SPACING_VAULT],
+      }}
+      logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+      replaceLogoRouteSearch={() => {}}
+      openDeveloperToolsByVaultId={{}}
+      persistedVaultPullRequestFiltersByVaultId={persistedVaultPullRequestFiltersByVaultId}
+      persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+      rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+      onConfigureWorkersBuildsForGitHub={() => {}}
+      onRotateConvexDeployKeysForWorkersBuilds={() => {}}
+      onOpenDeveloperToolsChange={() => {}}
+      onRemoveMissingCloudflareWorker={() => {}}
+      onRemoveMissingConvexProject={() => {}}
+      onRetryInfrastructureProvisioning={() => {}}
+      onRetryVaultDeletion={() => {}}
+      onSaveVaultPullRequestFilters={(vaultId, nextVaultPullRequestFilters) => {
+        if (vaultId === LIST_SPACING_VAULT_ID) {
+          setVaultPullRequestFilters(nextVaultPullRequestFilters);
+        }
+      }}
+      onResourceLinksOpenChange={(vaultId, nextOpen) => {
+        if (vaultId === LIST_SPACING_VAULT_ID) {
+          setResourceLinksOpen(nextOpen);
+        }
+      }}
+    />
+  );
+
+  if (mode === "vault-dashboard-sticky-header") {
+    return (
+      <div
+        data-testid="vault-dashboard-visual-fixture"
+        data-mode={mode}
+        className="h-dvh w-full bg-background text-foreground"
+      >
+        <FixtureDashboardShell mainContent={<div className="py-8">{dashboardView}</div>} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -705,60 +608,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
       className="w-full bg-background text-foreground"
     >
       <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
-        <VaultDashboardView
-          deleteModeActive={false}
-          developerToolsVisible={false}
-          cloudflareObservations={{ state: "loading" }}
-          cloudflareWorkerConfigurationActionInFlight={null}
-          convexObservations={{ state: "loading" }}
-          isRemovingVault={false}
-          providerAttachmentRemovalInFlight={null}
-          retryingDeletionRunId={null}
-          retryingInfrastructureVaultId={null}
-          now={FIXTURE_NOW}
-          viewModel={{
-            vaults: [LIST_SPACING_VAULT],
-            remoteBranchCatalogByVaultId: new Map([
-              [LIST_SPACING_VAULT_ID, LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch)],
-            ]),
-            remoteBranchPagesByVaultId: new Map([
-              [
-                LIST_SPACING_VAULT_ID,
-                {
-                  remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
-                  status: "Exhausted",
-                  loadMore: ignoreFixtureLoadMore,
-                },
-              ],
-            ]),
-            stagedBranchSummariesByVaultId: new Map(),
-          }}
-          logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          replaceLogoRouteSearch={() => {}}
-          openDeveloperToolsByVaultId={{}}
-          persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
-          persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
-          schemaGraphAccessEnabled
-          rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          onConfigureWorkersBuildsForGitHub={() => {}}
-          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
-          onOpenDeveloperToolsChange={() => {}}
-          onManualRepositoryRefresh={() => {}}
-          onRemoveMissingCloudflareWorker={() => {}}
-          onRemoveMissingConvexProject={() => {}}
-          onRetryInfrastructureProvisioning={() => {}}
-          onRetryVaultDeletion={() => {}}
-          onSaveVaultBranchFilters={(vaultId, nextVaultBranchFilters) => {
-            if (vaultId === LIST_SPACING_VAULT_ID) {
-              setVaultBranchFilters(nextVaultBranchFilters);
-            }
-          }}
-          onResourceLinksOpenChange={(vaultId, nextOpen) => {
-            if (vaultId === LIST_SPACING_VAULT_ID) {
-              setResourceLinksOpen(nextOpen);
-            }
-          }}
-        />
+        {dashboardView}
       </TestRouterProvider>
     </div>
   );
@@ -824,33 +674,29 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
           providerAttachmentRemovalInFlight={null}
+          pullRequestObservation={fixturePullRequestObservation([])}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT],
-            remoteBranchCatalogByVaultId: new Map(),
-            remoteBranchPagesByVaultId: new Map(),
-            stagedBranchSummariesByVaultId: new Map(),
           }}
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
-          persistedVaultBranchFiltersByVaultId={new Map()}
+          persistedVaultPullRequestFiltersByVaultId={new Map()}
           persistedVaultResourceLinksOpenByVaultId={
             new Map([[CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID, true]])
           }
-          schemaGraphAccessEnabled={false}
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onConfigureWorkersBuildsForGitHub={() => {}}
           onRotateConvexDeployKeysForWorkersBuilds={() => {}}
           onOpenDeveloperToolsChange={() => {}}
-          onManualRepositoryRefresh={() => {}}
           onRemoveMissingCloudflareWorker={() => {}}
           onRemoveMissingConvexProject={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
-          onSaveVaultBranchFilters={() => {}}
+          onSaveVaultPullRequestFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
         />
       </TestRouterProvider>
@@ -885,45 +731,27 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             convexObservations={{ state: "loading" }}
             isRemovingVault={false}
             providerAttachmentRemovalInFlight={null}
+            pullRequestObservation={fixturePullRequestObservation(LIST_SPACING_PULL_REQUESTS)}
             retryingDeletionRunId={null}
             retryingInfrastructureVaultId={null}
             now={FIXTURE_NOW}
             viewModel={{
               vaults: selectedVaults,
-              remoteBranchCatalogByVaultId: new Map([
-                [
-                  SIDEBAR_LIST_SELECTED_VAULT_ID,
-                  LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
-                ],
-              ]),
-              remoteBranchPagesByVaultId: new Map([
-                [
-                  SIDEBAR_LIST_SELECTED_VAULT_ID,
-                  {
-                    remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
-                    status: "Exhausted",
-                    loadMore: ignoreFixtureLoadMore,
-                  },
-                ],
-              ]),
-              stagedBranchSummariesByVaultId: new Map(),
             }}
             logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
             replaceLogoRouteSearch={() => {}}
             openDeveloperToolsByVaultId={{}}
-            persistedVaultBranchFiltersByVaultId={new Map()}
+            persistedVaultPullRequestFiltersByVaultId={new Map()}
             persistedVaultResourceLinksOpenByVaultId={new Map()}
-            schemaGraphAccessEnabled
             rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
             onConfigureWorkersBuildsForGitHub={() => {}}
             onRotateConvexDeployKeysForWorkersBuilds={() => {}}
             onOpenDeveloperToolsChange={() => {}}
-            onManualRepositoryRefresh={() => {}}
             onRemoveMissingCloudflareWorker={() => {}}
             onRemoveMissingConvexProject={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
-            onSaveVaultBranchFilters={() => {}}
+            onSaveVaultPullRequestFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
           />
         }
@@ -963,13 +791,13 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
-              branchSection={
+              primarySection={
                 <div className="space-y-1.5">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-                    Branches
+                    Pull requests
                   </p>
                   <div className="-mx-4 border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                    main
+                    None open
                   </div>
                 </div>
               }
@@ -1860,144 +1688,6 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
   );
 }
 
-function VaultDashboardStickyHeaderFixture() {
-  const [resourceLinksOpen, setResourceLinksOpen] = useState(false);
-  const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map((branchRow) => branchRow.branch);
-  const stickyHeaderFilters = {
-    hiddenLabels: ["hidden"],
-    includeDrafts: false,
-    includeNoLabel: true,
-  } satisfies VaultBranchFilters;
-  const branchSectionState = buildVaultBranchSectionState({
-    filters: stickyHeaderFilters,
-    remoteBranches: stickyHeaderBranches,
-  });
-
-  return (
-    <FixtureDashboardShell
-      rightContent={
-        <VaultDashboardSidebarContent>
-          <div className="mt-auto">
-            <AppSidebarMetaSection linkAlignment="left" />
-          </div>
-        </VaultDashboardSidebarContent>
-      }
-      mainContent={
-        <div className="py-8">
-          <VaultDashboardRepositoryList>
-            <VaultDashboardRepositoryCard
-              isReady={true}
-              repositoryName="samebase"
-              repositoryLinks={<FixtureRepositoryLinks />}
-              repositoryLinksOpen={resourceLinksOpen}
-              onRepositoryLinksOpenChange={setResourceLinksOpen}
-              topRightAction={<FixtureDeleteControl />}
-              repositoryStatus={<span data-testid="sticky-header-status">Updated 12s ago</span>}
-              headerControls={
-                <VaultBranchHeaderControls
-                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                  filterOptions={branchSectionState.filterOptions}
-                  filters={stickyHeaderFilters}
-                  hiddenBranchCount={branchSectionState.hiddenBranchCount}
-                  onChangeFilters={() => {}}
-                  remoteBranchCount={stickyHeaderBranches.length}
-                />
-              }
-              branchSection={
-                <VaultBranchSection
-                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                  loadMore={ignoreFixtureLoadMore}
-                  paginationStatus="Exhausted"
-                  repositoryFullName="samebase/samebase"
-                  remoteBranches={branchSectionState.filteredRemoteBranches}
-                  schemaGraphAccessEnabled={false}
-                  stagedSummaries={[]}
-                  vaultId={fakeVaultId()}
-                />
-              }
-            />
-          </VaultDashboardRepositoryList>
-        </div>
-      }
-    />
-  );
-}
-
-function VaultDashboardLargeBranchListFixture() {
-  const [loadedBranchCount, setLoadedBranchCount] = useState(LARGE_BRANCH_INITIAL_PAGE_SIZE);
-  const [loadMoreCallCount, setLoadMoreCallCount] = useState(0);
-  const loadMoreLargeBranches = useCallback((numItems: number) => {
-    setLoadMoreCallCount((currentCount) => currentCount + 1);
-    setLoadedBranchCount((currentCount) => Math.min(currentCount + numItems, LARGE_BRANCH_COUNT));
-  }, []);
-  const largeBranchFilters = getDefaultVaultBranchFilters();
-  const branchSectionState = buildVaultBranchSectionState({
-    filters: largeBranchFilters,
-    remoteBranches: LARGE_BRANCHES,
-  });
-  const loadedLargeBranches = LARGE_BRANCHES.slice(0, loadedBranchCount);
-  const filteredLoadedLargeBranches = filterVaultRemoteBranches(
-    loadedLargeBranches,
-    largeBranchFilters,
-  );
-  const paginationStatus = loadedBranchCount < LARGE_BRANCH_COUNT ? "CanLoadMore" : "Exhausted";
-
-  return (
-    <FixtureDashboardShell
-      rightContent={
-        <VaultDashboardSidebarContent>
-          <div className="mt-auto">
-            <AppSidebarMetaSection linkAlignment="left" />
-          </div>
-        </VaultDashboardSidebarContent>
-      }
-      mainContent={
-        <div className="py-8">
-          <div
-            data-testid="large-branch-pagination-fixture"
-            data-loaded-branch-count={loadedBranchCount}
-            data-load-more-call-count={loadMoreCallCount}
-            data-total-branch-count={LARGE_BRANCH_COUNT}
-          >
-            <VaultDashboardRepositoryList>
-              <VaultDashboardRepositoryCard
-                isReady={true}
-                repositoryName="samebase"
-                repositoryLinks={<FixtureRepositoryLinks />}
-                repositoryLinksOpen={false}
-                onRepositoryLinksOpenChange={() => {}}
-                topRightAction={<FixtureDeleteControl />}
-                headerControls={
-                  <VaultBranchHeaderControls
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                    filterOptions={branchSectionState.filterOptions}
-                    filters={largeBranchFilters}
-                    hiddenBranchCount={branchSectionState.hiddenBranchCount}
-                    onChangeFilters={() => {}}
-                    remoteBranchCount={LARGE_BRANCHES.length}
-                  />
-                }
-                branchSection={
-                  <VaultBranchSection
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                    loadMore={loadMoreLargeBranches}
-                    paginationStatus={paginationStatus}
-                    repositoryFullName="samebase/samebase"
-                    remoteBranches={filteredLoadedLargeBranches}
-                    schemaGraphAccessEnabled={false}
-                    stagedSummaries={[]}
-                    vaultId={fakeVaultId()}
-                  />
-                }
-              />
-            </VaultDashboardRepositoryList>
-          </div>
-        </div>
-      }
-    />
-  );
-}
-
 function FixtureDashboardShell({
   leftContent,
   mainContent,
@@ -2084,14 +1774,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultDashboardProvisioningLogFixture />;
   }
 
-  if (mode === "vault-last-updated-status") {
-    return (
-      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
-        <FixtureVaultLastUpdatedStatusCard />
-      </div>
-    );
-  }
-
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
   }
@@ -2112,210 +1794,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultConvexSchemaRouteMobileFixture />;
   }
 
-  if (mode === "vault-dashboard-sticky-header") {
-    return <VaultDashboardStickyHeaderFixture />;
-  }
-
-  if (mode === "vault-dashboard-large-branch-list") {
-    return <VaultDashboardLargeBranchListFixture />;
-  }
-
-  if (mode === "vault-branch-mobile-alignment") {
-    return (
-      <div
-        data-testid="vault-dashboard-visual-fixture"
-        data-mode={mode}
-        className="flex w-full justify-center bg-stone-100 p-4 text-foreground"
-      >
-        <div className="mx-auto w-full max-w-[390px] corner-notch-1 border border-border bg-background">
-          <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
-            <VaultDashboardRepositoryCard
-              isReady={true}
-              repositoryName="samebase"
-              repositoryLinksOpen={false}
-              onRepositoryLinksOpenChange={() => {}}
-              topRightAction={<FixtureDeleteControl />}
-              repositoryStatus={<span>Updated 12s ago</span>}
-              branchSection={
-                <div className="space-y-1.5">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-                    Branches
-                  </p>
-                  <div className="-mx-4 overflow-hidden border bg-muted">
-                    <VaultBranchLinkRow
-                      vaultId={fakeVaultId()}
-                      repositoryFullName="samebase/samebase"
-                      branch={fixtureVaultBranch({
-                        name: "main",
-                        headCommitSha: "1234567890abcdef1234567890abcdef12345678",
-                        isDefault: true,
-                        aheadBy: 0,
-                        behindBy: 0,
-                      })}
-                      productionApps={[
-                        {
-                          appId: fakeVaultAppId("production-root"),
-                          rootDirectory: "/",
-                          links: [
-                            {
-                              href: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
-                              label: "Production: calm-swan-123",
-                              provider: "convex",
-                              title: "Open production Convex deployment calm-swan-123",
-                            },
-                          ],
-                        },
-                      ]}
-                    />
-                    <VaultBranchLinkRow
-                      vaultId={fakeVaultId()}
-                      repositoryFullName="samebase/samebase"
-                      branch={fixtureVaultBranch({
-                        name: "codex/mobile-branch-card-spacing",
-                        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-                        isDefault: false,
-                        aheadBy: 2,
-                        behindBy: 0,
-                        pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
-                        pullRequestNumber: 321,
-                        pullRequestTitle: "Align mobile branch rows with vault cards",
-                      })}
-                    />
-                  </div>
-                </div>
-              }
-            />
-          </TestRouterProvider>
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === "vault-branch-filters") {
-    return (
-      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
-        <div
-          data-testid="vault-dashboard-visual-fixture"
-          data-mode={mode}
-          className="mx-auto w-full max-w-[720px]"
-        >
-          <div className="corner-notch-1 border border-border bg-background p-4">
-            <div className="space-y-3">
-              <div>
-                <div className="text-lg font-semibold">
-                  <span className="font-normal text-muted-foreground">samebase/</span>
-                  <span>samebase</span>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">Updated 12s ago</div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-                    Branches
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground/80">1 of 4</span>
-                    <VaultBranchFiltersControl
-                      value={{
-                        hiddenLabels: ["research"],
-                        includeDrafts: false,
-                        includeNoLabel: false,
-                      }}
-                      options={[
-                        {
-                          key: "customer",
-                          name: "customer",
-                          color: "#1a7f37",
-                          count: 1,
-                          included: true,
-                          isNoLabel: false,
-                        },
-                        {
-                          key: "needs review",
-                          name: "needs review",
-                          color: "#bf8700",
-                          count: 1,
-                          included: true,
-                          isNoLabel: false,
-                        },
-                        {
-                          key: "research",
-                          name: "research",
-                          color: "#0969da",
-                          count: 1,
-                          included: false,
-                          isNoLabel: false,
-                        },
-                        {
-                          key: "\u0000no-label",
-                          name: "No label",
-                          count: 1,
-                          included: false,
-                          isNoLabel: true,
-                        },
-                      ]}
-                      onChange={() => {}}
-                    />
-                  </div>
-                </div>
-                <div className="-mx-4 overflow-hidden border bg-muted">
-                  <TestRouterProvider>
-                    <VaultBranchLinkRow
-                      vaultId={fakeVaultId()}
-                      repositoryFullName="samebase/samebase"
-                      branch={fixtureVaultBranch({
-                        name: "codex/branch-filters",
-                        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-                        isDefault: false,
-                        aheadBy: 1,
-                        behindBy: 0,
-                        pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
-                        pullRequestNumber: 321,
-                        pullRequestTitle: "Ship saved branch filters per vault",
-                        pullRequestLabels: [
-                          { name: "needs review", color: "bf8700" },
-                          { name: "customer", color: "1a7f37" },
-                        ],
-                      })}
-                    />
-                  </TestRouterProvider>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      data-testid="vault-dashboard-visual-fixture"
-      data-mode={mode}
-      className="inline-flex bg-background p-3 text-foreground"
-    >
-      <div className="w-[560px] corner-notch-1 border border-border bg-background">
-        <TestRouterProvider>
-          <VaultBranchLinkRow
-            vaultId={fakeVaultId()}
-            repositoryFullName="octo/repo"
-            branch={fixtureVaultBranch({
-              name: "feature/pr-labels",
-              headCommitSha: "1234567890abcdef1234567890abcdef12345678",
-              isDefault: false,
-              aheadBy: 3,
-              behindBy: 1,
-              pullRequestUrl: "https://github.com/octo/repo/pull/42",
-              pullRequestNumber: 42,
-              pullRequestLabels: [
-                { name: "needs review", color: "fbca04" },
-                { name: "bug", color: "d73a4a" },
-              ],
-            })}
-          />
-        </TestRouterProvider>
-      </div>
-    </div>
-  );
+  mode satisfies "vault-dashboard-sticky-header" | "vault-pull-request-filters";
+  return <VaultDashboardListSpacingFixture mode={mode} />;
 }

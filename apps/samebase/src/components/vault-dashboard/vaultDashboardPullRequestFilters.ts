@@ -1,21 +1,20 @@
 import { normalizePullRequestLabels, type PullRequestLabelInput } from "@/lib/pullRequestLabels";
 
-export type VaultBranchFilters = {
+export type VaultPullRequestFilters = {
   hiddenLabels: string[];
   includeDrafts: boolean;
   includeNoLabel: boolean;
 };
 
-export type VaultBranchFilterable = {
-  pullRequestLabels?: PullRequestLabelInput[];
-  pullRequestIsDraft?: boolean;
+export type VaultPullRequestFilterable = {
+  labels?: PullRequestLabelInput[];
+  isDraft?: boolean;
 };
 
-export type VaultBranchFilterOption = {
+export type VaultPullRequestFilterOption = {
   key: string;
   name: string;
   color?: string;
-  count: number;
   included: boolean;
   isNoLabel: boolean;
 };
@@ -32,7 +31,7 @@ function compareLabelNames(a: string, b: string): number {
 const NO_LABEL_FILTER_KEY = "\u0000no-label";
 const NO_LABEL_FILTER_NAME = "No label";
 
-export function getDefaultVaultBranchFilters(): VaultBranchFilters {
+export function getDefaultVaultPullRequestFilters(): VaultPullRequestFilters {
   return {
     hiddenLabels: [],
     includeDrafts: false,
@@ -40,11 +39,11 @@ export function getDefaultVaultBranchFilters(): VaultBranchFilters {
   };
 }
 
-export function normalizeVaultBranchFilters(
-  filters: Partial<VaultBranchFilters> | null | undefined,
-): VaultBranchFilters {
+export function normalizeVaultPullRequestFilters(
+  filters: Partial<VaultPullRequestFilters> | null | undefined,
+): VaultPullRequestFilters {
   if (!filters) {
-    return getDefaultVaultBranchFilters();
+    return getDefaultVaultPullRequestFilters();
   }
 
   const hiddenLabelsByKey = new Map<string, string>();
@@ -69,12 +68,12 @@ export function normalizeVaultBranchFilters(
   };
 }
 
-export function setVaultBranchFilterLabelIncluded(args: {
+export function setVaultPullRequestFilterLabelIncluded(args: {
   hiddenLabels: string[];
   labelName: string;
   included: boolean;
 }): string[] {
-  const normalizedHiddenLabels = normalizeVaultBranchFilters({
+  const normalizedHiddenLabels = normalizeVaultPullRequestFilters({
     hiddenLabels: args.hiddenLabels,
     includeDrafts: false,
     includeNoLabel: true,
@@ -97,39 +96,39 @@ export function setVaultBranchFilterLabelIncluded(args: {
   return Array.from(nextHiddenLabelsByKey.values()).sort((a, b) => compareLabelNames(a, b));
 }
 
-export function filterVaultRemoteBranches<T extends VaultBranchFilterable>(
-  branches: readonly T[],
-  filters: Partial<VaultBranchFilters> | null | undefined,
+export function filterVaultPullRequests<T extends VaultPullRequestFilterable>(
+  pullRequests: readonly T[],
+  filters: Partial<VaultPullRequestFilters> | null | undefined,
 ): T[] {
-  const normalizedFilters = normalizeVaultBranchFilters(filters);
+  const normalizedFilters = normalizeVaultPullRequestFilters(filters);
   const hiddenLabelKeys = new Set(normalizedFilters.hiddenLabels.map(normalizeLabelKey));
 
-  return branches.filter((branch) => {
-    if (!normalizedFilters.includeDrafts && branch.pullRequestIsDraft === true) {
+  return pullRequests.filter((pullRequest) => {
+    if (!normalizedFilters.includeDrafts && pullRequest.isDraft === true) {
       return false;
     }
 
-    const branchLabelKeys = normalizePullRequestLabels(branch.pullRequestLabels).map((label) =>
+    const pullRequestLabelKeys = normalizePullRequestLabels(pullRequest.labels).map((label) =>
       normalizeLabelKey(label.name),
     );
-    if (branchLabelKeys.length === 0) {
+    if (pullRequestLabelKeys.length === 0) {
       return normalizedFilters.includeNoLabel;
     }
 
-    return !branchLabelKeys.some((labelKey) => hiddenLabelKeys.has(labelKey));
+    return !pullRequestLabelKeys.some((labelKey) => hiddenLabelKeys.has(labelKey));
   });
 }
 
 /**
  * Merge live PR labels with persisted hidden labels so users can still remove a
- * saved label even when no current branch exposes it.
+ * saved label even when no current pull request exposes it.
  */
-export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(args: {
-  branches: readonly T[];
+export function buildVaultPullRequestFilterOptions<T extends VaultPullRequestFilterable>(args: {
+  pullRequests: readonly T[];
   hiddenLabels: string[];
   includeNoLabel: boolean;
-}): VaultBranchFilterOption[] {
-  const normalizedFilters = normalizeVaultBranchFilters({
+}): VaultPullRequestFilterOption[] {
+  const normalizedFilters = normalizeVaultPullRequestFilters({
     hiddenLabels: args.hiddenLabels,
     includeDrafts: false,
     includeNoLabel: args.includeNoLabel,
@@ -138,26 +137,18 @@ export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(a
   const hiddenLabelNamesByKey = new Map(
     hiddenLabels.map((labelName) => [normalizeLabelKey(labelName), labelName]),
   );
-  const labelOptionsByKey = new Map<string, VaultBranchFilterOption>();
-  let noLabelCount = 0;
+  const labelOptionsByKey = new Map<string, VaultPullRequestFilterOption>();
 
-  for (const branch of args.branches) {
-    const normalizedLabels = normalizePullRequestLabels(branch.pullRequestLabels);
+  for (const pullRequest of args.pullRequests) {
+    const normalizedLabels = normalizePullRequestLabels(pullRequest.labels);
     if (normalizedLabels.length === 0) {
-      noLabelCount += 1;
       continue;
     }
 
-    const seenBranchLabelKeys = new Set<string>();
     for (const label of normalizedLabels) {
       const labelKey = normalizeLabelKey(label.name);
-      if (seenBranchLabelKeys.has(labelKey)) {
-        continue;
-      }
-      seenBranchLabelKeys.add(labelKey);
       const existingOption = labelOptionsByKey.get(labelKey);
       if (existingOption) {
-        existingOption.count += 1;
         if (!existingOption.color && label.color) {
           existingOption.color = label.color;
         }
@@ -168,7 +159,6 @@ export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(a
         key: labelKey,
         name: label.name,
         color: label.color,
-        count: 1,
         included: !hiddenLabelNamesByKey.has(labelKey),
         isNoLabel: false,
       });
@@ -187,7 +177,6 @@ export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(a
     labelOptionsByKey.set(labelKey, {
       key: labelKey,
       name: labelName,
-      count: 0,
       included: false,
       isNoLabel: false,
     });
@@ -198,7 +187,6 @@ export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(a
     {
       key: NO_LABEL_FILTER_KEY,
       name: NO_LABEL_FILTER_NAME,
-      count: noLabelCount,
       included: normalizedFilters.includeNoLabel,
       isNoLabel: true,
     },

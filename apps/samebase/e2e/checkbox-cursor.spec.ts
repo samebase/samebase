@@ -7,7 +7,7 @@ test("checkbox controls use interactive cursor affordances", async ({ page }) =>
 
   await expect(page.locator('label[for="remove-convex-provision"]')).toHaveCSS("cursor", "pointer");
 
-  await page.goto("/visual-fixture?mode=vault-branch-filters", {
+  await page.goto("/visual-fixture?mode=vault-pull-request-filters", {
     waitUntil: "networkidle",
   });
 

@@ -534,10 +534,11 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
     };
   }
 
-  // Preserve the metadata the dashboard depends on for branch ordering and PR
-  // visibility, while still dropping the noisiest repo-wide backfills that are
-  // not needed for the main branch list. Targeted branch-head check hydration
-  // stays on because the caller already narrowed it to concrete branches.
+  // Preserve the repository catalog requested by source setup or explicit
+  // backend work while dropping its noisiest repo-wide enrichments. The vault
+  // dashboard observes pull requests through the live provider action instead.
+  // Targeted branch-head check hydration stays on because the caller already
+  // narrowed it to concrete branches.
   return {
     shouldSyncMetadata: true,
     includeAheadBehind: false,

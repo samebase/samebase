@@ -51,7 +51,6 @@ import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   type FileViewPushActionsVisualMode,
 } from "@/components/fileViewPushActionsVisualModes";
-import { VaultDashboardBranchVisualFixture } from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
@@ -132,7 +131,6 @@ type VisualFixtureMode =
   | "machines-workspace"
   | "machine-connect"
   | "public-account-checking-login"
-  | "vault-dashboard-branch-pr-title"
   | "button"
   | AppBootFailureStateVisualMode
   | "corner-notch"
@@ -196,16 +194,12 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-cloudflare-build-trigger-missing",
   "vault-dashboard-provisioning-log",
   "vault-dashboard-sticky-header",
-  "vault-dashboard-large-branch-list",
   "vault-dashboard-root-picker",
   "vault-dashboard-sidebar-list",
   "vault-dashboard-list-spacing",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
-  "vault-last-updated-status",
-  "vault-branch-filters",
-  "vault-branch-pr-labels",
-  "vault-branch-mobile-alignment",
+  "vault-pull-request-filters",
 ] as const satisfies readonly VaultDashboardVisualMode[];
 
 const VAULT_RESOURCE_RAIL_VISUAL_MODES = [
@@ -263,7 +257,6 @@ const MISC_VISUAL_MODES = [
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   ...WORKSPACE_LAYOUT_V3_VISUAL_MODES,
   "machine-connect",
-  "vault-dashboard-branch-pr-title",
   "button",
   "app-boot-failure-stale",
   "app-boot-failure-generic",
@@ -398,16 +391,12 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-cloudflare-build-trigger-missing" ||
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-sticky-header" ||
-    mode === "vault-dashboard-large-branch-list" ||
     mode === "vault-dashboard-root-picker" ||
     mode === "vault-dashboard-sidebar-list" ||
     mode === "vault-dashboard-list-spacing" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||
-    mode === "vault-last-updated-status" ||
-    mode === "vault-branch-filters" ||
-    mode === "vault-branch-pr-labels" ||
-    mode === "vault-branch-mobile-alignment"
+    mode === "vault-pull-request-filters"
   ) {
     return <VaultDashboardVisualFixture mode={mode} />;
   }
@@ -446,10 +435,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "fileview-prosemark-flex-height") {
     return <FileViewProsemarkHeightVisualFixture mode={mode} />;
-  }
-
-  if (mode === "vault-dashboard-branch-pr-title") {
-    return <VaultDashboardBranchVisualFixture />;
   }
 
   if (mode === "codex-thread-history") {

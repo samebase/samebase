@@ -83,11 +83,6 @@ apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg
 apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-vox.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-desktop.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-mobile.png
-apps/samebase/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-mobile.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-popover.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-app-root-dialog.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-first-app-root-dialog.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-connect-cloudflare-dialog.png
@@ -101,7 +96,8 @@ apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-spacing.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-provisioning-log.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-sticky-header.png
-apps/samebase/e2e/vault-last-updated-status.spec.ts-snapshots/vault-last-updated-status.png
+apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-pull-request-filters-mobile.png
+apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-pull-request-filters-popover.png
 apps/samebase/e2e/vault-resource-rail-visual.spec.ts-snapshots/vault-resource-rail.png
 apps/samebase/e2e/vault-sync-status-visual.spec.ts-snapshots/vault-sync-status-states.png
 apps/samebase/e2e/workspace-layout-v2-status-bar.spec.ts-snapshots/workspace-layout-v2-status-bar-mobile.png
@@ -209,7 +205,7 @@ manual-tests/README.md
 manual-tests/TEMPLATE.md
 manual-tests/TOOLS-001-onboarding-video-landing-demo.md
 manual-tests/UI-001-landing-copy-hides-markdown.md
-manual-tests/UI-002-vault-branch-list-and-navigation.md
+manual-tests/UI-002-vault-pull-request-list-and-navigation.md
 manual-tests/UI-003-slash-branch-routing.md
 manual-tests/UI-007-machines-project-conversation-env-modes.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md

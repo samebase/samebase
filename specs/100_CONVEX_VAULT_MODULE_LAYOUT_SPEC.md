@@ -100,7 +100,7 @@ apps/samebase/convex/vault/
 The old root `vault.ts` should be split while moving:
 
 - `vault/dashboard.ts` owns dashboard-facing public functions: `getUserVaults`,
-  `getUserVaultBranchFilters`, `setVaultBranchFilters`, and `getVaultInfrastructure`.
+  `getUserVaultPullRequestFilters`, `setVaultPullRequestFilters`, and `getVaultInfrastructure`.
 - `vault/actions.ts` owns public actions for connect, create, retry, delete, and repository-owner
   discovery.
 - `vault/records.ts` owns internal vault row creation, lookup, source connection, readiness, and
@@ -122,8 +122,8 @@ The accepted public and internal Convex references are named by responsibility:
 
 - `api.vault.dashboard.getUserVaults`
 - `api.vault.dashboard.getVaultInfrastructure`
-- `api.vault.dashboard.getUserVaultBranchFilters`
-- `api.vault.dashboard.setVaultBranchFilters`
+- `api.vault.dashboard.getUserVaultPullRequestFilters`
+- `api.vault.dashboard.setVaultPullRequestFilters`
 - `api.vault.records.getVaultByRepository`
 - `api.vault.actions.connectRepository`
 - `api.vault.actions.createRepository`

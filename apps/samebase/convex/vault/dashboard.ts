@@ -341,7 +341,7 @@ async function readVaultAppsForVault(
   return apps.sort(compareVaultAppSortOrder);
 }
 
-const vVaultBranchFilters = object({
+const vVaultPullRequestFilters = object({
   vaultId: id("vaults"),
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
@@ -350,21 +350,23 @@ const vVaultBranchFilters = object({
 
 // MARK: Public
 
-export const getUserVaultBranchFilters = query({
+export const getUserVaultPullRequestFilters = query({
   access: "access_dashboard",
   args: {},
-  returns: array(vVaultBranchFilters),
+  returns: array(vVaultPullRequestFilters),
   handler: async (ctx) => {
+    // This preference table predates the live PR-list cutover. Its rows are
+    // saved UI choices, never repository or pull request truth.
     return (
       await ctx.db
         .query("ui_vaultBranches_filters")
         .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
-    ).map((vaultBranchFilter) => ({
-      vaultId: vaultBranchFilter.vaultId,
-      hiddenLabels: vaultBranchFilter.hiddenLabels,
-      includeDrafts: vaultBranchFilter.includeDrafts,
-      includeNoLabel: vaultBranchFilter.includeNoLabel !== false,
+    ).map((vaultPullRequestFilter) => ({
+      vaultId: vaultPullRequestFilter.vaultId,
+      hiddenLabels: vaultPullRequestFilter.hiddenLabels,
+      includeDrafts: vaultPullRequestFilter.includeDrafts,
+      includeNoLabel: vaultPullRequestFilter.includeNoLabel !== false,
     }));
   },
 });
@@ -424,9 +426,9 @@ export const setVaultResourceLinksOpen = mutation({
   },
 });
 
-export const setVaultBranchFilters = mutation({
+export const setVaultPullRequestFilters = mutation({
   access: "access_dashboard",
-  args: vVaultBranchFilters,
+  args: vVaultPullRequestFilters,
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
