@@ -6,13 +6,11 @@ import { vaultProvisioningTables } from "./appProvisioningModel";
 import { chatTables } from "./chat/model";
 import { aiProductionReadTables } from "./chat/prodAccessModel";
 import { codespacesTables } from "./codespaces/model";
-import { githubCommitCheckTables } from "./commitCheckModel";
 import { connectedMachineTables } from "./connectedMachineModel";
 import { vaultEditorTables } from "./editorModel";
 import { identityTables } from "./identityModel";
 import { mcpTables } from "./mcp/model";
 import { providerConnectionTables } from "./providerConnectionModel";
-import { vaultRepositoryRefreshTables } from "./repositoryRefreshModel";
 import { userPreferenceTables } from "./userPreferenceModel";
 import { vaultBranchTables } from "./vault/branchModel";
 import { vaultConvexSchemaGraphTables } from "./vault/convexSchemaGraphModel";
@@ -30,9 +28,7 @@ export default defineSchema({
   ...vaultDashboardTables,
   ...vaultTables,
   ...vaultBranchTables,
-  ...githubCommitCheckTables,
   ...vaultConvexSchemaGraphTables,
-  ...vaultRepositoryRefreshTables,
   ...vaultProvisioningTables,
   ...vaultDeletionTables,
   ...codespacesTables,

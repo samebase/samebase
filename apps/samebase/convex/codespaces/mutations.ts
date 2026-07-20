@@ -3,7 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
 import { vCodespaceState } from "./model";
 import { query } from "../functions";
-import { assertConnectedVault, isLiveConnectedVault } from "../vault/state";
+import { assertConnectedVault, isConnectedVault, isLiveConnectedVault } from "../vault/state";
 import { CODESPACES_ENABLED } from "../../shared/featureFlags";
 
 const connectedCodespaceStates = [
@@ -173,7 +173,7 @@ export const clearActiveCodespace = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
+    if (!isConnectedVault(vault)) {
       return null;
     }
 
@@ -266,7 +266,7 @@ export const getActiveCodespace = query({
     const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
 
-    if (!vault?.activeCodespaceId || vault.userId !== userId || !isLiveConnectedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || vault.userId !== userId || !vault.activeCodespaceId) {
       return null;
     }
 
@@ -334,7 +334,7 @@ export const getConnectedCodespacesCount = query({
 
     const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    if (!isLiveConnectedVault(vault) || vault.userId !== userId) {
       return 0;
     }
 

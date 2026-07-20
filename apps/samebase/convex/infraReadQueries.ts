@@ -6,7 +6,6 @@ export const vAllowedInfraReadTable = v.union(
   v.literal("vaults"),
   v.literal("vaultConvexProjects"),
   v.literal("vaultCloudflareWorkers"),
-  v.literal("vaultDomains"),
   v.literal("codespaces"),
   v.literal("vaultStagedFiles"),
   v.literal("aiProductionReadRequests"),
@@ -50,17 +49,6 @@ export const readTableSample = internalQuery({
           .take(limit);
       }
       return await ctx.db.query("vaultCloudflareWorkers").take(limit);
-    }
-
-    if (args.table === "vaultDomains") {
-      const vaultId = args.vaultId;
-      if (vaultId) {
-        return await ctx.db
-          .query("vaultDomains")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .take(limit);
-      }
-      return await ctx.db.query("vaultDomains").take(limit);
     }
 
     if (args.table === "codespaces") {

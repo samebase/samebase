@@ -1005,10 +1005,10 @@ describe("vault dashboard Convex contract", () => {
           repositoryFullName: `ada/provider-${testCase.label}`,
           trigger: "retry",
           state: testCase.runState,
-          currentStep: "record_domains",
+          currentStep: "configure_workers_builds_for_github",
           createdAt: 10,
           updatedAt: 45,
-          ...(testCase.runState === "failed" ? { lastError: "Domain recording failed." } : {}),
+          ...(testCase.runState === "failed" ? { lastError: "Worker setup failed." } : {}),
           ...(testCase.runState === "succeeded" ? { completedAt: 45 } : {}),
         });
 
@@ -1421,17 +1421,19 @@ describe("vault dashboard Convex contract", () => {
       const storageId = await ctx.storage.store(new Blob(["cached"], { type: "text/plain" }));
       const stagedStorageId = await ctx.storage.store(new Blob(["staged"], { type: "text/plain" }));
 
-      await ctx.db.insert("ui_vaultBranches_filters", {
+      await ctx.db.insert("ui_vaultPullRequests_filters", {
         userId,
         vaultId,
         hiddenLabels: [],
         includeDrafts: false,
+        includeNoLabel: true,
       });
-      await ctx.db.insert("ui_vaultBranches_filters", {
+      await ctx.db.insert("ui_vaultPullRequests_filters", {
         userId: collaboratorId,
         vaultId,
         hiddenLabels: ["wip"],
         includeDrafts: true,
+        includeNoLabel: false,
       });
       await ctx.db.insert("ui_vaultResourceLinks_settings", {
         userId,
@@ -1497,18 +1499,6 @@ describe("vault dashboard Convex contract", () => {
         folderPath: "/",
         isExpanded: true,
       });
-      await ctx.db.insert("observations_vaultRepository_branches", {
-        vaultId,
-        name: "main",
-        headCommitSha: "commit",
-        isDefault: true,
-        isProtected: false,
-        remoteState: "active",
-        defaultRank: 0,
-        stateRank: 0,
-        commitRank: Number.MAX_SAFE_INTEGER,
-        lastSyncedAt: 6,
-      });
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
@@ -1519,15 +1509,6 @@ describe("vault dashboard Convex contract", () => {
           tree: [],
         },
         lastTreeRefreshAt: 7,
-      });
-      await ctx.db.insert("vaultDomains", {
-        vaultId,
-        branch: "main",
-        kind: "main",
-        url: "https://delete-me.example.workers.dev",
-        source: "cloudflare_workers_default",
-        active: true,
-        lastSyncedAt: 8,
       });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
@@ -1577,15 +1558,6 @@ describe("vault dashboard Convex contract", () => {
         type: "tool_activity",
         payloadJson: "{}",
         createdAt: 12,
-      });
-      await ctx.db.insert("vaultRepositoryRefreshRequests", {
-        userId,
-        vaultId,
-        dedupeKey: `${vaultId}:main`,
-        demand: { scope: "branch", branch: "main", source: "file_view" },
-        lifecycle: { state: "canceled", canceledAt: 12, reason: "vault_deleting" },
-        createdAt: 12,
-        updatedAt: 12,
       });
       const requestId = await ctx.db.insert("aiProductionReadRequests", {
         threadId: "thread-1",
@@ -1655,22 +1627,19 @@ describe("vault dashboard Convex contract", () => {
     ).rejects.toThrow("Agent thread context not found.");
     expect(tables).toEqual(
       expect.arrayContaining([
-        "ui_vaultBranches_filters",
+        "ui_vaultPullRequests_filters",
         "ui_vaultResourceLinks_settings",
         "vaultStagedFiles",
         "vaultStagedFileUpdates",
         "observations_vaultFiles_blobs",
         "ui_vaultFileTree_folderExpansions",
-        "observations_vaultRepository_branches",
         "observations_vaultRepository_branchTrees",
-        "vaultDomains",
         "vaultConvexProjects",
         "workflow_vaultProvisioning_writeLocks",
         "codespaces",
         "ui_agentGraphNode_layouts",
         "aiProductionReadRequests",
         "chatThreadContexts",
-        "vaultRepositoryRefreshRequests",
         "workflow_vaultProvisioning_events",
         "workflow_vaultProvisioning_runs",
       ]),
@@ -1687,8 +1656,8 @@ describe("vault dashboard Convex contract", () => {
         stagedStorage,
         storage,
         vault: await ctx.db.get(ids.vaultId),
-        branchFilters: await ctx.db
-          .query("ui_vaultBranches_filters")
+        pullRequestFilters: await ctx.db
+          .query("ui_vaultPullRequests_filters")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
         resourceLinksState: await ctx.db
@@ -1703,10 +1672,6 @@ describe("vault dashboard Convex contract", () => {
           .query("aiProductionReadRequests")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
-        refreshRequests: await ctx.db
-          .query("vaultRepositoryRefreshRequests")
-          .withIndex("by_vaultId_and_updatedAt", (q) => q.eq("vaultId", ids.vaultId))
-          .collect(),
         threadMetadata: await ctx.db
           .query("chatMessagePayloads")
           .withIndex("by_threadId", (q) => q.eq("threadId", "thread-1"))
@@ -1715,11 +1680,10 @@ describe("vault dashboard Convex contract", () => {
     });
 
     expect(snapshot.vault).toBeNull();
-    expect(snapshot.branchFilters).toHaveLength(0);
+    expect(snapshot.pullRequestFilters).toHaveLength(0);
     expect(snapshot.resourceLinksState).toHaveLength(0);
     expect(snapshot.branchTrees).toHaveLength(0);
     expect(snapshot.prodRequestsForVault).toHaveLength(0);
-    expect(snapshot.refreshRequests).toHaveLength(0);
     expect(snapshot.threadMetadata).toHaveLength(0);
     expect(snapshot.storage).toBeNull();
     expect(snapshot.stagedStorage).toBeNull();

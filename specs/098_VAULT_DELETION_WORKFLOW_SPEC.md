@@ -582,11 +582,10 @@ The deletion Workflow runs:
 5. `delete_github_repo`: delete the recorded Samebase-managed GitHub repository when requested
 6. `cleanup_editor_state`: delete `vaultStagedFiles`, `vaultStagedFileUpdates`,
    `observations_vaultFiles_blobs`, and backing storage in bounded batches
-7. `cleanup_source_caches`: delete branch filters, folder expansion state,
-   `observations_vaultRepository_branches`, and `observations_vaultRepository_branchTrees` in
-   bounded batches
-8. `cleanup_runtime_state`: delete vault domains, infrastructure, provisioning write locks,
-   Codespaces records, and graph layout in bounded batches
+7. `cleanup_source_caches`: delete pull request filters, resource-link settings, folder expansion
+   state, and `observations_vaultRepository_branchTrees` in bounded batches
+8. `cleanup_runtime_state`: delete app and provider attachments, Convex schema state, provisioning
+   plans and write locks, Codespaces records, and graph layout in bounded batches
 9. `cleanup_access_state`: expire and detach vault-scoped prod-access requests while preserving
    audit rows
 10. `detach_agent_context`: detach agent thread context from the vault
@@ -669,27 +668,24 @@ user's rows.
 
 Delete rows:
 
-1. `ui_vaultBranches_filters` via `by_vault`
+1. `ui_vaultPullRequests_filters` via `by_vault`
 2. `ui_vaultResourceLinks_settings` via `by_vault`
 3. `vaultStagedFiles` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
    references and delete staged-only storage objects before rows
 4. `vaultStagedFileUpdates` via `by_vault`
 5. `observations_vaultFiles_blobs` via `by_vault`, deleting storage objects before rows
 6. `ui_vaultFileTree_folderExpansions` via `by_vault`
-7. `observations_vaultRepository_branches` via `by_vault`
-8. `observations_vaultRepository_branchTrees` via `by_vault_and_branch` with the `vaultId` prefix
-9. `vaultDomains` via `by_vault`
-10. `vaultConvexProjects` via `by_vault`
-11. `observations_vaultConvexSchema_snapshots` via `by_vault`
-12. `ui_vaultConvexSchemaGraph_nodeLayouts` via `by_vault`
-13. `vaultCloudflareWorkers` via `by_vault`
-14. `workflow_vaultProvisioning_plans` via `by_vault`
-15. `workflow_vaultProvisioning_writeLocks` via `by_vault`
-16. `codespaces` via `by_vault`
-17. `ui_agentGraphNode_layouts` via `by_vault`
-18. `vaultRepositoryRefreshRequests` via `by_vaultId_and_updatedAt`
-19. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
-20. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
+7. `observations_vaultRepository_branchTrees` via `by_vault_and_branch` with the `vaultId` prefix
+8. `vaultConvexProjects` via `by_vault`
+9. `observations_vaultConvexSchema_snapshots` via `by_vault`
+10. `ui_vaultConvexSchemaGraph_nodeLayouts` via `by_vault`
+11. `vaultCloudflareWorkers` via `by_vault`
+12. `workflow_vaultProvisioning_plans` via `by_vault`
+13. `workflow_vaultProvisioning_writeLocks` via `by_vault`
+14. `codespaces` via `by_vault`
+15. `ui_agentGraphNode_layouts` via `by_vault`
+16. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
+17. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
 
 Patch or delete rows:
 

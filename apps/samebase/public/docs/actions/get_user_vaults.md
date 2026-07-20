@@ -40,6 +40,9 @@ JSON Schema for the tool's `structuredContent`:
           "repositoryFullName": {
             "type": "string"
           },
+          "defaultBranch": {
+            "type": "string"
+          },
           "commitSHA": {
             "type": "string"
           },
@@ -47,31 +50,6 @@ JSON Schema for the tool's `structuredContent`:
             "type": "number"
           },
           "lastEditTime": {
-            "type": "number"
-          },
-          "lastTreeRefreshAt": {
-            "type": "number"
-          },
-          "treeRefreshStartedAt": {
-            "type": "number"
-          },
-          "lastTreeRefreshFailedAt": {
-            "type": "number"
-          },
-          "treeRefreshFailureKind": {
-            "anyOf": [
-              {
-                "const": "failed"
-              },
-              {
-                "const": "rate_limited"
-              }
-            ]
-          },
-          "treeRefreshFailureMessage": {
-            "type": "string"
-          },
-          "treeRefreshCooldownUntil": {
             "type": "number"
           },
           "state": {
@@ -163,9 +141,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "rotate_convex_deploy_keys_for_workers_builds"
                       },
                       {
-                        "const": "record_domains"
-                      },
-                      {
                         "const": "finish"
                       }
                     ]
@@ -229,9 +204,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "record_domains"
                       },
                       {
                         "const": "finish"
@@ -336,9 +308,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "rotate_convex_deploy_keys_for_workers_builds"
                       },
                       {
-                        "const": "record_domains"
-                      },
-                      {
                         "const": "finish"
                       }
                     ]
@@ -412,9 +381,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "record_domains"
                       },
                       {
                         "const": "finish"

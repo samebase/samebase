@@ -2240,21 +2240,6 @@ export const createDraftPullRequest = action({
       baseBranch: defaultBranch,
     });
     if (existingPullRequest) {
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn("Failed to refresh remote branch metadata after opening existing PR:", error);
-      }
-
       return {
         ...existingPullRequest,
         existing: true,
@@ -2288,21 +2273,6 @@ export const createDraftPullRequest = action({
         draft: true,
       });
 
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn("Failed to refresh remote branch metadata after creating draft PR:", error);
-      }
-
       return {
         url: response.data.html_url,
         number: response.data.number,
@@ -2317,23 +2287,6 @@ export const createDraftPullRequest = action({
         baseBranch: defaultBranch,
       });
       if (currentPullRequest) {
-        try {
-          await ctx.runAction(internal.github.updateRepositoryTree, {
-            userId,
-            owner: vault.owner,
-            repo: vault.name,
-            target: { scope: "repository" },
-            includeAheadBehind: true,
-            includePullRequestLinks: true,
-            includeBranchHeadCommitCheckSnapshots: false,
-            branchHeadCommitCheckBranchNames: [],
-          });
-        } catch (refreshError) {
-          console.warn(
-            "Failed to refresh remote branch metadata after discovering existing PR:",
-            refreshError,
-          );
-        }
         return {
           ...currentPullRequest,
           existing: true,
@@ -2527,24 +2480,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
         branch: defaultBranch,
         stagedFiles,
       });
-
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn(
-          "Failed to refresh remote branch metadata after creating default-branch draft PR:",
-          error,
-        );
-      }
 
       return {
         branch: targetBranch,
@@ -2855,25 +2790,9 @@ export const pullFromGitHubInternal = internalAction({
         userId: args.userId,
         owner: connectedVault.owner,
         repo: connectedVault.name,
-        target: { scope: "branch", branch },
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        branchHeadCommitCheckBranchNames: [],
+        branch,
       });
     }
-
-    // Also refresh repository metadata and the vault's resolved branch.
-    await ctx.runAction(internal.github.updateRepositoryTree, {
-      userId: args.userId,
-      owner: connectedVault.owner,
-      repo: connectedVault.name,
-      target: { scope: "repository" },
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      branchHeadCommitCheckBranchNames: [],
-    });
 
     return null;
   },
@@ -2920,11 +2839,7 @@ export const batchReadFiles = action({
           userId,
           owner: connectedVault.owner,
           repo: connectedVault.name,
-          target: { scope: "branch", branch: branchToLoad },
-          includeAheadBehind: false,
-          includePullRequestLinks: false,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
+          branch: branchToLoad,
         });
         branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
           vaultId: args.vaultId,
@@ -3906,11 +3821,7 @@ export const commitAllStaged = internalAction({
             userId: args.userId,
             owner: repoOwner,
             repo: repoName,
-            target: { scope: "branch", branch: commitBranch },
-            includeAheadBehind: false,
-            includePullRequestLinks: false,
-            includeBranchHeadCommitCheckSnapshots: false,
-            branchHeadCommitCheckBranchNames: [],
+            branch: commitBranch,
           });
         },
         loadUpdatedVault: async () =>

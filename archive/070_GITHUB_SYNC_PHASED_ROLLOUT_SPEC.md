@@ -9,7 +9,7 @@
 
 ## Supersession
 
-Repository refresh queue behavior is now defined by `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`.
+Repository refresh queue behavior was defined by `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`.
 Keep this document as historical rollout context; do not use its dashboard fan-out or browser-event
 trigger contract for new implementation. Backend demand now collapses page load, Page Visibility
 resume, and window focus into the same passive source demand instead of storing browser-event

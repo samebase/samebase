@@ -6,7 +6,7 @@
 - Owner: Samebase dashboard/frontend
 - Last updated: 2026-07-04
 - Related specs:
-  - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
+  - `specs/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
   - `archive/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
 
 ## Summary

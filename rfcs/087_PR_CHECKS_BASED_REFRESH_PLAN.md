@@ -7,8 +7,8 @@
 - Created: 2026-06-23
 - Last updated: 2026-06-23
 - Related specs:
-  - `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
-  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+  - `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
+  - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 - Follow-up RFC:
   - `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
 - Related research:
@@ -238,8 +238,8 @@ instead of hand-maintaining parallel GitHub response shapes.
 
 ## Refresh Policy
 
-Keep the queue contract from `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`: callers send demand, and
-the backend chooses provider depth.
+Keep the queue contract from `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`: callers send demand,
+and the backend chooses provider depth.
 
 Recommended policy:
 
@@ -322,7 +322,7 @@ Status: implemented.
    preview fields.
 6. The deprecated schema fields have been removed from `observations_vaultRepository_branches`.
 7. Pending follow-up: archive or rewrite
-   `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
+   `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
    verified in production.
 
 ## Validation

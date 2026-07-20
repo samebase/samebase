@@ -66,18 +66,6 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       visibility: "private",
       connectedAt: 4,
     });
-    await ctx.db.insert("observations_vaultRepository_branches", {
-      vaultId,
-      name: "main",
-      headCommitSha: "abc123",
-      isDefault: true,
-      isProtected: false,
-      remoteState: "active",
-      defaultRank: 0,
-      stateRank: 0,
-      commitRank: Number.MAX_SAFE_INTEGER,
-      lastSyncedAt: 5,
-    });
     await ctx.db.insert("observations_vaultRepository_branchTrees", {
       vaultId,
       branch: "main",
@@ -207,23 +195,6 @@ describe("public Convex route ownership checks", () => {
       }),
     ).resolves.toBeNull();
     await expect(
-      asOther.query(api.vault.branches.getVaultRemoteBranches, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([]);
-    await expect(
-      asOther.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual([]);
-    await expect(
-      asOther.query(api.vault.branches.listVaultRemoteBranchesPage, {
-        vaultId: ids.vaultId,
-        paginationOpts: { cursor: null, numItems: 10 },
-      }),
-    ).resolves.toMatchObject({
-      page: [],
-      isDone: true,
-    });
-    await expect(
       asOther.query(api.vault.deletion.events.listForVault, { vaultId: ids.vaultId }),
     ).resolves.toEqual([]);
 
@@ -235,41 +206,6 @@ describe("public Convex route ownership checks", () => {
       _id: ids.vaultId,
       repositoryFullName: "owner/secure",
       resolvedBranch: "main",
-    });
-    await expect(
-      asOwner.query(api.vault.branches.getVaultRemoteBranches, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        name: "main",
-        headCommitSha: "abc123",
-        isDefault: true,
-      }),
-    ]);
-    await expect(
-      asOwner.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        name: "main",
-        isDefault: true,
-        remoteState: "active",
-      }),
-    ]);
-    await expect(
-      asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
-        vaultId: ids.vaultId,
-        paginationOpts: { cursor: null, numItems: 10 },
-      }),
-    ).resolves.toMatchObject({
-      page: [
-        expect.objectContaining({
-          name: "main",
-          headCommitSha: "abc123",
-          isDefault: true,
-        }),
-      ],
-      isDone: true,
     });
     await expect(
       asOwner.query(api.vault.deletion.events.listForVault, { vaultId: ids.vaultId }),

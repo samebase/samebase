@@ -9,7 +9,7 @@
   - `specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md`
   - `rfcs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
+  - `specs/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
 - External references:
   - [Git Tree Compare README](https://github.com/letmaik/vscode-git-tree-compare)
   - [GitHub REST: compare two commits](https://docs.github.com/en/rest/commits/commits#compare-two-commits)

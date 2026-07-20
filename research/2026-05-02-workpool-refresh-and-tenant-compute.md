@@ -37,9 +37,9 @@ proves the job contracts, idempotency keys, status model, and observability.
 
 Trigger note: this research was written while the frontend still used separate page-load and
 visibility refresh paths. The accepted queue contract in
-`specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md` now treats route load, Page Visibility resume, and
-window focus as the same passive source demand. Backend policy should not branch on those
-browser-event subtypes.
+`archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md` treats route load, Page Visibility resume, and window
+focus as the same passive source demand. Backend policy should not branch on those browser-event
+subtypes.
 
 ## Current Runtime Shape
 

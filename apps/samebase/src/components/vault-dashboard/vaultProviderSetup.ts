@@ -53,7 +53,6 @@ export function resolveVaultProviderSetupStepProvider(
     case "attach_worker":
     case "configure_workers_builds_for_github":
     case "rotate_convex_deploy_keys_for_workers_builds":
-    case "record_domains":
       return "cloudflare";
     case "run_created":
     case "initialize_vault":

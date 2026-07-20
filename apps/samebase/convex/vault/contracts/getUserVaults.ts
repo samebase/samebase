@@ -1,18 +1,10 @@
 import { v, type Infer } from "convex/values";
 
 import { vAppProvisioningRunStep } from "../../appProvisioningModel";
-import { vTreeRefreshFailureKind } from "../model";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-
-const treeRefreshFailureFields = {
-  lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
-  treeRefreshFailureMessage: optional(string()),
-  treeRefreshCooldownUntil: optional(number()),
-} as const;
 
 export const vSourceSetupSummary = union(
   object({
@@ -101,12 +93,10 @@ const vUserVaultsResult = array(
     ghRepoOwner: string(),
     ghRepoName: string(),
     repositoryFullName: string(),
+    defaultBranch: optional(string()),
     commitSHA: optional(string()),
     fileCount: number(),
     lastEditTime: optional(number()),
-    lastTreeRefreshAt: optional(number()),
-    treeRefreshStartedAt: optional(number()),
-    ...treeRefreshFailureFields,
     state: union(literal("copying_files"), literal("ready"), literal("failed")),
     sourceSetup: vSourceSetupSummary,
     providerSetup: vProviderSetupSummary,

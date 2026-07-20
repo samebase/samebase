@@ -9,7 +9,7 @@
 - Related RFCs:
   - `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
 - Related specs:
-  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+  - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 
 ## Problem
 

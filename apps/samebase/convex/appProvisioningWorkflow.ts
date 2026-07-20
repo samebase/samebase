@@ -766,14 +766,16 @@ export const connectExistingRepository = workflow.define({
       },
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
-    await step.runAction(
-      internal.appProvisioningWorkflowActions.finishExistingRepositoryConnection,
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
       {
-        vaultId: args.vaultId,
         runId: args.runId,
-        userId: args.userId,
+        step: "finish",
+        level: "info",
+        message: "Connected existing repository.",
+        state: "succeeded",
       },
-      { name: "finish", retry: false },
+      { name: "finish" },
     );
 
     return null;

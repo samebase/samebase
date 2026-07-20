@@ -2,21 +2,19 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import type { CloudflareWorkerBuild } from "../cloudflareResources";
-import type { PullRequestHeadIdentity } from "../repositoryPullRequestObservations";
 import {
   matchCloudflareWorkerBuild,
   resolveConvexPreviewDeployment,
-} from "./pullRequestResourceObservations";
+  type PullRequestResourceHead,
+} from "./pullRequestResources";
 
-const head: PullRequestHeadIdentity = {
-  baseRepositoryNodeId: "R_base",
-  pullRequestNodeId: "PR_17",
-  pullRequestNumber: 17,
-  pullRequestUrl: "https://github.com/samebase/samebase/pull/17",
-  headRepositoryNodeId: "R_base",
+const head: PullRequestResourceHead = {
+  id: "PR_17",
+  url: "https://github.com/samebase/samebase/pull/17",
+  isCrossRepository: false,
+  headRepositoryId: "R_base",
   headRefName: "feature/live-truth",
-  headCommitNodeId: "C_head",
-  headOid: "abc123",
+  headRefOid: "abc123",
 };
 
 function cloudflareBuild(
@@ -188,7 +186,7 @@ describe("resolveConvexPreviewDeployment", () => {
     expect(
       resolveConvexPreviewDeployment({
         deployments: [previewDeployment()],
-        head: { ...head, headRepositoryNodeId: "R_fork" },
+        head: { ...head, isCrossRepository: true, headRepositoryId: "R_fork" },
         build: successfulBuild,
       }),
     ).toEqual({ state: "unavailable", reason: "fork_head" });

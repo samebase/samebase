@@ -14,7 +14,6 @@ export type ProvisioningLogStep =
   | "attach_worker"
   | "configure_workers_builds_for_github"
   | "rotate_convex_deploy_keys_for_workers_builds"
-  | "record_domains"
   | "finish";
 
 export type ProvisioningLogEvent = {
@@ -53,7 +52,6 @@ const provisioningStepLabels = {
   attach_worker: "attach Worker",
   configure_workers_builds_for_github: "configure Workers Builds for GitHub",
   rotate_convex_deploy_keys_for_workers_builds: "rotate Convex deploy keys for Workers Builds",
-  record_domains: "record domains",
   finish: "finish",
 } satisfies Record<ProvisioningLogStep, string>;
 

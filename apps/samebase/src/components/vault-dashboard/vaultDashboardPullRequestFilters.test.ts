@@ -7,7 +7,7 @@ import {
   setVaultPullRequestFilterLabelIncluded,
 } from "./vaultDashboardPullRequestFilters";
 
-describe("ui_vaultBranches_filters", () => {
+describe("ui_vaultPullRequests_filters", () => {
   it("defaults to hidden drafts with all labels included", () => {
     expect(getDefaultVaultPullRequestFilters()).toEqual({
       hiddenLabels: [],

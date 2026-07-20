@@ -321,24 +321,6 @@ export const deleteAccountWorkflow = workflow.define({
       await step.sleep(waitMs, { name: `wait_for_active_work_${check}` });
     }
 
-    for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
-      const result = await step.runMutation(
-        internal.repositoryRefresh.quiesceForAccountDeletion,
-        ownedArgs,
-        { name: `quiesce_repository_refresh_${check}` },
-      );
-
-      if (result.state === "done") {
-        break;
-      }
-
-      if (check === MAX_QUIESCE_CHECKS - 1) {
-        throw new Error(SAFE_WORKFLOW_ERROR);
-      }
-
-      await step.sleep(1_000, { name: `wait_for_repository_refresh_${check}` });
-    }
-
     if (
       initialOutcomes.billing.state === "not_started" ||
       initialOutcomes.billing.state === "failed"

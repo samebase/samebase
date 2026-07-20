@@ -211,9 +211,9 @@ export const rebuildCodespaceIfStale = action({
     }
     const connectedVault = assertConnectedVault(vault);
 
-    const activeCodespace = vault.activeCodespaceId
+    const activeCodespace = connectedVault.activeCodespaceId
       ? await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
-          codespaceId: vault.activeCodespaceId,
+          codespaceId: connectedVault.activeCodespaceId,
         })
       : null;
 

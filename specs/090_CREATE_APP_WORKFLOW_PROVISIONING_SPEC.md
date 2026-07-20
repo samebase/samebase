@@ -48,7 +48,7 @@ The final wiring step writes both Convex deploy-key secrets and the readable
 `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to both Workers
 Builds triggers before it starts the first production build. The workflow succeeds only after that
 step completes. The default workers.dev URL is loaded directly from Cloudflare and is not copied
-into `vaultDomains`.
+into Convex storage.
 
 ## Historical Repository-First Runtime
 
@@ -75,7 +75,7 @@ into `vaultDomains`.
 3. creates preview Convex resources
 4. creates or reuses Cloudflare Pages resources
 5. configures provider env/build state
-6. writes `vaultInfrastructure` and `vaultDomains`
+6. wrote provider resource mirrors
 7. marks the vault `ready`, `partial`, or `failed`
 
 The dashboard previously surfaced this mostly through:

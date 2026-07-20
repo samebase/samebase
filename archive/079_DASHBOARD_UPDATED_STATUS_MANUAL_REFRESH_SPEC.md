@@ -2,11 +2,11 @@
 
 ## Document Control
 
-- Status: Superseded by `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+- Status: Superseded by `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 - Owner: Noter dashboard + GitHub sync flows
 - Last updated: 2026-05-12
 - Related specs:
-  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+  - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
   - `archive/070_GITHUB_SYNC_PHASED_ROLLOUT_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
 

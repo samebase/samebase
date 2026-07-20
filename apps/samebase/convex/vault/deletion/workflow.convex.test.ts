@@ -365,29 +365,8 @@ describe("vault deletion workflow", () => {
       vaultId: ids.vaultId,
       force: true,
     });
-    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
-      vaultId: ids.vaultId,
-      syncedAt: 10,
-      branches: [
-        {
-          name: "main",
-          headCommitSha: "abc",
-          aheadBehindState: "unavailable",
-          pullRequestState: "preserve",
-          isDefault: true,
-          isProtected: false,
-        },
-      ],
-    });
-    const remoteBranches = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("observations_vaultRepository_branches")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
-    });
 
     expect(claim).toEqual({ claimed: false });
-    expect(remoteBranches).toHaveLength(0);
   });
 
   it("returns the dashboard delete disabled reason while source setup runs", async () => {

@@ -183,9 +183,8 @@ Indexes:
 - `by_account_and_worker` (global attachment exclusivity)
 - `by_account_and_worker_tag` (global attachment exclusivity)
 
-The default workers.dev URL is read from Cloudflare and is not copied into `vaultDomains` during
-provisioning. `vaultDomains` remains available for explicit domain mappings whose lifecycle is owned
-by Samebase; it is not a cache of a Worker's current provider URL.
+The default workers.dev URL and custom routes are read from Cloudflare when needed. Samebase does
+not copy provider domain or URL state into a Convex table.
 
 ## Runtime Configuration
 

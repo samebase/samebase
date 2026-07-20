@@ -11,7 +11,7 @@ import {
 } from "./state";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
-import { hasBranchStagingChanges } from "./branches";
+import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
 import {
@@ -23,7 +23,7 @@ import {
   type VaultDeletionSummary,
 } from "./contracts/getUserVaults";
 
-const { array, boolean, id, object, optional, string } = v;
+const { array, boolean, id, object, string } = v;
 type SourceSetupVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository" | "connect_existing_repository" }
@@ -323,7 +323,7 @@ const vVaultBranchFilters = object({
   vaultId: id("vaults"),
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
-  includeNoLabel: optional(boolean()),
+  includeNoLabel: boolean(),
 });
 const vVaultRepositoryFolderSuggestions = array(string());
 
@@ -365,14 +365,14 @@ export const getUserVaultBranchFilters = query({
   handler: async (ctx) => {
     return (
       await ctx.db
-        .query("ui_vaultBranches_filters")
+        .query("ui_vaultPullRequests_filters")
         .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
-    ).map((vaultBranchFilter) => ({
-      vaultId: vaultBranchFilter.vaultId,
-      hiddenLabels: vaultBranchFilter.hiddenLabels,
-      includeDrafts: vaultBranchFilter.includeDrafts,
-      includeNoLabel: vaultBranchFilter.includeNoLabel !== false,
+    ).map((vaultPullRequestFilter) => ({
+      vaultId: vaultPullRequestFilter.vaultId,
+      hiddenLabels: vaultPullRequestFilter.hiddenLabels,
+      includeDrafts: vaultPullRequestFilter.includeDrafts,
+      includeNoLabel: vaultPullRequestFilter.includeNoLabel,
     }));
   },
 });
@@ -447,7 +447,7 @@ export const setVaultBranchFilters = mutation({
     }
 
     const existing = await ctx.db
-      .query("ui_vaultBranches_filters")
+      .query("ui_vaultPullRequests_filters")
       .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     const shouldPersist =
@@ -464,15 +464,15 @@ export const setVaultBranchFilters = mutation({
       await ctx.db.patch(existing._id, {
         hiddenLabels: args.hiddenLabels,
         includeDrafts: args.includeDrafts,
-        includeNoLabel: args.includeNoLabel !== false,
+        includeNoLabel: args.includeNoLabel,
       });
     } else {
-      await ctx.db.insert("ui_vaultBranches_filters", {
+      await ctx.db.insert("ui_vaultPullRequests_filters", {
         userId,
         vaultId: args.vaultId,
         hiddenLabels: args.hiddenLabels,
         includeDrafts: args.includeDrafts,
-        includeNoLabel: args.includeNoLabel !== false,
+        includeNoLabel: args.includeNoLabel,
       });
     }
   },
@@ -526,15 +526,10 @@ async function readUserVaults(
       ghRepoOwner: vault.owner,
       ghRepoName: vault.name,
       repositoryFullName: `${vault.owner}/${vault.name}`,
+      defaultBranch: undefined,
       commitSHA: undefined,
       fileCount: 0,
       lastEditTime: undefined,
-      lastTreeRefreshAt: vault.lastTreeRefreshAt,
-      treeRefreshStartedAt: vault.treeRefreshStartedAt,
-      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-      treeRefreshFailureKind: vault.treeRefreshFailureKind,
-      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
       state: vault.state === "failed" ? "failed" : "copying_files",
       sourceSetup: await resolveSourceSetupSummary(ctx, {
         hasUsableDefaultBranchTree: false,
@@ -589,15 +584,10 @@ async function readUserVaults(
           ghRepoOwner: vault.owner,
           ghRepoName: vault.name,
           repositoryFullName: `${vault.owner}/${vault.name}`,
+          defaultBranch: vault.defaultBranch,
           commitSHA: undefined,
           fileCount: 0,
           lastEditTime: undefined,
-          lastTreeRefreshAt: vault.lastTreeRefreshAt,
-          treeRefreshStartedAt: vault.treeRefreshStartedAt,
-          lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-          treeRefreshFailureKind: vault.treeRefreshFailureKind,
-          treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-          treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
           state: deletion.state === "delete_failed" ? "failed" : "copying_files",
           sourceSetup: { status: "not_applicable" },
           providerSetup: { status: "not_applicable" },
@@ -626,7 +616,7 @@ async function readUserVaults(
           .first(),
       ]);
 
-      const fileCount = stagingData.filter(hasBranchStagingChanges).length;
+      const fileCount = stagingData.filter(hasStagedFileChanges).length;
 
       const lastEditTime =
         stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
@@ -646,15 +636,10 @@ async function readUserVaults(
         ghRepoOwner: vault.owner,
         ghRepoName: vault.name,
         repositoryFullName,
+        defaultBranch: vault.defaultBranch,
         commitSHA: defaultBranchTree?.commitSHA,
         fileCount,
         lastEditTime,
-        lastTreeRefreshAt: vault.lastTreeRefreshAt,
-        treeRefreshStartedAt: vault.treeRefreshStartedAt,
-        lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-        treeRefreshFailureKind: vault.treeRefreshFailureKind,
-        treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-        treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
         sourceSetup,
         providerSetup,

@@ -7,15 +7,15 @@ import {
   PullRequestStateLogo,
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import { formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabelColor,
 } from "@/lib/pullRequestLabels";
 import type {
   PullRequestResourceState,
-  VaultPullRequestObservation,
-} from "@/hooks/useVaultPullRequestObservations";
+  VaultPullRequest,
+  VaultPullRequestsState,
+} from "@/hooks/useVaultPullRequests";
 import { useRouter } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import {
@@ -27,19 +27,14 @@ import {
   GitBranch,
   Loader2,
 } from "lucide-react";
-import type {
-  RepositoryPullRequestPage,
-  RepositoryPullRequestProblem,
-} from "../../../convex/repositoryPullRequests";
-import type { PullRequestWorkerBuildObservation } from "../../../convex/vault/pullRequestResourceObservations";
+import type { PullRequestWorkerResource } from "../../../convex/vault/pullRequestResources";
 
-type PullRequest = RepositoryPullRequestPage["pullRequests"][number];
+type PullRequest = VaultPullRequest;
 type PullRequestChecks = PullRequest["checks"];
 
 export type VaultPullRequestListProps = {
   buildSamebaseUrl: (branchName: string) => string | null;
-  now: number;
-  observation: VaultPullRequestObservation;
+  pullRequests: VaultPullRequestsState;
   repositoryFullName: string;
 };
 
@@ -94,7 +89,7 @@ function checksLabel(checks: PullRequestChecks): string {
     case "unknown":
       return `${checks.totalCount} unknown`;
     default:
-      checks satisfies never;
+      checks.state satisfies never;
       return "Checks unavailable";
   }
 }
@@ -114,7 +109,7 @@ function ChecksIcon({ checks }: { checks: PullRequestChecks }) {
     case "unknown":
       return <CircleAlert aria-hidden="true" className="h-4 w-4" />;
     default:
-      checks satisfies never;
+      checks.state satisfies never;
       return null;
   }
 }
@@ -133,7 +128,7 @@ function CheckSummary({ checks }: { checks: PullRequestChecks }) {
       case "unknown":
         return "text-muted-foreground";
       default:
-        checks satisfies never;
+        checks.state satisfies never;
         return "text-muted-foreground";
     }
   })();
@@ -155,7 +150,7 @@ function CheckSummary({ checks }: { checks: PullRequestChecks }) {
 function BuildState({
   state,
 }: {
-  state: Extract<PullRequestWorkerBuildObservation, { state: "available" }>["buildState"];
+  state: Extract<PullRequestWorkerResource, { state: "available" }>["buildState"];
 }) {
   switch (state) {
     case "queued":
@@ -198,7 +193,7 @@ function BuildState({
   }
 }
 
-function WorkerResource({ worker }: { worker: PullRequestWorkerBuildObservation }) {
+function WorkerResource({ worker }: { worker: PullRequestWorkerResource }) {
   if (worker.state === "absent") {
     return (
       <li className="inline-flex items-center gap-1.5 text-muted-foreground">
@@ -268,7 +263,7 @@ function PullRequestResources({ resource }: { resource: PullRequestResourceState
   if (!resource || resource.state === "failed") {
     return null;
   }
-  const resources = resource.observation;
+  const resources = resource.resources;
   if (resources.workers.length === 0) {
     return null;
   }
@@ -293,11 +288,9 @@ function PullRequestRow({
   pullRequest: PullRequest;
   resource: PullRequestResourceState | undefined;
 }) {
-  const sameRepository =
-    pullRequest.head.headRepositoryNodeId === pullRequest.head.baseRepositoryNodeId;
+  const sameRepository = !pullRequest.isCrossRepository && pullRequest.headRepository !== null;
   const headLabel =
-    pullRequest.headRepository.state === "available" &&
-    pullRequest.headRepository.nodeId !== pullRequest.head.baseRepositoryNodeId
+    pullRequest.isCrossRepository && pullRequest.headRepository !== null
       ? `${pullRequest.headRepository.nameWithOwner}:${pullRequest.headRefName}`
       : pullRequest.headRefName;
   const samebaseUrl = sameRepository ? buildSamebaseUrl(pullRequest.headRefName) : null;
@@ -375,32 +368,15 @@ function PullRequestRow({
   );
 }
 
-function problemLabel(problem: RepositoryPullRequestProblem, now: number): string {
-  switch (problem.state) {
-    case "budget_deferred":
-      return `GitHub refresh deferred ${formatRelativeTimeUntil(problem.retryAt, now)}`;
-    case "provider_unavailable":
-      return problem.reason === "github_connection_unavailable"
-        ? "GitHub connection unavailable"
-        : "Repository unavailable to GitHub";
-    case "provider_failure":
-      return "Could not load pull requests";
-    default:
-      problem satisfies never;
-      return "Could not load pull requests";
-  }
-}
-
 export function VaultPullRequestList({
   buildSamebaseUrl,
-  now,
-  observation,
+  pullRequests,
   repositoryFullName,
 }: VaultPullRequestListProps) {
-  if (observation.state === "not_requested") {
+  if (pullRequests.state === "not_requested") {
     return null;
   }
-  if (observation.state === "loading") {
+  if (pullRequests.state === "loading") {
     return (
       <div className="flex min-h-14 items-center gap-2 px-3 py-3.5 text-sm text-muted-foreground">
         <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -408,11 +384,11 @@ export function VaultPullRequestList({
       </div>
     );
   }
-  if (observation.state === "problem") {
+  if (pullRequests.state === "problem") {
     return (
       <div className="flex min-h-14 items-center justify-between gap-3 px-3 py-3.5 text-sm">
-        <span className="text-muted-foreground">{problemLabel(observation.problem, now)}</span>
-        <Button type="button" variant="ghost" size="sm" onClick={observation.reload}>
+        <span className="text-muted-foreground">Could not load pull requests</span>
+        <Button type="button" variant="ghost" size="sm" onClick={pullRequests.reload}>
           Retry
         </Button>
       </div>
@@ -424,29 +400,29 @@ export function VaultPullRequestList({
     <section
       data-vault-pull-request-list=""
       aria-label="Open pull requests"
-      aria-busy={observation.refreshing}
+      aria-busy={pullRequests.refreshing}
     >
-      {observation.state === "stale" ? (
+      {pullRequests.state === "stale" ? (
         <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2 text-sm">
           <span className="text-muted-foreground">Pull requests may be out of date</span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            disabled={observation.refreshing}
-            onClick={observation.reload}
+            disabled={pullRequests.refreshing}
+            onClick={pullRequests.reload}
           >
-            {observation.refreshing ? (
+            {pullRequests.refreshing ? (
               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
             ) : null}
-            {observation.refreshing ? "Refreshing" : "Retry"}
+            {pullRequests.refreshing ? "Refreshing" : "Retry"}
           </Button>
         </div>
       ) : null}
-      {observation.resourceState === "failed" || observation.resourceState === "stale" ? (
+      {pullRequests.resourceState === "failed" || pullRequests.resourceState === "stale" ? (
         <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2 text-sm">
           <span className="text-muted-foreground">
-            {observation.resourceState === "stale"
+            {pullRequests.resourceState === "stale"
               ? "Deploy status may be out of date"
               : "Deploy status unavailable"}
           </span>
@@ -454,48 +430,48 @@ export function VaultPullRequestList({
             type="button"
             variant="ghost"
             size="sm"
-            disabled={observation.refreshing}
-            onClick={observation.reloadResources}
+            disabled={pullRequests.refreshing}
+            onClick={pullRequests.reloadResources}
           >
-            {observation.refreshing ? (
+            {pullRequests.refreshing ? (
               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
             ) : null}
-            {observation.refreshing ? "Refreshing" : "Retry"}
+            {pullRequests.refreshing ? "Refreshing" : "Retry"}
           </Button>
         </div>
       ) : null}
-      {observation.pullRequests.map((pullRequest) => (
+      {pullRequests.pullRequests.map((pullRequest) => (
         <PullRequestRow
-          key={pullRequest.nodeId}
+          key={pullRequest.id}
           buildSamebaseUrl={buildSamebaseUrl}
           pullRequest={pullRequest}
-          resource={observation.resourcesByPullRequestNodeId.get(pullRequest.nodeId)}
+          resource={pullRequests.resourcesByPullRequestId.get(pullRequest.id)}
         />
       ))}
-      {observation.pullRequests.length === 0 ? (
-        <div className="px-3 py-3.5 text-sm text-muted-foreground">No open pull requests</div>
+      {pullRequests.pullRequests.length === 0 ? (
+        <div className="px-3 py-3.5 text-sm text-muted-foreground">
+          {pullRequests.hasMore ? "No matching pull requests loaded" : "No open pull requests"}
+        </div>
       ) : null}
-      {observation.hasMore ? (
+      {pullRequests.hasMore ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 px-3 py-3 text-sm">
           <span className="text-muted-foreground">
-            {observation.loadMoreProblem
-              ? problemLabel(observation.loadMoreProblem, now)
-              : observation.scanGuardrailReached
-                ? "GitHub scan limit reached"
-                : "More pull requests available"}
+            {pullRequests.loadMoreFailed
+              ? "Could not load more pull requests"
+              : "More pull requests available"}
           </span>
           <div className="flex items-center gap-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={!observation.canLoadMore}
-              onClick={observation.loadMore}
+              disabled={!pullRequests.canLoadMore}
+              onClick={pullRequests.loadMore}
             >
-              {observation.isLoadingMore ? (
+              {pullRequests.isLoadingMore ? (
                 <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
               ) : null}
-              {observation.isLoadingMore ? "Loading" : "Load more"}
+              {pullRequests.isLoadingMore ? "Loading" : "Load more"}
             </Button>
             <a
               href={`${repositoryUrl}/pulls`}

@@ -22,7 +22,6 @@ export const vAppProvisioningStep = union(
   literal("attach_worker"),
   literal("configure_workers_builds_for_github"),
   literal("rotate_convex_deploy_keys_for_workers_builds"),
-  literal("record_domains"),
   literal("finish"),
 );
 export type AppProvisioningStep = Infer<typeof vAppProvisioningStep>;
@@ -42,7 +41,6 @@ export const vAppProvisioningRunStep = union(
   literal("attach_worker"),
   literal("configure_workers_builds_for_github"),
   literal("rotate_convex_deploy_keys_for_workers_builds"),
-  literal("record_domains"),
   literal("finish"),
 );
 export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;

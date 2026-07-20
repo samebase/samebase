@@ -117,18 +117,12 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 
   ui_user_settings: "workspace",
   ui_workspaceSidebar_layouts: "workspace",
-  ui_vaultBranches_filters: "workspace",
+  ui_vaultPullRequests_filters: "workspace",
   ui_vaultResourceLinks_settings: "workspace",
   ui_vaultFileTree_folderExpansions: "workspace",
 
   vaults: "vault",
-  vaultDomains: "vault",
-
-  observations_vaultRepository_branches: "repository",
-  derived_githubCommit_checkSummaries: "repository",
-  observations_githubCommit_checks: "repository",
   observations_vaultRepository_branchTrees: "repository",
-  vaultRepositoryRefreshRequests: "repository",
 
   vaultCloudflareWorkers: "infrastructure",
   vaultConvexProjects: "infrastructure",

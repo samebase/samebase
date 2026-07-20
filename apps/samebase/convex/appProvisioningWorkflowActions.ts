@@ -678,29 +678,6 @@ export const syncVaultTreeForRepository = internalAction({
     await recordApiCall({
       provider: "GitHub",
       method: "GET",
-      endpoint: "/repos/{owner}/{repo}/git/trees/{tree_sha}",
-      values: {
-        params: {
-          path: {
-            ownerName: args.ownerName,
-            repoName: args.repoName,
-            tree_sha: args.defaultBranch,
-          },
-          query: {
-            recursive: "1",
-          },
-        },
-      },
-    });
-    const tree = await octokit.rest.git.getTree({
-      owner: args.ownerName,
-      repo: args.repoName,
-      tree_sha: args.defaultBranch,
-      recursive: "1",
-    });
-    await recordApiCall({
-      provider: "GitHub",
-      method: "GET",
       endpoint: "/repos/{owner}/{repo}/branches/{branch}",
       values: {
         params: {
@@ -717,6 +694,30 @@ export const syncVaultTreeForRepository = internalAction({
       repo: args.repoName,
       branch: args.defaultBranch,
     });
+    const treeSha = branchData.data.commit.commit.tree.sha;
+    await recordApiCall({
+      provider: "GitHub",
+      method: "GET",
+      endpoint: "/repos/{owner}/{repo}/git/trees/{tree_sha}",
+      values: {
+        params: {
+          path: {
+            ownerName: args.ownerName,
+            repoName: args.repoName,
+            tree_sha: treeSha,
+          },
+          query: {
+            recursive: "1",
+          },
+        },
+      },
+    });
+    const tree = await octokit.rest.git.getTree({
+      owner: args.ownerName,
+      repo: args.repoName,
+      tree_sha: treeSha,
+      recursive: "1",
+    });
 
     await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
       vaultId: args.vaultId,
@@ -732,34 +733,6 @@ export const syncVaultTreeForRepository = internalAction({
       message: "Synced the default branch tree.",
       state: "running",
     });
-
-    return null;
-  },
-});
-
-export const finishExistingRepositoryConnection = internalAction({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    await assertConnectExistingRepositoryRun(ctx, args);
-
-    const result = await ctx.runMutation(
-      internal.repositoryRefresh.completeExistingRepositoryConnectionAndEnqueueRefresh,
-      {
-        userId: args.userId,
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-    );
-    if (result.kind === "blocked") {
-      throw new Error(
-        `Existing repository refresh enqueue was blocked: reason=${result.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
-      );
-    }
 
     return null;
   },

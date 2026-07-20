@@ -564,10 +564,10 @@ writes with explicit provider attachments and block-run state, then remove the a
 the vault row after production data is clean.
 
 `vaultConvexProjects` and `vaultCloudflareWorkers` keep only stable provider attachment identity,
-confirmed Convex source placement, origin, and creation time. `vaultDomains` stores explicit domain
-mappings, and `workflow_vaultProvisioning_writeLocks` stores active writer ownership. Deployment
-names, URLs, Workers Builds roots and triggers, deploy-key identities, and Worker-to-Convex markers
-remain live provider observations rather than durable attachment metadata.
+confirmed Convex source placement, origin, and creation time.
+`workflow_vaultProvisioning_writeLocks` stores active writer ownership. Deployment names, URLs,
+Workers Builds roots and triggers, deploy-key identities, and Worker-to-Convex markers remain live
+provider observations rather than durable attachment metadata.
 
 ## Migration
 
@@ -597,22 +597,23 @@ operator has confirmed the cleanup scope.
 The reset must include dependent vault-scoped tables, not only `vaults`. Likely affected tables
 include:
 
-1. `ui_vaultBranches_filters`
-2. `observations_vaultRepository_branches`
-3. `observations_vaultRepository_branchTrees`
-4. `vaultInfrastructure`
-5. `workflow_vaultProvisioning_writeLocks`
-6. `workflow_vaultProvisioning_runs`
-7. `workflow_vaultProvisioning_events`
-8. `vaultDomains`
-9. `codespaces`
-10. `vaultStagedFiles`
-11. `observations_vaultFiles_blobs`
-12. `ui_vaultFileTree_folderExpansions`
-13. `ui_agentGraphNode_layouts`
-14. `chatThreadContexts`
-15. `aiProductionReadRequests`
-16. `vaultStagedFileUpdates`
+1. `ui_vaultPullRequests_filters`
+2. `observations_vaultRepository_branchTrees`
+3. `vaultApps`
+4. `vaultConvexProjects`
+5. `vaultCloudflareWorkers`
+6. `workflow_vaultProvisioning_plans`
+7. `workflow_vaultProvisioning_writeLocks`
+8. `workflow_vaultProvisioning_runs`
+9. `workflow_vaultProvisioning_events`
+10. `codespaces`
+11. `vaultStagedFiles`
+12. `observations_vaultFiles_blobs`
+13. `ui_vaultFileTree_folderExpansions`
+14. `ui_agentGraphNode_layouts`
+15. `chatThreadContexts`
+16. `aiProductionReadRequests`
+17. `vaultStagedFileUpdates`
 
 The cleanup must fail closed: if the cleanup cannot prove it is targeting the intended vault-scoped
 tables and rows, it must abort before deletion and report the failure outside the product flow. The

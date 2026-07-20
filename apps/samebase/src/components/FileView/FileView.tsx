@@ -1,4 +1,5 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -619,7 +620,7 @@ function getFileViewRepositorySetupMessage(state: FileViewBranchHydrationState):
         case "cooldown":
           return "GitHub refresh is paused. This branch will load after the cooldown.";
         case "in_progress":
-          return "Waiting for another repository refresh to finish.";
+          return "Waiting for another branch refresh to finish.";
         default:
           state.reason satisfies never;
           return "Branch loading is deferred.";
@@ -741,10 +742,10 @@ function FileViewInner({
   );
   const isCompareRequested = routeSearch.compare ?? false;
 
-  const remoteBranches = useQuery(api.vault.branches.getVaultRemoteBranches, {
-    vaultId: vault._id,
-  });
   const refreshRepositoryTree = useAction(api.github.refreshRepositoryTree);
+  const getOpenPullRequestForBranch = useAction(
+    api.repositoryPullRequests.getOpenPullRequestForBranch,
+  );
   // Dialog state management
   const {
     fileCreationDialog,
@@ -756,6 +757,14 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
+  const isDefaultBranch = branch === vault.defaultBranch;
+  const branchPullRequestQuery = useTanStackQuery({
+    queryKey: ["vault-branch-pull-request", vault._id, branch],
+    queryFn: () => getOpenPullRequestForBranch({ vaultId: vault._id, branch }),
+    enabled: !isDefaultBranch,
+    staleTime: 60_000,
+    retry: false,
+  });
   const selectedFileIsRenderableMedia = isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;
   const selectedFileGitHubUrl = selectedFile
@@ -928,19 +937,10 @@ function FileViewInner({
   const branchComparePreviewRequestedTargetKeyRef = useRef<string | null>(null);
   const branchComparePreviewRequestedStagingKeyRef = useRef<string | null>(null);
   const branchComparePreviewReloadTimeoutRef = useRef<number | null>(null);
-  const currentRemoteBranch = useMemo(
-    () =>
-      remoteBranches?.find(
-        (remoteBranch) => remoteBranch.name === branch && remoteBranch.remoteState === "active",
-      ) ?? null,
-    [branch, remoteBranches],
-  );
-  const currentPullRequestNumber = currentRemoteBranch?.pullRequestNumber;
-  const currentPullRequestUrl = currentRemoteBranch?.pullRequestUrl;
-  const didResolveRemoteBranches = remoteBranches !== undefined;
-  const isDefaultBranch =
-    currentRemoteBranch?.isDefault ??
-    (typeof vault.defaultBranch === "string" && branch === vault.defaultBranch);
+  const branchPullRequest = branchPullRequestQuery.data;
+  const currentPullRequestNumber = branchPullRequest?.pullRequest?.number;
+  const currentPullRequestUrl = branchPullRequest?.pullRequest?.url;
+  const didResolveBranchPullRequest = isDefaultBranch || branchPullRequestQuery.isSuccess;
   const currentBranchPullRequestNumber = isDefaultBranch ? undefined : currentPullRequestNumber;
   const currentBranchPullRequestUrl = isDefaultBranch ? undefined : currentPullRequestUrl;
   const hasCurrentBranchPullRequest = currentBranchPullRequestUrl != null;
@@ -1605,7 +1605,7 @@ function FileViewInner({
       return;
     }
 
-    if (!isDefaultBranch && !didResolveRemoteBranches) {
+    if (!isDefaultBranch && !didResolveBranchPullRequest) {
       return;
     }
 
@@ -1695,7 +1695,7 @@ function FileViewInner({
     createDraftPullRequest,
     createDraftPullRequestFromDefaultBranch,
     currentBranchPullRequestUrl,
-    didResolveRemoteBranches,
+    didResolveBranchPullRequest,
     handleUpstreamConflictDetected,
     isDefaultBranch,
     navigateByHref,
@@ -2114,8 +2114,8 @@ function FileViewInner({
   const canCreateDraftPullRequest = isDefaultBranch
     ? hasChangesToCommit === true
     : !hasCurrentBranchPullRequest &&
-      didResolveRemoteBranches &&
-      (hasChangesToCommit === true || (currentRemoteBranch?.aheadBy ?? 0) > 0);
+      didResolveBranchPullRequest &&
+      (hasChangesToCommit === true || (branchPullRequest?.aheadBy ?? 0) > 0);
   const draftButtonLabel = isDefaultBranch ? "draft" : "create draft";
   const isCreatingDraftPullRequest =
     draftPullRequestStatus === "loading" || defaultBranchDraftPullRequestStatus === "loading";
