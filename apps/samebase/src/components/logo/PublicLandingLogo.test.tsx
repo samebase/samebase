@@ -324,6 +324,10 @@ describe("PublicLandingLogo", () => {
     expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
       NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
     );
+    const logoImage = getLogoImage(rootElement);
+    expect(logoImage.className).toContain("transition-opacity");
+    expect(logoImage.className).toContain("duration-300");
+    expect(logoImage.className).not.toContain("motion-reduce:transition-none");
   });
 
   it("keeps the pointer tilt neutral without a fine hover pointer", async () => {

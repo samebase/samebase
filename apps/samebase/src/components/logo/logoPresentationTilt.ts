@@ -13,20 +13,33 @@ export const NEUTRAL_LOGO_PRESENTATION_TILT_TARGET: LogoPresentationTiltTarget =
 
 const LOGO_PRESENTATION_TILT_DAMPING_PER_SECOND = 18;
 const LOGO_PRESENTATION_TILT_MAX_FRAME_SECONDS = 0.064;
+// The target stays unbounded; only its visible angular rate is bounded so a
+// distant source or resumed frame cannot turn into a one-frame jump.
+const LOGO_PRESENTATION_TILT_MAX_DEGREES_PER_SECOND = 120;
 const POINTER_TILT_DEGREES_PER_SHORTEST_SIDE = 6 / 1.25;
 
-export function getLogoPresentationTiltDampingAlpha(deltaSeconds: number) {
-  if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) {
+export function getLogoPresentationTiltTransitionAlpha({
+  deltaSeconds,
+  remainingDegrees,
+}: {
+  deltaSeconds: number;
+  remainingDegrees: number;
+}) {
+  if (
+    !Number.isFinite(deltaSeconds) ||
+    deltaSeconds <= 0 ||
+    !Number.isFinite(remainingDegrees) ||
+    remainingDegrees <= 0
+  ) {
     return 0;
   }
 
-  return (
-    1 -
-    Math.exp(
-      -LOGO_PRESENTATION_TILT_DAMPING_PER_SECOND *
-        Math.min(deltaSeconds, LOGO_PRESENTATION_TILT_MAX_FRAME_SECONDS),
-    )
-  );
+  const frameSeconds = Math.min(deltaSeconds, LOGO_PRESENTATION_TILT_MAX_FRAME_SECONDS);
+  const dampingAlpha = 1 - Math.exp(-LOGO_PRESENTATION_TILT_DAMPING_PER_SECOND * frameSeconds);
+  const velocityAlpha =
+    (LOGO_PRESENTATION_TILT_MAX_DEGREES_PER_SECOND * frameSeconds) / remainingDegrees;
+
+  return Math.min(dampingAlpha, velocityAlpha);
 }
 
 export function resolveLogoPresentationTiltTarget(

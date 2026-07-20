@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
-  getLogoPresentationTiltDampingAlpha,
+  getLogoPresentationTiltTransitionAlpha,
   getPointerLogoPresentationTiltTarget,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   resolveLogoPresentationTiltTarget,
@@ -16,14 +16,29 @@ const BOUNDS = {
 };
 
 describe("logo presentation tilt", () => {
-  it("eases toward a changed target instead of applying it in one frame", () => {
-    expect(getLogoPresentationTiltDampingAlpha(0)).toBe(0);
+  it("eases toward every target without allowing distant targets to jump", () => {
+    expect(getLogoPresentationTiltTransitionAlpha({ deltaSeconds: 0, remainingDegrees: 6 })).toBe(
+      0,
+    );
 
-    const frameAlpha = getLogoPresentationTiltDampingAlpha(1 / 60);
+    const frameAlpha = getLogoPresentationTiltTransitionAlpha({
+      deltaSeconds: 1 / 60,
+      remainingDegrees: 6,
+    });
     expect(frameAlpha).toBeGreaterThan(0);
     expect(frameAlpha).toBeLessThan(1);
-    expect(getLogoPresentationTiltDampingAlpha(1)).toBeGreaterThan(frameAlpha);
-    expect(getLogoPresentationTiltDampingAlpha(1)).toBeLessThan(1);
+
+    const distantFrameAlpha = getLogoPresentationTiltTransitionAlpha({
+      deltaSeconds: 1 / 60,
+      remainingDegrees: 180,
+    });
+    expect(distantFrameAlpha * 180).toBeCloseTo(2);
+
+    const resumedFrameAlpha = getLogoPresentationTiltTransitionAlpha({
+      deltaSeconds: 1,
+      remainingDegrees: 180,
+    });
+    expect(resumedFrameAlpha * 180).toBeCloseTo(7.68);
   });
 
   it("stays neutral everywhere inside the grab surface", () => {

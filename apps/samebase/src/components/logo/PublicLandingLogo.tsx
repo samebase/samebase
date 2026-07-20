@@ -472,6 +472,8 @@ export function PublicLandingLogo({
         data-testid={PUBLIC_LANDING_LOGO_STAGE_TEST_ID}
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}
       >
+        {/* The renderer handoff always crossfades because this transition
+        preserves visual continuity rather than adding decorative motion. */}
         <img
           {...{ [PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE]: "" }}
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
@@ -482,7 +484,7 @@ export function PublicLandingLogo({
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-150 ease-out motion-reduce:transition-none ${isSvgFallbackVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-300 ease-out ${isSvgFallbackVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
         />
         {LogoScene && !didSceneFail ? (
           <div

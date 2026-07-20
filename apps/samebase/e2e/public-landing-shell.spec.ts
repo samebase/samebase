@@ -1576,6 +1576,14 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({ page },
   const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
   const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
   await expectLandingLogoReady(landingLogo);
+  await expect
+    .poll(async () =>
+      landingLogo.evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return `${style.transitionProperty} ${style.transitionDuration}`;
+      }),
+    )
+    .toBe("opacity 0.3s");
 
   const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 

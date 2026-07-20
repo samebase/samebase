@@ -26,7 +26,7 @@ import {
 } from "@/components/logo/logoSurfaceModel";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
-  getLogoPresentationTiltDampingAlpha,
+  getLogoPresentationTiltTransitionAlpha,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   resolveLogoPresentationTiltTarget,
   type LogoPresentationTiltTarget,
@@ -2432,7 +2432,10 @@ export function NLogoScene({
 
       presentationTiltGroup.quaternion.slerp(
         presentationTiltTargetQuaternion,
-        getLogoPresentationTiltDampingAlpha((timestampMs - previousFrameTimeMs) / 1000),
+        getLogoPresentationTiltTransitionAlpha({
+          deltaSeconds: (timestampMs - previousFrameTimeMs) / 1000,
+          remainingDegrees: THREE.MathUtils.radToDeg(remainingAngle),
+        }),
       );
     };
 
