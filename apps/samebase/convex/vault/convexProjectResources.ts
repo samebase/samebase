@@ -32,14 +32,9 @@ export async function readConvexProjectResource(args: {
   projectId: string;
 }): Promise<ProjectResponse | null> {
   try {
-    const project = await requestConvexManagementApi(
-      args.token,
-      "GET",
-      "/projects/{project_id}",
-      {
-        params: { path: { project_id: args.projectId } },
-      },
-    );
+    const project = await requestConvexManagementApi(args.token, "GET", "/projects/{project_id}", {
+      params: { path: { project_id: args.projectId } },
+    });
     if (project.teamId !== args.teamId) {
       throw new Error("Convex project belonged to a different team.");
     }
@@ -75,6 +70,46 @@ export async function readConvexProductionDeployment(args: {
     }
     throw error;
   }
+}
+
+export async function readConvexPreviewDeployments(args: {
+  token: string;
+  projectId: string;
+}): Promise<ConvexCloudDeployment[]> {
+  const deployments = await requestConvexManagementApi(
+    args.token,
+    "GET",
+    "/projects/{project_id}/list_deployments",
+    {
+      params: {
+        path: { project_id: args.projectId },
+        query: {
+          includeLocal: false,
+          isDefault: false,
+          deploymentType: "preview",
+        },
+      },
+    },
+  );
+  const previews: ConvexCloudDeployment[] = [];
+
+  for (const deployment of deployments) {
+    if (
+      !isConvexCloudDeployment(deployment) ||
+      deployment.deploymentType !== "preview" ||
+      deployment.projectId !== args.projectId ||
+      deployment.isDefault
+    ) {
+      throw new Error("Convex returned an inconsistent preview deployment.");
+    }
+    previews.push(deployment);
+  }
+
+  return previews.sort(
+    (left, right) =>
+      (right.lastDeployTime ?? right.createTime) - (left.lastDeployTime ?? left.createTime) ||
+      left.name.localeCompare(right.name),
+  );
 }
 
 export function buildConvexSiteUrl(deployment: ConvexCloudDeployment): string {
