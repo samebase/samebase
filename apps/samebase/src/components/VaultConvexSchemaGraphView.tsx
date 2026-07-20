@@ -112,14 +112,5 @@ export function VaultConvexSchemaGraphView({
     return <VaultConvexSchemaGraphRouteStatusShell context={context} status="Vault not found." />;
   }
 
-  if (vault.branchNotFound) {
-    return (
-      <VaultConvexSchemaGraphRouteStatusShell
-        context={context}
-        status="Convex schema is not available for this branch."
-      />
-    );
-  }
-
   return <VaultConvexSchemaGraphRouteWorkspace context={context} vaultId={vault._id} />;
 }

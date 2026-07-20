@@ -196,6 +196,10 @@ page 1 has a different row generation, older continuation pages are discarded.
 Opening a same-repository pull request in the editor still hydrates that exact branch and immutable
 tree on demand. The dashboard does not need a repository-wide branch scan for this.
 
+Every path that publishes an exact branch tree, including post-write refreshes, must read the commit
+and its immutable tree as one provider generation and publish only while it owns the vault refresh
+claim. A timed-out read cannot overwrite a newer branch generation.
+
 ## Webhooks
 
 Webhooks are not part of this slice.
@@ -222,6 +226,7 @@ Tests must cover at least:
 - complete empty versus incomplete scan versus provider failure;
 - exact head movement;
 - same-repository and fork identity;
+- exact branch generation reads and refresh-claim ownership;
 - two Workers attached to one app;
 - the same Worker name in different accounts;
 - Worker recreation under the same name with a different tag;
