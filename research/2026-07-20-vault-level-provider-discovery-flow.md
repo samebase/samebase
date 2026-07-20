@@ -97,14 +97,17 @@ found in the matching triggers.
 
 ## Target Mental Model
 
-The user-facing rule should be:
+The Cloudflare user-facing rule should be:
 
-> Add a provider resource. Samebase locates the app it belongs to, or asks for the folder when the
-> provider cannot prove it.
+> Add a Worker. Samebase puts it in the app represented by Cloudflare's configured root directory.
 
 This removes the separate app-versus-monorepo decision. One discovered root means one app. Several
-discovered roots mean a monorepo. The user can still correct or supply a root when provider evidence
-is absent or ambiguous.
+discovered roots mean a monorepo. An existing Worker's app root is never editable in Samebase: it is
+the exact normalized `root_directory` observed from Cloudflare. Missing or ambiguous provider root
+evidence makes that Worker unavailable for attachment instead of creating a local override.
+
+Convex remains different because its inventory does not expose a repository root. Add Convex asks
+where the backend lives rather than pretending that Worker usage proves backend ownership.
 
 ### Vault-Level Route Semantics
 
@@ -113,7 +116,8 @@ is absent or ambiguous.
 - Neither route requires `app-root`.
 - Both routes require app-create access because their confirmation actions create or attach
   resources. Provider-connection access alone should not open a flow that cannot complete.
-- The existing Cloudflare and Convex modals own root selection when it is needed.
+- Add Cloudflare displays existing Worker roots as read-only provider evidence. Add Convex owns the
+  backend-root decision because Convex does not provide that evidence.
 - `?add-app-root` and its standalone app-root action are removed.
 - Existing app rows display attached resources. They do not repeat provider-add links per app.
 
@@ -181,9 +185,13 @@ Cloudflare documents both identifiers, but does not explicitly document that joi
 `/` is a valid root without a nested tree row. A positive current-tree match supports a nested root.
 When the cached tree is stale, truncated, or missing that folder, show the evidence quality or a
 possible stale-configuration warning. Do not substitute a corrected root: an attached app root must
-retain exactly the observed Cloudflare `root_directory`. A manually selected or newly created
-resource without provider root evidence continues to use root suggestions plus syntax validation,
-not tree existence as a hard invariant.
+retain exactly the observed Cloudflare `root_directory`. An existing Worker without one unambiguous
+observed root is not selectable.
+
+Create Worker may ask for a repository folder only when that action also configures Cloudflare
+Workers Builds with the corresponding `root_directory`. Samebase must re-read the resulting provider
+configuration and attach the Worker under that observed root. Until Create Worker owns that provider
+configuration, it cannot create a local app attachment under this model.
 
 ### Review And Attachment
 
@@ -198,26 +206,33 @@ It should group selected resources by root and distinguish:
 - Convex project named by the Worker's Builds marker
 - unreadable, invalid, missing, or conflicting provider evidence
 
+The observed root is display-only. The review has no app-root input or correction control. Its
+confirmation request contains the selected Worker identities, not a client-supplied root.
+
 Confirmation should re-read the selected Worker identities and trigger evidence, then make one
 Samebase database transaction that:
 
 1. creates or reuses one `vaultApps` row per normalized root
 2. attaches every selected Worker with `origin: "selected_existing"`
 
-The attach action must not alter Workers Builds, environment variables, deploy keys, or domains.
-Those remain separate explicit configuration actions.
+The existing-Worker attach action must not alter Workers Builds, environment variables, deploy keys,
+or domains. Those remain separate explicit configuration actions. Create Worker is a distinct
+provider write and is viable under this model only when it also establishes the repository and root
+configuration described above.
 
 Multiple Workers at one root are one app with several Worker attachments. The current data model
 supports that cardinality, so the UI should keep vault-level Add Cloudflare available after the
 first Worker is attached.
 
-The same flow must preserve the start-from-zero paths. A Worker with no repository trigger can still
-be selected, and a new Worker can still be created. In both cases the user chooses a root inside Add
-Cloudflare before the provider action runs. Root creation and stable attachment are recorded
-together after the external Worker identity is confirmed. A created Worker attaches with
-`origin: "provisioned"`. If provider creation succeeds but the local transaction fails, report the
-possible orphan and do not automatically delete the Worker, preserving the accepted manual-create
-failure boundary.
+An existing Worker with no repository trigger or root remains unavailable until its Cloudflare
+Workers Builds configuration names this GitHub repository and one root. The modal should explain
+that requirement and offer a rescan after the provider configuration changes.
+
+Create Worker remains a separate mode, but it must configure the repository and root in Cloudflare
+before attachment. Root creation and stable attachment are recorded together only after the provider
+configuration is re-read. A created Worker attaches with `origin: "provisioned"`. If provider
+creation succeeds but configuration or local attachment fails, report the possible orphan and do not
+automatically delete the Worker, preserving the accepted manual-create failure boundary.
 
 ### Repository Connection Boundary
 
@@ -281,8 +296,8 @@ easy, but the owning root still needs confirmation.
 | Two Workers at `apps/web`                                 | Create or reuse one app and attach both Workers.                                                                                                          |
 | Two Workers at one root name different Convex projects    | Attach both Workers; preselect neither project. The user chooses one project for that app or another backend root, and the other marker remains external. |
 | Matching Worker, no marker                                | Create the Cloudflare-only app; do not guess a Convex project.                                                                                            |
-| Available Worker has no repository trigger                | Ask for a root inside Add Cloudflare before attachment.                                                                                                   |
-| No Worker exists                                          | Create Worker remains available and asks for its root inside Add Cloudflare.                                                                              |
+| Available Worker has no repository trigger                | Keep it unavailable until Cloudflare names this GitHub repository and one root; do not collect a Samebase root override.                                  |
+| No Worker exists                                          | Create Worker configures the Cloudflare repository and root, then attaches under the re-read provider root.                                               |
 | Convex project, no Worker                                 | Ask for an existing app or repository root inside Add Convex.                                                                                             |
 | No Convex project exists                                  | Create Project remains available and asks for its root inside Add Convex.                                                                                 |
 | Add Convex is opened before Add Cloudflare                | Run the same read-only Worker scan and show the same marker evidence, so order does not change the model.                                                 |
@@ -376,9 +391,10 @@ route-level live flow to test one confirmed attachment.
 ### 5. Acceptance Coverage After The Model Is Chosen
 
 - pure planner tests for every scenario row
-- Convex tests for auth, global resource exclusivity, transactional root creation, idempotent retry,
-  and no partial local writes
-- React tests for grouping, unique preselection, explicit ambiguity, and concrete confirmation copy
+- Convex tests for auth, global resource exclusivity, server-derived root equality, evidence-drift
+  rejection, transactional root creation, idempotent retry, and no partial local writes
+- React tests for grouping, unique preselection, read-only Worker roots, explicit ambiguity, and
+  concrete confirmation copy
 - route-search tests proving `?add-app-root` is gone and that bare provider flags, Back, Cancel, and
   unrelated query params behave correctly
 - route-level Playwright coverage proving existing-repository connection lands on the normal vault
