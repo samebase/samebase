@@ -33,6 +33,7 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
           <PublicLandingLogo
             animateLeftFaceStripes
             autoRotate={landingDevModeEnabled}
+            enablePointerTilt
             enableViewSnapping={!landingDevModeEnabled}
             replaceRouteSearch={(nextSearch) => {
               void navigate({

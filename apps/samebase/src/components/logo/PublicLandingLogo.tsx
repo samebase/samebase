@@ -9,6 +9,11 @@ import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
 } from "@/components/logo/logoStaticSvgContract";
+import {
+  getPointerLogoPresentationTiltTarget,
+  NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+  type LogoPresentationTiltTarget,
+} from "@/components/logo/logoPresentationTilt";
 import { DEFAULT_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
@@ -47,6 +52,7 @@ type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").N
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
 const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
 const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
+const POINTER_TILT_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
 // The canvas receives the requested depth; the SVG fallback stays cheap enough
 // to render before the interactive scene is ready.
 const LANDING_STATIC_SVG_FALLBACK_DEPTH = 3;
@@ -91,6 +97,7 @@ function easeOutCubic(value: number) {
 export function PublicLandingLogo({
   animateLeftFaceStripes = false,
   autoRotate = false,
+  enablePointerTilt = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
   replaceRouteSearch,
@@ -102,6 +109,7 @@ export function PublicLandingLogo({
 }: {
   animateLeftFaceStripes?: boolean;
   autoRotate?: boolean;
+  enablePointerTilt?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
@@ -173,6 +181,10 @@ export function PublicLandingLogo({
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
+  const [presentationTiltTarget, setPresentationTiltTarget] = useState<LogoPresentationTiltTarget>(
+    NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+  );
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
@@ -251,6 +263,62 @@ export function PublicLandingLogo({
       mediaQuery.removeEventListener("change", syncReducedMotionPreference);
     };
   }, []);
+
+  useEffect(() => {
+    // The page-wide pointer supplies ambient direction while the scene keeps
+    // its own direct-manipulation events for dragging.
+    const resetPresentationTilt = () => {
+      setPresentationTiltTarget(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
+    };
+
+    if (
+      !enablePointerTilt ||
+      !isSceneInteractive ||
+      prefersReducedMotion ||
+      typeof window.matchMedia !== "function"
+    ) {
+      resetPresentationTilt();
+      return;
+    }
+
+    const pointerMediaQuery = window.matchMedia(POINTER_TILT_MEDIA_QUERY);
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!pointerMediaQuery.matches || !event.isPrimary || event.pointerType !== "mouse") {
+        return;
+      }
+
+      const stage = stageRef.current;
+      if (!stage) {
+        return;
+      }
+
+      const nextTarget = getPointerLogoPresentationTiltTarget({
+        bounds: stage.getBoundingClientRect(),
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+      setPresentationTiltTarget((currentTarget) =>
+        currentTarget.horizontal === nextTarget.horizontal &&
+        currentTarget.vertical === nextTarget.vertical
+          ? currentTarget
+          : nextTarget,
+      );
+    };
+    const handlePointerCapabilityChange = () => {
+      if (!pointerMediaQuery.matches) {
+        resetPresentationTilt();
+      }
+    };
+
+    window.addEventListener("blur", resetPresentationTilt);
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    pointerMediaQuery.addEventListener("change", handlePointerCapabilityChange);
+    return () => {
+      window.removeEventListener("blur", resetPresentationTilt);
+      window.removeEventListener("pointermove", handlePointerMove);
+      pointerMediaQuery.removeEventListener("change", handlePointerCapabilityChange);
+    };
+  }, [enablePointerTilt, isSceneInteractive, prefersReducedMotion]);
 
   useEffect(() => {
     if (!loadInteractiveScene) {
@@ -384,6 +452,7 @@ export function PublicLandingLogo({
   return (
     <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE[stage]}>
       <div
+        ref={stageRef}
         data-testid={PUBLIC_LANDING_LOGO_STAGE_TEST_ID}
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}
       >
@@ -450,6 +519,7 @@ export function PublicLandingLogo({
                 setView(nextView);
               }}
               onVoxelEdit={ignoreLogoVoxelEdit}
+              presentationTiltTarget={enablePointerTilt ? presentationTiltTarget : undefined}
               rotationAxisMode={routeState.rotationAxisMode}
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={shuffleAnimation}

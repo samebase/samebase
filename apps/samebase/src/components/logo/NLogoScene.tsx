@@ -26,6 +26,12 @@ import {
 } from "@/components/logo/logoSurfaceModel";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
+  getLogoPresentationTiltDampingAlpha,
+  NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+  normalizeLogoPresentationTiltTarget,
+  type LogoPresentationTiltTarget,
+} from "@/components/logo/logoPresentationTilt";
+import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logo/logoViewDragConstants";
@@ -65,6 +71,8 @@ const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
 const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
 const LEFT_FACE_STRIPE_ANIMATION_DURATION_MS = 4000;
 const THREE_RENDER_PIXEL_RATIO_MAX = 4;
+const LOGO_PRESENTATION_TILT_MAX_DEGREES = 3;
+const LOGO_PRESENTATION_TILT_SETTLED_DEGREES = 0.01;
 const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
 const THREE_RECURSIVE_TILE_DEPTH = 3;
 const LEFT_FACE_STRIPE_MASK_GLSL = `
@@ -305,6 +313,7 @@ type SceneState = {
   logoGroup: THREE.Group;
   logoMeshes: LogoSceneMesh[];
   opacity: number;
+  presentationTiltGroup: THREE.Group;
   raycaster: THREE.Raycaster;
   recursiveRenderDepth: number | null;
   recursiveTileState: RecursiveTileSceneState | null;
@@ -382,6 +391,7 @@ type NLogoSceneProps = {
   onRenderUnavailable?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
+  presentationTiltTarget?: LogoPresentationTiltTarget;
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
@@ -1650,7 +1660,7 @@ function syncRecursiveTileInstanceOrder(sceneState: SceneState) {
 
 function syncTransparentFaceRenderOrder(sceneState: SceneState) {
   sceneState.camera.updateMatrixWorld();
-  sceneState.logoGroup.updateMatrixWorld(true);
+  sceneState.presentationTiltGroup.updateMatrixWorld(true);
   syncRecursiveSurfaceDrawOrder(sceneState);
   syncRecursiveTileInstanceOrder(sceneState);
 
@@ -2102,6 +2112,7 @@ export function NLogoScene({
   onRenderUnavailable,
   onViewChange,
   onVoxelEdit,
+  presentationTiltTarget,
   rotationAxisMode = "cube-y",
   rotationDegrees,
   shuffleAnimation,
@@ -2127,6 +2138,9 @@ export function NLogoScene({
   const faceColorsRef = useRef(faceColors);
   const leftFaceStyleRef = useRef(normalizeLogoLeftFaceStyle(leftFaceStyle));
   const opacityRef = useRef(opacity);
+  const presentationTiltTargetRef = useRef(
+    normalizeLogoPresentationTiltTarget(presentationTiltTarget),
+  );
   const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
   const animateFaceColorsRef = useRef(animateFaceColors);
   const faceColorAnimationStartedAtRef = useRef<number | null>(null);
@@ -2185,6 +2199,12 @@ export function NLogoScene({
     elevationDegreesRef.current = elevationDegrees;
     renderSceneRef.current(performance.now());
   }, [elevationDegrees]);
+
+  useEffect(() => {
+    presentationTiltTargetRef.current = normalizeLogoPresentationTiltTarget(presentationTiltTarget);
+    renderSceneRef.current(performance.now());
+    syncAnimationLoopRef.current();
+  }, [presentationTiltTarget]);
 
   useEffect(() => {
     rotationAxisModeRef.current = rotationAxisMode;
@@ -2329,10 +2349,18 @@ export function NLogoScene({
     for (const logoMesh of logoMeshes) {
       logoGroup.add(logoMesh);
     }
-    scene.add(logoGroup);
+    // Transient input wraps the persisted view so it never changes the pose
+    // that dragging reads or stores.
+    const presentationTiltGroup = new THREE.Group();
+    presentationTiltGroup.add(logoGroup);
+    scene.add(presentationTiltGroup);
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
     const initialCameraFitRadius = initialGeometry.cameraFitRadius;
     const rotationAxisVector = new THREE.Vector3();
+    const presentationTiltAxisVector = new THREE.Vector3();
+    const presentationTiltScreenRightVector = new THREE.Vector3();
+    const presentationTiltTargetQuaternion = new THREE.Quaternion();
+    let lastPresentationTiltFrameTimeMs: number | null = null;
 
     const getCameraFitRadius = () =>
       sceneStateRef.current?.cameraFitRadius ?? initialCameraFitRadius;
@@ -2359,6 +2387,53 @@ export function NLogoScene({
       logoGroup.quaternion.setFromAxisAngle(
         rotationAxisVector,
         THREE.MathUtils.degToRad(toRenderedRotationDegrees(rotationDegreesRef.current)),
+      );
+    };
+
+    const updatePresentationTiltTargetQuaternion = () => {
+      const target =
+        interactionRef.current.status === "idle"
+          ? presentationTiltTargetRef.current
+          : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      const magnitude = Math.hypot(target.horizontal, target.vertical);
+      if (magnitude === 0) {
+        presentationTiltTargetQuaternion.identity();
+        return;
+      }
+
+      presentationTiltScreenRightVector.crossVectors(camera.up, camera.position).normalize();
+      presentationTiltAxisVector
+        .copy(presentationTiltScreenRightVector)
+        .multiplyScalar(target.vertical)
+        .addScaledVector(camera.up, -target.horizontal)
+        .normalize();
+      presentationTiltTargetQuaternion.setFromAxisAngle(
+        presentationTiltAxisVector,
+        THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_MAX_DEGREES * magnitude),
+      );
+    };
+
+    const applyPresentationTilt = (timestampMs: number) => {
+      updatePresentationTiltTargetQuaternion();
+      const remainingAngle = presentationTiltGroup.quaternion.angleTo(
+        presentationTiltTargetQuaternion,
+      );
+      if (remainingAngle <= THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_SETTLED_DEGREES)) {
+        presentationTiltGroup.quaternion.copy(presentationTiltTargetQuaternion);
+        lastPresentationTiltFrameTimeMs = timestampMs;
+        return;
+      }
+
+      const previousFrameTimeMs = lastPresentationTiltFrameTimeMs;
+      lastPresentationTiltFrameTimeMs = timestampMs;
+      if (previousFrameTimeMs === null) {
+        // Arm timing on the first frame instead of snapping after idle or drop.
+        return;
+      }
+
+      presentationTiltGroup.quaternion.slerp(
+        presentationTiltTargetQuaternion,
+        getLogoPresentationTiltDampingAlpha((timestampMs - previousFrameTimeMs) / 1000),
       );
     };
 
@@ -2407,6 +2482,7 @@ export function NLogoScene({
       logoGroup,
       logoMeshes,
       opacity: initialOpacity,
+      presentationTiltGroup,
       raycaster: new THREE.Raycaster(),
       recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
       recursiveTileState: initialGeometry.recursiveTileState,
@@ -2433,15 +2509,21 @@ export function NLogoScene({
         window.cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
       }
+      lastPresentationTiltFrameTimeMs = null;
     };
 
     const hasActiveLeftFaceStripeAnimation = () =>
       animateLeftFaceStripesRef.current && leftFaceStyleRef.current.kind === "striped";
 
+    const hasActivePresentationTilt = () =>
+      presentationTiltGroup.quaternion.angleTo(presentationTiltTargetQuaternion) >
+      THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_SETTLED_DEGREES);
+
     const hasActiveAnimation = () =>
       shuffleAnimationRef.current.enabled ||
       animateFaceColorsRef.current ||
-      hasActiveLeftFaceStripeAnimation();
+      hasActiveLeftFaceStripeAnimation() ||
+      hasActivePresentationTilt();
 
     const renderScene = (timestampMs: number) => {
       timer.update(timestampMs);
@@ -2480,6 +2562,7 @@ export function NLogoScene({
       }
       updateCameraPosition();
       applyLogoRotation();
+      applyPresentationTilt(timestampMs);
       if (sceneState) {
         syncTransparentFaceRenderOrder(sceneState);
       }
@@ -2494,6 +2577,7 @@ export function NLogoScene({
       }
 
       animationFrameId = null;
+      lastPresentationTiltFrameTimeMs = null;
     };
 
     renderSceneRef.current = renderScene;
@@ -2744,6 +2828,8 @@ export function NLogoScene({
       startY: 0,
       status: "idle",
     };
+    renderSceneRef.current(performance.now());
+    syncAnimationLoopRef.current();
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -2761,6 +2847,8 @@ export function NLogoScene({
       startY: event.clientY,
       status: "pending",
     };
+    renderSceneRef.current(performance.now());
+    syncAnimationLoopRef.current();
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
