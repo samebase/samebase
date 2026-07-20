@@ -51,8 +51,8 @@ flowchart LR
 
 - `vault/actions.ts` - public actions for GitHub repository ownership, connect/create, provisioning
   retry, and deletion retry.
-- `vault/dashboard.ts` - public dashboard queries for vault cards, branch filters, and
-  infrastructure/domain summaries.
+- `vault/dashboard.ts` - public dashboard queries for vault cards, pull request display preferences,
+  and infrastructure/domain summaries.
 - `vault/records.ts` - vault row creation, lookup, readiness, and GitHub connection mutations.
 - `vault/branches.ts` - remote branch sync, branch-tree cache, tree refresh claims, and branch
   selection helpers.

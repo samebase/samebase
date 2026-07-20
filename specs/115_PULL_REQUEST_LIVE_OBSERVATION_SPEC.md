@@ -119,10 +119,14 @@ Workers may share one app and must remain separate observations.
 For every stable Worker, Samebase:
 
 1. verifies that workerName still resolves to the attached immutable workerTag;
-2. reads current Builds trigger configuration and the current Convex marker;
+2. reads current Builds trigger configuration;
 3. calls Cloudflare's Worker Builds endpoint with accountId plus workerTag;
 4. scans at most 2 pages of 100 builds;
 5. selects the newest build matching the exact pull request URL and head SHA.
+
+The Convex marker and deploy-key read is a later live axis. Samebase starts it only when at least
+one visible pull request has an exact Worker build. If that read fails, the exact build remains
+available and only its Convex preview becomes unavailable.
 
 The candidate is accepted only when Cloudflare also agrees on:
 

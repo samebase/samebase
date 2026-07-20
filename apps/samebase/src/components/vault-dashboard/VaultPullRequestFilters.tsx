@@ -7,13 +7,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
 import {
-  setVaultBranchFilterLabelIncluded,
-  type VaultBranchFilterOption,
-  type VaultBranchFilters,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+  setVaultPullRequestFilterLabelIncluded,
+  type VaultPullRequestFilterOption,
+  type VaultPullRequestFilters,
+} from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 
-function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
+function matchesOptionSearch(option: VaultPullRequestFilterOption, search: string) {
   if (search.length === 0) {
     return true;
   }
@@ -21,7 +21,7 @@ function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   return option.name.toLowerCase().includes(search.toLowerCase());
 }
 
-function useVaultBranchFiltersPanelStore() {
+function useVaultPullRequestFiltersPanelStore() {
   return useCreateStore({ labelSearch: "" }, ({ setState }) => ({
     setLabelSearch: (labelSearch: string) => {
       setState((state) => ({ ...state, labelSearch }));
@@ -29,7 +29,7 @@ function useVaultBranchFiltersPanelStore() {
   }));
 }
 
-function useVaultBranchFiltersControlStore() {
+function useVaultPullRequestFiltersControlStore() {
   return useCreateStore({ isOpen: false }, ({ setState }) => ({
     setOpen: (isOpen: boolean) => {
       setState((state) => ({ ...state, isOpen }));
@@ -37,18 +37,18 @@ function useVaultBranchFiltersControlStore() {
   }));
 }
 
-function VaultBranchFiltersPanel({
+function VaultPullRequestFiltersPanel({
   value,
   options,
   onChange,
   reservesSheetCloseSpace = false,
 }: {
-  value: VaultBranchFilters;
-  options: VaultBranchFilterOption[];
-  onChange: (nextValue: VaultBranchFilters) => void;
+  value: VaultPullRequestFilters;
+  options: VaultPullRequestFilterOption[];
+  onChange: (nextValue: VaultPullRequestFilters) => void;
   reservesSheetCloseSpace?: boolean;
 }) {
-  const panelStore = useVaultBranchFiltersPanelStore();
+  const panelStore = useVaultPullRequestFiltersPanelStore();
   const labelSearch = useSelector(panelStore, (state) => state.labelSearch);
   const { setLabelSearch } = panelStore.actions;
   const hasCustomFilters =
@@ -113,7 +113,7 @@ function VaultBranchFiltersPanel({
 
                     onChange({
                       ...value,
-                      hiddenLabels: setVaultBranchFilterLabelIncluded({
+                      hiddenLabels: setVaultPullRequestFilterLabelIncluded({
                         hiddenLabels: value.hiddenLabels,
                         labelName: option.name,
                         included: checked === true,
@@ -131,9 +131,6 @@ function VaultBranchFiltersPanel({
                     <span className="truncate">{option.name}</span>
                   </Badge>
                 </div>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground/80">
-                  {option.count}
-                </span>
               </label>
             ))}
           </div>
@@ -158,17 +155,17 @@ function VaultBranchFiltersPanel({
   );
 }
 
-export function VaultBranchFiltersControl({
+export function VaultPullRequestFiltersControl({
   value,
   options,
   onChange,
 }: {
-  value: VaultBranchFilters;
-  options: VaultBranchFilterOption[];
-  onChange: (nextValue: VaultBranchFilters) => void;
+  value: VaultPullRequestFilters;
+  options: VaultPullRequestFilterOption[];
+  onChange: (nextValue: VaultPullRequestFilters) => void;
 }) {
   const usesTouchSheet = useCoarsePointer();
-  const controlStore = useVaultBranchFiltersControlStore();
+  const controlStore = useVaultPullRequestFiltersControlStore();
   const isOpen = useSelector(controlStore, (state) => state.isOpen);
   const { setOpen } = controlStore.actions;
   const trigger = (
@@ -180,10 +177,12 @@ export function VaultBranchFiltersControl({
   if (usesTouchSheet) {
     return (
       <Sheet open={isOpen} onOpenChange={setOpen}>
-        <SheetTrigger asChild>{trigger}</SheetTrigger>
+        <SheetTrigger asChild nativeButton>
+          {trigger}
+        </SheetTrigger>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-hidden">
           <SheetTitle className="sr-only">Filters</SheetTitle>
-          <VaultBranchFiltersPanel
+          <VaultPullRequestFiltersPanel
             value={value}
             options={options}
             onChange={onChange}
@@ -196,9 +195,11 @@ export function VaultBranchFiltersControl({
 
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverTrigger asChild nativeButton>
+        {trigger}
+      </PopoverTrigger>
       <PopoverContent align="end" className="w-[22rem] max-w-[calc(100vw-1rem)] p-0">
-        <VaultBranchFiltersPanel value={value} options={options} onChange={onChange} />
+        <VaultPullRequestFiltersPanel value={value} options={options} onChange={onChange} />
       </PopoverContent>
     </Popover>
   );
