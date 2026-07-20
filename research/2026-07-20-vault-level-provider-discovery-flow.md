@@ -39,9 +39,9 @@ reusing the corresponding app roots and attaching the selected Workers.
 the user to confirm its owning repository root. A marker can identify consuming Worker roots, but it
 cannot prove the root where the Convex backend lives.
 
-Use automatic read-only discovery followed by explicit confirmation. Do not silently attach provider
-resources. An attachment establishes durable identity and cleanup provenance even when it does not
-mutate the provider.
+Use automatic read-only discovery inside the provider modal followed by explicit confirmation. Do
+not scan during repository onboarding or silently attach provider resources. An attachment
+establishes durable identity and cleanup provenance even when it does not mutate the provider.
 
 Do not persist discovery results or a Worker-to-Convex edge. Cloudflare remains the live source for
 repository, root, Builds, and Worker-to-Convex configuration.
@@ -113,13 +113,13 @@ is absent or ambiguous.
 - Neither route requires `app-root`.
 - Both routes require app-create access because their confirmation actions create or attach
   resources. Provider-connection access alone should not open a flow that cannot complete.
-- The provider dialogs own root selection when it is needed.
-- `?add-app-root` is removed from the primary dashboard surface and route suggestions.
+- The existing Cloudflare and Convex modals own root selection when it is needed.
+- `?add-app-root` and its standalone app-root action are removed.
 - Existing app rows display attached resources. They do not repeat provider-add links per app.
 
 `vaultApps` remains a real backend entity because it provides stable attachment ownership and a
-canonical root. The standalone public action that creates an empty app row should disappear once
-provider actions can ensure a root and attach the resource in one transaction.
+canonical root. Provider actions ensure that root and attach the resource in one transaction, so
+there is no standalone public action that creates an empty app row.
 
 A repository folder with neither a Cloudflare Worker nor a Convex project will no longer receive a
 `vaultApps` identity. That is intentional while app roots have no provider-independent product
@@ -219,19 +219,16 @@ together after the external Worker identity is confirmed. A created Worker attac
 possible orphan and do not automatically delete the Worker, preserving the accepted manual-create
 failure boundary.
 
-### Existing Repository Prompt
+### Repository Connection Boundary
 
-After existing-repository source sync succeeds, run the read-only scan automatically only when a
-default Cloudflare account is already selected. If exact matches exist, show a nonblocking prompt
-that opens the same vault-level Cloudflare review.
+Existing-repository connection remains source-only. After source sync succeeds, land on the normal
+vault dashboard without a provider scan, provider prompt, or new onboarding step. The standard
+vault-level Add Cloudflare and Add Convex actions are the setup flow.
 
-If the user has no Cloudflare connection or no selected account, keep repository onboarding complete
-and let `?add-cloudflare` collect that missing provider scope. Do not scan every accessible account
-in the background.
-
-The automatic prompt is an onboarding suggestion, not a recurring alert. Persist a per-vault
-dismissal after the user closes it, without persisting the discovery result. Vault-level Add
-Cloudflare remains available for a later manual scan.
+This keeps repository success independent from optional provider accounts, inventory latency, and
+provider read failures. Discovery begins when the user opens the relevant provider modal, where its
+purpose and required account scope are visible. An empty vault can make the same two actions easy to
+find without introducing a separate onboarding surface.
 
 ## Convex Flow
 
@@ -307,7 +304,7 @@ easy, but the owning root still needs confirmation.
 | Worker identity or repository/root evidence is unreadable | Show the Worker as unavailable and make no attachment.                                                                                                    |
 | Trigger root or marker changes after review               | Abort confirmation and require a refreshed review; create no empty app root.                                                                              |
 | Another request attaches a selected resource after review | Abort on the global ownership conflict and create no empty app root.                                                                                      |
-| User dismisses the post-import prompt                     | Do not show it again for that vault; manual Add Cloudflare remains available.                                                                             |
+| Existing-repository source sync succeeds                  | Land on the normal vault dashboard without scanning providers or starting another onboarding flow.                                                        |
 
 The shared Convex backend scenario is the main mental-model question to test. The current accepted
 model places that project once at its own root, while Workers from any app may refer to it through
@@ -382,11 +379,11 @@ route-level live flow to test one confirmed attachment.
 - Convex tests for auth, global resource exclusivity, transactional root creation, idempotent retry,
   and no partial local writes
 - React tests for grouping, unique preselection, explicit ambiguity, and concrete confirmation copy
-- route-search tests proving bare provider flags, Back, Cancel, and unrelated query-param
-  preservation
-- route-level Playwright coverage for the real existing-repository flow without the old Add app root
-  step, replaying the scenario corpus through the real bare-flag routes with provider reads stubbed
-  at the action or network boundary
+- route-search tests proving `?add-app-root` is gone and that bare provider flags, Back, Cancel, and
+  unrelated query params behave correctly
+- route-level Playwright coverage proving existing-repository connection lands on the normal vault
+  dashboard without a provider step, then replaying the scenario corpus through the two standard
+  provider modals with provider reads stubbed at the action or network boundary
 - Linux visual acceptance for the desktop and mobile review states
 
 ## Suggested Implementation Order
@@ -398,7 +395,8 @@ route-level live flow to test one confirmed attachment.
 5. Make bare `?add-cloudflare` and `?add-convex` the two vault-level entry points.
 6. Use Worker markers to rank Convex projects without persisting a relationship.
 7. Remove the standalone Add app root flow and repeated per-app provider links.
-8. Update specs 105 and 106 to the accepted route and attachment contract.
+8. Keep repository connection source-only and update specs 105 and 106 to the accepted route and
+   attachment contract.
 
 ## Sources
 
