@@ -66,7 +66,7 @@ const BUILD_TOKEN_PAGE_SIZE = 100;
 const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 const SAMEBASE_CONVEX_PROJECT = "SAMEBASE_CONVEX_PROJECT";
-const SAMEBASE_CONVEX_PROJECT_MARKER_VERSION = "v1";
+const SAMEBASE_CONVEX_PROJECT_MARKER_VERSION = "1";
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   if (error instanceof CloudflareApiError && !error.path.includes("/builds/triggers/")) {
@@ -175,18 +175,33 @@ export type SamebaseConvexProjectReference = {
 export function buildSamebaseConvexProjectMarker(project: SamebaseConvexProjectReference): string {
   const teamId = project.teamId.trim();
   const projectId = project.projectId.trim();
-  if (!teamId || !projectId || teamId.includes(":") || projectId.includes(":")) {
+  if (!teamId || !projectId) {
     throw new Error("Convex project identity cannot be encoded for Cloudflare Builds.");
   }
-  return `${SAMEBASE_CONVEX_PROJECT_MARKER_VERSION}:${teamId}:${projectId}`;
+
+  // eslint-disable-next-line no-restricted-globals -- The provider marker uses a query-string wire format.
+  return new URLSearchParams({
+    version: SAMEBASE_CONVEX_PROJECT_MARKER_VERSION,
+    teamId,
+    projectId,
+  }).toString();
 }
 
 function parseSamebaseConvexProjectMarker(value: string): SamebaseConvexProjectReference | null {
-  const parts = value.split(":");
-  if (parts.length !== 3) {
+  // eslint-disable-next-line no-restricted-globals -- The provider marker uses a query-string wire format.
+  const params = new URLSearchParams(value);
+  if (
+    [...params].length !== 3 ||
+    params.getAll("version").length !== 1 ||
+    params.getAll("teamId").length !== 1 ||
+    params.getAll("projectId").length !== 1
+  ) {
     return null;
   }
-  const [version, teamId, projectId] = parts;
+
+  const version = params.get("version");
+  const teamId = params.get("teamId")?.trim();
+  const projectId = params.get("projectId")?.trim();
   if (version !== SAMEBASE_CONVEX_PROJECT_MARKER_VERSION || !teamId || !projectId) {
     return null;
   }
@@ -1852,7 +1867,7 @@ function hasSecretCloudflareBuildEnvironmentVariable(args: {
 type SamebaseConvexProjectMarkerObservation =
   | { state: "missing" }
   | { state: "invalid" }
-  | { state: "available"; value: string; convexProject: SamebaseConvexProjectReference };
+  | { state: "available"; convexProject: SamebaseConvexProjectReference };
 
 function readSamebaseConvexProjectMarker(
   envVars: CloudflareBuildEnvVarsResponse,
@@ -1865,9 +1880,7 @@ function readSamebaseConvexProjectMarker(
     return { state: "invalid" };
   }
   const convexProject = parseSamebaseConvexProjectMarker(variable.value);
-  return convexProject
-    ? { state: "available", value: variable.value, convexProject }
-    : { state: "invalid" };
+  return convexProject ? { state: "available", convexProject } : { state: "invalid" };
 }
 
 function matchesAdoptableTriggerKind(args: {
@@ -2046,7 +2059,10 @@ function verifyConvexBuildAccess(args: {
       ? { state: "target_unknown" }
       : { state: "not_configured" };
   }
-  if (productionMarker.value !== previewMarker.value) {
+  if (
+    productionMarker.convexProject.teamId !== previewMarker.convexProject.teamId ||
+    productionMarker.convexProject.projectId !== previewMarker.convexProject.projectId
+  ) {
     return { state: "inconsistent" };
   }
   return productionDeployKeysPresent && previewDeployKeysPresent

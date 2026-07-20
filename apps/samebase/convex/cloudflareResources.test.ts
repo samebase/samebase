@@ -471,13 +471,13 @@ describe("cloudflare resources", () => {
         is_secret: true,
       },
       SAMEBASE_CONVEX_PROJECT: {
-        value: "v1:team-1:project-1",
+        value: "version=1&teamId=team-1&projectId=project-1",
         is_secret: false,
       },
     });
   });
 
-  it("observes a configured Convex project from matching readable markers", async () => {
+  it("observes a configured Convex project regardless of marker parameter order", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     const variables = {
       CONVEX_DEPLOY_KEY: {
@@ -493,14 +493,21 @@ describe("cloudflare resources", () => {
       SAMEBASE_CONVEX_PROJECT: {
         created_on: "2026-07-20T00:00:00Z",
         is_secret: false,
-        value: "v1:team-1:project-1",
+        value: "version=1&teamId=team-1&projectId=project-1",
       },
     };
     stubEnsureCloudflareResourcesFetch({
       requests,
       readEnvVars: {
         "production-trigger": variables,
-        "preview-trigger": variables,
+        "preview-trigger": {
+          ...variables,
+          SAMEBASE_CONVEX_PROJECT: {
+            created_on: "2026-07-20T00:00:00Z",
+            is_secret: false,
+            value: "projectId=project-1&version=1&teamId=team-1",
+          },
+        },
       },
       triggers: [buildMatchingProductionTrigger(), buildMatchingPreviewTrigger()],
     });
@@ -543,7 +550,7 @@ describe("cloudflare resources", () => {
           SAMEBASE_CONVEX_PROJECT: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: false,
-            value: "v1:team-1:project-1",
+            value: "version=1&teamId=team-1&projectId=project-1",
           },
         },
         "preview-trigger": {
@@ -555,7 +562,7 @@ describe("cloudflare resources", () => {
           SAMEBASE_CONVEX_PROJECT: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: false,
-            value: "v1:team-1:project-1",
+            value: "version=1&teamId=team-1&projectId=project-1",
           },
         },
       },
@@ -650,14 +657,14 @@ describe("cloudflare resources", () => {
           SAMEBASE_CONVEX_PROJECT: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: false,
-            value: "v1:team-1:project-1",
+            value: "version=1&teamId=team-1&projectId=project-1",
           },
         },
         "preview-trigger": {
           SAMEBASE_CONVEX_PROJECT: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: false,
-            value: "v1:team-1:project-2",
+            value: "version=1&teamId=team-1&projectId=project-2",
           },
         },
       },
@@ -676,7 +683,12 @@ describe("cloudflare resources", () => {
     });
   });
 
-  it("reports a malformed or secret marker as invalid", async () => {
+  it.each([
+    "v1:team-1:project-1",
+    "version=2&teamId=team-1&projectId=project-1",
+    "version=1&teamId=team-1&teamId=team-2&projectId=project-1",
+    "version=1&teamId=team-1&projectId=project-1&extra=value",
+  ])("reports a malformed marker as invalid", async (marker) => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -685,14 +697,14 @@ describe("cloudflare resources", () => {
           SAMEBASE_CONVEX_PROJECT: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: false,
-            value: "team-1:project-1",
+            value: marker,
           },
         },
         "preview-trigger": {
           SAMEBASE_CONVEX_PROJECT: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: false,
-            value: "team-1:project-1",
+            value: marker,
           },
         },
       },

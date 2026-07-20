@@ -7,9 +7,10 @@ write
 
 The repair for builds that cannot deploy the backend: mints production and preview deploy keys on
 the selected Convex project's production and preview scopes. It writes `CONVEX_DEPLOY_KEY`,
-`PREVIEW_CONVEX_DEPLOY_KEY`, and the non-secret `SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>`
-marker to both Workers Builds triggers, reads the variables back, and verifies the marker value,
-secrecy flags, and required variable names before starting the production build.
+`PREVIEW_CONVEX_DEPLOY_KEY`, and the non-secret
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to both Workers
+Builds triggers, reads the variables back, and verifies the marker value, secrecy flags, and
+required variable names before starting the production build.
 
 The Worker and project must both be attached to the vault. Their selection is input to this one
 operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.

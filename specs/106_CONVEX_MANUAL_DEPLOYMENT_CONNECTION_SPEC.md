@@ -180,6 +180,6 @@ Attaching or creating a Convex project does not imply either provider configurat
 Worker already has connected Builds, Samebase can later run
 `rotate_convex_deploy_keys_for_workers_builds` for one explicitly selected attached project. The
 action mints deploy keys and writes them together with
-`SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` to both Cloudflare triggers. It does not persist a
-current deploy-key state or a Worker-to-project dependency row. The next dashboard read derives the
-relationship from Cloudflare's live marker and variable names.
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` to both Cloudflare
+triggers. It does not persist a current deploy-key state or a Worker-to-project dependency row. The
+next dashboard read derives the relationship from Cloudflare's live marker and variable names.

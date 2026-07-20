@@ -45,9 +45,10 @@ migration history; use `096` for the current create-app state model.
    `attach_convex -> attach_worker -> configure_workers_builds_for_github -> rotate_convex_deploy_keys_for_workers_builds`
 
 The final wiring step writes both Convex deploy-key secrets and the readable
-`SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` marker to both Workers Builds triggers before it
-starts the first production build. The workflow succeeds only after that step completes. The default
-workers.dev URL is loaded directly from Cloudflare and is not copied into `vaultDomains`.
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to both Workers
+Builds triggers before it starts the first production build. The workflow succeeds only after that
+step completes. The default workers.dev URL is loaded directly from Cloudflare and is not copied
+into `vaultDomains`.
 
 ## Historical Repository-First Runtime
 

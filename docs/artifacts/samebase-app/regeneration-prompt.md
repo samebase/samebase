@@ -87,7 +87,8 @@ For a Workers/TanStack Start version:
   TypeScript runner.
 - Use the Convex deploy-key contract: `CONVEX_DEPLOY_KEY` for the production
   branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches.
-- Treat `SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` as Samebase's readable
+- Treat `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as Samebase's
+  readable
   Cloudflare Builds marker. Write the same marker to both triggers during
   Samebase-managed setup. The generated app must not consume it.
 - In the generated template docs, explain the Cloudflare Workers Builds UI

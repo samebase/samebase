@@ -40,10 +40,11 @@ Samebase-provisioned generated apps, and Samebase production should all select `
 for the production branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches. Preview
 builds must require the preview key instead of falling back to the production key.
 
-Samebase-managed wiring also sets the non-secret `SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>`
-marker on both triggers. App build scripts consume only the two deploy-key secrets. The marker lets
-Samebase read which Convex project the Cloudflare configuration declares without copying that
-relationship into its database.
+Samebase-managed wiring also sets the non-secret
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker on both triggers.
+App build scripts consume only the two deploy-key secrets. The marker lets Samebase read which
+Convex project the Cloudflare configuration declares without copying that relationship into its
+database.
 
 Generated app provisioning can move to Workers before Samebase production hosting moves. That is the
 right first product step because it proves the user-facing automation path. The single-stack
@@ -244,7 +245,8 @@ Required Workers operations:
 6. create or patch the preview/non-production build trigger
 7. set Convex deploy-key secrets in Workers Builds: both `CONVEX_DEPLOY_KEY` and
    `PREVIEW_CONVEX_DEPLOY_KEY` on the production and preview triggers
-8. set the same non-secret `SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` marker on both triggers
+8. set the same non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
+   marker on both triggers
 9. do not set `VITE_CONVEX_URL` in Workers Builds; Convex deploy supplies it to the child build
 10. trigger the first production build
 11. read build status, logs, and production URL directly from Cloudflare when needed

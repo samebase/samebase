@@ -186,6 +186,7 @@ repository through Cloudflare Workers Builds.
 
 After Builds is connected, `Rotate Convex deploy keys for Workers Builds` takes one explicitly
 selected attached Convex project. Samebase writes both secret deploy-key variables and the readable
-`SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` marker to the production and preview triggers.
-That Cloudflare configuration is the live relationship. Attaching resources does not create a
-Worker-to-project relationship, and Samebase does not persist a completed dependency row.
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to the production
+and preview triggers. That Cloudflare configuration is the live relationship. Attaching resources
+does not create a Worker-to-project relationship, and Samebase does not persist a completed
+dependency row.

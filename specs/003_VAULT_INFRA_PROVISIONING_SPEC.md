@@ -128,7 +128,7 @@ deploy keys are provider state and must not be mirrored into this row.
 ### Worker-to-Convex build relationship
 
 `SAMEBASE_CONVEX_PROJECT` is a non-secret Cloudflare Workers Builds variable with the value
-`v1:<teamId>:<projectId>`.
+`version=1&teamId=<teamId>&projectId=<projectId>`.
 
 Samebase writes the same marker to the production and preview Builds triggers together with the
 secret variables `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`. The current readable marker is

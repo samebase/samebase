@@ -69,9 +69,10 @@ the app lives at the repository root.
 Build variables and secrets are available only during the Workers build. The template needs
 `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` as build secrets so Cloudflare can deploy the
 matching Convex deployment before producing static assets. Samebase-managed setup also writes
-`SAMEBASE_CONVEX_PROJECT=v1:<teamId>:<projectId>` as a readable build variable. The app does not
-consume that marker. Samebase reads it from Cloudflare to identify the project declared by the two
-Builds triggers without storing a separate Worker-to-project relationship.
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as a readable build
+variable. The app does not consume that marker. Samebase reads it from Cloudflare to identify the
+project declared by the two Builds triggers without storing a separate Worker-to-project
+relationship.
 
 Cloudflare Workers Builds has two build triggers under the hood: one for the production branch and
 one for preview branches. The Builds API can set build variables per trigger, but the dashboard
@@ -145,7 +146,8 @@ Recommended dashboard values for the artifact:
 - Build secret: add `CONVEX_DEPLOY_KEY` with the production key that has only `deployment:deploy`,
   `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`.
 - Build secret: add `PREVIEW_CONVEX_DEPLOY_KEY` with the project Preview deploy key.
-- Build variable: add `SAMEBASE_CONVEX_PROJECT` with `v1:<teamId>:<projectId>`. Do not encrypt it.
+- Build variable: add `SAMEBASE_CONVEX_PROJECT` with
+  `version=1&teamId=<teamId>&projectId=<projectId>`. Do not encrypt it.
 
 ## Sources
 
