@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: current-state research
+- Status: superseded by `research/2026-07-20-vault-level-provider-discovery-flow.md`
 - Owner: Noter provider resources, app creation, and existing repository onboarding
 - Created: 2026-05-22
 - Prompt: decide whether the next provider-resource step should auto-discover Convex and Cloudflare
@@ -18,6 +18,7 @@
   - `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`
   - `research/2026-05-18-new-app-provider-name-selection.md`
   - `research/2026-05-19-existing-app-resource-adoption.md`
+  - `research/2026-07-20-vault-level-provider-discovery-flow.md`
 
 ## Recommendation
 
