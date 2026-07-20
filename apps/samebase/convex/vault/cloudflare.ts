@@ -190,10 +190,11 @@ async function readWorkerConfigurationContext(
     workerId: Id<"vaultCloudflareWorkers">;
   },
 ) {
-  return await ctx.runQuery(
-    internal.vault.cloudflareMutations.readWorkerConfigurationContext,
-    args,
-  );
+  return await ctx.runQuery(internal.vault.cloudflareMutations.readWorkerConfigurationContext, {
+    vaultId: args.vaultId,
+    userId: args.userId,
+    workerId: args.workerId,
+  });
 }
 
 async function readWorkerConvexProjectConfigurationContext(

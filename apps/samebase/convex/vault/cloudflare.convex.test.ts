@@ -75,7 +75,7 @@ async function createCloudflareConnectedVault() {
       origin: "selected_existing",
       createdAt: 4,
     });
-    return { appId, userId, vaultId, workerId };
+    return { appId, runId, userId, vaultId, workerId };
   });
 
   return {
@@ -104,6 +104,37 @@ describe("vault Cloudflare Worker operations", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("lets the New App workflow reach provider configuration for GitHub Builds", async () => {
+    const { runId, t, userId, vaultId, workerId } = await createCloudflareConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "github-token",
+        },
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    });
+    const fetchMock = vi.fn(async () => {
+      throw new Error("Provider configuration reached.");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.cloudflare.configureWorkersBuildsForGitHubForWorkflow, {
+        runId,
+        userId,
+        vaultId,
+        workerId,
+      }),
+    ).rejects.toThrow("Provider configuration reached.");
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it("removes an attachment only after Cloudflare confirms its Worker identity is missing", async () => {
