@@ -52,9 +52,11 @@ evidence in the picker before attachment when it is known.
 Cleanup ownership is derived from `origin`: `provisioned` Workers can be deleted by managed cleanup
 flows, while `selected_existing` Workers are external.
 
-Worker existence, workers.dev URLs, repository configuration, build triggers, and Convex deploy-key
-variables are read directly from Cloudflare as a bounded live observation. They are not fields on
-the attachment row and the observation is not written back to the database.
+Worker existence and workers.dev URLs, repository configuration and build triggers, and Convex
+deploy-key variables are read directly from Cloudflare as three bounded live observations. They load
+independently, are not fields on the attachment row, and are not written back to the database. The
+build-trigger identifiers passed from the repository observation to the deploy-key observation are
+short-lived request coordinates, not persisted relationship data.
 
 ## Provider Connection Model
 

@@ -33,6 +33,7 @@ import {
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import type { VaultPullRequestObservation } from "@/hooks/useVaultPullRequestObservations";
 import { validateRootRouteSearch } from "@/routeSearch/root";
+import type { VaultCloudflareProviderObservationState } from "@/components/vault-dashboard/useVaultProviderObservations";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
@@ -57,6 +58,11 @@ export type VaultDashboardVisualMode =
   | "vault-pull-request-filters";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
+const LOADING_CLOUDFLARE_OBSERVATIONS = {
+  workers: { state: "loading" },
+  builds: { state: "loading" },
+  convexBuildAccess: { state: "loading" },
+} satisfies VaultCloudflareProviderObservationState;
 const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
 
 function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
@@ -160,7 +166,9 @@ function FixtureRepositoryLinks() {
   return (
     <div className="flex flex-wrap gap-3 text-sm">
       <a href="https://github.com/samebase/samebase">GitHub</a>
-      <a href="https://dash.cloudflare.com">Cloudflare</a>
+      <a href="https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/settings">
+        Cloudflare
+      </a>
       <a href="https://dashboard.convex.dev/t/nicu/samebase/settings">Project settings</a>
     </div>
   );
@@ -551,7 +559,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
     <VaultDashboardView
       deleteModeActive={false}
       developerToolsVisible={false}
-      cloudflareObservations={{ state: "loading" }}
+      cloudflareObservations={LOADING_CLOUDFLARE_OBSERVATIONS}
       cloudflareWorkerConfigurationActionInFlight={null}
       convexObservations={{ state: "loading" }}
       isRemovingVault={false}
@@ -626,49 +634,78 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           deleteModeActive={false}
           developerToolsVisible={false}
           cloudflareObservations={{
-            state: "loaded",
-            reload: () => {},
-            observations: [
-              {
-                state: "available",
-                observedAt: FIXTURE_NOW,
-                workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-                workerTag: "tmp-my-super-app-234-tag",
-                workersDev: {
-                  state: "enabled",
-                  url: "https://tmp-my-super-app-234.pfp.workers.dev",
-                },
-                repository: {
-                  classification: "available",
-                  evidence: { state: "none" },
-                },
-                builds: { state: "not_connected" },
-              },
-              {
-                state: "available",
-                observedAt: FIXTURE_NOW,
-                workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
-                workerTag: "tmp-my-super-app-admin-tag",
-                workersDev: {
-                  state: "enabled",
-                  url: "https://tmp-my-super-app-admin.pfp.workers.dev",
-                },
-                repository: {
-                  classification: "recommended",
-                  evidence: {
-                    state: "matching_repo",
-                    repoId: "123",
-                    repoName: "nicu-chiciuc/tmp-my-super-app-2",
-                    triggerName: "Production Deploy",
-                    rootDirectory: "/",
+            workers: {
+              state: "loaded",
+              reload: () => {},
+              observations: [
+                {
+                  state: "available",
+                  observedAt: FIXTURE_NOW,
+                  workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+                  workersDev: {
+                    state: "enabled",
+                    url: "https://tmp-my-super-app-234.pfp.workers.dev",
                   },
                 },
-                builds: {
-                  state: "connected",
+                {
+                  state: "available",
+                  observedAt: FIXTURE_NOW,
+                  workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
+                  workersDev: {
+                    state: "enabled",
+                    url: "https://tmp-my-super-app-admin.pfp.workers.dev",
+                  },
+                },
+              ],
+            },
+            builds: {
+              state: "loaded",
+              reload: () => {},
+              observations: [
+                {
+                  state: "available",
+                  observedAt: FIXTURE_NOW,
+                  workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+                  repository: {
+                    classification: "available",
+                    evidence: { state: "none" },
+                  },
+                  builds: { state: "not_connected" },
+                },
+                {
+                  state: "available",
+                  observedAt: FIXTURE_NOW,
+                  workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
+                  repository: {
+                    classification: "recommended",
+                    evidence: {
+                      state: "matching_repo",
+                      repoId: "123",
+                      repoName: "nicu-chiciuc/tmp-my-super-app-2",
+                      triggerName: "Production Deploy",
+                      rootDirectory: "/",
+                    },
+                  },
+                  builds: {
+                    state: "connected",
+                    productionTriggerUuid: "production-trigger",
+                    previewTriggerUuid: "preview-trigger",
+                  },
+                },
+              ],
+            },
+            convexBuildAccess: {
+              state: "loaded",
+              reload: () => {},
+              observations: [
+                {
+                  state: "available",
+                  observedAt: FIXTURE_NOW,
+                  workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
                   convexBuildAccess: { state: "not_configured" },
                 },
-              },
-            ],
+              ],
+            },
           }}
           cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}
@@ -726,7 +763,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
           <VaultDashboardView
             deleteModeActive={false}
             developerToolsVisible={false}
-            cloudflareObservations={{ state: "loading" }}
+            cloudflareObservations={LOADING_CLOUDFLARE_OBSERVATIONS}
             cloudflareWorkerConfigurationActionInFlight={null}
             convexObservations={{ state: "loading" }}
             isRemovingVault={false}

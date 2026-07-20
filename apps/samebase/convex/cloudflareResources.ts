@@ -208,6 +208,12 @@ type CloudflareWorkerIdentity = {
   workerTag: string;
 };
 
+type CloudflareWorkerDetails = {
+  workersDevEnabled: boolean;
+  workerName: string;
+  workerTag: string;
+};
+
 export type CloudflareWorkerInventoryItem = {
   workerName: string;
   workerTag: string;
@@ -360,7 +366,7 @@ function formatCloudflareBuildRoot(rootDirectory: string): string {
   return rootDirectory === "/" ? "/" : rootDirectory;
 }
 
-async function readAccountSubdomain(
+export async function readCloudflareWorkersDevSubdomain(
   args: { token: string; accountId: string } & CloudflareApiCallOptions,
 ): Promise<string> {
   const raw = await requestCloudflareApi({
@@ -382,31 +388,6 @@ async function readAccountSubdomain(
     );
   }
   return subdomain;
-}
-
-async function readWorkerSubdomainEnabled(
-  args: {
-    token: string;
-    accountId: string;
-    workerName: string;
-  } & CloudflareApiCallOptions,
-): Promise<boolean> {
-  // A workers.dev URL is usable only when this script-level subdomain is enabled,
-  // even when the account-level workers.dev subdomain exists.
-  const raw = await requestCloudflareApi({
-    token: args.token,
-    method: "GET",
-    path: "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
-    transport: args.transport,
-    params: {
-      path: {
-        account_id: args.accountId,
-        script_name: args.workerName,
-      },
-    },
-    recordApiCall: args.recordApiCall,
-  });
-  return raw?.enabled === true;
 }
 
 async function readWorker(
@@ -448,35 +429,15 @@ export async function readCloudflareWorkerIdentity(
     accountId: string;
     workerName: string;
   } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkerInventoryItem | null> {
+): Promise<CloudflareWorkerDetails | null> {
   const worker = await readWorker(args);
   if (!worker) {
     return null;
   }
   return {
+    workersDevEnabled: worker.subdomain.enabled,
     workerName: args.workerName,
     workerTag: readCloudflareWorkerTag(worker, args.workerName),
-  };
-}
-
-export type CloudflareWorkersDevAvailability =
-  | { state: "enabled"; url: string }
-  | { state: "disabled" };
-
-export async function readCloudflareWorkersDevAvailability(
-  args: {
-    token: string;
-    accountId: string;
-    workerName: string;
-  } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkersDevAvailability> {
-  if (!(await readWorkerSubdomainEnabled(args))) {
-    return { state: "disabled" };
-  }
-  const accountSubdomain = await readAccountSubdomain(args);
-  return {
-    state: "enabled",
-    url: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
   };
 }
 
@@ -2065,20 +2026,20 @@ function verifyConvexBuildAccess(args: {
     : { state: "incomplete", convexProject: productionMarker.convexProject };
 }
 
-export type CloudflareWorkerBuildsObservation =
+export type CloudflareWorkerBuildsConnection =
   | { state: "not_connected" }
   | {
       state: "connected";
-      build: CloudflareConnectedWorkersBuilds;
-      convexBuildAccess: CloudflareConvexBuildAccessObservation;
+      productionTriggerUuid: string;
+      previewTriggerUuid: string;
     };
 
-export type CloudflareWorkerDeploymentDiscovery = {
+export type CloudflareWorkerBuildsDiscovery = {
   repository: CloudflareWorkerRepositoryDiscovery;
-  builds: CloudflareWorkerBuildsObservation;
+  builds: CloudflareWorkerBuildsConnection;
 };
 
-export async function readCloudflareWorkerDeploymentDiscoveryForIdentity(
+export async function readCloudflareWorkerBuildsDiscoveryForIdentity(
   args: {
     token: string;
     accountId: string;
@@ -2087,7 +2048,7 @@ export async function readCloudflareWorkerDeploymentDiscoveryForIdentity(
     expectedRepoId: string;
     buildConfig: CloudflareBuildConfig;
   } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkerDeploymentDiscovery> {
+): Promise<CloudflareWorkerBuildsDiscovery> {
   const triggers = await listBuildTriggers({
     token: args.token,
     accountId: args.accountId,
@@ -2110,30 +2071,41 @@ export async function readCloudflareWorkerDeploymentDiscoveryForIdentity(
     return { repository, builds: { state: "not_connected" } };
   }
 
-  const [productionEnvVars, previewEnvVars] = await Promise.all([
-    listTriggerEnvironmentVariables({
-      token: args.token,
-      accountId: args.accountId,
-      triggerUuid: build.production.triggerUuid,
-      transport: args.transport,
-      recordApiCall: args.recordApiCall,
-    }),
-    listTriggerEnvironmentVariables({
-      token: args.token,
-      accountId: args.accountId,
-      triggerUuid: build.preview.triggerUuid,
-      transport: args.transport,
-      recordApiCall: args.recordApiCall,
-    }),
-  ]);
   return {
     repository,
     builds: {
       state: "connected",
-      build,
-      convexBuildAccess: verifyConvexBuildAccess({ productionEnvVars, previewEnvVars }),
+      productionTriggerUuid: build.production.triggerUuid,
+      previewTriggerUuid: build.preview.triggerUuid,
     },
   };
+}
+
+export async function readCloudflareWorkerConvexBuildAccess(
+  args: {
+    token: string;
+    accountId: string;
+    productionTriggerUuid: string;
+    previewTriggerUuid: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareConvexBuildAccessObservation> {
+  const [productionEnvVars, previewEnvVars] = await Promise.all([
+    listTriggerEnvironmentVariables({
+      token: args.token,
+      accountId: args.accountId,
+      triggerUuid: args.productionTriggerUuid,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    }),
+    listTriggerEnvironmentVariables({
+      token: args.token,
+      accountId: args.accountId,
+      triggerUuid: args.previewTriggerUuid,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    }),
+  ]);
+  return verifyConvexBuildAccess({ productionEnvVars, previewEnvVars });
 }
 
 async function configureCloudflareWorkerBuilds(

@@ -6,9 +6,11 @@ import { internal } from "../_generated/api";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
+  readCloudflareWorkerBuildsDiscoveryForIdentity,
   readCloudflareWorkerBuildsPage,
-  readCloudflareWorkerDeploymentDiscoveryForIdentity,
+  readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
+  type CloudflareConvexBuildAccessObservation,
   type CloudflareWorkerBuild,
 } from "../cloudflareResources";
 import { action } from "../functions";
@@ -132,6 +134,9 @@ type ConvexPreviewRead =
       deployments: ConvexCloudDeployment[];
     }
   | { state: "missing" }
+  | { state: "failed" };
+type ConvexBuildAccessRead =
+  | { state: "available"; observation: CloudflareConvexBuildAccessObservation }
   | { state: "failed" };
 
 function workerObservationIdentity(worker: StableWorker) {
@@ -340,15 +345,12 @@ function unavailableWorkerObservations(args: {
 function resolveAttachedConvexProject(args: {
   worker: StableWorker;
   projects: readonly StableConvexProject[];
-  discovery: Awaited<ReturnType<typeof readCloudflareWorkerDeploymentDiscoveryForIdentity>>;
+  buildAccess: CloudflareConvexBuildAccessObservation;
 }): StableConvexProject | null {
-  if (
-    args.discovery.builds.state !== "connected" ||
-    args.discovery.builds.convexBuildAccess.state !== "configured"
-  ) {
+  if (args.buildAccess.state !== "configured") {
     return null;
   }
-  const reference = args.discovery.builds.convexBuildAccess.convexProject;
+  const reference = args.buildAccess.convexProject;
   return (
     args.projects.find(
       (project) =>
@@ -422,7 +424,7 @@ async function observeWorkerForHeads(args: {
   const config = buildVaultCloudflareBuildConfigForRootDirectory({
     rootDirectory: args.worker.rootDirectory,
   });
-  const discovery = await readCloudflareWorkerDeploymentDiscoveryForIdentity({
+  const discovery = await readCloudflareWorkerBuildsDiscoveryForIdentity({
     token: args.cloudflareToken,
     transport: args.cloudflareTransport,
     accountId: args.worker.accountId,
@@ -465,12 +467,26 @@ async function observeWorkerForHeads(args: {
     }
   }
 
-  const attachedProject = resolveAttachedConvexProject({
-    worker: args.worker,
-    projects: args.context.convexProjects,
-    discovery,
-  });
   const identityFields = workerObservationIdentity(args.worker);
+  let convexBuildAccessRead: Promise<ConvexBuildAccessRead> | undefined;
+  const readConvexBuildAccess = () => {
+    const existing = convexBuildAccessRead;
+    if (existing) {
+      return existing;
+    }
+    const request = readCloudflareWorkerConvexBuildAccess({
+      token: args.cloudflareToken,
+      transport: args.cloudflareTransport,
+      accountId: args.worker.accountId,
+      productionTriggerUuid: connectedBuilds.productionTriggerUuid,
+      previewTriggerUuid: connectedBuilds.previewTriggerUuid,
+    }).then(
+      (observation) => ({ state: "available" as const, observation }),
+      () => ({ state: "failed" as const }),
+    );
+    convexBuildAccessRead = request;
+    return request;
+  };
 
   return await Promise.all(
     args.heads.map(async (head): Promise<PullRequestWorkerBuildObservation> => {
@@ -479,7 +495,7 @@ async function observeWorkerForHeads(args: {
         head,
         worker: args.worker,
         ghRepoId: args.context.ghRepoId,
-        previewTriggerUuid: connectedBuilds.build.preview.triggerUuid,
+        previewTriggerUuid: connectedBuilds.previewTriggerUuid,
         previewDeployCommand: config.previewDeployCommand,
       });
       if (match.state === "absent") {
@@ -503,53 +519,63 @@ async function observeWorkerForHeads(args: {
         reason: Extract<AvailableWorkerBuild["convexPreview"], { state: "unavailable" }>["reason"],
       ) => ({ state: "unavailable" as const, reason });
       let convexPreview: AvailableWorkerBuild["convexPreview"];
-      if (!attachedProject) {
-        convexPreview = unavailablePreview(
-          connectedBuilds.convexBuildAccess.state === "configured"
-            ? "project_mismatch"
-            : "marker_unavailable",
-        );
-      } else if (!args.convexToken || attachedProject.teamId !== args.convexTeamId) {
-        convexPreview = unavailablePreview("connection_required");
+      const buildAccessRead = await readConvexBuildAccess();
+      if (buildAccessRead.state === "failed") {
+        convexPreview = unavailablePreview("request_failed");
       } else {
-        let previewRead = args.previewReads.get(attachedProject.convexProjectId);
-        if (!previewRead) {
-          previewRead = readConvexPreview({
-            token: args.convexToken,
-            project: attachedProject,
-          });
-          args.previewReads.set(attachedProject.convexProjectId, previewRead);
-        }
-        const observedPreviews = await previewRead;
-        if (observedPreviews.state === "missing") {
-          convexPreview = unavailablePreview("project_missing");
-        } else if (observedPreviews.state === "failed") {
-          convexPreview = unavailablePreview("request_failed");
+        const attachedProject = resolveAttachedConvexProject({
+          worker: args.worker,
+          projects: args.context.convexProjects,
+          buildAccess: buildAccessRead.observation,
+        });
+        if (!attachedProject) {
+          convexPreview = unavailablePreview(
+            buildAccessRead.observation.state === "configured"
+              ? "project_mismatch"
+              : "marker_unavailable",
+          );
+        } else if (!args.convexToken || attachedProject.teamId !== args.convexTeamId) {
+          convexPreview = unavailablePreview("connection_required");
         } else {
-          const resolved = resolveConvexPreviewDeployment({
-            deployments: observedPreviews.deployments,
-            head,
-            build: match,
-          });
-          if (resolved.state === "absent") {
-            convexPreview = {
-              state: "absent",
-              convexProjectId: attachedProject.convexProjectId,
-            };
-          } else if (resolved.state === "unavailable") {
-            convexPreview = unavailablePreview(resolved.reason);
+          let previewRead = args.previewReads.get(attachedProject.convexProjectId);
+          if (!previewRead) {
+            previewRead = readConvexPreview({
+              token: args.convexToken,
+              project: attachedProject,
+            });
+            args.previewReads.set(attachedProject.convexProjectId, previewRead);
+          }
+          const observedPreviews = await previewRead;
+          if (observedPreviews.state === "missing") {
+            convexPreview = unavailablePreview("project_missing");
+          } else if (observedPreviews.state === "failed") {
+            convexPreview = unavailablePreview("request_failed");
           } else {
-            convexPreview = {
-              state: "available",
-              convexProjectId: attachedProject.convexProjectId,
-              deploymentName: resolved.deployment.name,
-              deploymentUrl: resolved.deployment.deploymentUrl,
-              dashboardUrl: convexDashboardUrl({
-                teamSlug: observedPreviews.teamSlug,
-                projectSlug: observedPreviews.projectSlug,
+            const resolved = resolveConvexPreviewDeployment({
+              deployments: observedPreviews.deployments,
+              head,
+              build: match,
+            });
+            if (resolved.state === "absent") {
+              convexPreview = {
+                state: "absent",
+                convexProjectId: attachedProject.convexProjectId,
+              };
+            } else if (resolved.state === "unavailable") {
+              convexPreview = unavailablePreview(resolved.reason);
+            } else {
+              convexPreview = {
+                state: "available",
+                convexProjectId: attachedProject.convexProjectId,
                 deploymentName: resolved.deployment.name,
-              }),
-            };
+                deploymentUrl: resolved.deployment.deploymentUrl,
+                dashboardUrl: convexDashboardUrl({
+                  teamSlug: observedPreviews.teamSlug,
+                  projectSlug: observedPreviews.projectSlug,
+                  deploymentName: resolved.deployment.name,
+                }),
+              };
+            }
           }
         }
       }

@@ -17,7 +17,9 @@ import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNotFoundError,
   isWorkersBuildsInvalidTokenMessage,
-  readCloudflareWorkerDeploymentDiscoveryForIdentity,
+  readCloudflareWorkerBuildsDiscoveryForIdentity,
+  readCloudflareWorkerConvexBuildAccess,
+  readCloudflareWorkerIdentity,
   readCloudflareWorkerRepositoryDiscovery,
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
@@ -112,8 +114,8 @@ function buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(): Parameters<
   };
 }
 
-function buildTestCloudflareWorkerDeploymentDiscoveryArgs(): Parameters<
-  typeof readCloudflareWorkerDeploymentDiscoveryForIdentity
+function buildTestCloudflareWorkerBuildsDiscoveryArgs(): Parameters<
+  typeof readCloudflareWorkerBuildsDiscoveryForIdentity
 >[0] {
   return {
     workerTag: "worker-tag",
@@ -130,6 +132,18 @@ function buildTestCloudflareWorkerDeploymentDiscoveryArgs(): Parameters<
       pathIncludes: ["**/*"],
       pathExcludes: [],
     },
+  };
+}
+
+function buildTestCloudflareWorkerConvexBuildAccessArgs(): Parameters<
+  typeof readCloudflareWorkerConvexBuildAccess
+>[0] {
+  return {
+    token: "oauth-token",
+    transport: "direct",
+    accountId: "account-id",
+    productionTriggerUuid: "production-trigger",
+    previewTriggerUuid: "preview-trigger",
   };
 }
 
@@ -410,6 +424,31 @@ describe("cloudflare resources", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
+  it("reads workers.dev availability from the Worker identity response", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(cloudflareWorkerReadEnvelope, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      readCloudflareWorkerIdentity({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerName: "samebase-app",
+      }),
+    ).resolves.toEqual({
+      workersDevEnabled: false,
+      workerName: "samebase-app",
+      workerTag: "worker-tag",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("deletes a Worker by its immutable tag", async () => {
     const requests: Array<{ method: string; path: string }> = [];
     vi.stubGlobal(
@@ -513,18 +552,24 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      readCloudflareWorkerDeploymentDiscoveryForIdentity(
-        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      readCloudflareWorkerBuildsDiscoveryForIdentity(
+        buildTestCloudflareWorkerBuildsDiscoveryArgs(),
       ),
     ).resolves.toMatchObject({
       repository: { classification: "recommended" },
       builds: {
         state: "connected",
-        convexBuildAccess: {
-          state: "configured",
-          convexProject: { teamId: "team-1", projectId: "project-1" },
-        },
+        productionTriggerUuid: "production-trigger",
+        previewTriggerUuid: "preview-trigger",
       },
+    });
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+
+    await expect(
+      readCloudflareWorkerConvexBuildAccess(buildTestCloudflareWorkerConvexBuildAccessArgs()),
+    ).resolves.toEqual({
+      state: "configured",
+      convexProject: { teamId: "team-1", projectId: "project-1" },
     });
     expect(
       requests.filter((request) => request.path.includes("environment_variables")),
@@ -570,17 +615,10 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      readCloudflareWorkerDeploymentDiscoveryForIdentity(
-        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
-      ),
-    ).resolves.toMatchObject({
-      builds: {
-        state: "connected",
-        convexBuildAccess: {
-          state: "incomplete",
-          convexProject: { teamId: "team-1", projectId: "project-1" },
-        },
-      },
+      readCloudflareWorkerConvexBuildAccess(buildTestCloudflareWorkerConvexBuildAccessArgs()),
+    ).resolves.toEqual({
+      state: "incomplete",
+      convexProject: { teamId: "team-1", projectId: "project-1" },
     });
   });
 
@@ -608,15 +646,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      readCloudflareWorkerDeploymentDiscoveryForIdentity(
-        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
-      ),
-    ).resolves.toMatchObject({
-      builds: {
-        state: "connected",
-        convexBuildAccess: { state: "target_unknown" },
-      },
-    });
+      readCloudflareWorkerConvexBuildAccess(buildTestCloudflareWorkerConvexBuildAccessArgs()),
+    ).resolves.toEqual({ state: "target_unknown" });
   });
 
   it("reports an unknown target when only one secret survives without a marker", async () => {
@@ -637,15 +668,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      readCloudflareWorkerDeploymentDiscoveryForIdentity(
-        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
-      ),
-    ).resolves.toMatchObject({
-      builds: {
-        state: "connected",
-        convexBuildAccess: { state: "target_unknown" },
-      },
-    });
+      readCloudflareWorkerConvexBuildAccess(buildTestCloudflareWorkerConvexBuildAccessArgs()),
+    ).resolves.toEqual({ state: "target_unknown" });
   });
 
   it("reports inconsistent markers instead of selecting one trigger", async () => {
@@ -672,15 +696,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      readCloudflareWorkerDeploymentDiscoveryForIdentity(
-        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
-      ),
-    ).resolves.toMatchObject({
-      builds: {
-        state: "connected",
-        convexBuildAccess: { state: "inconsistent" },
-      },
-    });
+      readCloudflareWorkerConvexBuildAccess(buildTestCloudflareWorkerConvexBuildAccessArgs()),
+    ).resolves.toEqual({ state: "inconsistent" });
   });
 
   it.each([
@@ -712,15 +729,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      readCloudflareWorkerDeploymentDiscoveryForIdentity(
-        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
-      ),
-    ).resolves.toMatchObject({
-      builds: {
-        state: "connected",
-        convexBuildAccess: { state: "invalid" },
-      },
-    });
+      readCloudflareWorkerConvexBuildAccess(buildTestCloudflareWorkerConvexBuildAccessArgs()),
+    ).resolves.toEqual({ state: "invalid" });
   });
 
   it("does not read build variables until both Builds triggers exist", async () => {
@@ -731,8 +741,8 @@ describe("cloudflare resources", () => {
     });
 
     await expect(
-      readCloudflareWorkerDeploymentDiscoveryForIdentity(
-        buildTestCloudflareWorkerDeploymentDiscoveryArgs(),
+      readCloudflareWorkerBuildsDiscoveryForIdentity(
+        buildTestCloudflareWorkerBuildsDiscoveryArgs(),
       ),
     ).resolves.toMatchObject({
       repository: { classification: "recommended" },
