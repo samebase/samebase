@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildUrlWithSearchParams, createUrlSearchParams } from "./urlSearchParams";
+import {
+  buildUrlWithSearchParams,
+  createUrlSearchParams,
+  readUrlSearchParamsRecord,
+} from "./urlSearchParams";
 
 describe("createUrlSearchParams", () => {
   it("serializes defined values and omits undefined values", () => {
@@ -11,6 +15,16 @@ describe("createUrlSearchParams", () => {
     });
 
     expect(params.toString()).toBe("empty=&query=hello+world");
+  });
+});
+
+describe("readUrlSearchParamsRecord", () => {
+  it("preserves repeated keys for schema validation", () => {
+    expect(readUrlSearchParamsRecord("version=1&teamId=one&teamId=two&empty=")).toEqual({
+      version: "1",
+      teamId: ["one", "two"],
+      empty: "",
+    });
   });
 });
 

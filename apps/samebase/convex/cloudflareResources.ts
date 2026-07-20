@@ -1,5 +1,7 @@
 import { notEmpty } from "@samebase/dependent/main";
+import { z } from "zod";
 
+import { createUrlSearchParams, readUrlSearchParamsRecord } from "../shared/urlSearchParams";
 import {
   requestCloudflareApi,
   CloudflareApiError,
@@ -167,44 +169,36 @@ export function buildCloudflareWorkersEnvVars(vars: {
   };
 }
 
-export type SamebaseConvexProjectReference = {
-  teamId: string;
-  projectId: string;
-};
+const samebaseConvexProjectMarkerSchema = z.strictObject({
+  version: z.literal(SAMEBASE_CONVEX_PROJECT_MARKER_VERSION),
+  teamId: z.string().trim().min(1),
+  projectId: z.string().trim().min(1),
+});
+
+export type SamebaseConvexProjectReference = Omit<
+  z.infer<typeof samebaseConvexProjectMarkerSchema>,
+  "version"
+>;
 
 export function buildSamebaseConvexProjectMarker(project: SamebaseConvexProjectReference): string {
-  const teamId = project.teamId.trim();
-  const projectId = project.projectId.trim();
-  if (!teamId || !projectId) {
+  const marker = samebaseConvexProjectMarkerSchema.safeParse({
+    version: SAMEBASE_CONVEX_PROJECT_MARKER_VERSION,
+    ...project,
+  });
+  if (!marker.success) {
     throw new Error("Convex project identity cannot be encoded for Cloudflare Builds.");
   }
 
-  // eslint-disable-next-line no-restricted-globals -- The provider marker uses a query-string wire format.
-  return new URLSearchParams({
-    version: SAMEBASE_CONVEX_PROJECT_MARKER_VERSION,
-    teamId,
-    projectId,
-  }).toString();
+  return createUrlSearchParams(marker.data).toString();
 }
 
 function parseSamebaseConvexProjectMarker(value: string): SamebaseConvexProjectReference | null {
-  // eslint-disable-next-line no-restricted-globals -- The provider marker uses a query-string wire format.
-  const params = new URLSearchParams(value);
-  if (
-    [...params].length !== 3 ||
-    params.getAll("version").length !== 1 ||
-    params.getAll("teamId").length !== 1 ||
-    params.getAll("projectId").length !== 1
-  ) {
+  const marker = samebaseConvexProjectMarkerSchema.safeParse(readUrlSearchParamsRecord(value));
+  if (!marker.success) {
     return null;
   }
 
-  const version = params.get("version");
-  const teamId = params.get("teamId")?.trim();
-  const projectId = params.get("projectId")?.trim();
-  if (version !== SAMEBASE_CONVEX_PROJECT_MARKER_VERSION || !teamId || !projectId) {
-    return null;
-  }
+  const { teamId, projectId } = marker.data;
   return { teamId, projectId };
 }
 
