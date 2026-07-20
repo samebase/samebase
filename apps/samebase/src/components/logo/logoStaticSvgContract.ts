@@ -75,8 +75,6 @@ export const LOGO_IDENTITY_VIEW_CONTRACTS = [
   },
 ] as const;
 export type LogoIdentityViewId = (typeof LOGO_IDENTITY_VIEW_CONTRACTS)[number]["id"];
-export const LOGO_IDENTITY_EDIT_MARK_VIEW_ID = "side-diagonal" satisfies LogoIdentityViewId;
-export const LOGO_IDENTITY_EDIT_MARK_SVG_URL = "/logo-v2-side-diagonal.svg";
 
 export function getLogoIdentityAssetPath({
   treatment,

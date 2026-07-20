@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
-import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
+import { createCompactIdentitySvgMarkup } from "./src/components/compactIdentitySvgAsset";
 import {
   createLogoIdentitySvgAssets,
   createStaticLogoSvgMarkup,
@@ -115,7 +115,10 @@ const appBuildConfig: AppBuildConfig = {
   landingPageSlogan,
 };
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
-const staticInstallIconSvgAssetPath = path.resolve(currentDir, "public/install-icon.svg");
+const staticCompactIdentitySvgAssetPaths = [
+  path.resolve(currentDir, "public/samebase-icon.svg"),
+  path.resolve(currentDir, "public/install-icon.svg"),
+];
 const samebaseSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/samebase.ts");
 const samebaseConnectConfigPathname = "/samebase-connect.json";
 const runtimeSamebaseConnectConfigPath = path.resolve(
@@ -239,24 +242,27 @@ function syncLogoIdentitySvgAssets() {
 }
 
 /**
- * Keep the checked-in install icon SVG stable by comparing trimmed markup and
- * only rewriting when the canonical source output has semantically changed.
+ * Keep the checked-in compact identity SVG aliases stable by comparing trimmed
+ * markup and only rewriting when the canonical source has changed.
  */
-function syncStaticInstallIconSvgAsset() {
-  const nextInstallIconSvgMarkup = createInstallIconSvgMarkup().trim();
-  const currentInstallIconSvgMarkup = (() => {
-    try {
-      return readFileSync(staticInstallIconSvgAssetPath, "utf8").trim();
-    } catch {
-      return null;
+function syncStaticCompactIdentitySvgAssets() {
+  const nextCompactIdentitySvgMarkup = createCompactIdentitySvgMarkup().trim();
+
+  for (const assetPath of staticCompactIdentitySvgAssetPaths) {
+    const currentCompactIdentitySvgMarkup = (() => {
+      try {
+        return readFileSync(assetPath, "utf8").trim();
+      } catch {
+        return null;
+      }
+    })();
+
+    if (currentCompactIdentitySvgMarkup === nextCompactIdentitySvgMarkup) {
+      continue;
     }
-  })();
 
-  if (currentInstallIconSvgMarkup === nextInstallIconSvgMarkup) {
-    return;
+    writeFileSync(assetPath, `${nextCompactIdentitySvgMarkup}\n`, "utf8");
   }
-
-  writeFileSync(staticInstallIconSvgAssetPath, `${nextInstallIconSvgMarkup}\n`, "utf8");
 }
 
 export async function buildRuntimeSamebaseSyncScript() {
@@ -333,24 +339,24 @@ function syncStaticLogoSvgAssetPlugin() {
 }
 
 /**
- * The install icon SVG is a generated artifact, so the plugin syncs it only
- * once per Vite process instead of rewriting on every hook invocation.
+ * The compact identity SVGs are generated artifacts, so the plugin syncs them
+ * only once per Vite process instead of rewriting on every hook invocation.
  */
-function syncStaticInstallIconSvgAssetPlugin() {
-  let hasSyncedStaticInstallIconSvgAsset = false;
+function syncStaticCompactIdentitySvgAssetsPlugin() {
+  let hasSyncedStaticCompactIdentitySvgAssets = false;
 
   const syncOnce = () => {
-    if (hasSyncedStaticInstallIconSvgAsset) {
+    if (hasSyncedStaticCompactIdentitySvgAssets) {
       return;
     }
 
     // One-time sync avoids repeated write churn while keeping the tracked SVG current.
-    hasSyncedStaticInstallIconSvgAsset = true;
-    syncStaticInstallIconSvgAsset();
+    hasSyncedStaticCompactIdentitySvgAssets = true;
+    syncStaticCompactIdentitySvgAssets();
   };
 
   return {
-    name: "sync-static-install-icon-svg-asset",
+    name: "sync-static-compact-identity-svg-assets",
     buildStart() {
       syncOnce();
     },
@@ -590,7 +596,7 @@ export default defineConfig({
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
-    syncStaticInstallIconSvgAssetPlugin(),
+    syncStaticCompactIdentitySvgAssetsPlugin(),
     samebaseSyncScriptAssetPlugin(),
     syncRuntimeSamebaseConnectConfigAssetPlugin(),
     serveContentDocsMarkdownPlugin(),

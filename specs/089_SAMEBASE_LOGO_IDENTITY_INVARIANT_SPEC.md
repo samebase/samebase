@@ -4,9 +4,10 @@
 
 - Status: Accepted
 - Owner: Samebase frontend
-- Last updated: 2026-05-24
+- Last updated: 2026-07-20
 - Related files: `apps/samebase/src/components/logo/logoStaticSvgContract.ts`,
   `apps/samebase/src/components/logo/logoStaticSvgAsset.ts`,
+  `apps/samebase/src/components/compactIdentitySvgAsset.ts`,
   `apps/samebase/src/components/logo/logoFaceTreatment.ts`,
   `apps/samebase/src/components/logo/logoLeftFaceStyle.ts`, `apps/samebase/public/brand/`,
   `apps/samebase/public/logo-v1-side-primary.svg`, `apps/samebase/public/logo-v2-side-diagonal.svg`,
@@ -29,6 +30,11 @@ The Samebase logo identity is one `3x3x3` voxel shape viewed through three stabl
 The X profile banner already uses this sequence as the brand explanation. This spec makes that
 sequence a code and asset invariant rather than an implied memory.
 
+Compact identity surfaces use the clean version 1 projection as a single dark square with its center
+square removed. This is the canonical icon treatment for browser chrome, app installation, plugin
+and mention avatars, structured identity metadata, and compact in-app navigation. The spatial
+version 3 mark remains the expressive rendering for landing and social compositions.
+
 Recursive `/logo?depth=...` previews and `gridSize=2` playground states are exploration render
 states. They do not change the canonical identity asset contract unless this spec, the generated
 assets, and the synchronization tests are updated together.
@@ -45,8 +51,9 @@ face changes from secondary color to a primary/background stripe pattern.
   the left face, and background on the top face.
 - The canonical single-color stripe treatment is `LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE`.
 - The canonical identity views live in `LOGO_IDENTITY_VIEW_CONTRACTS`.
-- Public SVG assets must be generated from `createLogoIdentityViewSvgMarkup`; product code must not
-  hand-draw approximations of these marks.
+- Expressive public SVG assets must be generated from `createLogoIdentityViewSvgMarkup`.
+- Compact icon assets must be generated from `createCompactIdentitySvgMarkup`; product code must not
+  hand-draw approximations of the compact mark.
 
 ## Single-Color Stripe Treatment
 
@@ -89,25 +96,27 @@ gets the same stripe phase.
 - Stable root logo URLs point at the current default treatment.
 - Treatment-named assets under `apps/samebase/public/brand/logo/` preserve both `duotone` and
   `striped` exports for each identity view.
-
-Small favicons remain browser-chrome assets. They are not the identity source for product UI icons
-unless the product explicitly wants the favicon treatment.
+- `/brand/icon/compact-v1.svg` is the treatmentless source for the compact icon.
+- `/samebase-icon.svg` and `/install-icon.svg` are stable aliases of the compact icon source.
+- Favicons, Apple touch, manifest, ChatGPT plugin, structured identity metadata, and compact in-app
+  marks all use the same clean version 1 geometry.
+- Maskable manifest assets preserve the same square-ring geometry with additional white safety space
+  so platform crops do not clip the outer square.
 
 ## Product Usage
 
-When a product UI needs a compact Samebase identity mark, choose the named identity view that
-matches the product meaning:
+When a product surface needs a compact Samebase identity mark, use the clean version 1 icon.
 
-- Use version 2 for app-internal navigation back into Samebase, such as the dashboard branch `Edit`
-  link.
-- Use version 3 for public marketing, install, and social-card surfaces where the full spatial
-  object should carry the brand.
-- Use version 1 only when the surface intentionally needs the straight-on primary side.
+- Use version 1 for favicons, avatars, install icons, compact navigation, and other icon roles.
+- Use version 2 only when explaining the transition between the primary side and the spatial mark.
+- Use version 3 for public marketing and social-card compositions where the full spatial object
+  carries the brand.
 - When any of the three identity views needs a single-color treatment, preserve that view's camera
   and shape, then apply the canonical single-color stripe treatment above.
 
 ## Validation
 
-Tests must keep every committed logo identity SVG synchronized with the generator and must assert
-the view contracts for versions 1, 2, and 3. Any future brand change should update the contract,
-generated assets, tests, and this spec together.
+Tests must keep every committed logo identity SVG synchronized with the generator, assert the view
+contracts for versions 1, 2, and 3, and verify every compact raster against its exact square pixel
+geometry. Any future brand change should update the contract, generated assets, tests, and this spec
+together.

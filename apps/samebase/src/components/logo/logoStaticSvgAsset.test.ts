@@ -10,7 +10,6 @@ import {
   LOGO_FACE_TREATMENTS,
 } from "@/components/logo/logoFaceTreatment";
 import {
-  LOGO_IDENTITY_EDIT_MARK_SVG_URL,
   LOGO_IDENTITY_VIEW_CONTRACTS,
   STATIC_LOGO_ELEVATION_DEGREES,
   getLogoIdentityAssetPath,
@@ -79,7 +78,7 @@ describe("logoStaticSvgAsset", () => {
       version: 1,
     });
     expect(sideDiagonal).toMatchObject({
-      assetPath: LOGO_IDENTITY_EDIT_MARK_SVG_URL,
+      assetPath: "/logo-v2-side-diagonal.svg",
       elevationDegrees: 0,
       rotationDegrees: 45,
       version: 2,
