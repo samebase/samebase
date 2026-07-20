@@ -20,7 +20,7 @@ import {
   isSamebaseManagedVault,
 } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
-import { countActiveRemoteBranches, resolveVaultBranchSelection } from "./branches";
+import { countActiveRemoteBranches, resolveVaultDefaultBranch } from "./branches";
 import { getLastRepositoryMetadataRefreshAt } from "../../shared/treeRefresh";
 
 const nullValidator = v.null();
@@ -574,15 +574,21 @@ async function getVaultByRepositoryHelper(
       ? args.branch.trim()
       : undefined;
 
-  const remoteBranches = await ctx.db
-    .query("observations_vaultRepository_branches")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-    .collect();
-  const { defaultBranch, resolvedBranch, branchNotFound } = resolveVaultBranchSelection({
-    requestedBranch,
-    defaultBranch: vault.defaultBranch,
-    remoteBranches,
-  });
+  const remoteBranches =
+    requestedBranch === undefined
+      ? await ctx.db
+          .query("observations_vaultRepository_branches")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+          .collect()
+      : [];
+  const defaultBranch =
+    requestedBranch === undefined
+      ? resolveVaultDefaultBranch({
+          defaultBranch: vault.defaultBranch,
+          remoteBranches,
+        })
+      : vault.defaultBranch;
+  const resolvedBranch = requestedBranch ?? defaultBranch;
 
   const branchTree = await ctx.db
     .query("observations_vaultRepository_branchTrees")
@@ -609,14 +615,17 @@ async function getVaultByRepositoryHelper(
     treeRefreshFailureKind: vault.treeRefreshFailureKind,
     treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-    lastRepositoryMetadataRefreshAt: getLastRepositoryMetadataRefreshAt(remoteBranches),
+    lastRepositoryMetadataRefreshAt:
+      requestedBranch === undefined
+        ? getLastRepositoryMetadataRefreshAt(remoteBranches)
+        : undefined,
     // Budget automatic refreshes from live remote branches only; retained
     // deleted-upstream rows are local recovery state, not GitHub fan-out.
-    remoteBranchCount: countActiveRemoteBranches(remoteBranches),
-    hasResolvedBranchTree: Boolean(branchTree),
+    remoteBranchCount:
+      requestedBranch === undefined ? countActiveRemoteBranches(remoteBranches) : 0,
+    branchTreeState: branchTree ? ("ready" as const) : ("unhydrated" as const),
     defaultBranch,
     resolvedBranch,
-    branchNotFound,
   };
 }
 

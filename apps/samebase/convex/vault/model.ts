@@ -22,6 +22,7 @@ export const vGithubTreeData = object({
   truncated: boolean(),
   tree: array(vGithubTree),
 });
+export type GithubTreeData = Infer<typeof vGithubTreeData>;
 
 /**
  * GitHub visibility values currently supported by Samebase's create and connect

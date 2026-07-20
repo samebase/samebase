@@ -19,9 +19,14 @@ import {
   type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
-import { isRepositoryMetadataStale, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
+import {
+  isRepositoryMetadataStale,
+  TREE_REFRESH_DEBOUNCE_MS,
+  TREE_REFRESH_FAILURE_COOLDOWN_MS,
+} from "../shared/treeRefresh";
 import { readStagedFileKind } from "./stagingChanges";
 import type { PullRequestLabel as StoredPullRequestLabel } from "./vault/branchModel";
+import type { GithubTreeData } from "./vault/model";
 
 const {
   array,
@@ -86,6 +91,26 @@ const refreshRepositoryTreeResult = object({
   reason: optional(refreshRepositoryTreeReason),
 });
 type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
+const exactRepositoryBranchRefreshResult = union(
+  object({
+    kind: literal("ready"),
+    refreshed: boolean(),
+  }),
+  object({
+    kind: literal("not_found"),
+  }),
+  object({
+    kind: literal("deferred"),
+    reason: union(literal("cooldown"), literal("in_progress")),
+  }),
+  object({
+    kind: literal("unavailable"),
+  }),
+  object({
+    kind: literal("failed"),
+  }),
+);
+type ExactRepositoryBranchRefreshResult = Infer<typeof exactRepositoryBranchRefreshResult>;
 type RefreshRepositoryIntent = Infer<typeof refreshRepositoryIntent>;
 /**
  * Internal post-write refresh target.
@@ -151,7 +176,6 @@ const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
-const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
 /**
  * Passive refreshes above this cached branch count keep PR lookup and branch
  * commit timestamps, but skip ahead/behind and broad check snapshots. Source
@@ -160,10 +184,7 @@ const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
  */
 const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
-/**
- * Missing branch means "use the default branch"; an empty provided branch is a
- * caller bug and must not silently become default-branch work.
- */
+/** An omitted branch means default; a provided branch always remains exact. */
 function normalizeOptionalRepositoryBranch(branch: string | undefined): string | undefined {
   if (branch === undefined) {
     return undefined;
@@ -174,6 +195,71 @@ function normalizeOptionalRepositoryBranch(branch: string | undefined): string |
     throw new Error("Branch is required when provided.");
   }
   return trimmedBranch;
+}
+
+type ExactRepositoryBranchRead =
+  | {
+      kind: "ready";
+      commitSha: string;
+      treeData: GithubTreeData;
+    }
+  | {
+      kind: "not_found";
+    }
+  | {
+      kind: "unavailable";
+      error: unknown;
+    }
+  | {
+      kind: "failed";
+      error: unknown;
+    };
+
+/**
+ * Reads one branch generation without observing the repository branch list.
+ * The branch response fixes the commit and tree identity before the immutable
+ * tree is fetched, so a concurrent push cannot mix two generations.
+ */
+export async function readExactRepositoryBranch(args: {
+  getBranch: () => Promise<{ commitSha: string; treeSha: string }>;
+  getTree: (treeSha: string) => Promise<GithubTreeData>;
+  confirmRepository: () => Promise<void>;
+}): Promise<ExactRepositoryBranchRead> {
+  let branch: { commitSha: string; treeSha: string };
+  try {
+    branch = await args.getBranch();
+  } catch (error) {
+    if (getErrorStatus(error) !== 404) {
+      return { kind: "failed", error };
+    }
+    try {
+      await args.confirmRepository();
+      return { kind: "not_found" };
+    } catch (repositoryError) {
+      const repositoryStatus = getErrorStatus(repositoryError);
+      return repositoryStatus === 401 || repositoryStatus === 403 || repositoryStatus === 404
+        ? { kind: "unavailable", error: repositoryError }
+        : { kind: "failed", error: repositoryError };
+    }
+  }
+
+  try {
+    const treeData = await args.getTree(branch.treeSha);
+    if (treeData.truncated) {
+      return {
+        kind: "failed",
+        error: new Error("GitHub returned an incomplete recursive repository tree."),
+      };
+    }
+
+    return {
+      kind: "ready",
+      commitSha: branch.commitSha,
+      treeData,
+    };
+  } catch (error) {
+    return { kind: "failed", error };
+  }
 }
 
 /**
@@ -339,62 +425,17 @@ export function describeRepositoryTreeRefreshFailure(
   };
 }
 
-export function shouldBypassRecentSuccessDebounceForBranchRefresh(args: {
-  requestedBranch?: string;
-  defaultBranch?: string;
-  branchNotFound: boolean;
-  hasResolvedBranchTree: boolean;
-  lastRepositoryMetadataRefreshAt?: number;
-  now?: number;
-}): boolean {
-  if (args.requestedBranch === undefined) {
-    return false;
-  }
-
-  if (args.branchNotFound) {
-    // A recent repo-level confirmation that the branch is missing should fall
-    // back to the normal debounce path so typoed URLs do not keep refetching
-    // repo metadata on every retry.
-    const now = args.now ?? Date.now();
-    if (
-      typeof args.lastRepositoryMetadataRefreshAt === "number" &&
-      now - args.lastRepositoryMetadataRefreshAt < MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
-    ) {
-      return false;
-    }
-    return true;
-  }
-
-  return !args.hasResolvedBranchTree && args.defaultBranch !== args.requestedBranch;
-}
-
 export function shouldRefreshRepositoryMetadata(args: {
   intent: RefreshRepositoryIntent;
-  requestedBranch?: string;
-  branchNotFound: boolean;
   lastRepositoryMetadataRefreshAt?: number;
-  includeBranchHeadCommitCheckSnapshots: boolean;
   now?: number;
 }): boolean {
   if (args.intent === "manual") {
     return true;
   }
 
-  // Source setup should reconcile the repo-level branch/PR catalog once, even
-  // when cached metadata still falls inside the long stale window.
-  if (args.intent === "source_setup" && args.requestedBranch === undefined) {
+  if (args.intent === "source_setup") {
     return true;
-  }
-
-  if (args.branchNotFound) {
-    return shouldBypassRecentSuccessDebounceForBranchRefresh({
-      requestedBranch: args.requestedBranch,
-      defaultBranch: undefined,
-      branchNotFound: true,
-      hasResolvedBranchTree: false,
-      lastRepositoryMetadataRefreshAt: args.lastRepositoryMetadataRefreshAt,
-      now: args.now,
-    });
   }
 
   return isRepositoryMetadataStale({
@@ -403,24 +444,8 @@ export function shouldRefreshRepositoryMetadata(args: {
   });
 }
 
-export function shouldRefreshBranchTree(args: {
-  intent: RefreshRepositoryIntent;
-  requestedBranch?: string;
-  branchNotFound: boolean;
-}): boolean {
-  if (args.branchNotFound) {
-    return false;
-  }
-
-  if (args.intent === "manual") {
-    return true;
-  }
-
-  if (args.requestedBranch !== undefined) {
-    return true;
-  }
-
-  return args.intent === "source_setup";
+export function shouldRefreshBranchTree(args: { intent: RefreshRepositoryIntent }): boolean {
+  return args.intent === "manual" || args.intent === "source_setup";
 }
 
 interface RepositoryRefreshPlan {
@@ -529,19 +554,12 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
  */
 export function computeRepositoryRefreshPlan(args: {
   intent: RefreshRepositoryIntent;
-  requestedBranch?: string;
-  branchNotFound: boolean;
   lastRepositoryMetadataRefreshAt?: number;
-  includeBranchHeadCommitCheckSnapshots: boolean;
   now?: number;
 }): RepositoryRefreshPlan {
   return {
     shouldSyncMetadata: shouldRefreshRepositoryMetadata(args),
-    shouldRefreshTreeData: shouldRefreshBranchTree({
-      intent: args.intent,
-      requestedBranch: args.requestedBranch,
-      branchNotFound: args.branchNotFound,
-    }),
+    shouldRefreshTreeData: shouldRefreshBranchTree({ intent: args.intent }),
   };
 }
 
@@ -2095,62 +2113,69 @@ async function refreshRepositoryTreeForUserHelper(
   ctx: ActionCtx,
   args: RefreshRepositoryTreeForUserArgs,
 ): Promise<RefreshRepositoryTreeResult> {
-  const intent = args.intent;
-  const requestedBranch =
-    args.scope === "branch" ? normalizeRequiredRepositoryBranch(args.branch) : undefined;
-  const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
-    args.branchHeadCommitCheckBranchNames,
-  );
-  const includeBranchHeadCommitCheckSnapshots = args.includeBranchHeadCommitCheckSnapshots;
-
   const repositoryFullName = `${args.owner}/${args.repo}`;
-  const readVault = async (branch: string | undefined) =>
-    ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+  if (args.scope === "branch") {
+    const branch = normalizeRequiredRepositoryBranch(args.branch);
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName,
       userId: args.userId,
       branch,
     });
+    if (!vault) {
+      return { refreshed: false };
+    }
 
-  let vault = await readVault(requestedBranch);
+    const exactRefresh = await refreshExactRepositoryBranchForUser(ctx, {
+      userId: args.userId,
+      vaultId: vault._id,
+      owner: args.owner,
+      repo: args.repo,
+      branch,
+      intent: args.intent === "manual" ? "manual" : "passive",
+    });
+    switch (exactRefresh.kind) {
+      case "ready":
+        return { refreshed: exactRefresh.refreshed };
+      case "not_found":
+        return { refreshed: false, reason: "branch_not_found" };
+      case "deferred":
+        return { refreshed: false, reason: exactRefresh.reason };
+      case "unavailable":
+      case "failed":
+        throw new Error(`Repository branch refresh failed: ${exactRefresh.kind}.`);
+      default:
+        exactRefresh satisfies never;
+        return { refreshed: false };
+    }
+  }
+
+  const intent = args.intent;
+  const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
+    args.branchHeadCommitCheckBranchNames,
+  );
+  const includeBranchHeadCommitCheckSnapshots = args.includeBranchHeadCommitCheckSnapshots;
+  const readVault = async () =>
+    ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName,
+      userId: args.userId,
+    });
+
+  let vault = await readVault();
   if (!vault) {
     return { refreshed: false };
   }
 
   let refreshPlan = computeRepositoryRefreshPlan({
     intent,
-    requestedBranch,
-    branchNotFound: vault.branchNotFound,
     lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-    includeBranchHeadCommitCheckSnapshots,
   });
-
   if (!refreshPlan.shouldSyncMetadata && !refreshPlan.shouldRefreshTreeData) {
-    return vault.branchNotFound
-      ? {
-          refreshed: false,
-          reason: "branch_not_found",
-        }
-      : { refreshed: false };
+    return { refreshed: false };
   }
 
-  const debounceMs = vault.branchNotFound ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS : undefined;
-  const skipRecentSuccessDebounce =
-    refreshPlan.shouldSyncMetadata ||
-    shouldBypassRecentSuccessDebounceForBranchRefresh({
-      requestedBranch,
-      defaultBranch: vault.defaultBranch,
-      branchNotFound: vault.branchNotFound,
-      hasResolvedBranchTree: vault.hasResolvedBranchTree,
-      lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-    });
-
-  // Atomically claim the refresh lock; skip if debounced or already running
   const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
     vaultId: vault._id,
-    debounceMs,
-    // Missing or stale branch metadata still needs a refresh even when the
-    // repo itself synced recently.
-    skipRecentSuccessDebounce,
+    skipRecentSuccessDebounce: refreshPlan.shouldSyncMetadata,
   });
   if (!claim.claimed) {
     return {
@@ -2167,7 +2192,7 @@ async function refreshRepositoryTreeForUserHelper(
   let didSyncMetadata = false;
   let didRefreshTreeData = false;
   const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
-    targetBranch: requestedBranch,
+    targetBranch: undefined,
     includeAheadBehind: args.includeAheadBehind,
     includePullRequestLinks: args.includePullRequestLinks,
     includeBranchHeadCommitCheckSnapshots,
@@ -2191,31 +2216,15 @@ async function refreshRepositoryTreeForUserHelper(
         intent,
       });
 
-      const refreshedVault = await readVault(requestedBranch);
+      const refreshedVault = await readVault();
       if (!refreshedVault) {
         throw new Error("Vault not found");
       }
       vault = refreshedVault;
       refreshPlan = computeRepositoryRefreshPlan({
         intent,
-        requestedBranch,
-        branchNotFound: vault.branchNotFound,
         lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-        includeBranchHeadCommitCheckSnapshots,
       });
-    }
-
-    if (vault.branchNotFound) {
-      await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: vault._id,
-        startedAt: claim.startedAt,
-        markRefreshed: true,
-        updateLastTreeRefreshAt: false,
-      });
-      return {
-        refreshed: false,
-        reason: "branch_not_found",
-      };
     }
 
     if (refreshPlan.shouldRefreshTreeData) {
@@ -2225,6 +2234,7 @@ async function refreshRepositoryTreeForUserHelper(
         owner: args.owner,
         repo: args.repo,
         branch: vault.resolvedBranch,
+        startedAt: claim.startedAt,
       });
     }
   } catch (error) {
@@ -2233,7 +2243,7 @@ async function refreshRepositoryTreeForUserHelper(
     console.error("Failed to refresh repository tree", {
       owner: args.owner,
       repo: args.repo,
-      branch: requestedBranch,
+      branch: vault.resolvedBranch,
       intent,
       didSyncMetadata,
       didRefreshTreeData,
@@ -2266,7 +2276,7 @@ async function refreshRepositoryTreeForUserHelper(
       console.error("Failed to persist repository tree refresh failure", {
         owner: args.owner,
         repo: args.repo,
-        branch: requestedBranch,
+        branch: vault.resolvedBranch,
         releaseError,
         refreshError,
       });
@@ -2281,6 +2291,160 @@ async function refreshRepositoryTreeForUserHelper(
     updateLastTreeRefreshAt: didRefreshTreeData,
   });
   return { refreshed: true };
+}
+
+async function refreshExactRepositoryBranchForUser(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    owner: string;
+    repo: string;
+    branch: string;
+    intent: "passive" | "manual";
+  },
+): Promise<ExactRepositoryBranchRefreshResult> {
+  const branch = normalizeRequiredRepositoryBranch(args.branch);
+  const cachedTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+    vaultId: args.vaultId,
+    branch,
+  });
+  if (
+    args.intent === "passive" &&
+    cachedTree &&
+    Date.now() - cachedTree.lastTreeRefreshAt < TREE_REFRESH_DEBOUNCE_MS
+  ) {
+    return { kind: "ready", refreshed: false };
+  }
+
+  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId: args.userId,
+    kind: "github",
+  });
+  if (githubConnection?.kind !== "github") {
+    return { kind: "unavailable" };
+  }
+
+  const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
+    vaultId: args.vaultId,
+    skipRecentSuccessDebounce: true,
+  });
+  if (!claim.claimed) {
+    switch (claim.reason) {
+      case "cooldown":
+      case "in_progress":
+        return { kind: "deferred", reason: claim.reason };
+      case "recent_success":
+        throw new Error("Exact branch refresh unexpectedly used the vault success debounce.");
+      case undefined:
+        return { kind: "failed" };
+      default:
+        claim.reason satisfies never;
+        return { kind: "failed" };
+    }
+  }
+  if (typeof claim.startedAt !== "number") {
+    throw new Error("Tree refresh claim missing start timestamp.");
+  }
+
+  const octokit = new Octokit({
+    auth: githubConnection.auth.credential,
+  });
+  const observation = await readExactRepositoryBranch({
+    getBranch: async () => {
+      const response = await octokit.rest.repos.getBranch({
+        owner: args.owner,
+        repo: args.repo,
+        branch,
+      });
+      return {
+        commitSha: response.data.commit.sha,
+        treeSha: response.data.commit.commit.tree.sha,
+      };
+    },
+    getTree: async (treeSha) => {
+      const response = await octokit.rest.git.getTree({
+        owner: args.owner,
+        repo: args.repo,
+        tree_sha: treeSha,
+        recursive: "1",
+      });
+      return response.data;
+    },
+    confirmRepository: async () => {
+      await octokit.rest.repos.get({
+        owner: args.owner,
+        repo: args.repo,
+      });
+    },
+  });
+
+  if (observation.kind === "ready") {
+    const write = await ctx.runMutation(internal.vault.branches.upsertClaimedVaultBranchTree, {
+      vaultId: args.vaultId,
+      branch,
+      startedAt: claim.startedAt,
+      treeData: observation.treeData,
+      commitSHA: observation.commitSha,
+    });
+    if (!write.written) {
+      return { kind: "deferred", reason: "in_progress" };
+    }
+    const release = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
+      vaultId: args.vaultId,
+      startedAt: claim.startedAt,
+      markRefreshed: true,
+      updateLastTreeRefreshAt: false,
+    });
+    if (!release.released) {
+      return { kind: "deferred", reason: "in_progress" };
+    }
+    return { kind: "ready", refreshed: true };
+  }
+
+  if (observation.kind === "not_found") {
+    const release = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
+      vaultId: args.vaultId,
+      startedAt: claim.startedAt,
+      markRefreshed: true,
+      updateLastTreeRefreshAt: false,
+    });
+    if (!release.released) {
+      return { kind: "deferred", reason: "in_progress" };
+    }
+    return { kind: "not_found" };
+  }
+
+  const failure = describeRepositoryTreeRefreshFailure(observation.error);
+  const release = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
+    vaultId: args.vaultId,
+    startedAt: claim.startedAt,
+    markRefreshed: false,
+    failureKind: failure.kind,
+    failureMessage: failure.message,
+    cooldownUntil: failure.cooldownUntil,
+  });
+  if (!release.released) {
+    return { kind: "deferred", reason: "in_progress" };
+  }
+  console.error("Failed to hydrate exact repository branch", {
+    owner: args.owner,
+    repo: args.repo,
+    branch,
+    providerStatus: getErrorStatus(observation.error),
+    result: observation.kind,
+  });
+  if (failure.kind === "rate_limited") {
+    return { kind: "deferred", reason: "cooldown" };
+  }
+  if (
+    observation.kind === "unavailable" ||
+    getErrorStatus(observation.error) === 401 ||
+    getErrorStatus(observation.error) === 403
+  ) {
+    return { kind: "unavailable" };
+  }
+  return { kind: "failed" };
 }
 
 /**
@@ -2298,8 +2462,8 @@ export const refreshRepositoryTree = action({
     branch: string(),
     intent: publicRefreshRepositoryIntent,
   },
-  returns: refreshRepositoryTreeResult,
-  handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
+  returns: exactRepositoryBranchRefreshResult,
+  handler: async (ctx, args): Promise<ExactRepositoryBranchRefreshResult> => {
     const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       userId,
@@ -2309,16 +2473,12 @@ export const refreshRepositoryTree = action({
       throw new Error("Vault not found.");
     }
 
-    return await refreshRepositoryTreeForUserHelper(ctx, {
-      scope: "branch",
+    return await refreshExactRepositoryBranchForUser(ctx, {
       userId,
+      vaultId: args.vaultId,
       owner: vault.owner,
       repo: vault.name,
       branch: args.branch,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: false,
-      branchHeadCommitCheckBranchNames: [],
       intent: args.intent,
     });
   },
@@ -2458,6 +2618,7 @@ export const refreshBranchTree = internalAction({
     owner: string(),
     repo: string(),
     branch: string(),
+    startedAt: number(),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2490,30 +2651,46 @@ export const refreshBranchTree = internalAction({
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
-    const resolvedBranch = targetBranch;
-
-    const tree = await octokit.rest.git.getTree({
-      owner: args.owner,
-      repo: args.repo,
-      tree_sha: toGitTreeRef(resolvedBranch),
-      recursive: "1",
+    const observation = await readExactRepositoryBranch({
+      getBranch: async () => {
+        const response = await octokit.rest.repos.getBranch({
+          owner: args.owner,
+          repo: args.repo,
+          branch: targetBranch,
+        });
+        return {
+          commitSha: response.data.commit.sha,
+          treeSha: response.data.commit.commit.tree.sha,
+        };
+      },
+      getTree: async (treeSha) => {
+        const response = await octokit.rest.git.getTree({
+          owner: args.owner,
+          repo: args.repo,
+          tree_sha: treeSha,
+          recursive: "1",
+        });
+        return response.data;
+      },
+      confirmRepository: async () => {
+        await octokit.rest.repos.get({
+          owner: args.owner,
+          repo: args.repo,
+        });
+      },
     });
-    const latestCommits = await octokit.rest.repos.listCommits({
-      owner: args.owner,
-      repo: args.repo,
-      sha: resolvedBranch,
-      per_page: 1,
-    });
-    const latestCommitSha = latestCommits.data[0]?.sha;
+    if (observation.kind !== "ready") {
+      throw new Error(`Repository branch tree is unavailable: ${observation.kind}.`);
+    }
 
     const cachedBranchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
       vaultId: vault._id,
-      branch: resolvedBranch,
+      branch: targetBranch,
     });
     const { shouldUpdateBranchTree } = computeRepositoryTreeUpdatePlan({
-      resolvedBranch,
-      fetchedTreeSHA: tree.data.sha,
-      fetchedCommitSHA: latestCommitSha,
+      resolvedBranch: targetBranch,
+      fetchedTreeSHA: observation.treeData.sha,
+      fetchedCommitSHA: observation.commitSha,
       cachedBranchTree,
     });
 
@@ -2521,12 +2698,16 @@ export const refreshBranchTree = internalAction({
       return null;
     }
 
-    await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
+    const write = await ctx.runMutation(internal.vault.branches.upsertClaimedVaultBranchTree, {
       vaultId: vault._id,
-      branch: resolvedBranch,
-      treeData: tree.data,
-      commitSHA: latestCommitSha,
+      branch: targetBranch,
+      startedAt: args.startedAt,
+      treeData: observation.treeData,
+      commitSHA: observation.commitSha,
     });
+    if (!write.written) {
+      throw new Error("Repository branch refresh lost its write claim.");
+    }
 
     return null;
   },
@@ -2583,23 +2764,26 @@ export const updateRepositoryTree = internalAction({
         intent: "manual",
       });
     }
-    let branchToRefresh = targetBranch;
-    if (!branchToRefresh) {
-      const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-        repositoryFullName: `${args.owner}/${args.repo}`,
-        userId: args.userId,
-      });
-      if (!vault) {
-        throw new Error("Vault not found");
-      }
-      branchToRefresh = normalizeRequiredRepositoryBranch(vault.resolvedBranch);
-    }
-    await ctx.runAction(internal.github.refreshBranchTree, {
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: `${args.owner}/${args.repo}`,
       userId: args.userId,
+      branch: targetBranch,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+    const branchToRefresh = normalizeRequiredRepositoryBranch(targetBranch ?? vault.resolvedBranch);
+    const refresh = await refreshExactRepositoryBranchForUser(ctx, {
+      userId: args.userId,
+      vaultId: vault._id,
       owner: args.owner,
       repo: args.repo,
       branch: branchToRefresh,
+      intent: "manual",
     });
+    if (refresh.kind !== "ready") {
+      throw new Error(`Repository branch refresh did not complete: ${refresh.kind}.`);
+    }
     return null;
   },
 });

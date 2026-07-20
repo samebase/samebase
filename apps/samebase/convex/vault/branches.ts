@@ -746,6 +746,45 @@ export const getVaultBranchTree = internalQuery({
   },
 });
 
+async function writeVaultBranchTree(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    branch: string;
+    treeData: Infer<typeof vGithubTreeData>;
+    commitSHA?: string;
+  },
+): Promise<void> {
+  const now = Date.now();
+  const existing = await ctx.db
+    .query("observations_vaultRepository_branchTrees")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+    )
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      treeSHA: args.treeData.sha,
+      commitSHA: args.commitSHA,
+      treeData: args.treeData,
+      lastTreeRefreshAt: now,
+      treeRefreshStartedAt: undefined,
+    });
+    return;
+  }
+
+  await ctx.db.insert("observations_vaultRepository_branchTrees", {
+    vaultId: args.vaultId,
+    branch: args.branch,
+    treeSHA: args.treeData.sha,
+    commitSHA: args.commitSHA,
+    treeData: args.treeData,
+    lastTreeRefreshAt: now,
+    treeRefreshStartedAt: undefined,
+  });
+}
+
 export const upsertVaultBranchTree = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -760,81 +799,57 @@ export const upsertVaultBranchTree = internalMutation({
       return null;
     }
 
-    const now = Date.now();
-    const existing = await ctx.db
-      .query("observations_vaultRepository_branchTrees")
-      .withIndex("by_vault_and_branch", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
-      )
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        treeSHA: args.treeData.sha,
-        commitSHA: args.commitSHA,
-        treeData: args.treeData,
-        lastTreeRefreshAt: now,
-        treeRefreshStartedAt: undefined,
-      });
-      return null;
-    }
-
-    await ctx.db.insert("observations_vaultRepository_branchTrees", {
-      vaultId: args.vaultId,
-      branch: args.branch,
-      treeSHA: args.treeData.sha,
-      commitSHA: args.commitSHA,
-      treeData: args.treeData,
-      lastTreeRefreshAt: now,
-      treeRefreshStartedAt: undefined,
-    });
+    await writeVaultBranchTree(ctx, args);
 
     return null;
   },
 });
 
-export function resolveVaultBranchSelection(args: {
-  requestedBranch?: string;
+/**
+ * Publishes a provider tree only while this refresh still owns the vault lock.
+ * A timed-out request therefore cannot overwrite a newer branch generation.
+ */
+export const upsertClaimedVaultBranchTree = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    branch: string(),
+    startedAt: number(),
+    treeData: vGithubTreeData,
+    commitSHA: string(),
+  },
+  returns: object({
+    written: boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !vault ||
+      isVaultDeletingOrDeleteFailed(vault) ||
+      !doesTreeRefreshClaimMatch({
+        claimedStartedAt: args.startedAt,
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      })
+    ) {
+      return { written: false };
+    }
+
+    await writeVaultBranchTree(ctx, args);
+    return { written: true };
+  },
+});
+
+export function resolveVaultDefaultBranch(args: {
   defaultBranch: string;
   remoteBranches: Array<{
     name: string;
     isDefault: boolean;
     remoteState: "active" | "deleted_upstream";
   }>;
-}): {
-  defaultBranch?: string;
-  resolvedBranch: string;
-  branchNotFound: boolean;
-} {
+}): string {
   const activeRemoteBranches = args.remoteBranches.filter(
     (branch) => branch.remoteState === "active",
   );
-  const requestedBranchMatch =
-    args.requestedBranch === undefined
-      ? undefined
-      : args.remoteBranches.find((branch) => branch.name === args.requestedBranch);
-  const defaultBranch =
-    activeRemoteBranches.find((branch) => branch.isDefault)?.name ?? args.defaultBranch;
-  const canValidateRequestedBranch = args.remoteBranches.length > 0;
-  const requestedBranchDiffersFromDefault =
-    args.requestedBranch !== undefined && args.requestedBranch !== defaultBranch;
-  const branchNotFound = Boolean(
-    args.requestedBranch &&
-    ((canValidateRequestedBranch && !requestedBranchMatch) ||
-      (!canValidateRequestedBranch && requestedBranchDiffersFromDefault)),
-  );
-  let resolvedBranch = defaultBranch;
-  if (branchNotFound) {
-    resolvedBranch = defaultBranch;
-  } else if (args.requestedBranch) {
-    resolvedBranch = args.requestedBranch;
-  }
-
-  return {
-    defaultBranch,
-    resolvedBranch,
-    branchNotFound,
-  };
+  return activeRemoteBranches.find((branch) => branch.isDefault)?.name ?? args.defaultBranch;
 }
 
 export function countActiveRemoteBranches(

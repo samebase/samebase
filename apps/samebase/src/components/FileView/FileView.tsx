@@ -65,10 +65,7 @@ import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
 import { CHAT_ENABLED } from "../../../shared/featureFlags";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
-import {
-  resolveFilePathForResolvedBranch,
-  resolveLegacyBranchlessFilePath,
-} from "@/lib/legacyBranchlessRoute";
+import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   buildStagingPreviewRefreshKey,
@@ -108,6 +105,21 @@ type FileViewAutoRefreshIntent = Extract<
   (typeof api.github.refreshRepositoryTree)["_args"]["intent"],
   "passive"
 >;
+
+type FileViewBranchHydrationState =
+  | { kind: "loading" }
+  | { kind: "not_found" }
+  | {
+      kind: "deferred";
+      reason: "cooldown" | "in_progress";
+    }
+  | { kind: "unavailable" }
+  | { kind: "failed" };
+
+type FileViewBranchHydrationFeedback = {
+  key: string;
+  state: FileViewBranchHydrationState;
+};
 
 function FileViewWrapper() {
   const router = useRouter();
@@ -152,7 +164,7 @@ function FileViewWrapper() {
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
   const legacyBranchlessFilePath = useMemo(() => {
-    if (!vault || vault.branchNotFound) {
+    if (!vault) {
       return null;
     }
 
@@ -167,6 +179,11 @@ function FileViewWrapper() {
   const [storageBackedSelection, setStorageBackedSelection] = useState<
     Partial<Record<string, true>>
   >({});
+  const [branchHydrationFeedback, setBranchHydrationFeedback] =
+    useState<FileViewBranchHydrationFeedback | null>(null);
+  const branchHydrationInFlightKeyRef = useRef<string | null>(null);
+  const confirmedMissingBranchKeyRef = useRef<string | null>(null);
+  const [branchHydrationRetryNonce, setBranchHydrationRetryNonce] = useState(0);
   const appendCurrentSearch = useCallback(
     (path: string) =>
       buildPathWithTanStackSearch({
@@ -198,39 +215,6 @@ function FileViewWrapper() {
       setStorageBackedSelection({});
     }
   }, [vaultId, branch]);
-
-  /**
-   * If the branch from the URL no longer exists, replace it with
-   * `vault.resolvedBranch` so the address bar points at the branch the server
-   * actually resolved.
-   */
-  useEffect(() => {
-    if (!owner || !repoName || !branchParam || !vault?.branchNotFound) {
-      return;
-    }
-
-    const resolvedBranch = vault.resolvedBranch;
-    const nextPath = buildVaultFileRoute({
-      owner,
-      repoName,
-      branch: resolvedBranch,
-      filePath: resolveFilePathForResolvedBranch({
-        selectedFile,
-        legacyBranchlessFilePath,
-      }),
-    });
-    navigateByHref(appendCurrentSearch(nextPath), { replace: true });
-  }, [
-    appendCurrentSearch,
-    owner,
-    repoName,
-    branchParam,
-    selectedFile,
-    legacyBranchlessFilePath,
-    vault?.branchNotFound,
-    vault?.resolvedBranch,
-    navigateByHref,
-  ]);
 
   /**
    * Old routes could omit the branch segment. Once we know the real branch,
@@ -276,28 +260,115 @@ function FileViewWrapper() {
 
   const refreshTreeIfNeeded = useCallback(
     (intent: FileViewAutoRefreshIntent = "passive") => {
-      if (
-        !vaultId ||
-        !owner ||
-        !repoName ||
-        !branch ||
-        (typeof vault.treeRefreshCooldownUntil === "number" &&
-          vault.treeRefreshCooldownUntil > Date.now())
-      ) {
+      if (!vaultId || !owner || !repoName || !branch) {
         return;
       }
       const key = `${owner}/${repoName}:branch:${branch}`;
-      if (!claimRefreshDebounce("file_view", key)) return;
-      void refreshTree({
-        vaultId,
-        branch,
-        intent,
-      }).catch((error: unknown) => {
-        console.error("Failed to refresh repository tree:", error);
-      });
+      const hasTree = vault.branchTreeState === "ready";
+      const hasConfirmedMissingBranch = confirmedMissingBranchKeyRef.current === key;
+      if (
+        !hasTree &&
+        typeof vault.treeRefreshStartedAt === "number" &&
+        branchHydrationInFlightKeyRef.current !== key
+      ) {
+        setBranchHydrationFeedback({ key, state: { kind: "deferred", reason: "in_progress" } });
+        return;
+      }
+      if (
+        typeof vault.treeRefreshCooldownUntil === "number" &&
+        vault.treeRefreshCooldownUntil > Date.now()
+      ) {
+        if (!hasTree) {
+          setBranchHydrationFeedback((previous) =>
+            previous?.key === key &&
+            (previous.state.kind === "failed" || previous.state.kind === "unavailable")
+              ? previous
+              : { key, state: { kind: "deferred", reason: "cooldown" } },
+          );
+        }
+        return;
+      }
+      if ((hasTree || hasConfirmedMissingBranch) && !claimRefreshDebounce("file_view", key)) {
+        return;
+      }
+      if (!hasTree && branchHydrationInFlightKeyRef.current === key) {
+        return;
+      }
+
+      branchHydrationInFlightKeyRef.current = key;
+      if (!hasTree) {
+        setBranchHydrationFeedback({ key, state: { kind: "loading" } });
+      }
+      void refreshTree({ vaultId, branch, intent })
+        .then((result) => {
+          switch (result.kind) {
+            case "ready":
+              if (confirmedMissingBranchKeyRef.current === key) {
+                confirmedMissingBranchKeyRef.current = null;
+              }
+              setBranchHydrationFeedback((previous) => (previous?.key === key ? null : previous));
+              break;
+            case "not_found":
+              confirmedMissingBranchKeyRef.current = key;
+              claimRefreshDebounce("file_view", key);
+              setBranchHydrationFeedback({ key, state: { kind: "not_found" } });
+              break;
+            case "deferred":
+              setBranchHydrationFeedback({
+                key,
+                state: { kind: "deferred", reason: result.reason },
+              });
+              break;
+            case "unavailable":
+              setBranchHydrationFeedback({ key, state: { kind: "unavailable" } });
+              break;
+            case "failed":
+              setBranchHydrationFeedback({ key, state: { kind: "failed" } });
+              break;
+            default:
+              result satisfies never;
+          }
+        })
+        .catch((error: unknown) => {
+          setBranchHydrationFeedback({ key, state: { kind: "failed" } });
+          console.error("Failed to refresh repository tree:", error);
+        })
+        .finally(() => {
+          if (branchHydrationInFlightKeyRef.current === key) {
+            branchHydrationInFlightKeyRef.current = null;
+          }
+        });
     },
-    [vaultId, owner, repoName, branch, refreshTree, vault?.treeRefreshCooldownUntil],
+    [
+      vaultId,
+      owner,
+      repoName,
+      branch,
+      refreshTree,
+      vault?.branchTreeState,
+      vault?.treeRefreshCooldownUntil,
+      vault?.treeRefreshStartedAt,
+    ],
   );
+
+  /** Retry an unhydrated branch once the provider cooldown has elapsed. */
+  useEffect(() => {
+    if (
+      !vault ||
+      vault.branchTreeState === "ready" ||
+      typeof vault.treeRefreshCooldownUntil !== "number"
+    ) {
+      return;
+    }
+    const waitMs = vault.treeRefreshCooldownUntil - Date.now();
+    if (waitMs <= 0) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setBranchHydrationRetryNonce((nonce) => nonce + 1);
+    }, waitMs + 50);
+    return () => window.clearTimeout(timeoutId);
+  }, [vault]);
 
   /**
    * Refresh the active branch when the file route becomes active. Route load,
@@ -330,7 +401,7 @@ function FileViewWrapper() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [vaultId, owner, repoName, refreshTreeIfNeeded]);
+  }, [vaultId, owner, repoName, refreshTreeIfNeeded, branchHydrationRetryNonce]);
 
   /**
    * When the tree is loaded and the route does not name a file, pick the best
@@ -497,8 +568,20 @@ function FileViewWrapper() {
     return null;
   }
   if (!hasFileViewVaultTree(vault)) {
-    return <FileViewRepositorySetupState repositoryFullName={`${owner}/${repoName}`} />;
+    const hydrationKey = `${owner}/${repoName}:branch:${branch}`;
+    return (
+      <FileViewRepositorySetupState
+        repositoryFullName={`${owner}/${repoName}`}
+        branch={branch}
+        state={
+          branchHydrationFeedback?.key === hydrationKey
+            ? branchHydrationFeedback.state
+            : { kind: "loading" }
+        }
+      />
+    );
   }
+  const hydrationKey = `${owner}/${repoName}:branch:${branch}`;
 
   return (
     <FileViewInner
@@ -508,6 +591,9 @@ function FileViewWrapper() {
       owner={owner}
       repoName={repoName}
       stagedFile={stagedFile ?? null}
+      branchHydrationState={
+        branchHydrationFeedback?.key === hydrationKey ? branchHydrationFeedback.state : null
+      }
     />
   );
 }
@@ -522,7 +608,41 @@ function FileViewInvalidRouteState() {
   );
 }
 
-function FileViewRepositorySetupState({ repositoryFullName }: { repositoryFullName: string }) {
+function getFileViewRepositorySetupMessage(state: FileViewBranchHydrationState): string {
+  switch (state.kind) {
+    case "loading":
+      return "Loading this branch from GitHub.";
+    case "not_found":
+      return "Branch not found on GitHub.";
+    case "deferred":
+      switch (state.reason) {
+        case "cooldown":
+          return "GitHub refresh is paused. This branch will load after the cooldown.";
+        case "in_progress":
+          return "Waiting for another repository refresh to finish.";
+        default:
+          state.reason satisfies never;
+          return "Branch loading is deferred.";
+      }
+    case "unavailable":
+      return "GitHub access is unavailable.";
+    case "failed":
+      return "This branch could not be loaded from GitHub.";
+    default:
+      state satisfies never;
+      return "This branch could not be loaded.";
+  }
+}
+
+function FileViewRepositorySetupState({
+  repositoryFullName,
+  branch,
+  state,
+}: {
+  repositoryFullName: string;
+  branch: string;
+  state: FileViewBranchHydrationState;
+}) {
   return (
     <AppWorkspaceRouteChrome
       headerAccessory={
@@ -544,8 +664,9 @@ function FileViewRepositorySetupState({ repositoryFullName }: { repositoryFullNa
       <div className="flex h-full min-h-0 items-center justify-center p-6">
         <div className="w-full max-w-xl">
           <h1 className="text-xl font-semibold">{repositoryFullName}</h1>
+          <p className="mt-1 font-mono text-sm text-muted-foreground">{branch}</p>
           <p className="mt-3 max-w-lg text-sm text-muted-foreground">
-            Repository setup is not ready.
+            {getFileViewRepositorySetupMessage(state)}
           </p>
         </div>
       </div>
@@ -574,6 +695,7 @@ function FileViewInner({
   owner,
   repoName,
   stagedFile,
+  branchHydrationState,
 }: {
   vault: FileViewVault;
   branch: string;
@@ -581,6 +703,7 @@ function FileViewInner({
   owner: string;
   repoName: string;
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
+  branchHydrationState: FileViewBranchHydrationState | null;
 }) {
   const { setMobilePane } = useWorkspacePaneActions();
   const setMobilePaneRef = useRef(setMobilePane);
@@ -1495,10 +1618,10 @@ function FileViewInner({
           branch: args.nextBranch,
           intent: "manual",
         });
-        didHydrateNextBranch = refreshResult.refreshed;
-        if (!refreshResult.refreshed) {
+        didHydrateNextBranch = refreshResult.kind === "ready";
+        if (refreshResult.kind !== "ready") {
           setDraftPullRequestError(
-            refreshResult.reason === "cooldown"
+            refreshResult.kind === "deferred" && refreshResult.reason === "cooldown"
               ? "Draft pull request created, but GitHub sync is paused. Staying on the current branch until sync resumes."
               : "Draft pull request created, but the new branch is still syncing. Staying on the current branch for now.",
           );
@@ -2436,6 +2559,16 @@ function FileViewInner({
               stagedFiles={stagedFiles}
               disableStagedFilesQuery
             />
+
+            {branchHydrationState?.kind === "not_found" ? (
+              <span className="text-xs text-muted-foreground">
+                Branch no longer exists on GitHub. Showing the cached tree.
+              </span>
+            ) : branchHydrationState?.kind === "unavailable" ? (
+              <span className="text-xs text-muted-foreground">
+                GitHub access is unavailable. Showing the cached tree.
+              </span>
+            ) : null}
 
             {viewMode === "editor" && (
               <Button
