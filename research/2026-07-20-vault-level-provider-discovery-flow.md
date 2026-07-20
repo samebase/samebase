@@ -53,9 +53,10 @@ Use automatic read-only discovery inside the provider modal followed by explicit
 not scan during repository onboarding or silently attach provider resources. An attachment
 establishes durable identity and cleanup provenance even when it does not mutate the provider.
 
-Do not persist transient inventory, root groups, or a Worker-to-Convex edge. Persist exact resource
-attachments and only the placement that the user must establish because no provider supplies it: the
-selected `convexConfigPath` on a Convex project attachment. GitHub reports current qualifying config
+Do not persist transient inventory, root groups, or a Worker-to-Convex edge. A resource attachment
+persists its stable provider identity, the provider coordinates needed to address and authorize it,
+its origin, and any placement that only the user can establish. For Convex, those durable facts are
+`teamId`, `projectId`, and the selected `convexConfigPath`. GitHub reports current qualifying config
 paths. Cloudflare reports current Worker repository, root, Builds, and Worker-to-Convex
 configuration.
 
@@ -68,6 +69,7 @@ their resources to a Samebase vault.
 | ---------------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
 | Provider connection    | Credentials plus the selected provider account or team scope                             | yes                    |
 | Source connection      | The stable GitHub repository identity represented by the vault                           | yes                    |
+| Provider coordinates   | Minimal scope and resource ids needed to address and authorize an external resource      | yes, on the attachment |
 | Observation            | A fresh, read-only fact reported by GitHub, Cloudflare, or Convex                        | no                     |
 | Attachment proposal    | Candidate exact effects computed from observations and current attachments               | no                     |
 | Confirmation           | The user's authorization for the exact proposed effects                                  | request boundary       |
@@ -89,10 +91,10 @@ For Convex, the concrete transition is:
 
 ```txt
 qualifying convex.json observation
-+ visible Convex project observation
++ visible Convex project observation with teamId and projectId
 + user-confirmed project-to-config choice
 + server re-verification
--> Convex project attachment with convexConfigPath
+-> Convex project attachment with teamId, projectId, and convexConfigPath
 ```
 
 For Cloudflare, the user confirms only resource inclusion. The Worker attachment stores stable
@@ -104,28 +106,36 @@ Reserve **connection** for provider credentials or the vault's repository source
 adding a Worker or Convex project is an **attachment**, not another connection. User-facing copy can
 stay concrete: `Add Worker`, `Add Convex project`, `Added to Samebase`, and `Remove from Samebase`.
 
-Keep ids equally explicit: `projectId` is the stable Convex provider identity, while
-`convexAttachmentId` identifies Samebase's durable attachment. No route or action should use a root
-group as resource identity.
+Keep ids equally explicit. `projectId` is the stable Convex continuity and global exclusivity key;
+`teamId` is the last provider-verified owning-team and authorization coordinate;
+`convexAttachmentId` identifies Samebase's durable attachment. The current `{ teamId, projectId }`
+pair specifies the project in its provider scope, just as Cloudflare stores account and Worker
+coordinates. No route or action should use a root group as resource identity.
 
-This vocabulary creates a strict test for every proposed field. If it is current external state, it
-belongs in an observation. If it records an exact resource the user added, or a source placement
-only the user can establish, it belongs in that resource's attachment. If it exists only to group
-resources by root, derive it. A future provider resource with no meaningful repository root remains
-vault-scoped instead of manufacturing an app row.
+This is a common provider pattern, not accidental denormalization. GitHub resources have stable ids
+plus owner/name coordinates, Cloudflare Workers have account plus Worker coordinates, and Convex
+projects have team plus project coordinates. A value being provider-readable does not make it
+disposable when Samebase needs it to address the resource or enforce the credential boundary.
+
+This vocabulary creates a strict test for every proposed field. Stable identity and the minimal
+provider coordinates needed to address or authorize the resource belong in its attachment. Current
+status and configuration belong in observations. User-confirmed placement belongs in the attachment
+only when no provider supplies that bridge. Anything that exists only to group resources by root is
+derived. A future provider resource with no meaningful repository root remains vault-scoped instead
+of manufacturing an app row.
 
 ## Why PR #1243 Makes This Viable
 
 PR #1243 reduced the durable model to stable identities and moved mutable provider state back to
 live reads:
 
-| Concept                                           | Durable Samebase state                       | Read-time state                                                      |
-| ------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
-| Repository                                        | `vaults` GitHub identity                     | current GitHub repository and tree observation                       |
-| Repository root group                             | none                                         | projection from attachments, confirmed placement, and observations   |
-| Worker                                            | `vaultCloudflareWorkers` identity and origin | current existence, URLs, triggers, repository, root, and environment |
-| Convex project                                    | identity, confirmed config path, and origin  | current team, project details, and default production deployment     |
-| Worker Builds declares Convex project coordinates | none                                         | current `SAMEBASE_CONVEX_PROJECT` observation                        |
+| Concept                                           | Durable Samebase state                            | Read-time state                                                      |
+| ------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| Repository                                        | `vaults` GitHub identity                          | current GitHub repository and tree observation                       |
+| Repository root group                             | none                                              | projection from attachments, confirmed placement, and observations   |
+| Worker                                            | account and Worker coordinates plus origin        | current existence, URLs, triggers, repository, root, and environment |
+| Convex project                                    | team and project coordinates, config path, origin | current project details and default production deployment            |
+| Worker Builds declares Convex project coordinates | none                                              | current `SAMEBASE_CONVEX_PROJECT` observation                        |
 
 The Cloudflare invariants already support the proposed result:
 
@@ -143,10 +153,12 @@ placement after confirmation.
 
 Convex explicitly supports deploying one codebase to several projects, such as persistent production
 and staging projects. Several project attachments may therefore store the same `convexConfigPath`
-and render in one root group. Replace the current `(teamId, projectId)` exclusivity key with global
-`projectId` exclusivity, and remove `teamId` from the attachment because current ownership is
-available from the project read by id. `SAMEBASE_CONVEX_PROJECT` remains the live Worker-to-project
-relation.
+and render in one root group. Retain both `teamId` and `projectId` on the attachment. PR #1243 added
+the pair so live reads and destructive actions can require the correct team-scoped credential.
+`projectId` is the stable continuity and global exclusivity key; `teamId` is the last verified
+owning-team coordinate and can change only through a provider-verified reconciliation. Add
+`by_project` for global continuity while retaining `by_team_and_project` for current coordinate and
+marker lookup. `SAMEBASE_CONVEX_PROJECT` remains the live Worker-to-project relation.
 
 Today Samebase is both the source and the unconstrained input for a Convex project's owning root:
 the attach flow accepts an existing `appId`, and Data and Schema routes infer one project from that
@@ -233,6 +245,47 @@ its last placed resource leaves, with no cleanup transition. Existing empty `vau
 disappear during the table migration because they encode neither an attachment nor current provider
 state. Add a durable root-level entity later only if a real user-controlled feature needs an
 identity and lifecycle shared by every resource at that root.
+
+### Derived Resource Tree
+
+The dashboard can preserve its current folder-style presentation while removing the folder as a
+domain entity. Build a read-time resource tree whose section key is the exact normalized repository
+path:
+
+```txt
+Resources
+├─ /
+│  ├─ Convex project
+│  └─ Cloudflare Worker
+├─ packages/backend
+│  └─ Convex project
+└─ Needs attention
+   └─ Cloudflare Worker with unknown placement
+```
+
+Convex rows use the parent of their confirmed `convexConfigPath`. Worker rows use the current
+Cloudflare `root_directory`. Exact path equality groups rows; Samebase does not infer package
+boundaries, parent-child app relationships, or one-to-one Worker/project pairs. Co-location is not a
+relationship. Only the live marker can render `Uses <project>`, including across different path
+sections.
+
+The common small-app case is simply one `/` section with a project and perhaps one Worker. It uses
+the same data model as a monorepo, so the product does not need to predict whether a repository is
+simple or unusual. Preserve the current folder visual first; flattening the single-root case is an
+independent presentation choice to test later.
+
+Lifecycle behavior follows the authority for each placement:
+
+| Event                                            | Durable effect                             | Tree behavior                                                                                                      |
+| ------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `convex.json` moves or is deleted                | keep the attachment and confirmed path     | keep the project under the expected path, show missing source, and require `Change code location` before moving it |
+| GitHub is unreadable                             | none                                       | keep the project under its confirmed path and show `Could not verify convex.json`                                  |
+| Worker root changes                              | none                                       | move the same Worker row to the newly observed path                                                                |
+| Worker root or Cloudflare read is unavailable    | none                                       | keep the attachment under `Needs attention` without inferring deletion                                             |
+| Worker is verified missing in its stored account | keep the attachment until explicit removal | show the missing Worker and offer `Remove from Samebase` after another server re-read                              |
+| Convex returns `404` under the stored team       | none                                       | keep the project under its confirmed path and show possible deletion or transfer; do not infer which one           |
+| Worker marker changes                            | none                                       | update only the displayed `Uses <project>` relation; never move either resource because of the marker              |
+| Last row leaves a path                           | none                                       | remove the empty derived section automatically                                                                     |
 
 ## Cloudflare Flow
 
@@ -410,8 +463,8 @@ rescan after the source changes. This is simpler than adding an unlocated-projec
 
 ### Durable Model
 
-Persist resource identity, user-confirmed placement where needed, and provenance directly on each
-attachment:
+Persist resource identity, provider addressing coordinates, user-confirmed placement where needed,
+and provenance directly on each attachment:
 
 ```ts
 type VaultCloudflareWorkerAttachment = {
@@ -427,6 +480,7 @@ type VaultCloudflareWorkerAttachment = {
 type VaultConvexProjectAttachment = {
   vaultId: Id<"vaults">;
   userId: Id<"users">;
+  teamId: string;
   projectId: string;
   convexConfigPath: string;
   origin: "provisioned" | "selected_existing";
@@ -434,16 +488,17 @@ type VaultConvexProjectAttachment = {
 };
 ```
 
-Use `projectId` as the global Samebase attachment key. Remove `teamId`: the Convex project endpoint
-reads current ownership by stable project id, and deletion must re-verify that live project anyway.
-Add `by_project` and a vault/config-path index for deterministic grouping. One codebase may deploy
-to several Convex projects, so several attachments may share one `convexConfigPath`.
+Use `projectId` as the stable global continuity and exclusivity key, but retain `teamId` as the
+current verified provider scope used by inventory, authorization guards, markers, dashboard links,
+and cleanup. Add `by_project`, retain `by_team_and_project`, and add a vault/config-path index for
+deterministic grouping. One codebase may deploy to several Convex projects, so several attachments
+may share one `convexConfigPath`.
 
 The public attachment boundary accepts a selected `convexConfigPath`, never an `appId` or root
 string. The server re-reads that exact default-branch blob, enforces global project exclusivity, and
-records the project and path in one transaction. The durable fact is the user-confirmed
-`(projectId, convexConfigPath)` bridge that no provider can reconstruct, not a claim that GitHub
-will continue to report a file at that path.
+records the verified `{ teamId, projectId }` coordinates and selected path in one transaction. The
+durable placement fact is the user-confirmed `(projectId, convexConfigPath)` bridge that no provider
+can reconstruct, not a claim that GitHub will continue to report a file at that path.
 
 Remove `appId` from the Worker attachment as well. Worker identity and attachment intent are
 durable; repository and root placement remain live Cloudflare observations. If the Worker moves
@@ -454,9 +509,9 @@ Samebase keeps the attachment and shows its placement as unverified instead.
 This separates four facts:
 
 1. location: `convex.json` in GitHub
-2. project identity and existence: live Convex inventory
+2. provider coordinates: `{ teamId, projectId }` on the attachment
 3. confirmed project-to-location placement: `vaultConvexProjects.convexConfigPath`
-4. live Worker usage: `SAMEBASE_CONVEX_PROJECT` on Cloudflare Builds triggers
+4. current project status and Worker usage: live Convex reads and `SAMEBASE_CONVEX_PROJECT`
 
 Do not add a one-team-per-vault invariant. Existing vaults can retain projects from different teams
 after the user switches the active provider connection. The active connection supplies live detail
@@ -464,9 +519,11 @@ only for projects it can access; other durable attachments remain visible but un
 actions. Cleanup of provisioned projects across inaccessible teams fails closed.
 
 Team ownership is not immutable: Convex projects can transfer teams while retaining their project
-identity. A provider read for the same `projectId` reports its current team without patching the
-attachment. An inaccessible project never implies deletion. Stale Worker marker team coordinates are
-drift, but a re-verified matching `projectId` still identifies the attached project.
+identity. A destination-team read that verifies the same `projectId` reports a coordinate change,
+not a new project. A dedicated compare-and-swap reconciliation updates only `teamId` while
+preserving the attachment id, config path, origin, and creation time. Before reconciliation,
+provider writes and cleanup fail closed. An inaccessible project never implies deletion, and stale
+Worker markers require a separate Cloudflare repair instead of a silent rewrite.
 
 `?add-convex` should:
 
@@ -477,8 +534,9 @@ drift, but a re-verified matching `projectId` still identifies the attached proj
 4. show marker-referenced projects first under `Referenced by matching Workers`
 5. for every selected project, show a closed selector containing only discovered `convex.json` paths
 6. preselect both project and config only from a complete Worker scan where production and preview
-   markers name the same `projectId`, a live Convex read verifies that project, and the intersection
-   of its referencing Worker roots and valid config parents contains exactly one path
+   markers name the same `{ teamId, projectId }`, a live Convex read verifies those coordinates, and
+   the intersection of its referencing Worker roots and valid config parents contains exactly one
+   path
 7. allow several projects to select the same config and confirm existing-project attachments with
    concrete copy such as `Add 2 Convex projects`
 8. re-read every selected config, project identity, and ownership constraint before attaching the
@@ -514,18 +572,20 @@ Adding an existing project records it only in Samebase. Creating a project chang
 Samebase. Neither path writes Cloudflare markers or deploy keys; configuring a Worker to use the
 project remains a separate explicit action.
 
-The marker declares an exact `projectId` and a team hint, but it is not all of these things:
+The marker declares exact `{ teamId, projectId }` provider coordinates, but it is not all of these
+things:
 
 - proof that the hidden deploy keys belong to the named project
 - proof that the named project still exists or is accessible
 - proof of the repository root that contains the Convex backend
 - permission to attach or reconfigure the project
 
-Production and preview markers must both be readable, valid, and name the same `projectId` before
-the project is preselected. A live project read supplies current team ownership, so differing marker
-team hints are visible drift rather than a second identity. The matching Worker root must also equal
+Production and preview markers must both be readable, valid, and name the same pair before the
+project is preselected. A live project read must verify that pair. If the same `projectId` now
+belongs to another team, show transfer drift and require attachment reconciliation plus a separate
+marker repair before using the marker as a suggestion. The matching Worker root must also equal
 exactly one config parent before the location is preselected. Missing, secret, malformed, one-sided,
-project-conflicting, or multiply matching evidence remains visible and does not choose a
+coordinate-conflicting, or multiply matching evidence remains visible and does not choose a
 project-to-config mapping.
 
 If Worker identity and repository/root triggers are readable but marker environment variables or
@@ -547,8 +607,8 @@ Each system supplies a different fact or decision:
   coordinate may become stale after transfer and its enclosing `root_directory` reports only the
   Worker build root
 - the user supplies the missing project-to-config decision
-- Samebase is authoritative only for the resulting attachment, its confirmed `convexConfigPath`,
-  origin, and cleanup provenance
+- Samebase is authoritative only for the resulting attachment, its last verified provider
+  coordinates, confirmed `convexConfigPath`, origin, and cleanup provenance
 
 Do not add a Samebase-specific project id inside `convex.json`; it is not part of the supported
 schema. A Worker build can change directories, and `convex.json.functions` can reference another
@@ -599,53 +659,55 @@ spec 098.
 
 ## Scenario Matrix
 
-| Scenario                                                  | Expected behavior                                                                                                                            |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Matching observations exist, but the user does nothing    | Create no attachment and no root group.                                                                                                      |
-| Worker at `/`, config at `/convex.json`, valid marker     | Preselect the unique root-equality suggestion; confirmation records the project placement and attaches both resources.                       |
-| Worker at `/`, config at `packages/backend/convex.json`   | Add the Worker at `/`; require explicit config selection before also adding the project under `packages/backend`.                            |
-| Workers at `/` and `apps/admin` share one project marker  | Attach two Workers; attach the project once at its selected config path and show both live usage relations.                                  |
-| Two Workers at one root name different projects           | Attach both Workers and allow both projects to select configs whose parents resolve to that root group.                                      |
-| Several configs, one unique Worker/config root equality   | Preselect only that suggestion for explicit confirmation.                                                                                    |
-| One project has several root-equality suggestions         | Mark the proposal ambiguous and require one explicit config choice.                                                                          |
-| Matching Worker, no marker                                | Attach the Worker and display a Cloudflare-only root group; do not guess a Convex project.                                                   |
-| Available Worker has no repository trigger                | Keep it unavailable until Cloudflare reports this GitHub repository and one root; do not collect a Samebase root override.                   |
-| No Worker exists                                          | Create Worker configures the Cloudflare repository and root, re-reads that configuration, then records the attachment.                       |
-| One config, no Worker                                     | Let the user add a visible Convex project using that read-only config path.                                                                  |
-| Several projects, one config                              | Allow multi-select; attach each exact project with the same config path and render one root group.                                           |
-| Data or Schema opens for a group with several projects    | Require a project-specific attachment id; never choose the first project silently.                                                           |
-| Managed plan finds an unrelated project in the same group | Ignore it; only an exact created checkpoint can satisfy the plan.                                                                            |
-| No Convex project exists                                  | Create Project asks for one discovered config and a name, then stores that path on the resulting attachment.                                 |
-| No `convex.json` exists                                   | Explain that `convex.json` must be committed, disable adding and creating projects, and offer Rescan; Add Cloudflare remains independent.    |
-| Config is malformed or lacks sibling `package.json`       | Show the path as invalid or unverified and do not allow it as a source placement.                                                            |
-| GitHub tree is stale, truncated, or unreadable            | Report config discovery as unavailable; do not claim that no Convex code exists.                                                             |
-| Add Convex is opened before Add Cloudflare                | Run the same optional Worker scan and show the same marker evidence, so order does not change the model.                                     |
-| One Convex project used by several roots                  | Show the project once at its config-derived group and derive every consuming Worker relation from live markers.                              |
-| Production and preview roots disagree                     | Mark the Worker proposal ambiguous and leave it unselected.                                                                                  |
-| One Worker's active matching triggers name several roots  | Mark the Worker proposal ambiguous and do not place it in several groups.                                                                    |
-| Production and preview project ids disagree               | Allow the otherwise verified Worker attachment, show inconsistent Convex evidence, and preselect no project placement.                       |
-| Marker team hints differ for one verified project id      | Show team-coordinate drift, use the live project team, and preserve the project/config suggestion.                                           |
-| Valid marker names an inaccessible project                | Show the exact external or unavailable project and attach only the Worker.                                                                   |
-| Matching Worker is already attached elsewhere             | Show the global attachment conflict before confirmation.                                                                                     |
-| Marker names a project attached elsewhere                 | Show the global project conflict and do not offer attachment.                                                                                |
-| Project is already attached to this vault                 | Show its confirmed config path and keep retry idempotent.                                                                                    |
-| Vault has projects from a previously connected team       | Keep them attached and visible; mark live detail unavailable and make cleanup fail closed.                                                   |
-| Attached project transfers to another team                | Show ownership drift, block duplicate attachment and deletion inference, and require verified reconciliation.                                |
-| Attached config moves or disappears                       | Keep the attachment, show the missing confirmed path, and require `Change code location` to select a current config.                         |
-| Attached Worker changes Cloudflare root                   | Keep the attachment and render it in the group resolved from the new live root.                                                              |
-| Attached Worker no longer names this repository           | Keep the attachment at vault scope, show configuration drift, and offer Rescan or Remove from Samebase.                                      |
-| Attached Worker observation becomes unavailable           | Keep the attachment at vault scope and show `Could not verify`; never infer deletion.                                                        |
-| Last placed resource leaves a root                        | The projected group disappears without a database cleanup transition.                                                                        |
-| GitLab trigger has the same repo id string                | Do not treat it as a GitHub match.                                                                                                           |
-| Selected account has more than 100 Workers                | Paginate the complete inventory and preserve deterministic ordering.                                                                         |
-| Fresh tree does not contain the observed Worker root      | Warn about possibly stale Cloudflare configuration, but display the Worker at the provider-reported root.                                    |
-| Provider access cannot create vault resources             | Do not open an actionable provider-add route.                                                                                                |
-| Unattached Worker evidence is unreadable                  | Show the Worker as unavailable and create no attachment.                                                                                     |
-| Selected evidence changes before confirmation             | Abort that confirmation, refresh the proposal, and write no partial local attachments.                                                       |
-| Cloudflare fails after a manual Convex mapping            | Re-read GitHub and Convex and allow the explicit mapping; optional Worker evidence is not a dependency.                                      |
-| Another request attaches a selected resource after review | Abort on the global ownership conflict and write no partial local attachments.                                                               |
-| Provisioned project is referenced by retained Workers     | Re-read markers and fail closed before deletion; `origin` records who created it, but current identity and usage still require verification. |
-| Existing-repository source sync succeeds                  | Land on the normal vault dashboard without scanning providers or starting another onboarding flow.                                           |
+| Scenario                                                  | Expected behavior                                                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Matching observations exist, but the user does nothing    | Create no attachment and no root group.                                                                                                           |
+| Worker at `/`, config at `/convex.json`, valid marker     | Preselect the unique root-equality suggestion; confirmation records the project placement and attaches both resources.                            |
+| Worker at `/`, config at `packages/backend/convex.json`   | Add the Worker at `/`; require explicit config selection before also adding the project under `packages/backend`.                                 |
+| Workers at `/` and `apps/admin` share one project marker  | Attach two Workers; attach the project once at its selected config path and show both live usage relations.                                       |
+| Two Workers at one root name different projects           | Attach both Workers and allow both projects to select configs whose parents resolve to that root group.                                           |
+| Several configs, one unique Worker/config root equality   | Preselect only that suggestion for explicit confirmation.                                                                                         |
+| One project has several root-equality suggestions         | Mark the proposal ambiguous and require one explicit config choice.                                                                               |
+| Matching Worker, no marker                                | Attach the Worker and display a Cloudflare-only root group; do not guess a Convex project.                                                        |
+| Available Worker has no repository trigger                | Keep it unavailable until Cloudflare reports this GitHub repository and one root; do not collect a Samebase root override.                        |
+| No Worker exists                                          | Create Worker configures the Cloudflare repository and root, re-reads that configuration, then records the attachment.                            |
+| One config, no Worker                                     | Let the user add a visible Convex project using that read-only config path.                                                                       |
+| Several projects, one config                              | Allow multi-select; attach each exact project with the same config path and render one root group.                                                |
+| Data or Schema opens for a group with several projects    | Require a project-specific attachment id; never choose the first project silently.                                                                |
+| Managed plan finds an unrelated project in the same group | Ignore it; only an exact created checkpoint can satisfy the plan.                                                                                 |
+| No Convex project exists                                  | Create Project asks for one discovered config and a name, then stores that path on the resulting attachment.                                      |
+| No `convex.json` exists                                   | Explain that `convex.json` must be committed, disable adding and creating projects, and offer Rescan; Add Cloudflare remains independent.         |
+| Config is malformed or lacks sibling `package.json`       | Show the path as invalid or unverified and do not allow it as a source placement.                                                                 |
+| GitHub tree is stale, truncated, or unreadable            | Report config discovery as unavailable; do not claim that no Convex code exists.                                                                  |
+| Add Convex is opened before Add Cloudflare                | Run the same optional Worker scan and show the same marker evidence, so order does not change the model.                                          |
+| One Convex project used by several roots                  | Show the project once at its config-derived group and derive every consuming Worker relation from live markers.                                   |
+| Production and preview roots disagree                     | Mark the Worker proposal ambiguous and leave it unselected.                                                                                       |
+| One Worker's active matching triggers name several roots  | Mark the Worker proposal ambiguous and do not place it in several groups.                                                                         |
+| Production and preview project ids disagree               | Allow the otherwise verified Worker attachment, show inconsistent Convex evidence, and preselect no project placement.                            |
+| Marker team coordinates differ for one project id         | Show coordinate drift and preselect nothing until the attachment and marker are reconciled separately.                                            |
+| Valid marker names an inaccessible project                | Show the exact external or unavailable project and attach only the Worker.                                                                        |
+| Matching Worker is already attached elsewhere             | Show the global attachment conflict before confirmation.                                                                                          |
+| Marker names a project attached elsewhere                 | Show the global project conflict and do not offer attachment.                                                                                     |
+| Project is already attached to this vault                 | Show its confirmed config path and keep retry idempotent.                                                                                         |
+| Vault has projects from a previously connected team       | Keep them attached and visible; mark live detail unavailable and make cleanup fail closed.                                                        |
+| Attached project transfers to another team                | Show ownership drift, block duplicate attachment and deletion inference, then compare-and-swap only `teamId` after destination-team verification. |
+| Attached project returns `404` under its stored team      | Keep the attachment because deletion and transfer are ambiguous; do not offer missing-project removal from that read alone.                       |
+| Attached config moves or disappears                       | Keep the attachment, show the missing confirmed path, and require `Change code location` to select a current config.                              |
+| Attached Worker changes Cloudflare root                   | Keep the attachment and render it in the group resolved from the new live root.                                                                   |
+| Attached Worker is verified deleted                       | Keep it under `Needs attention` and offer `Remove from Samebase` after another account-scoped re-read.                                            |
+| Attached Worker no longer names this repository           | Keep the attachment at vault scope, show configuration drift, and offer Rescan or Remove from Samebase.                                           |
+| Attached Worker observation becomes unavailable           | Keep the attachment at vault scope and show `Could not verify`; never infer deletion.                                                             |
+| Last placed resource leaves a root                        | The projected group disappears without a database cleanup transition.                                                                             |
+| GitLab trigger has the same repo id string                | Do not treat it as a GitHub match.                                                                                                                |
+| Selected account has more than 100 Workers                | Paginate the complete inventory and preserve deterministic ordering.                                                                              |
+| Fresh tree does not contain the observed Worker root      | Warn about possibly stale Cloudflare configuration, but display the Worker at the provider-reported root.                                         |
+| Provider access cannot create vault resources             | Do not open an actionable provider-add route.                                                                                                     |
+| Unattached Worker evidence is unreadable                  | Show the Worker as unavailable and create no attachment.                                                                                          |
+| Selected evidence changes before confirmation             | Abort that confirmation, refresh the proposal, and write no partial local attachments.                                                            |
+| Cloudflare fails after a manual Convex mapping            | Re-read GitHub and Convex and allow the explicit mapping; optional Worker evidence is not a dependency.                                           |
+| Another request attaches a selected resource after review | Abort on the global ownership conflict and write no partial local attachments.                                                                    |
+| Provisioned project is referenced by retained Workers     | Re-read markers and fail closed before deletion; `origin` records who created it, but current identity and usage still require verification.      |
+| Existing-repository source sync succeeds                  | Land on the normal vault dashboard without scanning providers or starting another onboarding flow.                                                |
 
 The shared-backend mental model now has one answer to test: the project appears once in the group
 derived from its confirmed config path, while Workers from any root show their live references to
@@ -757,12 +819,13 @@ route-level live flow to test one confirmed attachment.
    deletion gate together.
 2. Build the shared scenario corpus and validate config selection, shared backends, and several
    projects at one code root through prediction-based review.
-3. Add global `by_project` identity, persist verified `convexConfigPath`, and move `teamId` to live
-   project observations. Widen production consumers from one project per root to a deterministically
-   ordered project list. Update `connect_convex_project` and generated action documentation, managed
-   provisioning with exact checkpoint lookup, provider observations, cleanup, dashboard graph
-   validation and `get_user_vaults`, the resource rail, production links, Data and Schema routes,
-   and schema snapshots before allowing a second project at one root.
+3. Add global `by_project` continuity, retain `teamId` as the verified provider-scope coordinate,
+   persist verified `convexConfigPath`, and add the team-transfer compare-and-swap transition. Widen
+   production consumers from one project per root to a deterministically ordered project list.
+   Update `connect_convex_project` and generated action documentation, managed provisioning with
+   exact checkpoint lookup, provider observations, cleanup, dashboard graph validation and
+   `get_user_vaults`, the resource rail, production links, Data and Schema routes, and schema
+   snapshots before allowing a second project at one root.
 4. Add complete default-branch config discovery and the server attachment boundary that accepts a
    config path, re-reads it, and never accepts a client root or app id.
 5. Audit existing attachments against their derived config paths, show missing-source drift, and add
