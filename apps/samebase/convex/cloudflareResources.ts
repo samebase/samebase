@@ -46,6 +46,7 @@ type CloudflareWorkerTagSource = {
 };
 type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
 export type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
+export type CloudflareWorkerBuild = Readable<components["schemas"]["builds_BuildResponse"]>;
 type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
 type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentVariablesResponse"];
 type CloudflareApiCallOptions = {
@@ -2482,6 +2483,37 @@ export async function readCloudflareWorkerStatus(
     raw: JSON.stringify({ worker: workerRecord, triggers }, null, 2),
     rowCount: 1,
   };
+}
+
+export async function readCloudflareWorkerBuildsPage(args: {
+  token: string;
+  transport: CloudflareApiTransport;
+  accountId: string;
+  workerTag: string;
+  page: number;
+  perPage: number;
+}): Promise<CloudflareWorkerBuild[]> {
+  const builds = await requestCloudflareApi({
+    token: args.token,
+    transport: args.transport,
+    method: "GET",
+    path: "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
+    params: {
+      path: {
+        account_id: args.accountId,
+        external_script_id: args.workerTag,
+      },
+      query: {
+        page: args.page,
+        per_page: args.perPage,
+      },
+    },
+  });
+
+  return requireCloudflareResult(
+    builds,
+    `Cloudflare Workers Builds did not return builds for Worker ${args.workerTag}.`,
+  );
 }
 
 type ReadCloudflareLogsArgs = {

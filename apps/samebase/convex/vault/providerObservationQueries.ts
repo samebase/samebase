@@ -11,6 +11,7 @@ const vVaultProviderObservationContext = object({
   cloudflareWorkers: array(
     object({
       workerId: id("vaultCloudflareWorkers"),
+      appId: id("vaultApps"),
       accountId: string(),
       workerName: string(),
       workerTag: string(),
@@ -20,8 +21,10 @@ const vVaultProviderObservationContext = object({
   convexProjects: array(
     object({
       convexProjectId: id("vaultConvexProjects"),
+      appId: id("vaultApps"),
       teamId: string(),
       projectId: string(),
+      rootDirectory: string(),
     }),
   ),
 });
@@ -65,6 +68,7 @@ export const readVaultProviderObservationContext = internalQuery({
           }
           return {
             workerId: worker._id,
+            appId: worker.appId,
             accountId: worker.accountId,
             workerName: worker.workerName,
             workerTag: worker.workerTag,
@@ -78,11 +82,19 @@ export const readVaultProviderObservationContext = internalQuery({
             left.workerId.localeCompare(right.workerId),
         ),
       convexProjects: projects
-        .map((project) => ({
-          convexProjectId: project._id,
-          teamId: project.teamId,
-          projectId: project.projectId,
-        }))
+        .map((project) => {
+          const app = appsById.get(project.appId);
+          if (!app) {
+            throw new Error("Convex project references a missing vault app.");
+          }
+          return {
+            convexProjectId: project._id,
+            appId: project.appId,
+            teamId: project.teamId,
+            projectId: project.projectId,
+            rootDirectory: app.rootDirectory,
+          };
+        })
         .sort(
           (left, right) =>
             left.projectId.localeCompare(right.projectId) ||
