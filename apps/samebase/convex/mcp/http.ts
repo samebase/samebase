@@ -72,7 +72,7 @@ const MCP_SERVER_INSTRUCTIONS = `Samebase manages app inventory and the joins be
 
 After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until provisioning reaches a terminal ready or failed state. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
-An inventory nextAction value is an action contract ID, not necessarily a callable MCP tool name. Match it to the live tool contract, call that repair action, then reread inventory.
+Inventory reports live provider state and stable Samebase resource IDs. Match the observed state and required IDs to an explicit action contract, call that action, then reread inventory.
 
 Make code changes, run setup and validation, and commit or push in the returned GitHub repository. Use provider-native tools for logs, general environment values, migrations, custom domains, and terminal build state when Samebase does not expose that read. The current action and provider-boundary docs are indexed at https://samebase.com/llms.txt.`;
 const mcpToolCallParams = object({

@@ -184,7 +184,7 @@ export const testCases = [
     tools_triggered:
       "vault_dashboard_getUserVaults, vault_cloudflare_configureWorkersBuildsForGitHub",
     expected_output:
-      "Reads the app state, finds the Worker whose githubRepositoryConnection carries nextAction configure_workers_builds_for_github, and configures its production and preview Workers Builds triggers for GitHub.",
+      "Reads the app state, finds the Worker whose live repository configuration is missing, and configures its production and preview Workers Builds triggers for GitHub using the vault and Worker ids.",
     expected_output_url: null,
   },
   {

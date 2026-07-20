@@ -196,7 +196,6 @@ function parseSamebaseConvexProjectMarker(value: string): SamebaseConvexProjectR
 type CloudflareWorkerIdentity = {
   workerName: string;
   workerTag: string;
-  workersDevUrl?: string;
 };
 
 export type CloudflareWorkerInventoryItem = {
@@ -469,24 +468,6 @@ export async function readCloudflareWorkersDevAvailability(
     state: "enabled",
     url: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
   };
-}
-
-export async function readOptionalWorkersDevUrl(
-  args: {
-    token: string;
-    accountId: string;
-    workerName: string;
-  } & CloudflareApiCallOptions,
-): Promise<string | undefined> {
-  try {
-    if (!(await readWorkerSubdomainEnabled(args))) {
-      return undefined;
-    }
-    const accountSubdomain = await readAccountSubdomain(args);
-    return `https://${args.workerName}.${accountSubdomain}.workers.dev`;
-  } catch {
-    return undefined;
-  }
 }
 
 export async function isCloudflareWorkerNameAvailable(args: {
@@ -856,7 +837,6 @@ async function ensureWorker(
     return {
       workerName: args.workerName,
       workerTag,
-      workersDevUrl: await readOptionalWorkersDevUrl(args),
     };
   }
 
@@ -881,7 +861,6 @@ async function ensureWorker(
   return {
     workerName: args.workerName,
     workerTag,
-    workersDevUrl: await readOptionalWorkersDevUrl(args),
   };
 }
 

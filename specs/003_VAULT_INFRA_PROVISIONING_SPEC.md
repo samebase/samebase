@@ -147,7 +147,8 @@ The live observation reports these states without guessing:
 - the same valid marker and both secret names on both triggers: configured for that project
 - matching markers with missing secret names: incomplete, with repair available
 - secret names with no marker: target unknown
-- different, malformed, or one-sided markers: inconsistent
+- different valid markers or a valid marker on only one trigger: inconsistent
+- a malformed marker on either trigger: invalid
 - a marker naming a project that is not attached to the vault: externally configured project
 - a provider read failure: unknown, without inferring that configuration is missing
 
@@ -299,7 +300,7 @@ In `VaultDashboard`:
   into both triggers. The selected project is operation input, not a persisted Samebase dependency
   row.
 - The dashboard derives the current deploy-key configuration state from the two live Cloudflare
-  triggers. Loading, configured, not configured, incomplete, target unknown, inconsistent,
+  triggers. Loading, configured, not configured, incomplete, target unknown, inconsistent, invalid,
   externally configured, and provider-read failure are distinct states.
 
 Dashboard external links:
