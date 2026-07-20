@@ -71,7 +71,7 @@ const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
 const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
 const LEFT_FACE_STRIPE_ANIMATION_DURATION_MS = 4000;
 const THREE_RENDER_PIXEL_RATIO_MAX = 4;
-const LOGO_PRESENTATION_TILT_MAX_DEGREES = 3;
+const LOGO_PRESENTATION_TILT_MAX_DEGREES = 6;
 const LOGO_PRESENTATION_TILT_SETTLED_DEGREES = 0.01;
 const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
 const THREE_RECURSIVE_TILE_DEPTH = 3;
@@ -2404,8 +2404,8 @@ export function NLogoScene({
       presentationTiltScreenRightVector.crossVectors(camera.up, camera.position).normalize();
       presentationTiltAxisVector
         .copy(presentationTiltScreenRightVector)
-        .multiplyScalar(target.vertical)
-        .addScaledVector(camera.up, -target.horizontal)
+        .multiplyScalar(-target.vertical)
+        .addScaledVector(camera.up, target.horizontal)
         .normalize();
       presentationTiltTargetQuaternion.setFromAxisAngle(
         presentationTiltAxisVector,
