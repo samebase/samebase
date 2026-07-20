@@ -24,16 +24,16 @@ import { fetchGitHubRepoIdentity } from "../githubRepoApi";
 import {
   createConvexDeployKey,
   createConvexPreviewDeployKey,
-  deleteConvexDeployKeysByName,
-  deleteConvexPreviewDeployKeysByName,
+  deleteConvexDeployKeyByName,
+  deleteConvexPreviewDeployKeyByName,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
 import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
-import { vaultSuffix } from "../slugUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
+import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
 import type {
   WorkerConfigurationContext,
   WorkerConvexProjectConfigurationContext,
@@ -541,39 +541,40 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
     });
   }
 
-  const keyName = `samebase-${vaultSuffix(args.vaultId)}-${vaultSuffix(args.workerId)}`;
-  const productionKeyName = `${keyName}-production`;
-  const previewKeyName = `${keyName}-preview`;
+  const deployKeyNames = buildWorkersBuildsConvexDeployKeyNames({
+    vaultId: args.vaultId,
+    workerId: args.workerId,
+  });
   await Promise.all([
-    deleteConvexDeployKeysByName({
+    deleteConvexDeployKeyByName({
       convexToken: convexConnection.convexToken,
       deploymentName: deployment.name,
-      name: productionKeyName,
+      name: deployKeyNames.production,
     }),
-    deleteConvexPreviewDeployKeysByName({
+    deleteConvexPreviewDeployKeyByName({
       convexToken: convexConnection.convexToken,
       projectId: project.projectId,
-      name: previewKeyName,
+      name: deployKeyNames.preview,
     }),
   ]);
   const production = await createConvexDeployKey({
     convexToken: convexConnection.convexToken,
     convexAuthMethod: convexConnection.convexAuthMethod,
     deploymentName: deployment.name,
-    name: productionKeyName,
+    name: deployKeyNames.production,
   });
   let preview: Awaited<ReturnType<typeof createConvexPreviewDeployKey>>;
   try {
     preview = await createConvexPreviewDeployKey({
       convexToken: convexConnection.convexToken,
       projectId: project.projectId,
-      name: previewKeyName,
+      name: deployKeyNames.preview,
     });
   } catch (error) {
-    await deleteConvexDeployKeysByName({
+    await deleteConvexDeployKeyByName({
       convexToken: convexConnection.convexToken,
       deploymentName: deployment.name,
-      name: productionKeyName,
+      name: deployKeyNames.production,
     });
     throw error;
   }
@@ -602,15 +603,15 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
     });
   } catch (error) {
     await Promise.allSettled([
-      deleteConvexDeployKeysByName({
+      deleteConvexDeployKeyByName({
         convexToken: convexConnection.convexToken,
         deploymentName: deployment.name,
-        name: productionKeyName,
+        name: deployKeyNames.production,
       }),
-      deleteConvexPreviewDeployKeysByName({
+      deleteConvexPreviewDeployKeyByName({
         convexToken: convexConnection.convexToken,
         projectId: project.projectId,
-        name: previewKeyName,
+        name: deployKeyNames.preview,
       }),
     ]);
     throw error;

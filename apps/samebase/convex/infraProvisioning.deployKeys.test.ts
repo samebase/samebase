@@ -1,20 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Id } from "./_generated/dataModel";
 import {
-  buildConvexBuildAccessDeployKeyNames,
   createConvexDeployKey,
   deleteConvexDeployKey,
-  deleteConvexDeployKeysByName,
-  deleteConvexPreviewDeployKeysByName,
+  deleteConvexDeployKeyByName,
+  deleteConvexPreviewDeployKeyByName,
 } from "./infraProvisioning";
-
-const allowedActions = [
-  "deployment:deploy",
-  "deployment:env:view",
-  "deployment:env:write",
-  "deployment:data:view",
-] as const;
 
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), {
@@ -23,22 +14,8 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
-function deployKey(args: { id: number; name: string; creationTime: number }) {
-  return {
-    id: args.id,
-    name: args.name,
-    creationTime: args.creationTime,
-    allowedActions,
-  };
-}
-
 async function readRequestBody(request: Request): Promise<unknown> {
   return JSON.parse(await request.text());
-}
-
-function fakeVaultId(): Id<"vaults"> {
-  // @ts-expect-error Convex ids are strings at runtime; this unit test only needs a stable id.
-  return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
 describe("Convex build access deploy keys", () => {
@@ -47,76 +24,63 @@ describe("Convex build access deploy keys", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses exact vault-owned names containing the complete vault id", () => {
-    const vaultId = fakeVaultId();
-
-    expect(buildConvexBuildAccessDeployKeyNames(vaultId)).toEqual({
-      production: `samebase-cloudflare-production-v1-${vaultId}`,
-      preview: `samebase-cloudflare-preview-v1-${vaultId}`,
-    });
-  });
-
-  it("deletes only exact production-name matches in deterministic provider order", async () => {
-    const deletedIds: unknown[] = [];
+  it("deletes a production key by its exact provider name", async () => {
+    const deleteBodies: unknown[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (request: Request) => {
-        if (request.method === "GET" && request.url.endsWith("/list_deploy_keys")) {
-          return jsonResponse([
-            deployKey({ id: 103, name: "samebase-target-copy", creationTime: 1 }),
-            deployKey({ id: 102, name: "samebase-target", creationTime: 2 }),
-            deployKey({ id: 101, name: "samebase-target", creationTime: 1 }),
-          ]);
-        }
         if (request.method === "POST" && request.url.endsWith("/delete_deploy_key")) {
-          const body = await readRequestBody(request);
-          deletedIds.push(body);
+          deleteBodies.push(await readRequestBody(request));
           return new Response(null, { status: 200 });
         }
         throw new Error(`Unexpected Convex request: ${request.method} ${request.url}`);
       }),
     );
 
-    await deleteConvexDeployKeysByName({
+    await deleteConvexDeployKeyByName({
       convexToken: "convex-token",
       deploymentName: "demo-production",
       name: "samebase-target",
     });
 
-    expect(deletedIds).toEqual([{ id: "101" }, { id: "102" }]);
+    expect(deleteBodies).toEqual([{ id: "samebase-target" }]);
   });
 
-  it("includes managed preview keys while preserving unrelated provider keys", async () => {
-    const requestUrls: string[] = [];
-    const deletedIds: unknown[] = [];
+  it("deletes a preview key by its exact provider name", async () => {
+    const deleteBodies: unknown[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (request: Request) => {
-        requestUrls.push(request.url);
-        if (request.method === "GET" && request.url.includes("/list_preview_deploy_keys")) {
-          return jsonResponse({
-            items: [
-              deployKey({ id: 201, name: "samebase-preview-target", creationTime: 1 }),
-              deployKey({ id: 202, name: "integration-owned", creationTime: 2 }),
-            ],
-          });
-        }
         if (request.method === "POST" && request.url.endsWith("/delete_preview_deploy_key")) {
-          deletedIds.push(await readRequestBody(request));
+          deleteBodies.push(await readRequestBody(request));
           return new Response(null, { status: 200 });
         }
         throw new Error(`Unexpected Convex request: ${request.method} ${request.url}`);
       }),
     );
 
-    await deleteConvexPreviewDeployKeysByName({
+    await deleteConvexPreviewDeployKeyByName({
       convexToken: "convex-token",
       projectId: "1001",
       name: "samebase-preview-target",
     });
 
-    expect(requestUrls[0]).toContain("includeManaged=true");
-    expect(deletedIds).toEqual([{ id: "201" }]);
+    expect(deleteBodies).toEqual([{ id: "samebase-preview-target" }]);
+  });
+
+  it("treats an absent exact-name key as already deleted", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("not found", { status: 404 })),
+    );
+
+    await expect(
+      deleteConvexDeployKeyByName({
+        convexToken: "convex-token",
+        deploymentName: "demo-production",
+        name: "samebase-target",
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("keeps the full created secret available for rollback deletion", async () => {
@@ -145,7 +109,7 @@ describe("Convex build access deploy keys", () => {
     await deleteConvexDeployKey({
       convexToken: "convex-token",
       deploymentName: "demo-production",
-      deployKeyIdentifier: created.deployKey,
+      deployKeySecretOrName: created.deployKey,
     });
 
     expect(created).toEqual({ deployKey: fullDeployKey });

@@ -159,6 +159,7 @@ import type * as vault_providerObservationQueries from "../vault/providerObserva
 import type * as vault_providerObservations from "../vault/providerObservations.js";
 import type * as vault_records from "../vault/records.js";
 import type * as vault_state from "../vault/state.js";
+import type * as vault_workersBuildsConvexDeployKeyNames from "../vault/workersBuildsConvexDeployKeyNames.js";
 import type * as viewerRole from "../viewerRole.js";
 import type * as workspaceSidebarState from "../workspaceSidebarState.js";
 
@@ -320,6 +321,7 @@ declare const fullApi: ApiFromModules<{
   "vault/providerObservations": typeof vault_providerObservations;
   "vault/records": typeof vault_records;
   "vault/state": typeof vault_state;
+  "vault/workersBuildsConvexDeployKeyNames": typeof vault_workersBuildsConvexDeployKeyNames;
   viewerRole: typeof viewerRole;
   workspaceSidebarState: typeof workspaceSidebarState;
 }>;
