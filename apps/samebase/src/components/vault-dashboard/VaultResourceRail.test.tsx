@@ -81,7 +81,7 @@ describe("VaultResourceRail", () => {
           status: "available",
           scope: "nicuchiciuc",
           value: "weight-tsx",
-          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/deployments",
+          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/settings",
         },
       ],
     });
@@ -147,7 +147,7 @@ describe("VaultResourceRail", () => {
           status: "available",
           scope: "nicuchiciuc",
           value: "weight-tsx",
-          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/deployments",
+          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/settings",
           loadingDescription: "Loading Workers Builds...",
         },
       ],

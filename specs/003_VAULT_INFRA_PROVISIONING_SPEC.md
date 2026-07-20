@@ -342,7 +342,7 @@ Dashboard external links:
 - The row includes the GitHub repository link and only renders when at least one managed-infra link
   is available.
 - The Cloudflare link targets the specific Worker:
-  `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/deployments`.
+  `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/settings`.
 - A live Convex observation provides the `Project settings` link for the project-scoped settings
   page: `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
 - The production Convex link renders on the default branch row, not in the repository-title service

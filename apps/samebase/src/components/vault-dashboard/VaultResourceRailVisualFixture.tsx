@@ -110,7 +110,7 @@ const SCENARIOS = [
               status: "available",
               scope: "samebase",
               value: "fixture-web",
-              href: "https://dash.cloudflare.com/?to=/account/workers/services/view/fixture-web/production/deployments",
+              href: "https://dash.cloudflare.com/?to=/account/workers/services/view/fixture-web/production/settings",
               loadingDescription: "Loading Workers Builds...",
             },
             {
@@ -118,7 +118,7 @@ const SCENARIOS = [
               rowId: "cloudflare:worker-web-previewless",
               status: "available",
               value: "fixture-web-previewless",
-              href: "https://dash.cloudflare.com/?to=/account/workers/services/view/fixture-web-previewless/production/deployments",
+              href: "https://dash.cloudflare.com/?to=/account/workers/services/view/fixture-web-previewless/production/settings",
               description: "Preview URL disabled.",
             },
           ],

@@ -36,7 +36,7 @@ function compareRootDirectories(left: string, right: string): number {
 }
 
 function buildCloudflareDashboardUrl(worker: VaultDashboardCloudflareWorker): string {
-  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(worker.accountId)}/workers/services/view/${encodeURIComponent(worker.workerName)}/production/deployments`;
+  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(worker.accountId)}/workers/services/view/${encodeURIComponent(worker.workerName)}/production/settings`;
 }
 
 function buildConvexProjectSettingsUrl(

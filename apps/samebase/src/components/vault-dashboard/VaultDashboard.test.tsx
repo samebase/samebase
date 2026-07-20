@@ -2053,6 +2053,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "available",
       scope: "ada",
       value: "demo-worker",
+      href: "https://dash.cloudflare.com/?to=/account-1/workers/services/view/demo-worker/production/settings",
       loadingDescription: "Loading Workers Builds...",
     });
 
