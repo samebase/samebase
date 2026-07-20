@@ -345,11 +345,13 @@ type ProviderCleanupPlan = {
       }
     | {
         action: "delete_project";
+        teamId: string;
         projectId: string;
       }
     | {
-        action: "delete_deployment";
-        deploymentName: string;
+        action: "delete_projects";
+        teamId: string;
+        projectIds: string[];
       };
   cloudflare:
     | {
@@ -367,6 +369,13 @@ type ProviderCleanupPlan = {
 
 The retry snapshot stores only the deletion plan and identifiers needed for provider teardown,
 retry, and safe display. It must not store credentials or raw provider responses.
+
+Convex project deletion requires the active provider connection to match the plan's `teamId` before
+the first provider call. A vault whose Samebase-provisioned projects span multiple teams cannot use
+one automatic Convex cleanup step; the plan fails closed without deleting any project.
+
+Cloudflare Worker deletion uses `workerTag` as the provider delete identifier. `workerName` remains
+display context only and never authorizes deletion of a replacement Worker that reused the name.
 
 Conceptual shape:
 
@@ -631,10 +640,10 @@ deletion run only. It must not recreate the vault or any vault-scoped rows.
 
 ### Convex
 
-1. Delete only a `delete_project` or `delete_deployment` plan's Convex resource.
-2. The queueing action chooses `delete_project` when project identity is recorded; otherwise it
-   chooses `delete_deployment` only when deployment identity is recorded.
-3. Require a Convex connection when Convex teardown is requested.
+1. Delete only the exact projects in a `delete_project` or `delete_projects` plan.
+2. The queueing action derives those projects only from stable Samebase-provisioned project
+   attachments. A provisioning checkpoint alone never authorizes provider deletion.
+3. Require a Convex connection for the plan's exact team when Convex teardown is requested.
 4. Treat provider not-found as success.
 5. Do not store Convex deploy-key credentials or identifiers in the deletion plan unless
    implementation proves a current provider call needs them.

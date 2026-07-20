@@ -8,8 +8,8 @@ connection and separate from deployment wiring.
 - Let a vault attach an existing Cloudflare Worker from a selected Cloudflare account.
 - Let a vault create a new Cloudflare Worker in a selected Cloudflare account.
 - Store the attached Worker identity on the vault as the durable source of truth.
-- Queue attach/create work as a durable Workflow run so the dialog only waits for submission and the
-  vault header can show progress.
+- Keep attach/create as an explicit request whose dialog stays open until the provider operation and
+  stable attachment write finish.
 - Keep the stored state brand-neutral so a future product rename does not leave product names in DB
   literals.
 
@@ -88,17 +88,38 @@ should not be the durable connected Worker identity.
 The desired plan shape is:
 
 ```ts
-type VaultProvisioningPlanCloudflare = {
-  state: "planned";
-  accountId: string;
-  workerName: string;
-  build: VaultCloudflareBuildConfig;
-};
+type VaultProvisioningPlanCloudflare =
+  | {
+      state: "planned";
+      accountId: string;
+      workerName: string;
+      build: VaultCloudflareBuildConfig;
+    }
+  | {
+      state: "creating";
+      accountId: string;
+      workerName: string;
+      build: VaultCloudflareBuildConfig;
+    }
+  | {
+      state: "created";
+      accountId: string;
+      workerName: string;
+      workerTag: string;
+      build: VaultCloudflareBuildConfig;
+    };
 ```
 
-Full-app provisioning can use this plan to keep retries deterministic. The plan keeps the planned
-name, selected account, and intended build config. Once a Worker is attached, the Worker identity
-belongs in `vaultCloudflareWorkers`.
+Full-app provisioning uses this plan to keep retries deterministic. `creating` is written before the
+external create request. If the action stops before recording the returned immutable Worker tag,
+retry stops for operator inspection rather than adopting a same-named Worker. `created` lets retry
+reuse the exact confirmed Worker. Samebase records `created` and the stable `provisioned`
+`vaultCloudflareWorkers` attachment in one database transaction. Explicit vault deletion derives
+ownership only from that attachment.
+
+An exact Cloudflare Worker identity can be attached to only one Samebase app, even across Samebase
+users. This keeps a provisioned attachment an exclusive deletion-ownership record rather than a
+shared reference that one vault could remove underneath another.
 
 Because existing data is not a compatibility constraint for this slice, full-app Cloudflare
 provisioning should fail closed if the plan is missing instead of reconstructing a plan from legacy
@@ -118,44 +139,29 @@ Manual Worker creation should check that the vault is still attachable before ma
 create call. The external create must not be the first operation that discovers the vault is already
 attached or unavailable.
 
-## Durable Execution
+## Explicit Execution
 
-Manual Worker attach/create uses `workflow_vaultProvisioning_runs` with trigger
-`connect_cloudflare_worker`. The run is intentionally narrow: it claims Cloudflare provider work,
-ensures the selected or newly created Worker, writes `vaultCloudflareWorkers`, then marks the run
-complete.
+Manual Worker attach/create runs as one explicit action. The dialog remains open and disabled while
+the action reads Cloudflare and writes `vaultCloudflareWorkers`; it closes only after success and
+shows the returned error otherwise. It does not create a provisioning run or persist intermediate
+provider state.
 
-Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
-run is active or failed, dashboard state is derived from `workflow_vaultProvisioning_writeLocks`
-plus the run events. Once the Worker is attached, `vaultCloudflareWorkers` remains the only durable
-resource identity.
+If Samebase creates a Worker and the stable attachment write then fails, the action reports that the
+provider create may have succeeded and leaves inspection or cleanup to Cloudflare. It must not
+automatically delete the Worker because another concurrent request may already have attached that
+identity. Attaching a Worker selected from existing Cloudflare inventory never deletes or otherwise
+changes that Worker when the local attachment fails.
 
-The modal submit action should return after the Workflow is queued. The modal then closes by
-clearing `add-cloudflare`, and the vault header/resource rail shows the Cloudflare row as running,
-failed, or ready from subscribed dashboard state.
+## Missing Worker Recovery
 
-## Missing Worker Replacement
+When a live Cloudflare observation reports that the recorded Worker name is absent or now has a
+different Worker tag, the resource row offers `Remove from Samebase`. The action reads Cloudflare
+again and deletes only the unchanged `vaultCloudflareWorkers` attachment after it confirms the
+recorded identity is still missing. It never deletes a Cloudflare Worker.
 
-When a live Cloudflare observation reports that the attached Worker identity is missing, the same
-connection dialog can select or create its replacement. A failed or unavailable provider read does
-not authorize replacement.
-
-The server derives a one-run replacement intent from the current attachment row. Before queuing the
-Workflow and again after claiming its write lock, it reads the recorded Worker name from Cloudflare
-and confirms that the recorded Worker tag no longer exists at that name. The Workflow then
-compare-and-swaps the exact recorded attachment snapshot and patches the same
-`vaultCloudflareWorkers` row with the replacement identity. A changed attachment snapshot cancels
-the run instead of overwriting newer state.
-
-The replacement intent is Workflow input, not durable provider state. Samebase does not persist the
-missing observation, duplicate the Cloudflare resource, or delete the attachment row while a
-replacement is in progress.
-
-If a created Worker cannot be attached to the vault after the provider create call, the Workflow
-must delete that created Worker before surfacing failure unless the vault now points at the same
-Cloudflare account and Worker name from a newer run. A failed manual Cloudflare run should keep the
-Cloudflare row failed while offering the same connection dialog again, so the operator can pick an
-existing Worker or create a new one without waiting for hidden state cleanup.
+A failed or unavailable provider read does not authorize attachment removal. After removal, the
+ordinary `?add-cloudflare` flow can attach or create a Worker without a replacement-specific state
+machine.
 
 ## Route Semantics
 

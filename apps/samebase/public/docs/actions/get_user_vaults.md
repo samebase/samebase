@@ -288,16 +288,6 @@ JSON Schema for the tool's `structuredContent`:
                       }
                     ]
                   },
-                  "source": {
-                    "anyOf": [
-                      {
-                        "const": "managed"
-                      },
-                      {
-                        "const": "manual"
-                      }
-                    ]
-                  },
                   "runId": {
                     "type": "string"
                   },
@@ -357,7 +347,7 @@ JSON Schema for the tool's `structuredContent`:
                     "type": "number"
                   }
                 },
-                "required": ["status", "provider", "source", "runId", "step", "updatedAt"],
+                "required": ["status", "provider", "runId", "step", "updatedAt"],
                 "additionalProperties": false
               },
               {
@@ -373,16 +363,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "cloudflare"
-                      }
-                    ]
-                  },
-                  "source": {
-                    "anyOf": [
-                      {
-                        "const": "managed"
-                      },
-                      {
-                        "const": "manual"
                       }
                     ]
                   },
@@ -446,40 +426,9 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   "updatedAt": {
                     "type": "number"
-                  },
-                  "nextAction": {
-                    "anyOf": [
-                      {
-                        "const": "retry_infrastructure_provisioning"
-                      },
-                      {
-                        "const": "connect_convex_deployment"
-                      },
-                      {
-                        "const": "connect_cloudflare_worker"
-                      },
-                      {
-                        "const": "wire_builds"
-                      },
-                      {
-                        "const": "wire_convex_build_access"
-                      },
-                      {
-                        "const": "verify_infrastructure"
-                      }
-                    ]
                   }
                 },
-                "required": [
-                  "status",
-                  "provider",
-                  "source",
-                  "runId",
-                  "step",
-                  "message",
-                  "updatedAt",
-                  "nextAction"
-                ],
+                "required": ["status", "provider", "runId", "step", "message", "updatedAt"],
                 "additionalProperties": false
               }
             ]

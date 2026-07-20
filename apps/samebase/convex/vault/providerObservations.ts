@@ -291,7 +291,8 @@ export const observeConvexProjects = action({
       kind: "convex",
     });
     const token = connection?.kind === "convex" ? connection.auth.credential.trim() : "";
-    if (!token) {
+    const teamId = connection?.kind === "convex" ? connection.teamId.trim() : "";
+    if (!token || !teamId) {
       const observedAt = Date.now();
       return context.convexProjects.map((project) => ({
         state: "failed" as const,
@@ -303,6 +304,14 @@ export const observeConvexProjects = action({
 
     return await Promise.all(
       context.convexProjects.map(async (project) => {
+        if (project.teamId !== teamId) {
+          return {
+            state: "failed" as const,
+            observedAt: Date.now(),
+            convexProjectId: project.convexProjectId,
+            reason: "connection_required" as const,
+          };
+        }
         try {
           const details = await readConvexProjectResource({
             token,

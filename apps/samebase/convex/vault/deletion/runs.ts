@@ -75,6 +75,22 @@ async function requireProviderConnection(
   throw new Error(providerConnectionMessage(args.kind));
 }
 
+async function requireConvexProviderTeam(
+  ctx: MutationCtx,
+  args: { userId: Id<"users">; teamId: string },
+): Promise<void> {
+  const connection = await ctx.db
+    .query("providerConnections")
+    .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
+    .unique();
+  if (connection?.kind !== "convex") {
+    throw new Error(providerConnectionMessage("convex"));
+  }
+  if (connection.teamId !== args.teamId) {
+    throw new Error("Connect the Convex team that owns these projects before removing them.");
+  }
+}
+
 async function listVaultConvexProjects(
   ctx: MutationCtx,
   vaultId: Id<"vaults">,
@@ -83,23 +99,6 @@ async function listVaultConvexProjects(
     .query("vaultConvexProjects")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .collect();
-}
-
-async function listCreatedConvexProjectIds(
-  ctx: MutationCtx,
-  vaultId: Id<"vaults">,
-): Promise<string[]> {
-  const runs = await ctx.db
-    .query("workflow_vaultProvisioning_runs")
-    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
-    .collect();
-  const projectIds = new Set<string>();
-  for (const run of runs) {
-    if (run.trigger === "connect_convex_deployment" && run.createdConvexProject) {
-      projectIds.add(run.createdConvexProject.projectId);
-    }
-  }
-  return [...projectIds];
 }
 
 async function assertVaultIsQuiescentForDeletion(
@@ -143,16 +142,31 @@ async function buildCodespacesPlan(
   };
 }
 
-function buildConvexProjectDeletionPlan(projectIds: string[]): VaultDeletionPlan["convex"] | null {
-  const uniqueProjectIds = [...new Set(projectIds)];
-  const [projectId, secondProjectId] = uniqueProjectIds;
-  if (!projectId) {
+function buildConvexProjectDeletionPlan(
+  projects: Array<{ teamId: string; projectId: string }>,
+): Exclude<VaultDeletionPlan["convex"], { action: "skip" }> | null {
+  const projectsByIdentity = new Map(
+    projects.map((project) => [`${project.teamId}:${project.projectId}`, project] as const),
+  );
+  const uniqueProjects = [...projectsByIdentity.values()].sort(
+    (left, right) =>
+      left.teamId.localeCompare(right.teamId) || left.projectId.localeCompare(right.projectId),
+  );
+  if (uniqueProjects.length === 0) {
     return null;
   }
-  if (!secondProjectId) {
-    return { action: "delete_project", projectId };
+  const project = uniqueProjects[0];
+  if (uniqueProjects.some((candidate) => candidate.teamId !== project.teamId)) {
+    throw new Error("Managed Convex projects span more than one team.");
   }
-  return { action: "delete_projects", projectIds: uniqueProjectIds };
+  if (uniqueProjects.length === 1) {
+    return { action: "delete_project", teamId: project.teamId, projectId: project.projectId };
+  }
+  return {
+    action: "delete_projects",
+    teamId: project.teamId,
+    projectIds: uniqueProjects.map((candidate) => candidate.projectId),
+  };
 }
 
 async function buildConvexPlan(
@@ -168,24 +182,22 @@ async function buildConvexPlan(
     return { action: "skip", reason: "not_requested" };
   }
 
-  const createdProjectIds = isConnectedVault(vault)
-    ? await listCreatedConvexProjectIds(ctx, vault._id)
-    : [];
   if (!isConnectedVault(vault)) {
     return { action: "skip", reason: "not_recorded" };
   }
+  const createdProjects: Array<{ teamId: string; projectId: string }> = [];
 
   for (const project of convexProjects) {
     if (project.origin === "provisioned") {
-      createdProjectIds.push(project.projectId);
+      createdProjects.push({ teamId: project.teamId, projectId: project.projectId });
     }
   }
 
-  const projectPlan = buildConvexProjectDeletionPlan(createdProjectIds);
+  const projectPlan = buildConvexProjectDeletionPlan(createdProjects);
   if (projectPlan) {
-    await requireProviderConnection(ctx, {
+    await requireConvexProviderTeam(ctx, {
       userId: vault.userId,
-      kind: "convex",
+      teamId: projectPlan.teamId,
     });
     return projectPlan;
   }
@@ -372,9 +384,9 @@ async function assertPlanProviderConnections(
   }
 
   if (args.plan.convex.action !== "skip") {
-    await requireProviderConnection(ctx, {
+    await requireConvexProviderTeam(ctx, {
       userId: args.userId,
-      kind: "convex",
+      teamId: args.plan.convex.teamId,
     });
   }
 

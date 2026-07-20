@@ -20,9 +20,9 @@ resources live in the caller's own provider accounts. Deleting the Samebase acco
 or stop any of them.
 
 Progress and failure are readable through `get_user_vaults`: while running, `providerSetup` carries
-the current step; on failure it carries the failed step, a message, and the `nextAction` that
-repairs it (`retry_infrastructure_provisioning` for managed runs). Cost: the created resources run
-on the providers' free tiers; an idle app costs $0/month.
+the current step; on failure it carries the failed step and a message. Repair it with
+`retry_infrastructure_provisioning`. Cost: the created resources run on the providers' free tiers;
+an idle app costs $0/month.
 
 ## Arguments
 

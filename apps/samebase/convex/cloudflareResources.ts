@@ -2575,7 +2575,6 @@ export async function readCloudflareBuildLogs(
 
 type DeleteCloudflareResourcesArgs = {
   accountId: string;
-  workerName: string;
   workerTag: string;
   cloudflareToken: string;
   transport: CloudflareApiTransport;
@@ -2643,7 +2642,7 @@ export async function deleteCloudflareResources(
     params: {
       path: {
         account_id: args.accountId,
-        worker_id: args.workerName,
+        worker_id: args.workerTag,
       },
     },
   });

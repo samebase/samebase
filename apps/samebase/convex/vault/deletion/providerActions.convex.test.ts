@@ -72,6 +72,7 @@ describe("vault deletion Convex provider actions", () => {
             codespaces: { action: "skip", reason: "not_requested" },
             convex: {
               action: "delete_projects",
+              teamId: "team-id",
               projectIds: ["1001", "1002"],
             },
             cloudflare: { action: "skip", reason: "not_requested" },
@@ -91,6 +92,66 @@ describe("vault deletion Convex provider actions", () => {
       "https://api.convex.dev/v1/projects/1001/delete",
       "https://api.convex.dev/v1/projects/1002/delete",
     ]);
+  });
+
+  it("does not delete a project after the connected Convex team changes", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        userId,
+        auth: { method: "api_key", credential: "convex-token" },
+        teamId: "other-team",
+        teamSlug: "other-team",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        createdAt: 2,
+        updatedAt: 2,
+        attempt: { kind: "initial" },
+        state: "running",
+        workflow: { state: "started", workflowId: "workflow-1" },
+        currentStep: "delete_convex",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "existing_repository",
+              ghRepoId: "123",
+              owner: "ada",
+              name: "demo",
+              repositoryFullName: "ada/demo",
+            },
+            codespaces: { action: "skip", reason: "not_requested" },
+            convex: { action: "delete_project", teamId: "original-team", projectId: "1001" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+      });
+      return { runId, userId };
+    });
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteConvex, ids),
+    ).rejects.toThrow("Connect the Convex team that owns these projects before removing them.");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects retained Cloudflare plans with no workers to delete", async () => {

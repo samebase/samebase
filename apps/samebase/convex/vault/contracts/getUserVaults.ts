@@ -37,16 +37,6 @@ export const vSourceSetupSummary = union(
 );
 
 const providerSetupProvider = union(literal("convex"), literal("cloudflare"));
-const providerSetupSource = union(literal("managed"), literal("manual"));
-
-const vProviderSetupFailedNextAction = union(
-  literal("retry_infrastructure_provisioning"),
-  literal("connect_convex_deployment"),
-  literal("connect_cloudflare_worker"),
-  literal("wire_builds"),
-  literal("wire_convex_build_access"),
-  literal("verify_infrastructure"),
-);
 
 export const vProviderSetupSummary = union(
   object({
@@ -58,7 +48,6 @@ export const vProviderSetupSummary = union(
   object({
     status: literal("running"),
     provider: providerSetupProvider,
-    source: providerSetupSource,
     runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningRunStep,
     updatedAt: number(),
@@ -66,12 +55,10 @@ export const vProviderSetupSummary = union(
   object({
     status: literal("failed"),
     provider: providerSetupProvider,
-    source: providerSetupSource,
     runId: id("workflow_vaultProvisioning_runs"),
     step: vAppProvisioningRunStep,
     message: string(),
     updatedAt: number(),
-    nextAction: vProviderSetupFailedNextAction,
   }),
 );
 

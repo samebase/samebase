@@ -129,11 +129,47 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       createdAt: 15,
       updatedAt: 15,
     });
+    await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      userId,
+      auth: {
+        method: "api_key",
+        credential: "cloudflare-token",
+      },
+      defaultAccount: {
+        state: "selected",
+        accountId: "cloudflare-account",
+        accountName: "Ada Cloudflare",
+      },
+      createdAt: 15,
+      updatedAt: 15,
+    });
     const appId = await ctx.db.insert("vaultApps", {
       vaultId,
       userId,
       rootDirectory,
       createdAt: 13,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_plans", {
+      vaultId,
+      userId,
+      appRoot: ".",
+      convex: { state: "planned", projectName: "managed-convex" },
+      cloudflare: {
+        state: "planned",
+        accountId: "cloudflare-account",
+        workerName: "managed-convex",
+        build: {
+          rootDirectory,
+          buildCommand: "pnpm run build",
+          deployCommand: "pnpm run deploy",
+          previewDeployCommand: "pnpm run deploy:preview",
+          pathIncludes: ["*"],
+          pathExcludes: [],
+        },
+      },
+      createdAt: 13,
+      updatedAt: 13,
     });
     if (args.withProject) {
       await ctx.db.insert("vaultConvexProjects", {
@@ -153,84 +189,18 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
   return { ids, t };
 }
 
-async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
-  const t = makeConvexTest();
-  const ids = await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
-      name: "Ada",
-      email: "ada@example.com",
-      isApproved: true,
-    });
-    const vaultId = await ctx.db.insert("vaults", {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "not_connected",
-    });
-    const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
-      vaultId,
-      repositoryFullName: "ada/manual-convex",
-      trigger: "connect_existing_repository",
-      state: "succeeded",
-      currentStep: "finish",
-      createdAt: 10,
-      updatedAt: 20,
-      completedAt: 20,
-    });
-    await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
-      vaultId,
-      repositoryFullName: "ada/manual-convex",
-      trigger: "connect_convex_deployment",
-      createdConvexProject: {
-        projectName: "manual-convex",
-        projectId: "created-convex-project",
-        projectSlug: "manual-convex",
-      },
-      state: "failed",
-      currentStep: "attach_convex",
-      lastError: "Convex project attach failed.",
-      createdAt: 30,
-      updatedAt: 40,
-      completedAt: 40,
-    });
-    await ctx.db.replace(vaultId, {
-      userId,
-      deletion: { state: "not_deleting" },
-      state: "connected",
-      githubMode: "connect_existing_repository",
-      runId: sourceRunId,
-      ghRepoId: "123",
-      owner: "ada",
-      name: "manual-convex",
-      visibility: "private",
-      defaultBranch: "main",
-      connectedAt: 12,
-    });
-    await ctx.db.insert("providerConnections", {
-      kind: "convex",
-      userId,
-      auth: {
-        method: "api_key",
-        credential: "convex-token",
-      },
-      teamId: "team-id",
-      teamSlug: "ada-team",
-      createdAt: 15,
-      updatedAt: 15,
-    });
-
-    return { userId, vaultId };
-  });
-
-  return { ids, t };
-}
-
 const deleteConvexOptions = {
   removeCodespaces: false,
   removeGithubRepo: false,
   removeConvexProvision: true,
   removeCloudflareProvision: false,
+};
+
+const deleteCloudflareOptions = {
+  removeCodespaces: false,
+  removeGithubRepo: false,
+  removeConvexProvision: false,
+  removeCloudflareProvision: true,
 };
 
 describe("vault deletion Convex resource planning", () => {
@@ -292,6 +262,60 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
+  it("refuses automatic Convex cleanup across more than one team", async () => {
+    const { ids, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "provisioned",
+    });
+    await t.run(async (ctx) => {
+      const app = await ctx.db
+        .query("vaultApps")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (!app) {
+        throw new Error("Test app not found.");
+      }
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appId: app._id,
+        teamId: "other-team",
+        projectId: "other-project",
+        origin: "provisioned",
+        createdAt: 16,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: deleteConvexOptions,
+      }),
+    ).rejects.toThrow("Managed Convex projects span more than one team.");
+  });
+
+  it("requires the connected Convex team before planning project cleanup", async () => {
+    const { ids, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "provisioned",
+    });
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", ids.userId).eq("kind", "convex"))
+        .unique();
+      if (connection?.kind !== "convex") {
+        throw new Error("Test Convex connection not found.");
+      }
+      await ctx.db.patch(connection._id, { teamId: "other-team" });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: deleteConvexOptions,
+      }),
+    ).rejects.toThrow("Connect the Convex team that owns these projects before removing them.");
+  });
+
   it("does not delete a selected existing Convex project", async () => {
     const { ids, t } = await createExistingRepositoryVaultWithConvex({
       origin: "selected_existing",
@@ -316,49 +340,25 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
-  it("deletes a failed manual Convex project created for an existing repository vault", async () => {
-    const { ids, t } = await createExistingRepositoryVaultWithFailedCreatedConvexProject();
-
-    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      ...ids,
-      options: deleteConvexOptions,
-    });
-    const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
-
-    expect(run).toMatchObject({
-      snapshot: {
-        state: "retained_for_retry",
-        plan: {
-          convex: {
-            action: "delete_project",
-            projectId: "created-convex-project",
-          },
-        },
-      },
-    });
-  });
-
-  it("deletes recorded created Convex projects before deployment ownership checks", async () => {
+  it("does not treat a Convex checkpoint alone as deletion ownership", async () => {
     const { ids, t } = await createSamebaseManagedVaultWithConvex({
       withProject: false,
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/managed-convex",
-        trigger: "connect_convex_deployment",
-        createdConvexProject: {
-          projectName: "manual-convex",
+      const plan = await ctx.db
+        .query("workflow_vaultProvisioning_plans")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (!plan) {
+        throw new Error("Test provisioning plan not found.");
+      }
+      await ctx.db.patch(plan._id, {
+        convex: {
+          state: "created",
+          projectName: "managed-convex",
+          teamId: "team-id",
           projectId: "created-convex-project",
-          projectSlug: "manual-convex",
         },
-        state: "failed",
-        currentStep: "attach_convex",
-        lastError: "Convex project attach failed.",
-        createdAt: 30,
-        updatedAt: 40,
-        completedAt: 40,
       });
     });
 
@@ -373,8 +373,48 @@ describe("vault deletion Convex resource planning", () => {
         state: "retained_for_retry",
         plan: {
           convex: {
-            action: "delete_project",
-            projectId: "created-convex-project",
+            action: "skip",
+            reason: "not_recorded",
+          },
+        },
+      },
+    });
+  });
+
+  it("does not treat a Worker checkpoint alone as deletion ownership", async () => {
+    const { ids, t } = await createSamebaseManagedVaultWithConvex({
+      withProject: false,
+    });
+    await t.run(async (ctx) => {
+      const plan = await ctx.db
+        .query("workflow_vaultProvisioning_plans")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (!plan) {
+        throw new Error("Test provisioning plan not found.");
+      }
+      await ctx.db.patch(plan._id, {
+        cloudflare: {
+          ...plan.cloudflare,
+          state: "created",
+          workerTag: "created-worker-tag",
+        },
+      });
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      ...ids,
+      options: deleteCloudflareOptions,
+    });
+    const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
+
+    expect(run).toMatchObject({
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          cloudflare: {
+            action: "skip",
+            reason: "not_recorded",
           },
         },
       },

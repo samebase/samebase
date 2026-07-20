@@ -672,6 +672,7 @@ describe("VaultDashboardRepositoryCard", () => {
           cloudflareWorkerRepairActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
+          providerAttachmentRemovalInFlight={null}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={0}
@@ -692,6 +693,8 @@ describe("VaultDashboardRepositoryCard", () => {
           onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRemoveMissingCloudflareWorker={() => {}}
+          onRemoveMissingConvexProject={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
@@ -856,7 +859,6 @@ describe("resolveVaultProviderSetupStatus", () => {
       resolveVaultProviderSetupStatus({
         status: "running",
         provider: "convex",
-        source: "managed",
         runId: fakeRunId(),
         step: "attach_convex",
         updatedAt: 0,
@@ -872,7 +874,6 @@ describe("resolveVaultProviderSetupStatus", () => {
     const providerSetup = {
       status: "running",
       provider: "cloudflare",
-      source: "managed",
       runId: fakeRunId(),
       step: "wire_convex_build_access",
       updatedAt: 0,
@@ -896,7 +897,6 @@ describe("VaultProviderSetupSection", () => {
         providerSetup={{
           status: "running",
           provider: "convex",
-          source: "managed",
           runId: fakeRunId(),
           step: "attach_convex",
           updatedAt: 0,
@@ -919,13 +919,11 @@ describe("VaultProviderSetupSection", () => {
         providerSetup={{
           status: "failed",
           provider: "cloudflare",
-          source: "managed",
           runId: fakeRunId(),
           step: "attach_worker",
           message:
             "Cloudflare Workers and Pages GitHub App is not authorized for ada/tmp-myapp1234. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ada/tmp-myapp1234, then retry.",
           updatedAt: 0,
-          nextAction: "retry_infrastructure_provisioning",
         }}
       />,
     );
@@ -1883,9 +1881,13 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "loading",
     });
 
+    const removeMissingCloudflareWorker = vi.fn();
+    const removeMissingConvexProject = vi.fn();
     const observedState = buildVaultDashboardResourceRailState({
       vault,
       githubRepositoryUrl: "https://github.com/ada/demo",
+      removeMissingCloudflareWorkerOnClick: removeMissingCloudflareWorker,
+      removeMissingConvexProjectOnClick: removeMissingConvexProject,
       cloudflareObservations: {
         state: "loaded",
         reload: () => {},
@@ -1896,21 +1898,58 @@ describe("buildVaultDashboardResourceRailState", () => {
         reload: () => {},
         observations: [
           {
-            state: "failed",
+            state: "missing",
             observedAt: 1,
             convexProjectId,
-            reason: "request_failed",
           },
         ],
       },
     });
-    expect(getResourceRailAppRow(observedState, "/", "cloudflare")).toMatchObject({
+    const missingCloudflareRow = getResourceRailAppRow(observedState, "/", "cloudflare");
+    const missingConvexRow = getResourceRailAppRow(observedState, "/", "convex");
+    expect(missingCloudflareRow).toMatchObject({
       status: "missing",
       description: "Missing from Cloudflare.",
+      actions: [{ label: "Remove from Samebase" }],
     });
-    expect(getResourceRailAppRow(observedState, "/", "convex")).toMatchObject({
+    expect(missingConvexRow).toMatchObject({
+      status: "missing",
+      description: "Missing from Convex.",
+      actions: [{ label: "Remove from Samebase" }],
+    });
+    if (missingCloudflareRow.status !== "missing" || missingConvexRow.status !== "missing") {
+      throw new Error("Expected missing provider resource rows.");
+    }
+    missingCloudflareRow.actions?.[0].onClick?.();
+    missingConvexRow.actions?.[0].onClick?.();
+    expect(removeMissingCloudflareWorker).toHaveBeenCalledWith(workerId);
+    expect(removeMissingConvexProject).toHaveBeenCalledWith(convexProjectId);
+
+    const failedState = buildVaultDashboardResourceRailState({
+      vault,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      removeMissingCloudflareWorkerOnClick: removeMissingCloudflareWorker,
+      removeMissingConvexProjectOnClick: removeMissingConvexProject,
+      cloudflareObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [{ state: "failed", observedAt: 1, workerId, reason: "request_failed" }],
+      },
+      convexObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [
+          { state: "failed", observedAt: 1, convexProjectId, reason: "request_failed" },
+        ],
+      },
+    });
+    expect(getResourceRailAppRow(failedState, "/", "cloudflare")).toMatchObject({
       status: "failed",
-      description: "Could not load from Convex.",
+      actions: [{ label: "Reload" }],
+    });
+    expect(getResourceRailAppRow(failedState, "/", "convex")).toMatchObject({
+      status: "failed",
+      actions: [{ label: "Reload" }],
     });
   });
 

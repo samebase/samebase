@@ -29,6 +29,7 @@ import {
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
 import { action } from "../functions";
+import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
 import { vaultSuffix } from "../slugUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
@@ -226,7 +227,11 @@ export async function connectExistingCloudflareWorkerForUser(
     throw new Error("Cloudflare account and Worker are required.");
   }
   const [context, connection] = await Promise.all([
-    readWorkerAttachmentContext(ctx, args),
+    readWorkerAttachmentContext(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appId: args.appId,
+    }),
     resolveCloudflareConnection(ctx, args.userId),
   ]);
   const account = await resolveAccount({
@@ -287,22 +292,133 @@ async function createWorkerForUser(
   }
   const [connection] = await Promise.all([
     resolveCloudflareConnection(ctx, args.userId),
-    readWorkerAttachmentContext(ctx, args),
+    readWorkerAttachmentContext(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appId: args.appId,
+    }),
   ]);
   const account = await resolveAccount({
     token: connection.token,
     transport: connection.transport,
     accountId,
   });
+  await rememberDefaultAccount(ctx, { userId: args.userId, connection, account });
   const worker = await createCloudflareWorker({
     token: connection.token,
     transport: connection.transport,
     accountId: account.accountId,
     workerName: validation.value,
   });
+  try {
+    return await attachWorker(ctx, {
+      ...args,
+      accountId: account.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+      origin: "provisioned",
+    });
+  } catch (error) {
+    throw new Error(
+      `Cloudflare created Worker ${worker.workerName}, but Samebase could not attach it. Inspect Cloudflare before retrying. Reason: ${toErrorMessage(error)}`,
+    );
+  }
+}
+
+async function createWorkerForManagedWorkflow(
+  ctx: ActionCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    appId: Id<"vaultApps">;
+    accountId: string;
+    workerName: string;
+  },
+): Promise<Id<"vaultCloudflareWorkers">> {
+  const validation = validateAppResourceName(args.workerName, "cloudflare");
+  if (!validation.valid) {
+    throw new Error(validation.message);
+  }
+  const accountId = args.accountId.trim();
+  if (!accountId) {
+    throw new Error("Cloudflare account is required.");
+  }
+  const checkpoint = await ctx.runQuery(
+    internal.vault.cloudflareMutations.readManagedWorkerCreateCheckpoint,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      accountId,
+      workerName: validation.value,
+    },
+  );
+  if (checkpoint.state === "creating") {
+    throw new Error(
+      "The previous Cloudflare Worker create may have completed without recording its identity. Inspect Cloudflare before retrying.",
+    );
+  }
+  const connection = await resolveCloudflareConnection(ctx, args.userId);
+  const account = await resolveAccount({
+    token: connection.token,
+    transport: connection.transport,
+    accountId,
+  });
   await rememberDefaultAccount(ctx, { userId: args.userId, connection, account });
+
+  let worker: { workerName: string; workerTag: string };
+  if (checkpoint.state === "created") {
+    const identity = await readCloudflareWorkerIdentity({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: account.accountId,
+      workerName: validation.value,
+    });
+    if (!identity || identity.workerTag !== checkpoint.workerTag) {
+      throw new Error("Managed Cloudflare Worker checkpoint is missing from Cloudflare.");
+    }
+    worker = identity;
+  } else {
+    const existing = await readCloudflareWorkerIdentity({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: account.accountId,
+      workerName: validation.value,
+    });
+    if (existing) {
+      throw new Error(
+        `Cloudflare Worker name ${validation.value} already exists. Choose another Worker name and try again.`,
+      );
+    }
+    await ctx.runMutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      accountId: account.accountId,
+      workerName: validation.value,
+    });
+    worker = await createCloudflareWorker({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: account.accountId,
+      workerName: validation.value,
+    });
+    await ctx.runMutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      appId: args.appId,
+      accountId: account.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    });
+  }
+
   return await attachWorker(ctx, {
-    ...args,
+    vaultId: args.vaultId,
+    userId: args.userId,
+    appId: args.appId,
     accountId: account.accountId,
     workerName: worker.workerName,
     workerTag: worker.workerTag,
@@ -559,7 +675,11 @@ export async function listCloudflareWorkersForUser(
   },
 ): Promise<CloudflareWorkerResult[]> {
   const [context, connection] = await Promise.all([
-    readWorkerAttachmentContext(ctx, args),
+    readWorkerAttachmentContext(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appId: args.appId,
+    }),
     resolveCloudflareConnection(ctx, args.userId),
   ]);
   const account = await resolveAccount({
@@ -612,6 +732,44 @@ export const createWorker = action({
   },
 });
 
+export const removeMissingWorker = action({
+  access: "access_app_create",
+  args: {
+    vaultId: id("vaults"),
+    workerId: id("vaultCloudflareWorkers"),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const context = await readWorkerConfigurationContext(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
+    const connection = await resolveCloudflareConnection(ctx, ctx.viewer.userId);
+    await resolveAccount({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: context.accountId,
+    });
+    const identity = await readCloudflareWorkerIdentity({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: context.accountId,
+      workerName: context.workerName,
+    });
+    if (identity?.workerTag === context.workerTag) {
+      throw new Error("Cloudflare Worker still exists. Reload its provider state.");
+    }
+    await ctx.runMutation(internal.vault.cloudflareMutations.removeMissingWorkerAttachment, {
+      ...args,
+      userId: ctx.viewer.userId,
+      accountId: context.accountId,
+      workerName: context.workerName,
+      workerTag: context.workerTag,
+    });
+    return null;
+  },
+});
+
 export const wireBuilds = action({
   access: cloudflareWireBuildsContract.access,
   args: cloudflareWireBuildsContract.args,
@@ -654,9 +812,16 @@ export const ensureCloudflareWorkerConnection = internalAction({
   returns: id("vaultCloudflareWorkers"),
   handler: async (
     ctx,
-    { vaultId, userId, appId, accountId, workerName },
+    { vaultId, runId, userId, appId, accountId, workerName },
   ): Promise<Id<"vaultCloudflareWorkers">> => {
-    return await createWorkerForUser(ctx, { vaultId, userId, appId, accountId, workerName });
+    return await createWorkerForManagedWorkflow(ctx, {
+      vaultId,
+      runId,
+      userId,
+      appId,
+      accountId,
+      workerName,
+    });
   },
 });
 

@@ -11,6 +11,7 @@ import {
   buildCloudflareWorkersEnvVars,
   CloudflareApiError,
   classifyCloudflareWorkerRepositoryDiscovery,
+  deleteCloudflareResources,
   isCloudflareGitHubAppRepositoryAuthorizationError,
   isCloudflareBuildTriggerNotFoundError,
   isCloudflareMcpInvalidAccessTokenError,
@@ -407,6 +408,50 @@ describe("cloudflare resources", () => {
 
   it("omits trace propagation policy when creating Workers with traces disabled", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
+  });
+
+  it("deletes a Worker by its immutable tag", async () => {
+    const requests: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+        const path = new URL(url).pathname;
+        requests.push({ method, path });
+        if (
+          method === "GET" &&
+          path === "/client/v4/accounts/account-id/builds/workers/immutable-worker-tag/triggers"
+        ) {
+          return cloudflareSuccessResponse([]);
+        }
+        if (
+          method === "DELETE" &&
+          path === "/client/v4/accounts/account-id/workers/workers/immutable-worker-tag"
+        ) {
+          return cloudflareSuccessResponse(null);
+        }
+        throw new Error(`Unexpected Cloudflare request: ${method} ${path}`);
+      }),
+    );
+
+    await deleteCloudflareResources({
+      accountId: "account-id",
+      workerTag: "immutable-worker-tag",
+      cloudflareToken: "cloudflare-token",
+      transport: "direct",
+    });
+
+    expect(requests).toEqual([
+      {
+        method: "GET",
+        path: "/client/v4/accounts/account-id/builds/workers/immutable-worker-tag/triggers",
+      },
+      {
+        method: "DELETE",
+        path: "/client/v4/accounts/account-id/workers/workers/immutable-worker-tag",
+      },
+    ]);
   });
 
   it("uses both Convex deploy keys and the readable project marker for Workers builds", () => {

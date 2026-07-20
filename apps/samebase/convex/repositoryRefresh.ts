@@ -275,14 +275,6 @@ function assertSourceSetupRepositoryRefreshRun(run: Doc<"workflow_vaultProvision
     case "create":
     case "connect_existing_repository":
       return;
-    case "connect_convex_deployment":
-      throw new Error("Convex deployment connection run is not source setup refresh demand.");
-    case "connect_cloudflare_worker":
-      throw new Error("Cloudflare Worker connection run is not source setup refresh demand.");
-    case "wire_builds":
-      throw new Error("Cloudflare Workers Builds wiring run is not source setup refresh demand.");
-    case "wire_convex_build_access":
-      throw new Error("Convex build access wiring run is not source setup refresh demand.");
     case "retry":
       throw new Error("Retry run is not source setup refresh demand.");
     default: {

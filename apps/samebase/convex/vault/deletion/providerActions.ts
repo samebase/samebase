@@ -189,7 +189,6 @@ export const deleteCloudflare = internalAction({
       try {
         await deleteCloudflareResources({
           accountId: worker.accountId,
-          workerName: worker.workerName,
           workerTag: worker.workerTag,
           cloudflareToken: cloudflareConnection.auth.credential,
           transport: cloudflareTransport,
@@ -230,6 +229,9 @@ export const deleteConvex = internalAction({
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to remove resources.");
     }
+    if (convexConnection.teamId !== plan.convex.teamId) {
+      throw new Error("Connect the Convex team that owns these projects before removing them.");
+    }
 
     try {
       switch (plan.convex.action) {
@@ -257,15 +259,6 @@ export const deleteConvex = internalAction({
               }
             }
           }
-          break;
-        }
-        case "delete_deployment": {
-          await requestConvexManagementApi(
-            convexConnection.auth.credential,
-            "POST",
-            "/deployments/{deployment_name}/delete",
-            { params: { path: { deployment_name: plan.convex.deploymentName } } },
-          );
           break;
         }
         default: {

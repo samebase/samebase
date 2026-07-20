@@ -363,6 +363,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
+      userId: args.userId,
       appRoot: ROOT_VAULT_APP_ROOT,
       convex: {
         state: "planned",

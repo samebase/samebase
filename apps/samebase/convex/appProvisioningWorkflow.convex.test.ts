@@ -100,6 +100,7 @@ async function createComposedVault() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
+      userId,
       appRoot: ".",
       convex: {
         state: "planned",

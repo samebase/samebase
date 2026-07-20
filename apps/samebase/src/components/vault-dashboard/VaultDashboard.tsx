@@ -349,6 +349,17 @@ type CloudflareWorkerRepairActionInFlight =
       workerId: Id<"vaultCloudflareWorkers">;
       convexProjectId: Id<"vaultConvexProjects">;
     };
+type ProviderAttachmentRemovalInFlight =
+  | {
+      provider: "cloudflare";
+      vaultId: Id<"vaults">;
+      workerId: Id<"vaultCloudflareWorkers">;
+    }
+  | {
+      provider: "convex";
+      vaultId: Id<"vaults">;
+      convexProjectId: Id<"vaultConvexProjects">;
+    };
 
 function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProviderSetup): string {
   switch (providerSetup.status) {
@@ -2847,9 +2858,7 @@ export function VaultProviderSetupSection({
         `${setupStatus.message} Last failure: ${stepLabel}: ${providerSetup.message}`
       )
     ) : undefined;
-  const canRetry =
-    providerSetup.status === "failed" &&
-    providerSetup.nextAction === "retry_infrastructure_provisioning";
+  const canRetry = providerSetup.status === "failed";
 
   return (
     <VaultSetupProgressSection
@@ -2931,6 +2940,7 @@ type VaultDashboardViewProps = {
   cloudflareWorkerRepairActionInFlight: CloudflareWorkerRepairActionInFlight | null;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isRemovingVault: boolean;
+  providerAttachmentRemovalInFlight: ProviderAttachmentRemovalInFlight | null;
   retryingDeletionRunId: Id<"workflow_vaultDeletion_runs"> | null;
   retryingInfrastructureVaultId: Id<"vaults"> | null;
   now: number;
@@ -2953,6 +2963,14 @@ type VaultDashboardViewProps = {
   ) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
+  onRemoveMissingCloudflareWorker: (
+    vaultId: Id<"vaults">,
+    workerId: Id<"vaultCloudflareWorkers">,
+  ) => void;
+  onRemoveMissingConvexProject: (
+    vaultId: Id<"vaults">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
   onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"workflow_vaultDeletion_runs">) => void;
   onSaveVaultBranchFilters: (
@@ -3116,6 +3134,7 @@ export function VaultDashboardView({
   cloudflareWorkerRepairActionInFlight,
   convexObservations,
   isRemovingVault,
+  providerAttachmentRemovalInFlight,
   retryingDeletionRunId,
   retryingInfrastructureVaultId,
   now,
@@ -3131,6 +3150,8 @@ export function VaultDashboardView({
   onWireCloudflareConvexBuildAccess,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
+  onRemoveMissingCloudflareWorker,
+  onRemoveMissingConvexProject,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
@@ -3257,12 +3278,30 @@ export function VaultDashboardView({
             cloudflareWorkerRepairActionInFlight?.kind === "connect_github_repo" &&
             cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
             cloudflareWorkerRepairActionInFlight.workerId === workerId,
+          isRemovingMissingCloudflareWorker: (workerId) =>
+            providerAttachmentRemovalInFlight?.provider === "cloudflare" &&
+            providerAttachmentRemovalInFlight.vaultId === vault._id &&
+            providerAttachmentRemovalInFlight.workerId === workerId,
+          isRemovingMissingConvexProject: (convexProjectId) =>
+            providerAttachmentRemovalInFlight?.provider === "convex" &&
+            providerAttachmentRemovalInFlight.vaultId === vault._id &&
+            providerAttachmentRemovalInFlight.convexProjectId === convexProjectId,
           isWiringConvexBuildAccess: (workerId, convexProjectId) =>
             cloudflareWorkerRepairActionInFlight?.kind === "wire_convex_build_access" &&
             cloudflareWorkerRepairActionInFlight.vaultId === vault._id &&
             cloudflareWorkerRepairActionInFlight.workerId === workerId &&
             cloudflareWorkerRepairActionInFlight.convexProjectId === convexProjectId,
           vault,
+          removeMissingCloudflareWorkerOnClick: providerAttachmentRemovalInFlight
+            ? undefined
+            : (workerId) => {
+                onRemoveMissingCloudflareWorker(vault._id, workerId);
+              },
+          removeMissingConvexProjectOnClick: providerAttachmentRemovalInFlight
+            ? undefined
+            : (convexProjectId) => {
+                onRemoveMissingConvexProject(vault._id, convexProjectId);
+              },
           wireConvexBuildAccessOnClick: isCloudflareWorkerRepairActionInFlight
             ? undefined
             : (workerId, convexProjectId) => {
@@ -3570,12 +3609,16 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
   const connectExistingCloudflareWorker = useAction(api.vault.cloudflare.connectExistingWorker);
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
+  const removeMissingCloudflareWorker = useAction(api.vault.cloudflare.removeMissingWorker);
+  const removeMissingConvexProject = useAction(api.vault.convex.removeMissingProject);
   const wireCloudflareBuilds = useAction(api.vault.cloudflare.wireBuilds);
   const wireCloudflareConvexBuildAccess = useAction(api.vault.cloudflare.wireConvexBuildAccess);
   const [cloudflareWorkerRepairActionInFlight, setCloudflareWorkerRepairActionInFlight] =
     useState<CloudflareWorkerRepairActionInFlight | null>(null);
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
     useState<Id<"vaults"> | null>(null);
+  const [providerAttachmentRemovalInFlight, setProviderAttachmentRemovalInFlight] =
+    useState<ProviderAttachmentRemovalInFlight | null>(null);
   const createVaultApp = useMutation(api.vault.dashboard.createVaultApp);
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
@@ -4353,6 +4396,48 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
+  const handleRemoveMissingCloudflareWorker = async (
+    vaultId: Id<"vaults">,
+    workerId: Id<"vaultCloudflareWorkers">,
+  ) => {
+    if (providerAttachmentRemovalInFlight) {
+      return;
+    }
+    setProviderAttachmentRemovalInFlight({ provider: "cloudflare", vaultId, workerId });
+    try {
+      await removeMissingCloudflareWorker({ vaultId, workerId });
+    } catch (error) {
+      toast({
+        title: "Could not remove Cloudflare attachment",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProviderAttachmentRemovalInFlight(null);
+    }
+  };
+
+  const handleRemoveMissingConvexProject = async (
+    vaultId: Id<"vaults">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => {
+    if (providerAttachmentRemovalInFlight) {
+      return;
+    }
+    setProviderAttachmentRemovalInFlight({ provider: "convex", vaultId, convexProjectId });
+    try {
+      await removeMissingConvexProject({ vaultId, convexProjectId });
+    } catch (error) {
+      toast({
+        title: "Could not remove Convex attachment",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProviderAttachmentRemovalInFlight(null);
+    }
+  };
+
   const handleConnectCloudflareGithubRepository = async (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
@@ -4546,6 +4631,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         cloudflareWorkerRepairActionInFlight={cloudflareWorkerRepairActionInFlight}
         convexObservations={providerObservations.convex}
         isRemovingVault={isDeleting || isCommitting}
+        providerAttachmentRemovalInFlight={providerAttachmentRemovalInFlight}
         retryingDeletionRunId={retryingDeletionRunId}
         retryingInfrastructureVaultId={retryingInfrastructureVaultId}
         now={now}
@@ -4573,6 +4659,12 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
         onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
+        onRemoveMissingCloudflareWorker={(vaultId, workerId) => {
+          void handleRemoveMissingCloudflareWorker(vaultId, workerId);
+        }}
+        onRemoveMissingConvexProject={(vaultId, convexProjectId) => {
+          void handleRemoveMissingConvexProject(vaultId, convexProjectId);
+        }}
         onRetryInfrastructureProvisioning={(vaultId) => {
           void handleRetryInfrastructureProvisioning(vaultId);
         }}

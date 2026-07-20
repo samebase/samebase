@@ -2,13 +2,15 @@
 
 Samebase does not manage domains for you. The Worker is in your Cloudflare account, so Cloudflare's
 own domain tooling applies directly. Coordinates come from the app list (dashboard, or the
-`get_user_vaults` MCP tool): the app's `workerName` and its `projectDashboardUrl`.
+`get_user_vaults` MCP tool): the app's `accountId` and `workerName`. The dashboard adds the direct
+Cloudflare link after its live provider read succeeds.
 
 ## Attach a domain to the Worker
 
 If the domain's DNS is on Cloudflare (recommended because it is the same account):
 
-1. Open the Worker (`projectDashboardUrl`) → Settings → Domains & Routes → Add → Custom domain.
+1. Open the Worker from the Samebase dashboard, then choose Settings → Domains & Routes → Add →
+   Custom domain.
 2. Enter the hostname (for example `app.example.com`). Cloudflare creates the DNS record and the
    certificate; propagation is usually minutes.
 

@@ -9,8 +9,10 @@ import {
 } from "../convexManagementApi/client";
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
+import { toErrorMessage } from "../jsonUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { vVaultConvexProjectConnectionTarget } from "./model";
+import { readConvexProjectResource } from "./convexProjectResources";
 import { convexListProjectsContract, vConvexProjectResult } from "./contracts/convexListProjects";
 import { convexConnectExistingProjectContract } from "./contracts/convexConnectExistingProject";
 
@@ -178,9 +180,103 @@ async function createProjectForUser(
       body: { projectName: validation.value, deploymentType: "prod" },
     },
   );
-  const project = await readConvexProject({ connection, projectId: created.id });
+  try {
+    const project = await readConvexProject({
+      connection,
+      projectId: created.id,
+    });
+    return await recordConvexProject(ctx, {
+      ...args,
+      connection,
+      project,
+      origin: "provisioned",
+    });
+  } catch (error) {
+    throw new Error(
+      `Convex created project ${validation.value}, but Samebase could not attach it. Inspect Convex before retrying. Reason: ${toErrorMessage(error)}`,
+    );
+  }
+}
+
+async function createProjectForManagedWorkflow(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    appId: Id<"vaultApps">;
+    projectName: string;
+  },
+): Promise<Id<"vaultConvexProjects">> {
+  const validation = validateAppResourceName(args.projectName, "convex");
+  if (!validation.valid) {
+    throw new Error(validation.message);
+  }
+  const connection = await resolveConvexConnection(ctx, args.userId);
+  const checkpoint = await ctx.runQuery(
+    internal.vault.convexMutations.readManagedProjectCreateCheckpoint,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      projectName: validation.value,
+      teamId: connection.teamId,
+    },
+  );
+  let projectId: string;
+  if (checkpoint.state === "created") {
+    projectId = checkpoint.projectId;
+  } else if (checkpoint.state === "creating") {
+    throw new Error(
+      "The previous Convex project create may have completed without recording its identity. Inspect Convex before retrying.",
+    );
+  } else {
+    const projects = await listConvexManagementProjects({
+      token: connection.token,
+      teamId: connection.teamId,
+    });
+    if (
+      projects.some(
+        (project) => project.name === validation.value || project.slug === validation.value,
+      )
+    ) {
+      throw new Error(
+        `Convex project name ${validation.value} already exists. Choose another project name and try again.`,
+      );
+    }
+    await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      projectName: validation.value,
+      teamId: connection.teamId,
+    });
+    const created = await requestConvexManagementApi(
+      connection.token,
+      "POST",
+      "/teams/{team_id}/create_project",
+      {
+        params: { path: { team_id: connection.teamId } },
+        body: { projectName: validation.value, deploymentType: "prod" },
+      },
+    );
+    projectId = created.id;
+    await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      appId: args.appId,
+      projectName: validation.value,
+      teamId: connection.teamId,
+      projectId,
+    });
+  }
+
+  const project = await readConvexProject({ connection, projectId });
   return await recordConvexProject(ctx, {
-    ...args,
+    vaultId: args.vaultId,
+    userId: args.userId,
+    appId: args.appId,
     connection,
     project,
     origin: "provisioned",
@@ -230,6 +326,42 @@ export const createProject = action({
   },
 });
 
+export const removeMissingProject = action({
+  access: "access_app_create",
+  args: {
+    vaultId: id("vaults"),
+    convexProjectId: id("vaultConvexProjects"),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const [attachment, connection] = await Promise.all([
+      ctx.runQuery(internal.vault.convexMutations.readProjectAttachmentContext, {
+        ...args,
+        userId: ctx.viewer.userId,
+      }),
+      resolveConvexConnection(ctx, ctx.viewer.userId),
+    ]);
+    if (connection.teamId !== attachment.teamId) {
+      throw new Error("Connect the Convex team that owns this project before removing it.");
+    }
+    const project = await readConvexProjectResource({
+      token: connection.token,
+      teamId: attachment.teamId,
+      projectId: attachment.projectId,
+    });
+    if (project) {
+      throw new Error("Convex project still exists. Reload its provider state.");
+    }
+    await ctx.runMutation(internal.vault.convexMutations.removeMissingProjectAttachment, {
+      ...args,
+      userId: ctx.viewer.userId,
+      teamId: attachment.teamId,
+      projectId: attachment.projectId,
+    });
+    return null;
+  },
+});
+
 /** Used only by the explicit create-app workflow. Manual attachment actions do not create runs. */
 export const ensureConvexProjectConnection = internalAction({
   args: {
@@ -239,7 +371,7 @@ export const ensureConvexProjectConnection = internalAction({
     target: vVaultConvexProjectConnectionTarget,
   },
   returns: id("vaultConvexProjects"),
-  handler: async (ctx, { vaultId, userId, target }): Promise<Id<"vaultConvexProjects">> => {
+  handler: async (ctx, { vaultId, runId, userId, target }): Promise<Id<"vaultConvexProjects">> => {
     switch (target.mode) {
       case "connect_existing_project": {
         return await connectExistingConvexProjectForUser(ctx, {
@@ -250,8 +382,9 @@ export const ensureConvexProjectConnection = internalAction({
         });
       }
       case "create_project": {
-        return await createProjectForUser(ctx, {
+        return await createProjectForManagedWorkflow(ctx, {
           vaultId,
+          runId,
           userId,
           appId: target.appId,
           projectName: target.projectName,

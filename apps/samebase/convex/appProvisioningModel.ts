@@ -50,10 +50,6 @@ export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;
 export const vAppProvisioningRunTrigger = union(
   literal("create"),
   literal("connect_existing_repository"),
-  literal("connect_convex_deployment"),
-  literal("connect_cloudflare_worker"),
-  literal("wire_builds"),
-  literal("wire_convex_build_access"),
   literal("retry"),
 );
 export type AppProvisioningRunTrigger = Infer<typeof vAppProvisioningRunTrigger>;
@@ -72,11 +68,12 @@ export const vaultProvisioningTables = {
    * The app root and exact Convex project and Cloudflare Worker choices for one
    * vault. Retries read this row so every attempt uses the same provider names
    * and Cloudflare account. `created` variants preserve identities returned by
-   * earlier provider-creation checkpoints; current connected resources live in
-   * the durable vault resource tables.
+   * earlier provider-creation checkpoints. Recording a `created` checkpoint
+   * and its stable resource attachment is one database transaction.
    */
   workflow_vaultProvisioning_plans: defineTable({
     vaultId: id("vaults"),
+    userId: id("users"),
     appRoot: string(),
     convex: union(
       object({
@@ -84,8 +81,14 @@ export const vaultProvisioningTables = {
         projectName: string(),
       }),
       object({
+        state: literal("creating"),
+        projectName: string(),
+        teamId: string(),
+      }),
+      object({
         state: literal("created"),
         projectName: string(),
+        teamId: string(),
         projectId: string(),
       }),
     ),
@@ -97,11 +100,16 @@ export const vaultProvisioningTables = {
         build: vVaultCloudflareBuildConfig,
       }),
       object({
+        state: literal("creating"),
+        accountId: string(),
+        workerName: string(),
+        build: vVaultCloudflareBuildConfig,
+      }),
+      object({
         state: literal("created"),
         accountId: string(),
         workerName: string(),
         workerTag: string(),
-        workersDevUrl: optional(string()),
         build: vVaultCloudflareBuildConfig,
       }),
     ),
@@ -125,8 +133,9 @@ export const vaultProvisioningTables = {
     .index("by_run", ["runId"]),
 
   /**
-   * One attempt to create, connect, retry, or repair a vault and its provider
-   * resources, including background-workflow progress and outcome.
+   * One managed attempt to create, connect, or retry a vault, including
+   * background-workflow progress and outcome. Explicit provider actions do not
+   * create runs.
    */
   workflow_vaultProvisioning_runs: defineTable({
     userId: id("users"),
@@ -134,13 +143,6 @@ export const vaultProvisioningTables = {
     repositoryFullName: string(),
     workflowId: optional(string()),
     trigger: vAppProvisioningRunTrigger,
-    createdConvexProject: optional(
-      object({
-        projectName: string(),
-        projectId: string(),
-        projectSlug: string(),
-      }),
-    ),
     state: vAppProvisioningRunState,
     currentStep: vAppProvisioningRunStep,
     lastError: optional(string()),

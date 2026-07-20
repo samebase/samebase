@@ -4,7 +4,6 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { makeConvexTest } from "../test.setup";
-import { readProviderSetupFailedNextAction } from "./dashboard";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
 
 const appRoot = ".";
@@ -459,6 +458,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
+        userId,
         appRoot,
         convex: {
           state: "planned",
@@ -918,7 +918,6 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "running",
         provider: "cloudflare",
-        source: "managed",
         runId: ids.runId,
         step: "attach_worker",
         updatedAt: 30,
@@ -1020,7 +1019,6 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "running",
         provider: "cloudflare",
-        source: "managed",
         runId: ids.retryRunId,
         step: "attach_worker",
         updatedAt: 45,
@@ -1134,194 +1132,10 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "failed",
         provider: "cloudflare",
-        source: "managed",
         runId: ids.retryRunId,
         step: "attach_worker",
         message: expectedMessage,
         updatedAt: 45,
-      },
-    });
-  });
-
-  it("shows an active manual Cloudflare Worker connection on existing-repository vaults", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/existing-cloudflare",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 10,
-        updatedAt: 20,
-        completedAt: 20,
-      });
-      const cloudflareRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/existing-cloudflare",
-        trigger: "connect_cloudflare_worker",
-        state: "running",
-        currentStep: "attach_worker",
-        createdAt: 30,
-        updatedAt: 40,
-      });
-
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId: sourceRunId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "existing-cloudflare",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 22,
-      });
-      await ctx.db.insert("observations_vaultRepository_branchTrees", {
-        vaultId,
-        branch: "main",
-        treeSHA: "tree",
-        commitSHA: "commit",
-        treeData: {
-          sha: "tree",
-          truncated: false,
-          tree: [],
-        },
-        lastTreeRefreshAt: 24,
-      });
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId,
-        runId: cloudflareRunId,
-        state: "active",
-        updatedAt: 35,
-      });
-
-      return { cloudflareRunId, userId, vaultId };
-    });
-
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
-
-    expect(vaults[0]).toMatchObject({
-      _id: ids.vaultId,
-      isSamebaseManaged: false,
-      providerSetup: {
-        status: "running",
-        provider: "cloudflare",
-        source: "manual",
-        runId: ids.cloudflareRunId,
-        step: "attach_worker",
-        updatedAt: 40,
-      },
-    });
-  });
-
-  it("keeps a failed manual Convex run visible after its deployment attaches", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const sourceRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/existing-convex",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 10,
-        updatedAt: 20,
-        completedAt: 20,
-      });
-      const convexRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/existing-convex",
-        trigger: "connect_convex_deployment",
-        state: "failed",
-        currentStep: "finish",
-        lastError: "Convex finish failed.",
-        createdAt: 30,
-        updatedAt: 40,
-        completedAt: 40,
-      });
-
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId: sourceRunId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "existing-convex",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 22,
-      });
-      await ctx.db.insert("observations_vaultRepository_branchTrees", {
-        vaultId,
-        branch: "main",
-        treeSHA: "tree",
-        commitSHA: "commit",
-        treeData: {
-          sha: "tree",
-          truncated: false,
-          tree: [],
-        },
-        lastTreeRefreshAt: 24,
-      });
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId,
-        runId: convexRunId,
-        state: "failed",
-        updatedAt: 38,
-      });
-
-      return { convexRunId, userId, vaultId };
-    });
-
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
-
-    expect(vaults[0]).toMatchObject({
-      _id: ids.vaultId,
-      providerSetup: {
-        status: "failed",
-        provider: "convex",
-        source: "manual",
-        runId: ids.convexRunId,
-        step: "finish",
-        updatedAt: 40,
       },
     });
   });
@@ -1335,7 +1149,6 @@ describe("vault dashboard Convex contract", () => {
         expectedSetup: {
           status: "running",
           provider: "cloudflare",
-          source: "managed",
         },
       },
       {
@@ -1528,7 +1341,6 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "running",
         provider: "convex",
-        source: "managed",
         runId: ids.runId,
         step: "sync_tree",
         updatedAt: 30,
@@ -2019,60 +1831,5 @@ describe("vault dashboard Convex contract", () => {
       _id: ids.auditId,
       requestId: ids.requestId,
     });
-  });
-});
-
-describe("provider setup failed nextAction", () => {
-  it("maps managed failures to the run retry regardless of trigger", () => {
-    expect(readProviderSetupFailedNextAction({ provider: "convex", source: "managed" })).toBe(
-      "retry_infrastructure_provisioning",
-    );
-    expect(
-      readProviderSetupFailedNextAction({
-        provider: "cloudflare",
-        source: "managed",
-        trigger: "create",
-      }),
-    ).toBe("retry_infrastructure_provisioning");
-  });
-
-  it("maps failed manual runs to the action that failed, by trigger", () => {
-    expect(
-      readProviderSetupFailedNextAction({
-        provider: "convex",
-        source: "manual",
-        trigger: "connect_convex_deployment",
-      }),
-    ).toBe("connect_convex_deployment");
-    expect(
-      readProviderSetupFailedNextAction({
-        provider: "cloudflare",
-        source: "manual",
-        trigger: "connect_cloudflare_worker",
-      }),
-    ).toBe("connect_cloudflare_worker");
-    expect(
-      readProviderSetupFailedNextAction({
-        provider: "cloudflare",
-        source: "manual",
-        trigger: "wire_builds",
-      }),
-    ).toBe("wire_builds");
-    expect(
-      readProviderSetupFailedNextAction({
-        provider: "cloudflare",
-        source: "manual",
-        trigger: "wire_convex_build_access",
-      }),
-    ).toBe("wire_convex_build_access");
-  });
-
-  it("falls back to the provider's connect flow when the run row is missing", () => {
-    expect(readProviderSetupFailedNextAction({ provider: "convex", source: "manual" })).toBe(
-      "connect_convex_deployment",
-    );
-    expect(readProviderSetupFailedNextAction({ provider: "cloudflare", source: "manual" })).toBe(
-      "connect_cloudflare_worker",
-    );
   });
 });

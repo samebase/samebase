@@ -27,13 +27,12 @@ export const retryInfrastructureProvisioningContract = {
       vaultId: "Samebase vault id of the app whose managed provisioning failed.",
     },
   } satisfies AppFunctionMcpMetadata,
-  doc: `The remedy behind \`nextAction: "retry_infrastructure_provisioning"\`: starts a fresh
+  doc: `Retries failed Samebase-managed infrastructure setup: starts a fresh
 managed provisioning run that re-reads the app's current infrastructure state and skips the blocks
 whose resources already exist, so completed work is not redone. It does not require or inspect a
 prior failed run.
 
 Only valid for live Samebase-managed apps, which are apps created by \`create_repository\`; imported
-repositories repair through the manual attach and wire actions instead, exactly as their
-\`nextAction\` values say. Progress is readable through \`get_user_vaults\` while the run
-executes.`,
+repositories repair through the explicit manual attach and wire actions instead. Progress is
+readable through \`get_user_vaults\` while the run executes.`,
 } as const;

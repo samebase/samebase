@@ -140,6 +140,7 @@ const SCENARIOS = [
               status: "missing",
               value: "deleted-project",
               description: "Missing from Convex.",
+              actions: [{ kind: "remove", label: "Remove from Samebase", onClick: noop }],
             },
             {
               provider: "cloudflare",

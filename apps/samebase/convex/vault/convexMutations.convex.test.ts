@@ -67,13 +67,14 @@ async function createGraphFixture() {
       otherUserId,
       primary: await createConnectedVault(userId, "ada"),
       secondary: await createConnectedVault(userId, "ada-second"),
+      foreign: await createConnectedVault(otherUserId, "grace"),
     };
   });
   return { ids, t };
 }
 
 describe("vault Convex project graph mutations", () => {
-  it("persists resource origin and permits multiple projects on one app", async () => {
+  it("persists one project per app and upgrades confirmed creation ownership", async () => {
     const { ids, t } = await createGraphFixture();
     const selectedProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
       vaultId: ids.primary.vaultId,
@@ -83,15 +84,6 @@ describe("vault Convex project graph mutations", () => {
       projectId: "selected-project",
       origin: "selected_existing",
     });
-    const provisionedProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
-      vaultId: ids.primary.vaultId,
-      userId: ids.userId,
-      appId: ids.primary.appId,
-      teamId: "team-1",
-      projectId: "provisioned-project",
-      origin: "provisioned",
-    });
-
     await expect(
       t.mutation(internal.vault.convexMutations.attachProject, {
         vaultId: ids.primary.vaultId,
@@ -102,6 +94,16 @@ describe("vault Convex project graph mutations", () => {
         origin: "provisioned",
       }),
     ).resolves.toEqual(selectedProjectId);
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachProject, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        appId: ids.primary.appId,
+        teamId: "team-1",
+        projectId: "second-project",
+        origin: "selected_existing",
+      }),
+    ).rejects.toThrow("Vault app already has a Convex project.");
 
     const projects = await t.run(async (ctx) => {
       return await ctx.db
@@ -109,22 +111,14 @@ describe("vault Convex project graph mutations", () => {
         .withIndex("by_app", (q) => q.eq("appId", ids.primary.appId))
         .collect();
     });
-    expect(projects.sort((left, right) => left.projectId.localeCompare(right.projectId))).toMatchObject(
-      [
-        {
-          _id: provisionedProjectId,
-          appId: ids.primary.appId,
-          origin: "provisioned",
-          projectId: "provisioned-project",
-        },
-        {
-          _id: selectedProjectId,
-          appId: ids.primary.appId,
-          origin: "selected_existing",
-          projectId: "selected-project",
-        },
-      ],
-    );
+    expect(projects).toMatchObject([
+      {
+        _id: selectedProjectId,
+        appId: ids.primary.appId,
+        origin: "provisioned",
+        projectId: "selected-project",
+      },
+    ]);
   });
 
   it("rejects attaching one provider project to another app or vault", async () => {
@@ -150,6 +144,16 @@ describe("vault Convex project graph mutations", () => {
     ).rejects.toThrow("Convex project is already attached.");
     await expect(
       t.mutation(internal.vault.convexMutations.attachProject, {
+        vaultId: ids.foreign.vaultId,
+        userId: ids.otherUserId,
+        appId: ids.foreign.appId,
+        teamId: "team-1",
+        projectId: "shared-project",
+        origin: "selected_existing",
+      }),
+    ).rejects.toThrow("Convex project is already attached.");
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachProject, {
         vaultId: ids.secondary.vaultId,
         userId: ids.userId,
         appId: ids.secondary.appId,
@@ -158,6 +162,160 @@ describe("vault Convex project graph mutations", () => {
         origin: "selected_existing",
       }),
     ).rejects.toThrow("Convex project is already attached.");
+  });
+
+  it("removes only the unchanged missing project attachment", async () => {
+    const { ids, t } = await createGraphFixture();
+    const convexProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
+      vaultId: ids.primary.vaultId,
+      userId: ids.userId,
+      appId: ids.primary.appId,
+      teamId: "team-1",
+      projectId: "missing-project",
+      origin: "selected_existing",
+    });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.removeMissingProjectAttachment, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        convexProjectId,
+        teamId: "team-1",
+        projectId: "changed-project",
+      }),
+    ).rejects.toThrow("Convex project attachment changed before removal.");
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.removeMissingProjectAttachment, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        convexProjectId,
+        teamId: "team-1",
+        projectId: "missing-project",
+      }),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toBeNull();
+  });
+
+  it("checkpoints managed project creation only for the active run", async () => {
+    const { ids, t } = await createGraphFixture();
+    const { planId, runId, writeLockId } = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: ids.userId,
+        vaultId: ids.primary.vaultId,
+        repositoryFullName: "ada/repository",
+        trigger: "retry",
+        state: "running",
+        currentStep: "attach_convex",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+      const writeLockId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId: ids.primary.vaultId,
+        runId,
+        state: "active",
+        updatedAt: 10,
+      });
+      const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        appRoot: ".",
+        convex: { state: "planned", projectName: "managed-project" },
+        cloudflare: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "managed-worker",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 10,
+        updatedAt: 10,
+      });
+      return { planId, runId, writeLockId };
+    });
+
+    await expect(
+      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        projectName: "managed-project",
+        teamId: "team-1",
+      }),
+    ).resolves.toEqual({ state: "planned" });
+    await expect(
+      t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        projectName: "managed-project",
+        teamId: "team-1",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        projectName: "managed-project",
+        teamId: "team-1",
+      }),
+    ).resolves.toEqual({ state: "creating" });
+    const convexProjectId = await t.mutation(
+      internal.vault.convexMutations.recordManagedProjectCreated,
+      {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        appId: ids.primary.appId,
+        projectName: "managed-project",
+        teamId: "team-1",
+        projectId: "created-project",
+      },
+    );
+    await expect(
+      t.run(async (ctx) => ({
+        plan: await ctx.db.get(planId),
+        project: await ctx.db.get(convexProjectId),
+      })),
+    ).resolves.toMatchObject({
+      plan: {
+        convex: {
+          state: "created",
+          projectName: "managed-project",
+          teamId: "team-1",
+          projectId: "created-project",
+        },
+      },
+      project: {
+        vaultId: ids.primary.vaultId,
+        appId: ids.primary.appId,
+        teamId: "team-1",
+        projectId: "created-project",
+        origin: "provisioned",
+      },
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(writeLockId, { state: "failed" });
+    });
+    await expect(
+      t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        appId: ids.primary.appId,
+        projectName: "managed-project",
+        teamId: "team-1",
+        projectId: "other-project",
+      }),
+    ).rejects.toThrow("Managed provisioning run no longer holds the write lock.");
   });
 
   it("enforces vault, app, and user ownership", async () => {

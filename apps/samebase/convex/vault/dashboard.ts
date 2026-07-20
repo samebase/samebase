@@ -108,40 +108,10 @@ function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
   }
 }
 
-/**
- * Managed runs only exist on Samebase-managed vaults (create workflow), where
- * the run retry action is available. A failed manual run repairs by re-running
- * the action that failed, so the remedy follows the run's own trigger. A
- * failed wire_builds run must not route to the attach action (specs 105/106,
- * rfcs/093).
- */
-export function readProviderSetupFailedNextAction(args: {
-  provider: "convex" | "cloudflare";
-  source: "managed" | "manual";
-  trigger?: Doc<"workflow_vaultProvisioning_runs">["trigger"];
-}): Extract<ProviderSetupSummary, { status: "failed" }>["nextAction"] {
-  if (args.source !== "manual") {
-    return "retry_infrastructure_provisioning";
-  }
-
-  switch (args.trigger) {
-    case "connect_convex_deployment":
-    case "connect_cloudflare_worker":
-    case "wire_builds":
-    case "wire_convex_build_access":
-      return args.trigger;
-    default:
-      // Run row missing (fallback summaries): the connect flow is the safe
-      // re-entry point for the provider.
-      return args.provider === "convex" ? "connect_convex_deployment" : "connect_cloudflare_worker";
-  }
-}
-
 async function readProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
     provider: "convex" | "cloudflare";
-    source: "managed" | "manual";
     runId: Id<"workflow_vaultProvisioning_runs">;
     status: "running" | "failed";
     fallbackUpdatedAt: number;
@@ -152,12 +122,10 @@ async function readProviderRunSummary(
     return {
       status: "failed",
       provider: args.provider,
-      source: args.source,
       runId: args.runId,
       step: "run_created",
       message: "Provisioning run not found.",
       updatedAt: args.fallbackUpdatedAt,
-      nextAction: readProviderSetupFailedNextAction(args),
     };
   }
 
@@ -165,7 +133,6 @@ async function readProviderRunSummary(
     return {
       status: "running",
       provider: args.provider,
-      source: args.source,
       runId: args.runId,
       step: run.currentStep,
       updatedAt: run.updatedAt,
@@ -176,12 +143,10 @@ async function readProviderRunSummary(
   return {
     status: "failed",
     provider: args.provider,
-    source: args.source,
     runId: args.runId,
     step: run.currentStep,
     message,
     updatedAt: run.updatedAt,
-    nextAction: readProviderSetupFailedNextAction({ ...args, trigger: run.trigger }),
   };
 }
 
@@ -194,7 +159,6 @@ async function readRunningProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
     provider: "convex" | "cloudflare";
-    source: "managed" | "manual";
     runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): Promise<Extract<ProviderSetupSummary, { status: "running" }> | null> {
@@ -206,7 +170,6 @@ async function readRunningProviderRunSummary(
   return {
     status: "running",
     provider: args.provider,
-    source: args.source,
     runId: args.runId,
     step: run.currentStep,
     updatedAt: run.updatedAt,
@@ -290,21 +253,6 @@ async function readVaultProvisioningWriteLock(
     .first();
 }
 
-function readManualProviderFromRun(
-  run: Doc<"workflow_vaultProvisioning_runs"> | null,
-): "convex" | "cloudflare" | null {
-  switch (run?.trigger) {
-    case "connect_convex_deployment":
-      return "convex";
-    case "connect_cloudflare_worker":
-    case "wire_builds":
-    case "wire_convex_build_access":
-      return "cloudflare";
-    default:
-      return null;
-  }
-}
-
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: ConnectedVault,
@@ -312,27 +260,11 @@ async function resolveProviderSetupSummary(
   cloudflareWorkers: CloudflareWorker[],
 ): Promise<ProviderSetupSummary> {
   const writeLock = await readVaultProvisioningWriteLock(ctx, vault._id);
-  const writeLockRun = writeLock ? await ctx.db.get(writeLock.runId) : null;
-  const manualWriteLockProvider = readManualProviderFromRun(writeLockRun);
-  if (
-    writeLock &&
-    manualWriteLockProvider &&
-    (writeLock.state === "active" || writeLock.state === "failed")
-  ) {
-    return await readProviderRunSummary(ctx, {
-      provider: manualWriteLockProvider,
-      source: "manual",
-      runId: writeLock.runId,
-      status: writeLock.state === "failed" ? "failed" : "running",
-      fallbackUpdatedAt: writeLock.updatedAt,
-    });
-  }
 
   if (convexProjects.length === 0) {
     if (writeLock?.state === "active" || writeLock?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "convex",
-        source: "managed",
         runId: writeLock.runId,
         status: writeLock.state === "failed" ? "failed" : "running",
         fallbackUpdatedAt: writeLock.updatedAt,
@@ -340,7 +272,6 @@ async function resolveProviderSetupSummary(
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
       provider: "convex",
-      source: "managed",
       runId: vault.runId,
     });
     return runningCreateRun ?? { status: "not_applicable" };
@@ -349,7 +280,6 @@ async function resolveProviderSetupSummary(
     if (writeLock?.state === "active" || writeLock?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "cloudflare",
-        source: "managed",
         runId: writeLock.runId,
         status: writeLock.state === "failed" ? "failed" : "running",
         fallbackUpdatedAt: writeLock.updatedAt,
@@ -357,7 +287,6 @@ async function resolveProviderSetupSummary(
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
       provider: "cloudflare",
-      source: "managed",
       runId: vault.runId,
     });
     return runningCreateRun ?? { status: "not_applicable" };
@@ -365,7 +294,6 @@ async function resolveProviderSetupSummary(
   if (writeLock?.state === "active") {
     return await readProviderRunSummary(ctx, {
       provider: "cloudflare",
-      source: "managed",
       runId: writeLock.runId,
       status: "running",
       fallbackUpdatedAt: writeLock.updatedAt,
@@ -624,21 +552,6 @@ function groupVaultRows<Row extends { vaultId: Id<"vaults"> }>(
   return rowsByVault;
 }
 
-async function hasCreatedConvexProjectForVault(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<boolean> {
-  const runs = ctx.db
-    .query("workflow_vaultProvisioning_runs")
-    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId));
-  for await (const run of runs) {
-    if (run.trigger === "connect_convex_deployment" && run.createdConvexProject) {
-      return true;
-    }
-  }
-  return false;
-}
-
 async function readUserVaults(
   ctx: Pick<QueryCtx, "db">,
   userId: Id<"users">,
@@ -775,7 +688,7 @@ async function readUserVaults(
         };
       }
 
-      const [stagingData, defaultBranchTree, hasCreatedConvexProject] = await Promise.all([
+      const [stagingData, defaultBranchTree] = await Promise.all([
         ctx.db
           .query("vaultStagedFiles")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
@@ -786,7 +699,6 @@ async function readUserVaults(
             q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
           )
           .first(),
-        hasCreatedConvexProjectForVault(ctx, vault._id),
       ]);
 
       const fileCount = stagingData.filter(hasBranchStagingChanges).length;
@@ -803,9 +715,9 @@ async function readUserVaults(
       const providerSetup = hasUsableDefaultBranchTree
         ? await resolveProviderSetupSummary(ctx, vault, convexProjects, cloudflareWorkers)
         : { status: "not_applicable" as const };
-      const canRemoveConvexProvision =
-        hasCreatedConvexProject ||
-        convexProjects.some((project) => project.origin === "provisioned");
+      const canRemoveConvexProvision = convexProjects.some(
+        (project) => project.origin === "provisioned",
+      );
       return {
         _id: vault._id,
         _creationTime: vault._creationTime,

@@ -24,8 +24,8 @@ resource attachment:
 4. wire the Worker to GitHub through Workers Builds
 5. wire Workers Builds to the selected Convex project, then start the first production build
 
-Provisioning is asynchronous and resumable. Vault creation succeeds even if downstream provisioning
-partially fails.
+Provisioning is asynchronous. Retries reuse provider identities that were successfully checkpointed.
+Vault creation succeeds even if downstream provisioning partially fails.
 
 ## Important Behavior
 
@@ -72,22 +72,28 @@ Indexes:
 
 ### `workflow_vaultProvisioning_plans`
 
-- `vaultId`
+- `vaultId`, `userId`
 - `appRoot`
-- `convex`: either `{ state: "planned", projectName }` or
-  `{ state: "created", projectName, projectId }`
-- `cloudflare`: either `{ state: "planned", accountId, workerName, build }` or
-  `{ state: "created", accountId, workerName, workerTag, workersDevUrl?, build }`
+- `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName, teamId }`, or
+  `{ state: "created", projectName, teamId, projectId }`
+- `cloudflare`: `{ state: "planned", accountId, workerName, build }`,
+  `{ state: "creating", accountId, workerName, build }`, or
+  `{ state: "created", accountId, workerName, workerTag, build }`
 - `createdAt`, `updatedAt`
 
 The plan row records user-selected provider names before side effects happen so retries use the same
-configuration. The `created` variants remain readable for earlier provider-identity checkpoints;
-current connected resource identities live in the durable resource tables used by the dashboard.
+configuration. `creating` means the provider create request started but Samebase never recorded a
+confirmed result. Retry and cleanup stop in that state rather than guessing that a same-named
+resource belongs to the run. `created` is the exact provider identity checkpoint used by retry.
+Samebase writes that checkpoint and its stable `provisioned` resource attachment in one database
+transaction. Checkbox-controlled cleanup derives ownership only from the stable attachment, never
+from an unattached checkpoint. Current connected resource identities live in the durable resource
+tables used by the dashboard.
 
 Indexes:
 
 - `by_vault`
-- `by_vault_and_appRoot`
+- `by_user`
 
 ### `vaultConvexProjects`
 
@@ -98,14 +104,15 @@ Indexes:
 This table is the durable attachment between a vault app and a Convex project. It stores only stable
 provider coordinates, provenance, and the time of attachment. Current project slugs, team slugs,
 production and preview deployments, URLs, and deploy keys are provider state and must not be
-mirrored into this row.
+mirrored into this row. One app can attach at most one Convex project, and one exact Convex project
+identity can appear in at most one Samebase app.
 
 Indexes:
 
 - `by_vault`
 - `by_user`
 - `by_app`
-- `by_user_and_team_and_project`
+- `by_team_and_project` (global attachment exclusivity)
 
 ### `vaultCloudflareWorkers`
 
@@ -164,8 +171,8 @@ Indexes:
 - `by_vault`
 - `by_user`
 - `by_app`
-- `by_user_and_account_and_worker`
-- `by_user_and_account_and_worker_tag`
+- `by_account_and_worker` (global attachment exclusivity)
+- `by_account_and_worker_tag` (global attachment exclusivity)
 
 The default workers.dev URL is read from Cloudflare and is not copied into `vaultDomains` during
 provisioning. `vaultDomains` remains available for explicit domain mappings whose lifecycle is owned
@@ -265,8 +272,8 @@ sequenceDiagram
 - `wire_builds` and `wire_convex_build_access` do not change either attachment row. Their provider
   writes are observed live when a caller next requests current state.
 - `workflow_vaultProvisioning_writeLocks` records the active/succeeded/failed writer run.
-- `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record workflow progress
-  and user-visible failures.
+- `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record managed app
+  creation and retry progress. Explicit manual provider attachment does not create a Workflow run.
 
 ## UI Surface
 
@@ -278,8 +285,9 @@ In `VaultDashboard`:
   or partially complete
 - Failed Samebase-managed Convex or Cloudflare setup shows a `Retry` action that calls
   `api.vault.actions.retryInfrastructureProvisioning`.
-- Failed manual Convex or Cloudflare setup reopens the matching `?add-convex` or `?add-cloudflare`
-  provider dialog for the app root.
+- A live provider observation that proves an attached Worker or Convex project is missing offers an
+  explicit local attachment removal. The server repeats the provider read before deleting the
+  Samebase attachment. A failed provider read never authorizes removal.
 - An attached Cloudflare Worker whose Builds connection is missing shows
   `Cloudflare is not connected to this GitHub repository.` with a `Connect GitHub repo` action.
 - An attached Cloudflare Worker with connected Builds can be wired to one explicitly selected
@@ -321,8 +329,10 @@ Dashboard external links:
   dashboard may summarize that stored provider failure into shorter recovery copy. The recovery copy
   must link to Cloudflare's reinstall recovery steps, tell the user to uninstall the Cloudflare
   Workers and Pages GitHub App first, then reconnect GitHub from Workers & Pages before retrying.
-- Provisioning is idempotent/resumable and does not auto-teardown resources on vault deletion unless
-  explicitly requested.
+- Managed provisioning reuses confirmed provider checkpoints and does not auto-teardown resources on
+  vault deletion unless explicitly requested. An unconfirmed provider create outcome stops for
+  operator inspection instead of adopting or deleting a same-named resource. A confirmed checkpoint
+  and its stable provider attachment are recorded atomically.
 
 ## Deferred
 
@@ -335,8 +345,7 @@ Dashboard external links:
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
 - [x] Existing-repo connect flow does not auto-provision infra.
 - [x] Retry path exists and is guarded to samebase-managed vaults.
-- [x] Failed Samebase-managed provider setup rows expose the guarded retry path, while failed manual
-      provider setup rows reopen the manual provider dialog.
+- [x] Failed Samebase-managed provider setup rows expose the guarded retry path.
 - [x] Infra status + URL are visible in dashboard query/UI surfaces.
 - [x] Managed vault dashboard cards expose direct Cloudflare project and Convex deployment links
       when the stored infrastructure metadata is available.

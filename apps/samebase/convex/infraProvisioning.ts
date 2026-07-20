@@ -787,66 +787,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (run.trigger === "connect_convex_deployment") {
-      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
-      const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
-        runId: args.runId,
-      });
-      if (writeLock && holdsProvisioningWriteLock) {
-        await ctx.db.patch(writeLock._id, {
-          state: "failed",
-          updatedAt: now,
-        });
-      }
-      await recordWorkflowRunFailure(ctx, {
-        eventStep,
-        now,
-        run,
-        safeRunError,
-      });
-      console.error("convex:deployment_connection:failed", {
-        vaultId,
-        repo: run.repositoryFullName,
-        step: run.currentStep,
-        message: args.message,
-      });
-      return null;
-    }
-
-    if (
-      run.trigger === "connect_cloudflare_worker" ||
-      run.trigger === "wire_builds" ||
-      run.trigger === "wire_convex_build_access"
-    ) {
-      const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
-      if (writeLock && runHoldsProvisioningWriteLock(writeLock, { runId: args.runId })) {
-        await ctx.db.patch(writeLock._id, {
-          state: "failed",
-          updatedAt: now,
-        });
-      }
-      await recordWorkflowRunFailure(ctx, {
-        eventStep,
-        now,
-        run,
-        safeRunError,
-      });
-      console.error(
-        run.trigger === "wire_convex_build_access"
-          ? "cloudflare:convex_build_access_wiring:failed"
-          : run.trigger === "wire_builds"
-            ? "cloudflare:builds_wiring:failed"
-            : "cloudflare:worker_connection:failed",
-        {
-          vaultId,
-          repo: run.repositoryFullName,
-          step: run.currentStep,
-          message: args.message,
-        },
-      );
-      return null;
-    }
-
     let sourceSetupFailureLogName: "app:connect_existing:failed" | "app:provision:failed" | null =
       null;
     if (run.trigger === "connect_existing_repository") {

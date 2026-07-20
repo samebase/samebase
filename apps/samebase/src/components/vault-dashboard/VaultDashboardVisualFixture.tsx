@@ -712,6 +712,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           cloudflareWorkerRepairActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
+          providerAttachmentRemovalInFlight={null}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
@@ -743,6 +744,8 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRemoveMissingCloudflareWorker={() => {}}
+          onRemoveMissingConvexProject={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={(vaultId, nextVaultBranchFilters) => {
@@ -820,6 +823,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           cloudflareWorkerRepairActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
+          providerAttachmentRemovalInFlight={null}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
@@ -842,6 +846,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRemoveMissingCloudflareWorker={() => {}}
+          onRemoveMissingConvexProject={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
@@ -878,6 +884,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             cloudflareWorkerRepairActionInFlight={null}
             convexObservations={{ state: "loading" }}
             isRemovingVault={false}
+            providerAttachmentRemovalInFlight={null}
             retryingDeletionRunId={null}
             retryingInfrastructureVaultId={null}
             now={FIXTURE_NOW}
@@ -912,6 +919,8 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             onWireCloudflareConvexBuildAccess={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onManualRepositoryRefresh={() => {}}
+            onRemoveMissingCloudflareWorker={() => {}}
+            onRemoveMissingConvexProject={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
             onSaveVaultBranchFilters={() => {}}
@@ -1836,13 +1845,11 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
                 providerSetup={{
                   status: "failed",
                   provider: "cloudflare",
-                  source: "managed",
                   runId: fakeProvisioningRunId(),
                   step: "attach_worker",
                   message:
                     "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include noter-guest/tmp-manual-test, then retry.",
                   updatedAt: Date.parse("2026-06-24T12:00:00Z"),
-                  nextAction: "retry_infrastructure_provisioning",
                 }}
               />
             }

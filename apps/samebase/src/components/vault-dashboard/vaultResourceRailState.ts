@@ -96,6 +96,20 @@ function buildAddAction({
   };
 }
 
+function buildRemoveMissingAttachmentAction(args: {
+  ariaLabel: string;
+  isRemoving: boolean;
+  onClick: () => void;
+}): VaultResourceRailAction {
+  return {
+    kind: "remove",
+    label: args.isRemoving ? "Removing..." : "Remove from Samebase",
+    ariaLabel: args.ariaLabel,
+    disabled: args.isRemoving,
+    onClick: args.onClick,
+  };
+}
+
 function formatCloudflareRepositoryState(
   observation: Extract<VaultCloudflareWorkerObservation, { state: "available" }>,
 ): { description?: string; canConnect: boolean } {
@@ -282,19 +296,23 @@ function buildCloudflareRow({
   convexProjects,
   connectCloudflareGithubRepoOnClick,
   isConnectingCloudflareGithubRepo,
+  isRemovingMissingCloudflareWorker,
   isWiringConvexBuildAccess,
   observationState,
+  removeMissingCloudflareWorkerOnClick,
   wireConvexBuildAccessOnClick,
   worker,
 }: {
   convexProjects: readonly VaultDashboardConvexProject[];
   connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isWiringConvexBuildAccess?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
   observationState: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
+  removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   wireConvexBuildAccessOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
@@ -339,6 +357,15 @@ function buildCloudflareRow({
         ...base,
         status: "missing",
         description: "Missing from Cloudflare.",
+        actions: removeMissingCloudflareWorkerOnClick
+          ? [
+              buildRemoveMissingAttachmentAction({
+                ariaLabel: `Remove missing Cloudflare Worker ${worker.workerName} from Samebase`,
+                isRemoving: isRemovingMissingCloudflareWorker?.(worker.workerId) ?? false,
+                onClick: () => removeMissingCloudflareWorkerOnClick(worker.workerId),
+              }),
+            ]
+          : undefined,
       };
     case "failed":
       return {
@@ -395,11 +422,15 @@ function buildCloudflareRow({
 }
 
 function buildConvexRow({
+  isRemovingMissingConvexProject,
   observationState,
   project,
+  removeMissingConvexProjectOnClick,
 }: {
+  isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
   project: VaultDashboardConvexProject;
+  removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
 }): VaultResourceRailRowState<"convex"> {
   const base = {
     provider: "convex" as const,
@@ -439,6 +470,15 @@ function buildConvexRow({
         ...base,
         status: "missing",
         description: "Missing from Convex.",
+        actions: removeMissingConvexProjectOnClick
+          ? [
+              buildRemoveMissingAttachmentAction({
+                ariaLabel: `Remove missing Convex project ${project.projectId} from Samebase`,
+                isRemoving: isRemovingMissingConvexProject?.(project.convexProjectId) ?? false,
+                onClick: () => removeMissingConvexProjectOnClick(project.convexProjectId),
+              }),
+            ]
+          : undefined,
       };
     case "failed":
       return {
@@ -481,7 +521,11 @@ function buildAppRows({
   connectCloudflareGithubRepoOnClick,
   convexObservations,
   isConnectingCloudflareGithubRepo,
+  isRemovingMissingCloudflareWorker,
+  isRemovingMissingConvexProject,
   isWiringConvexBuildAccess,
+  removeMissingCloudflareWorkerOnClick,
+  removeMissingConvexProjectOnClick,
   vault,
   wireConvexBuildAccessOnClick,
 }: {
@@ -494,10 +538,14 @@ function buildAppRows({
   connectCloudflareGithubRepoOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
   isWiringConvexBuildAccess?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
+  removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
   wireConvexBuildAccessOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -519,7 +567,12 @@ function buildAppRows({
         left.workerId.localeCompare(right.workerId),
     );
   const rows: VaultResourceRailRowState<"cloudflare" | "convex">[] = projects.map((project) =>
-    buildConvexRow({ observationState: convexObservations, project }),
+    buildConvexRow({
+      isRemovingMissingConvexProject,
+      observationState: convexObservations,
+      project,
+      removeMissingConvexProjectOnClick,
+    }),
   );
   if (projects.length === 0) {
     rows.push({
@@ -543,8 +596,10 @@ function buildAppRows({
         convexProjects: vault.convexProjects,
         connectCloudflareGithubRepoOnClick,
         isConnectingCloudflareGithubRepo,
+        isRemovingMissingCloudflareWorker,
         isWiringConvexBuildAccess,
         observationState: cloudflareObservations,
+        removeMissingCloudflareWorkerOnClick,
         wireConvexBuildAccessOnClick,
         worker,
       }),
@@ -581,7 +636,11 @@ export function buildVaultDashboardResourceRailState({
   convexObservations,
   githubRepositoryUrl,
   isConnectingCloudflareGithubRepo,
+  isRemovingMissingCloudflareWorker,
+  isRemovingMissingConvexProject,
   isWiringConvexBuildAccess,
+  removeMissingCloudflareWorkerOnClick,
+  removeMissingConvexProjectOnClick,
   vault,
   wireConvexBuildAccessOnClick,
 }: {
@@ -596,10 +655,14 @@ export function buildVaultDashboardResourceRailState({
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   githubRepositoryUrl: string;
   isConnectingCloudflareGithubRepo?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
   isWiringConvexBuildAccess?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
+  removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
   wireConvexBuildAccessOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -670,7 +733,11 @@ export function buildVaultDashboardResourceRailState({
           connectCloudflareGithubRepoOnClick,
           convexObservations,
           isConnectingCloudflareGithubRepo,
+          isRemovingMissingCloudflareWorker,
+          isRemovingMissingConvexProject,
           isWiringConvexBuildAccess,
+          removeMissingCloudflareWorkerOnClick,
+          removeMissingConvexProjectOnClick,
           vault,
           wireConvexBuildAccessOnClick,
         }),

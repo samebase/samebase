@@ -125,13 +125,13 @@ describe("vault Cloudflare Worker graph mutations", () => {
       {
         _id: selectedWorkerId,
         appId: ids.primary.appId,
-        origin: "selected_existing",
+        origin: "provisioned",
         workerName: "selected-worker",
       },
     ]);
   });
 
-  it("rejects duplicate provider names or tags elsewhere in the user's graph", async () => {
+  it("rejects duplicate provider names or tags elsewhere in the Samebase graph", async () => {
     const { ids, t } = await createGraphFixture();
     await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
       vaultId: ids.primary.vaultId,
@@ -156,6 +156,17 @@ describe("vault Cloudflare Worker graph mutations", () => {
     ).rejects.toThrow("Cloudflare Worker is already attached.");
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorker, {
+        vaultId: ids.foreign.vaultId,
+        userId: ids.otherUserId,
+        appId: ids.foreign.appId,
+        accountId: "account-1",
+        workerName: "shared-name",
+        workerTag: "shared-tag",
+        origin: "selected_existing",
+      }),
+    ).rejects.toThrow("Cloudflare Worker is already attached.");
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.attachWorker, {
         vaultId: ids.secondary.vaultId,
         userId: ids.userId,
         appId: ids.secondary.appId,
@@ -165,6 +176,164 @@ describe("vault Cloudflare Worker graph mutations", () => {
         origin: "selected_existing",
       }),
     ).rejects.toThrow("Cloudflare Worker is already attached.");
+  });
+
+  it("removes only the unchanged missing Worker attachment", async () => {
+    const { ids, t } = await createGraphFixture();
+    const workerId = await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
+      vaultId: ids.primary.vaultId,
+      userId: ids.userId,
+      appId: ids.primary.appId,
+      accountId: "account-1",
+      workerName: "missing-worker",
+      workerTag: "missing-tag",
+      origin: "selected_existing",
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.removeMissingWorkerAttachment, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        workerId,
+        accountId: "account-1",
+        workerName: "missing-worker",
+        workerTag: "changed-tag",
+      }),
+    ).rejects.toThrow("Cloudflare Worker attachment changed before removal.");
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.removeMissingWorkerAttachment, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        workerId,
+        accountId: "account-1",
+        workerName: "missing-worker",
+        workerTag: "missing-tag",
+      }),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(workerId))).resolves.toBeNull();
+  });
+
+  it("checkpoints managed Worker creation only for the active run", async () => {
+    const { ids, t } = await createGraphFixture();
+    const { planId, runId, writeLockId } = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: ids.userId,
+        vaultId: ids.primary.vaultId,
+        repositoryFullName: "ada/repository",
+        trigger: "retry",
+        state: "running",
+        currentStep: "attach_worker",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+      const writeLockId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId: ids.primary.vaultId,
+        runId,
+        state: "active",
+        updatedAt: 10,
+      });
+      const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        appRoot: ".",
+        convex: { state: "planned", projectName: "managed-project" },
+        cloudflare: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "managed-worker",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 10,
+        updatedAt: 10,
+      });
+      return { planId, runId, writeLockId };
+    });
+
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readManagedWorkerCreateCheckpoint, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        accountId: "account-1",
+        workerName: "managed-worker",
+      }),
+    ).resolves.toEqual({ state: "planned" });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        accountId: "account-1",
+        workerName: "managed-worker",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readManagedWorkerCreateCheckpoint, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        accountId: "account-1",
+        workerName: "managed-worker",
+      }),
+    ).resolves.toEqual({ state: "creating" });
+    const workerId = await t.mutation(
+      internal.vault.cloudflareMutations.recordManagedWorkerCreated,
+      {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        appId: ids.primary.appId,
+        accountId: "account-1",
+        workerName: "managed-worker",
+        workerTag: "created-worker-tag",
+      },
+    );
+    await expect(
+      t.run(async (ctx) => ({
+        plan: await ctx.db.get(planId),
+        worker: await ctx.db.get(workerId),
+      })),
+    ).resolves.toMatchObject({
+      plan: {
+        cloudflare: {
+          state: "created",
+          accountId: "account-1",
+          workerName: "managed-worker",
+          workerTag: "created-worker-tag",
+        },
+      },
+      worker: {
+        vaultId: ids.primary.vaultId,
+        appId: ids.primary.appId,
+        accountId: "account-1",
+        workerName: "managed-worker",
+        workerTag: "created-worker-tag",
+        origin: "provisioned",
+      },
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(writeLockId, { state: "failed" });
+    });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+        vaultId: ids.primary.vaultId,
+        userId: ids.userId,
+        runId,
+        appId: ids.primary.appId,
+        accountId: "account-1",
+        workerName: "managed-worker",
+        workerTag: "other-worker-tag",
+      }),
+    ).rejects.toThrow("Managed provisioning run no longer holds the write lock.");
   });
 
   it("enforces vault, app, and user ownership", async () => {

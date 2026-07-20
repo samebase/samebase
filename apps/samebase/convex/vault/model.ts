@@ -52,54 +52,6 @@ export const vVaultConvexProjectConnectionTarget = union(
 );
 export type VaultConvexProjectConnectionTarget = Infer<typeof vVaultConvexProjectConnectionTarget>;
 
-export const vConvexDeployKeyState = union(
-  object({
-    state: literal("not_created"),
-  }),
-  object({
-    state: literal("created"),
-    id: string(),
-  }),
-);
-export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
-
-export const vConvexDeployKeys = object({
-  production: vConvexDeployKeyState,
-  preview: vConvexDeployKeyState,
-});
-
-export const vVaultProviderUpstreamPresence = union(
-  object({
-    state: literal("present"),
-  }),
-  object({
-    state: literal("missing_upstream"),
-  }),
-);
-export type VaultProviderUpstreamPresence = Infer<typeof vVaultProviderUpstreamPresence>;
-
-export const VAULT_PROVIDER_UPSTREAM_PRESENT = {
-  state: "present",
-} as const satisfies VaultProviderUpstreamPresence;
-
-export const VAULT_PROVIDER_UPSTREAM_MISSING = {
-  state: "missing_upstream",
-} as const satisfies VaultProviderUpstreamPresence;
-
-type VaultProviderUpstreamCarrier = {
-  upstream?: VaultProviderUpstreamPresence;
-};
-
-export function readVaultProviderUpstreamPresence(
-  row: VaultProviderUpstreamCarrier,
-): VaultProviderUpstreamPresence {
-  return row.upstream ?? VAULT_PROVIDER_UPSTREAM_PRESENT;
-}
-
-export function isVaultProviderUpstreamPresent(row: VaultProviderUpstreamCarrier): boolean {
-  return readVaultProviderUpstreamPresence(row).state === "present";
-}
-
 export const vVaultProviderResourceOrigin = union(
   literal("provisioned"),
   literal("selected_existing"),
@@ -319,8 +271,8 @@ export const vaultTables = {
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_app", ["appId"])
-    .index("by_user_and_account_and_worker", ["userId", "accountId", "workerName"])
-    .index("by_user_and_account_and_worker_tag", ["userId", "accountId", "workerTag"]),
+    .index("by_account_and_worker", ["accountId", "workerName"])
+    .index("by_account_and_worker_tag", ["accountId", "workerTag"]),
 
   /** Stable Convex project identities attached to apps in a vault. */
   vaultConvexProjects: defineTable({
@@ -335,7 +287,7 @@ export const vaultTables = {
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_app", ["appId"])
-    .index("by_user_and_team_and_project", ["userId", "teamId", "projectId"]),
+    .index("by_team_and_project", ["teamId", "projectId"]),
 
   /** Branch-to-domain mappings observed or provisioned for a vault. */
   vaultDomains: defineTable({
