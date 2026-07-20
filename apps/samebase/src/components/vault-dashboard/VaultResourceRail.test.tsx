@@ -81,7 +81,7 @@ describe("VaultResourceRail", () => {
           status: "available",
           scope: "nicuchiciuc",
           value: "weight-tsx",
-          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/deployments",
+          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/settings",
         },
       ],
     });
@@ -131,9 +131,34 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain("Missing from Cloudflare.");
     expect(markup).toContain("Could not load from Cloudflare.");
     expect(markup).toContain("Reload");
-    expect(markup).toContain("lucide-loader-circle");
+    expect(markup).toContain("data-loading-pulse");
+    expect(markup).not.toContain("lucide-loader-circle");
     expect(markup).toContain("lucide-circle-x");
     expect(markup).toContain("lucide-circle-alert");
+  });
+
+  it("keeps an available Worker link usable while its Builds details load", () => {
+    const state = buildRootResourceRailState({
+      githubRow: availableGithubRow(),
+      appRows: [
+        {
+          provider: "cloudflare",
+          rowId: "cloudflare:worker-1",
+          status: "available",
+          scope: "nicuchiciuc",
+          value: "weight-tsx",
+          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/settings",
+          loadingDescription: "Loading Workers Builds...",
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+
+    expect(markup).toContain("Loading Workers Builds...");
+    expect(markup).toContain("data-loading-pulse");
+    expect(markup).toContain('aria-busy="true"');
+    expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
   });
 
   it("renders every Worker attached to the same app", () => {

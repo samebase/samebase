@@ -21,7 +21,12 @@ import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { readDefaultCloudflareWorkerSelection } from "./vaultDashboardCloudflareWorkerSelection";
 import { buildVaultBranchRowViewModel } from "./vaultDashboardBranchRowViewModel";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
-import type { VaultCloudflareWorkerObservation } from "./useVaultProviderObservations";
+import type {
+  VaultCloudflareProviderObservationState,
+  VaultCloudflareWorkerBuildsObservation,
+  VaultCloudflareWorkerConvexBuildAccessObservation,
+  VaultCloudflareWorkerObservation,
+} from "./useVaultProviderObservations";
 import {
   resolveVaultProviderSetupStatus,
   resolveVaultProviderSetupStepProvider,
@@ -101,6 +106,14 @@ type AvailableResourceRailCloudflareObservation = Extract<
   VaultCloudflareWorkerObservation,
   { state: "available" }
 >;
+type AvailableResourceRailCloudflareBuildsObservation = Extract<
+  VaultCloudflareWorkerBuildsObservation,
+  { state: "available" }
+>;
+type AvailableResourceRailCloudflareConvexBuildAccessObservation = Extract<
+  VaultCloudflareWorkerConvexBuildAccessObservation,
+  { state: "available" }
+>;
 
 function getResourceRailAppRow(
   state: ReturnType<typeof buildVaultDashboardResourceRailState>,
@@ -139,8 +152,19 @@ function makeAvailableResourceRailCloudflareObservation(
   return {
     state: "available",
     observedAt: 1,
-    workerTag: "demo-worker-tag",
     workersDev: { state: "enabled", url: "https://demo-worker.ada.workers.dev" },
+    ...overrides,
+  };
+}
+
+function makeAvailableResourceRailCloudflareBuildsObservation(
+  overrides: Partial<AvailableResourceRailCloudflareBuildsObservation> & {
+    workerId: Id<"vaultCloudflareWorkers">;
+  },
+): AvailableResourceRailCloudflareBuildsObservation {
+  return {
+    state: "available",
+    observedAt: 1,
     repository: {
       classification: "recommended",
       evidence: {
@@ -153,6 +177,47 @@ function makeAvailableResourceRailCloudflareObservation(
     },
     builds: { state: "not_connected" },
     ...overrides,
+  };
+}
+
+function makeAvailableResourceRailCloudflareConvexBuildAccessObservation(
+  overrides: Partial<AvailableResourceRailCloudflareConvexBuildAccessObservation> & {
+    workerId: Id<"vaultCloudflareWorkers">;
+  },
+): AvailableResourceRailCloudflareConvexBuildAccessObservation {
+  return {
+    state: "available",
+    observedAt: 1,
+    convexBuildAccess: { state: "not_configured" },
+    ...overrides,
+  };
+}
+
+function makeLoadedCloudflareObservations({
+  workers,
+  builds,
+  convexBuildAccess,
+}: {
+  workers: readonly VaultCloudflareWorkerObservation[];
+  builds: readonly VaultCloudflareWorkerBuildsObservation[];
+  convexBuildAccess: readonly VaultCloudflareWorkerConvexBuildAccessObservation[];
+}): VaultCloudflareProviderObservationState {
+  return {
+    workers: { state: "loaded", reload: () => {}, observations: workers },
+    builds: { state: "loaded", reload: () => {}, observations: builds },
+    convexBuildAccess: {
+      state: "loaded",
+      reload: () => {},
+      observations: convexBuildAccess,
+    },
+  };
+}
+
+function makeLoadingCloudflareObservations(): VaultCloudflareProviderObservationState {
+  return {
+    workers: { state: "loading" },
+    builds: { state: "loading" },
+    convexBuildAccess: { state: "loading" },
   };
 }
 
@@ -668,7 +733,7 @@ describe("VaultDashboardRepositoryCard", () => {
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
-          cloudflareObservations={{ state: "loading" }}
+          cloudflareObservations={makeLoadingCloudflareObservations()}
           cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
@@ -722,11 +787,11 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(
       buildVaultProductionApps({
         vault,
-        cloudflareObservations: {
-          state: "loaded",
-          reload: () => {},
-          observations: [{ state: "missing", observedAt: 1, workerId }],
-        },
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [{ state: "missing", observedAt: 1, workerId }],
+          builds: [],
+          convexBuildAccess: [],
+        }),
         convexObservations: {
           state: "loaded",
           reload: () => {},
@@ -1627,48 +1692,43 @@ describe("buildVaultDashboardResourceRailState", () => {
       vault,
       githubRepositoryUrl: "https://github.com/ada/demo",
       convexObservations: { state: "loading" },
-      cloudflareObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [
-          {
-            state: "available",
-            observedAt: 1,
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [
+          makeAvailableResourceRailCloudflareObservation({
             workerId: firstWorkerId,
-            workerTag: "first-worker-tag",
             workersDev: {
               state: "enabled",
               url: "https://first-worker.ada.workers.dev",
             },
-            repository: {
-              classification: "recommended",
-              evidence: {
-                state: "matching_repo",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "production",
-                rootDirectory: "/",
-              },
-            },
+          }),
+          makeAvailableResourceRailCloudflareObservation({
+            workerId: secondWorkerId,
+            workersDev: { state: "disabled" },
+          }),
+        ],
+        builds: [
+          makeAvailableResourceRailCloudflareBuildsObservation({
+            workerId: firstWorkerId,
             builds: {
               state: "connected",
-              convexBuildAccess: { state: "not_configured" },
+              productionTriggerUuid: "production-trigger",
+              previewTriggerUuid: "preview-trigger",
             },
-          },
-          {
-            state: "available",
-            observedAt: 1,
+          }),
+          makeAvailableResourceRailCloudflareBuildsObservation({
             workerId: secondWorkerId,
-            workerTag: "second-worker-tag",
-            workersDev: { state: "disabled" },
             repository: {
               classification: "available",
               evidence: { state: "none" },
             },
-            builds: { state: "not_connected" },
-          },
+          }),
         ],
-      },
+        convexBuildAccess: [
+          makeAvailableResourceRailCloudflareConvexBuildAccessObservation({
+            workerId: firstWorkerId,
+          }),
+        ],
+      }),
     });
 
     expect(state.apps).toHaveLength(1);
@@ -1713,22 +1773,27 @@ describe("buildVaultDashboardResourceRailState", () => {
       cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId: frontendAppId, workerId })],
       convexProjects: [makeResourceRailConvexProject({ appId: backendAppId, convexProjectId })],
     });
-    const cloudflareObservation = makeAvailableResourceRailCloudflareObservation({
-      workerId,
-      builds: {
-        state: "connected",
-        convexBuildAccess: { state: "not_configured" },
-      },
+    const cloudflareObservations = makeLoadedCloudflareObservations({
+      workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+      builds: [
+        makeAvailableResourceRailCloudflareBuildsObservation({
+          workerId,
+          builds: {
+            state: "connected",
+            productionTriggerUuid: "production-trigger",
+            previewTriggerUuid: "preview-trigger",
+          },
+        }),
+      ],
+      convexBuildAccess: [
+        makeAvailableResourceRailCloudflareConvexBuildAccessObservation({ workerId }),
+      ],
     });
 
     const state = buildVaultDashboardResourceRailState({
       vault,
       githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [cloudflareObservation],
-      },
+      cloudflareObservations,
       convexObservations: { state: "loading" },
       rotateConvexDeployKeysForWorkersBuildsOnClick,
     });
@@ -1756,11 +1821,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     const pendingState = buildVaultDashboardResourceRailState({
       vault,
       githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [cloudflareObservation],
-      },
+      cloudflareObservations,
       convexObservations: { state: "loading" },
       rotateConvexDeployKeysForWorkersBuildsOnClick,
       isRotatingConvexDeployKeysForWorkersBuilds: () => true,
@@ -1792,24 +1853,30 @@ describe("buildVaultDashboardResourceRailState", () => {
       ],
     });
     const buildState = (
-      convexBuildAccess: Extract<
-        AvailableResourceRailCloudflareObservation["builds"],
-        { state: "connected" }
-      >["convexBuildAccess"],
+      convexBuildAccess: AvailableResourceRailCloudflareConvexBuildAccessObservation["convexBuildAccess"],
     ) =>
       buildVaultDashboardResourceRailState({
         vault,
         githubRepositoryUrl: "https://github.com/ada/demo",
-        cloudflareObservations: {
-          state: "loaded",
-          reload: () => {},
-          observations: [
-            makeAvailableResourceRailCloudflareObservation({
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+          builds: [
+            makeAvailableResourceRailCloudflareBuildsObservation({
               workerId,
-              builds: { state: "connected", convexBuildAccess },
+              builds: {
+                state: "connected",
+                productionTriggerUuid: "production-trigger",
+                previewTriggerUuid: "preview-trigger",
+              },
             }),
           ],
-        },
+          convexBuildAccess: [
+            makeAvailableResourceRailCloudflareConvexBuildAccessObservation({
+              workerId,
+              convexBuildAccess,
+            }),
+          ],
+        }),
         convexObservations: { state: "loading" },
         rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
       });
@@ -1875,7 +1942,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     const loadingState = buildVaultDashboardResourceRailState({
       vault,
       githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations: { state: "loading" },
+      cloudflareObservations: makeLoadingCloudflareObservations(),
       convexObservations: { state: "loading" },
     });
     expect(getResourceRailAppRow(loadingState, "/", "cloudflare")).toMatchObject({
@@ -1894,11 +1961,11 @@ describe("buildVaultDashboardResourceRailState", () => {
       githubRepositoryUrl: "https://github.com/ada/demo",
       removeMissingCloudflareWorkerOnClick: removeMissingCloudflareWorker,
       removeMissingConvexProjectOnClick: removeMissingConvexProject,
-      cloudflareObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [{ state: "missing", observedAt: 1, workerId }],
-      },
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [{ state: "missing", observedAt: 1, workerId }],
+        builds: [],
+        convexBuildAccess: [],
+      }),
       convexObservations: {
         state: "loaded",
         reload: () => {},
@@ -1936,11 +2003,11 @@ describe("buildVaultDashboardResourceRailState", () => {
       githubRepositoryUrl: "https://github.com/ada/demo",
       removeMissingCloudflareWorkerOnClick: removeMissingCloudflareWorker,
       removeMissingConvexProjectOnClick: removeMissingConvexProject,
-      cloudflareObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [{ state: "failed", observedAt: 1, workerId, reason: "request_failed" }],
-      },
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [{ state: "failed", observedAt: 1, workerId, reason: "request_failed" }],
+        builds: [],
+        convexBuildAccess: [],
+      }),
       convexObservations: {
         state: "loaded",
         reload: () => {},
@@ -1956,6 +2023,68 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(getResourceRailAppRow(failedState, "/", "convex")).toMatchObject({
       status: "failed",
       actions: [{ label: "Reload" }],
+    });
+  });
+
+  it("keeps a confirmed Worker available while later Cloudflare facts load", () => {
+    const appId = fakeVaultAppId();
+    const workerId = fakeCloudflareWorkerId();
+    const vault = makeResourceRailBuilderVault({
+      apps: [{ appId, rootDirectory: "/" }],
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId, workerId })],
+    });
+    const workers = {
+      state: "loaded" as const,
+      reload: () => {},
+      observations: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+    };
+
+    const buildsLoadingState = buildVaultDashboardResourceRailState({
+      vault,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      cloudflareObservations: {
+        workers,
+        builds: { state: "loading" },
+        convexBuildAccess: { state: "loading" },
+      },
+      convexObservations: { state: "loading" },
+    });
+    expect(getResourceRailAppRow(buildsLoadingState, "/", "cloudflare")).toMatchObject({
+      status: "available",
+      scope: "ada",
+      value: "demo-worker",
+      href: "https://dash.cloudflare.com/?to=/account-1/workers/services/view/demo-worker/production/settings",
+      loadingDescription: "Loading Workers Builds...",
+    });
+
+    const accessLoadingState = buildVaultDashboardResourceRailState({
+      vault,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      cloudflareObservations: {
+        workers,
+        builds: {
+          state: "loaded",
+          reload: () => {},
+          observations: [
+            makeAvailableResourceRailCloudflareBuildsObservation({
+              workerId,
+              builds: {
+                state: "connected",
+                productionTriggerUuid: "production-trigger",
+                previewTriggerUuid: "preview-trigger",
+              },
+            }),
+          ],
+        },
+        convexBuildAccess: { state: "loading" },
+      },
+      convexObservations: { state: "loading" },
+    });
+    expect(getResourceRailAppRow(accessLoadingState, "/", "cloudflare")).toMatchObject({
+      status: "available",
+      scope: "ada",
+      value: "demo-worker",
+      loadingDescription: "Loading Convex deploy keys...",
     });
   });
 
@@ -1984,11 +2113,11 @@ describe("buildVaultDashboardResourceRailState", () => {
       githubRepositoryUrl: "https://github.com/ada/demo",
       buildAddCloudflareWorkerHref,
       buildAddConvexHref,
-      cloudflareObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [{ state: "missing", observedAt: 1, workerId }],
-      },
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [{ state: "missing", observedAt: 1, workerId }],
+        builds: [],
+        convexBuildAccess: [],
+      }),
       convexObservations: { state: "loading" },
     });
 
@@ -2022,44 +2151,11 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(
       buildVaultProductionApps({
         vault,
-        cloudflareObservations: {
-          state: "loaded",
-          reload: () => {},
-          observations: [
-            {
-              state: "available",
-              observedAt: 1,
-              workerId,
-              workerTag: "demo-worker-tag",
-              workersDev: {
-                state: "enabled",
-                url: "https://demo-worker.ada.workers.dev",
-              },
-              repository: {
-                classification: "recommended",
-                evidence: {
-                  state: "matching_repo",
-                  repoId: "123",
-                  repoName: "ada/demo",
-                  triggerName: "production",
-                  rootDirectory: "/",
-                },
-              },
-              builds: {
-                state: "connected",
-                convexBuildAccess: {
-                  state: "configured",
-                  convexProject: {
-                    state: "attached",
-                    convexProjectId,
-                    teamId: "team-1",
-                    projectId: "project-1",
-                  },
-                },
-              },
-            },
-          ],
-        },
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+          builds: [],
+          convexBuildAccess: [],
+        }),
         convexObservations: {
           state: "loaded",
           reload: () => {},

@@ -154,11 +154,24 @@ The live observation reports these states without guessing:
 
 ### Provider observation boundary
 
-Provider-owned state is observed directly from Convex and Cloudflare for one requested vault. The
-observation action returns explicit `available`, `missing`, or `failed` results with an observation
+Provider-owned state is observed directly from Convex and Cloudflare for one requested vault. Each
+observation axis returns explicit `available`, `missing`, or `failed` results with an observation
 timestamp. The dashboard may cache those results in the browser for a short bounded interval, but
-the action does not write them to Convex tables. Stable attachment rows remain unchanged when a
+the actions do not write them to Convex tables. Stable attachment rows remain unchanged when a
 provider resource changes or disappears.
+
+Cloudflare uses three independently loading observation axes:
+
+1. Worker identity, existence, and workers.dev availability.
+2. Workers Builds repository configuration and production/preview trigger identifiers.
+3. Convex marker and deploy-key classification for the connected trigger identifiers.
+
+The dashboard starts the first two reads concurrently. A confirmed Worker and its links become
+available without waiting for Builds or trigger variables. The third read starts only after the
+second read proves that both Builds triggers exist. Trigger identifiers are short-lived input for
+that browser request, not durable Samebase data; the server revalidates that every requested Worker
+belongs to the vault and derives its Cloudflare account from the attachment before reading trigger
+variables. Provider secret values never leave the action.
 
 Provisioning and repair actions re-read the provider state they require before acting. Durable run
 events record that an explicit operation succeeded or failed; they are operation evidence, not a
@@ -228,7 +241,18 @@ Repository default branch:
 4. `api.vault.providerObservations.observeCloudflareWorkers`
 
 - Args: `{ vaultId: Id<"vaults"> }`
-- Returns: bounded live Worker, repository, Builds, marker, and workers.dev observations
+- Returns: bounded live Worker identity, existence, and workers.dev observations
+
+5. `api.vault.providerObservations.observeCloudflareWorkerBuilds`
+
+- Args: `{ vaultId: Id<"vaults"> }`
+- Returns: bounded live repository configuration and production/preview Builds trigger identifiers
+
+6. `api.vault.providerObservations.observeCloudflareWorkerConvexBuildAccess`
+
+- Args:
+  `{ vaultId: Id<"vaults">, targets: { workerId, productionTriggerUuid, previewTriggerUuid }[] }`
+- Returns: bounded live Convex marker and deploy-key classification without provider secret values
 
 ### Internal
 
@@ -307,6 +331,9 @@ In `VaultDashboard`:
 - The dashboard derives the current deploy-key configuration state from the two live Cloudflare
   triggers. Loading, configured, not configured, incomplete, target unknown, inconsistent, invalid,
   externally configured, and provider-read failure are distinct states.
+- Worker, Builds, and Convex build-access observations load independently. A confirmed Worker link
+  remains usable while later facts show a quiet loading pulse. Reload actions retry only the failed
+  observation axis.
 
 Dashboard external links:
 
@@ -315,7 +342,7 @@ Dashboard external links:
 - The row includes the GitHub repository link and only renders when at least one managed-infra link
   is available.
 - The Cloudflare link targets the specific Worker:
-  `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/deployments`.
+  `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/settings`.
 - A live Convex observation provides the `Project settings` link for the project-scoped settings
   page: `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
 - The production Convex link renders on the default branch row, not in the repository-title service

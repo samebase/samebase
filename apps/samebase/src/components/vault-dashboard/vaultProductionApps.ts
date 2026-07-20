@@ -1,6 +1,6 @@
 import type { api } from "../../../convex/_generated/api";
 import type {
-  VaultCloudflareWorkerObservation,
+  VaultCloudflareProviderObservationState,
   VaultConvexProjectObservation,
   VaultProviderObservationState,
 } from "./useVaultProviderObservations";
@@ -100,16 +100,17 @@ export function buildVaultProductionApps({
   convexObservations,
   vault,
 }: {
-  cloudflareObservations: VaultProviderObservationState<VaultCloudflareWorkerObservation>;
+  cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   vault: VaultDashboardVault;
 }): VaultBranchProductionApp[] {
   const appsById = new Map(vault.apps.map((app) => [app.appId, app]));
+  const workerObservations = cloudflareObservations.workers;
   const cloudflareLinks: VaultBranchProductionLinkInput[] =
-    cloudflareObservations.state === "loaded"
+    workerObservations.state === "loaded"
       ? vault.cloudflareWorkers.flatMap((worker) => {
           const app = appsById.get(worker.appId);
-          const observation = cloudflareObservations.observations.find(
+          const observation = workerObservations.observations.find(
             (candidate) => candidate.workerId === worker.workerId,
           );
           if (

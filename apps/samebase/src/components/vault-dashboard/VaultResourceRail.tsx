@@ -10,7 +10,6 @@ import {
   ChevronDown,
   GitBranch,
   KeyRound,
-  Loader2,
   Plus,
   RotateCw,
   Unlink,
@@ -50,6 +49,7 @@ type VaultResourceRailAvailableRow<TProvider extends VaultResourceRailProvider> 
   actions?: VaultResourceRailActionList;
   description?: string;
   href?: string;
+  loadingDescription?: string;
   provider: TProvider;
   rowId: string;
   scope?: string;
@@ -105,6 +105,7 @@ export type VaultResourceRailState = {
 };
 
 type VaultResourceRailIconStatus = "failed" | "loading" | "missing";
+type VaultResourceRailStaticIconStatus = Exclude<VaultResourceRailIconStatus, "loading">;
 
 const PROVIDER_LABELS = {
   cloudflare: "Cloudflare",
@@ -128,9 +129,8 @@ const ACTION_ICONS = {
 
 const STATUS_ICON_CLASS_NAMES = {
   failed: "h-3.5 w-3.5 text-destructive",
-  loading: "h-3.5 w-3.5 animate-spin text-muted-foreground",
   missing: "h-3.5 w-3.5 text-destructive",
-} satisfies Record<VaultResourceRailIconStatus, string>;
+} satisfies Record<VaultResourceRailStaticIconStatus, string>;
 
 const RESOURCE_LINK_ROW_CLASS_NAME =
   "group -mx-1.5 -my-1 grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 px-1.5 py-1 text-sm leading-6 text-foreground no-underline touch-manipulation";
@@ -139,6 +139,10 @@ const RESOURCE_ROW_CLASS_NAME =
 const RESOURCE_LOGO_SLOT_CLASS_NAME = "flex h-5 w-5 shrink-0 items-center justify-center";
 const RESOURCE_CONTENT_CLASS_NAME = "flex min-w-0 flex-wrap items-center gap-1.5";
 const RESOURCE_DESCRIPTION_CLASS_NAME = "basis-full text-xs leading-5 text-muted-foreground";
+const RESOURCE_LOADING_DESCRIPTION_CLASS_NAME =
+  "inline-flex basis-full items-center gap-1.5 text-xs leading-5 text-muted-foreground";
+const RESOURCE_LOADING_PULSE_CLASS_NAME =
+  "h-1.5 w-3.5 shrink-0 bg-muted-foreground/30 motion-safe:animate-pulse";
 const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
 const RESOURCE_LINK_VALUE_CLASS_NAME =
   "min-w-0 max-w-64 truncate underline decoration-muted-foreground/40 underline-offset-4 group-hover:decoration-current";
@@ -151,12 +155,10 @@ const APP_ROOT_ICON_CLASS_NAME = "h-3.5 w-3.5 text-muted-foreground";
 const APP_ROOT_VALUE_CLASS_NAME = "min-w-0 max-w-full truncate font-mono";
 const APP_PROVIDER_ROWS_CLASS_NAME = "grid min-w-0 gap-0.5 pl-6";
 
-function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
+function getStatusIcon(status: VaultResourceRailStaticIconStatus): LucideIcon {
   switch (status) {
     case "failed":
       return CircleAlert;
-    case "loading":
-      return Loader2;
     case "missing":
       return XCircle;
   }
@@ -226,6 +228,10 @@ function getRowDescription(row: VaultResourceRailRowState): string | undefined {
   }
   row satisfies never;
   return undefined;
+}
+
+function getRowLoadingDescription(row: VaultResourceRailRowState): string | undefined {
+  return row.status === "available" ? row.loadingDescription : undefined;
 }
 
 function VaultResourceRailActions({
@@ -355,6 +361,9 @@ function VaultResourceRailValue({
 }
 
 function VaultResourceRailStatusIcon({ status }: { status: VaultResourceRailIconStatus }) {
+  if (status === "loading") {
+    return <span data-loading-pulse className={RESOURCE_LOADING_PULSE_CLASS_NAME} aria-hidden />;
+  }
   const StatusIcon = getStatusIcon(status);
 
   return <StatusIcon className={STATUS_ICON_CLASS_NAMES[status]} />;
@@ -364,6 +373,7 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
   const ProviderLogo = PROVIDER_LOGOS[row.provider];
   const actions = getRowActions(row);
   const description = getRowDescription(row);
+  const loadingDescription = getRowLoadingDescription(row);
   const iconStatus = getRowIconStatus(row);
   const value = getRowValue(row);
   const scope = getRowScope(row);
@@ -377,12 +387,27 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
       ) : null}
       {actions ? <VaultResourceRailActions actions={actions} provider={row.provider} /> : null}
       {description ? <span className={RESOURCE_DESCRIPTION_CLASS_NAME}>{description}</span> : null}
+      {loadingDescription ? (
+        <span className={RESOURCE_LOADING_DESCRIPTION_CLASS_NAME}>
+          <span data-loading-pulse className={RESOURCE_LOADING_PULSE_CLASS_NAME} aria-hidden />
+          {loadingDescription}
+        </span>
+      ) : null}
     </div>
   );
 
-  if (row.status === "available" && row.href && (actions || row.description)) {
+  if (
+    row.status === "available" &&
+    row.href &&
+    (actions || row.description || row.loadingDescription)
+  ) {
     return (
-      <div data-provider={row.provider} className={RESOURCE_ROW_CLASS_NAME} title={providerLabel}>
+      <div
+        data-provider={row.provider}
+        className={RESOURCE_ROW_CLASS_NAME}
+        title={providerLabel}
+        aria-busy={loadingDescription ? true : undefined}
+      >
         <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
           <ProviderLogo />
         </span>
@@ -402,6 +427,12 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
           {actions ? <VaultResourceRailActions actions={actions} provider={row.provider} /> : null}
           {row.description ? (
             <span className={RESOURCE_DESCRIPTION_CLASS_NAME}>{row.description}</span>
+          ) : null}
+          {row.loadingDescription ? (
+            <span className={RESOURCE_LOADING_DESCRIPTION_CLASS_NAME}>
+              <span data-loading-pulse className={RESOURCE_LOADING_PULSE_CLASS_NAME} aria-hidden />
+              {row.loadingDescription}
+            </span>
           ) : null}
         </div>
       </div>
@@ -430,7 +461,12 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
   }
 
   return (
-    <div data-provider={row.provider} className={RESOURCE_ROW_CLASS_NAME} title={providerLabel}>
+    <div
+      data-provider={row.provider}
+      className={RESOURCE_ROW_CLASS_NAME}
+      title={providerLabel}
+      aria-busy={row.status === "loading" ? true : undefined}
+    >
       <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
         <ProviderLogo />
       </span>

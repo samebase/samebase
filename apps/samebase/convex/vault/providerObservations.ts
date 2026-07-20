@@ -7,9 +7,10 @@ import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
+  readCloudflareWorkerBuildsDiscoveryForIdentity,
+  readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
-  readCloudflareWorkerDeploymentDiscoveryForIdentity,
-  readCloudflareWorkersDevAvailability,
+  readCloudflareWorkersDevSubdomain,
   type CloudflareConvexBuildAccessObservation,
 } from "../cloudflareResources";
 import { vCloudflareWorkerRepositoryEvidence } from "./contracts/cloudflareListWorkers";
@@ -56,7 +57,11 @@ const vCloudflareConvexBuildAccess = union(
 );
 const vCloudflareBuildsObservation = union(
   object({ state: literal("not_connected") }),
-  object({ state: literal("connected"), convexBuildAccess: vCloudflareConvexBuildAccess }),
+  object({
+    state: literal("connected"),
+    productionTriggerUuid: string(),
+    previewTriggerUuid: string(),
+  }),
 );
 const vWorkersDevObservation = union(
   object({ state: literal("enabled"), url: string() }),
@@ -68,10 +73,7 @@ const vCloudflareWorkerObservation = union(
     state: literal("available"),
     observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
-    workerTag: string(),
     workersDev: vWorkersDevObservation,
-    repository: vCloudflareRepositoryDiscovery,
-    builds: vCloudflareBuildsObservation,
   }),
   object({
     state: literal("missing"),
@@ -85,6 +87,40 @@ const vCloudflareWorkerObservation = union(
     reason: vObservationFailureReason,
   }),
 );
+const vCloudflareWorkerBuildsObservation = union(
+  object({
+    state: literal("available"),
+    observedAt: number(),
+    workerId: id("vaultCloudflareWorkers"),
+    repository: vCloudflareRepositoryDiscovery,
+    builds: vCloudflareBuildsObservation,
+  }),
+  object({
+    state: literal("failed"),
+    observedAt: number(),
+    workerId: id("vaultCloudflareWorkers"),
+    reason: vObservationFailureReason,
+  }),
+);
+const vCloudflareWorkerConvexBuildAccessObservation = union(
+  object({
+    state: literal("available"),
+    observedAt: number(),
+    workerId: id("vaultCloudflareWorkers"),
+    convexBuildAccess: vCloudflareConvexBuildAccess,
+  }),
+  object({
+    state: literal("failed"),
+    observedAt: number(),
+    workerId: id("vaultCloudflareWorkers"),
+    reason: vObservationFailureReason,
+  }),
+);
+const vCloudflareWorkerBuildAccessTarget = object({
+  workerId: id("vaultCloudflareWorkers"),
+  productionTriggerUuid: string(),
+  previewTriggerUuid: string(),
+});
 const vConvexProductionDeploymentObservation = union(
   object({
     state: literal("available"),
@@ -117,6 +153,10 @@ const vConvexProjectObservation = union(
   }),
 );
 type CloudflareWorkerObservation = Infer<typeof vCloudflareWorkerObservation>;
+type CloudflareWorkerBuildsObservation = Infer<typeof vCloudflareWorkerBuildsObservation>;
+type CloudflareWorkerConvexBuildAccessObservation = Infer<
+  typeof vCloudflareWorkerConvexBuildAccessObservation
+>;
 type ConvexProjectObservation = Infer<typeof vConvexProjectObservation>;
 
 function resolveObservedConvexBuildAccess(
@@ -163,54 +203,93 @@ async function readObservationContext(
   );
 }
 
+async function readCloudflareObservationInput(
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
+  args: { vaultId: Id<"vaults">; userId: Id<"users"> },
+) {
+  const [context, connectionResolution] = await Promise.all([
+    readObservationContext(ctx, args),
+    ctx
+      .runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
+        userId: args.userId,
+      })
+      .then(
+        (connection) => ({ state: "available" as const, connection }),
+        () => ({ state: "failed" as const }),
+      ),
+  ]);
+  if (connectionResolution.state === "failed") {
+    return { state: "failed" as const, context, reason: "request_failed" as const };
+  }
+
+  const connection = connectionResolution.connection;
+  const token = connection?.auth.credential.trim();
+  if (!connection || !token) {
+    return { state: "failed" as const, context, reason: "connection_required" as const };
+  }
+
+  return {
+    state: "available" as const,
+    context,
+    token,
+    transport: resolveCloudflareApiTransport(connection.auth.method),
+  };
+}
+
 export const observeCloudflareWorkers = action({
   access: "access_dashboard",
   args: { vaultId: id("vaults") },
   returns: array(vCloudflareWorkerObservation),
   handler: async (ctx, args): Promise<CloudflareWorkerObservation[]> => {
-    const context = await readObservationContext(ctx, {
+    const input = await readCloudflareObservationInput(ctx, {
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
     });
-    const connectionResolution = await ctx
-      .runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
-        userId: ctx.viewer.userId,
-      })
-      .then(
-        (connection) => ({ state: "available" as const, connection }),
-        () => ({ state: "failed" as const }),
+    if (input.state === "failed") {
+      const observedAt = Date.now();
+      return input.context.cloudflareWorkers.map((worker) => ({
+        state: "failed" as const,
+        observedAt,
+        workerId: worker.workerId,
+        reason: input.reason,
+      }));
+    }
+
+    const accountSubdomainRequests = new Map<
+      string,
+      Promise<
+        { state: "available"; subdomain: string } | { state: "failed"; reason: "request_failed" }
+      >
+    >();
+    const readAccountSubdomain = (accountId: string) => {
+      const existing = accountSubdomainRequests.get(accountId);
+      if (existing) {
+        return existing;
+      }
+      const request = readCloudflareWorkersDevSubdomain({
+        token: input.token,
+        transport: input.transport,
+        accountId,
+      }).then(
+        (subdomain) => ({ state: "available" as const, subdomain }),
+        () => ({ state: "failed" as const, reason: "request_failed" as const }),
       );
-    if (connectionResolution.state === "failed") {
-      const observedAt = Date.now();
-      return context.cloudflareWorkers.map((worker) => ({
-        state: "failed" as const,
-        observedAt,
-        workerId: worker.workerId,
-        reason: "request_failed" as const,
-      }));
-    }
-    const connection = connectionResolution.connection;
-    const token = connection?.auth.credential.trim();
-    if (!connection || !token) {
-      const observedAt = Date.now();
-      return context.cloudflareWorkers.map((worker) => ({
-        state: "failed" as const,
-        observedAt,
-        workerId: worker.workerId,
-        reason: "connection_required" as const,
-      }));
-    }
-    const transport = resolveCloudflareApiTransport(connection.auth.method);
+      accountSubdomainRequests.set(accountId, request);
+      return request;
+    };
 
     return await Promise.all(
-      context.cloudflareWorkers.map(async (worker) => {
+      input.context.cloudflareWorkers.map(async (worker) => {
         try {
-          const identity = await readCloudflareWorkerIdentity({
-            token,
-            transport,
-            accountId: worker.accountId,
-            workerName: worker.workerName,
-          });
+          const [identity, accountSubdomain] = await Promise.all([
+            readCloudflareWorkerIdentity({
+              token: input.token,
+              transport: input.transport,
+              accountId: worker.accountId,
+              workerName: worker.workerName,
+            }),
+            readAccountSubdomain(worker.accountId),
+          ]);
           const observedAt = Date.now();
           if (!identity || identity.workerTag !== worker.workerTag) {
             return {
@@ -219,56 +298,155 @@ export const observeCloudflareWorkers = action({
               workerId: worker.workerId,
             };
           }
-          const config = buildVaultCloudflareBuildConfigForRootDirectory({
-            rootDirectory: worker.rootDirectory,
-          });
-          const [workersDev, deployment] = await Promise.all([
-            readCloudflareWorkersDevAvailability({
-              token,
-              transport,
-              accountId: worker.accountId,
-              workerName: worker.workerName,
-            }).catch(() => ({ state: "failed" as const, reason: "request_failed" as const })),
-            readCloudflareWorkerDeploymentDiscoveryForIdentity({
-              token,
-              transport,
-              accountId: worker.accountId,
-              workerTag: worker.workerTag,
-              defaultBranch: context.defaultBranch,
-              expectedRepoId: context.ghRepoId,
-              buildConfig: {
-                rootDir: config.rootDirectory,
-                buildCommand: config.buildCommand,
-                deployCommand: config.deployCommand,
-                previewDeployCommand: config.previewDeployCommand,
-                pathIncludes: config.pathIncludes,
-                pathExcludes: config.pathExcludes,
-              },
-            }),
-          ]);
+
+          const workersDev = !identity.workersDevEnabled
+            ? { state: "disabled" as const }
+            : accountSubdomain.state === "available"
+              ? {
+                  state: "enabled" as const,
+                  url: `https://${worker.workerName}.${accountSubdomain.subdomain}.workers.dev`,
+                }
+              : accountSubdomain;
           return {
             state: "available" as const,
-            observedAt: Date.now(),
+            observedAt,
             workerId: worker.workerId,
-            workerTag: identity.workerTag,
             workersDev,
-            repository: deployment.repository,
-            builds:
-              deployment.builds.state === "not_connected"
-                ? deployment.builds
-                : {
-                    state: "connected" as const,
-                    convexBuildAccess: resolveObservedConvexBuildAccess(
-                      deployment.builds.convexBuildAccess,
-                      context.convexProjects,
-                    ),
-                  },
           };
         } catch {
           return {
             state: "failed" as const,
             observedAt: Date.now(),
             workerId: worker.workerId,
+            reason: "request_failed" as const,
+          };
+        }
+      }),
+    );
+  },
+});
+
+export const observeCloudflareWorkerBuilds = action({
+  access: "access_dashboard",
+  args: { vaultId: id("vaults") },
+  returns: array(vCloudflareWorkerBuildsObservation),
+  handler: async (ctx, args): Promise<CloudflareWorkerBuildsObservation[]> => {
+    const input = await readCloudflareObservationInput(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+    });
+    if (input.state === "failed") {
+      const observedAt = Date.now();
+      return input.context.cloudflareWorkers.map((worker) => ({
+        state: "failed" as const,
+        observedAt,
+        workerId: worker.workerId,
+        reason: input.reason,
+      }));
+    }
+
+    return await Promise.all(
+      input.context.cloudflareWorkers.map(async (worker) => {
+        try {
+          const config = buildVaultCloudflareBuildConfigForRootDirectory({
+            rootDirectory: worker.rootDirectory,
+          });
+          const discovery = await readCloudflareWorkerBuildsDiscoveryForIdentity({
+            token: input.token,
+            transport: input.transport,
+            accountId: worker.accountId,
+            workerTag: worker.workerTag,
+            defaultBranch: input.context.defaultBranch,
+            expectedRepoId: input.context.ghRepoId,
+            buildConfig: {
+              rootDir: config.rootDirectory,
+              buildCommand: config.buildCommand,
+              deployCommand: config.deployCommand,
+              previewDeployCommand: config.previewDeployCommand,
+              pathIncludes: config.pathIncludes,
+              pathExcludes: config.pathExcludes,
+            },
+          });
+          return {
+            state: "available" as const,
+            observedAt: Date.now(),
+            workerId: worker.workerId,
+            repository: discovery.repository,
+            builds: discovery.builds,
+          };
+        } catch {
+          return {
+            state: "failed" as const,
+            observedAt: Date.now(),
+            workerId: worker.workerId,
+            reason: "request_failed" as const,
+          };
+        }
+      }),
+    );
+  },
+});
+
+export const observeCloudflareWorkerConvexBuildAccess = action({
+  access: "access_dashboard",
+  args: { vaultId: id("vaults"), targets: array(vCloudflareWorkerBuildAccessTarget) },
+  returns: array(vCloudflareWorkerConvexBuildAccessObservation),
+  handler: async (ctx, args): Promise<CloudflareWorkerConvexBuildAccessObservation[]> => {
+    const input = await readCloudflareObservationInput(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+    });
+    const targets = [...args.targets].sort((left, right) =>
+      left.workerId.localeCompare(right.workerId),
+    );
+    const workersById = new Map(
+      input.context.cloudflareWorkers.map((worker) => [worker.workerId, worker]),
+    );
+    if (
+      targets.length > workersById.size ||
+      new Set(targets.map((target) => target.workerId)).size !== targets.length ||
+      targets.some((target) => !workersById.has(target.workerId))
+    ) {
+      throw new Error("Cloudflare Builds targets must belong to this vault.");
+    }
+    if (input.state === "failed") {
+      const observedAt = Date.now();
+      return targets.map((target) => ({
+        state: "failed" as const,
+        observedAt,
+        workerId: target.workerId,
+        reason: input.reason,
+      }));
+    }
+
+    return await Promise.all(
+      targets.map(async (target) => {
+        const worker = workersById.get(target.workerId);
+        if (!worker) {
+          throw new Error("Cloudflare Worker must belong to this vault.");
+        }
+        try {
+          const observation = await readCloudflareWorkerConvexBuildAccess({
+            token: input.token,
+            transport: input.transport,
+            accountId: worker.accountId,
+            productionTriggerUuid: target.productionTriggerUuid,
+            previewTriggerUuid: target.previewTriggerUuid,
+          });
+          return {
+            state: "available" as const,
+            observedAt: Date.now(),
+            workerId: target.workerId,
+            convexBuildAccess: resolveObservedConvexBuildAccess(
+              observation,
+              input.context.convexProjects,
+            ),
+          };
+        } catch {
+          return {
+            state: "failed" as const,
+            observedAt: Date.now(),
+            workerId: target.workerId,
             reason: "request_failed" as const,
           };
         }
