@@ -87,16 +87,17 @@ function buildPublicLandingLogoRouteSearch({
     rotationDegrees: view.rotationDegrees,
     themeModeSearch: routeSearch,
   });
-  const hasExplicitView =
-    nextSearch.freeView === true ||
-    view.elevationDegrees !== defaultView.elevationDegrees ||
-    view.rotationDegrees !== defaultView.rotationDegrees;
-
   return preserveLogoRouteDevModeSearch(
     {
       ...nextSearch,
-      elev: hasExplicitView ? Number(view.elevationDegrees.toFixed(1)) : undefined,
-      rot: hasExplicitView ? Number(view.rotationDegrees.toFixed(1)) : undefined,
+      elev:
+        view.elevationDegrees !== defaultView.elevationDegrees
+          ? Number(view.elevationDegrees.toFixed(1))
+          : undefined,
+      rot:
+        view.rotationDegrees !== defaultView.rotationDegrees
+          ? Number(view.rotationDegrees.toFixed(1))
+          : undefined,
     },
     routeSearch,
   );

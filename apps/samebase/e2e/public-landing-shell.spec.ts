@@ -1695,7 +1695,7 @@ test("public landing horizontal drag keeps its elevation after drop", async ({ p
 
   await page.mouse.up();
   await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
-  expect(new URL(page.url()).search).toBe("?elev=0&rot=5.6");
+  expect(new URL(page.url()).search).toBe("?rot=5.6");
 });
 
 test("public landing logo composes pointer tilt with the dragged view", async ({ page }) => {

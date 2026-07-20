@@ -485,7 +485,7 @@ describe("PublicLandingLogo", () => {
     expect(finalSceneProps.rotationDegrees).toBe(0);
   });
 
-  it("writes both custom-default view axes after a horizontal drag", async () => {
+  it("omits the default elevation after a horizontal drag", async () => {
     installImmediateIdleCallback();
 
     const rootElement = document.createElement("div");
@@ -531,7 +531,7 @@ describe("PublicLandingLogo", () => {
     });
 
     expect(replacedSearches[0]).toMatchObject({
-      elev: 0,
+      elev: undefined,
       rot: 5.6,
     });
     const finalSceneProps = latestLandingLogoSceneProps.current;
