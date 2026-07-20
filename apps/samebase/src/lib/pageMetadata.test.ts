@@ -317,6 +317,18 @@ describe("page metadata", () => {
     expect(rootHead.links).toContainEqual({
       rel: "icon",
       type: "image/png",
+      href: "/favicon.png",
+      sizes: "16x16",
+    });
+    expect(rootHead.links).toContainEqual({
+      rel: "icon",
+      type: "image/png",
+      href: "/favicon-32.png",
+      sizes: "32x32",
+    });
+    expect(rootHead.links).not.toContainEqual({
+      rel: "icon",
+      type: "image/png",
       href: "/icon-192.png",
       sizes: "192x192",
     });

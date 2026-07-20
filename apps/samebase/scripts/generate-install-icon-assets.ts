@@ -15,6 +15,7 @@ const ANDROID_HOME_SCREEN_ICON_BOX_RATIO = 464 / 512;
 
 type IconJob = { boxRatio?: number; canvasSize: number; filename: string };
 type CompactIconJob = IconJob & { colors: number };
+type FaviconJob = { canvasSize: number; filename: string };
 const logoFaceTreatmentValues = ["duotone", "striped"] as const;
 type LogoFaceTreatment = (typeof logoFaceTreatmentValues)[number];
 type LogoIdentitySvgAsset = {
@@ -22,6 +23,7 @@ type LogoIdentitySvgAsset = {
   markup: string;
 };
 type LogoAssetModules = {
+  createFaviconSvgMarkup: () => string;
   createInstallIconSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
   createLogoIdentitySvgAssets: () => LogoIdentitySvgAsset[];
   createSamebaseSocialCardSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
@@ -62,6 +64,11 @@ const iconJobs: IconJob[] = [
     canvasSize: 180,
     filename: "apple-touch-icon.png",
   },
+];
+
+const faviconJobs: FaviconJob[] = [
+  { canvasSize: 16, filename: "favicon.png" },
+  { canvasSize: 32, filename: "favicon-32.png" },
 ];
 
 const compactIconJobs: CompactIconJob[] = [
@@ -172,6 +179,10 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       await server.ssrLoadModule("/src/components/logo/logoFaceTreatment.ts"),
       "logo face treatment module",
     );
+    const faviconModule = readRecord(
+      await server.ssrLoadModule("/src/components/faviconSvgAsset.ts"),
+      "favicon SVG asset module",
+    );
     const installIconModule = readRecord(
       await server.ssrLoadModule("/src/components/installIconSvgAsset.ts"),
       "install icon SVG asset module",
@@ -193,6 +204,7 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       installIconModule,
       "createInstallIconSvgMarkup",
     );
+    const createFaviconSvgMarkup = readUnknownFunction(faviconModule, "createFaviconSvgMarkup");
     const createLogoIdentitySvgAssets = readUnknownFunction(
       logoStaticModule,
       "createLogoIdentitySvgAssets",
@@ -207,6 +219,8 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
     );
 
     return {
+      createFaviconSvgMarkup: () =>
+        readStringResult(createFaviconSvgMarkup(), "createFaviconSvgMarkup"),
       createInstallIconSvgMarkup: (args) =>
         readStringResult(createInstallIconSvgMarkup(args), "createInstallIconSvgMarkup"),
       createLogoIdentitySvgAssets: () =>
@@ -316,6 +330,39 @@ function generateCompactIconPng({
   );
 }
 
+function generateFaviconPng({
+  canvasSize,
+  inputAssetPath,
+  outputAssetPath,
+}: FaviconJob & {
+  inputAssetPath: string;
+  outputAssetPath: string;
+}) {
+  const outputPath = toPublicPath(outputAssetPath);
+
+  execFileSync(
+    "magick",
+    [
+      toPublicPath(inputAssetPath),
+      "-filter",
+      "point",
+      "-resize",
+      `${canvasSize}x${canvasSize}!`,
+      "-background",
+      "white",
+      "-alpha",
+      "remove",
+      "-dither",
+      "None",
+      "-colors",
+      "2",
+      "-strip",
+      outputPath,
+    ],
+    { stdio: "inherit" },
+  );
+}
+
 function generatePngAsset(inputAssetPath: string, outputAssetPath: string): void {
   const outputPath = toPublicPath(outputAssetPath);
   mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -327,6 +374,19 @@ function generatePngAsset(inputAssetPath: string, outputAssetPath: string): void
 function syncLogoIdentitySvgAssets(modules: LogoAssetModules) {
   for (const asset of modules.createLogoIdentitySvgAssets()) {
     writeTextAsset(asset.assetPath, asset.markup);
+  }
+}
+
+function syncFaviconAssets(modules: LogoAssetModules) {
+  const sourceAssetPath = "/brand/favicon/sierpinski-carpet-depth-2.svg";
+  writeTextAsset(sourceAssetPath, modules.createFaviconSvgMarkup());
+
+  for (const job of faviconJobs) {
+    generateFaviconPng({
+      ...job,
+      inputAssetPath: sourceAssetPath,
+      outputAssetPath: `/${job.filename}`,
+    });
   }
 }
 
@@ -390,5 +450,6 @@ function syncSocialAssets(modules: LogoAssetModules) {
 
 const logoAssetModules = await loadLogoAssetModules();
 syncLogoIdentitySvgAssets(logoAssetModules);
+syncFaviconAssets(logoAssetModules);
 syncInstallIconAssets(logoAssetModules);
 syncSocialAssets(logoAssetModules);
