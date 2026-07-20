@@ -867,10 +867,10 @@ done" path; they are not a substitute for clear terminal state. Provider retry w
 on the aggregate infra mirrors; it should first make the separate provider states trustworthy enough
 to retry.
 
-Cloudflare MCP calls used by Cloudflare provisioning should use a 30-second per-request timeout. The
-earlier 10-second timeout was too tight for normal Cloudflare setup latency and could fail
-`ensure_cloudflare` before backend retry and reconcile behavior had a chance to make the step
-durable.
+Cloudflare API calls used by Cloudflare provisioning should use a 30-second per-request timeout for
+both direct REST and MCP transports. The earlier 10-second timeout was too tight for normal
+Cloudflare setup latency and could fail `ensure_cloudflare` before backend retry and reconcile
+behavior had a chance to make the step durable.
 
 Future Cloudflare durability work should also cover deploy/publish failures after asset upload has
 already succeeded. Production has observed Cloudflare Pages upload and asset publish succeed, then

@@ -1329,10 +1329,13 @@ describe("cloudflare resources", () => {
     );
 
     await expect(
-      configureCloudflareWorkerBuildsForGitHub(
-        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-      ),
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+        cloudflareToken: "api-key-token",
+        cloudflareAuthMethod: "api_key",
+      }),
     ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
+    expect(callCloudflareMcpToolMock).not.toHaveBeenCalled();
   });
 
   it("preserves non-GitHub-App direct Cloudflare repository connection failures", async () => {
@@ -1407,8 +1410,8 @@ describe("cloudflare resources", () => {
     await expect(
       configureCloudflareWorkerBuildsForGitHub({
         ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-        cloudflareToken: "api-key-token",
-        cloudflareAuthMethod: "api_key",
+        cloudflareToken: "mcp-oauth-token",
+        cloudflareAuthMethod: "mcp_oauth",
       }),
     ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
     expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(1);

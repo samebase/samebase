@@ -25,6 +25,7 @@ import type { ProviderApiCallRecorder } from "../providerApiLog";
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
 const CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
+const CLOUDFLARE_API_TIMEOUT_MS = 30_000;
 
 type CloudflareApiRequestMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 export type CloudflareApiTransport = "mcp" | "direct";
@@ -205,8 +206,8 @@ export function resolveCloudflareApiTransport(
 ): CloudflareApiTransport {
   switch (authMethod) {
     case "oauth":
-      return "direct";
     case "api_key":
+      return "direct";
     case "mcp_oauth":
       return "mcp";
     default:
@@ -553,15 +554,29 @@ async function executeCloudflareApiDirectRequest(args: {
     throw new Error("Cloudflare token is required.");
   }
 
-  const response = await fetch(`${CLOUDFLARE_API_BASE_URL}${args.endpoint}`, {
-    method: args.method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(args.body === undefined ? {} : { "Content-Type": "application/json" }),
-    },
-    body: args.body === undefined ? undefined : JSON.stringify(args.body),
-  });
-  const text = await response.text();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLOUDFLARE_API_TIMEOUT_MS);
+  let response: Response;
+  let text: string;
+  try {
+    response = await fetch(`${CLOUDFLARE_API_BASE_URL}${args.endpoint}`, {
+      method: args.method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(args.body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: args.body === undefined ? undefined : JSON.stringify(args.body),
+      signal: controller.signal,
+    });
+    text = await response.text();
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Cloudflare API request timed out after ${CLOUDFLARE_API_TIMEOUT_MS}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   const payload = parseCloudflareApiEnvelope({
     endpoint: args.endpoint,
     source: "Cloudflare API",

@@ -6,8 +6,8 @@ Status: Accepted
 
 Samebase can call Cloudflare through two transports. Legacy `mcp_oauth` connections use Cloudflare
 MCP, where the MCP server accepts that credential and executes `cloudflare.request()` on Samebase's
-behalf. Standard Cloudflare OAuth app connections use direct `api.cloudflare.com` REST requests with
-the OAuth bearer token. Direct Cloudflare REST token introspection can reject `mcp_oauth`
+behalf. Standard Cloudflare OAuth app and API-key connections use direct `api.cloudflare.com` REST
+requests with bearer tokens. Direct Cloudflare REST token introspection can reject `mcp_oauth`
 credentials as invalid API tokens, so the transport choice is part of the auth-method contract.
 
 Current Cloudflare provisioning code still treats each request as an untyped string path and then
@@ -35,9 +35,8 @@ explicit at the typed request boundary:
 5. The helper formats the typed path and query into a concrete Cloudflare API path, sends that path
    through the explicit transport selected by the Cloudflare auth method, validates the provider
    envelope and success payload, then returns the typed `result` value to feature code.
-6. `oauth` uses direct `api.cloudflare.com` fetches. `mcp_oauth` calls must not switch to direct
-   fetches. Seeded `api_key` connections may use the same MCP transport for a single Cloudflare
-   integration surface.
+6. `oauth` and `api_key` use direct `api.cloudflare.com` fetches. `mcp_oauth` calls must remain on
+   the Cloudflare MCP transport.
 7. Feature code should stop parsing Cloudflare provider records with `asRecord`, `readString`, and
    similar fallback readers for endpoints covered by the generated subset. Missing required provider
    fields should fail closed at the typed boundary.
@@ -65,7 +64,7 @@ that addition.
 - Covered Cloudflare responses are validated before feature code reads them.
 - The typed Cloudflare request helper requires an explicit transport; no callsite may rely on an
   implicit MCP default.
-- `oauth` uses direct REST transport and `mcp_oauth` remains MCP-only transport.
+- `oauth` and `api_key` use direct REST transport and `mcp_oauth` remains MCP-only transport.
 - Cloudflare schema drift can be checked by regenerating the family subset, generated types, and
   standalone validators, including new endpoints added inside selected families.
 - Existing Workers provisioning, status, logs, inventory, and deletion behavior stays unchanged

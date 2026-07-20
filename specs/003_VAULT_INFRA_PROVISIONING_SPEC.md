@@ -200,6 +200,9 @@ by Samebase; it is not a cache of a Worker's current provider URL.
 
 ## Runtime Configuration
 
+Cloudflare `oauth` and `api_key` connections call `api.cloudflare.com` directly. Only legacy
+`mcp_oauth` connections call the Cloudflare MCP server.
+
 Required env vars (OAuth + redirects):
 
 - `PROVIDER_CONVEX_OAUTH_CLIENT_ID`

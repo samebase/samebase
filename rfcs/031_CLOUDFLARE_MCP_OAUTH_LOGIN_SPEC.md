@@ -5,6 +5,7 @@
 - Status: Proposed
 - Owner: Noter platform + infra
 - Last updated: 2026-03-02
+- Runtime transport selection: Superseded by `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`
 - Related specs:
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
@@ -28,9 +29,9 @@ non-interactive bootstrap.
 creating a Cloudflare API token. `mcp_oauth` is an internal credential label; user-facing product
 copy should call this Cloudflare OAuth or Cloudflare web auth.
 
-**Key decision:** even when local/dev seeding connects Cloudflare via `api_key`, Noter should still
-talk to Cloudflare **through the Cloudflare MCP server** (single integration surface) rather than
-maintaining a parallel direct Cloudflare REST integration.
+**Historical decision (superseded):** even when local/dev seeding connects Cloudflare via `api_key`,
+Noter should still talk to Cloudflare **through the Cloudflare MCP server** (single integration
+surface) rather than maintaining a parallel direct Cloudflare REST integration.
 
 ## Goals
 

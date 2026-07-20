@@ -1,7 +1,6 @@
 "use node";
 
 import { asRecord, readString, toErrorMessage } from "./jsonUtils";
-import { parseSiteOrigin } from "../shared/siteOrigin";
 
 export const CLOUDFLARE_MCP_SERVER_URL = "https://mcp.cloudflare.com/mcp";
 const MCP_PROTOCOL_VERSION = "2025-03-26";
@@ -17,14 +16,6 @@ type JsonRpcMessage = {
   result?: unknown;
   error?: unknown;
 };
-
-function resolveOriginHeader(): string {
-  const siteUrl = process.env.SITE_URL ?? process.env.CONVEX_SITE_URL;
-  if (!siteUrl) {
-    return "https://samebase.com";
-  }
-  return parseSiteOrigin(siteUrl).origin;
-}
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -175,15 +166,12 @@ async function postJsonRpcMessage(args: {
   sessionId?: string;
   messages: JsonRpcMessage[];
 }> {
-  const origin = resolveOriginHeader();
-
   const response = await fetchWithTimeout(
     args.url,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${args.token}`,
-        Origin: origin,
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
         ...(args.sessionId ? { "Mcp-Session-Id": args.sessionId } : {}),
@@ -277,7 +265,6 @@ async function closeSession(args: {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${args.token}`,
-          Origin: resolveOriginHeader(),
           "Mcp-Session-Id": args.sessionId,
         },
       },
