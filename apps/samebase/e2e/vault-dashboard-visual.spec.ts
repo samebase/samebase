@@ -684,6 +684,13 @@ test("vault dashboard fixture (Cloudflare GitHub App authorization failure)", as
   await expect(
     fixture.getByRole("link", { name: "Cloudflare Workers and Pages GitHub App" }),
   ).toHaveAttribute("href", "https://github.com/apps/cloudflare-workers-and-pages");
+  await expect(fixture.getByRole("button", { name: "Retry" })).toBeVisible();
+  await expect(fixture).toHaveScreenshot("vault-dashboard-cloudflare-github-app-auth-failure.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async ({ page }) => {

@@ -2824,9 +2824,13 @@ export function VaultSetupProgressSection({
 }
 
 export function VaultProviderSetupSection({
+  isRetrying,
+  onRetry,
   providerSetup,
   repositoryFullName,
 }: {
+  isRetrying: boolean;
+  onRetry: () => void;
   providerSetup: Extract<VaultDashboardProviderSetup, { status: "failed" | "running" }>;
   repositoryFullName: string;
 }) {
@@ -2843,13 +2847,23 @@ export function VaultProviderSetupSection({
         `${setupStatus.message} Last failure: ${stepLabel}: ${providerSetup.message}`
       )
     ) : undefined;
+  const canRetry =
+    providerSetup.status === "failed" &&
+    providerSetup.nextAction === "retry_infrastructure_provisioning";
 
   return (
     <VaultSetupProgressSection
       status={setupStatus.status}
       label={setupStatus.label}
       message={failureMessage}
-    />
+    >
+      {canRetry ? (
+        <Button size="sm" onClick={onRetry} disabled={isRetrying}>
+          {isRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {isRetrying ? "Retrying..." : "Retry"}
+        </Button>
+      ) : null}
+    </VaultSetupProgressSection>
   );
 }
 
@@ -2918,6 +2932,7 @@ type VaultDashboardViewProps = {
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"workflow_vaultDeletion_runs"> | null;
+  retryingInfrastructureVaultId: Id<"vaults"> | null;
   now: number;
   viewModel: VaultDashboardViewModel;
   logoRouteSearch: LogoRouteSearch;
@@ -2938,6 +2953,7 @@ type VaultDashboardViewProps = {
   ) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
+  onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"workflow_vaultDeletion_runs">) => void;
   onSaveVaultBranchFilters: (
     vaultId: Id<"vaults">,
@@ -3101,6 +3117,7 @@ export function VaultDashboardView({
   convexObservations,
   isRemovingVault,
   retryingDeletionRunId,
+  retryingInfrastructureVaultId,
   now,
   viewModel,
   logoRouteSearch,
@@ -3114,6 +3131,7 @@ export function VaultDashboardView({
   onWireCloudflareConvexBuildAccess,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
+  onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
   onResourceLinksOpenChange,
@@ -3294,6 +3312,8 @@ export function VaultDashboardView({
         const providerSetupSection =
           providerSetupStatus && activeProviderSetup ? (
             <VaultProviderSetupSection
+              isRetrying={retryingInfrastructureVaultId === vault._id}
+              onRetry={() => onRetryInfrastructureProvisioning(vault._id)}
               providerSetup={activeProviderSetup}
               repositoryFullName={vault.repositoryFullName}
             />
@@ -3539,6 +3559,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
+  const retryInfrastructureProvisioning = useAction(
+    api.vault.actions.retryInfrastructureProvisioning,
+  );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const listConvexProjects = useAction(api.vault.convex.listProjects);
   const connectExistingConvexProject = useAction(api.vault.convex.connectExistingProject);
@@ -3551,6 +3574,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const wireCloudflareConvexBuildAccess = useAction(api.vault.cloudflare.wireConvexBuildAccess);
   const [cloudflareWorkerRepairActionInFlight, setCloudflareWorkerRepairActionInFlight] =
     useState<CloudflareWorkerRepairActionInFlight | null>(null);
+  const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
+    useState<Id<"vaults"> | null>(null);
   const createVaultApp = useMutation(api.vault.dashboard.createVaultApp);
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
@@ -4309,6 +4334,25 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
+  const handleRetryInfrastructureProvisioning = async (vaultId: Id<"vaults">) => {
+    if (retryingInfrastructureVaultId) {
+      return;
+    }
+
+    setRetryingInfrastructureVaultId(vaultId);
+    try {
+      await retryInfrastructureProvisioning({ vaultId });
+    } catch (error) {
+      toast({
+        title: "Could not retry infrastructure setup",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRetryingInfrastructureVaultId(null);
+    }
+  };
+
   const handleConnectCloudflareGithubRepository = async (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
@@ -4503,6 +4547,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         convexObservations={providerObservations.convex}
         isRemovingVault={isDeleting || isCommitting}
         retryingDeletionRunId={retryingDeletionRunId}
+        retryingInfrastructureVaultId={retryingInfrastructureVaultId}
         now={now}
         viewModel={dashboardViewModel}
         logoRouteSearch={rootRouteSearch}
@@ -4528,6 +4573,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
         onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
+        onRetryInfrastructureProvisioning={(vaultId) => {
+          void handleRetryInfrastructureProvisioning(vaultId);
+        }}
         onRetryVaultDeletion={(runId) => {
           void handleRetryVaultDeletion(runId);
         }}

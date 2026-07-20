@@ -713,6 +713,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
           retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [LIST_SPACING_VAULT],
@@ -742,6 +743,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={(vaultId, nextVaultBranchFilters) => {
             if (vaultId === LIST_SPACING_VAULT_ID) {
@@ -819,6 +821,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
           retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT],
@@ -839,6 +842,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
@@ -875,6 +879,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             convexObservations={{ state: "loading" }}
             isRemovingVault={false}
             retryingDeletionRunId={null}
+            retryingInfrastructureVaultId={null}
             now={FIXTURE_NOW}
             viewModel={{
               vaults: selectedVaults,
@@ -907,6 +912,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             onWireCloudflareConvexBuildAccess={() => {}}
             onOpenDeveloperToolsChange={() => {}}
             onManualRepositoryRefresh={() => {}}
+            onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
             onSaveVaultBranchFilters={() => {}}
             onResourceLinksOpenChange={() => {}}
@@ -1824,6 +1830,8 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
             onRepositoryLinksOpenChange={() => {}}
             setupSection={
               <VaultProviderSetupSection
+                isRetrying={false}
+                onRetry={() => {}}
                 repositoryFullName="noter-guest/tmp-manual-test"
                 providerSetup={{
                   status: "failed",

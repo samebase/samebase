@@ -673,6 +673,7 @@ describe("VaultDashboardRepositoryCard", () => {
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
           retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
           now={0}
           viewModel={{
             vaults: [],
@@ -691,6 +692,7 @@ describe("VaultDashboardRepositoryCard", () => {
           onWireCloudflareConvexBuildAccess={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
@@ -888,6 +890,8 @@ describe("VaultProviderSetupSection", () => {
   it("renders provider progress without the provisioning log", () => {
     const markup = renderToStaticMarkup(
       <VaultProviderSetupSection
+        isRetrying={false}
+        onRetry={() => {}}
         repositoryFullName="ada/demo"
         providerSetup={{
           status: "running",
@@ -903,12 +907,14 @@ describe("VaultProviderSetupSection", () => {
     expect(markup).toContain("Convex: provisioning");
     expect(markup).not.toContain("Provisioning log");
     expect(markup).not.toContain("Provision infra");
-    expect(markup).not.toContain("Retry infra");
+    expect(markup).not.toContain(">Retry<");
   });
 
   it("renders a short Cloudflare GitHub App authorization recovery message", () => {
     const markup = renderToStaticMarkup(
       <VaultProviderSetupSection
+        isRetrying={false}
+        onRetry={() => {}}
         repositoryFullName="ada/tmp-myapp1234"
         providerSetup={{
           status: "failed",
@@ -938,6 +944,7 @@ describe("VaultProviderSetupSection", () => {
     expect(markup).toContain("https://github.com/apps/cloudflare-workers-and-pages");
     expect(markup).not.toContain("https://github.com/ada/tmp-myapp1234/settings/installations");
     expect(markup).not.toContain("Last failure:");
+    expect(markup).toContain(">Retry<");
   });
 });
 
