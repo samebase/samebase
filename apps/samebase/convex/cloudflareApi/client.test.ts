@@ -1,7 +1,60 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { requestCloudflareApi } from "./client";
+import { requestCloudflareApi, resolveCloudflareApiTransport } from "./client";
 import { cloudflareApiResponseValidators } from "./validators.generated";
+
+describe("Cloudflare API transport", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    { authMethod: "oauth", transport: "direct" },
+    { authMethod: "api_key", transport: "direct" },
+    { authMethod: "mcp_oauth", transport: "mcp" },
+  ] as const)("uses $transport for $authMethod", ({ authMethod, transport }) => {
+    expect(resolveCloudflareApiTransport(authMethod)).toBe(transport);
+  });
+
+  it("times out direct response bodies after 30 seconds", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+        if (!init?.signal) {
+          throw new Error("Expected a Cloudflare API abort signal.");
+        }
+        const signal = init.signal;
+        const body = new ReadableStream({
+          start(controller) {
+            signal.addEventListener(
+              "abort",
+              () => controller.error(new DOMException("The operation was aborted.", "AbortError")),
+              { once: true },
+            );
+          },
+        });
+        return new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    const assertion = expect(
+      requestCloudflareApi({
+        token: "cloudflare-token",
+        transport: "direct",
+        method: "GET",
+        path: "/accounts",
+      }),
+    ).rejects.toThrow("Cloudflare API request timed out after 30000ms.");
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await assertion;
+  });
+});
 
 describe("Cloudflare API response validators", () => {
   afterEach(() => {
