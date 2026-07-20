@@ -1607,11 +1607,13 @@ test("public landing logo tilts toward the pointer outside its grab surface", as
   if (stageBounds === null) {
     return;
   }
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  if (viewport === null) {
+    return;
+  }
 
-  await page.mouse.move(
-    stageBounds.x + stageBounds.width + 250,
-    stageBounds.y + stageBounds.height / 2,
-  );
+  await page.mouse.move(viewport.width - 1, stageBounds.y + stageBounds.height / 2);
   await page.waitForTimeout(1_000);
 
   await expect(landingLogoStage).toHaveScreenshot(

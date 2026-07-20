@@ -10,14 +10,11 @@ export const NEUTRAL_LOGO_PRESENTATION_TILT_TARGET: LogoPresentationTiltTarget =
   horizontal: 0,
   vertical: 0,
 };
+export const LOGO_PRESENTATION_TILT_MAX_DEGREES = 12;
 
-const POINTER_TILT_FULL_STRENGTH_DISTANCE_SCALE = 1.25;
 const LOGO_PRESENTATION_TILT_DAMPING_PER_SECOND = 18;
 const LOGO_PRESENTATION_TILT_MAX_FRAME_SECONDS = 0.064;
-
-function smoothstep(value: number) {
-  return value * value * (3 - 2 * value);
-}
+const POINTER_TILT_DEGREES_PER_SHORTEST_SIDE = 6 / 1.25;
 
 export function getLogoPresentationTiltDampingAlpha(deltaSeconds: number) {
   if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) {
@@ -81,9 +78,11 @@ export function getPointerLogoPresentationTiltTarget({
     return NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
   }
 
-  const strength = smoothstep(
-    Math.min(distance / (shortestSide * POINTER_TILT_FULL_STRENGTH_DISTANCE_SCALE), 1),
+  const tiltDegrees = Math.min(
+    (distance / shortestSide) * POINTER_TILT_DEGREES_PER_SHORTEST_SIDE,
+    LOGO_PRESENTATION_TILT_MAX_DEGREES,
   );
+  const strength = tiltDegrees / LOGO_PRESENTATION_TILT_MAX_DEGREES;
 
   return {
     horizontal: (outsideX / distance) * strength,

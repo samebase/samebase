@@ -43,29 +43,28 @@ describe("logo presentation tilt", () => {
     ).toBe(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
   });
 
-  it("grows smoothly with distance outside the grab surface", () => {
+  it("reaches half strength after 1.25 shortest-side distances outside the grab surface", () => {
     const near = getPointerLogoPresentationTiltTarget({
-      bounds: BOUNDS,
-      clientX: 350,
-      clientY: 200,
-    });
-    const far = getPointerLogoPresentationTiltTarget({
       bounds: BOUNDS,
       clientX: 550,
       clientY: 200,
     });
+    const far = getPointerLogoPresentationTiltTarget({
+      bounds: BOUNDS,
+      clientX: 800,
+      clientY: 200,
+    });
 
     expect(near.vertical).toBe(0);
-    expect(near.horizontal).toBeGreaterThan(0);
-    expect(near.horizontal).toBeLessThan(far.horizontal);
+    expect(near.horizontal).toBe(0.5);
     expect(far).toEqual({ horizontal: 1, vertical: 0 });
   });
 
   it("preserves direction while capping diagonal strength", () => {
     const target = getPointerLogoPresentationTiltTarget({
       bounds: BOUNDS,
-      clientX: 600,
-      clientY: -200,
+      clientX: 800,
+      clientY: -400,
     });
 
     expect(target.horizontal).toBeCloseTo(Math.SQRT1_2);
