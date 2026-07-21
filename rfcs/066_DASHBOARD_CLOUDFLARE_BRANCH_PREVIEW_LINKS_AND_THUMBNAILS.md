@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter dashboard/frontend + Convex infra
 - Last updated: 2026-05-12
 - Related specs:
@@ -12,6 +12,11 @@
   - `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
+
+The direct-link model in this RFC depended on the deleted `vaultDomains` and branch mirrors. The
+current dashboard resolves Worker builds and Convex previews live for GitHub pull request ids under
+`specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`. Thumbnail ideas below remain historical research,
+not an active storage proposal.
 
 ## Summary
 

@@ -558,7 +558,7 @@ export function VaultDashboardRepositoryCard({
   developerToolsSection,
   footerActions,
   headerControls,
-  isReady,
+  muted,
   repositoryName,
   repositoryLinks,
   repositoryLinksOpen,
@@ -577,7 +577,7 @@ export function VaultDashboardRepositoryCard({
   };
   footerActions?: ReactNode;
   headerControls?: ReactNode;
-  isReady: boolean;
+  muted: boolean;
   repositoryName: string;
   repositoryLinks?: ReactNode;
   repositoryLinksOpen: boolean;
@@ -634,7 +634,7 @@ export function VaultDashboardRepositoryCard({
   );
 
   return (
-    <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
+    <div className={clsx("relative p-4", muted && "bg-muted/30 opacity-75")}>
       <div>
         <div
           data-vault-dashboard-repository-header=""

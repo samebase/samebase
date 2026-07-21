@@ -23,7 +23,7 @@ routes, and tree cache entries use the exact branch name supplied by the user or
 `observations_vaultRepository_branchTrees` contains one disposable tree cache entry per
 `(vaultId, branch)`:
 
-- `treeData` and `treeSHA` identify the recursive Git tree;
+- `treeData.sha` identifies the recursive Git tree;
 - `commitSHA` identifies the branch generation that named that tree;
 - `lastTreeRefreshAt` records when the exact branch was read.
 

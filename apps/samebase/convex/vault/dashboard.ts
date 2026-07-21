@@ -14,10 +14,13 @@ import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletio
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
+import type { AppProvisioningRunStep } from "../appProvisioningModel";
 import {
   getUserVaultsContract,
   type ProviderSetupSummary,
+  type ProviderSetupStep,
   type SourceSetupSummary,
+  type SourceSetupStep,
   type UserVaultResult,
   type UserVaultsResult,
   type VaultDeletionSummary,
@@ -33,6 +36,45 @@ type ConvexProject = Doc<"vaultConvexProjects">;
 type CloudflareWorker = Doc<"vaultCloudflareWorkers">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
+function classifyProvisioningStep(
+  step: AppProvisioningRunStep,
+): { phase: "source"; step: SourceSetupStep } | { phase: "provider"; step: ProviderSetupStep } {
+  switch (step) {
+    case "run_created":
+    case "initialize_vault":
+    case "validate_connections":
+    case "create_github_repo":
+    case "fetch_github_repo":
+    case "seed_starter":
+    case "connect_github":
+    case "sync_tree":
+      return { phase: "source", step };
+    case "claim_infra":
+    case "attach_convex":
+    case "attach_worker":
+    case "configure_workers_builds_for_github":
+    case "rotate_convex_deploy_keys_for_workers_builds":
+    case "finish":
+      return { phase: "provider", step };
+    default:
+      step satisfies never;
+      throw new Error("Unknown provisioning step.");
+  }
+}
+
+function readProviderSetupStep(
+  run: Pick<Doc<"workflow_vaultProvisioning_runs">, "currentStep" | "trigger">,
+): ProviderSetupStep {
+  if (run.trigger === "retry" && run.currentStep === "run_created") {
+    return "claim_infra";
+  }
+  const classified = classifyProvisioningStep(run.currentStep);
+  if (classified.phase !== "provider") {
+    throw new Error("Provider setup run has not reached provider provisioning.");
+  }
+  return classified.step;
+}
+
 async function readLatestRunErrorMessage(
   ctx: Pick<QueryCtx, "db">,
   runId: Id<"workflow_vaultProvisioning_runs">,
@@ -47,36 +89,49 @@ async function readLatestRunErrorMessage(
 
 async function resolveSourceSetupSummary(
   ctx: Pick<QueryCtx, "db">,
-  args: {
-    hasUsableDefaultBranchTree: boolean;
-    vault: SourceSetupVault;
-  },
+  vault: SourceSetupVault,
 ): Promise<SourceSetupSummary> {
-  if (args.hasUsableDefaultBranchTree) {
-    return { status: "ready" };
-  }
-
-  const run = await ctx.db.get(args.vault.runId);
+  const run = await ctx.db.get(vault.runId);
   if (!run) {
     return {
       status: "failed",
-      runId: args.vault.runId,
+      runId: vault.runId,
       step: "run_created",
       message: "Provisioning run not found.",
-      updatedAt: getSourceSetupVaultFallbackUpdatedAt(args.vault),
+      updatedAt: getSourceSetupVaultFallbackUpdatedAt(vault),
     };
+  }
+  const classifiedStep = classifyProvisioningStep(run.currentStep);
+  if (
+    vault.state === "connected" &&
+    (run.state === "succeeded" || classifiedStep.phase === "provider")
+  ) {
+    return { status: "ready" };
+  }
+  if (classifiedStep.phase !== "source") {
+    throw new Error("Pre-connection vault reached provider provisioning.");
   }
 
   if (run.state === "failed") {
     const message =
-      (await readLatestRunErrorMessage(ctx, args.vault.runId)) ??
+      (await readLatestRunErrorMessage(ctx, vault.runId)) ??
       run.lastError ??
       `Provisioning failed during ${run.currentStep}.`;
     return {
       status: "failed",
-      runId: args.vault.runId,
-      step: run.currentStep,
+      runId: vault.runId,
+      step: classifiedStep.step,
       message,
+      updatedAt: run.updatedAt,
+    };
+  }
+
+  if (run.state === "canceled") {
+    return {
+      status: "failed",
+      runId: vault.runId,
+      step: classifiedStep.step,
+      message: run.lastError ?? `Provisioning was canceled during ${run.currentStep}.`,
       updatedAt: run.updatedAt,
     };
   }
@@ -84,13 +139,13 @@ async function resolveSourceSetupSummary(
   if (run.state === "queued" || run.state === "running") {
     return {
       status: "running",
-      runId: args.vault.runId,
-      step: run.currentStep,
+      runId: vault.runId,
+      step: classifiedStep.step,
       updatedAt: run.updatedAt,
     };
   }
 
-  return { status: "not_applicable" };
+  return vault.state === "connected" ? { status: "ready" } : { status: "not_applicable" };
 }
 
 function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
@@ -121,18 +176,19 @@ async function readProviderRunSummary(
       status: "failed",
       provider: args.provider,
       runId: args.runId,
-      step: "run_created",
+      step: "claim_infra",
       message: "Provisioning run not found.",
       updatedAt: args.fallbackUpdatedAt,
     };
   }
+  const step = readProviderSetupStep(run);
 
   if (args.status === "running" && (run.state === "queued" || run.state === "running")) {
     return {
       status: "running",
       provider: args.provider,
       runId: args.runId,
-      step: run.currentStep,
+      step,
       updatedAt: run.updatedAt,
     };
   }
@@ -142,7 +198,7 @@ async function readProviderRunSummary(
     status: "failed",
     provider: args.provider,
     runId: args.runId,
-    step: run.currentStep,
+    step,
     message,
     updatedAt: run.updatedAt,
   };
@@ -164,12 +220,13 @@ async function readRunningProviderRunSummary(
   if (!run || (run.state !== "queued" && run.state !== "running")) {
     return null;
   }
+  const step = readProviderSetupStep(run);
 
   return {
     status: "running",
     provider: args.provider,
     runId: args.runId,
-    step: run.currentStep,
+    step,
     updatedAt: run.updatedAt,
   };
 }
@@ -527,14 +584,9 @@ async function readUserVaults(
       ghRepoName: vault.name,
       repositoryFullName: `${vault.owner}/${vault.name}`,
       defaultBranch: undefined,
-      commitSHA: undefined,
       fileCount: 0,
       lastEditTime: undefined,
-      state: vault.state === "failed" ? "failed" : "copying_files",
-      sourceSetup: await resolveSourceSetupSummary(ctx, {
-        hasUsableDefaultBranchTree: false,
-        vault,
-      }),
+      sourceSetup: await resolveSourceSetupSummary(ctx, vault),
       providerSetup: { status: "not_applicable" },
       deletion,
       isSamebaseManaged: vault.githubMode === "create_repository",
@@ -585,10 +637,8 @@ async function readUserVaults(
           ghRepoName: vault.name,
           repositoryFullName: `${vault.owner}/${vault.name}`,
           defaultBranch: vault.defaultBranch,
-          commitSHA: undefined,
           fileCount: 0,
           lastEditTime: undefined,
-          state: deletion.state === "delete_failed" ? "failed" : "copying_files",
           sourceSetup: { status: "not_applicable" },
           providerSetup: { status: "not_applicable" },
           deletion,
@@ -603,18 +653,10 @@ async function readUserVaults(
         };
       }
 
-      const [stagingData, defaultBranchTree] = await Promise.all([
-        ctx.db
-          .query("vaultStagedFiles")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-          .collect(),
-        ctx.db
-          .query("observations_vaultRepository_branchTrees")
-          .withIndex("by_vault_and_branch", (q) =>
-            q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
-          )
-          .first(),
-      ]);
+      const stagingData = await ctx.db
+        .query("vaultStagedFiles")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+        .collect();
 
       const fileCount = stagingData.filter(hasStagedFileChanges).length;
 
@@ -622,14 +664,11 @@ async function readUserVaults(
         stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
 
       const repositoryFullName = `${vault.owner}/${vault.name}`;
-      const hasUsableDefaultBranchTree = Boolean(defaultBranchTree);
-      const sourceSetup = await resolveSourceSetupSummary(ctx, {
-        hasUsableDefaultBranchTree,
-        vault,
-      });
-      const providerSetup = hasUsableDefaultBranchTree
-        ? await resolveProviderSetupSummary(ctx, vault, convexProjects, cloudflareWorkers)
-        : { status: "not_applicable" as const };
+      const sourceSetup = await resolveSourceSetupSummary(ctx, vault);
+      const providerSetup =
+        sourceSetup.status === "ready"
+          ? await resolveProviderSetupSummary(ctx, vault, convexProjects, cloudflareWorkers)
+          : { status: "not_applicable" as const };
       return {
         _id: vault._id,
         _creationTime: vault._creationTime,
@@ -637,10 +676,8 @@ async function readUserVaults(
         ghRepoName: vault.name,
         repositoryFullName,
         defaultBranch: vault.defaultBranch,
-        commitSHA: defaultBranchTree?.commitSHA,
         fileCount,
         lastEditTime,
-        state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
         sourceSetup,
         providerSetup,
         deletion,

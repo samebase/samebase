@@ -173,6 +173,7 @@ const providerPullRequestSchema = z.object({
     })
     .nullable(),
   labels: z.object({
+    totalCount: countSchema,
     nodes: z.array(
       z.object({
         name: z.string().min(1),
@@ -243,7 +244,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
           headRefName
           headRefOid
           headRepository { id nameWithOwner owner { login } }
-          labels(first: 100) { nodes { name color } }
+          labels(first: 100) { totalCount nodes { name color } }
           commits(last: 1) {
             nodes {
               commit {
@@ -286,6 +287,9 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
         totalCount: repository.pullRequests.totalCount,
         pageInfo: repository.pullRequests.pageInfo,
         nodes: repository.pullRequests.nodes.map((pullRequest) => {
+          if (pullRequest.labels.nodes.length !== pullRequest.labels.totalCount) {
+            throw new Error("GitHub returned incomplete pull request labels.");
+          }
           const commit = pullRequest.commits.nodes.at(0)?.commit;
           if (
             !commit ||
@@ -293,6 +297,24 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
             commit.oid !== pullRequest.headRefOid
           ) {
             throw new Error("GitHub did not return the pull request head commit.");
+          }
+          const rollup = commit.statusCheckRollup;
+          if (rollup) {
+            const checkRunCount = rollup.contexts.checkRunCountsByState.reduce(
+              (total, count) => total + count.count,
+              0,
+            );
+            const statusContextCount = rollup.contexts.statusContextCountsByState.reduce(
+              (total, count) => total + count.count,
+              0,
+            );
+            if (
+              checkRunCount !== rollup.contexts.checkRunCount ||
+              statusContextCount !== rollup.contexts.statusContextCount ||
+              checkRunCount + statusContextCount !== rollup.contexts.totalCount
+            ) {
+              throw new Error("GitHub returned inconsistent check counts.");
+            }
           }
           return {
             id: pullRequest.id,
@@ -309,7 +331,7 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
             headRefName: pullRequest.headRefName,
             headRefOid: pullRequest.headRefOid,
             headRepository: pullRequest.headRepository,
-            labels: pullRequest.labels,
+            labels: { nodes: pullRequest.labels.nodes },
             statusCheckRollup: commit.statusCheckRollup,
           };
         }),
@@ -413,8 +435,9 @@ export const getOpenPullRequestForBranch = action({
         owner: vault.owner,
         repo: vault.name,
         state: "open",
-        base: vault.defaultBranch,
         head: `${vault.owner}:${branch}`,
+        sort: "updated",
+        direction: "desc",
         per_page: 1,
       }),
     ]);

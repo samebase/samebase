@@ -768,6 +768,28 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "precise-otter-1260" })).toBeVisible();
 });
 
+test("vault dashboard keeps live pull requests available after source setup fails", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-source-setup-failed");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("Initial tree sync failed.")).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Open pull request 1260 on GitHub" }),
+  ).toBeVisible();
+  await expect(fixture.getByText("Add app root")).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Add Convex" })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Add Cloudflare" })).toHaveCount(0);
+  await expect(fixture).toHaveScreenshot("vault-dashboard-source-setup-failed.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (sidebar list)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 720 });
   await seedAppWorkspaceSidebarState(page, {

@@ -34,9 +34,13 @@ async function writeVaultBranchTree(
     vaultId: Id<"vaults">;
     branch: string;
     treeData: Infer<typeof vGithubTreeData>;
-    commitSHA?: string;
+    commitSHA: string;
   },
 ): Promise<void> {
+  if (args.treeData.truncated) {
+    throw new Error("GitHub returned an incomplete recursive repository tree.");
+  }
+
   const now = Date.now();
   const existing = await ctx.db
     .query("observations_vaultRepository_branchTrees")
@@ -47,7 +51,6 @@ async function writeVaultBranchTree(
 
   if (existing) {
     await ctx.db.patch(existing._id, {
-      treeSHA: args.treeData.sha,
       commitSHA: args.commitSHA,
       treeData: args.treeData,
       lastTreeRefreshAt: now,
@@ -58,7 +61,6 @@ async function writeVaultBranchTree(
   await ctx.db.insert("observations_vaultRepository_branchTrees", {
     vaultId: args.vaultId,
     branch: args.branch,
-    treeSHA: args.treeData.sha,
     commitSHA: args.commitSHA,
     treeData: args.treeData,
     lastTreeRefreshAt: now,
@@ -70,7 +72,7 @@ export const upsertVaultBranchTree = internalMutation({
     vaultId: id("vaults"),
     branch: string(),
     treeData: vGithubTreeData,
-    commitSHA: optional(string()),
+    commitSHA: string(),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
@@ -137,7 +139,6 @@ function getLaterCooldownUntil(
 export const claimTreeRefresh = internalMutation({
   args: {
     vaultId: id("vaults"),
-    force: optional(boolean()),
   },
   returns: object({
     claimed: boolean(),
@@ -158,17 +159,15 @@ export const claimTreeRefresh = internalMutation({
     }
 
     const now = Date.now();
-    if (!args.force) {
-      if (
-        typeof vault.treeRefreshCooldownUntil === "number" &&
-        vault.treeRefreshCooldownUntil > now
-      ) {
-        return { claimed: false, reason: "cooldown" };
-      }
+    if (
+      typeof vault.treeRefreshCooldownUntil === "number" &&
+      vault.treeRefreshCooldownUntil > now
+    ) {
+      return { claimed: false, reason: "cooldown" };
+    }
 
-      if (vault.treeRefreshStartedAt && now - vault.treeRefreshStartedAt < STALE_LOCK_MS) {
-        return { claimed: false, reason: "in_progress" };
-      }
+    if (vault.treeRefreshStartedAt && now - vault.treeRefreshStartedAt < STALE_LOCK_MS) {
+      return { claimed: false, reason: "in_progress" };
     }
 
     await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: now });

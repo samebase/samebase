@@ -2,13 +2,17 @@
 
 ## Document Control
 
-- Status: Research note
+- Status: Superseded research note
 - Owner: Noter product/frontend
 - Last updated: 2026-03-23
 - Depends on:
   - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/convex/vault.ts`
   - `apps/noter/convex/github.ts`
+
+This note predates the live pull request dashboard. Use
+`specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md` and `specs/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`;
+do not persist its proposed branch/PR normalization.
 
 ## Purpose
 

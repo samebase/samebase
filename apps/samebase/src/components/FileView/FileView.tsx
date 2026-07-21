@@ -65,6 +65,7 @@ import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspaceP
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
 import { CHAT_ENABLED } from "../../../shared/featureFlags";
+import { TREE_REFRESH_STALE_LOCK_MS } from "../../../shared/treeRefresh";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -267,9 +268,11 @@ function FileViewWrapper() {
       const key = `${owner}/${repoName}:branch:${branch}`;
       const hasTree = vault.branchTreeState === "ready";
       const hasConfirmedMissingBranch = confirmedMissingBranchKeyRef.current === key;
+      const now = Date.now();
       if (
         !hasTree &&
         typeof vault.treeRefreshStartedAt === "number" &&
+        vault.treeRefreshStartedAt + TREE_REFRESH_STALE_LOCK_MS > now &&
         branchHydrationInFlightKeyRef.current !== key
       ) {
         setBranchHydrationFeedback({ key, state: { kind: "deferred", reason: "in_progress" } });
@@ -277,7 +280,7 @@ function FileViewWrapper() {
       }
       if (
         typeof vault.treeRefreshCooldownUntil === "number" &&
-        vault.treeRefreshCooldownUntil > Date.now()
+        vault.treeRefreshCooldownUntil > now
       ) {
         if (!hasTree) {
           setBranchHydrationFeedback((previous) =>
@@ -352,16 +355,17 @@ function FileViewWrapper() {
     ],
   );
 
-  /** Retry an unhydrated branch once the provider cooldown has elapsed. */
+  /** Retry an unhydrated branch once the active refresh lock and cooldown have elapsed. */
   useEffect(() => {
-    if (
-      !vault ||
-      vault.branchTreeState === "ready" ||
-      typeof vault.treeRefreshCooldownUntil !== "number"
-    ) {
+    if (!vault || vault.branchTreeState === "ready") {
       return;
     }
-    const waitMs = vault.treeRefreshCooldownUntil - Date.now();
+    const lockUntil =
+      typeof vault.treeRefreshStartedAt === "number"
+        ? vault.treeRefreshStartedAt + TREE_REFRESH_STALE_LOCK_MS
+        : 0;
+    const cooldownUntil = vault.treeRefreshCooldownUntil ?? 0;
+    const waitMs = Math.max(lockUntil, cooldownUntil) - Date.now();
     if (waitMs <= 0) {
       return;
     }
@@ -763,7 +767,7 @@ function FileViewInner({
     queryFn: () => getOpenPullRequestForBranch({ vaultId: vault._id, branch }),
     enabled: !isDefaultBranch,
     staleTime: 60_000,
-    retry: false,
+    retry: 1,
   });
   const selectedFileIsRenderableMedia = isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;

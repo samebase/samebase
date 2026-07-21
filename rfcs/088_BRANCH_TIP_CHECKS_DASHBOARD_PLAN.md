@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Accepted for branch-tip check identity
+- Status: Superseded
 - Owner: vault dashboard, GitHub checks, repository refresh
 - Created: 2026-06-24
 - Last updated: 2026-06-24
@@ -10,6 +10,9 @@
   - `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
 - Related specs:
   - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+
+The branch-tip table and commit-check snapshot model below has been deleted. The current dashboard
+is a live pull request surface governed by `specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
 
 ## Problem
 

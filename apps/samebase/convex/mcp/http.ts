@@ -74,9 +74,9 @@ const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
 const MCP_SERVER_INSTRUCTIONS = `Samebase manages repository-backed vaults and explicit attachments to user-owned Convex and Cloudflare resources. Read ${getUserVaultsContract.mcp.name} before writes whenever a repository may already be connected, and reuse the returned vault and attachment identifiers.
 
-After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until provisioning reaches a terminal ready or failed state. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
+After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until source setup is ready or failed. Once source setup is ready, treat provider setup as an independent ready, failed, or not-applicable axis. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
-Inventory reports live provider state and stable Samebase resource IDs. Match the observed state and required IDs to an explicit action contract, call that action, then reread inventory.
+Inventory reports Samebase-owned workflow state and stable resource IDs. Read current provider existence, configuration, deployment state, and logs from provider-native tools unless an explicit Samebase action exposes that live read. Match the required IDs to an explicit action contract, call that action, then reread inventory.
 
 Make code changes, run setup and validation, and commit or push in the returned GitHub repository. Use provider-native tools for logs, general environment values, migrations, custom domains, and terminal build state when Samebase does not expose that read. The current action and provider-boundary docs are indexed at https://samebase.com/llms.txt.`;
 const mcpToolCallParams = object({

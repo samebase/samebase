@@ -1,6 +1,8 @@
 "use node";
 
+import { Octokit } from "@octokit/rest";
 import { v, type Infer } from "convex/values";
+import { z } from "zod";
 
 import { internal } from "../_generated/api";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
@@ -18,11 +20,11 @@ import { readConvexPreviewDeployments, readConvexProjectResource } from "./conve
 import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
-const { array, id, literal, null: vNull, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
 const CLOUDFLARE_BUILD_PAGE_SIZE = 100;
 const CLOUDFLARE_BUILD_MAX_PAGES = 2;
-const MAX_VISIBLE_PULL_REQUEST_HEADS = 25;
+const GITHUB_PULL_REQUEST_NODE_BATCH_SIZE = 100;
 
 const vCloudflareBuildState = union(
   literal("queued"),
@@ -63,22 +65,82 @@ const vPullRequestWorkerResource = union(
     ...workerIdentityFields,
   }),
 );
-const vPullRequestResourceHead = object({
-  id: string(),
-  url: string(),
-  isCrossRepository: v.boolean(),
-  headRepositoryId: union(string(), vNull()),
-  headRefName: string(),
-  headRefOid: string(),
-});
 const vPullRequestResources = object({
   pullRequestId: string(),
   workers: array(vPullRequestWorkerResource),
 });
 
-export type PullRequestResourceHead = Infer<typeof vPullRequestResourceHead>;
 export type PullRequestWorkerResource = Infer<typeof vPullRequestWorkerResource>;
 export type PullRequestResources = Infer<typeof vPullRequestResources>;
+
+const providerPullRequestResourceHeadSchema = z.object({
+  __typename: z.literal("PullRequest"),
+  id: z.string().min(1),
+  url: z.string().url(),
+  isCrossRepository: z.boolean(),
+  state: z.literal("OPEN"),
+  repository: z.object({ databaseId: z.number().int().positive() }),
+  headRepository: z.object({ id: z.string().min(1) }).nullable(),
+  headRefName: z.string().min(1),
+  headRefOid: z.string().min(1),
+});
+const providerPullRequestResourceHeadsSchema = z.object({ nodes: z.array(z.unknown()) });
+type ProviderPullRequestResourceHead = z.infer<typeof providerPullRequestResourceHeadSchema>;
+export type PullRequestResourceHead = Pick<
+  ProviderPullRequestResourceHead,
+  "id" | "url" | "isCrossRepository" | "headRefName" | "headRefOid"
+> & {
+  headRepositoryId: string | null;
+};
+
+const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
+  query PullRequestResourceHeads($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      __typename
+      ... on PullRequest {
+        id
+        url
+        isCrossRepository
+        state
+        repository { databaseId }
+        headRepository { id }
+        headRefName
+        headRefOid
+      }
+    }
+  }
+`;
+
+export function normalizeGitHubPullRequestResourceHeads(
+  value: unknown,
+  args: {
+    ghRepoId: string;
+    pullRequestIds: readonly string[];
+  },
+): PullRequestResourceHead[] {
+  const providerHeads = providerPullRequestResourceHeadsSchema.parse(value).nodes;
+  if (providerHeads.length !== args.pullRequestIds.length) {
+    throw new Error("GitHub returned an incomplete pull request resource response.");
+  }
+
+  return providerHeads.map((value, index) => {
+    const head = providerPullRequestResourceHeadSchema.parse(value);
+    if (
+      head.id !== args.pullRequestIds[index] ||
+      String(head.repository.databaseId) !== args.ghRepoId
+    ) {
+      throw new Error("GitHub pull request identity changed.");
+    }
+    return {
+      id: head.id,
+      url: head.url,
+      isCrossRepository: head.isCrossRepository,
+      headRepositoryId: head.headRepository?.id ?? null,
+      headRefName: head.headRefName,
+      headRefOid: head.headRefOid,
+    };
+  });
+}
 
 type StableWorker = VaultProviderObservationContext["cloudflareWorkers"][number];
 type StableConvexProject = VaultProviderObservationContext["convexProjects"][number];
@@ -87,10 +149,8 @@ type AvailableWorkerResource = Extract<PullRequestWorkerResource, { state: "avai
 type BuildMatch =
   | {
       state: "available";
-      buildUuid: string;
       buildState: CloudflareBuildState;
       createdAt: number;
-      startedAt: number;
       finishedAt: number | null;
     }
   | { state: "absent" }
@@ -222,17 +282,12 @@ export function matchCloudflareWorkerBuild(args: {
   const build = candidate.build;
   const trigger = build.trigger;
   const metadata = build.build_trigger_metadata;
-  const buildUuid = build.build_uuid;
   const createdAt = candidate.createdAt;
-  const startedAt =
-    providerTimestamp(build.running_on) ?? providerTimestamp(build.initializing_on) ?? createdAt;
   const finishedAt = providerTimestamp(build.stopped_on);
   if (
     !trigger ||
     !metadata ||
-    !buildUuid ||
     createdAt === null ||
-    startedAt === null ||
     trigger.external_script_id !== args.worker.workerTag ||
     trigger.trigger_uuid !== args.previewTriggerUuid ||
     trigger.repo_connection?.repo_id !== args.ghRepoId ||
@@ -248,10 +303,8 @@ export function matchCloudflareWorkerBuild(args: {
 
   return {
     state: "available",
-    buildUuid,
     buildState: classifyCloudflareBuildState(build),
     createdAt,
-    startedAt,
     finishedAt,
   };
 }
@@ -540,57 +593,87 @@ async function readWorkerResourcesForHeads(args: {
   );
 }
 
-export const getVisiblePullRequestResources = action({
+export const getPullRequestResources = action({
   access: "access_dashboard",
   args: {
     vaultId: id("vaults"),
-    heads: array(vPullRequestResourceHead),
+    pullRequestIds: array(string()),
   },
   returns: array(vPullRequestResources),
   handler: async (ctx, args): Promise<PullRequestResources[]> => {
-    if (args.heads.length > MAX_VISIBLE_PULL_REQUEST_HEADS) {
-      throw new Error("At most 25 pull request heads can be observed at once.");
-    }
     const seenPullRequests = new Set<string>();
-    for (const head of args.heads) {
-      if (normalizeGitHubPullRequestUrl(head.url) === null || seenPullRequests.has(head.id)) {
-        throw new Error("Pull request head identity was invalid or duplicated.");
+    for (const pullRequestId of args.pullRequestIds) {
+      if (!pullRequestId || seenPullRequests.has(pullRequestId)) {
+        throw new Error("Pull request identity was invalid or duplicated.");
       }
-      seenPullRequests.add(head.id);
+      seenPullRequests.add(pullRequestId);
     }
 
-    const context: VaultProviderObservationContext = await ctx.runQuery(
-      internal.vault.providerObservationQueries.readVaultProviderObservationContext,
-      {
+    const [context, githubConnection, cloudflareConnection, convexConnection] = await Promise.all([
+      ctx.runQuery(internal.vault.providerObservationQueries.readVaultProviderObservationContext, {
         vaultId: args.vaultId,
         userId: ctx.viewer.userId,
-      },
-    );
-    const cloudflareConnection = await ctx
-      .runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId: ctx.viewer.userId,
-      })
-      .catch(() => null);
-    const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
-    const convexConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "convex",
+        kind: "github",
+      }),
+      ctx
+        .runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
+          userId: ctx.viewer.userId,
+        })
+        .catch(() => null),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId: ctx.viewer.userId,
+        kind: "convex",
+      }),
+    ]);
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub connection unavailable.");
+    }
+    const octokit = new Octokit({
+      auth: githubConnection.auth.credential,
+      request: { timeout: 15_000 },
     });
+    const pullRequestIdBatches: string[][] = [];
+    for (
+      let index = 0;
+      index < args.pullRequestIds.length;
+      index += GITHUB_PULL_REQUEST_NODE_BATCH_SIZE
+    ) {
+      pullRequestIdBatches.push(
+        args.pullRequestIds.slice(index, index + GITHUB_PULL_REQUEST_NODE_BATCH_SIZE),
+      );
+    }
+    const heads = (
+      await Promise.all(
+        pullRequestIdBatches.map(async (pullRequestIds) =>
+          normalizeGitHubPullRequestResourceHeads(
+            await octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, { ids: pullRequestIds }),
+            {
+              ghRepoId: context.ghRepoId,
+              pullRequestIds,
+            },
+          ),
+        ),
+      )
+    ).flat();
+    const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
     const convexToken =
       convexConnection?.kind === "convex" ? convexConnection.auth.credential.trim() : "";
     const convexTeamId = convexConnection?.kind === "convex" ? convexConnection.teamId.trim() : "";
     const resourcesByPullRequest = new Map<string, PullRequestWorkerResource[]>();
-    for (const head of args.heads) {
+    for (const head of heads) {
       resourcesByPullRequest.set(head.id, []);
     }
 
     if (!cloudflareConnection || !cloudflareToken) {
       for (const worker of context.cloudflareWorkers) {
         const resources = unavailableWorkerResources({
-          heads: args.heads,
+          heads,
           worker,
         });
-        args.heads.forEach((head, index) => {
+        heads.forEach((head, index) => {
           resourcesByPullRequest.get(head.id)?.push(resources[index]);
         });
       }
@@ -603,7 +686,7 @@ export const getVisiblePullRequestResources = action({
             return await readWorkerResourcesForHeads({
               context,
               worker,
-              heads: args.heads,
+              heads,
               cloudflareToken,
               cloudflareTransport,
               convexToken,
@@ -612,14 +695,14 @@ export const getVisiblePullRequestResources = action({
             });
           } catch {
             return unavailableWorkerResources({
-              heads: args.heads,
+              heads,
               worker,
             });
           }
         }),
       );
       context.cloudflareWorkers.forEach((worker, workerIndex) => {
-        args.heads.forEach((head, headIndex) => {
+        heads.forEach((head, headIndex) => {
           const resource = workerResources[workerIndex][headIndex];
           if (resource.workerId !== worker.workerId) {
             throw new Error("Pull request resources lost stable Worker identity.");
@@ -629,7 +712,7 @@ export const getVisiblePullRequestResources = action({
       });
     }
 
-    return args.heads.map((head) => ({
+    return heads.map((head) => ({
       pullRequestId: head.id,
       workers: resourcesByPullRequest.get(head.id) ?? [],
     }));

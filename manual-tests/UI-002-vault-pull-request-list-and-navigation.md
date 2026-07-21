@@ -29,8 +29,8 @@ branch.
    deployment from the stable Convex project connected to that same vault app.
 7. On a same-repository pull request, select `View changes` and confirm FileView opens with that
    pull request's head branch in the URL.
-8. Reload FileView and confirm it remains on that exact branch even if the cached repository branch
-   catalog has not observed it.
+8. Reload FileView and confirm it remains on that exact branch after hydrating only that branch's
+   exact tree cache.
 9. Return to the dashboard and change a label or draft filter. Confirm the preference remains after
    reload and the list still represents a fresh provider observation.
 10. If a fork pull request is available, confirm it does not offer Samebase `View changes` and does

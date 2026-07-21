@@ -630,7 +630,6 @@ function isCreateAppPreInfrastructureStep(step: string): boolean {
     step === "create_github_repo" ||
     step === "fetch_github_repo" ||
     step === "connect_github" ||
-    step === "create_vault" ||
     step === "seed_starter" ||
     step === "sync_tree"
   );

@@ -40,17 +40,10 @@ export function getDefaultVaultPullRequestFilters(): VaultPullRequestFilters {
 }
 
 export function normalizeVaultPullRequestFilters(
-  filters: Partial<VaultPullRequestFilters> | null | undefined,
+  filters: VaultPullRequestFilters,
 ): VaultPullRequestFilters {
-  if (!filters) {
-    return getDefaultVaultPullRequestFilters();
-  }
-
   const hiddenLabelsByKey = new Map<string, string>();
-  for (const labelName of filters.hiddenLabels ?? []) {
-    if (typeof labelName !== "string") {
-      continue;
-    }
+  for (const labelName of filters.hiddenLabels) {
     const trimmedLabelName = labelName.trim();
     if (trimmedLabelName.length === 0) {
       continue;
@@ -63,8 +56,8 @@ export function normalizeVaultPullRequestFilters(
 
   return {
     hiddenLabels: Array.from(hiddenLabelsByKey.values()).sort((a, b) => compareLabelNames(a, b)),
-    includeDrafts: filters.includeDrafts === true,
-    includeNoLabel: filters.includeNoLabel !== false,
+    includeDrafts: filters.includeDrafts,
+    includeNoLabel: filters.includeNoLabel,
   };
 }
 
@@ -98,7 +91,7 @@ export function setVaultPullRequestFilterLabelIncluded(args: {
 
 export function filterVaultPullRequests<T extends VaultPullRequestFilterable>(
   pullRequests: readonly T[],
-  filters: Partial<VaultPullRequestFilters> | null | undefined,
+  filters: VaultPullRequestFilters,
 ): T[] {
   const normalizedFilters = normalizeVaultPullRequestFilters(filters);
   const hiddenLabelKeys = new Set(normalizedFilters.hiddenLabels.map(normalizeLabelKey));

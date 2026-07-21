@@ -205,7 +205,7 @@ export function VaultResourceRailVisualFixture() {
             {SCENARIOS.map((scenario) => (
               <VaultDashboardRepositoryCard
                 key={scenario.repositoryName}
-                isReady={true}
+                muted={false}
                 repositoryName={scenario.repositoryName}
                 repositoryLinks={<VaultResourceRail state={scenario.state} />}
                 repositoryLinksOpen={true}

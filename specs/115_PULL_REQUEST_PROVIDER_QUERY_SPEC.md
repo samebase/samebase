@@ -40,9 +40,11 @@ The browser owns pagination and presentation:
 
 - the first page loads automatically;
 - later pages load only when requested;
+- one TanStack infinite query owns all loaded pages and refreshes them together;
 - label and draft filters run over the pages already loaded;
 - check counts are converted to display state in the browser;
 - TanStack Query caches responses for 60 seconds and discards unused entries after 5 minutes;
+- loading a later page does not renew the first page's observation time;
 - a failed background refresh may show the previous response as stale.
 
 Filtering can produce no matches while GitHub still has another page. The UI must keep `Load more`
@@ -51,9 +53,15 @@ are exhausted.
 
 ## Visible Provider Resources
 
-For pull requests currently rendered, the browser may request the attached Worker build and Convex
-preview resources. This request joins live provider responses against the stable attachment graph;
-it does not persist a pull request resource model.
+For pull requests in the loaded provider pages, the browser may request the attached Worker build
+and Convex preview resources. The browser sends only opaque GitHub pull request node ids. The server
+re-reads those open pull requests from GitHub, verifies their repository identity against the vault,
+and derives URL, fork, head repository, branch, and commit identity from that response. Client data
+never proves resource ownership.
+
+The request joins live GitHub, Cloudflare, and Convex responses against the stable attachment graph;
+it does not persist a pull request resource model. Resource requests are independent of browser
+filters so changing presentation preferences does not repeat provider scans.
 
 A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, GitHub
 repository id, app root, preview trigger, pull request URL, head SHA, branch, and deploy command.
@@ -77,6 +85,13 @@ and is never used to generate the pull request list.
 
 The durable `vault.defaultBranch` resolves omitted branch arguments. Opening a pull request or file
 route hydrates only its exact branch and reads the immutable tree SHA named by the observed commit.
+Every stored row requires its commit SHA, stores the tree SHA only as `treeData.sha`, and rejects a
+truncated recursive tree.
+
+GitHub connection and exact-tree readiness are separate axes. A connected vault may list live pull
+requests while initial tree hydration is still running or failed. Editor and file affordances remain
+gated on connected repository identity and hydrate the exact branch tree they need. Source setup
+status remains visible, but it does not revoke an already established GitHub connection.
 
 ## Deleted Model
 
@@ -100,7 +115,9 @@ Tests must prove:
 - filters are absent from the server request and run over loaded browser pages;
 - another provider page remains loadable after a filtered-empty loaded page;
 - a background failure retains stale browser data without calling it current;
+- refreshing a multi-page query retains all previous pages if any provider request fails;
 - same-repository and fork heads stay distinct;
+- resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - resource links require exact cross-provider identity;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.

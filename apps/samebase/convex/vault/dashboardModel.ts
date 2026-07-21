@@ -4,7 +4,7 @@ import { v } from "convex/values";
 const { array, boolean, id, number, object, string } = v;
 
 export const vaultDashboardTables = {
-  /** Per-user choices controlling which pull-request branches appear for one vault. */
+  /** Per-user choices controlling which pull requests appear for one vault. */
   ui_vaultPullRequests_filters: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
@@ -19,7 +19,7 @@ export const vaultDashboardTables = {
   /**
    * One user's choice to keep the resource-links rail open for one vault.
    * New vault creation inserts an open row so the connection rail starts visible.
-   * Missing rows still use the dashboard's collapsed fallback for legacy or directly seeded vaults.
+   * A missing preference means the rail is collapsed.
    */
   ui_vaultResourceLinks_settings: defineTable({
     userId: id("users"),

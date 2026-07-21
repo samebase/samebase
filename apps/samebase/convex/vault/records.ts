@@ -13,12 +13,7 @@ import {
   vGitHubRepositoryVisibility,
 } from "./model";
 import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
-import {
-  assertConnectedVault,
-  isConnectedVault,
-  isLiveConnectedVault,
-  isSamebaseManagedVault,
-} from "./state";
+import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 
 const nullValidator = v.null();
@@ -467,16 +462,6 @@ export const markGithubProvisioningFailed = internalMutation({
   },
 });
 
-export const markVaultAsReady = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  handler: async (ctx, args) => {
-    assertConnectedVault(await ctx.db.get(args.vaultId));
-    return null;
-  },
-});
-
 export const updateVaultDevcontainerConfig = internalMutation({
   args: {
     vaultId: v.id("vaults"),
@@ -566,7 +551,7 @@ async function getVaultByRepositoryHelper(
     owner: vault.owner,
     name: vault.name,
     repositoryFullName: `${vault.owner}/${vault.name}`,
-    treeSHA: branchTree?.treeSHA,
+    treeSHA: branchTree?.treeData.sha,
     commitSHA: branchTree?.commitSHA,
     treeData: branchTree?.treeData,
     treeRefreshStartedAt: vault.treeRefreshStartedAt,

@@ -21,6 +21,7 @@ describe("ui_vaultPullRequests_filters", () => {
       normalizeVaultPullRequestFilters({
         hiddenLabels: [" Research ", "research", "wip"],
         includeDrafts: false,
+        includeNoLabel: true,
       }),
     ).toEqual({
       hiddenLabels: ["Research", "wip"],

@@ -4,6 +4,7 @@ import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import type { CloudflareWorkerBuild } from "../cloudflareResources";
 import {
   matchCloudflareWorkerBuild,
+  normalizeGitHubPullRequestResourceHeads,
   resolveConvexPreviewDeployment,
   type PullRequestResourceHead,
 } from "./pullRequestResources";
@@ -95,10 +96,8 @@ describe("matchCloudflareWorkerBuild", () => {
       }),
     ).toEqual({
       state: "available",
-      buildUuid: "build-1",
       buildState: "success",
       createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
-      startedAt: Date.parse("2026-07-20T10:00:05.000Z"),
       finishedAt: Date.parse("2026-07-20T10:01:00.000Z"),
     });
   });
@@ -158,7 +157,57 @@ describe("matchCloudflareWorkerBuild", () => {
       previewDeployCommand: "pnpm run deploy:preview",
     });
 
-    expect(result).toMatchObject({ state: "available", buildUuid: "newer" });
+    expect(result).toMatchObject({
+      state: "available",
+      createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
+    });
+  });
+});
+
+describe("normalizeGitHubPullRequestResourceHeads", () => {
+  const providerHead = {
+    __typename: "PullRequest",
+    id: "PR_17",
+    url: "https://github.com/samebase/samebase/pull/17",
+    isCrossRepository: false,
+    state: "OPEN",
+    repository: { databaseId: 42 },
+    headRepository: { id: "R_base" },
+    headRefName: "feature/live-truth",
+    headRefOid: "abc123",
+  };
+
+  it("derives resource identity from the server-observed GitHub node", () => {
+    expect(
+      normalizeGitHubPullRequestResourceHeads(
+        { nodes: [providerHead] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+      ),
+    ).toEqual([head]);
+  });
+
+  it("rejects a pull request from another repository", () => {
+    expect(() =>
+      normalizeGitHubPullRequestResourceHeads(
+        { nodes: [{ ...providerHead, repository: { databaseId: 99 } }] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+      ),
+    ).toThrow("GitHub pull request identity changed.");
+  });
+
+  it("rejects a closed or missing requested pull request", () => {
+    expect(() =>
+      normalizeGitHubPullRequestResourceHeads(
+        { nodes: [{ ...providerHead, state: "CLOSED" }] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+      ),
+    ).toThrow();
+    expect(() =>
+      normalizeGitHubPullRequestResourceHeads(
+        { nodes: [null] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+      ),
+    ).toThrow();
   });
 });
 

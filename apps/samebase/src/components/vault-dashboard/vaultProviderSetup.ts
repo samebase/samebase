@@ -37,6 +37,25 @@ export function formatVaultProviderSetupProvider(
   return provider;
 }
 
+export function formatVaultProviderSetupStep(step: VaultDashboardProviderSetupStep): string {
+  switch (step) {
+    case "claim_infra":
+      return "claim infra";
+    case "attach_convex":
+      return "attach Convex";
+    case "attach_worker":
+      return "attach Worker";
+    case "configure_workers_builds_for_github":
+      return "configure Workers Builds for GitHub";
+    case "rotate_convex_deploy_keys_for_workers_builds":
+      return "rotate Convex deploy keys for Workers Builds";
+    case "finish":
+      return "finish";
+  }
+  step satisfies never;
+  return step;
+}
+
 export function resolveVaultProviderSetupStepProvider(
   providerSetup: VaultDashboardProviderSetup,
 ): VaultDashboardProviderSetupProvider | null {
@@ -45,7 +64,6 @@ export function resolveVaultProviderSetupStepProvider(
   }
 
   switch (providerSetup.step) {
-    case "validate_connections":
     case "claim_infra":
       return providerSetup.provider;
     case "attach_convex":
@@ -54,14 +72,6 @@ export function resolveVaultProviderSetupStepProvider(
     case "configure_workers_builds_for_github":
     case "rotate_convex_deploy_keys_for_workers_builds":
       return "cloudflare";
-    case "run_created":
-    case "initialize_vault":
-    case "create_github_repo":
-    case "fetch_github_repo":
-    case "connect_github":
-    case "create_vault":
-    case "seed_starter":
-    case "sync_tree":
     case "finish":
       return null;
   }

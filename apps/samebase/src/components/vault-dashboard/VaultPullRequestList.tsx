@@ -450,7 +450,11 @@ export function VaultPullRequestList({
       ))}
       {pullRequests.pullRequests.length === 0 ? (
         <div className="px-3 py-3.5 text-sm text-muted-foreground">
-          {pullRequests.hasMore ? "No matching pull requests loaded" : "No open pull requests"}
+          {pullRequests.hasMore
+            ? "No matching pull requests loaded"
+            : pullRequests.allPullRequests.length > 0
+              ? "No matching pull requests"
+              : "No open pull requests"}
         </div>
       ) : null}
       {pullRequests.hasMore ? (

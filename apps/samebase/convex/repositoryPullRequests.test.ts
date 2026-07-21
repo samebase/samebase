@@ -31,7 +31,10 @@ function providerPage() {
               nameWithOwner: "samebase/samebase",
               owner: { login: "samebase" },
             },
-            labels: { nodes: [{ name: "product", color: "1a7f37" }] },
+            labels: {
+              totalCount: 1,
+              nodes: [{ name: "product", color: "1a7f37" }],
+            },
             commits: {
               nodes: [
                 {
@@ -92,6 +95,25 @@ describe("normalizeGitHubPullRequestPage", () => {
     value.repository.pullRequests.nodes[0].commits.nodes[0].commit.oid = "new-head";
     expect(() => normalizeGitHubPullRequestPage(value)).toThrow(
       "GitHub did not return the pull request head commit.",
+    );
+  });
+
+  it("rejects inconsistent grouped check counts at the provider boundary", () => {
+    const value = providerPage();
+    value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup.contexts.checkRunCountsByState =
+      [];
+
+    expect(() => normalizeGitHubPullRequestPage(value)).toThrow(
+      "GitHub returned inconsistent check counts.",
+    );
+  });
+
+  it("rejects an incomplete label page at the provider boundary", () => {
+    const value = providerPage();
+    value.repository.pullRequests.nodes[0].labels.totalCount = 2;
+
+    expect(() => normalizeGitHubPullRequestPage(value)).toThrow(
+      "GitHub returned incomplete pull request labels.",
     );
   });
 });

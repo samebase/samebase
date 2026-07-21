@@ -16,10 +16,10 @@ when the repository has changed upstream.
 
 ## Supersession Note
 
-This investigation predates the repository refresh queue. Use
-`archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md` for new refresh-trigger work. The current contract
-collapses route load, Page Visibility resume, and window focus into the same passive source demand;
-do not revive separate `page_load`, `visibility`, or `focus` policy from this research log.
+This investigation and the later repository refresh queue are both superseded. Use
+`specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`: the dashboard reads GitHub pull request pages live
+through TanStack Query and has no repository refresh queue or branch mirror. The remainder of this
+file is historical investigation, not current implementation guidance.
 
 ## Initial Hypotheses
 

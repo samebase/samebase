@@ -124,18 +124,23 @@ async function waitFor(predicate: (state: VaultPullRequestsState) => boolean): P
 
 function installResourceHandler() {
   const handler = vi.fn(async (value: unknown) => {
-    if (!value || typeof value !== "object" || !("heads" in value) || !Array.isArray(value.heads)) {
-      throw new Error("Resource heads are required.");
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("pullRequestIds" in value) ||
+      !Array.isArray(value.pullRequestIds)
+    ) {
+      throw new Error("Pull request ids are required.");
     }
-    return value.heads.map((head) => {
-      if (!head || typeof head !== "object" || !("id" in head) || typeof head.id !== "string") {
-        throw new Error("Resource head id is required.");
+    return value.pullRequestIds.map((pullRequestId) => {
+      if (typeof pullRequestId !== "string") {
+        throw new Error("Pull request id is required.");
       }
-      return { pullRequestId: head.id, workers: [] };
+      return { pullRequestId, workers: [] };
     });
   });
   actionState.handlersByFunctionName.set(
-    getFunctionName(api.vault.pullRequestResources.getVisiblePullRequestResources),
+    getFunctionName(api.vault.pullRequestResources.getPullRequestResources),
     handler,
   );
   return handler;
@@ -161,6 +166,7 @@ afterEach(async () => {
   rootElement?.remove();
   root = null;
   rootElement = null;
+  vi.restoreAllMocks();
 });
 
 async function renderHarness(): Promise<void> {
@@ -233,15 +239,20 @@ describe("useVaultPullRequests", () => {
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       listHandler,
     );
-    installResourceHandler();
+    const resourceHandler = installResourceHandler();
 
     await renderHarness();
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 1,
+        state.allPullRequests.length === 1 &&
+        state.resourceState === "current",
     );
     expect(settledState().pullRequests).toEqual([]);
+    expect(resourceHandler).toHaveBeenCalledWith({
+      vaultId: fakeVaultId(),
+      pullRequestIds: ["pull-request:1260"],
+    });
 
     currentFilters = {
       ...currentFilters,
@@ -254,14 +265,24 @@ describe("useVaultPullRequests", () => {
     );
 
     expect(listHandler).toHaveBeenCalledTimes(1);
+    expect(resourceHandler).toHaveBeenCalledTimes(1);
   });
 
-  it("retains the provider page as stale when a background reload fails", async () => {
+  it("retains every loaded provider page as stale when a reload fails", async () => {
     let requestCount = 0;
-    const listHandler = vi.fn(async () => {
+    const listHandler = vi.fn(async (value: unknown) => {
+      if (!value || typeof value !== "object" || !("after" in value)) {
+        throw new Error("Provider cursor is required.");
+      }
       requestCount += 1;
       if (requestCount === 1) {
-        return page({ number: 1260, endCursor: null });
+        return page({ number: 1260, endCursor: "cursor:2" });
+      }
+      if (requestCount === 2 && value.after === "cursor:2") {
+        return page({ number: 1259, endCursor: null });
+      }
+      if (requestCount === 3 && value.after === null) {
+        return page({ number: 1261, endCursor: "cursor:refreshed" });
       }
       throw new Error("GitHub unavailable");
     });
@@ -274,17 +295,123 @@ describe("useVaultPullRequests", () => {
     await renderHarness();
     await waitFor(
       (state) =>
-        (state.state === "current" || state.state === "stale") && state.pullRequests.length === 1,
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 1,
     );
 
+    act(() => settledState().loadMore());
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 2,
+    );
     act(() => settledState().reload());
     await waitFor(
       (state) =>
         state.state === "stale" &&
         !state.refreshing &&
-        state.pullRequests.some((pullRequest) => pullRequest.number === 1260),
+        state.allPullRequests.map((pullRequest) => pullRequest.number).join(",") === "1260,1259",
     );
 
-    expect(listHandler).toHaveBeenCalledTimes(2);
+    expect(listHandler.mock.calls.map((call) => call[0])).toEqual([
+      expect.objectContaining({ after: null }),
+      expect.objectContaining({ after: "cursor:2" }),
+      expect.objectContaining({ after: null }),
+      expect.objectContaining({ after: "cursor:refreshed" }),
+    ]);
+  });
+
+  it("reloads every loaded provider page through the latest cursors", async () => {
+    let generation = 0;
+    const listHandler = vi.fn(async (value: unknown) => {
+      if (!value || typeof value !== "object" || !("after" in value)) {
+        throw new Error("Provider cursor is required.");
+      }
+      if (value.after === null) {
+        generation += 1;
+        return page({
+          number: generation === 1 ? 1260 : 1261,
+          endCursor: generation === 1 ? "cursor:2" : "cursor:refreshed",
+        });
+      }
+      if (generation === 1 && value.after === "cursor:2") {
+        return page({ number: 1259, endCursor: null });
+      }
+      if (generation === 2 && value.after === "cursor:refreshed") {
+        return page({ number: 1258, endCursor: null });
+      }
+      throw new Error("Unexpected provider cursor.");
+    });
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    installResourceHandler();
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 1,
+    );
+    act(() => settledState().loadMore());
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 2,
+    );
+
+    act(() => settledState().reload());
+    await waitFor(
+      (state) =>
+        state.state === "current" &&
+        !state.refreshing &&
+        state.allPullRequests.map((pullRequest) => pullRequest.number).join(",") === "1261,1258",
+    );
+
+    expect(listHandler.mock.calls.map((call) => call[0])).toEqual([
+      expect.objectContaining({ after: null }),
+      expect.objectContaining({ after: "cursor:2" }),
+      expect.objectContaining({ after: null }),
+      expect.objectContaining({ after: "cursor:refreshed" }),
+    ]);
+  });
+
+  it("does not renew first-page freshness when a later page loads", async () => {
+    let now = 1_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const listHandler = vi.fn(async (value: unknown) => {
+      if (!value || typeof value !== "object" || !("after" in value)) {
+        throw new Error("Provider cursor is required.");
+      }
+      return value.after === null
+        ? page({ number: 1260, endCursor: "cursor:2" })
+        : page({ number: 1259, endCursor: null });
+    });
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    installResourceHandler();
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 1,
+    );
+
+    now = 60_000;
+    act(() => settledState().loadMore());
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 2,
+    );
+
+    now = 61_001;
+    await renderHarness();
+
+    expect(settledState().state).toBe("stale");
   });
 });

@@ -45,7 +45,7 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
+        commitSHA: "commit",
         treeData: {
           sha: "tree",
           truncated: false,
@@ -100,7 +100,7 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
+        commitSHA: "commit",
         treeData: {
           sha: "tree",
           truncated: false,
@@ -363,7 +363,6 @@ describe("vault deletion workflow", () => {
 
     const claim = await t.mutation(internal.vault.branches.claimTreeRefresh, {
       vaultId: ids.vaultId,
-      force: true,
     });
 
     expect(claim).toEqual({ claimed: false });
@@ -444,7 +443,7 @@ describe("vault deletion workflow", () => {
         await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
           branch: `branch-${index}`,
-          treeSHA: `tree-${index}`,
+          commitSHA: `commit-${index}`,
           treeData: {
             sha: `tree-${index}`,
             truncated: false,

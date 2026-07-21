@@ -258,7 +258,6 @@ describe("vault records Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "main-tree",
         commitSHA: "main-commit",
         treeData: {
           sha: "main-tree",

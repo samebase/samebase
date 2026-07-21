@@ -2507,58 +2507,10 @@ export const pullFromGitHub = action({
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
 
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      vaultId: args.vaultId,
+    await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
       userId,
+      vaultId: args.vaultId,
     });
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-
-    // Atomically claim the refresh lock; force because user explicitly requested pull
-    const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
-      vaultId: vault._id,
-      force: true,
-    });
-    if (!claim.claimed) return null;
-    if (typeof claim.startedAt !== "number") {
-      throw new Error("Tree refresh claim missing start timestamp");
-    }
-
-    try {
-      await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
-        userId,
-        vaultId: args.vaultId,
-      });
-      await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: vault._id,
-        startedAt: claim.startedAt,
-        markRefreshed: true,
-      });
-    } catch (error) {
-      const failure = describeRepositoryTreeRefreshFailure(error);
-      if (failure.kind === "rate_limited") {
-        githubRateLimitResetByUser.set(userId, failure.cooldownUntil);
-      }
-      const releaseResult = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: vault._id,
-        startedAt: claim.startedAt,
-        markRefreshed: false,
-        failureKind: failure.kind,
-        failureMessage: failure.message,
-        cooldownUntil: failure.cooldownUntil,
-      });
-      if (!releaseResult.released) {
-        await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
-          vaultId: vault._id,
-          startedAt: claim.startedAt,
-          failureKind: failure.kind,
-          failureMessage: failure.message,
-          cooldownUntil: failure.cooldownUntil,
-        });
-      }
-      throw error;
-    }
 
     return null;
   },
@@ -2784,7 +2736,10 @@ export const pullFromGitHubInternal = internalAction({
     }
 
     // 5. Refresh touched branch caches after reconciliation
-    const touchedBranches = listTouchedBranchesForRefresh(allStaged.map((item) => item.branch));
+    const touchedBranches = listTouchedBranchesForRefresh([
+      ...allStaged.map((item) => item.branch),
+      connectedVault.defaultBranch,
+    ]);
     for (const branch of touchedBranches) {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,

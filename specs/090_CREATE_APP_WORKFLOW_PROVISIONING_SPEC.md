@@ -89,10 +89,9 @@ This is operationally useful but unclear during app creation because multiple pr
 succeed or fail under the same visible state.
 
 The current vault-first direction in `096` keeps this history but changes the target model: Convex
-projects and Cloudflare Workers are independent vault-scoped attachments, while current provider
-configuration remains live observation. Dashboard summaries are derived from attachments,
-observations, and workflow state. Top-level `vaults.infra*` aggregate fields must be removed before
-provider retry UI is treated as proof of durability.
+projects and Cloudflare Workers are independent vault-scoped attachments, current provider facts
+are read live, workflow state owns provisioning progress, and no top-level `vaults.infra*`
+aggregate fields remain.
 
 Phase 1 shipped durable `workflow_vaultProvisioning_events` and a dashboard log textarea. Phase 2
 adds app-owned run identity and stores the Workflow id so the app can safely expose Workflow status,
@@ -123,8 +122,8 @@ Add an app-owned run table before moving execution into Workflow:
 ```ts
 appProvisioningRuns: {
   userId: Id<"users">;
-  vaultId: Id<"vaults"> | null;
-  repositoryFullName: string | null;
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
   workflowId?: string;
   trigger: "create" | "retry";
   state: "queued" | "running" | "succeeded" | "failed" | "canceled";
@@ -140,9 +139,8 @@ appProvisioningRuns: {
 provisioning step event has advanced it yet. New writes must not use missing `currentStep` as an
 implicit state.
 
-For create-app workflows, `vaultId: null` is the explicit state before the `create_vault` step
-creates the vault row. `repositoryFullName: null` is the explicit state before GitHub returns the
-final owner/name. These fields are not optional.
+The vault and run are created together before external GitHub provisioning begins. `vaultId` and
+`repositoryFullName` are required on every run; no pre-vault run shape remains.
 
 Run event helpers must also make state transitions explicit. Use `state: "unchanged"` for log-only
 events instead of omitting the run state update.
@@ -166,9 +164,7 @@ Run rules:
    React.
 3. Store user-safe status and error text only. Secrets, tokens, env values, deploy keys, request
    headers, and raw provider payloads remain forbidden.
-4. Legacy Phase 1 vaults may have provisioning events without a run. A retry for those vaults should
-   start a new run instead of trying to invent a historical Workflow id.
-5. Completed Workflow component records need a documented cleanup path after the app-owned run has
+4. Completed Workflow component records need a documented cleanup path after the app-owned run has
    durable terminal state.
 
 ### 1.1. Provisioning Write Lock
@@ -196,20 +192,22 @@ Add an app-owned event table for provisioning visibility:
 ```ts
 appProvisioningEvents: {
   userId: Id<"users">;
-  vaultId: Id<"vaults"> | null;
-  repositoryFullName: string | null;
-  runId?: Id<"workflow_vaultProvisioning_runs">;
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  runId: Id<"workflow_vaultProvisioning_runs">;
   step:
+    | "initialize_vault"
     | "validate_connections"
     | "create_github_repo"
+    | "fetch_github_repo"
     | "seed_starter"
-    | "create_vault"
+    | "connect_github"
+    | "sync_tree"
     | "claim_infra"
     | "attach_convex"
     | "attach_worker"
     | "configure_workers_builds_for_github"
     | "rotate_convex_deploy_keys_for_workers_builds"
-    | "record_domains"
     | "finish";
   level: "info" | "warn" | "error";
   message: string;
@@ -232,9 +230,8 @@ Logging rules:
 4. Query results must be explicitly sorted by `createdAt`, with `_creationTime` or document ID as a
    stable tie-breaker.
 
-Phase 1 shipped the event table without `runId`. Phase 2 keeps the stored `runId` field optional
-only for legacy event compatibility, requires new writes to include the active run, and leaves TODO
-comments at the temporary optional read/schema boundaries until a backfill lets the schema narrow.
+Every event belongs to the required vault and active run. There is no compatibility variant for
+run-less events.
 
 ### 3. Starter Dashboard Log Textarea
 
@@ -258,15 +255,18 @@ After event logging exists, adopt Convex Workflow for the provisioning lifecycle
 
 Target workflow steps:
 
-1. `validate_connections`
-2. `create_github_repo`
-3. `seed_starter`
-4. `create_vault`
-5. `attach_convex`
-6. `attach_worker`
-7. `configure_workers_builds_for_github`
-8. `rotate_convex_deploy_keys_for_workers_builds`
-9. `finish`
+1. `initialize_vault`
+2. `validate_connections`
+3. `create_github_repo` or `fetch_github_repo`
+4. `seed_starter` when creating a repository
+5. `connect_github`
+6. `sync_tree`
+7. `claim_infra`
+8. `attach_convex`
+9. `attach_worker`
+10. `configure_workers_builds_for_github`
+11. `rotate_convex_deploy_keys_for_workers_builds`
+12. `finish`
 
 Each step should call a narrow internal function that remains idempotent where provider APIs allow
 it.
@@ -374,6 +374,6 @@ Workflow follow-up:
 2. Dashboard cards expose recent provisioning logs in a simple read-only textarea for
    Samebase-managed vaults.
 3. Logs do not contain secrets or raw provider payloads.
-4. Existing create, retry, and infra state behavior remains compatible.
+4. Existing user-visible create, retry, and infrastructure behavior is preserved.
 5. The spec defines the incremental path from observable scheduler-based provisioning to Convex
    Workflow-backed provisioning.

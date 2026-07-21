@@ -91,9 +91,17 @@ describe("vault branch mutations", () => {
     ).resolves.toMatchObject({
       vaultId: ids.vaultId,
       branch: "feature/pr",
-      treeSHA: "feature-tree",
       commitSHA: "feature-commit",
       treeData,
     });
+
+    await expect(
+      t.mutation(internal.vault.branches.upsertVaultBranchTree, {
+        vaultId: ids.vaultId,
+        branch: "feature/truncated",
+        commitSHA: "incomplete-commit",
+        treeData: { ...treeData, truncated: true },
+      }),
+    ).rejects.toThrow("GitHub returned an incomplete recursive repository tree.");
   });
 });

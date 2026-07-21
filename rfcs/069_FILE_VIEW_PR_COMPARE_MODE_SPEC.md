@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Accepted behavior; provider model updated
 - Owner: Noter frontend/editor + Convex GitHub/file staging
 - Last updated: 2026-03-25
 - Related specs:
@@ -14,6 +14,10 @@
   - [Git Tree Compare README](https://github.com/letmaik/vscode-git-tree-compare)
   - [GitHub REST: compare two commits](https://docs.github.com/en/rest/commits/commits#compare-two-commits)
   - [GitHub REST: pull requests](https://docs.github.com/en/rest/pulls/pulls)
+
+The compare-mode behavior remains current. Its original branch-mirror backend notes are superseded
+by `specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`: FileView resolves the exact branch's open pull
+request live and caches only that branch's exact repository tree.
 
 ## Summary
 
@@ -85,16 +89,10 @@ mode.
 
 Relevant current backend facts:
 
-1. `observations_vaultRepository_branches` stores:
-   - `pullRequestUrl`
-   - `pullRequestNumber`
-   - `pullRequestLabels`
-   - `pullRequestTitle`
-   - `pullRequestIsDraft`
-2. `observations_vaultRepository_branches` does not store PR base branch
-3. GitHub branch sync intentionally preserves older PR metadata when PR lookup fails, so persisted
-   PR fields are not guaranteed to reflect live state
-4. there is no action that returns a PR/base-relative changed-file list
+1. `repositoryPullRequests.getOpenPullRequestForBranch` resolves the exact open PR live from GitHub.
+2. `observations_vaultRepository_branchTrees` caches only the exact branch tree needed by FileView.
+3. no persisted branch catalog or pull request metadata exists
+4. the compare action returns the PR/default-base-relative changed-file list live
 5. `vaultStagedFiles` is the only in-app uncommitted-change model used by file view
 
 ### Local Change Model
@@ -211,7 +209,7 @@ Why:
 
 ### 4. Resolve compare context live, not from cached PR metadata
 
-Do not add `pullRequestBaseBranch` to `observations_vaultRepository_branches` in v1.
+Do not persist `pullRequestBaseBranch` in Samebase.
 
 Instead, resolve the current branch's live open PR inside a new on-demand action.
 
@@ -439,16 +437,12 @@ That mode only filtered `finalTreeData`, which means:
 3. the product would drift back toward the review-coupled behavior already rejected in
    `specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md`
 
-### 2. Persist `pullRequestBaseBranch` in `observations_vaultRepository_branches`
+### 2. Persist pull request base metadata
 
 Rejected for v1.
 
-The current sync model preserves stale PR metadata when GitHub PR lookup fails. That is acceptable
-for dashboard adornments, but not for a navigation mode whose main promise is "show me what is in
-this PR right now."
-
-If the repo later needs PR base data in more places, add it only alongside an explicit freshness
-contract.
+The compare mode's promise is "show me what is in this PR right now," so GitHub remains the source
+of truth. A failed read stays a failed or stale provider read; it does not justify a local mirror.
 
 ### 3. Add an arbitrary base picker
 

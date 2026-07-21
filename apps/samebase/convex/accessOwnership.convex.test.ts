@@ -69,7 +69,6 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
     await ctx.db.insert("observations_vaultRepository_branchTrees", {
       vaultId,
       branch: "main",
-      treeSHA: "tree123",
       commitSHA: "abc123",
       treeData: {
         sha: "tree123",

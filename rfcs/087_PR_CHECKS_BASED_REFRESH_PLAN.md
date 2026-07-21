@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Partially implemented
+- Status: Superseded
 - Owner: vault refresh, GitHub PR metadata, dashboard branch rows
 - Created: 2026-06-23
 - Last updated: 2026-06-23
@@ -18,6 +18,10 @@
   - GitHub REST check runs: https://docs.github.com/en/rest/checks/runs
   - GitHub REST commit statuses: https://docs.github.com/en/rest/commits/statuses
   - GitHub GraphQL `statusCheckRollup`: https://docs.github.com/en/graphql/reference/commits
+
+The persisted refresh and check-snapshot design below has been deleted. The dashboard now reads
+GitHub pull request pages and grouped check counts live under
+`specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
 
 ## Problem
 

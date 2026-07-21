@@ -49,6 +49,7 @@ function pullRequest(args: { number?: number; fork?: boolean } = {}): VaultPullR
 function settledState(
   args: {
     pullRequests?: VaultPullRequest[];
+    allPullRequests?: VaultPullRequest[];
     state?: "current" | "stale";
     resourceState?: "current" | "stale" | "failed";
     hasMore?: boolean;
@@ -81,7 +82,7 @@ function settledState(
     state: args.state ?? "current",
     refreshing: false,
     pullRequests,
-    allPullRequests: pullRequests,
+    allPullRequests: args.allPullRequests ?? pullRequests,
     resourceState: args.resourceState ?? "current",
     resourcesByPullRequestId: new Map(
       Array.from(resourcesByPullRequestId, ([pullRequestId, resources]) => [
@@ -142,5 +143,15 @@ describe("VaultPullRequestList", () => {
     expect(markup).toContain("No matching pull requests loaded");
     expect(markup).toContain("Load more");
     expect(markup).toContain('href="https://github.com/samebase/samebase/pulls"');
+  });
+
+  it("does not claim the repository is empty when filters hide every loaded pull request", () => {
+    const markup = renderList(
+      settledState({ pullRequests: [], allPullRequests: [pullRequest()], hasMore: false }),
+    );
+
+    expect(markup).toContain("No matching pull requests");
+    expect(markup).not.toContain("No matching pull requests loaded");
+    expect(markup).not.toContain("No open pull requests");
   });
 });

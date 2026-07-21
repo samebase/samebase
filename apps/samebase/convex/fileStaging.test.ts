@@ -172,7 +172,7 @@ describe("selectRepositoryTreeForBranch", () => {
     ).toThrow('Branch tree is not cached for "feature/login"');
   });
 
-  it("throws for default branch before the legacy tree cache is synced", () => {
+  it("throws for the default branch before its exact tree observation exists", () => {
     expect(() =>
       selectRepositoryTreeForBranch({
         requestedBranch: "main",

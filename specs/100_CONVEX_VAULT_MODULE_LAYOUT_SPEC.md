@@ -42,8 +42,8 @@ apps/samebase/convex/vault/
 - `dashboard.ts` owns dashboard queries and persisted dashboard preferences.
 - `records.ts` owns vault row creation, lookup, repository connection, and state transitions.
 - `branches.ts` owns only the exact branch-tree cache and its refresh coordination.
-- `pullRequestResources.ts` joins live provider resources for currently visible pull request heads.
-  It does not persist pull request state.
+- `pullRequestResources.ts` verifies loaded pull request ids against GitHub, then joins live
+  provider resources. It does not persist pull request state.
 - `providerObservationQueries.ts` reads the durable vault attachment graph needed by live provider
   actions.
 - `model.ts` owns vault and attached-resource tables and reusable validators.
