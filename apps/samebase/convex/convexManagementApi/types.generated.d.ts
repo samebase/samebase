@@ -1298,7 +1298,6 @@ export interface components {
         | "deployment:usageLimits:view"
         | "deployment:usageLimits:write"
         | "deployment:usage:view"
-        | "deployment:data:sync"
       )[];
       /**
        * Format: int64
@@ -1471,7 +1470,6 @@ export interface components {
         | "deployment:usageLimits:view"
         | "deployment:usageLimits:write"
         | "deployment:usage:view"
-        | "deployment:data:sync"
       )[];
       /**
        * Format: int64
@@ -1846,7 +1844,6 @@ export interface components {
       | "deployment:metrics:view"
       | "deployment:data:view"
       | "deployment:data:write"
-      | "deployment:data:sync"
       | "deployment:backups:download"
       | "deployment:functions:actAsUser"
       | "deployment:functions:runInternalQueries"
