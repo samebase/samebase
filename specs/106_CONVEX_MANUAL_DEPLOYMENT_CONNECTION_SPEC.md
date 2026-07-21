@@ -1,185 +1,117 @@
-# Convex Manual Deployment Connection
+# Convex Manual Project Connection
 
 ## Document Control
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Created: 2026-05-23
+- Last updated: 2026-07-21
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
-  - `research/2026-05-19-existing-app-resource-adoption.md`
-  - `research/2026-05-22-provider-resource-discovery-and-configuration.md`
+  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
-## Summary
+## Current Contract
 
-Convex project connection is a vault resource attachment. It is separate from provider credential
-connection and separate from deployment configuration.
+Convex project connection combines two facts:
 
-The dashboard resource rail should let a ready GitHub-connected vault:
+1. GitHub observation proves an exact `convex.json` location in the vault repository.
+2. The user intends to attach one identified Convex project at that location.
 
-- connect an existing Convex project from the connected Convex team
-- create a new Convex project with a production deployment
-
-Both flows attach the selected or created Convex project to `vaultConvexProjects`, keyed by app.
-That row stores only the stable project coordinates and attachment provenance. Production,
-development, and preview deployments remain live Convex resources rather than attachment fields.
-
-## Goals
-
-- Let an existing GitHub vault attach an existing Convex project.
-- Let an existing GitHub vault create and attach a new Convex project.
-- Store the attached Convex identity on the vault as the durable product state.
-- Observe Convex dashboard/link metadata directly from Convex when it is needed.
-- Keep attach/create as an explicit request whose dialog stays open until the provider operation and
-  stable attachment write finish.
-- Preserve per-resource cleanup safety through an explicit resource origin.
-
-## Non-goals
-
-- Do not create deploy keys in this slice.
-- Do not push schema, functions, environment variables, or migrations to the selected deployment.
-- Do not connect GitHub to Convex.
-- Do not connect Cloudflare Workers Builds to Convex deploy keys.
-- Do not delete Convex projects that were selected as existing external resources.
-- Do not auto-discover or auto-attach Convex projects from fuzzy repository signals.
-
-## State Model
-
-`vaultConvexProjects` owns the attached Convex project identity for one vault app:
+`vaultConvexProjects` stores that intent and the last verified provider coordinates:
 
 ```ts
-type VaultConvexProject = {
-  vaultId: Id<"vaults">;
-  userId: Id<"users">;
-  appId: Id<"vaultApps">;
-  teamId: string;
-  projectId: string;
-  origin: "provisioned" | "selected_existing";
-  createdAt: number;
-};
+{
+  vaultId;
+  userId;
+  teamId;
+  projectId;
+  convexConfigPath;
+  origin;
+  createdAt;
+}
 ```
 
-One Samebase app can attach at most one Convex project. A shared backend is represented once as its
-own app rather than duplicated beneath each Worker app that consumes it.
+`projectId` is the stable global continuity key. `teamId` is the last provider team under which
+Samebase verified the project. Several projects may intentionally select the same
+`convexConfigPath`.
 
-No internal backwards-compatibility adapter is kept for older connected-row shapes. Local/operator
-data can be cleared instead of carrying old `vault.convex` or `vaultInfrastructure` state forward.
+Project names, slugs, deployments, URLs, deploy keys, current team, and current repository file
+existence remain live provider observations.
 
-`origin` answers how this vault attached to the Convex project:
+### Source discovery
 
-- `provisioned` means Samebase created the project during an explicit create flow.
-- `selected_existing` means the user chose an existing project from Convex inventory.
+`/vault/<org>/<repo>?add-convex` opens one vault-level dialog.
 
-Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
-flows, while `selected_existing` projects are external.
+Samebase resolves the exact default-branch HEAD and recursive Git tree. It offers every regular blob
+whose repository-relative path ends in exactly `convex.json` and whose body parses as a JSON object.
+It does not require a sibling `package.json` or infer packages from path conventions. A truncated
+tree cannot prove that no config exists.
 
-Project and deployment existence, slugs, URLs, production, development and preview deployments, and
-deploy keys remain owned by Convex. Samebase reads them as a bounded live observation for the
-requested vault and does not write the result into the attachment row.
+The config path selector is closed over discovered files. There is no free-form app-root field.
 
-## Provider Scope
+### Existing project flow
 
-The Convex provider connection owns credentials and the currently connected team. It does not own a
-vault resource.
+1. Samebase lists projects visible through the connected Convex credential.
+2. The user may select several projects.
+3. The user selects one discovered `convex.json` path for every selected project. Several projects
+   may select the same path.
+4. Samebase re-reads every exact config blob and project, then writes the full selection in one
+   transaction. Any invalid source, inaccessible project, or attachment conflict rejects the whole
+   confirmation.
 
-Manual Convex connection uses the connected provider team's `teamId`. If the user needs a different
-team, they must reconnect or switch the Convex provider connection before starting this flow.
+### Create project flow
 
-When a project read returns `teamSlug`, Samebase should persist it to the Convex provider connection
-for later dashboard links.
+The user chooses one discovered config path and a project name. Samebase validates the source,
+creates the project with a production deployment, reads the project back, and attaches it at that
+path. If the provider create succeeds but attachment fails, Samebase reports the ambiguous external
+state and does not delete the project automatically.
 
-## Resource Selection
+### Identity, transfer, and writes
 
-Existing project connection should:
+An exact `projectId` can be attached to only one vault, even if its team changes. Idempotent
+confirmation preserves attachment identity and only upgrades `origin` when a managed operation
+proves ownership.
 
-1. list visible projects for the connected team
-2. show deterministic inventory rows with project id, project name, project slug, and team slug
-3. re-read the selected project server-side before attaching
+Provider writes require the connected credential to verify the stored `projectId` under the stored
+`teamId`. A 404 under that team is ambiguous because the project may have been deleted or
+transferred, so writes fail closed.
 
-The server must verify:
+If the connected credential reads the same `projectId` under a different team, Samebase reports team
+drift. Explicit reconciliation re-verifies the destination team and compare-and-swaps only `teamId`.
+It preserves the attachment ID, config path, origin, and creation time.
 
-- the project belongs to the connected Convex team
+### Source drift and removal
 
-The existing-project picker lists every project returned by Convex's team project inventory. The
-create flow asks Convex to create the project with a production deployment, but the attachment
-identity remains the project.
+Moving or deleting the selected `convex.json` does not detach or silently relocate the project. The
+stored path remains the expected placement and the dashboard reports the GitHub observation.
 
-Project creation should:
+`Change code location` offers only currently discovered configs, re-verifies the selected blob, and
+compare-and-swaps only `convexConfigPath`.
 
-1. validate the requested Convex project name
-2. ensure no visible project in the connected team already has that name or slug
-3. create the project with a production deployment
-4. read the project back from Convex
-5. attach the project with `origin: "provisioned"`
+`Remove from vault` is an explicit user-intent mutation. It removes only the unchanged local
+attachment. It never deletes the Convex project. Provider absence and a stored-team 404 never remove
+the attachment automatically.
 
-If a manual create action cannot attach the new project after the provider create call, it reports
-that the provider create may have succeeded and leaves inspection or cleanup to Convex. It must not
-automatically delete the project because another concurrent request may already have attached that
-identity. Attaching a project selected from existing Convex inventory never deletes or otherwise
-changes that project when the local attachment fails.
+### Resource routes
 
-Managed app creation is different: its Workflow checkpoints the newly created project identity so a
-retry can reuse it. The checkpoint is `{ teamId, projectId }`, matching the stable provider
-identity. Samebase records the `created` checkpoint and stable `provisioned` project attachment in
-one database transaction. A `creating` checkpoint is written before the provider request. If the
-request may have completed but its result was not recorded, retry and cleanup stop for operator
-inspection rather than adopting or deleting a same-named project.
+Data and Schema routes identify the `vaultConvexProjects` attachment directly. They do not resolve a
+project by config root and never choose the first project at a shared path.
 
-An exact Convex project identity can be attached to only one Samebase app, even across Samebase
-users. This matches the approved model where a shared backend is represented once as its own app,
-not duplicated beneath every Worker that consumes it.
+## Non-Goals
 
-## Explicit Execution
+- Persisting deployment or dashboard metadata.
+- Persisting a Worker-to-project edge.
+- Fuzzy project-to-folder inference.
+- Treating `teamId` as immutable project identity.
+- Automatically removing inaccessible projects.
 
-Manual Convex attach/create runs as one explicit action:
+## Validation
 
-1. verify or create the Convex project
-2. write `vaultConvexProjects`
-3. return success
-
-The dialog remains open and disabled while the action runs. It closes by clearing `add-convex` only
-after success and shows the returned error otherwise. Manual attachment does not create a
-provisioning run or persist intermediate provider state.
-
-## Missing Project Recovery
-
-When a live Convex observation proves that the attached project no longer exists, the resource row
-offers `Remove from Samebase`. The action reads Convex again and deletes only the unchanged
-`vaultConvexProjects` attachment after it confirms the recorded project is still missing. It never
-deletes a Convex project.
-
-A failed or unavailable provider read does not authorize attachment removal. After removal, the
-ordinary `?add-convex` flow can attach or create a project without a replacement-specific state
-machine.
-
-The active Convex provider connection must name the attachment's `teamId` before Samebase performs
-the confirming read. A `404` obtained under another team is not proof that the project is missing.
-
-If the project still exists but its default production deployment is missing, the project attachment
-remains valid. Samebase reports the missing deployment and leaves repair or project deletion to
-Convex.
-
-## Route Semantics
-
-`/vault/<org>/<repo>?add-convex` opens the Convex project connection dialog for the selected vault
-route.
-
-The dialog closes by clearing `add-convex` while preserving the selected vault route.
-
-## Deployment Configuration
-
-Deployment configuration is separate from Convex attach/create. The two provider configurations are:
-
-- repository source to Convex functions/schema deployment
-- Cloudflare Workers Builds to Convex build access through deploy keys
-
-Attaching or creating a Convex project does not imply either provider configuration exists. If a
-Worker already has connected Builds, Samebase can later run
-`rotate_convex_deploy_keys_for_workers_builds` for one explicitly selected attached project. The
-action mints deploy keys and writes them together with
-`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` to both Cloudflare
-triggers. It does not persist a current deploy-key state or a Worker-to-project dependency row. The
-next dashboard read derives the relationship from Cloudflare's live marker and variable names.
+- GitHub tests cover root and nested configs, malformed JSON, non-regular files, truncated trees,
+  exact-blob confirmation, and a blob changed between discovery and confirmation.
+- Mutation tests cover atomic batches, global `projectId` uniqueness, shared config paths,
+  idempotency, origin upgrade, config-path compare-and-swap, and team compare-and-swap.
+- Provider tests cover transfers, inaccessible projects, stale markers, and writes that fail closed.
+- UI and route tests cover multi-selection, closed config selectors, moved configs, shared roots,
+  team reconciliation, explicit removal, and attachment-ID Data and Schema routes.

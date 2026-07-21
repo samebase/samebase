@@ -141,46 +141,46 @@ type LandingInventoryState =
 /**
 The demo rows must keep demonstrating every lifecycle state agents kept missing
 in the positioning probes: a full-stack app, an existing repo left GitHub-only,
-two app roots in one monorepo, and a drifted target with its repair action.
+two derived locations in one monorepo, and a drifted target with its repair action.
 */
 const LANDING_INVENTORY_ROWS: readonly {
-  app: string;
   cloudflare: LandingProviderCell;
   convex: LandingProviderCell;
   github: string;
-  root: string;
+  location: string;
+  repository: string;
   state: LandingInventoryState;
 }[] = [
   {
-    app: "birdlog",
     cloudflare: { kind: "attached", value: "birdlog.you.workers.dev" },
     convex: { kind: "attached", value: "birdlog-prod" },
     github: "you/birdlog",
-    root: "/",
+    location: "/",
+    repository: "birdlog",
     state: { kind: "healthy" },
   },
   {
-    app: "notes",
     cloudflare: { kind: "notAttached" },
     convex: { kind: "notAttached" },
     github: "you/notes",
-    root: "/",
+    location: "/",
+    repository: "notes",
     state: { kind: "githubOnly" },
   },
   {
-    app: "shop",
     cloudflare: { kind: "attached", value: "shop-web.you.workers.dev" },
     convex: { kind: "attached", value: "shop-web" },
     github: "you/shop",
-    root: "apps/web",
+    location: "apps/web",
+    repository: "shop",
     state: { kind: "healthy" },
   },
   {
-    app: "shop",
     cloudflare: { kind: "attached", value: "worker created" },
     convex: { kind: "attached", value: "shop-admin" },
     github: "you/shop",
-    root: "apps/admin",
+    location: "apps/admin",
+    repository: "shop",
     state: { kind: "repair", action: "configure Workers Builds for GitHub" },
   },
 ];
@@ -413,11 +413,17 @@ function LandingInventoryStateText({ state }: { state: LandingInventoryState }) 
   }
 }
 
-function LandingInventoryAppLabel({ app, root }: { app: string; root: string }) {
+function LandingInventoryRepositoryLabel({
+  location,
+  repository,
+}: {
+  location: string;
+  repository: string;
+}) {
   return (
     <>
-      <span className="font-semibold text-foreground">{app}</span>
-      <span className="text-muted-foreground"> · {root}</span>
+      <span className="font-semibold text-foreground">{repository}</span>
+      <span className="text-muted-foreground"> · {location}</span>
     </>
   );
 }
@@ -433,7 +439,7 @@ function LandingInventory() {
       <table className="mt-3 hidden w-full border-collapse font-mono text-xs @3xl:table">
         <thead>
           <tr className="border-b border-border bg-muted/50 text-left uppercase tracking-[0.14em] text-muted-foreground">
-            <th className="px-3 py-2.5 font-normal">app · root</th>
+            <th className="px-3 py-2.5 font-normal">repository · location</th>
             <th className="px-3 py-2.5 font-normal">github</th>
             <th className="px-3 py-2.5 font-normal">convex</th>
             <th className="px-3 py-2.5 font-normal">cloudflare</th>
@@ -442,9 +448,12 @@ function LandingInventory() {
         </thead>
         <tbody>
           {LANDING_INVENTORY_ROWS.map((row) => (
-            <tr className="border-b border-border" key={`${row.app}-${row.root}`}>
+            <tr className="border-b border-border" key={`${row.repository}-${row.location}`}>
               <td className="px-3 py-3">
-                <LandingInventoryAppLabel app={row.app} root={row.root} />
+                <LandingInventoryRepositoryLabel
+                  location={row.location}
+                  repository={row.repository}
+                />
               </td>
               <td className="px-3 py-3">{row.github}</td>
               <td className="px-3 py-3">
@@ -462,9 +471,12 @@ function LandingInventory() {
       </table>
       <div className="mt-3 grid gap-4 @3xl:hidden">
         {LANDING_INVENTORY_ROWS.map((row) => (
-          <div className="border border-border" key={`${row.app}-${row.root}`}>
+          <div className="border border-border" key={`${row.repository}-${row.location}`}>
             <p className="flex items-baseline justify-between gap-4 border-b border-border bg-muted/50 px-3.5 py-2.5 font-mono text-[13px]">
-              <LandingInventoryAppLabel app={row.app} root={row.root} />
+              <LandingInventoryRepositoryLabel
+                location={row.location}
+                repository={row.repository}
+              />
               <span className="text-right">
                 <LandingInventoryStateText state={row.state} />
               </span>
@@ -808,7 +820,8 @@ function LandingPreviewOverview() {
           <LandingInventory />
           <p className="mt-5 max-w-[92ch] font-mono text-[13px] leading-relaxed text-primary">
             and not only new apps: connect an existing repo and leave it GitHub-only · attach Convex
-            or Cloudflare later, per app root · several roots in one monorepo
+            or Cloudflare later · monorepo locations follow convex.json and live Workers Builds
+            roots
           </p>
         </LandingSection>
 

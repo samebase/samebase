@@ -5,12 +5,13 @@ import {
   type VaultConvexSchemaGraphRouteContext,
 } from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
+import { findVaultConvexProjectAttachment } from "@/lib/vaultConvexProjectAttachment";
 import { Database, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 type VaultConvexSchemaGraphViewProps = {
-  appRoot: string;
   branch: string;
+  convexProjectId: string;
   owner: string;
   repoName: string;
 };
@@ -38,9 +39,17 @@ function VaultConvexSchemaGraphRouteStatusSidebar({
       </div>
       <div className="grid gap-1 text-xs text-muted-foreground">
         <div className="flex min-w-0 justify-between gap-2">
-          <span>App root</span>
-          <span className="min-w-0 truncate font-mono text-foreground">{context.appRoot}</span>
+          <span>Project</span>
+          <span className="min-w-0 truncate text-foreground">{context.projectId}</span>
         </div>
+        {context.convexConfigPath ? (
+          <div className="flex min-w-0 justify-between gap-2">
+            <span>Config</span>
+            <span className="min-w-0 truncate font-mono text-foreground">
+              {context.convexConfigPath}
+            </span>
+          </div>
+        ) : null}
       </div>
       <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">{status}</div>
     </div>
@@ -78,15 +87,22 @@ function VaultConvexSchemaGraphRouteStatusShell({
 }
 
 export function VaultConvexSchemaGraphView({
-  appRoot,
   branch,
+  convexProjectId: routeConvexProjectId,
   owner,
   repoName,
 }: VaultConvexSchemaGraphViewProps) {
   const repositoryFullName = `${owner}/${repoName}`;
+  const dashboardVaults = useVaultQuery(api.vault.dashboard.getUserVaults);
+  const attachment = dashboardVaults
+    ? findVaultConvexProjectAttachment(dashboardVaults, repositoryFullName, routeConvexProjectId)
+    : null;
+  const dashboardVault = attachment?.vault;
+  const project = attachment?.project;
   const context = {
-    appRoot,
     branch,
+    convexConfigPath: project?.convexConfigPath ?? "",
+    projectId: project?.projectId ?? routeConvexProjectId,
     repositoryFullName,
   } satisfies VaultConvexSchemaGraphRouteContext;
   const vault = useVaultQuery(api.vault.records.getVaultByRepository, {
@@ -121,5 +137,34 @@ export function VaultConvexSchemaGraphView({
     );
   }
 
-  return <VaultConvexSchemaGraphRouteWorkspace context={context} vaultId={vault._id} />;
+  if (dashboardVaults === undefined) {
+    return (
+      <VaultConvexSchemaGraphRouteStatusShell
+        context={context}
+        status={
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading schema
+          </>
+        }
+      />
+    );
+  }
+
+  if (!dashboardVault || !project) {
+    return (
+      <VaultConvexSchemaGraphRouteStatusShell
+        context={context}
+        status="Convex project is not attached to this vault."
+      />
+    );
+  }
+
+  return (
+    <VaultConvexSchemaGraphRouteWorkspace
+      context={context}
+      vaultId={vault._id}
+      convexProjectId={project.convexProjectId}
+    />
+  );
 }

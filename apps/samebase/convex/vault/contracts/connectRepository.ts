@@ -21,7 +21,7 @@ export const connectRepositoryContract = {
     title: "Connect existing repository",
     name: "vault_actions_connectRepository",
     description:
-      "Import an existing GitHub repository as a Samebase app. Creates the Samebase record and syncs the repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.",
+      "Connect an existing GitHub repository as a Samebase vault and sync its repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -35,9 +35,9 @@ export const connectRepositoryContract = {
   doc: `Brings a repository the caller's GitHub connection can read under Samebase's record
 (access is what is checked, not ownership): creates the vault,
 syncs the tree, and leaves the providers deliberately unconfigured. Importing never touches
-Convex or Cloudflare. This is the adoption entry point for existing projects; attach providers
-afterwards with \`connect_convex_project\` and \`connect_cloudflare_worker\`, or leave the app
-GitHub-only (watching and editing a repository is a supported use on its own).
+Convex or Cloudflare. This is the adoption entry point for existing projects; discover and attach
+provider resources afterwards with the vault-level Convex and Cloudflare actions, or leave the
+vault GitHub-only (watching and editing a repository is a supported use on its own).
 
 Preconditions: a GitHub provider connection, and read access to the repository. Nothing is created
 on any provider; the only writes are Samebase's own record and the tree sync. Progress and failure

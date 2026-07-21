@@ -196,7 +196,9 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(inventoryTable).toContainText("github-only");
   await expect(inventoryTable).toContainText("not attached");
   await expect(inventoryTable).toContainText("configure Workers Builds for GitHub");
-  await expect(article).toContainText("several roots in one monorepo");
+  await expect(article).toContainText(
+    "monorepo locations follow convex.json and live Workers Builds roots",
+  );
   await expect(article).toContainText("cost follows real usage");
   await expect(article).toContainText("Samebase runs on Samebase.");
   await expect(article).toContainText(

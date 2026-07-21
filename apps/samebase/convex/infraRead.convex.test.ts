@@ -45,23 +45,17 @@ async function createConnectedVault() {
   return { ids, t };
 }
 
-describe("infra read app-root targeting", () => {
+describe("infra read Convex attachment targeting", () => {
   it("fails closed when multiple Convex projects are attached", async () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
       for (const rootDirectory of ["apps/api", "apps/web"]) {
-        const appId = await ctx.db.insert("vaultApps", {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-          rootDirectory,
-          createdAt: 30,
-        });
         await ctx.db.insert("vaultConvexProjects", {
           vaultId: ids.vaultId,
           userId: ids.userId,
-          appId,
           teamId: "team-id",
           projectId: `${rootDirectory}-project`,
+          convexConfigPath: `${rootDirectory}/convex.json`,
           origin: "selected_existing",
           createdAt: 30,
         });
@@ -79,16 +73,9 @@ describe("infra read app-root targeting", () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
       for (const rootDirectory of ["apps/api", "apps/web"]) {
-        const appId = await ctx.db.insert("vaultApps", {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-          rootDirectory,
-          createdAt: 30,
-        });
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId: ids.vaultId,
           userId: ids.userId,
-          appId,
           accountId: "cloudflare-account",
           workerName: rootDirectory.replace("/", "-"),
           workerTag: `${rootDirectory.replace("/", "-")}-tag`,

@@ -18,27 +18,19 @@ import {
 describe("rootRouteSearch", () => {
   it("clears only the selected vault dashboard dialog search", () => {
     const currentSearch = {
-      "add-app-root": true,
       "add-cloudflare": true,
       "add-convex": true,
-      "app-root": "apps/samebase",
       delete: true,
       devtools: true,
     } satisfies RootRouteSearch;
 
-    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-app-root")).toEqual({
-      ...currentSearch,
-      "add-app-root": undefined,
-    });
     expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-cloudflare")).toEqual({
       ...currentSearch,
       "add-cloudflare": undefined,
-      "app-root": undefined,
     });
     expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-convex")).toEqual({
       ...currentSearch,
       "add-convex": undefined,
-      "app-root": undefined,
     });
     expect(clearVaultDashboardQueryDialogSearch(currentSearch, "delete")).toEqual({
       ...currentSearch,
@@ -49,10 +41,8 @@ describe("rootRouteSearch", () => {
   it("drops conflicting dashboard modal flags while keeping independent root search", () => {
     expect(
       validateRootRouteSearch({
-        "add-app-root": "",
         "add-cloudflare": "",
         "add-convex": "",
-        "app-root": " apps/samebase ",
         auth: "google",
         "auth-return": "dashboard",
         "create-account": "",
@@ -133,37 +123,37 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("keeps a scoped provider dashboard intent", () => {
+  it("keeps a bare provider dashboard intent", () => {
     expect(
       validateRootRouteSearch({
         "add-convex": "",
-        "app-root": " apps/samebase ",
       }),
     ).toEqual({
       "add-convex": true,
-      "app-root": "apps/samebase",
+    });
+    expect(validateRootRouteSearch({ "add-cloudflare": "" })).toEqual({
+      "add-cloudflare": true,
     });
   });
 
-  it("drops bare provider dashboard intents", () => {
+  it("drops conflicting provider dashboard intents", () => {
     expect(
       validateRootRouteSearch({
         "add-cloudflare": "",
         "add-convex": "",
-        "app-root": " apps/samebase ",
       }),
     ).toEqual({});
-    expect(validateRootRouteSearch({ "add-cloudflare": "" })).toEqual({});
   });
 
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete&add-app-root",
+        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete",
       ),
     ).toEqual({
       auth: "google",
       "create-account": true,
+      delete: true,
       dev: true,
       primary: "red-600",
       "prod-ui": true,

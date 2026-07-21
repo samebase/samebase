@@ -4,11 +4,12 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/app shell + vault dashboard
-- Last updated: 2026-06-29
+- Last updated: 2026-07-21
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/083_TANSTACK_ROUTER_FILE_BASED_MIGRATION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
+  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
 ## Current Contract
 
@@ -27,8 +28,9 @@ Accepted target routes:
    - `/vault/:owner/:repo/fs/:branch`
    - `/vault/:owner/:repo/fs/:branch/:filePath...`
 5. Deployment database editor:
-   - `/vault/:owner/:repo/db/:branch/root`
-   - `/vault/:owner/:repo/db/:branch/mono/:appRoot...`
+   - `/vault/:owner/:repo/db/:branch/project/:convexProjectId`
+6. Deployment schema graph:
+   - `/vault/:owner/:repo/schema/:branch/project/:convexProjectId`
 
 The `:branch` segment is the exact Git branch name encoded as one path segment with
 `encodeURIComponent(...)` and decoded exactly once. Branch names containing `/` therefore stay valid
@@ -38,11 +40,10 @@ The `:filePath...` tail belongs only to the filesystem surface. File path segmen
 individually while preserving `/` as the path separator. A file or directory named `db`, `settings`,
 or `fs` is addressed through the filesystem surface, such as `/vault/:owner/:repo/fs/:branch/db`.
 
-The database route target includes the app root in the path because the selected app deployment is
-part of the database identity, not an optional view filter. Use `/root` for the repository-root app.
-Use `/mono/:appRoot...` for a nested monorepo app root. The `:appRoot...` tail is the repo-relative
-app-root path with each path segment encoded individually. A nested app root named `root` is
-addressed as `/vault/:owner/:repo/db/:branch/mono/root`.
+Database and Schema routes include the `vaultConvexProjects` attachment ID because the selected
+project is part of the resource identity, not an optional view filter. A root path cannot identify a
+project because several projects may intentionally use the same `convex.json` location. The server
+verifies that the attachment belongs to the vault before reading provider data.
 
 File compare and commit review remain the `?compare` and `?diff` query params on filesystem routes.
 They are view modes for the selected branch/file, not separate route surfaces.
@@ -62,8 +63,7 @@ The first database editor implementation only needs to link and render the produ
 branch. The accepted MVP route is:
 
 ```txt
-/vault/:owner/:repo/db/:defaultBranch/root
-/vault/:owner/:repo/db/:defaultBranch/mono/apps/web
+/vault/:owner/:repo/db/:defaultBranch/project/:convexProjectId
 ```
 
 Preview branch database routes may reuse the same shape later, after Samebase can resolve the
@@ -92,13 +92,13 @@ only way to reach Samebase's mobile workspace sidebars.
 
 Route implementation PRs should prove:
 
-1. Route builders emit `/vault/:owner/:repo/fs/:branch`, `/vault/:owner/:repo/db/:branch/root`, and
-   `/vault/:owner/:repo/db/:branch/mono/:appRoot...`.
+1. Route builders emit `/vault/:owner/:repo/fs/:branch`,
+   `/vault/:owner/:repo/db/:branch/project/:convexProjectId`, and
+   `/vault/:owner/:repo/schema/:branch/project/:convexProjectId`.
 2. Branch names containing `/`, spaces, or other special characters round-trip through one encoded
    branch segment.
 3. Files named `db`, `settings`, or `fs` resolve under `/fs/:branch/...`, not as repo-level pages.
-4. Nested app roots containing `/`, spaces, or other special characters round-trip through the
-   `/mono/:appRoot...` path tail.
+4. Convex attachment IDs round-trip through one encoded path segment.
 5. Dashboard branch links use the accepted route builders.
 6. New code does not emit the superseded `/vault/:owner/:repo/-/...` route shape.
 
@@ -106,6 +106,6 @@ Route implementation PRs should prove:
 
 1. Replace the current vault file route helper and parser with the `fs` route contract.
 2. Update dashboard, editor, auth-return, tests, and route suggestions to use the new helpers.
-3. Add the MVP production database editor at `/vault/:owner/:repo/db/:branch/root` and
-   `/vault/:owner/:repo/db/:branch/mono/:appRoot...`.
+3. Add the MVP production database editor at
+   `/vault/:owner/:repo/db/:branch/project/:convexProjectId`.
 4. Add preview database resolution only after the production database editor is working end to end.

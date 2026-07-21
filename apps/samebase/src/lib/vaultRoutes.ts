@@ -47,30 +47,18 @@ export function buildVaultDatabaseRoute(args: {
   owner: string;
   repoName: string;
   branch: string;
-  appRoot: string;
+  convexProjectId: string;
 }): string {
-  const basePath = `/vault/${args.owner}/${args.repoName}/db/${encodeVaultBranchSegment(args.branch)}`;
-
-  if (args.appRoot === ".") {
-    return `${basePath}/root`;
-  }
-
-  return `${basePath}/mono/${encodeVaultPathTail(args.appRoot)}`;
+  return `/vault/${args.owner}/${args.repoName}/db/${encodeVaultBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
 }
 
 export function buildVaultSchemaRoute(args: {
   owner: string;
   repoName: string;
   branch: string;
-  appRoot: string;
+  convexProjectId: string;
 }): string {
-  const basePath = `/vault/${args.owner}/${args.repoName}/schema/${encodeVaultBranchSegment(args.branch)}`;
-
-  if (args.appRoot === ".") {
-    return `${basePath}/root`;
-  }
-
-  return `${basePath}/mono/${encodeVaultPathTail(args.appRoot)}`;
+  return `/vault/${args.owner}/${args.repoName}/schema/${encodeVaultBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
 }
 
 export interface VaultCodespaceChatRouteArgs {

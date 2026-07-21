@@ -12,7 +12,6 @@ import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
 } from "./model";
-import { ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import {
   assertConnectedVault,
@@ -364,7 +363,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
       userId: args.userId,
-      appRoot: ROOT_VAULT_APP_ROOT,
+      convexConfigPath: "convex.json",
       convex: {
         state: "planned",
         projectName: args.convexProjectName,
@@ -380,13 +379,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
-    await ctx.db.insert("vaultApps", {
-      vaultId,
-      userId: args.userId,
-      rootDirectory: VAULT_ROOT_DIRECTORY,
-      createdAt: now,
-    });
-
     return { vaultId, runId };
   },
 });

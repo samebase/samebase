@@ -5,11 +5,15 @@ import { internalAction } from "../_generated/server";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
-import { convexListProjectsContract } from "../vault/contracts/convexListProjects";
 import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
-import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
-import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
-import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
+import {
+  cloudflareAttachWorkersContract,
+  cloudflareDiscoverWorkersContract,
+} from "../vault/contracts/cloudflareAttachments";
+import {
+  convexAttachProjectsContract,
+  convexDiscoverProjectsContract,
+} from "../vault/contracts/convexAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
@@ -20,16 +24,16 @@ import {
   connectRepositoryForUser,
   retryInfrastructureProvisioningForUser,
 } from "../vault/actions";
-import { listConvexProjectsForUser, connectExistingConvexProjectForUser } from "../vault/convex";
+import { attachExistingProjectsForUser, discoverProjectsForUser } from "../vault/convex";
 import {
   AGENT_BROWSER_HANDOFF_TTL_MS,
   createAgentBrowserHandoffTokenValue,
   sha256Hex,
 } from "../mcp/tokens";
 import {
+  attachExistingCloudflareWorkersForUser,
+  discoverCloudflareWorkersForUser,
   listCloudflareAccountsForUser,
-  listCloudflareWorkersForUser,
-  connectExistingCloudflareWorkerForUser,
   configureWorkersBuildsForGitHubForUser,
   rotateConvexDeployKeysForWorkersBuildsForUser,
 } from "../vault/cloudflare";
@@ -172,36 +176,37 @@ export const connectRepositoryTool = internalAction({
   },
 });
 
-const convexListProjectsToolResultValidator = object({
+const convexDiscoverProjectsToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(convexListProjectsContract.structuredContent),
+  structuredContent: optional(convexDiscoverProjectsContract.structuredContent),
 });
-type ConvexListProjectsToolResult = Infer<typeof convexListProjectsToolResultValidator>;
+type ConvexDiscoverProjectsToolResult = Infer<typeof convexDiscoverProjectsToolResultValidator>;
 
-export const convexListProjectsTool = internalAction({
+export const convexDiscoverProjectsTool = internalAction({
   args: object({
     userId: id("users"),
     grantedScopes: array(string()),
-    ...convexListProjectsContract.args,
+    ...convexDiscoverProjectsContract.args,
   }),
-  returns: convexListProjectsToolResultValidator,
-  handler: async (ctx, { grantedScopes, userId }): Promise<ConvexListProjectsToolResult> => {
-    if (!mcpScopeAllowsAccess(convexListProjectsContract.access, grantedScopes)) {
+  returns: convexDiscoverProjectsToolResultValidator,
+  handler: async (
+    ctx,
+    { grantedScopes, ...discoveryArgs },
+  ): Promise<ConvexDiscoverProjectsToolResult> => {
+    if (!mcpScopeAllowsAccess(convexDiscoverProjectsContract.access, grantedScopes)) {
       return {
         status: "blocked",
-        text: `Insufficient scope for ${convexListProjectsContract.mcp.name}.`,
+        text: `Insufficient scope for ${convexDiscoverProjectsContract.mcp.name}.`,
       };
     }
 
     try {
-      const projects = await listConvexProjectsForUser(ctx, { userId });
+      const structuredContent = await discoverProjectsForUser(ctx, discoveryArgs);
       return {
         status: "ok",
-        text: `Found ${projects.length} ${projects.length === 1 ? "project" : "projects"}.`,
-        structuredContent: {
-          projects,
-        },
+        text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.source.configs.length} ${structuredContent.source.configs.length === 1 ? "config" : "configs"}.`,
+        structuredContent,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -254,39 +259,39 @@ export const cloudflareListAccountsTool = internalAction({
   },
 });
 
-const cloudflareListWorkersToolResultValidator = object({
+const cloudflareDiscoverWorkersToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(cloudflareListWorkersContract.structuredContent),
+  structuredContent: optional(cloudflareDiscoverWorkersContract.structuredContent),
 });
-type CloudflareListWorkersToolResult = Infer<typeof cloudflareListWorkersToolResultValidator>;
+type CloudflareDiscoverWorkersToolResult = Infer<
+  typeof cloudflareDiscoverWorkersToolResultValidator
+>;
 
-export const cloudflareListWorkersTool = internalAction({
+export const cloudflareDiscoverWorkersTool = internalAction({
   args: object({
     userId: id("users"),
     grantedScopes: array(string()),
-    ...cloudflareListWorkersContract.args,
+    ...cloudflareDiscoverWorkersContract.args,
   }),
-  returns: cloudflareListWorkersToolResultValidator,
+  returns: cloudflareDiscoverWorkersToolResultValidator,
   handler: async (
     ctx,
-    { grantedScopes, ...cloudflareListWorkersArgs },
-  ): Promise<CloudflareListWorkersToolResult> => {
-    if (!mcpScopeAllowsAccess(cloudflareListWorkersContract.access, grantedScopes)) {
+    { grantedScopes, ...discoveryArgs },
+  ): Promise<CloudflareDiscoverWorkersToolResult> => {
+    if (!mcpScopeAllowsAccess(cloudflareDiscoverWorkersContract.access, grantedScopes)) {
       return {
         status: "blocked",
-        text: `Insufficient scope for ${cloudflareListWorkersContract.mcp.name}.`,
+        text: `Insufficient scope for ${cloudflareDiscoverWorkersContract.mcp.name}.`,
       };
     }
 
     try {
-      const workers = await listCloudflareWorkersForUser(ctx, cloudflareListWorkersArgs);
+      const structuredContent = await discoverCloudflareWorkersForUser(ctx, discoveryArgs);
       return {
         status: "ok",
-        text: `Found ${workers.length} ${workers.length === 1 ? "worker" : "workers"}.`,
-        structuredContent: {
-          workers,
-        },
+        text: `Found ${structuredContent.workers.length} ${structuredContent.workers.length === 1 ? "worker" : "workers"} in a ${structuredContent.inventoryState} inventory.`,
+        structuredContent,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -298,38 +303,37 @@ export const cloudflareListWorkersTool = internalAction({
   },
 });
 
-const convexConnectExistingProjectToolResultValidator = object({
+const convexAttachProjectsToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(nullValue()),
+  structuredContent: optional(convexAttachProjectsContract.structuredContent),
 });
-type ConvexConnectExistingProjectToolResult = Infer<
-  typeof convexConnectExistingProjectToolResultValidator
->;
+type ConvexAttachProjectsToolResult = Infer<typeof convexAttachProjectsToolResultValidator>;
 
-export const convexConnectExistingProjectTool = internalAction({
+export const convexAttachProjectsTool = internalAction({
   args: object({
     userId: id("users"),
     grantedScopes: array(string()),
-    ...convexConnectExistingProjectContract.args,
+    ...convexAttachProjectsContract.args,
   }),
-  returns: convexConnectExistingProjectToolResultValidator,
+  returns: convexAttachProjectsToolResultValidator,
   handler: async (
     ctx,
-    { grantedScopes, ...connectArgs },
-  ): Promise<ConvexConnectExistingProjectToolResult> => {
-    if (!mcpScopeAllowsAccess(convexConnectExistingProjectContract.access, grantedScopes)) {
+    { grantedScopes, ...attachmentArgs },
+  ): Promise<ConvexAttachProjectsToolResult> => {
+    if (!mcpScopeAllowsAccess(convexAttachProjectsContract.access, grantedScopes)) {
       return {
         status: "blocked",
-        text: `Insufficient scope for ${convexConnectExistingProjectContract.mcp.name}.`,
+        text: `Insufficient scope for ${convexAttachProjectsContract.mcp.name}.`,
       };
     }
 
     try {
-      await connectExistingConvexProjectForUser(ctx, connectArgs);
+      const convexProjectIds = await attachExistingProjectsForUser(ctx, attachmentArgs);
       return {
         status: "ok",
-        text: "Attached the Convex project.",
+        text: `Attached ${convexProjectIds.length} Convex ${convexProjectIds.length === 1 ? "project" : "projects"}.`,
+        structuredContent: { convexProjectIds },
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -341,38 +345,37 @@ export const convexConnectExistingProjectTool = internalAction({
   },
 });
 
-const cloudflareConnectExistingWorkerToolResultValidator = object({
+const cloudflareAttachWorkersToolResultValidator = object({
   status: toolStatus,
   text: string(),
-  structuredContent: optional(nullValue()),
+  structuredContent: optional(cloudflareAttachWorkersContract.structuredContent),
 });
-type CloudflareConnectExistingWorkerToolResult = Infer<
-  typeof cloudflareConnectExistingWorkerToolResultValidator
->;
+type CloudflareAttachWorkersToolResult = Infer<typeof cloudflareAttachWorkersToolResultValidator>;
 
-export const cloudflareConnectExistingWorkerTool = internalAction({
+export const cloudflareAttachWorkersTool = internalAction({
   args: object({
     userId: id("users"),
     grantedScopes: array(string()),
-    ...cloudflareConnectExistingWorkerContract.args,
+    ...cloudflareAttachWorkersContract.args,
   }),
-  returns: cloudflareConnectExistingWorkerToolResultValidator,
+  returns: cloudflareAttachWorkersToolResultValidator,
   handler: async (
     ctx,
-    { grantedScopes, ...connectArgs },
-  ): Promise<CloudflareConnectExistingWorkerToolResult> => {
-    if (!mcpScopeAllowsAccess(cloudflareConnectExistingWorkerContract.access, grantedScopes)) {
+    { grantedScopes, ...attachmentArgs },
+  ): Promise<CloudflareAttachWorkersToolResult> => {
+    if (!mcpScopeAllowsAccess(cloudflareAttachWorkersContract.access, grantedScopes)) {
       return {
         status: "blocked",
-        text: `Insufficient scope for ${cloudflareConnectExistingWorkerContract.mcp.name}.`,
+        text: `Insufficient scope for ${cloudflareAttachWorkersContract.mcp.name}.`,
       };
     }
 
     try {
-      await connectExistingCloudflareWorkerForUser(ctx, connectArgs);
+      const workerIds = await attachExistingCloudflareWorkersForUser(ctx, attachmentArgs);
       return {
         status: "ok",
-        text: "Attached the Cloudflare Worker.",
+        text: `Attached ${workerIds.length} Cloudflare ${workerIds.length === 1 ? "Worker" : "Workers"}.`,
+        structuredContent: { workerIds },
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
@@ -463,7 +466,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = internalActi
 
     try {
       await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, operationArgs, {
-        state: "configure",
+        state: "discover",
       });
       return {
         status: "ok",

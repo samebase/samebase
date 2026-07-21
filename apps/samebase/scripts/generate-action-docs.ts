@@ -58,18 +58,16 @@ const contractSourceByMcpName: Record<string, string> = {
   vault_actions_connectRepository: samebaseAppFilePath(
     "convex/vault/contracts/connectRepository.ts",
   ),
-  vault_convex_listProjects: samebaseAppFilePath("convex/vault/contracts/convexListProjects.ts"),
   vault_cloudflare_listAccounts: samebaseAppFilePath(
     "convex/vault/contracts/cloudflareListAccounts.ts",
   ),
-  vault_cloudflare_listWorkers: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareListWorkers.ts",
+  vault_convex_discoverProjects: samebaseAppFilePath("convex/vault/contracts/convexAttachments.ts"),
+  vault_cloudflare_discoverWorkers: samebaseAppFilePath(
+    "convex/vault/contracts/cloudflareAttachments.ts",
   ),
-  vault_convex_connectExistingProject: samebaseAppFilePath(
-    "convex/vault/contracts/convexConnectExistingProject.ts",
-  ),
-  vault_cloudflare_connectExistingWorker: samebaseAppFilePath(
-    "convex/vault/contracts/cloudflareConnectExistingWorker.ts",
+  vault_convex_attachProjects: samebaseAppFilePath("convex/vault/contracts/convexAttachments.ts"),
+  vault_cloudflare_attachWorkers: samebaseAppFilePath(
+    "convex/vault/contracts/cloudflareAttachments.ts",
   ),
   vault_cloudflare_configureWorkersBuildsForGitHub: samebaseAppFilePath(
     "convex/vault/contracts/cloudflareConfigureWorkersBuildsForGitHub.ts",
@@ -258,11 +256,12 @@ function renderLlmsTxt(contracts: ActionContractDoc[]): string {
 
 Samebase can create a new app in about a minute or connect an existing GitHub repository without
 touching its providers. A connected app can remain GitHub-only or attach Convex and Cloudflare
-later. One repository can contain several explicit app roots for a monorepo; humans configure those
-roots in the dashboard.
+later. In a monorepo, Samebase derives resource locations from each selected convex.json file and
+each Worker's live Workers Builds root.
 
-The dashboard gives humans one inventory of every app they connect, its app roots, provider
-resources, current state, direct provider coordinates, and provider or connection repair actions.
+The dashboard gives humans one inventory of every repository they connect, its provider resources,
+derived locations, current state, direct provider coordinates, and provider or connection repair
+actions.
 Codex and Claude Code can install \`samebase@samebase\`, which packages the create or connect, local
 repository build, and Git-backed hosting workflows. Cursor and other MCP clients can call the same
 actions directly.

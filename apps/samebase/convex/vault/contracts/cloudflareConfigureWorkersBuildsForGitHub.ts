@@ -1,23 +1,23 @@
 import { v } from "convex/values";
 
-import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { id } = v;
+const { id, string } = v;
 
 export const cloudflareConfigureWorkersBuildsForGitHubContract = {
   id: "configure_workers_builds_for_github",
-  access: ACCESS_APP_CREATE,
+  access: "access_provider_connections",
   args: {
     vaultId: id("vaults"),
     workerId: id("vaultCloudflareWorkers"),
+    rootDirectory: string(),
   },
   returns: v.null(),
   mcp: {
     title: "Configure Workers Builds for GitHub",
     name: "vault_cloudflare_configureWorkersBuildsForGitHub",
     description:
-      "Configure the app's production and preview Workers Builds triggers for its GitHub repository, so pushes deploy and pull requests get previews.",
+      "Configure the selected Worker's production and preview Workers Builds triggers for the vault's GitHub repository, so pushes deploy and pull requests get previews.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -27,6 +27,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
     inputDescriptions: {
       vaultId: "Samebase vault id containing the Worker.",
       workerId: "Stable Samebase Worker attachment id returned by get_user_vaults.",
+      rootDirectory: "Repository root to write to this Worker's GitHub Builds triggers.",
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `Configures the production and preview Workers Builds triggers for an attached Worker,

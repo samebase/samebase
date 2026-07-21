@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "Samebase",
     "subtitle": "Create and connect web apps",
-    "description": "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect app state and run explicit provider configuration from one inventory.",
+    "description": "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect vault attachments and live provider state from one inventory.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
@@ -51,20 +51,20 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Creates the Samebase app record for an existing repository and starts a tree sync; provider resources are not modified.",
+        "read_only_justification": "Creates the repository-backed Samebase vault and starts a tree sync; provider resources are not modified.",
         "open_world_justification": "Reads repository metadata from GitHub; creates no external resources beyond Samebase's own record.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
-    "vault_convex_listProjects": {
+    "vault_convex_discoverProjects": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only lists Convex projects readable with the caller's connected Convex account.",
-        "open_world_justification": "Reads from the Convex management API; writes nothing anywhere.",
+        "read_only_justification": "Discovers exact convex.json files in the vault repository and Convex projects readable through the caller's connected team.",
+        "open_world_justification": "Reads from GitHub, Convex, and available Cloudflare Worker markers; writes nothing anywhere.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
@@ -80,39 +80,39 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
-    "vault_cloudflare_listWorkers": {
+    "vault_cloudflare_discoverWorkers": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only lists Workers on the chosen Cloudflare account, classified against the app's repository.",
+        "read_only_justification": "Lists Workers on the chosen Cloudflare account and observes their live repository roots against the vault repository.",
         "open_world_justification": "Reads from the Cloudflare API; writes nothing anywhere.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
-    "vault_convex_connectExistingProject": {
+    "vault_convex_attachProjects": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Records an existing Convex project on the Samebase app.",
-        "open_world_justification": "Reads the chosen project from Convex and records Samebase state; the project itself is not modified.",
+        "read_only_justification": "Records selected existing Convex projects and confirmed convex.json paths as vault attachments.",
+        "open_world_justification": "Re-reads the selected projects from Convex and exact config blobs from GitHub, then records Samebase state; provider resources are not modified.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
-    "vault_cloudflare_connectExistingWorker": {
+    "vault_cloudflare_attachWorkers": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Records an existing Cloudflare Worker on the Samebase app; Workers configured for a different repository are rejected rather than adopted.",
-        "open_world_justification": "Reads Worker metadata from Cloudflare and records Samebase state; rejects Workers configured for other repositories.",
+        "read_only_justification": "Records selected existing Cloudflare Workers as vault attachments; Workers without a verified root for this repository are rejected.",
+        "open_world_justification": "Re-reads Worker identity and live repository roots from Cloudflare, then records Samebase state; provider resources are not modified.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
@@ -203,7 +203,7 @@
       "user_prompt": "Connect the existing GitHub repository samebase/tmp-chatgpt-existing to Samebase. Keep it GitHub-only for now and do not attach Convex or Cloudflare.",
       "file_attachment_urls": null,
       "tools_triggered": "vault_actions_connectRepository",
-      "expected_output": "Creates the Samebase app record and starts repository tree sync while leaving Convex and Cloudflare unconfigured.",
+      "expected_output": "Creates the repository-backed Samebase vault and starts repository tree sync while leaving Convex and Cloudflare unconfigured.",
       "expected_output_url": null
     },
     {

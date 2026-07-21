@@ -4,8 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import { ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
-import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
+import { findVaultConvexProjectAttachment } from "@/lib/vaultConvexProjectAttachment";
 
 const EMBEDDED_DASHBOARD_ORIGIN = "https://dashboard-embedded.convex.dev";
 const EMBEDDED_DASHBOARD_URL = `${EMBEDDED_DASHBOARD_ORIGIN}/data`;
@@ -38,10 +37,6 @@ function formatVaultDatabaseNotice(
   return "Data is unavailable.";
 }
 
-function formatAppRoot(appRoot: string): string {
-  return appRoot === "." ? "root" : appRoot;
-}
-
 function VaultDatabaseStatus({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 text-sm text-muted-foreground">
@@ -54,10 +49,15 @@ type VaultDatabaseViewProps = {
   owner: string;
   repoName: string;
   branch: string;
-  appRoot: string;
+  convexProjectId: string;
 };
 
-export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDatabaseViewProps) {
+export function VaultDatabaseView({
+  owner,
+  repoName,
+  branch,
+  convexProjectId: routeConvexProjectId,
+}: VaultDatabaseViewProps) {
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const createEmbeddedDashboardCredentials = useAction(
     api.vault.database.createEmbeddedDashboardCredentials,
@@ -72,25 +72,20 @@ export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDat
   const [loadError, setLoadError] = useState<string | null>(null);
   const readyCredentials = credentialsResult?.kind === "ready" ? credentialsResult : null;
   credentialsRef.current = readyCredentials;
-  const vault = vaults?.find(
-    (candidate) => candidate.repositoryFullName === `${owner}/${repoName}`,
-  );
-  const rootDirectory = appRoot === ROOT_VAULT_APP_ROOT ? VAULT_ROOT_DIRECTORY : appRoot;
-  const app = vault?.apps.find((candidate) => candidate.rootDirectory === rootDirectory);
-  const convexProjects = app
-    ? (vault?.convexProjects.filter((project) => project.appId === app.appId) ?? [])
-    : [];
-  const convexProjectId = convexProjects.length === 1 ? convexProjects[0]?.convexProjectId : null;
+  const attachment = vaults
+    ? findVaultConvexProjectAttachment(vaults, `${owner}/${repoName}`, routeConvexProjectId)
+    : null;
+  const vault = attachment?.vault;
+  const convexProject = attachment?.project;
+  const convexProjectId = convexProject?.convexProjectId;
   const projectNotice =
     vaults === undefined
       ? null
       : !vault
         ? "Vault not found."
-        : !app || convexProjects.length === 0
-          ? "No Convex project is attached to this app."
-          : convexProjects.length > 1
-            ? "Choose a Convex project before opening deployment data."
-            : null;
+        : !convexProject
+          ? "Convex project is not attached to this vault."
+          : null;
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -186,7 +181,7 @@ export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDat
     revokeEmbeddedDashboardCredentials,
   ]);
 
-  const titleParts = [`${owner}/${repoName}`, branch, formatAppRoot(appRoot)];
+  const titleParts = [`${owner}/${repoName}`, branch, convexProject?.projectId];
 
   return (
     <AppWorkspaceRouteChrome rightToggleVisibility="all">

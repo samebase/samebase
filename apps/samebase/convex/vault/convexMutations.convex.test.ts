@@ -47,162 +47,187 @@ async function createGraphFixture() {
         defaultBranch: "main",
         connectedAt: 3,
       });
-      const appId = await ctx.db.insert("vaultApps", {
-        vaultId,
-        userId: ownerId,
-        rootDirectory: "/",
-        createdAt: 4,
-      });
-      const nestedAppId = await ctx.db.insert("vaultApps", {
-        vaultId,
-        userId: ownerId,
-        rootDirectory: "apps/admin",
-        createdAt: 5,
-      });
-      return { appId, nestedAppId, vaultId };
+      return vaultId;
     };
 
     return {
       userId,
       otherUserId,
-      primary: await createConnectedVault(userId, "ada"),
-      secondary: await createConnectedVault(userId, "ada-second"),
-      foreign: await createConnectedVault(otherUserId, "grace"),
+      primaryVaultId: await createConnectedVault(userId, "ada"),
+      secondaryVaultId: await createConnectedVault(userId, "ada-second"),
+      foreignVaultId: await createConnectedVault(otherUserId, "grace"),
     };
   });
   return { ids, t };
 }
 
-describe("vault Convex project graph mutations", () => {
-  it("persists one project per app and upgrades confirmed creation ownership", async () => {
+describe("vault Convex project attachment mutations", () => {
+  it("atomically attaches multiple projects and permits a shared config path", async () => {
     const { ids, t } = await createGraphFixture();
-    const selectedProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
-      vaultId: ids.primary.vaultId,
+    const projectIds = await t.mutation(internal.vault.convexMutations.attachProjects, {
+      vaultId: ids.primaryVaultId,
       userId: ids.userId,
-      appId: ids.primary.appId,
-      teamId: "team-1",
-      projectId: "selected-project",
-      origin: "selected_existing",
+      projects: [
+        {
+          teamId: "team-1",
+          projectId: "project-1",
+          convexConfigPath: "apps/web/convex.json",
+          origin: "selected_existing",
+        },
+        {
+          teamId: "team-1",
+          projectId: "project-2",
+          convexConfigPath: "apps/web/convex.json",
+          origin: "provisioned",
+        },
+      ],
     });
     await expect(
-      t.mutation(internal.vault.convexMutations.attachProject, {
-        vaultId: ids.primary.vaultId,
+      t.mutation(internal.vault.convexMutations.attachProjects, {
+        vaultId: ids.primaryVaultId,
         userId: ids.userId,
-        appId: ids.primary.appId,
-        teamId: "team-1",
-        projectId: "selected-project",
-        origin: "provisioned",
+        projects: [
+          {
+            teamId: "team-1",
+            projectId: "project-1",
+            convexConfigPath: "apps/web/convex.json",
+            origin: "provisioned",
+          },
+        ],
       }),
-    ).resolves.toEqual(selectedProjectId);
-    await expect(
-      t.mutation(internal.vault.convexMutations.attachProject, {
-        vaultId: ids.primary.vaultId,
-        userId: ids.userId,
-        appId: ids.primary.appId,
-        teamId: "team-1",
-        projectId: "second-project",
-        origin: "selected_existing",
-      }),
-    ).rejects.toThrow("Vault app already has a Convex project.");
+    ).resolves.toEqual([projectIds[0]]);
 
     const projects = await t.run(async (ctx) => {
       return await ctx.db
         .query("vaultConvexProjects")
-        .withIndex("by_app", (q) => q.eq("appId", ids.primary.appId))
+        .withIndex("by_vault_and_config_path", (q) =>
+          q.eq("vaultId", ids.primaryVaultId).eq("convexConfigPath", "apps/web/convex.json"),
+        )
         .collect();
     });
-    expect(projects).toMatchObject([
-      {
-        _id: selectedProjectId,
-        appId: ids.primary.appId,
-        origin: "provisioned",
-        projectId: "selected-project",
-      },
-    ]);
+    expect(projects).toHaveLength(2);
+    expect(projects.map((project) => project.origin)).toEqual(["provisioned", "provisioned"]);
   });
 
-  it("rejects attaching one provider project to another app or vault", async () => {
+  it("enforces global project identity before writing any batch member", async () => {
     const { ids, t } = await createGraphFixture();
-    await t.mutation(internal.vault.convexMutations.attachProject, {
-      vaultId: ids.primary.vaultId,
+    await t.mutation(internal.vault.convexMutations.attachProjects, {
+      vaultId: ids.primaryVaultId,
       userId: ids.userId,
-      appId: ids.primary.appId,
-      teamId: "team-1",
-      projectId: "shared-project",
-      origin: "selected_existing",
+      projects: [
+        {
+          teamId: "team-1",
+          projectId: "shared-project",
+          convexConfigPath: "convex.json",
+          origin: "selected_existing",
+        },
+      ],
     });
 
     await expect(
-      t.mutation(internal.vault.convexMutations.attachProject, {
-        vaultId: ids.primary.vaultId,
+      t.mutation(internal.vault.convexMutations.attachProjects, {
+        vaultId: ids.secondaryVaultId,
         userId: ids.userId,
-        appId: ids.primary.nestedAppId,
-        teamId: "team-1",
-        projectId: "shared-project",
-        origin: "selected_existing",
+        projects: [
+          {
+            teamId: "team-1",
+            projectId: "new-project",
+            convexConfigPath: "convex.json",
+            origin: "selected_existing",
+          },
+          {
+            teamId: "team-2",
+            projectId: "shared-project",
+            convexConfigPath: "apps/admin/convex.json",
+            origin: "selected_existing",
+          },
+        ],
       }),
     ).rejects.toThrow("Convex project is already attached.");
+
     await expect(
-      t.mutation(internal.vault.convexMutations.attachProject, {
-        vaultId: ids.foreign.vaultId,
-        userId: ids.otherUserId,
-        appId: ids.foreign.appId,
-        teamId: "team-1",
-        projectId: "shared-project",
-        origin: "selected_existing",
-      }),
-    ).rejects.toThrow("Convex project is already attached.");
-    await expect(
-      t.mutation(internal.vault.convexMutations.attachProject, {
-        vaultId: ids.secondary.vaultId,
-        userId: ids.userId,
-        appId: ids.secondary.appId,
-        teamId: "team-1",
-        projectId: "shared-project",
-        origin: "selected_existing",
-      }),
-    ).rejects.toThrow("Convex project is already attached.");
+      t.run(async (ctx) =>
+        ctx.db
+          .query("vaultConvexProjects")
+          .withIndex("by_project", (q) => q.eq("projectId", "new-project"))
+          .unique(),
+      ),
+    ).resolves.toBeNull();
   });
 
-  it("removes only the unchanged missing project attachment", async () => {
+  it("reconciles one field at a time and detaches only an expected attachment", async () => {
     const { ids, t } = await createGraphFixture();
-    const convexProjectId = await t.mutation(internal.vault.convexMutations.attachProject, {
-      vaultId: ids.primary.vaultId,
+    const [convexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
+      vaultId: ids.primaryVaultId,
       userId: ids.userId,
-      appId: ids.primary.appId,
-      teamId: "team-1",
-      projectId: "missing-project",
-      origin: "selected_existing",
+      projects: [
+        {
+          teamId: "team-1",
+          projectId: "project-1",
+          convexConfigPath: "convex.json",
+          origin: "selected_existing",
+        },
+      ],
+    });
+    if (!convexProjectId) {
+      throw new Error("Expected a project attachment.");
+    }
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.reconcileProjectTeam, {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        convexProjectId,
+        projectId: "project-1",
+        expectedTeamId: "wrong-team",
+        nextTeamId: "team-2",
+      }),
+    ).rejects.toThrow("Convex project attachment changed before team reconciliation.");
+    await t.mutation(internal.vault.convexMutations.reconcileProjectTeam, {
+      vaultId: ids.primaryVaultId,
+      userId: ids.userId,
+      convexProjectId,
+      projectId: "project-1",
+      expectedTeamId: "team-1",
+      nextTeamId: "team-2",
+    });
+    await t.mutation(internal.vault.convexMutations.reconcileProjectConvexConfigPath, {
+      vaultId: ids.primaryVaultId,
+      userId: ids.userId,
+      convexProjectId,
+      projectId: "project-1",
+      expectedConvexConfigPath: "convex.json",
+      nextConvexConfigPath: "apps/web/convex.json",
     });
 
     await expect(
-      t.mutation(internal.vault.convexMutations.removeMissingProjectAttachment, {
-        vaultId: ids.primary.vaultId,
+      t.mutation(internal.vault.convexMutations.detachProject, {
+        vaultId: ids.primaryVaultId,
         userId: ids.userId,
         convexProjectId,
         teamId: "team-1",
-        projectId: "changed-project",
+        projectId: "project-1",
+        convexConfigPath: "apps/web/convex.json",
       }),
     ).rejects.toThrow("Convex project attachment changed before removal.");
-
     await expect(
-      t.mutation(internal.vault.convexMutations.removeMissingProjectAttachment, {
-        vaultId: ids.primary.vaultId,
+      t.mutation(internal.vault.convexMutations.detachProject, {
+        vaultId: ids.primaryVaultId,
         userId: ids.userId,
         convexProjectId,
-        teamId: "team-1",
-        projectId: "missing-project",
+        teamId: "team-2",
+        projectId: "project-1",
+        convexConfigPath: "apps/web/convex.json",
       }),
     ).resolves.toBeNull();
-    await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toBeNull();
   });
 
-  it("checkpoints managed project creation only for the active run", async () => {
+  it("derives managed placement from the active provisioning plan", async () => {
     const { ids, t } = await createGraphFixture();
     const { planId, runId, writeLockId } = await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
-        vaultId: ids.primary.vaultId,
+        vaultId: ids.primaryVaultId,
         repositoryFullName: "ada/repository",
         trigger: "retry",
         state: "running",
@@ -211,26 +236,26 @@ describe("vault Convex project graph mutations", () => {
         updatedAt: 10,
       });
       const writeLockId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: ids.primary.vaultId,
+        vaultId: ids.primaryVaultId,
         runId,
         state: "active",
         updatedAt: 10,
       });
       const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
-        vaultId: ids.primary.vaultId,
+        vaultId: ids.primaryVaultId,
         userId: ids.userId,
-        appRoot: ".",
+        convexConfigPath: "apps/web/convex.json",
         convex: { state: "planned", projectName: "managed-project" },
         cloudflare: {
           state: "planned",
           accountId: "account-1",
           workerName: "managed-worker",
           build: {
-            rootDirectory: "/",
+            rootDirectory: "apps/web",
             buildCommand: "pnpm run build",
             deployCommand: "pnpm run deploy",
             previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
+            pathIncludes: ["apps/web/*"],
             pathExcludes: [],
           },
         },
@@ -240,40 +265,31 @@ describe("vault Convex project graph mutations", () => {
       return { planId, runId, writeLockId };
     });
 
+    await t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+      vaultId: ids.primaryVaultId,
+      userId: ids.userId,
+      runId,
+      projectName: "managed-project",
+      teamId: "team-1",
+    });
     await expect(
-      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
-        vaultId: ids.primary.vaultId,
+      t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+        vaultId: ids.primaryVaultId,
         userId: ids.userId,
         runId,
+        convexConfigPath: "convex.json",
         projectName: "managed-project",
         teamId: "team-1",
+        projectId: "created-project",
       }),
-    ).resolves.toEqual({ state: "planned" });
-    await expect(
-      t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
-        vaultId: ids.primary.vaultId,
-        userId: ids.userId,
-        runId,
-        projectName: "managed-project",
-        teamId: "team-1",
-      }),
-    ).resolves.toBeNull();
-    await expect(
-      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
-        vaultId: ids.primary.vaultId,
-        userId: ids.userId,
-        runId,
-        projectName: "managed-project",
-        teamId: "team-1",
-      }),
-    ).resolves.toEqual({ state: "creating" });
+    ).rejects.toThrow("Managed Convex config path does not match the provisioning plan.");
     const convexProjectId = await t.mutation(
       internal.vault.convexMutations.recordManagedProjectCreated,
       {
-        vaultId: ids.primary.vaultId,
+        vaultId: ids.primaryVaultId,
         userId: ids.userId,
         runId,
-        appId: ids.primary.appId,
+        convexConfigPath: "apps/web/convex.json",
         projectName: "managed-project",
         teamId: "team-1",
         projectId: "created-project",
@@ -285,32 +301,23 @@ describe("vault Convex project graph mutations", () => {
         project: await ctx.db.get(convexProjectId),
       })),
     ).resolves.toMatchObject({
-      plan: {
-        convex: {
-          state: "created",
-          projectName: "managed-project",
-          teamId: "team-1",
-          projectId: "created-project",
-        },
-      },
+      plan: { convex: { state: "created", projectId: "created-project" } },
       project: {
-        vaultId: ids.primary.vaultId,
-        appId: ids.primary.appId,
+        vaultId: ids.primaryVaultId,
+        convexConfigPath: "apps/web/convex.json",
         teamId: "team-1",
         projectId: "created-project",
         origin: "provisioned",
       },
     });
 
-    await t.run(async (ctx) => {
-      await ctx.db.patch(writeLockId, { state: "failed" });
-    });
+    await t.run(async (ctx) => await ctx.db.patch(writeLockId, { state: "failed" }));
     await expect(
       t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
-        vaultId: ids.primary.vaultId,
+        vaultId: ids.primaryVaultId,
         userId: ids.userId,
         runId,
-        appId: ids.primary.appId,
+        convexConfigPath: "apps/web/convex.json",
         projectName: "managed-project",
         teamId: "team-1",
         projectId: "other-project",
@@ -318,24 +325,12 @@ describe("vault Convex project graph mutations", () => {
     ).rejects.toThrow("Managed provisioning run no longer holds the write lock.");
   });
 
-  it("enforces vault, app, and user ownership", async () => {
+  it("enforces vault ownership", async () => {
     const { ids, t } = await createGraphFixture();
-
     await expect(
       t.query(internal.vault.convexMutations.requireConvexProjectConnectionVault, {
-        vaultId: ids.primary.vaultId,
+        vaultId: ids.foreignVaultId,
         userId: ids.userId,
-        appId: ids.secondary.appId,
-      }),
-    ).rejects.toThrow("Vault app not found.");
-    await expect(
-      t.mutation(internal.vault.convexMutations.attachProject, {
-        vaultId: ids.primary.vaultId,
-        userId: ids.otherUserId,
-        appId: ids.primary.appId,
-        teamId: "team-1",
-        projectId: "foreign-project",
-        origin: "selected_existing",
       }),
     ).rejects.toThrow("Vault not found.");
   });

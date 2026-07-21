@@ -6,11 +6,12 @@
 
 Samebase can create a new app in about a minute or connect an existing GitHub repository without
 touching its providers. A connected app can remain GitHub-only or attach Convex and Cloudflare
-later. One repository can contain several explicit app roots for a monorepo; humans configure those
-roots in the dashboard.
+later. In a monorepo, Samebase derives resource locations from each selected convex.json file and
+each Worker's live Workers Builds root.
 
-The dashboard gives humans one inventory of every app they connect, its app roots, provider
-resources, current state, direct provider coordinates, and provider or connection repair actions.
+The dashboard gives humans one inventory of every repository they connect, its provider resources,
+derived locations, current state, direct provider coordinates, and provider or connection repair
+actions.
 Codex and Claude Code can install `samebase@samebase`, which packages the create or connect, local
 repository build, and Git-backed hosting workflows. Cursor and other MCP clients can call the same
 actions directly.
@@ -42,15 +43,15 @@ Inventory reports live provider state and stable Samebase resource ids. Choose a
 whose contract matches the observed state and required ids, then reread inventory.
 
 - [Get authentication status](https://samebase.com/docs/actions/get_authentication_status.md): Read the caller's current Samebase MCP authentication state: account identity, role, access keys, and OAuth token scopes.
-- [List Samebase apps](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase apps and repositories available to the authenticated user, including the durable app and provider-resource graph.
+- [List Samebase vaults](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase vaults available to the authenticated user, including attached provider resources.
 - [Create Samebase app](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.
-- [Connect existing repository](https://samebase.com/docs/actions/connect_existing_repository.md): Import an existing GitHub repository as a Samebase app. Creates the Samebase record and syncs the repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.
-- [List Convex projects](https://samebase.com/docs/actions/list_convex_projects.md): List the Convex projects available on the caller's connected Convex account, for choosing an attach target.
+- [Connect existing repository](https://samebase.com/docs/actions/connect_existing_repository.md): Connect an existing GitHub repository as a Samebase vault and sync its repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.
+- [Discover Convex projects](https://samebase.com/docs/actions/discover_convex_projects.md): Discover valid convex.json locations in a vault's GitHub repository and projects available through the connected Convex team.
 - [List Cloudflare accounts](https://samebase.com/docs/actions/list_cloudflare_accounts.md): List the Cloudflare accounts available on the caller's connected Cloudflare login, for choosing where a Worker lives.
-- [List Cloudflare Workers](https://samebase.com/docs/actions/list_cloudflare_workers.md): List the Workers on a Cloudflare account, classified against the app's repository so safe attach targets are marked recommended.
-- [Connect Convex project](https://samebase.com/docs/actions/connect_convex_project.md): Attach an existing Convex project to a Samebase app without copying its deployments into Samebase.
-- [Connect Cloudflare Worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Attach an existing Cloudflare Worker identity to a Samebase app after validating it against the repository.
-- [Configure Workers Builds for GitHub](https://samebase.com/docs/actions/configure_workers_builds_for_github.md): Configure the app's production and preview Workers Builds triggers for its GitHub repository, so pushes deploy and pull requests get previews.
+- [Discover Cloudflare Workers](https://samebase.com/docs/actions/discover_cloudflare_workers.md): Discover Workers in a Cloudflare account and observe which ones are currently connected to this vault's GitHub repository and live Workers Builds roots.
+- [Attach Convex projects](https://samebase.com/docs/actions/attach_convex_projects.md): Attach selected existing Convex projects to a vault at explicit discovered convex.json locations.
+- [Attach Cloudflare Workers](https://samebase.com/docs/actions/attach_cloudflare_workers.md): Attach selected existing Cloudflare Workers to a vault after re-verifying their identities and live GitHub repository roots.
+- [Configure Workers Builds for GitHub](https://samebase.com/docs/actions/configure_workers_builds_for_github.md): Configure the selected Worker's production and preview Workers Builds triggers for the vault's GitHub repository, so pushes deploy and pull requests get previews.
 - [Rotate Convex deploy keys for Workers Builds](https://samebase.com/docs/actions/rotate_convex_deploy_keys_for_workers_builds.md): Rotate Samebase-named production and preview Convex deploy keys, then write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers.
 - [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
 - [Create browser handoff](https://samebase.com/docs/actions/create_browser_handoff.md): Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.

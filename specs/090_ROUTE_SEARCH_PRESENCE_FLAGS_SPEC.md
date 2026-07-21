@@ -39,7 +39,6 @@ URL key being present means the flag is on. The value attached to that key is no
 
 The shared known list lives in `ROUTE_SEARCH_PRESENCE_FLAG_KEYS`. It currently contains:
 
-- `add-app-root`
 - `add-cloudflare`
 - `add-convex`
 - `compare`

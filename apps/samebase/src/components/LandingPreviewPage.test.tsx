@@ -157,7 +157,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("not attached");
     expect(markup).toContain("apps/admin");
     expect(markup).toContain("configure Workers Builds for GitHub");
-    expect(markup).toContain("several roots in one monorepo");
+    expect(markup).toContain("monorepo locations follow convex.json and live Workers Builds roots");
     // One row set, two renderings: the table and the stacked cards.
     expect(markup.split("you/birdlog").length - 1).toBe(2);
 

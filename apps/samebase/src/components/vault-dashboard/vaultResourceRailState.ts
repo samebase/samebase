@@ -1,5 +1,6 @@
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
 import type {
   VaultResourceRailAction,
   VaultResourceRailActionList,
@@ -18,7 +19,6 @@ import type {
 type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
-type VaultDashboardApp = VaultDashboardVault["apps"][number];
 type VaultDashboardCloudflareWorker = VaultDashboardVault["cloudflareWorkers"][number];
 type VaultDashboardConvexProject = VaultDashboardVault["convexProjects"][number];
 
@@ -39,10 +39,8 @@ function buildCloudflareDashboardUrl(worker: VaultDashboardCloudflareWorker): st
   return `https://dash.cloudflare.com/?to=/${encodeURIComponent(worker.accountId)}/workers/services/view/${encodeURIComponent(worker.workerName)}/production/settings`;
 }
 
-function buildConvexProjectSettingsUrl(
-  observation: Extract<VaultConvexProjectObservation, { state: "available" }>,
-): string {
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(observation.teamSlug)}/${encodeURIComponent(observation.projectSlug)}/settings`;
+function buildConvexProjectSettingsUrl(project: { projectSlug: string; teamSlug: string }): string {
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(project.teamSlug)}/${encodeURIComponent(project.projectSlug)}/settings`;
 }
 
 function resolveCloudflareWorkersSubdomain(
@@ -87,7 +85,7 @@ function buildAddAction({
   onClick,
 }: {
   href: string | undefined;
-  label: "?add-cloudflare" | "?add-convex";
+  label: string;
   onClick: (() => void) | undefined;
 }): VaultResourceRailAction {
   return {
@@ -99,16 +97,16 @@ function buildAddAction({
   };
 }
 
-function buildRemoveMissingAttachmentAction(args: {
+function buildDetachAttachmentAction(args: {
   ariaLabel: string;
-  isRemoving: boolean;
+  isDetaching: boolean;
   onClick: () => void;
 }): VaultResourceRailAction {
   return {
     kind: "remove",
-    label: args.isRemoving ? "Removing..." : "Remove from Samebase",
+    label: args.isDetaching ? "Removing..." : "Remove from vault",
     ariaLabel: args.ariaLabel,
-    disabled: args.isRemoving,
+    disabled: args.isDetaching,
     onClick: args.onClick,
   };
 }
@@ -116,48 +114,32 @@ function buildRemoveMissingAttachmentAction(args: {
 function formatCloudflareRepositoryState(
   observation: Extract<VaultCloudflareWorkerBuildsObservation, { state: "available" }>,
 ): { description?: string; canConnect: boolean } {
-  const evidence = observation.repository.evidence;
-  switch (evidence.state) {
-    case "matching_repo":
+  const repository = observation.repository;
+  switch (repository.state) {
+    case "ready":
       return observation.builds.state === "connected"
         ? { canConnect: false }
         : {
             canConnect: true,
             description: "Cloudflare Builds setup is incomplete.",
           };
-    case "none":
-    case "deleted_repo_connection":
+    case "not_connected":
       return {
         canConnect: true,
         description: "Cloudflare is not connected to this GitHub repository.",
       };
-    case "same_repo_different_root":
+    case "ambiguous":
       return {
         canConnect: false,
-        description: `Cloudflare Builds uses ${evidence.rootDirectory}; this app uses ${evidence.expectedRootDirectory}.`,
+        description: "Cloudflare Builds does not have one unambiguous repository root.",
       };
-    case "different_repo":
-      return {
-        canConnect: false,
-        description: "Cloudflare Builds is connected to a different GitHub repository.",
-      };
-    case "missing_repo_id":
-      return {
-        canConnect: false,
-        description: "Cloudflare Builds does not identify its GitHub repository.",
-      };
-    case "missing_root_directory":
-      return {
-        canConnect: false,
-        description: "Cloudflare Builds has no root directory.",
-      };
-    case "trigger_read_failed":
+    case "failed":
       return {
         canConnect: false,
         description: "Cloudflare Builds could not be loaded.",
       };
   }
-  evidence satisfies never;
+  repository satisfies never;
   return { canConnect: false };
 }
 
@@ -297,23 +279,26 @@ function buildCloudflareRow({
   convexProjects,
   configureWorkersBuildsForGitHubOnClick,
   isConfiguringWorkersBuildsForGitHub,
-  isRemovingMissingCloudflareWorker,
+  isDetachingCloudflareWorker,
   isRotatingConvexDeployKeysForWorkersBuilds,
   observationState,
-  removeMissingCloudflareWorkerOnClick,
+  detachCloudflareWorkerOnClick,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   worker,
 }: {
   convexProjects: readonly VaultDashboardConvexProject[];
-  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  configureWorkersBuildsForGitHubOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    rootDirectory: string | undefined,
+  ) => void;
   isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isDetachingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
   observationState: VaultCloudflareProviderObservationState;
-  removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
@@ -358,12 +343,12 @@ function buildCloudflareRow({
         ...base,
         status: "missing",
         description: "Missing from Cloudflare.",
-        actions: removeMissingCloudflareWorkerOnClick
+        actions: detachCloudflareWorkerOnClick
           ? [
-              buildRemoveMissingAttachmentAction({
-                ariaLabel: `Remove missing Cloudflare Worker ${worker.workerName} from Samebase`,
-                isRemoving: isRemovingMissingCloudflareWorker?.(worker.workerId) ?? false,
-                onClick: () => removeMissingCloudflareWorkerOnClick(worker.workerId),
+              buildDetachAttachmentAction({
+                ariaLabel: `Remove Cloudflare Worker ${worker.workerName} from vault`,
+                isDetaching: isDetachingCloudflareWorker?.(worker.workerId) ?? false,
+                onClick: () => detachCloudflareWorkerOnClick(worker.workerId),
               }),
             ]
           : undefined,
@@ -425,7 +410,13 @@ function buildCloudflareRow({
                 : "Configure Workers Builds for GitHub",
               disabled: isConfiguring || !configureWorkersBuildsForGitHubOnClick,
               onClick: configureWorkersBuildsForGitHubOnClick
-                ? () => configureWorkersBuildsForGitHubOnClick(worker.workerId)
+                ? () =>
+                    configureWorkersBuildsForGitHubOnClick(
+                      worker.workerId,
+                      buildsObservation.repository.state === "ready"
+                        ? buildsObservation.repository.rootDirectory
+                        : undefined,
+                    )
                 : undefined,
             },
           ],
@@ -498,16 +489,38 @@ function buildCloudflareRow({
   };
 }
 
+function buildActionList(
+  actions: readonly (VaultResourceRailAction | undefined)[],
+): VaultResourceRailActionList | undefined {
+  const presentActions: VaultResourceRailAction[] = [];
+  for (const action of actions) {
+    if (action) {
+      presentActions.push(action);
+    }
+  }
+  if (presentActions.length === 0) {
+    return undefined;
+  }
+  const [first, ...rest] = presentActions;
+  return [first, ...rest];
+}
+
 function buildConvexRow({
-  isRemovingMissingConvexProject,
+  changeConvexProjectConfigPathOnClick,
+  detachConvexProjectOnClick,
+  isDetachingConvexProject,
+  isReconcilingConvexProjectTeam,
   observationState,
   project,
-  removeMissingConvexProjectOnClick,
+  reconcileConvexProjectTeamOnClick,
 }: {
-  isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
+  changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
+  detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
+  isDetachingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
+  isReconcilingConvexProjectTeam?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
   project: VaultDashboardConvexProject;
-  removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
+  reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
 }): VaultResourceRailRowState<"convex"> {
   const base = {
     provider: "convex" as const,
@@ -541,164 +554,114 @@ function buildConvexRow({
       actions: [buildReloadAction(observationState.reload)],
     };
   }
-  switch (observation.state) {
-    case "missing":
-      return {
-        ...base,
-        status: "missing",
-        description: "Missing from Convex.",
-        actions: removeMissingConvexProjectOnClick
-          ? [
-              buildRemoveMissingAttachmentAction({
-                ariaLabel: `Remove missing Convex project ${project.projectId} from Samebase`,
-                isRemoving: isRemovingMissingConvexProject?.(project.convexProjectId) ?? false,
-                onClick: () => removeMissingConvexProjectOnClick(project.convexProjectId),
-              }),
-            ]
-          : undefined,
-      };
-    case "failed":
-      return {
-        ...base,
-        status: "failed",
-        description:
-          observation.reason === "connection_required"
-            ? "Connect Convex to load this project."
-            : "Could not load from Convex.",
-        actions: [buildReloadAction(observationState.reload)],
-      };
-    case "available":
+
+  const sourceDescription = (() => {
+    switch (observation.source.state) {
+      case "valid":
+        return undefined;
+      case "invalid":
+        return `${observation.convexConfigPath} is not a valid Convex config.`;
+      case "missing":
+        return `${observation.convexConfigPath} is missing.`;
+      case "unavailable_partial":
+        return "The repository could not be fully scanned.";
+      case "unavailable":
+        return observation.source.reason === "connection_required"
+          ? "Connect GitHub to verify the Convex config."
+          : "Could not verify the Convex config.";
+    }
+    observation.source satisfies never;
+    return undefined;
+  })();
+  const changeConfigAction =
+    (observation.source.state === "invalid" || observation.source.state === "missing") &&
+    changeConvexProjectConfigPathOnClick
+      ? {
+          kind: "configure" as const,
+          label: "Change code location",
+          onClick: () => changeConvexProjectConfigPathOnClick(project.convexProjectId),
+        }
+      : undefined;
+  const detachAction = detachConvexProjectOnClick
+    ? buildDetachAttachmentAction({
+        ariaLabel: `Remove Convex project ${project.projectId} from vault`,
+        isDetaching: isDetachingConvexProject?.(project.convexProjectId) ?? false,
+        onClick: () => detachConvexProjectOnClick(project.convexProjectId),
+      })
+    : undefined;
+
+  switch (observation.provider.state) {
+    case "current":
       return {
         ...base,
         status: "available",
-        description:
-          observation.productionDeployment.state === "missing"
+        actions: buildActionList([changeConfigAction, detachAction]),
+        description: joinDescriptions(
+          sourceDescription,
+          observation.provider.productionDeployment.state === "missing"
             ? "No production deployment."
             : undefined,
-        href: buildConvexProjectSettingsUrl(observation),
-        scope: observation.teamSlug,
-        value: observation.projectSlug,
+        ),
+        href: buildConvexProjectSettingsUrl(observation.provider),
+        scope: observation.provider.teamSlug,
+        value: observation.provider.projectSlug,
+      };
+    case "moved": {
+      const isReconciling = isReconcilingConvexProjectTeam?.(project.convexProjectId) ?? false;
+      const reconcileAction = reconcileConvexProjectTeamOnClick
+        ? {
+            kind: "configure" as const,
+            label: isReconciling ? "Updating team..." : "Use current team",
+            disabled: isReconciling,
+            onClick: () => reconcileConvexProjectTeamOnClick(project.convexProjectId),
+          }
+        : undefined;
+      return {
+        ...base,
+        status: "available",
+        actions: buildActionList([changeConfigAction, reconcileAction, detachAction]),
+        description: joinDescriptions(
+          sourceDescription,
+          "This project moved to another Convex team.",
+        ),
+        href: buildConvexProjectSettingsUrl(observation.provider),
+        scope: observation.provider.teamSlug,
+        value: observation.provider.projectSlug,
+      };
+    }
+    case "missing_ambiguous":
+      return {
+        ...base,
+        status: "missing",
+        actions: buildActionList([changeConfigAction, detachAction]),
+        description: joinDescriptions(
+          sourceDescription,
+          "The project may have been deleted or moved to another team.",
+        ),
+      };
+    case "unavailable":
+      return {
+        ...base,
+        status: "failed",
+        actions: buildActionList([
+          buildReloadAction(observationState.reload),
+          changeConfigAction,
+          detachAction,
+        ]),
+        description: joinDescriptions(
+          sourceDescription,
+          observation.provider.reason === "connection_required"
+            ? "Connect Convex to load this project."
+            : "Could not load from Convex.",
+        ),
       };
   }
-  observation satisfies never;
+  observation.provider satisfies never;
   return {
     ...base,
     status: "failed",
     description: "Could not load this Convex project.",
   };
-}
-
-function buildAppRows({
-  app,
-  buildAddCloudflareWorkerHref,
-  addCloudflareWorkerOnClick,
-  buildAddConvexHref,
-  addConvexOnClick,
-  cloudflareObservations,
-  configureWorkersBuildsForGitHubOnClick,
-  convexObservations,
-  isConfiguringWorkersBuildsForGitHub,
-  isRemovingMissingCloudflareWorker,
-  isRemovingMissingConvexProject,
-  isRotatingConvexDeployKeysForWorkersBuilds,
-  removeMissingCloudflareWorkerOnClick,
-  removeMissingConvexProjectOnClick,
-  vault,
-  rotateConvexDeployKeysForWorkersBuildsOnClick,
-}: {
-  app: VaultDashboardApp;
-  buildAddCloudflareWorkerHref?: (rootDirectory: string) => string;
-  addCloudflareWorkerOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
-  buildAddConvexHref?: (rootDirectory: string) => string;
-  addConvexOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
-  cloudflareObservations: VaultCloudflareProviderObservationState;
-  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
-  convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
-  isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
-  isRotatingConvexDeployKeysForWorkersBuilds?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    convexProjectId: Id<"vaultConvexProjects">,
-  ) => boolean;
-  removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
-  removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
-  vault: VaultDashboardVault;
-  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    convexProjectId: Id<"vaultConvexProjects">,
-  ) => void;
-}): VaultResourceRailRowState<"cloudflare" | "convex">[] {
-  const projects = vault.convexProjects
-    .filter((project) => project.appId === app.appId)
-    .sort(
-      (left, right) =>
-        left.projectId.localeCompare(right.projectId) ||
-        left.convexProjectId.localeCompare(right.convexProjectId),
-    );
-  const workers = vault.cloudflareWorkers
-    .filter((worker) => worker.appId === app.appId)
-    .sort(
-      (left, right) =>
-        left.workerName.localeCompare(right.workerName) ||
-        left.workerId.localeCompare(right.workerId),
-    );
-  const rows: VaultResourceRailRowState<"cloudflare" | "convex">[] = projects.map((project) =>
-    buildConvexRow({
-      isRemovingMissingConvexProject,
-      observationState: convexObservations,
-      project,
-      removeMissingConvexProjectOnClick,
-    }),
-  );
-  if (projects.length === 0) {
-    rows.push({
-      provider: "convex",
-      rowId: `convex:add:${app.appId}`,
-      status: "action_required",
-      actions: [
-        buildAddAction({
-          href: buildAddConvexHref?.(app.rootDirectory),
-          label: "?add-convex",
-          onClick: addConvexOnClick
-            ? () => addConvexOnClick(app.appId, app.rootDirectory)
-            : undefined,
-        }),
-      ],
-    });
-  }
-  rows.push(
-    ...workers.map((worker) =>
-      buildCloudflareRow({
-        convexProjects: vault.convexProjects,
-        configureWorkersBuildsForGitHubOnClick,
-        isConfiguringWorkersBuildsForGitHub,
-        isRemovingMissingCloudflareWorker,
-        isRotatingConvexDeployKeysForWorkersBuilds,
-        observationState: cloudflareObservations,
-        removeMissingCloudflareWorkerOnClick,
-        rotateConvexDeployKeysForWorkersBuildsOnClick,
-        worker,
-      }),
-    ),
-  );
-  if (workers.length === 0) {
-    rows.push({
-      provider: "cloudflare",
-      rowId: `cloudflare:add:${app.appId}`,
-      status: "action_required",
-      actions: [
-        buildAddAction({
-          href: buildAddCloudflareWorkerHref?.(app.rootDirectory),
-          label: "?add-cloudflare",
-          onClick: addCloudflareWorkerOnClick
-            ? () => addCloudflareWorkerOnClick(app.appId, app.rootDirectory)
-            : undefined,
-        }),
-      ],
-    });
-  }
-  return rows;
 }
 
 export function buildVaultDashboardResourceRailState({
@@ -707,39 +670,44 @@ export function buildVaultDashboardResourceRailState({
   buildAddConvexHref,
   addConvexOnClick,
   configureWorkersBuildsForGitHubOnClick,
-  buildAddAppRootHref,
-  addAppRootOnClick,
+  changeConvexProjectConfigPathOnClick,
   cloudflareObservations,
   convexObservations,
   githubRepositoryUrl,
   isConfiguringWorkersBuildsForGitHub,
-  isRemovingMissingCloudflareWorker,
-  isRemovingMissingConvexProject,
+  isDetachingCloudflareWorker,
+  isDetachingConvexProject,
+  isReconcilingConvexProjectTeam,
   isRotatingConvexDeployKeysForWorkersBuilds,
-  removeMissingCloudflareWorkerOnClick,
-  removeMissingConvexProjectOnClick,
+  detachCloudflareWorkerOnClick,
+  detachConvexProjectOnClick,
+  reconcileConvexProjectTeamOnClick,
   vault,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
 }: {
-  buildAddCloudflareWorkerHref?: (rootDirectory: string) => string;
-  addCloudflareWorkerOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
-  buildAddConvexHref?: (rootDirectory: string) => string;
-  addConvexOnClick?: (appId: Id<"vaultApps">, rootDirectory: string) => void;
-  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
-  buildAddAppRootHref?: () => string;
-  addAppRootOnClick?: () => void;
+  buildAddCloudflareWorkerHref?: () => string;
+  addCloudflareWorkerOnClick?: () => void;
+  buildAddConvexHref?: () => string;
+  addConvexOnClick?: () => void;
+  configureWorkersBuildsForGitHubOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    rootDirectory: string | undefined,
+  ) => void;
+  changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   githubRepositoryUrl: string;
   isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isRemovingMissingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isRemovingMissingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
+  isDetachingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
+  isDetachingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
+  isReconcilingConvexProjectTeam?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
   isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => boolean;
-  removeMissingCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
-  removeMissingConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
+  detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
+  reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -767,57 +735,111 @@ export function buildVaultDashboardResourceRailState({
           : "Loading from GitHub...",
     };
   } else {
-    const addAppActions: VaultResourceRailActionList | undefined =
-      buildAddAppRootHref || addAppRootOnClick
-        ? [
-            {
-              kind: "add",
-              label: "?add-app-root",
-              ariaLabel: "Add app root",
-              href: buildAddAppRootHref?.(),
-              onClick: addAppRootOnClick,
-            },
-          ]
-        : undefined;
     githubRow = {
       provider: "github",
       rowId: "github",
       status: "available",
       value: vault.repositoryFullName,
       href: githubRepositoryUrl,
-      actions: addAppActions,
     };
   }
 
+  const rowsByRoot = new Map<string, VaultResourceRailRowState<"cloudflare" | "convex">[]>();
+  const addRowToRoot = (
+    rootDirectory: string,
+    row: VaultResourceRailRowState<"cloudflare" | "convex">,
+  ) => {
+    const rows = rowsByRoot.get(rootDirectory);
+    if (rows) {
+      rows.push(row);
+      return;
+    }
+    rowsByRoot.set(rootDirectory, [row]);
+  };
+
+  for (const project of [...vault.convexProjects].sort(
+    (left, right) =>
+      left.projectId.localeCompare(right.projectId) ||
+      left.convexProjectId.localeCompare(right.convexProjectId),
+  )) {
+    addRowToRoot(
+      getConvexConfigRootDirectory(project.convexConfigPath),
+      buildConvexRow({
+        changeConvexProjectConfigPathOnClick,
+        detachConvexProjectOnClick,
+        isDetachingConvexProject,
+        isReconcilingConvexProjectTeam,
+        observationState: convexObservations,
+        project,
+        reconcileConvexProjectTeamOnClick,
+      }),
+    );
+  }
+
+  const attentionRows: VaultResourceRailRowState<"cloudflare" | "convex">[] = [];
+  for (const worker of [...vault.cloudflareWorkers].sort(
+    (left, right) =>
+      left.workerName.localeCompare(right.workerName) ||
+      left.workerId.localeCompare(right.workerId),
+  )) {
+    const row = buildCloudflareRow({
+      convexProjects: vault.convexProjects,
+      configureWorkersBuildsForGitHubOnClick,
+      isConfiguringWorkersBuildsForGitHub,
+      isDetachingCloudflareWorker,
+      isRotatingConvexDeployKeysForWorkersBuilds,
+      observationState: cloudflareObservations,
+      detachCloudflareWorkerOnClick,
+      rotateConvexDeployKeysForWorkersBuildsOnClick,
+      worker,
+    });
+    const buildsObservation =
+      cloudflareObservations.builds.state === "loaded"
+        ? cloudflareObservations.builds.observations.find(
+            (candidate) => candidate.workerId === worker.workerId,
+          )
+        : undefined;
+    if (
+      buildsObservation?.state === "available" &&
+      buildsObservation.repository.state === "ready"
+    ) {
+      addRowToRoot(buildsObservation.repository.rootDirectory, row);
+    } else {
+      attentionRows.push(row);
+    }
+  }
+
   return {
+    attentionRows,
     githubRow,
-    apps: [...vault.apps]
-      .sort(
-        (left, right) =>
-          compareRootDirectories(left.rootDirectory, right.rootDirectory) ||
-          left.appId.localeCompare(right.appId),
-      )
-      .map((app) => ({
-        appId: app.appId,
-        rootDirectory: app.rootDirectory,
-        rows: buildAppRows({
-          app,
-          buildAddCloudflareWorkerHref,
-          addCloudflareWorkerOnClick,
-          buildAddConvexHref,
-          addConvexOnClick,
-          cloudflareObservations,
-          configureWorkersBuildsForGitHubOnClick,
-          convexObservations,
-          isConfiguringWorkersBuildsForGitHub,
-          isRemovingMissingCloudflareWorker,
-          isRemovingMissingConvexProject,
-          isRotatingConvexDeployKeysForWorkersBuilds,
-          removeMissingCloudflareWorkerOnClick,
-          removeMissingConvexProjectOnClick,
-          vault,
-          rotateConvexDeployKeysForWorkersBuildsOnClick,
-        }),
-      })),
+    roots: [...rowsByRoot.entries()]
+      .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))
+      .map(([rootDirectory, rows]) => ({ rootDirectory, rows })),
+    vaultActionRows: [
+      {
+        provider: "convex",
+        rowId: "convex:add",
+        status: "action_required",
+        actions: [
+          buildAddAction({
+            href: buildAddConvexHref?.(),
+            label: "Add",
+            onClick: addConvexOnClick,
+          }),
+        ],
+      },
+      {
+        provider: "cloudflare",
+        rowId: "cloudflare:add",
+        status: "action_required",
+        actions: [
+          buildAddAction({
+            href: buildAddCloudflareWorkerHref?.(),
+            label: "Add",
+            onClick: addCloudflareWorkerOnClick,
+          }),
+        ],
+      },
+    ],
   };
 }

@@ -2,13 +2,13 @@
 
 # List Cloudflare accounts (`list_cloudflare_accounts`)
 
-MCP tool `vault_cloudflare_listAccounts` · scope `access_app_create` · read_only
+MCP tool `vault_cloudflare_listAccounts` · scope `access_provider_connections` · read_only
 
 Discovery read for the manual Cloudflare attach flow: returns the accounts on the caller's connected
-Cloudflare login. Use the chosen `accountId` with `list_cloudflare_workers` and
-`connect_cloudflare_worker`. Requires a Cloudflare provider connection; reads from Cloudflare's API.
-The only writes are Samebase's own connection bookkeeping (OAuth token refresh and token health)
-when the connection needs it.
+Cloudflare login. Use the chosen `accountId` with `discover_cloudflare_workers`, then attach one or
+more verified results with `attach_cloudflare_workers`. Requires a Cloudflare provider connection;
+reads from Cloudflare's API. The only writes are Samebase's own connection bookkeeping (OAuth token
+refresh and token health) when the connection needs it.
 
 ## Arguments
 

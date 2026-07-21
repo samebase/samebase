@@ -64,7 +64,6 @@ export const vaultConvexSchemaGraphTables = {
     userId: id("users"),
     vaultId: id("vaults"),
     convexProjectId: id("vaultConvexProjects"),
-    rootDirectory: string(),
     deploymentName: string(),
     schemaHash: string(),
     graph: vConvexSchemaGraph,

@@ -98,8 +98,13 @@ describe("MCP tool listing access", () => {
 
     expect(
       listMcpToolsForAccess({
-        grantedScopes: ["access_app_create", "access_dashboard"],
-        currentAccessKeys: ["access_public", "access_dashboard", "access_app_create"],
+        grantedScopes: ["access_app_create", "access_dashboard", "access_provider_connections"],
+        currentAccessKeys: [
+          "access_public",
+          "access_dashboard",
+          "access_app_create",
+          "access_provider_connections",
+        ],
       }),
     ).toEqual([
       expect.objectContaining({
@@ -127,7 +132,7 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_convex_listProjects",
+        name: "vault_convex_discoverProjects",
         annotations: {
           readOnlyHint: true,
           openWorldHint: true,
@@ -143,7 +148,7 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_cloudflare_listWorkers",
+        name: "vault_cloudflare_discoverWorkers",
         annotations: {
           readOnlyHint: true,
           openWorldHint: true,
@@ -151,7 +156,7 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_convex_connectExistingProject",
+        name: "vault_convex_attachProjects",
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
@@ -159,7 +164,7 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_cloudflare_connectExistingWorker",
+        name: "vault_cloudflare_attachWorkers",
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
@@ -263,20 +268,20 @@ describe("MCP usage attribution dimensions", () => {
     expect(readMcpToolNameForUsage({ name: "vault_actions_connectRepository" })).toBe(
       "vault_actions_connectRepository",
     );
-    expect(readMcpToolNameForUsage({ name: "vault_convex_listProjects" })).toBe(
-      "vault_convex_listProjects",
+    expect(readMcpToolNameForUsage({ name: "vault_convex_discoverProjects" })).toBe(
+      "vault_convex_discoverProjects",
     );
     expect(readMcpToolNameForUsage({ name: "vault_cloudflare_listAccounts" })).toBe(
       "vault_cloudflare_listAccounts",
     );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_listWorkers" })).toBe(
-      "vault_cloudflare_listWorkers",
+    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_discoverWorkers" })).toBe(
+      "vault_cloudflare_discoverWorkers",
     );
-    expect(readMcpToolNameForUsage({ name: "vault_convex_connectExistingProject" })).toBe(
-      "vault_convex_connectExistingProject",
+    expect(readMcpToolNameForUsage({ name: "vault_convex_attachProjects" })).toBe(
+      "vault_convex_attachProjects",
     );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_connectExistingWorker" })).toBe(
-      "vault_cloudflare_connectExistingWorker",
+    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_attachWorkers" })).toBe(
+      "vault_cloudflare_attachWorkers",
     );
     expect(
       readMcpToolNameForUsage({ name: "vault_cloudflare_configureWorkersBuildsForGitHub" }),
@@ -300,7 +305,7 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain('resource_metadata="');
     expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
     expect(header).toContain(
-      'scope="access_dashboard access_app_create access_repo_connect access_browser_login_handoff"',
+      'scope="access_dashboard access_app_create access_repo_connect access_provider_connections access_browser_login_handoff"',
     );
     expect(header).toContain('error="invalid_token"');
     expect(header).toContain(`error_description="${errorDescription}"`);

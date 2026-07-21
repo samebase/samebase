@@ -9,7 +9,7 @@ export const appInfo = {
   display_name: "Samebase",
   subtitle: "Create and connect web apps",
   description:
-    "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect app state and run explicit provider configuration from one inventory.",
+    "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect vault attachments and live provider state from one inventory.",
   category: "DEVELOPER_TOOLS",
 } as const;
 
@@ -46,15 +46,16 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
   },
   vault_actions_connectRepository: {
     read_only_justification:
-      "Creates the Samebase app record for an existing repository and starts a tree sync; provider resources are not modified.",
+      "Creates the repository-backed Samebase vault and starts a tree sync; provider resources are not modified.",
     open_world_justification:
       "Reads repository metadata from GitHub; creates no external resources beyond Samebase's own record.",
     destructive_justification: noDestructiveActions,
   },
-  vault_convex_listProjects: {
+  vault_convex_discoverProjects: {
     read_only_justification:
-      "Only lists Convex projects readable with the caller's connected Convex account.",
-    open_world_justification: "Reads from the Convex management API; writes nothing anywhere.",
+      "Discovers exact convex.json files in the vault repository and Convex projects readable through the caller's connected team.",
+    open_world_justification:
+      "Reads from GitHub, Convex, and available Cloudflare Worker markers; writes nothing anywhere.",
     destructive_justification: noDestructiveActions,
   },
   vault_cloudflare_listAccounts: {
@@ -63,23 +64,24 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
     open_world_justification: "Reads from the Cloudflare API; writes nothing anywhere.",
     destructive_justification: noDestructiveActions,
   },
-  vault_cloudflare_listWorkers: {
+  vault_cloudflare_discoverWorkers: {
     read_only_justification:
-      "Only lists Workers on the chosen Cloudflare account, classified against the app's repository.",
+      "Lists Workers on the chosen Cloudflare account and observes their live repository roots against the vault repository.",
     open_world_justification: "Reads from the Cloudflare API; writes nothing anywhere.",
     destructive_justification: noDestructiveActions,
   },
-  vault_convex_connectExistingProject: {
-    read_only_justification: "Records an existing Convex project on the Samebase app.",
+  vault_convex_attachProjects: {
+    read_only_justification:
+      "Records selected existing Convex projects and confirmed convex.json paths as vault attachments.",
     open_world_justification:
-      "Reads the chosen project from Convex and records Samebase state; the project itself is not modified.",
+      "Re-reads the selected projects from Convex and exact config blobs from GitHub, then records Samebase state; provider resources are not modified.",
     destructive_justification: noDestructiveActions,
   },
-  vault_cloudflare_connectExistingWorker: {
+  vault_cloudflare_attachWorkers: {
     read_only_justification:
-      "Records an existing Cloudflare Worker on the Samebase app; Workers configured for a different repository are rejected rather than adopted.",
+      "Records selected existing Cloudflare Workers as vault attachments; Workers without a verified root for this repository are rejected.",
     open_world_justification:
-      "Reads Worker metadata from Cloudflare and records Samebase state; rejects Workers configured for other repositories.",
+      "Re-reads Worker identity and live repository roots from Cloudflare, then records Samebase state; provider resources are not modified.",
     destructive_justification: noDestructiveActions,
   },
   vault_cloudflare_configureWorkersBuildsForGitHub: {
@@ -162,7 +164,7 @@ export const testCases = [
     file_attachment_urls: null,
     tools_triggered: "vault_actions_connectRepository",
     expected_output:
-      "Creates the Samebase app record and starts repository tree sync while leaving Convex and Cloudflare unconfigured.",
+      "Creates the repository-backed Samebase vault and starts repository tree sync while leaving Convex and Cloudflare unconfigured.",
     expected_output_url: null,
   },
   {

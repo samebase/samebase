@@ -7,8 +7,6 @@ import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
 import { isLiveConnectedVault } from "./vault/state";
-import { ROOT_VAULT_APP_ROOT } from "../shared/vaultAppRoot";
-import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "../shared/vaultRootDirectory";
 
 const workflow = new WorkflowManager(components.workflow);
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
@@ -23,8 +21,7 @@ const workflowCompletionContext = object({
 });
 const createAppDescription = v.union(string(), v.null());
 const composedInfrastructureState = object({
-  appId: id("vaultApps"),
-  appRoot: string(),
+  convexConfigPath: string(),
   convex: union(
     object({
       state: literal("missing"),
@@ -52,6 +49,7 @@ const composedInfrastructureState = object({
 });
 type ComposedInfrastructureState = Infer<typeof composedInfrastructureState>;
 const composedCloudflareBuilds = object({
+  rootDirectory: string(),
   production: object({ triggerUuid: string() }),
   preview: object({ triggerUuid: string() }),
 });
@@ -96,32 +94,51 @@ export const readComposedInfrastructureState = internalQuery({
       throw new Error("Infrastructure provisioning plan not found for vault.");
     }
 
-    const rootDirectory = normalizeVaultRootDirectory(
-      plan.appRoot === ROOT_VAULT_APP_ROOT ? VAULT_ROOT_DIRECTORY : plan.appRoot,
-    );
-    const app = await ctx.db
-      .query("vaultApps")
-      .withIndex("by_vault_and_root_directory", (q) =>
-        q.eq("vaultId", args.vaultId).eq("rootDirectory", rootDirectory),
-      )
-      .unique();
-    if (!app) {
-      throw new Error("Infrastructure provisioning app not found for vault.");
-    }
+    const convexConfigPath = plan.convexConfigPath;
+    const convexCheckpoint = plan.convex.state === "created" ? plan.convex : null;
+    const cloudflareCheckpoint = plan.cloudflare.state === "created" ? plan.cloudflare : null;
     const [convexProject, worker] = await Promise.all([
-      ctx.db
-        .query("vaultConvexProjects")
-        .withIndex("by_app", (q) => q.eq("appId", app._id))
-        .first(),
-      ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_app", (q) => q.eq("appId", app._id))
-        .first(),
+      convexCheckpoint
+        ? ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_project", (q) => q.eq("projectId", convexCheckpoint.projectId))
+            .unique()
+        : null,
+      cloudflareCheckpoint
+        ? ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_account_and_worker_tag", (q) =>
+              q
+                .eq("accountId", cloudflareCheckpoint.accountId)
+                .eq("workerTag", cloudflareCheckpoint.workerTag),
+            )
+            .unique()
+        : null,
     ]);
+    if (
+      convexProject &&
+      (convexProject.vaultId !== args.vaultId ||
+        convexProject.userId !== args.userId ||
+        !convexCheckpoint ||
+        convexProject.teamId !== convexCheckpoint.teamId ||
+        convexProject.convexConfigPath !== convexConfigPath)
+    ) {
+      throw new Error("Managed Convex project attachment does not match its checkpoint.");
+    }
+    if (
+      worker &&
+      (worker.vaultId !== args.vaultId ||
+        worker.userId !== args.userId ||
+        !cloudflareCheckpoint ||
+        worker.accountId !== cloudflareCheckpoint.accountId ||
+        worker.workerName !== cloudflareCheckpoint.workerName ||
+        worker.workerTag !== cloudflareCheckpoint.workerTag)
+    ) {
+      throw new Error("Managed Cloudflare Worker attachment does not match its checkpoint.");
+    }
 
     return {
-      appId: app._id,
-      appRoot: plan.appRoot,
+      convexConfigPath,
       convex: convexProject
         ? {
             state: "attached",
@@ -234,7 +251,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       runId: args.runId,
       step: "claim_infra",
       level: "info",
-      message: `Started infrastructure provisioning for ${plan.appRoot}.`,
+      message: `Started infrastructure provisioning for ${plan.convexConfigPath}.`,
       state: "running",
     });
 
@@ -361,11 +378,8 @@ async function runComposedConvexAttachment(
         vaultId: args.vaultId,
         runId: args.parentRunId,
         userId: args.userId,
-        target: {
-          mode: "create_project",
-          appId: args.state.appId,
-          projectName: args.state.convex.projectName,
-        },
+        convexConfigPath: args.state.convexConfigPath,
+        projectName: args.state.convex.projectName,
       },
       { name: "attach_convex", retry: false },
     );
@@ -399,7 +413,6 @@ async function runComposedCloudflareAttachment(
         vaultId: args.vaultId,
         runId: args.parentRunId,
         userId: args.userId,
-        appId: args.state.appId,
         accountId: args.state.cloudflare.accountId,
         workerName: args.state.cloudflare.workerName,
       },

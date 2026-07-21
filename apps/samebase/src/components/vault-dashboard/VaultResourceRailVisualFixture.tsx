@@ -32,10 +32,10 @@ const SCENARIOS = [
   {
     repositoryName: "loading-provider-data",
     state: {
+      attentionRows: [],
       githubRow: availableGithubRow("samebase/loading-provider-data"),
-      apps: [
+      roots: [
         {
-          appId: "app-root",
           rootDirectory: "/",
           rows: [
             {
@@ -55,15 +55,16 @@ const SCENARIOS = [
           ],
         },
       ],
+      vaultActionRows: [],
     },
   },
   {
     repositoryName: "shared-convex-monorepo-fixture",
     state: {
+      attentionRows: [],
       githubRow: availableGithubRow("samebase/shared-convex-monorepo-fixture"),
-      apps: [
+      roots: [
         {
-          appId: "app-backend",
           rootDirectory: "convex",
           rows: [
             {
@@ -74,36 +75,11 @@ const SCENARIOS = [
               value: "shared-convex-monorepo-fixture",
               href: "https://dashboard.convex.dev/t/samebase/shared-convex-monorepo-fixture/settings",
             },
-            {
-              provider: "cloudflare",
-              rowId: "cloudflare:add:app-backend",
-              status: "action_required",
-              actions: [
-                {
-                  kind: "add",
-                  label: "?add-cloudflare",
-                  href: "/vault/samebase/shared-convex-monorepo-fixture?add-cloudflare&app-root=convex",
-                },
-              ],
-            },
           ],
         },
         {
-          appId: "app-web",
           rootDirectory: "apps/web",
           rows: [
-            {
-              provider: "convex",
-              rowId: "convex:add:app-web",
-              status: "action_required",
-              actions: [
-                {
-                  kind: "add",
-                  label: "?add-convex",
-                  href: "/vault/samebase/shared-convex-monorepo-fixture?add-convex&app-root=apps%2Fweb",
-                },
-              ],
-            },
             {
               provider: "cloudflare",
               rowId: "cloudflare:worker-web",
@@ -124,15 +100,41 @@ const SCENARIOS = [
           ],
         },
       ],
+      vaultActionRows: [
+        {
+          provider: "convex",
+          rowId: "convex:add",
+          status: "action_required",
+          actions: [
+            {
+              kind: "add",
+              label: "?add-convex",
+              href: "/vault/samebase/shared-convex-monorepo-fixture?add-convex",
+            },
+          ],
+        },
+        {
+          provider: "cloudflare",
+          rowId: "cloudflare:add",
+          status: "action_required",
+          actions: [
+            {
+              kind: "add",
+              label: "?add-cloudflare",
+              href: "/vault/samebase/shared-convex-monorepo-fixture?add-cloudflare",
+            },
+          ],
+        },
+      ],
     },
   },
   {
     repositoryName: "provider-errors",
     state: {
+      attentionRows: [],
       githubRow: availableGithubRow("samebase/provider-errors"),
-      apps: [
+      roots: [
         {
-          appId: "app-root",
           rootDirectory: "/",
           rows: [
             {
@@ -141,7 +143,7 @@ const SCENARIOS = [
               status: "missing",
               value: "deleted-project",
               description: "Missing from Convex.",
-              actions: [{ kind: "remove", label: "Remove from Samebase", onClick: noop }],
+              actions: [{ kind: "remove", label: "Remove from vault", onClick: noop }],
             },
             {
               provider: "cloudflare",
@@ -154,40 +156,37 @@ const SCENARIOS = [
           ],
         },
       ],
+      vaultActionRows: [],
     },
   },
   {
     repositoryName: "existing-repository",
     state: {
+      attentionRows: [],
       githubRow: availableGithubRow("samebase/existing-repository"),
-      apps: [
+      roots: [],
+      vaultActionRows: [
         {
-          appId: "app-root",
-          rootDirectory: "/",
-          rows: [
+          provider: "convex",
+          rowId: "convex:add",
+          status: "action_required",
+          actions: [
             {
-              provider: "convex",
-              rowId: "convex:add:app-root",
-              status: "action_required",
-              actions: [
-                {
-                  kind: "add",
-                  label: "?add-convex",
-                  href: "/vault/samebase/existing-repository?add-convex",
-                },
-              ],
+              kind: "add",
+              label: "?add-convex",
+              href: "/vault/samebase/existing-repository?add-convex",
             },
+          ],
+        },
+        {
+          provider: "cloudflare",
+          rowId: "cloudflare:add",
+          status: "action_required",
+          actions: [
             {
-              provider: "cloudflare",
-              rowId: "cloudflare:add:app-root",
-              status: "action_required",
-              actions: [
-                {
-                  kind: "add",
-                  label: "?add-cloudflare",
-                  href: "/vault/samebase/existing-repository?add-cloudflare",
-                },
-              ],
+              kind: "add",
+              label: "?add-cloudflare",
+              href: "/vault/samebase/existing-repository?add-cloudflare",
             },
           ],
         },

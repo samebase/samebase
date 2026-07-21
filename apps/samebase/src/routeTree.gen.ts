@@ -48,11 +48,9 @@ import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-t
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
-import { Route as vaultSchemaRootRouteImport } from "./routes/vault-schema-root";
-import { Route as vaultDatabaseRootRouteImport } from "./routes/vault-database-root";
 import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
-import { Route as vaultSchemaMonoRouteImport } from "./routes/vault-schema-mono";
-import { Route as vaultDatabaseMonoRouteImport } from "./routes/vault-database-mono";
+import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
+import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
 const visualFixtureRoute = visualFixtureRouteImport.update({
   id: "/visual-fixture",
@@ -251,29 +249,19 @@ const logoTransitionTransformsLabRoute =
     path: "/logo/transition/transforms",
     getParentRoute: () => rootRouteImport,
   } as any);
-const vaultSchemaRootRoute = vaultSchemaRootRouteImport.update({
-  id: "/vault/$owner/$repo/schema/$branch/root",
-  path: "/vault/$owner/$repo/schema/$branch/root",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const vaultDatabaseRootRoute = vaultDatabaseRootRouteImport.update({
-  id: "/vault/$owner/$repo/db/$branch/root",
-  path: "/vault/$owner/$repo/db/$branch/root",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultSchemaMonoRoute = vaultSchemaMonoRouteImport.update({
-  id: "/vault/$owner/$repo/schema/$branch/mono/$",
-  path: "/vault/$owner/$repo/schema/$branch/mono/$",
+const vaultSchemaProjectRoute = vaultSchemaProjectRouteImport.update({
+  id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
+  path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultDatabaseMonoRoute = vaultDatabaseMonoRouteImport.update({
-  id: "/vault/$owner/$repo/db/$branch/mono/$",
-  path: "/vault/$owner/$repo/db/$branch/mono/$",
+const vaultDatabaseProjectRoute = vaultDatabaseProjectRouteImport.update({
+  id: "/vault/$owner/$repo/db/$branch/project/$convexProjectId",
+  path: "/vault/$owner/$repo/db/$branch/project/$convexProjectId",
   getParentRoute: () => rootRouteImport,
 } as any);
 
@@ -318,10 +306,8 @@ export interface FileRoutesByFullPath {
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
-  "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
-  "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
-  "/vault/$owner/$repo/db/$branch/mono/$": typeof vaultDatabaseMonoRoute;
-  "/vault/$owner/$repo/schema/$branch/mono/$": typeof vaultSchemaMonoRoute;
+  "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
+  "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
@@ -364,10 +350,8 @@ export interface FileRoutesByTo {
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
-  "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
-  "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
-  "/vault/$owner/$repo/db/$branch/mono/$": typeof vaultDatabaseMonoRoute;
-  "/vault/$owner/$repo/schema/$branch/mono/$": typeof vaultSchemaMonoRoute;
+  "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
+  "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -411,10 +395,8 @@ export interface FileRoutesById {
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
-  "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
-  "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
-  "/vault/$owner/$repo/db/$branch/mono/$": typeof vaultDatabaseMonoRoute;
-  "/vault/$owner/$repo/schema/$branch/mono/$": typeof vaultSchemaMonoRoute;
+  "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
+  "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -459,10 +441,8 @@ export interface FileRouteTypes {
     | "/research/codex-app-server/browser"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
-    | "/vault/$owner/$repo/db/$branch/root"
-    | "/vault/$owner/$repo/schema/$branch/root"
-    | "/vault/$owner/$repo/db/$branch/mono/$"
-    | "/vault/$owner/$repo/schema/$branch/mono/$";
+    | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
+    | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
@@ -505,10 +485,8 @@ export interface FileRouteTypes {
     | "/research/codex-app-server/browser"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
-    | "/vault/$owner/$repo/db/$branch/root"
-    | "/vault/$owner/$repo/schema/$branch/root"
-    | "/vault/$owner/$repo/db/$branch/mono/$"
-    | "/vault/$owner/$repo/schema/$branch/mono/$";
+    | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
+    | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   id:
     | "__root__"
     | "/"
@@ -551,10 +529,8 @@ export interface FileRouteTypes {
     | "/research/codex-app-server/browser"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
-    | "/vault/$owner/$repo/db/$branch/root"
-    | "/vault/$owner/$repo/schema/$branch/root"
-    | "/vault/$owner/$repo/db/$branch/mono/$"
-    | "/vault/$owner/$repo/schema/$branch/mono/$";
+    | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
+    | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -598,10 +574,8 @@ export interface RootRouteChildren {
   codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
   codespaceChatRoute: typeof codespaceChatRoute;
-  vaultDatabaseRootRoute: typeof vaultDatabaseRootRoute;
-  vaultSchemaRootRoute: typeof vaultSchemaRootRoute;
-  vaultDatabaseMonoRoute: typeof vaultDatabaseMonoRoute;
-  vaultSchemaMonoRoute: typeof vaultSchemaMonoRoute;
+  vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
+  vaultSchemaProjectRoute: typeof vaultSchemaProjectRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -879,20 +853,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault/$owner/$repo/schema/$branch/root": {
-      id: "/vault/$owner/$repo/schema/$branch/root";
-      path: "/vault/$owner/$repo/schema/$branch/root";
-      fullPath: "/vault/$owner/$repo/schema/$branch/root";
-      preLoaderRoute: typeof vaultSchemaRootRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/vault/$owner/$repo/db/$branch/root": {
-      id: "/vault/$owner/$repo/db/$branch/root";
-      path: "/vault/$owner/$repo/db/$branch/root";
-      fullPath: "/vault/$owner/$repo/db/$branch/root";
-      preLoaderRoute: typeof vaultDatabaseRootRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/vault/$owner/$repo/codespace/$branch/chat": {
       id: "/vault/$owner/$repo/codespace/$branch/chat";
       path: "/vault/$owner/$repo/codespace/$branch/chat";
@@ -900,18 +860,18 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof codespaceChatRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault/$owner/$repo/schema/$branch/mono/$": {
-      id: "/vault/$owner/$repo/schema/$branch/mono/$";
-      path: "/vault/$owner/$repo/schema/$branch/mono/$";
-      fullPath: "/vault/$owner/$repo/schema/$branch/mono/$";
-      preLoaderRoute: typeof vaultSchemaMonoRouteImport;
+    "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
+      id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
+      path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
+      fullPath: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
+      preLoaderRoute: typeof vaultSchemaProjectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault/$owner/$repo/db/$branch/mono/$": {
-      id: "/vault/$owner/$repo/db/$branch/mono/$";
-      path: "/vault/$owner/$repo/db/$branch/mono/$";
-      fullPath: "/vault/$owner/$repo/db/$branch/mono/$";
-      preLoaderRoute: typeof vaultDatabaseMonoRouteImport;
+    "/vault/$owner/$repo/db/$branch/project/$convexProjectId": {
+      id: "/vault/$owner/$repo/db/$branch/project/$convexProjectId";
+      path: "/vault/$owner/$repo/db/$branch/project/$convexProjectId";
+      fullPath: "/vault/$owner/$repo/db/$branch/project/$convexProjectId";
+      preLoaderRoute: typeof vaultDatabaseProjectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }
@@ -958,10 +918,8 @@ const rootRouteChildren: RootRouteChildren = {
   codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,
   vaultDashboardRoute: vaultDashboardRoute,
   codespaceChatRoute: codespaceChatRoute,
-  vaultDatabaseRootRoute: vaultDatabaseRootRoute,
-  vaultSchemaRootRoute: vaultSchemaRootRoute,
-  vaultDatabaseMonoRoute: vaultDatabaseMonoRoute,
-  vaultSchemaMonoRoute: vaultSchemaMonoRoute,
+  vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,
+  vaultSchemaProjectRoute: vaultSchemaProjectRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

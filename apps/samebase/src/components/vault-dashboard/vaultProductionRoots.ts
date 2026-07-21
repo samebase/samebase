@@ -1,4 +1,5 @@
 import type { api } from "../../../convex/_generated/api";
+import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
 import type {
   VaultCloudflareProviderObservationState,
   VaultConvexProjectObservation,
@@ -18,14 +19,12 @@ export type VaultBranchProductionLink = {
   title: string;
 };
 
-export type VaultBranchProductionApp = {
-  appId: string;
+export type VaultBranchProductionRoot = {
   rootDirectory: string;
   links: readonly VaultBranchProductionLink[];
 };
 
 type VaultBranchProductionLinkInput = {
-  appId: string;
   rootDirectory: string;
   href: string;
   label: string;
@@ -34,36 +33,32 @@ type VaultBranchProductionLinkInput = {
   title: string;
 };
 
-function buildVaultBranchProductionApps(
+function buildVaultBranchProductionRoots(
   links: VaultBranchProductionLinkInput[],
-): VaultBranchProductionApp[] {
-  const linksByAppId = new Map<string, VaultBranchProductionLinkInput[]>();
+): VaultBranchProductionRoot[] {
+  const linksByRoot = new Map<string, VaultBranchProductionLinkInput[]>();
 
   for (const link of links) {
-    linksByAppId.set(link.appId, [...(linksByAppId.get(link.appId) ?? []), link]);
+    linksByRoot.set(link.rootDirectory, [...(linksByRoot.get(link.rootDirectory) ?? []), link]);
   }
 
-  return [...linksByAppId.entries()]
-    .sort(([, leftLinks], [, rightLinks]) => {
-      const left = leftLinks[0];
-      const right = rightLinks[0];
-      if (left.rootDirectory === right.rootDirectory) {
-        return left.appId.localeCompare(right.appId);
+  return [...linksByRoot.entries()]
+    .sort(([leftRoot], [rightRoot]) => {
+      if (leftRoot === rightRoot) {
+        return 0;
       }
-      if (left.rootDirectory === "/") {
+      if (leftRoot === "/") {
         return -1;
       }
-      if (right.rootDirectory === "/") {
+      if (rightRoot === "/") {
         return 1;
       }
-      return left.rootDirectory.localeCompare(right.rootDirectory);
+      return leftRoot.localeCompare(rightRoot);
     })
-    .map(([appId, appLinks]) => {
-      const firstLink = appLinks[0];
+    .map(([rootDirectory, rootLinks]) => {
       return {
-        appId,
-        rootDirectory: firstLink.rootDirectory,
-        links: [...appLinks]
+        rootDirectory,
+        links: [...rootLinks]
           .sort(
             (left, right) =>
               left.provider.localeCompare(right.provider) ||
@@ -89,13 +84,13 @@ function buildVaultBranchProductionUrlLabel(url: string): string {
 }
 
 function buildConvexDeploymentDashboardUrl(
-  observation: Extract<VaultConvexProjectObservation, { state: "available" }>,
+  project: { projectSlug: string; teamSlug: string },
   deploymentName: string,
 ): string {
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(observation.teamSlug)}/${encodeURIComponent(observation.projectSlug)}/${encodeURIComponent(deploymentName)}`;
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(project.teamSlug)}/${encodeURIComponent(project.projectSlug)}/${encodeURIComponent(deploymentName)}`;
 }
 
-export function buildVaultProductionApps({
+export function buildVaultProductionRoots({
   cloudflareObservations,
   convexObservations,
   vault,
@@ -103,35 +98,38 @@ export function buildVaultProductionApps({
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   vault: VaultDashboardVault;
-}): VaultBranchProductionApp[] {
-  const appsById = new Map(vault.apps.map((app) => [app.appId, app]));
+}): VaultBranchProductionRoot[] {
   const workerObservations = cloudflareObservations.workers;
+  const buildsObservations = cloudflareObservations.builds;
   const cloudflareLinks: VaultBranchProductionLinkInput[] =
-    workerObservations.state === "loaded"
+    workerObservations.state === "loaded" && buildsObservations.state === "loaded"
       ? vault.cloudflareWorkers.flatMap((worker) => {
-          const app = appsById.get(worker.appId);
           const observation = workerObservations.observations.find(
             (candidate) => candidate.workerId === worker.workerId,
           );
+          const buildsObservation = buildsObservations.observations.find(
+            (candidate) => candidate.workerId === worker.workerId,
+          );
           if (
-            !app ||
             observation?.state !== "available" ||
-            observation.workersDev.state !== "enabled"
+            observation.workersDev.state !== "enabled" ||
+            buildsObservation?.state !== "available" ||
+            buildsObservation.repository.state !== "ready"
           ) {
             return [];
           }
+          const rootDirectory = buildsObservation.repository.rootDirectory;
           return [
             {
-              appId: app.appId,
-              rootDirectory: app.rootDirectory,
+              rootDirectory,
               href: observation.workersDev.url,
               label: buildVaultBranchProductionUrlLabel(observation.workersDev.url),
               provider: "cloudflare" as const,
               sortKey: worker.workerName,
               title:
-                app.rootDirectory === "/"
+                rootDirectory === "/"
                   ? "Open production app"
-                  : `Open production app for ${app.rootDirectory}`,
+                  : `Open production app for ${rootDirectory}`,
             },
           ];
         })
@@ -139,23 +137,22 @@ export function buildVaultProductionApps({
   const convexLinks: VaultBranchProductionLinkInput[] =
     convexObservations.state === "loaded"
       ? vault.convexProjects.flatMap((project) => {
-          const app = appsById.get(project.appId);
           const observation = convexObservations.observations.find(
             (candidate) => candidate.convexProjectId === project.convexProjectId,
           );
+          const provider = observation?.provider;
           if (
-            !app ||
-            observation?.state !== "available" ||
-            observation.productionDeployment.state !== "available"
+            !provider ||
+            (provider.state !== "current" && provider.state !== "moved") ||
+            provider.productionDeployment.state !== "available"
           ) {
             return [];
           }
-          const deployment = observation.productionDeployment;
+          const deployment = provider.productionDeployment;
           return [
             {
-              appId: app.appId,
-              rootDirectory: app.rootDirectory,
-              href: buildConvexDeploymentDashboardUrl(observation, deployment.deploymentName),
+              rootDirectory: getConvexConfigRootDirectory(project.convexConfigPath),
+              href: buildConvexDeploymentDashboardUrl(provider, deployment.deploymentName),
               label: `Production: ${deployment.deploymentName}`,
               provider: "convex" as const,
               sortKey: deployment.deploymentName,
@@ -165,5 +162,5 @@ export function buildVaultProductionApps({
         })
       : [];
 
-  return buildVaultBranchProductionApps([...cloudflareLinks, ...convexLinks]);
+  return buildVaultBranchProductionRoots([...cloudflareLinks, ...convexLinks]);
 }

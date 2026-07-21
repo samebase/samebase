@@ -17,10 +17,11 @@ import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNotFoundError,
   isWorkersBuildsInvalidTokenMessage,
+  listCloudflareWorkerInventory,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
-  readCloudflareWorkerRepositoryDiscovery,
+  readCloudflareWorkerRepositoryDiscoveryForIdentity,
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
@@ -124,14 +125,6 @@ function buildTestCloudflareWorkerBuildsDiscoveryArgs(): Parameters<
     accountId: "account-id",
     defaultBranch: "main",
     expectedRepoId: "123",
-    buildConfig: {
-      rootDir: ".",
-      buildCommand: "pnpm build",
-      deployCommand: "pnpm deploy",
-      previewDeployCommand: "pnpm deploy:preview",
-      pathIncludes: ["**/*"],
-      pathExcludes: [],
-    },
   };
 }
 
@@ -222,6 +215,7 @@ function buildMatchingProductionTrigger(
       repo_connection_uuid: "repo-connection",
       repo_id: "123",
       repo_name: "ada/samebase-app",
+      provider_type: "github",
     },
     ...overrides,
   };
@@ -245,6 +239,7 @@ function buildMatchingPreviewTrigger(
       repo_connection_uuid: "repo-connection",
       repo_id: "123",
       repo_name: "ada/samebase-app",
+      provider_type: "github",
     },
     ...overrides,
   };
@@ -556,7 +551,15 @@ describe("cloudflare resources", () => {
         buildTestCloudflareWorkerBuildsDiscoveryArgs(),
       ),
     ).resolves.toMatchObject({
-      repository: { classification: "recommended" },
+      repository: {
+        state: "ready",
+        rootDirectory: "/",
+        builds: {
+          state: "available",
+          productionTriggerUuid: "production-trigger",
+          previewTriggerUuid: "preview-trigger",
+        },
+      },
       builds: {
         state: "connected",
         productionTriggerUuid: "production-trigger",
@@ -745,7 +748,11 @@ describe("cloudflare resources", () => {
         buildTestCloudflareWorkerBuildsDiscoveryArgs(),
       ),
     ).resolves.toMatchObject({
-      repository: { classification: "recommended" },
+      repository: {
+        state: "ready",
+        rootDirectory: "/",
+        builds: { state: "not_available" },
+      },
       builds: { state: "not_connected" },
     });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
@@ -1830,178 +1837,127 @@ describe("cloudflare resources", () => {
     ).toHaveLength(2);
   });
 
-  it("classifies matching Workers Builds trigger repository evidence as recommended", () => {
+  it("uses the one live Workers Builds root as repository placement", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
-        expectedRootDirectory: ".",
+        defaultBranch: "main",
         triggers: [
-          {
-            trigger_name: "Production Deploy",
-            root_directory: ".",
+          buildMatchingProductionTrigger({
+            root_directory: "./apps/web/",
+            build_command: "a command Samebase does not manage",
+          }),
+          buildMatchingPreviewTrigger({
+            root_directory: "apps/web",
+            deploy_command: "another command Samebase does not manage",
+          }),
+        ],
+      }),
+    ).toEqual({
+      state: "ready",
+      rootDirectory: "apps/web",
+      builds: {
+        state: "available",
+        productionTriggerUuid: "production-trigger",
+        previewTriggerUuid: "preview-trigger",
+      },
+    });
+  });
+
+  it("rejects ambiguous live Workers Builds roots", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        defaultBranch: "main",
+        triggers: [
+          buildMatchingProductionTrigger({ root_directory: "apps/web" }),
+          buildMatchingPreviewTrigger({ root_directory: "apps/admin" }),
+        ],
+      }),
+    ).toEqual({ state: "ambiguous", reason: "multiple_root_directories" });
+  });
+
+  it("requires an explicit GitHub provider type on a matching repository", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        defaultBranch: "main",
+        triggers: [
+          buildMatchingProductionTrigger({
             repo_connection: {
               repo_connection_uuid: "repo-connection",
               repo_id: "123",
               repo_name: "ada/samebase-app",
             },
-          },
+          }),
         ],
       }),
-    ).toEqual({
-      classification: "recommended",
-      evidence: {
-        state: "matching_repo",
-        repoId: "123",
-        repoName: "ada/samebase-app",
-        triggerName: "Production Deploy",
-        rootDirectory: "/",
-      },
-    });
+    ).toEqual({ state: "ambiguous", reason: "missing_provider_type" });
   });
 
-  it("classifies same-repo Workers Builds trigger evidence with a different root as blocked", () => {
+  it("does not match a non-GitHub or different repository", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
-        expectedRootDirectory: "apps/web",
+        defaultBranch: "main",
         triggers: [
-          {
-            trigger_name: "Production Deploy",
-            root_directory: "apps/admin",
+          buildMatchingProductionTrigger({
             repo_connection: {
               repo_connection_uuid: "repo-connection",
               repo_id: "123",
               repo_name: "ada/samebase-app",
+              provider_type: "gitlab",
             },
-          },
-        ],
-      }),
-    ).toEqual({
-      classification: "blocked",
-      evidence: {
-        state: "same_repo_different_root",
-        repoId: "123",
-        repoName: "ada/samebase-app",
-        triggerName: "Production Deploy",
-        rootDirectory: "apps/admin",
-        expectedRootDirectory: "apps/web",
-      },
-    });
-  });
-
-  it("fails closed when a same-repo Workers Builds trigger omits the root directory", () => {
-    expect(
-      classifyCloudflareWorkerRepositoryDiscovery({
-        expectedRepoId: "123",
-        expectedRootDirectory: "apps/web",
-        triggers: [
-          {
-            trigger_name: "Production Deploy",
-            repo_connection: {
-              repo_connection_uuid: "repo-connection",
-              repo_id: "123",
-              repo_name: "ada/samebase-app",
-            },
-          },
-        ],
-      }),
-    ).toEqual({
-      classification: "unknown",
-      evidence: {
-        state: "missing_root_directory",
-        repoId: "123",
-        repoName: "ada/samebase-app",
-        triggerName: "Production Deploy",
-        expectedRootDirectory: "apps/web",
-      },
-    });
-  });
-
-  it("classifies Workers without active Builds repo triggers as available", () => {
-    expect(
-      classifyCloudflareWorkerRepositoryDiscovery({
-        expectedRepoId: "123",
-        expectedRootDirectory: ".",
-        triggers: [
-          {
-            deleted_on: "2026-07-01T00:00:00Z",
-            trigger_name: "Deleted Deploy",
+          }),
+          buildMatchingPreviewTrigger({
             repo_connection: {
               repo_connection_uuid: "repo-connection",
               repo_id: "999",
               repo_name: "ada/other-app",
+              provider_type: "github",
             },
-          },
+          }),
         ],
       }),
-    ).toEqual({
-      classification: "available",
-      evidence: { state: "none" },
-    });
+    ).toEqual({ state: "not_connected" });
   });
 
-  it("classifies different-repo Workers Builds trigger evidence as blocked", () => {
+  it("fails closed when a matching trigger omits its root or repository id", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
-        expectedRootDirectory: ".",
-        triggers: [
-          {
-            trigger_name: "Production Deploy",
-            repo_connection: {
-              repo_connection_uuid: "repo-connection",
-              repo_id: "999",
-              repo_name: "ada/other-app",
-            },
-          },
-        ],
+        defaultBranch: "main",
+        triggers: [buildMatchingProductionTrigger({ root_directory: undefined })],
       }),
-    ).toEqual({
-      classification: "blocked",
-      evidence: {
-        state: "different_repo",
-        repoId: "999",
-        repoName: "ada/other-app",
-        triggerName: "Production Deploy",
-      },
-    });
-  });
-
-  it("fails closed when any active Workers Builds trigger cannot be inspected", () => {
+    ).toEqual({ state: "ambiguous", reason: "missing_root_directory" });
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
-        expectedRootDirectory: ".",
+        defaultBranch: "main",
         triggers: [
-          {
-            trigger_name: "Production Deploy",
-            root_directory: ".",
-            repo_connection: {
-              repo_connection_uuid: "repo-connection",
-              repo_id: "123",
-              repo_name: "ada/samebase-app",
-            },
-          },
-          {
-            trigger_name: "Preview Deploy",
+          buildMatchingProductionTrigger({
             repo_connection: {
               repo_connection_uuid: "repo-connection",
               repo_name: "ada/samebase-app",
+              provider_type: "github",
             },
-          },
+          }),
         ],
       }),
-    ).toEqual({
-      classification: "unknown",
-      evidence: {
-        state: "missing_repo_id",
-        repoName: "ada/samebase-app",
-        triggerName: "Preview Deploy",
-      },
-    });
+    ).toEqual({ state: "ambiguous", reason: "missing_repo_id" });
   });
 
-  it("discovers a selected Worker from inventory without reading Worker detail", async () => {
+  it("ignores deleted Workers Builds triggers during placement discovery", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        defaultBranch: "main",
+        triggers: [buildMatchingProductionTrigger({ deleted_on: "2026-07-01T00:00:00Z" })],
+      }),
+    ).toEqual({ state: "not_connected" });
+  });
+
+  it("re-reads a selected Worker placement by immutable Worker tag", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     vi.stubGlobal(
       "fetch",
@@ -2012,8 +1968,6 @@ describe("cloudflare resources", () => {
         requests.push({ method, path: endpoint, body: undefined });
 
         switch (endpoint) {
-          case "/client/v4/accounts/account-id/workers/scripts":
-            return cloudflareSuccessResponse([buildCloudflareWorkerListItem()]);
           case "/client/v4/accounts/account-id/builds/workers/worker-tag/triggers":
             return cloudflareSuccessResponse([
               {
@@ -2023,6 +1977,7 @@ describe("cloudflare resources", () => {
                   repo_connection_uuid: "repo-connection",
                   repo_id: "123",
                   repo_name: "samebase/samebase",
+                  provider_type: "github",
                 },
               },
             ]);
@@ -2040,32 +1995,86 @@ describe("cloudflare resources", () => {
     );
 
     await expect(
-      readCloudflareWorkerRepositoryDiscovery({
+      readCloudflareWorkerRepositoryDiscoveryForIdentity({
         token: "oauth-token",
         transport: "direct",
         accountId: "account-id",
         workerName: "samebase-app",
+        workerTag: "worker-tag",
         expectedRepoId: "123",
-        expectedRootDirectory: "apps/samebase",
+        defaultBranch: "main",
       }),
     ).resolves.toEqual({
-      workerName: "samebase-app",
-      workerTag: "worker-tag",
-      discovery: {
-        classification: "recommended",
-        evidence: {
-          state: "matching_repo",
-          repoId: "123",
-          repoName: "samebase/samebase",
-          triggerName: "Production Deploy",
-          rootDirectory: "apps/samebase",
-        },
-      },
+      state: "ready",
+      rootDirectory: "apps/samebase",
+      builds: { state: "not_available" },
     });
 
     expect(requests.map((request) => request.path)).not.toContain(
       "/client/v4/accounts/account-id/workers/workers/samebase-app",
     );
+  });
+
+  it("reads a complete paginated Worker inventory beyond 100 Workers", async () => {
+    const workers = Array.from({ length: 101 }, (_, index) =>
+      buildCloudflareWorkerListItem({
+        id: `worker-tag-${index.toString().padStart(3, "0")}`,
+        name: `worker-${index.toString().padStart(3, "0")}`,
+      }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(input instanceof Request ? input.url : String(input));
+        expect(url.pathname).toBe("/client/v4/accounts/account-id/workers/workers");
+        const page = Number(url.searchParams.get("page"));
+        return cloudflareSuccessResponse(page === 1 ? workers.slice(0, 100) : workers.slice(100));
+      }),
+    );
+
+    await expect(
+      listCloudflareWorkerInventory({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+      }),
+    ).resolves.toEqual({
+      state: "complete",
+      workers: workers.map((_, index) => ({
+        workerName: `worker-${index.toString().padStart(3, "0")}`,
+        workerTag: `worker-tag-${index.toString().padStart(3, "0")}`,
+      })),
+    });
+  });
+
+  it("labels the legacy Worker inventory fallback as partial", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const endpoint = new URL(input instanceof Request ? input.url : String(input)).pathname;
+        if (endpoint === "/client/v4/accounts/account-id/workers/scripts") {
+          return cloudflareSuccessResponse([buildCloudflareWorkerListItem()]);
+        }
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [{ code: 1000, message: "Worker services inventory unavailable" }],
+          }),
+          { status: 404 },
+        );
+      }),
+    );
+
+    await expect(
+      listCloudflareWorkerInventory({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+      }),
+    ).resolves.toEqual({
+      state: "partial",
+      workers: [{ workerName: "samebase-app", workerTag: "worker-tag" }],
+    });
   });
 
   it("selects the only Cloudflare account exposed to OAuth", () => {

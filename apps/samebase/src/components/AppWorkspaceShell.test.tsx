@@ -438,8 +438,7 @@ describe("AppWorkspaceShell", () => {
       "/test",
       "/vault/",
       "/vault/ada/demo/codespace/main/chat",
-      "/vault/ada/demo/db/main/root",
-      "/vault/ada/demo/db/main/mono/convex",
+      "/vault/ada/demo/db/main/project/convex-attachment",
     ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>
@@ -473,7 +472,12 @@ describe("AppWorkspaceShell", () => {
   });
 
   it("does not inherit no-left metadata into ordinary child routes", () => {
-    for (const route of ["/machines", "/logo", "/vault/ada/demo"]) {
+    for (const route of [
+      "/machines",
+      "/logo",
+      "/vault/ada/demo",
+      "/vault/ada/demo/schema/main/project/convex-attachment",
+    ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>
           <AppWorkspaceShell>

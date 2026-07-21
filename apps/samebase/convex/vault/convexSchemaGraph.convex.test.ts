@@ -133,18 +133,12 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       defaultBranch: "main",
       connectedAt: 20,
     });
-    const appId = await ctx.db.insert("vaultApps", {
-      vaultId,
-      userId,
-      rootDirectory: "/",
-      createdAt: 25,
-    });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       userId,
-      appId,
       teamId: "1000",
       projectId: "1001",
+      convexConfigPath: "convex.json",
       origin: "selected_existing",
       createdAt: 25,
     });
@@ -244,6 +238,24 @@ afterEach(() => {
 });
 
 describe("vault Convex schema graph", () => {
+  it("returns no graph for a stale attachment id", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedSchemaGraphVault(t, {
+      method: "oauth",
+      credential: "convex-oauth-token",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.convexProjectId);
+    });
+
+    await expect(
+      user.query(api.vault.convexSchemaGraph.get, {
+        vaultId: ids.vaultId,
+        convexProjectId: ids.convexProjectId,
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("mints OAuth-backed inspection keys without scoped options and revokes by name", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphVault(t, {
@@ -327,31 +339,6 @@ describe("vault Convex schema graph", () => {
     expect(deleteRequest?.body).toEqual({ id: deployKeyName });
   });
 
-  it("returns the attached project when no explicit project is selected", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedSchemaGraphVault(t, {
-      method: "oauth",
-      credential: "convex-oauth-token",
-    });
-
-    const state = await user.query(api.vault.convexSchemaGraph.get, {
-      vaultId: ids.vaultId,
-    });
-
-    expect(state).toMatchObject({
-      selectedConvexProjectId: ids.convexProjectId,
-      snapshot: null,
-      layout: [],
-      projects: [
-        {
-          convexProjectId: ids.convexProjectId,
-          rootDirectory: "/",
-          projectId: "1001",
-        },
-      ],
-    });
-  });
-
   it("deduplicates unchanged snapshots and keeps recent changed snapshots bounded", async () => {
     const t = makeConvexTest();
     const { ids } = await seedSchemaGraphVault(t, {
@@ -367,7 +354,6 @@ describe("vault Convex schema graph", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       convexProjectId: ids.convexProjectId,
-      rootDirectory: "/",
       deploymentName: "demo-prod",
       schemaHash: "same",
       graph,
@@ -377,7 +363,6 @@ describe("vault Convex schema graph", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       convexProjectId: ids.convexProjectId,
-      rootDirectory: "/",
       deploymentName: "demo-prod",
       schemaHash: "same",
       graph,
@@ -391,7 +376,6 @@ describe("vault Convex schema graph", () => {
         userId: ids.userId,
         vaultId: ids.vaultId,
         convexProjectId: ids.convexProjectId,
-        rootDirectory: "/",
         deploymentName: "demo-prod",
         schemaHash: `changed-${index}`,
         graph,
