@@ -129,21 +129,6 @@ function dispatchPrimaryMouseMove(clientX: number, clientY: number) {
   window.dispatchEvent(event);
 }
 
-function dispatchPrimaryTouchEvent(
-  target: EventTarget,
-  type: "pointercancel" | "pointerdown" | "pointermove" | "pointerup",
-  clientX: number,
-  clientY: number,
-) {
-  const event = new MouseEvent(type, { bubbles: true, clientX, clientY });
-  Object.defineProperties(event, {
-    isPrimary: { value: true },
-    pointerId: { value: 7 },
-    pointerType: { value: "touch" },
-  });
-  target.dispatchEvent(event);
-}
-
 function installImmediateIdleCallback() {
   Object.defineProperty(window, "requestIdleCallback", {
     configurable: true,
@@ -312,7 +297,7 @@ describe("PublicLandingLogo", () => {
     );
   });
 
-  it("leans toward a page tap outside the grab surface without changing the view", async () => {
+  it("applies an external presentation tilt without changing the view", async () => {
     installImmediateIdleCallback();
     installMotionMediaQueries({ finePointer: false, reducedMotion: false });
 
@@ -320,57 +305,35 @@ describe("PublicLandingLogo", () => {
     document.body.append(rootElement);
     const localRoot = createRoot(rootElement);
     root = localRoot;
-    const touchTiltRootRef = React.createRef<HTMLDivElement>();
 
     await act(async () => {
       localRoot.render(
-        <div ref={touchTiltRootRef}>
-          <PublicLandingLogo
-            enablePointerTilt
-            routeSearchSource="static"
-            touchTiltRootRef={touchTiltRootRef}
-          />
-        </div>,
+        <PublicLandingLogo
+          presentationTiltTarget={{ horizontal: 6, vertical: 0 }}
+          routeSearchSource="static"
+        />,
       );
       await Promise.resolve();
       await Promise.resolve();
-    });
-
-    const touchRoot = touchTiltRootRef.current;
-    if (touchRoot === null) {
-      throw new Error("Expected landing touch root.");
-    }
-    const stage = rootElement.querySelector(`[data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}"]`);
-    if (!(stage instanceof HTMLDivElement)) {
-      throw new Error("Expected landing logo stage.");
-    }
-    vi.spyOn(stage, "getBoundingClientRect").mockReturnValue({
-      bottom: 300,
-      height: 200,
-      left: 100,
-      right: 300,
-      top: 100,
-      width: 200,
-      x: 100,
-      y: 100,
-      toJSON: () => ({}),
     });
 
     const initialSceneProps = latestLandingLogoSceneProps.current;
     if (initialSceneProps === null) {
       throw new Error("Expected mocked logo scene props.");
     }
-    await act(async () => {
-      initialSceneProps.onRenderReady?.();
-      await Promise.resolve();
-    });
-    vi.useFakeTimers();
+    expect(initialSceneProps.presentationTiltTarget).toEqual({ horizontal: 6, vertical: 0 });
 
     await act(async () => {
-      dispatchPrimaryTouchEvent(touchRoot, "pointerdown", 550, 200);
+      localRoot.render(
+        <PublicLandingLogo
+          presentationTiltTarget={{ horizontal: 12, vertical: 0 }}
+          routeSearchSource="static"
+        />,
+      );
     });
+
     expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
-      horizontal: 6,
+      horizontal: 12,
       vertical: 0,
     });
     expect(latestLandingLogoSceneProps.current?.elevationDegrees).toBe(
@@ -379,75 +342,9 @@ describe("PublicLandingLogo", () => {
     expect(latestLandingLogoSceneProps.current?.rotationDegrees).toBe(
       initialSceneProps.rotationDegrees,
     );
-
-    await act(async () => {
-      dispatchPrimaryTouchEvent(touchRoot, "pointerup", 550, 200);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
-      horizontal: 6,
-      vertical: 0,
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(160);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
-      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-    );
-
-    await act(async () => {
-      dispatchPrimaryTouchEvent(touchRoot, "pointerdown", 550, 200);
-      dispatchPrimaryTouchEvent(touchRoot, "pointerup", 559, 200);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
-      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-    );
-
-    await act(async () => {
-      dispatchPrimaryTouchEvent(touchRoot, "pointerdown", 550, 200);
-      dispatchPrimaryTouchEvent(touchRoot, "pointercancel", 550, 200);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
-      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-    );
-
-    await act(async () => {
-      dispatchPrimaryTouchEvent(touchRoot, "pointerdown", 550, 200);
-      dispatchPrimaryTouchEvent(touchRoot, "pointerup", 550, 200);
-      vi.advanceTimersByTime(80);
-      dispatchPrimaryTouchEvent(touchRoot, "pointerdown", -150, 200);
-      vi.advanceTimersByTime(80);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
-      horizontal: -6,
-      vertical: 0,
-    });
-
-    await act(async () => {
-      dispatchPrimaryTouchEvent(touchRoot, "pointerdown", 550, 200);
-      dispatchPrimaryTouchEvent(touchRoot, "pointermove", 557, 200);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
-      horizontal: 6,
-      vertical: 0,
-    });
-
-    await act(async () => {
-      dispatchPrimaryTouchEvent(touchRoot, "pointermove", 559, 200);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
-      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-    );
-
-    await act(async () => {
-      dispatchPrimaryTouchEvent(stage, "pointerdown", 200, 200);
-    });
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
-      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-    );
   });
 
-  it("keeps the pointer tilt neutral when reduced motion is requested", async () => {
+  it("suppresses presentation tilt when reduced motion is requested", async () => {
     installImmediateIdleCallback();
     installMotionMediaQueries({ finePointer: true, reducedMotion: true });
 
@@ -455,26 +352,19 @@ describe("PublicLandingLogo", () => {
     document.body.append(rootElement);
     const localRoot = createRoot(rootElement);
     root = localRoot;
-    const touchTiltRootRef = React.createRef<HTMLDivElement>();
 
     await act(async () => {
       localRoot.render(
-        <div ref={touchTiltRootRef}>
-          <PublicLandingLogo
-            enablePointerTilt
-            routeSearchSource="static"
-            touchTiltRootRef={touchTiltRootRef}
-          />
-        </div>,
+        <PublicLandingLogo
+          enablePointerTilt
+          presentationTiltTarget={{ horizontal: 12, vertical: 0 }}
+          routeSearchSource="static"
+        />,
       );
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    const touchRoot = touchTiltRootRef.current;
-    if (touchRoot === null) {
-      throw new Error("Expected landing touch root.");
-    }
     const sceneProps = latestLandingLogoSceneProps.current;
     if (sceneProps === null) {
       throw new Error("Expected mocked logo scene props.");
@@ -482,13 +372,10 @@ describe("PublicLandingLogo", () => {
     await act(async () => {
       sceneProps.onRenderReady?.();
       dispatchPrimaryMouseMove(550, 200);
-      dispatchPrimaryTouchEvent(touchRoot, "pointerdown", 550, 200);
       await Promise.resolve();
     });
 
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
-      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-    );
+    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBeUndefined();
     const logoImage = getLogoImage(rootElement);
     expect(logoImage.className).toContain("transition-opacity");
     expect(logoImage.className).toContain("duration-300");

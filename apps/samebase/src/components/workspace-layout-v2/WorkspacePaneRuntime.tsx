@@ -55,6 +55,7 @@ export type WorkspaceLayoutV2LocalStoreState = {
   mobile: {
     grip: WorkspaceLayoutV2MobileGrip;
     isPaneSettled: boolean;
+    paneScrollProgress: number;
   };
   viewportSize: ElementSize;
 };
@@ -69,6 +70,7 @@ const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStore
   mobile: {
     grip: WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
     isPaneSettled: true,
+    paneScrollProgress: 0,
   },
   viewportSize: WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
 };
@@ -92,6 +94,16 @@ function useCreateWorkspaceLayoutV2Store() {
           : {
               ...state,
               mobile: { ...state.mobile, isPaneSettled },
+            },
+      );
+    },
+    setMobilePaneScrollProgress: (paneScrollProgress: number) => {
+      setState((state) =>
+        state.mobile.paneScrollProgress === paneScrollProgress
+          ? state
+          : {
+              ...state,
+              mobile: { ...state.mobile, paneScrollProgress },
             },
       );
     },

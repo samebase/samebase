@@ -1633,12 +1633,14 @@ test("public landing logo tilts toward the pointer outside its grab surface", as
 test.describe("public landing mobile logo tilt", () => {
   test.use(mobileLandingDevice);
 
-  test("tilts toward a held page touch outside its grab surface", async ({ page }, testInfo) => {
+  test("tilts throughout a swipe to the right sidebar", async ({ page }, testInfo) => {
     await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
     const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
     const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
     const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
+    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+    const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
     await expectLandingLogoSceneReady(landingLogoScene);
     await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
     await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
@@ -1648,7 +1650,7 @@ test.describe("public landing mobile logo tilt", () => {
     if (copyBounds === null) {
       return;
     }
-    const touchPoint = {
+    const initialTouchPoint = {
       force: 1,
       id: 1,
       radiusX: 4,
@@ -1658,30 +1660,116 @@ test.describe("public landing mobile logo tilt", () => {
     };
     const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
     const session = await page.context().newCDPSession(page);
+    let touchActive = false;
 
     try {
       await session.send("Input.dispatchTouchEvent", {
         type: "touchStart",
-        touchPoints: [touchPoint],
+        touchPoints: [initialTouchPoint],
       });
-      await page.waitForTimeout(1_000);
+      touchActive = true;
+      for (const xOffset of [-32, -64, -96]) {
+        await page.waitForTimeout(32);
+        await session.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ ...initialTouchPoint, x: initialTouchPoint.x + xOffset }],
+        });
+      }
 
-      await expect(landingLogoStage).toHaveScreenshot(
-        "public-landing-logo-touch-lower-right.png",
-        strictScreenshotOptions,
-      );
+      await expect
+        .poll(() => carousel.evaluate((element) => element.scrollLeft))
+        .toBeGreaterThan(48);
+      await expect
+        .poll(async () =>
+          Number(await landingLogoScene.getAttribute("data-presentation-horizontal-degrees")),
+        )
+        .toBeGreaterThan(2);
+      await page.waitForTimeout(750);
+
+      const swipeScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
+      const swipeLogoBounds = await landingLogoStage.boundingBox();
+      const viewportSize = page.viewportSize();
+      expect(swipeLogoBounds).not.toBeNull();
+      expect(viewportSize).not.toBeNull();
+      if (swipeLogoBounds === null || viewportSize === null) {
+        return;
+      }
+      expect(swipeLogoBounds.x).toBeGreaterThanOrEqual(0);
+      expect(swipeLogoBounds.x + swipeLogoBounds.width).toBeLessThanOrEqual(viewportSize.width);
+      const swipeLogoScreenshot = await page.screenshot({
+        animations: "disabled",
+        caret: "hide",
+        clip: swipeLogoBounds,
+        scale: "css",
+      });
+      expect(swipeLogoScreenshot).toMatchSnapshot("public-landing-logo-swipe-right-sidebar.png", {
+        maxDiffPixelRatio: 0,
+        maxDiffPixels: 0,
+        threshold: 0,
+      });
+      await expect
+        .poll(() => carousel.evaluate((element) => element.scrollLeft))
+        .toBeCloseTo(swipeScrollLeft, 0);
       await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
       await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
+
+      for (const xOffset of [-160, -240, -300]) {
+        await page.waitForTimeout(32);
+        await session.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ ...initialTouchPoint, x: initialTouchPoint.x + xOffset }],
+        });
+      }
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      touchActive = false;
+      await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
+
+      const accountBounds = await page
+        .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
+        .boundingBox();
+      expect(accountBounds).not.toBeNull();
+      if (accountBounds === null) {
+        return;
+      }
+      const returnTouchPoint = {
+        ...initialTouchPoint,
+        id: 2,
+        x: accountBounds.x + 16,
+        y: accountBounds.y + accountBounds.height / 2,
+      };
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [returnTouchPoint],
+      });
+      touchActive = true;
+      for (const xOffset of [64, 140, 220, 300]) {
+        await page.waitForTimeout(32);
+        await session.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ ...returnTouchPoint, x: returnTouchPoint.x + xOffset }],
+        });
+      }
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      touchActive = false;
     } finally {
-      await session
-        .send("Input.dispatchTouchEvent", {
-          type: "touchEnd",
-          touchPoints: [],
-        })
-        .catch(() => undefined);
+      if (touchActive) {
+        await session
+          .send("Input.dispatchTouchEvent", {
+            type: "touchEnd",
+            touchPoints: [],
+          })
+          .catch(() => undefined);
+      }
       await session.detach().catch(() => undefined);
     }
 
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
     await page.waitForTimeout(1_000);
     const settledLogoScreenshot = await takeStableScreenshot(landingLogoStage);
     await expectScreenshotsToMatch({

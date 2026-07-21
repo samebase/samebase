@@ -45,7 +45,7 @@ import {
   type LogoRouteSearch,
 } from "@/routeSearch/logo";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
 
@@ -53,8 +53,6 @@ const AUTO_ROTATE_RESUME_DURATION_MS = 220;
 const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
 const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
 const POINTER_TILT_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
-const TOUCH_TILT_TAP_MAX_MOVEMENT_PX = 8;
-const TOUCH_TILT_MIN_VISIBLE_MS = 160;
 // The canvas receives the requested depth; the SVG fallback stays cheap enough
 // to render before the interactive scene is ready.
 const LANDING_STATIC_SVG_FALLBACK_DEPTH = 3;
@@ -116,11 +114,11 @@ export function PublicLandingLogo({
   enablePointerTilt = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
+  presentationTiltTarget,
   replaceRouteSearch,
   routeSearch = EMPTY_LOGO_ROUTE_SEARCH,
   routeSearchSource = "url",
   stage = "compact",
-  touchTiltRootRef,
   viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
@@ -130,6 +128,7 @@ export function PublicLandingLogo({
   enablePointerTilt?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
+  presentationTiltTarget?: LogoPresentationTiltTarget;
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
   routeSearch?: LogoRouteSearch;
   /**
@@ -140,7 +139,6 @@ export function PublicLandingLogo({
   */
   routeSearchSource?: "url" | "static";
   stage?: PublicLandingLogoStage;
-  touchTiltRootRef?: RefObject<HTMLElement | null>;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
@@ -211,7 +209,7 @@ export function PublicLandingLogo({
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
-  const [presentationTiltTarget, setPresentationTiltTarget] = useState<LogoPresentationTiltTarget>(
+  const [pointerTiltTarget, setPointerTiltTarget] = useState<LogoPresentationTiltTarget>(
     NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   );
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -287,40 +285,12 @@ export function PublicLandingLogo({
   }, []);
 
   useEffect(() => {
-    // Page-wide pointers supply ambient direction while the scene keeps its
+    // The page-wide mouse supplies ambient direction while the scene keeps its
     // own direct-manipulation events for dragging.
-    let touchTapSession: {
-      pointerId: number;
-      startedAt: number;
-      startX: number;
-      startY: number;
-    } | null = null;
-    let touchTiltResetTimer: number | null = null;
-
-    const resetPresentationTilt = () => {
-      setPresentationTiltTarget(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
+    const resetPointerTilt = () => {
+      setPointerTiltTarget(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
     };
-    const clearTouchTiltResetTimer = () => {
-      if (touchTiltResetTimer === null) {
-        return;
-      }
-
-      window.clearTimeout(touchTiltResetTimer);
-      touchTiltResetTimer = null;
-    };
-    const resetTouchTilt = () => {
-      touchTapSession = null;
-      clearTouchTiltResetTimer();
-      resetPresentationTilt();
-    };
-    const hasTouchMovedTooFar = (
-      session: { startX: number; startY: number },
-      clientX: number,
-      clientY: number,
-    ) =>
-      Math.hypot(clientX - session.startX, clientY - session.startY) >
-      TOUCH_TILT_TAP_MAX_MOVEMENT_PX;
-    const setPresentationTiltFromPoint = (clientX: number, clientY: number) => {
+    const setPointerTiltFromPoint = (clientX: number, clientY: number) => {
       const stage = stageRef.current;
       if (!stage) {
         return;
@@ -331,7 +301,7 @@ export function PublicLandingLogo({
         clientX,
         clientY,
       });
-      setPresentationTiltTarget((currentTarget) =>
+      setPointerTiltTarget((currentTarget) =>
         currentTarget.horizontal === nextTarget.horizontal &&
         currentTarget.vertical === nextTarget.vertical
           ? currentTarget
@@ -345,127 +315,33 @@ export function PublicLandingLogo({
       prefersReducedMotion ||
       typeof window.matchMedia !== "function"
     ) {
-      resetPresentationTilt();
+      resetPointerTilt();
       return;
     }
 
     const pointerMediaQuery = window.matchMedia(POINTER_TILT_MEDIA_QUERY);
-    const touchRoot = touchTiltRootRef?.current;
-    const handleTouchPointerDown = (event: PointerEvent) => {
-      if (event.pointerType !== "touch") {
-        return;
-      }
-
-      resetTouchTilt();
-      const stage = stageRef.current;
-      if (
-        !event.isPrimary ||
-        !stage ||
-        (event.target instanceof Node && stage.contains(event.target))
-      ) {
-        return;
-      }
-
-      // Begin before a tapped link can navigate, then keep the response only
-      // if the touch remains within the tap-sized movement threshold.
-      touchTapSession = {
-        pointerId: event.pointerId,
-        startedAt: performance.now(),
-        startX: event.clientX,
-        startY: event.clientY,
-      };
-      setPresentationTiltFromPoint(event.clientX, event.clientY);
-    };
-    const handleTouchPointerMove = (event: PointerEvent) => {
-      const session = touchTapSession;
-      if (event.pointerType !== "touch" || !session || event.pointerId !== session.pointerId) {
-        return;
-      }
-
-      if (hasTouchMovedTooFar(session, event.clientX, event.clientY)) {
-        resetTouchTilt();
-      }
-    };
-    const handleTouchPointerUp = (event: PointerEvent) => {
-      const session = touchTapSession;
-      if (event.pointerType !== "touch" || !session || event.pointerId !== session.pointerId) {
-        return;
-      }
-      if (hasTouchMovedTooFar(session, event.clientX, event.clientY)) {
-        resetTouchTilt();
-        return;
-      }
-
-      touchTapSession = null;
-      const remainingVisibleMs = Math.max(
-        TOUCH_TILT_MIN_VISIBLE_MS - (performance.now() - session.startedAt),
-        0,
-      );
-      if (remainingVisibleMs === 0) {
-        resetPresentationTilt();
-        return;
-      }
-
-      touchTiltResetTimer = window.setTimeout(() => {
-        touchTiltResetTimer = null;
-        resetPresentationTilt();
-      }, remainingVisibleMs);
-    };
-    const handleTouchPointerCancel = (event: PointerEvent) => {
-      if (event.pointerType !== "touch") {
-        return;
-      }
-
-      resetTouchTilt();
-    };
     const handleMousePointerMove = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerType !== "mouse" || !pointerMediaQuery.matches) {
         return;
       }
 
-      touchTapSession = null;
-      clearTouchTiltResetTimer();
-      setPresentationTiltFromPoint(event.clientX, event.clientY);
-    };
-    const handleWindowBlur = () => {
-      resetTouchTilt();
+      setPointerTiltFromPoint(event.clientX, event.clientY);
     };
     const handlePointerCapabilityChange = () => {
-      if (!pointerMediaQuery.matches && touchTapSession === null && touchTiltResetTimer === null) {
-        resetPresentationTilt();
+      if (!pointerMediaQuery.matches) {
+        resetPointerTilt();
       }
     };
 
-    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("blur", resetPointerTilt);
     window.addEventListener("pointermove", handleMousePointerMove, { passive: true });
-    touchRoot?.addEventListener("pointercancel", handleTouchPointerCancel, {
-      capture: true,
-      passive: true,
-    });
-    touchRoot?.addEventListener("pointerdown", handleTouchPointerDown, {
-      capture: true,
-      passive: true,
-    });
-    touchRoot?.addEventListener("pointermove", handleTouchPointerMove, {
-      capture: true,
-      passive: true,
-    });
-    touchRoot?.addEventListener("pointerup", handleTouchPointerUp, {
-      capture: true,
-      passive: true,
-    });
     pointerMediaQuery.addEventListener("change", handlePointerCapabilityChange);
     return () => {
-      clearTouchTiltResetTimer();
-      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("blur", resetPointerTilt);
       window.removeEventListener("pointermove", handleMousePointerMove);
-      touchRoot?.removeEventListener("pointercancel", handleTouchPointerCancel, true);
-      touchRoot?.removeEventListener("pointerdown", handleTouchPointerDown, true);
-      touchRoot?.removeEventListener("pointermove", handleTouchPointerMove, true);
-      touchRoot?.removeEventListener("pointerup", handleTouchPointerUp, true);
       pointerMediaQuery.removeEventListener("change", handlePointerCapabilityChange);
     };
-  }, [enablePointerTilt, isSceneInteractive, prefersReducedMotion, touchTiltRootRef]);
+  }, [enablePointerTilt, isSceneInteractive, prefersReducedMotion]);
 
   useEffect(() => {
     if (!loadInteractiveScene) {
@@ -595,6 +471,10 @@ export function PublicLandingLogo({
     };
   }, [isAutoRotating]);
 
+  const activePresentationTiltTarget = prefersReducedMotion
+    ? undefined
+    : (presentationTiltTarget ?? (enablePointerTilt ? pointerTiltTarget : undefined));
+
   return (
     <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE[stage]}>
       <div
@@ -622,6 +502,10 @@ export function PublicLandingLogo({
             data-testid={PUBLIC_LANDING_LOGO_SCENE_TEST_ID}
             data-state={isSceneReady ? "ready" : "loading"}
             data-elevation-degrees={view.elevationDegrees.toFixed(3)}
+            data-presentation-horizontal-degrees={activePresentationTiltTarget?.horizontal.toFixed(
+              3,
+            )}
+            data-presentation-vertical-degrees={activePresentationTiltTarget?.vertical.toFixed(3)}
             data-rotation-degrees={view.rotationDegrees.toFixed(3)}
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
@@ -671,7 +555,7 @@ export function PublicLandingLogo({
                 setView(nextView);
               }}
               onVoxelEdit={ignoreLogoVoxelEdit}
-              presentationTiltTarget={enablePointerTilt ? presentationTiltTarget : undefined}
+              presentationTiltTarget={activePresentationTiltTarget}
               rotationAxisMode={routeState.rotationAxisMode}
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={shuffleAnimation}

@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   getMobilePaneFromScrollLeft,
+  getMobilePaneScrollProgress,
   getMobilePaneScrollLeftPx,
   isMobilePaneScrollSettled,
   type MobilePane,
@@ -52,9 +53,12 @@ export function useWorkspaceLayoutV2MobileCarouselController({
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
-  const { setIsMobilePaneSettled } = useWorkspaceLayoutV2Actions();
+  const { setIsMobilePaneSettled, setMobilePaneScrollProgress } = useWorkspaceLayoutV2Actions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
+  });
+  const setMobilePaneScrollProgressEffect = useEffectEvent((progress: number) => {
+    setMobilePaneScrollProgress(progress);
   });
   const canSyncScroll = isMobile && viewportWidthPx > 0 && mainWidthPx > 0;
   const syncPaneFromScroll = useEffectEvent((carouselNode: HTMLDivElement) => {
@@ -72,6 +76,18 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       scrollLeftPx: carouselNode.scrollLeft,
       viewportWidthPx,
     });
+    setMobilePaneScrollProgress(
+      getMobilePaneScrollProgress({
+        hasLeftPane,
+        hasRightPane,
+        leftWidthPx,
+        mainWidthPx,
+        mergedSurfaceSide,
+        rightWidthPx,
+        scrollLeftPx: carouselNode.scrollLeft,
+        viewportWidthPx,
+      }),
+    );
     const isScrollSettled = isMobilePaneScrollSettled({
       hasRightPane,
       hasLeftPane,
@@ -180,11 +196,13 @@ export function useWorkspaceLayoutV2MobileCarouselController({
    */
   useEffect(() => {
     if (!canSyncScroll) {
+      setMobilePaneScrollProgressEffect(0);
       return;
     }
 
     const carouselNode = carouselRef.current;
     if (carouselNode === null) {
+      setMobilePaneScrollProgressEffect(0);
       return;
     }
 
