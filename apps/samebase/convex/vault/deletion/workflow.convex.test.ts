@@ -365,7 +365,7 @@ describe("vault deletion workflow", () => {
       vaultId: ids.vaultId,
     });
 
-    expect(claim).toEqual({ claimed: false });
+    expect(claim).toEqual({ claimed: false, reason: "unavailable" });
   });
 
   it("returns the dashboard delete disabled reason while source setup runs", async () => {

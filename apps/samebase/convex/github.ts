@@ -1131,15 +1131,12 @@ async function refreshExactRepositoryBranchForUser(
       case "cooldown":
       case "in_progress":
         return { kind: "deferred", reason: claim.reason };
-      case undefined:
+      case "unavailable":
         return { kind: "failed" };
       default:
         claim.reason satisfies never;
         return { kind: "failed" };
     }
-  }
-  if (typeof claim.startedAt !== "number") {
-    throw new Error("Tree refresh claim missing start timestamp.");
   }
 
   const octokit = new Octokit({

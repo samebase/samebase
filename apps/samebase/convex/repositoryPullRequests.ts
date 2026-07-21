@@ -382,10 +382,7 @@ export const listOpenPullRequests = action({
     if (page.repository === null) {
       return page;
     }
-    if (
-      String(page.repository.databaseId) !== vault.ghRepoId ||
-      page.repository.nameWithOwner.toLowerCase() !== `${vault.owner}/${vault.name}`.toLowerCase()
-    ) {
+    if (String(page.repository.databaseId) !== vault.ghRepoId) {
       throw new Error("GitHub repository identity changed.");
     }
     return page;

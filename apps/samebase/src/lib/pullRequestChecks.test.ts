@@ -44,21 +44,4 @@ describe("summarizePullRequestChecks", () => {
       unknownCount: 0,
     });
   });
-
-  it("rejects inconsistent provider counts", () => {
-    const rollup = {
-      state: "SUCCESS",
-      contexts: {
-        totalCount: 2,
-        checkRunCount: 2,
-        statusContextCount: 0,
-        checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
-        statusContextCountsByState: [],
-      },
-    } satisfies StatusCheckRollup;
-
-    expect(() => summarizePullRequestChecks(rollup)).toThrow(
-      "GitHub returned inconsistent check counts.",
-    );
-  });
 });

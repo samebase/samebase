@@ -4,7 +4,7 @@ import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import type { CloudflareWorkerBuild } from "../cloudflareResources";
 import {
   matchCloudflareWorkerBuild,
-  normalizeGitHubPullRequestResourceHeads,
+  normalizeGitHubPullRequestResourceHeadReads,
   resolveConvexPreviewDeployment,
   type PullRequestResourceHead,
 } from "./pullRequestResources";
@@ -164,7 +164,7 @@ describe("matchCloudflareWorkerBuild", () => {
   });
 });
 
-describe("normalizeGitHubPullRequestResourceHeads", () => {
+describe("normalizeGitHubPullRequestResourceHeadReads", () => {
   const providerHead = {
     __typename: "PullRequest",
     id: "PR_17",
@@ -179,35 +179,32 @@ describe("normalizeGitHubPullRequestResourceHeads", () => {
 
   it("derives resource identity from the server-observed GitHub node", () => {
     expect(
-      normalizeGitHubPullRequestResourceHeads(
+      normalizeGitHubPullRequestResourceHeadReads(
         { nodes: [providerHead] },
         { ghRepoId: "42", pullRequestIds: ["PR_17"] },
       ),
-    ).toEqual([head]);
+    ).toEqual([{ state: "available", head }]);
   });
 
   it("rejects a pull request from another repository", () => {
     expect(() =>
-      normalizeGitHubPullRequestResourceHeads(
+      normalizeGitHubPullRequestResourceHeadReads(
         { nodes: [{ ...providerHead, repository: { databaseId: 99 } }] },
         { ghRepoId: "42", pullRequestIds: ["PR_17"] },
       ),
     ).toThrow("GitHub pull request identity changed.");
   });
 
-  it("rejects a closed or missing requested pull request", () => {
-    expect(() =>
-      normalizeGitHubPullRequestResourceHeads(
-        { nodes: [{ ...providerHead, state: "CLOSED" }] },
-        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+  it("isolates a closed or missing pull request from the rest of the batch", () => {
+    expect(
+      normalizeGitHubPullRequestResourceHeadReads(
+        { nodes: [{ ...providerHead, state: "MERGED" }, null] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17", "PR_18"] },
       ),
-    ).toThrow();
-    expect(() =>
-      normalizeGitHubPullRequestResourceHeads(
-        { nodes: [null] },
-        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
-      ),
-    ).toThrow();
+    ).toEqual([
+      { state: "unavailable", pullRequestId: "PR_17" },
+      { state: "unavailable", pullRequestId: "PR_18" },
+    ]);
   });
 });
 

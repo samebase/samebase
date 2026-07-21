@@ -73,13 +73,16 @@ const vPullRequestResources = object({
 export type PullRequestWorkerResource = Infer<typeof vPullRequestWorkerResource>;
 export type PullRequestResources = Infer<typeof vPullRequestResources>;
 
-const providerPullRequestResourceHeadSchema = z.object({
+const providerPullRequestResourceIdentitySchema = z.object({
   __typename: z.literal("PullRequest"),
   id: z.string().min(1),
+  state: z.enum(["OPEN", "CLOSED", "MERGED"]),
+  repository: z.object({ databaseId: z.number().int().positive() }),
+});
+const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentitySchema.extend({
   url: z.string().url(),
   isCrossRepository: z.boolean(),
   state: z.literal("OPEN"),
-  repository: z.object({ databaseId: z.number().int().positive() }),
   headRepository: z.object({ id: z.string().min(1) }).nullable(),
   headRefName: z.string().min(1),
   headRefOid: z.string().min(1),
@@ -92,6 +95,9 @@ export type PullRequestResourceHead = Pick<
 > & {
   headRepositoryId: string | null;
 };
+type PullRequestResourceHeadRead =
+  | { state: "available"; head: PullRequestResourceHead }
+  | { state: "unavailable"; pullRequestId: string };
 
 const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
   query PullRequestResourceHeads($ids: [ID!]!) {
@@ -111,33 +117,41 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
   }
 `;
 
-export function normalizeGitHubPullRequestResourceHeads(
+export function normalizeGitHubPullRequestResourceHeadReads(
   value: unknown,
   args: {
     ghRepoId: string;
     pullRequestIds: readonly string[];
   },
-): PullRequestResourceHead[] {
+): PullRequestResourceHeadRead[] {
   const providerHeads = providerPullRequestResourceHeadsSchema.parse(value).nodes;
   if (providerHeads.length !== args.pullRequestIds.length) {
     throw new Error("GitHub returned an incomplete pull request resource response.");
   }
 
   return providerHeads.map((value, index) => {
-    const head = providerPullRequestResourceHeadSchema.parse(value);
-    if (
-      head.id !== args.pullRequestIds[index] ||
-      String(head.repository.databaseId) !== args.ghRepoId
-    ) {
+    const pullRequestId = args.pullRequestIds[index];
+    if (value === null) {
+      return { state: "unavailable", pullRequestId };
+    }
+    const identity = providerPullRequestResourceIdentitySchema.parse(value);
+    if (identity.id !== pullRequestId || String(identity.repository.databaseId) !== args.ghRepoId) {
       throw new Error("GitHub pull request identity changed.");
     }
+    if (identity.state !== "OPEN") {
+      return { state: "unavailable", pullRequestId };
+    }
+    const head = providerPullRequestResourceHeadSchema.parse(value);
     return {
-      id: head.id,
-      url: head.url,
-      isCrossRepository: head.isCrossRepository,
-      headRepositoryId: head.headRepository?.id ?? null,
-      headRefName: head.headRefName,
-      headRefOid: head.headRefOid,
+      state: "available",
+      head: {
+        id: head.id,
+        url: head.url,
+        isCrossRepository: head.isCrossRepository,
+        headRepositoryId: head.headRepository?.id ?? null,
+        headRefName: head.headRefName,
+        headRefOid: head.headRefOid,
+      },
     };
   });
 }
@@ -645,10 +659,10 @@ export const getPullRequestResources = action({
         args.pullRequestIds.slice(index, index + GITHUB_PULL_REQUEST_NODE_BATCH_SIZE),
       );
     }
-    const heads = (
+    const headReads = (
       await Promise.all(
         pullRequestIdBatches.map(async (pullRequestIds) =>
-          normalizeGitHubPullRequestResourceHeads(
+          normalizeGitHubPullRequestResourceHeadReads(
             await octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, { ids: pullRequestIds }),
             {
               ghRepoId: context.ghRepoId,
@@ -658,13 +672,26 @@ export const getPullRequestResources = action({
         ),
       )
     ).flat();
+    const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
     const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
     const convexToken =
       convexConnection?.kind === "convex" ? convexConnection.auth.credential.trim() : "";
     const convexTeamId = convexConnection?.kind === "convex" ? convexConnection.teamId.trim() : "";
     const resourcesByPullRequest = new Map<string, PullRequestWorkerResource[]>();
-    for (const head of heads) {
-      resourcesByPullRequest.set(head.id, []);
+    for (const pullRequestId of args.pullRequestIds) {
+      resourcesByPullRequest.set(pullRequestId, []);
+    }
+    for (const read of headReads) {
+      if (read.state === "available") {
+        continue;
+      }
+      const resources = resourcesByPullRequest.get(read.pullRequestId);
+      if (!resources) {
+        throw new Error("Pull request resources lost requested identity.");
+      }
+      for (const worker of context.cloudflareWorkers) {
+        resources.push({ state: "unavailable", ...workerResourceIdentity(worker) });
+      }
     }
 
     if (!cloudflareConnection || !cloudflareToken) {
@@ -674,7 +701,11 @@ export const getPullRequestResources = action({
           worker,
         });
         heads.forEach((head, index) => {
-          resourcesByPullRequest.get(head.id)?.push(resources[index]);
+          const pullRequestResources = resourcesByPullRequest.get(head.id);
+          if (!pullRequestResources) {
+            throw new Error("Pull request resources lost requested identity.");
+          }
+          pullRequestResources.push(resources[index]);
         });
       }
     } else {
@@ -707,14 +738,21 @@ export const getPullRequestResources = action({
           if (resource.workerId !== worker.workerId) {
             throw new Error("Pull request resources lost stable Worker identity.");
           }
-          resourcesByPullRequest.get(head.id)?.push(resource);
+          const pullRequestResources = resourcesByPullRequest.get(head.id);
+          if (!pullRequestResources) {
+            throw new Error("Pull request resources lost requested identity.");
+          }
+          pullRequestResources.push(resource);
         });
       });
     }
 
-    return heads.map((head) => ({
-      pullRequestId: head.id,
-      workers: resourcesByPullRequest.get(head.id) ?? [],
-    }));
+    return args.pullRequestIds.map((pullRequestId) => {
+      const workers = resourcesByPullRequest.get(pullRequestId);
+      if (!workers) {
+        throw new Error("Pull request resources lost requested identity.");
+      }
+      return { pullRequestId, workers };
+    });
   },
 });

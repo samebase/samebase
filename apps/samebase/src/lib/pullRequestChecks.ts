@@ -1,6 +1,11 @@
 import type { RepositoryPullRequest } from "../../convex/repositoryPullRequests";
 
 type CheckState = "success" | "failure" | "running" | "neutral" | "unknown";
+type StatusCheckRollup = NonNullable<RepositoryPullRequest["statusCheckRollup"]>;
+type CheckRunProviderState =
+  StatusCheckRollup["contexts"]["checkRunCountsByState"][number]["state"];
+type StatusContextProviderState =
+  StatusCheckRollup["contexts"]["statusContextCountsByState"][number]["state"];
 
 export type PullRequestCheckSummary = {
   state: "none" | CheckState;
@@ -12,7 +17,7 @@ export type PullRequestCheckSummary = {
   unknownCount: number;
 };
 
-function checkRunState(state: string): CheckState {
+function checkRunState(state: CheckRunProviderState): CheckState {
   switch (state) {
     case "SUCCESS":
       return "success";
@@ -34,11 +39,12 @@ function checkRunState(state: string): CheckState {
     case "COMPLETED":
       return "unknown";
     default:
-      throw new Error(`Unknown GitHub check state: ${state}.`);
+      state satisfies never;
+      throw new Error("Unknown GitHub check state.");
   }
 }
 
-function statusContextState(state: string): CheckState {
+function statusContextState(state: StatusContextProviderState): CheckState {
   switch (state) {
     case "SUCCESS":
       return "success";
@@ -49,7 +55,8 @@ function statusContextState(state: string): CheckState {
     case "PENDING":
       return "running";
     default:
-      throw new Error(`Unknown GitHub status state: ${state}.`);
+      state satisfies never;
+      throw new Error("Unknown GitHub status state.");
   }
 }
 
@@ -101,15 +108,6 @@ export function summarizePullRequestChecks(
   }
   for (const count of rollup.contexts.statusContextCountsByState) {
     add(statusContextState(count.state), count.count);
-  }
-
-  const counted = Object.values(totals).reduce((total, count) => total + count, 0);
-  if (
-    rollup.contexts.checkRunCount + rollup.contexts.statusContextCount !==
-      rollup.contexts.totalCount ||
-    counted !== rollup.contexts.totalCount
-  ) {
-    throw new Error("GitHub returned inconsistent check counts.");
   }
 
   return {

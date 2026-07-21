@@ -120,6 +120,17 @@ export const upsertClaimedVaultBranchTree = internalMutation({
 });
 
 const STALE_LOCK_MS = TREE_REFRESH_STALE_LOCK_MS;
+const vTreeRefreshClaim = union(
+  object({
+    claimed: literal(true),
+    startedAt: number(),
+  }),
+  object({
+    claimed: literal(false),
+    reason: union(literal("cooldown"), literal("in_progress"), literal("unavailable")),
+  }),
+);
+type TreeRefreshClaim = Infer<typeof vTreeRefreshClaim>;
 
 function getLaterCooldownUntil(
   existingCooldownUntil: number | undefined,
@@ -140,22 +151,11 @@ export const claimTreeRefresh = internalMutation({
   args: {
     vaultId: id("vaults"),
   },
-  returns: object({
-    claimed: boolean(),
-    startedAt: optional(number()),
-    reason: optional(union(literal("cooldown"), literal("in_progress"))),
-  }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{
-    claimed: boolean;
-    startedAt?: number;
-    reason?: "cooldown" | "in_progress";
-  }> => {
+  returns: vTreeRefreshClaim,
+  handler: async (ctx, args): Promise<TreeRefreshClaim> => {
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault)) {
-      return { claimed: false };
+      return { claimed: false, reason: "unavailable" };
     }
 
     const now = Date.now();
@@ -179,7 +179,7 @@ export const releaseTreeRefresh = internalMutation({
   args: {
     vaultId: id("vaults"),
     startedAt: number(),
-    markRefreshed: optional(boolean()),
+    markRefreshed: boolean(),
     failureKind: optional(vTreeRefreshFailureKind),
     failureMessage: optional(string()),
     cooldownUntil: optional(number()),
@@ -205,7 +205,7 @@ export const releaseTreeRefresh = internalMutation({
     const now = Date.now();
     const cooldownUntil = getLaterCooldownUntil(vault.treeRefreshCooldownUntil, args.cooldownUntil);
     const shouldPreserveCooldownState =
-      args.markRefreshed !== false &&
+      args.markRefreshed &&
       shouldPreserveTreeRefreshCooldownAfterSuccess({
         claimedStartedAt: args.startedAt,
         lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
@@ -214,7 +214,7 @@ export const releaseTreeRefresh = internalMutation({
       });
     await ctx.db.patch(
       args.vaultId,
-      args.markRefreshed === false
+      !args.markRefreshed
         ? {
             treeRefreshStartedAt: undefined,
             lastTreeRefreshFailedAt: now,

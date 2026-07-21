@@ -63,6 +63,11 @@ The request joins live GitHub, Cloudflare, and Convex responses against the stab
 it does not persist a pull request resource model. Resource requests are independent of browser
 filters so changing presentation preferences does not repeat provider scans.
 
+The stable GitHub repository id proves repository identity. A repository coordinate rename does not
+invalidate that identity. If one requested pull request closes, merges, or disappears between the
+page read and the resource read, only that row becomes unavailable; the rest of the resource batch
+still resolves.
+
 A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, GitHub
 repository id, app root, preview trigger, pull request URL, head SHA, branch, and deploy command.
 
@@ -107,6 +112,21 @@ The application has no runtime or schema contract for:
 Internal backwards compatibility for those tables or response shapes is an error. Existing rows may
 be deleted when deploying the schema.
 
+### Production Cutover
+
+Immediately before the first production deploy of this schema:
+
+- remove `lastTreeRefreshAt` from existing `vaults` documents;
+- clear `observations_vaultRepository_branchTrees` so exact branch trees rehydrate without the
+  removed top-level `treeSHA` field;
+- clear or delete `ui_vaultBranches_filters`, `observations_vaultRepository_branches`,
+  `vaultDomains`, `derived_githubCommit_checkSummaries`, `observations_githubCommit_checks`, and
+  `vaultRepositoryRefreshRequests`.
+
+This is a destructive one-user cutover, not an application compatibility contract. Old production
+code can recreate the removed shapes, so cleanup happens immediately before the schema deploy. Do
+not retain optional validators, readers, writers, or migration code after the cutover.
+
 ## Validation
 
 Tests must prove:
@@ -118,6 +138,7 @@ Tests must prove:
 - refreshing a multi-page query retains all previous pages if any provider request fails;
 - same-repository and fork heads stay distinct;
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
+- a pull request that leaves the open set during resource enrichment does not fail sibling rows;
 - resource links require exact cross-provider identity;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.
