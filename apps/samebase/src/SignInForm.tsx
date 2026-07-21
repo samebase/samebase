@@ -6,6 +6,9 @@ import {
   useWorkspaceLayoutV2Selector,
   useWorkspacePaneState,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
+import { WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
+import { APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX } from "@/lib/appWorkspaceSidebarPreferences";
+import { clampNumber } from "@/lib/clampNumber";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -32,9 +35,16 @@ function LandingPageLogo({
   rootRouteSearch: ReturnType<typeof useRootRouteSearch>;
 }) {
   const navigate = useNavigate();
-  const { isMobile } = useWorkspacePaneState();
+  const { isMobile, rightMobileWidthPx } = useWorkspacePaneState();
   const mobilePaneScrollProgress = useWorkspaceLayoutV2Selector(
     (state) => state.mobile.paneScrollProgress,
+  );
+  const mobileRightSidebarExposure = clampNumber(
+    (rightMobileWidthPx - WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX) /
+      (APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX -
+        WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX),
+    0,
+    1,
   );
 
   return (
@@ -47,7 +57,10 @@ function LandingPageLogo({
       presentationTiltTarget={
         isMobile
           ? {
-              horizontal: mobilePaneScrollProgress * MOBILE_SIDEBAR_LOGO_TILT_DEGREES,
+              horizontal:
+                mobilePaneScrollProgress *
+                mobileRightSidebarExposure *
+                MOBILE_SIDEBAR_LOGO_TILT_DEGREES,
               vertical: 0,
             }
           : undefined

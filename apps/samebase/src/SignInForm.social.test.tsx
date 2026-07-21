@@ -18,7 +18,7 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
   useWorkspaceLayoutV2Selector: (
     selector: (state: { mobile: { paneScrollProgress: number } }) => unknown,
   ) => selector({ mobile: { paneScrollProgress: 0 } }),
-  useWorkspacePaneState: () => ({ isMobile: false }),
+  useWorkspacePaneState: () => ({ isMobile: false, rightMobileWidthPx: 288 }),
 }));
 
 vi.mock("@/routeSearch/root", () => ({

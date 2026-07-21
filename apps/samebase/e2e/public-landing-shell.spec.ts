@@ -1786,27 +1786,28 @@ test.describe("public landing mobile logo tilt", () => {
     });
   });
 
-  test("keeps the right-sidebar tilt when main and sidebar are merged", async ({ page }) => {
-    const mergedRightSidebarState = {
+  test("straightens the logo as the right sidebar shrinks into main", async ({ page }) => {
+    const rightSidebarState = {
       leftDesktopOpen: true,
       leftDesktopWidthPx: 240,
       leftMobileWidthPx: 240,
       mobilePane: "right",
-      mobileSurface: {
-        kind: "merged",
-        mainWidthPx: 294,
-        side: "right",
-      },
+      mobileSurface: { kind: "unmerged" },
       rightDesktopOpen: true,
-      rightDesktopWidthPx: 96,
-      rightMobileWidthPx: 96,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 288,
     } satisfies WorkspaceSidebarState;
     await page.addInitScript(
-      ({ state, storageKey, storageVersion }) => {
+      ({ seedFlag, state, storageKey, storageVersion }) => {
+        if (window.sessionStorage.getItem(seedFlag) === "1") {
+          return;
+        }
         window.localStorage.setItem(storageKey, JSON.stringify({ state, version: storageVersion }));
+        window.sessionStorage.setItem(seedFlag, "1");
       },
       {
-        state: mergedRightSidebarState,
+        seedFlag: "samebase_e2e_landing_logo_resize_seeded",
+        state: rightSidebarState,
         storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
         storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
       },
@@ -1816,11 +1817,12 @@ test.describe("public landing mobile logo tilt", () => {
 
     const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
     const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
-    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+    const rightResizeHandle = page.getByTestId("workspace-layout-v2-right-resize");
     const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
-    await expect(workspace).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "right");
+    await expect
+      .poll(() => workspace.getAttribute("data-workspace-layout-v2-mobile-merged-side"))
+      .toBeNull();
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
-    await expect.poll(() => carousel.evaluate((element) => element.scrollLeft)).toBe(0);
     await expectLandingLogoSceneReady(landingLogoScene);
     await expect(landingLogoScene).toHaveAttribute(
       "data-presentation-horizontal-degrees",
@@ -1828,21 +1830,63 @@ test.describe("public landing mobile logo tilt", () => {
     );
     await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
     await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
+    await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "288");
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(workspace).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "right");
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
-    await expect.poll(() => carousel.evaluate((element) => element.scrollLeft)).toBe(0);
-    await expectLandingLogoSceneReady(landingLogoScene);
+    const defaultHandleBounds = await rightResizeHandle.boundingBox();
+    expect(defaultHandleBounds).not.toBeNull();
+    if (defaultHandleBounds === null) {
+      return;
+    }
+    const defaultHandleCenter = {
+      x: defaultHandleBounds.x + defaultHandleBounds.width / 2,
+      y: defaultHandleBounds.y + defaultHandleBounds.height / 2,
+    };
+    await page.mouse.move(defaultHandleCenter.x, defaultHandleCenter.y);
+    await page.mouse.down();
+    await page.mouse.move(defaultHandleCenter.x + 96, defaultHandleCenter.y, { steps: 4 });
+
+    await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "192");
     await expect(landingLogoScene).toHaveAttribute(
       "data-presentation-horizontal-degrees",
-      "24.000",
+      "12.000",
     );
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    await expect(landingLogoScene).toHaveAttribute(
+      "data-presentation-horizontal-degrees",
+      "12.000",
+    );
+
+    const partialHandleBounds = await rightResizeHandle.boundingBox();
+    expect(partialHandleBounds).not.toBeNull();
+    if (partialHandleBounds === null) {
+      return;
+    }
+    const partialHandleCenter = {
+      x: partialHandleBounds.x + partialHandleBounds.width / 2,
+      y: partialHandleBounds.y + partialHandleBounds.height / 2,
+    };
+    await page.mouse.move(partialHandleCenter.x, partialHandleCenter.y);
+    await page.mouse.down();
+    await page.mouse.move(partialHandleCenter.x + 96, partialHandleCenter.y, { steps: 4 });
+
+    await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "96");
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+    await page.mouse.up();
+    await expect(workspace).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "right");
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
     await page.waitForTimeout(750);
     await expect(landingLogoStage).toHaveScreenshot(
       "public-landing-logo-merged-right.png",
       strictScreenshotOptions,
     );
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(workspace).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "right");
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
+    await expectLandingLogoSceneReady(landingLogoScene);
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
   });
 });
 

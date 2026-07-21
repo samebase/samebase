@@ -21,11 +21,6 @@ const MOBILE_PANE_ORDER_WITHOUT_LEFT = ["main", "right"] as const;
 const MOBILE_PANE_ORDER_MAIN_ONLY = ["main"] as const;
 
 export type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
-const MOBILE_PANE_SCROLL_PROGRESS_BY_PANE = {
-  left: -1,
-  main: 0,
-  right: 1,
-} satisfies Record<MobilePane, number>;
 export type WorkspaceLayoutV2MobileMinResizeBehavior =
   | "min_resize_to_slide"
   | "min_resize_to_merge";
@@ -290,41 +285,37 @@ export function getMobilePaneScrollLeftPx(
 }
 
 /**
- * Normalizes the native carousel position between logical pane anchors. Side
- * panes are signed endpoints even when a merged surface rebases its sole
- * native scroll offset to zero.
+ * Normalizes the native carousel position around main. Side panes are the
+ * signed endpoints so consumers can respond throughout browser momentum and
+ * scroll snapping without owning the gesture.
  */
 export function getMobilePaneScrollProgress(
   args: Parameters<typeof getMobilePaneScrollOffsets>[0] & {
     scrollLeftPx: number;
   },
 ) {
-  const paneOffsets = getMobilePaneScrollOffsets(args);
-  const firstPaneOffset = paneOffsets[0];
-  if (args.scrollLeftPx <= firstPaneOffset.scrollLeftPx) {
-    return MOBILE_PANE_SCROLL_PROGRESS_BY_PANE[firstPaneOffset.pane];
+  if (args.mergedSurfaceSide !== null) {
+    return 0;
   }
 
-  let previousPaneOffset = firstPaneOffset;
-  for (const currentPaneOffset of paneOffsets.slice(1)) {
-    const segmentDistancePx = currentPaneOffset.scrollLeftPx - previousPaneOffset.scrollLeftPx;
-    if (segmentDistancePx <= 0) {
-      continue;
-    }
-    if (args.scrollLeftPx <= currentPaneOffset.scrollLeftPx) {
-      const segmentProgress = clampNumber(
-        (args.scrollLeftPx - previousPaneOffset.scrollLeftPx) / segmentDistancePx,
-        0,
-        1,
-      );
-      const previousProgress = MOBILE_PANE_SCROLL_PROGRESS_BY_PANE[previousPaneOffset.pane];
-      const currentProgress = MOBILE_PANE_SCROLL_PROGRESS_BY_PANE[currentPaneOffset.pane];
-      return previousProgress + (currentProgress - previousProgress) * segmentProgress;
-    }
-    previousPaneOffset = currentPaneOffset;
+  const mainScrollLeftPx = getMobilePaneScrollLeftPx("main", args);
+  if (args.scrollLeftPx < mainScrollLeftPx && args.hasLeftPane) {
+    const leftScrollLeftPx = getMobilePaneScrollLeftPx("left", args);
+    const distanceToLeftPx = mainScrollLeftPx - leftScrollLeftPx;
+    return distanceToLeftPx <= 0
+      ? 0
+      : -clampNumber((mainScrollLeftPx - args.scrollLeftPx) / distanceToLeftPx, 0, 1);
   }
 
-  return MOBILE_PANE_SCROLL_PROGRESS_BY_PANE[previousPaneOffset.pane];
+  if (args.scrollLeftPx > mainScrollLeftPx && args.hasRightPane) {
+    const rightScrollLeftPx = getMobilePaneScrollLeftPx("right", args);
+    const distanceToRightPx = rightScrollLeftPx - mainScrollLeftPx;
+    return distanceToRightPx <= 0
+      ? 0
+      : clampNumber((args.scrollLeftPx - mainScrollLeftPx) / distanceToRightPx, 0, 1);
+  }
+
+  return 0;
 }
 
 export function getMobilePaneFromScrollLeft(args: {

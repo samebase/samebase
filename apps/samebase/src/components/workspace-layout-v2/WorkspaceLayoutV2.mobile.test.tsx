@@ -270,7 +270,7 @@ describe("getMobilePaneScrollProgress", () => {
     ).toBe(0.5);
   });
 
-  it("keeps logical side progress when main is merged into a sidebar", () => {
+  it("becomes neutral when main is fully merged into a sidebar", () => {
     expect(
       getMobilePaneScrollProgress({
         hasLeftPane: false,
@@ -282,7 +282,7 @@ describe("getMobilePaneScrollProgress", () => {
         scrollLeftPx: 0,
         viewportWidthPx: 390,
       }),
-    ).toBe(1);
+    ).toBe(0);
     expect(
       getMobilePaneScrollProgress({
         hasLeftPane: true,
@@ -294,20 +294,7 @@ describe("getMobilePaneScrollProgress", () => {
         scrollLeftPx: 0,
         viewportWidthPx: 390,
       }),
-    ).toBe(-1);
-
-    const twoSidedMergedGeometry = {
-      hasLeftPane: true,
-      hasRightPane: true,
-      leftWidthPx: 96,
-      mainWidthPx: 294,
-      mergedSurfaceSide: "right",
-      rightWidthPx: 96,
-      viewportWidthPx: 390,
-    } as const;
-    expect(getMobilePaneScrollProgress({ ...twoSidedMergedGeometry, scrollLeftPx: 0 })).toBe(-1);
-    expect(getMobilePaneScrollProgress({ ...twoSidedMergedGeometry, scrollLeftPx: 48 })).toBe(0);
-    expect(getMobilePaneScrollProgress({ ...twoSidedMergedGeometry, scrollLeftPx: 96 })).toBe(1);
+    ).toBe(0);
   });
 });
 
