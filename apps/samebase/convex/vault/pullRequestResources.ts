@@ -247,30 +247,6 @@ function observedWorkerResourceIdentity(worker: StableWorker, rootDirectory: str
   };
 }
 
-function normalizeGitHubPullRequestUrl(value: string): string | null {
-  try {
-    const url = new URL(value);
-    if (
-      url.protocol !== "https:" ||
-      url.hostname.toLowerCase() !== "github.com" ||
-      url.username ||
-      url.password ||
-      url.port ||
-      url.search ||
-      url.hash
-    ) {
-      return null;
-    }
-    const path = url.pathname.replace(/\/+$/, "");
-    if (!/^\/[^/]+\/[^/]+\/pull\/[1-9][0-9]*$/.test(path)) {
-      return null;
-    }
-    return `https://github.com${path}`;
-  } catch {
-    return null;
-  }
-}
-
 function providerTimestamp(value: string | null | undefined): number | null {
   if (!value) {
     return null;
@@ -323,18 +299,13 @@ export function matchCloudflareWorkerBuild(args: {
   ghRepoId: string;
   previewTriggerUuid: string;
 }): BuildMatch {
-  const expectedPullRequestUrl = normalizeGitHubPullRequestUrl(args.head.url);
-  if (expectedPullRequestUrl === null) {
-    return { state: "provider_disagreement" };
-  }
-
   const candidates = args.builds
-    .filter(
-      (build) =>
-        normalizeGitHubPullRequestUrl(build.pull_request?.pull_request_url ?? "") ===
-          expectedPullRequestUrl &&
-        build.build_trigger_metadata?.commit_hash === args.head.headRefOid,
-    )
+    .filter((build) => {
+      const metadata = build.build_trigger_metadata;
+      return (
+        metadata?.branch === args.head.headRefName && metadata.commit_hash === args.head.headRefOid
+      );
+    })
     .map((build) => ({
       build,
       createdAt: providerTimestamp(build.created_on),
@@ -369,8 +340,6 @@ export function matchCloudflareWorkerBuild(args: {
     trigger.repo_connection?.repo_id !== args.ghRepoId ||
     triggerRootDirectory !== rootDirectory ||
     metadataRootDirectory !== rootDirectory ||
-    metadata.build_trigger_source !== "pull_request" ||
-    metadata.branch !== args.head.headRefName ||
     !triggerDeployCommand ||
     triggerDeployCommand !== metadataDeployCommand
   ) {
@@ -593,13 +562,13 @@ async function readWorkerResourcesForHeads(args: {
           ? { state: "absent", ...identityFields }
           : {
               state: "unavailable",
-              ...identityFields,
+              ...workerResourceIdentity(args.worker),
             };
       }
       if (match.state === "provider_disagreement") {
         return {
           state: "unavailable",
-          ...identityFields,
+          ...workerResourceIdentity(args.worker),
         };
       }
 

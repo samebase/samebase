@@ -23,12 +23,13 @@ const head: PullRequestResourceHead = {
 function cloudflareBuild(
   args: {
     buildUuid?: string;
+    branch?: string;
+    buildTriggerSource?: "manual" | "push_event";
     commitHash?: string;
     createdOn?: string;
     externalScriptId?: string;
     metadataDeployCommand?: string;
     metadataRootDirectory?: string;
-    pullRequestUrl?: string;
     repoId?: string;
     rootDirectory?: string;
     triggerDeployCommand?: string;
@@ -43,12 +44,10 @@ function cloudflareBuild(
     stopped_on: "2026-07-20T10:01:00.000Z",
     status: "stopped",
     build_outcome: "success",
-    pull_request: {
-      pull_request_url: args.pullRequestUrl ?? "https://github.com/samebase/samebase/pull/17",
-    },
+    pull_request: null,
     build_trigger_metadata: {
-      branch: "feature/live-truth",
-      build_trigger_source: "pull_request",
+      branch: args.branch ?? "feature/live-truth",
+      build_trigger_source: args.buildTriggerSource ?? "push_event",
       commit_hash: args.commitHash ?? "abc123",
       deploy_command: args.metadataDeployCommand ?? "pnpm run deploy:preview",
       root_directory: args.metadataRootDirectory ?? rootDirectory,
@@ -140,12 +139,14 @@ describe("matchCloudflareWorkerBuild", () => {
     ).toEqual({ state: "provider_disagreement" });
   });
 
-  it("does not treat another PR or commit as an attached build", () => {
+  it("does not treat another branch or commit as an attached build", () => {
     expect(
       matchCloudflareWorkerBuild({
         builds: [
           cloudflareBuild({
-            pullRequestUrl: "https://github.com/samebase/samebase/pull/18",
+            branch: "feature/other",
+          }),
+          cloudflareBuild({
             commitHash: "def456",
           }),
         ],
@@ -155,6 +156,18 @@ describe("matchCloudflareWorkerBuild", () => {
         previewTriggerUuid: "preview-trigger",
       }),
     ).toEqual({ state: "absent" });
+  });
+
+  it("accepts a manual rebuild for the exact branch head", () => {
+    expect(
+      matchCloudflareWorkerBuild({
+        builds: [cloudflareBuild({ buildTriggerSource: "manual" })],
+        head,
+        worker: { workerTag: "stable-worker-tag", rootDirectory: "/" },
+        ghRepoId: "42",
+        previewTriggerUuid: "preview-trigger",
+      }),
+    ).toMatchObject({ state: "available", buildState: "success" });
   });
 
   it("selects the newest exact build deterministically", () => {
