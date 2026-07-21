@@ -507,7 +507,13 @@ test("vault dashboard fixture (add Convex dialog)", async ({ page }) => {
   await expect(connectDialog).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Existing" })).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Create" })).toBeVisible();
-  await expect(connectDialog.getByRole("button", { name: "Add 1 project" })).toBeVisible();
+  await expect(connectDialog.getByRole("checkbox").first()).toHaveAccessibleName(
+    /samebase-app.*Used by app-start-workers/,
+  );
+  for (const checkbox of await connectDialog.getByRole("checkbox").all()) {
+    await expect(checkbox).not.toBeChecked();
+  }
+  await expect(connectDialog.getByRole("button", { name: "Add projects" })).toBeDisabled();
   await expect(page).toHaveScreenshot("vault-dashboard-connect-convex-dialog.png", {
     animations: "disabled",
     caret: "hide",
@@ -633,7 +639,11 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
   await openVaultDashboardVisualFixture(page, "vault-dashboard-cloudflare-build-trigger-missing");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(fixture.getByText("nicu-chiciuc/tmp-my-super-app-2")).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "Open GitHub: nicu-chiciuc/tmp-my-super-app-2",
+    }),
+  ).toBeVisible();
   await expect(fixture.getByText("pfp/tmp-my-super-app-234")).toBeVisible();
   await expect(
     fixture.getByText("Cloudflare is not connected to this GitHub repository."),
@@ -644,7 +654,7 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
   await expect(configureBuilds).toBeVisible();
   await expect(
     fixture.getByRole("button", {
-      name: "Rotate Convex deploy keys for Workers Builds for tmp-my-super-app-2",
+      name: "Repair Convex deploy keys for tmp-my-super-app-2 in Workers Builds (nicu-team-id/tmp-my-super-app-2)",
     }),
   ).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-dashboard-cloudflare-build-trigger-missing.png", {

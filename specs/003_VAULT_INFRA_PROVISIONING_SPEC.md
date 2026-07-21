@@ -346,10 +346,11 @@ In `VaultDashboard`:
   `Cloudflare is not connected to this GitHub repository.` with a
   `Configure Workers Builds for GitHub` action.
 - An attached Cloudflare Worker with connected Builds can receive deploy keys for one explicitly
-  selected attached Convex project through `Rotate Convex deploy keys for Workers Builds`. The
-  action patches `CONVEX_DEPLOY_KEY`, `PREVIEW_CONVEX_DEPLOY_KEY`, and `SAMEBASE_CONVEX_PROJECT`
-  into both triggers. The selected project is operation input, not a persisted Samebase dependency
-  row.
+  selected attached Convex project through `Use <project> for Workers Builds`. If the Worker's live
+  marker already names an attached project but the access needs repair, the UI offers only
+  `Repair keys for <project>`. The action patches `CONVEX_DEPLOY_KEY`, `PREVIEW_CONVEX_DEPLOY_KEY`,
+  and `SAMEBASE_CONVEX_PROJECT` into both triggers. The selected project is operation input, not a
+  persisted Samebase dependency row.
 - The dashboard derives the current deploy-key configuration state from the two live Cloudflare
   triggers. Loading, configured, not configured, incomplete, target unknown, inconsistent, invalid,
   externally configured, and provider-read failure are distinct states.

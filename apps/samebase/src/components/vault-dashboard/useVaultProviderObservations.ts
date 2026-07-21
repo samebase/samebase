@@ -26,7 +26,12 @@ export type VaultCloudflareProviderObservationState = {
 type VaultProviderObservationTarget = {
   _id: Id<"vaults">;
   cloudflareWorkers: readonly { workerId: Id<"vaultCloudflareWorkers"> }[];
-  convexProjects: readonly { convexProjectId: Id<"vaultConvexProjects"> }[];
+  convexProjects: readonly {
+    convexConfigPath: string;
+    convexProjectId: Id<"vaultConvexProjects">;
+    projectId: string;
+    teamId: string;
+  }[];
 };
 
 const PROVIDER_OBSERVATION_STALE_TIME_MS = 60 * 1000;
@@ -50,9 +55,14 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const cloudflareWorkerIds = [...(vault?.cloudflareWorkers ?? [])]
     .map((worker) => worker.workerId)
     .sort((left, right) => left.localeCompare(right));
-  const convexProjectIds = [...(vault?.convexProjects ?? [])]
-    .map((project) => project.convexProjectId)
-    .sort((left, right) => left.localeCompare(right));
+  const convexProjectTargets = [...(vault?.convexProjects ?? [])]
+    .map((project) => ({
+      convexConfigPath: project.convexConfigPath,
+      convexProjectId: project.convexProjectId,
+      projectId: project.projectId,
+      teamId: project.teamId,
+    }))
+    .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
 
   const cloudflareWorkersQuery = useQuery({
     queryKey: ["vault-provider-observations", "cloudflare-workers", vaultId, cloudflareWorkerIds],
@@ -102,6 +112,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       "cloudflare-worker-convex-build-access",
       vaultId,
       cloudflareBuildAccessTargets,
+      convexProjectTargets,
     ],
     queryFn: async () => {
       if (!vaultId) {
@@ -120,14 +131,14 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
   const convexQuery = useQuery({
-    queryKey: ["vault-provider-observations", "convex", vaultId, convexProjectIds],
+    queryKey: ["vault-provider-observations", "convex", vaultId, convexProjectTargets],
     queryFn: async () => {
       if (!vaultId) {
         throw new Error("Vault is required to observe Convex projects.");
       }
       return await observeConvexProjects({ vaultId });
     },
-    enabled: Boolean(vaultId && convexProjectIds.length > 0),
+    enabled: Boolean(vaultId && convexProjectTargets.length > 0),
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });

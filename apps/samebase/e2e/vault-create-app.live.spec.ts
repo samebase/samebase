@@ -100,7 +100,7 @@ async function createCloudflareWorkerFromDashboard(page: Page, workerName: strin
     page.getByRole("button", { name: "Configure Workers Builds for GitHub Cloudflare" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" }),
+    page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }),
   ).toHaveCount(0);
 }
 
@@ -145,19 +145,17 @@ async function createConvexProjectFromDashboard(page: Page, projectName: string)
     page.getByText("Cloudflare does not have this Convex deployment's deploy keys."),
   ).toBeVisible({ timeout: 180_000 });
   await expect(
-    page.getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" }),
+    page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }),
   ).toBeVisible();
 }
 
 async function setCloudflareConvexDeployKeys(page: Page): Promise<void> {
-  await page
-    .getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" })
-    .click();
+  await page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }).click();
   await expect(
     page.getByText("Cloudflare does not have this Convex deployment's deploy keys."),
   ).toHaveCount(0, { timeout: 180_000 });
   await expect(
-    page.getByRole("button", { name: "Rotate Convex deploy keys for Workers Builds Cloudflare" }),
+    page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }),
   ).toHaveCount(0);
 }
 

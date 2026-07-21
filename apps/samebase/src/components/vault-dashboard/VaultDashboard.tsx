@@ -286,6 +286,7 @@ export type VaultDeleteOptionKey =
 
 function compareConvexProjectOption(left: ConvexProjectOption, right: ConvexProjectOption): number {
   return (
+    Number(right.workerReferences.length > 0) - Number(left.workerReferences.length > 0) ||
     left.projectName.localeCompare(right.projectName) ||
     left.projectSlug.localeCompare(right.projectSlug) ||
     left.projectId.localeCompare(right.projectId)
@@ -505,7 +506,9 @@ function useVaultDashboardLocalStore() {
         ...state,
         cloudflareConnectDialog: {
           ...state.cloudflareConnectDialog,
-          selectedWorkerTags: [],
+          selectedWorkerTags: workers
+            .filter((worker) => worker.repository.state === "ready")
+            .map((worker) => worker.workerTag),
           workers,
         },
       }));
@@ -534,12 +537,11 @@ function useVaultDashboardLocalStore() {
       }));
     },
     setConvexConnectDialogProjects: (projects: ConvexProjectOption[]) => {
-      const sortedProjects = [...projects].sort(compareConvexProjectOption);
       setState((state) => ({
         ...state,
         convexConnectDialog: {
           ...state.convexConnectDialog,
-          projects: sortedProjects,
+          projects,
           selectedProjectConfigPaths: {},
         },
       }));
@@ -1085,10 +1087,13 @@ export function VaultDashboardConvexDialog({
   vault: VaultConvexDialogTarget | null;
 }) {
   const configPaths = configs.map((config) => config.convexConfigPath);
+  const sortedProjects = useMemo(() => [...projects].sort(compareConvexProjectOption), [projects]);
+  const discoveryResultsAvailable = !isLoading && sourceCompleteness !== null && !error;
   const selectedProjectCount = Object.keys(selectedProjectConfigPaths).length;
   const submitDisabled =
     isLoading ||
     isSubmitting ||
+    Boolean(error) ||
     configPaths.length === 0 ||
     (repairProject
       ? !createConfigPath
@@ -1138,23 +1143,23 @@ export function VaultDashboardConvexDialog({
                 </Button>
               </div>
             ) : null}
-            {sourceCompleteness === "partial" ? (
+            {discoveryResultsAvailable && sourceCompleteness === "partial" ? (
               <div className="text-sm text-muted-foreground">
                 The repository could not be fully scanned. Verified configs found so far are shown.
               </div>
             ) : null}
-            {configPaths.length === 0 && !isLoading ? (
-              sourceCompleteness === "partial" ? null : (
+            {!discoveryResultsAvailable ? null : configPaths.length === 0 ? (
+              sourceCompleteness === "complete" ? (
                 <div className="text-sm text-muted-foreground">
                   No valid convex.json files were found on the default branch.
                 </div>
-              )
+              ) : null
             ) : repairProject ? (
               <Select
                 modal={false}
                 value={createConfigPath}
                 onValueChange={onCreateConfigPathChange}
-                disabled={isLoading || isSubmitting}
+                disabled={isSubmitting}
               >
                 <SelectTrigger aria-label="New Convex config path" className="w-full">
                   <SelectValue placeholder="convex.json" />
@@ -1168,13 +1173,13 @@ export function VaultDashboardConvexDialog({
                 </AppSelectContent>
               </Select>
             ) : mode === "existing" ? (
-              projects.length === 0 ? (
+              sortedProjects.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   No unattached Convex projects are available.
                 </div>
               ) : (
                 <div className="grid max-h-80 gap-3 overflow-y-auto">
-                  {projects.map((project) => {
+                  {sortedProjects.map((project) => {
                     const selectedConfigPath = selectedProjectConfigPaths[project.projectId];
                     const selected = selectedConfigPath !== undefined;
                     return (
@@ -1185,7 +1190,7 @@ export function VaultDashboardConvexDialog({
                         <label className="flex min-w-0 items-start gap-2">
                           <Checkbox
                             checked={selected}
-                            disabled={isLoading || isSubmitting || configPaths.length === 0}
+                            disabled={isSubmitting}
                             onCheckedChange={() => onProjectToggle(project.projectId)}
                           />
                           <span className="grid min-w-0 gap-0.5">
@@ -1237,14 +1242,14 @@ export function VaultDashboardConvexDialog({
                 <Input
                   value={createProjectName}
                   onChange={(event) => onCreateProjectNameChange(event.target.value)}
-                  disabled={isLoading || isSubmitting}
+                  disabled={isSubmitting}
                   placeholder="Project name"
                 />
                 <Select
                   modal={false}
                   value={createConfigPath}
                   onValueChange={onCreateConfigPathChange}
-                  disabled={isLoading || isSubmitting || configPaths.length === 0}
+                  disabled={isSubmitting}
                 >
                   <SelectTrigger aria-label="Convex config path" className="w-full">
                     <SelectValue placeholder="convex.json" />
@@ -3596,18 +3601,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           (worker) => worker.workerId === cloudflareBuildsRepairTarget.workerId,
         ) ?? null)
       : null;
-  const unattachedCloudflareWorkers = useMemo(() => {
-    const attachedWorkerTags = new Set(
-      (addCloudflareWorkerDialogVault?.cloudflareWorkers ?? [])
-        .filter((worker) => worker.accountId === selectedCloudflareAccountId)
-        .map((worker) => worker.workerTag),
-    );
-    return cloudflareWorkers.filter((worker) => !attachedWorkerTags.has(worker.workerTag));
-  }, [
-    addCloudflareWorkerDialogVault?.cloudflareWorkers,
-    cloudflareWorkers,
-    selectedCloudflareAccountId,
-  ]);
   const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
   const connectedCodespacesCount = useConvexQuery(
     api.codespaces.mutations.getConnectedCodespacesCount,
@@ -3714,7 +3707,14 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
           return;
         }
-        setCloudflareConnectDialogWorkers(discovery.workers);
+        const attachedWorkerTags = new Set(
+          (addCloudflareWorkerDialogVault?.cloudflareWorkers ?? [])
+            .filter((worker) => worker.accountId === args.accountId)
+            .map((worker) => worker.workerTag),
+        );
+        setCloudflareConnectDialogWorkers(
+          discovery.workers.filter((worker) => !attachedWorkerTags.has(worker.workerTag)),
+        );
         setCloudflareConnectDialogInventoryState(discovery.inventoryState);
       } catch (error) {
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
@@ -3730,6 +3730,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       }
     },
     [
+      addCloudflareWorkerDialogVault?.cloudflareWorkers,
       discoverCloudflareWorkers,
       setCloudflareConnectDialogError,
       setCloudflareConnectDialogLoading,
@@ -4593,7 +4594,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
             : null
         }
         vault={vaultToConnectCloudflare}
-        workers={unattachedCloudflareWorkers}
+        workers={cloudflareWorkers}
       />
     </AppWorkspaceRouteChrome>
   );

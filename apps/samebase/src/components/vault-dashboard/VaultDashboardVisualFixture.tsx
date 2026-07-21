@@ -821,13 +821,43 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                   state: "available",
                   observedAt: FIXTURE_NOW,
                   workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
-                  convexBuildAccess: { state: "not_configured" },
+                  convexBuildAccess: {
+                    state: "incomplete",
+                    convexProject: {
+                      state: "attached",
+                      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
+                      teamId: "nicu-team-id",
+                      attachedTeamId: "nicu-team-id",
+                      teamState: "matches",
+                      projectId: "tmp-my-super-app-2",
+                    },
+                  },
                 },
               ],
             },
           }}
           cloudflareWorkerConfigurationActionInFlight={null}
-          convexObservations={{ state: "loading" }}
+          convexObservations={{
+            state: "loaded",
+            reload: () => {},
+            observations: [
+              {
+                observedAt: FIXTURE_NOW,
+                convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
+                projectId: "tmp-my-super-app-2",
+                convexConfigPath: "convex.json",
+                source: { state: "valid", blobSha: "fixture-convex-config" },
+                provider: {
+                  state: "current",
+                  teamId: "nicu-team-id",
+                  projectName: "tmp-my-super-app-2",
+                  projectSlug: "tmp-my-super-app-2",
+                  teamSlug: "nicu-chiciuc",
+                  productionDeployment: { state: "missing" },
+                },
+              },
+            ],
+          }}
           isRemovingVault={false}
           providerAttachmentDetachmentInFlight={null}
           reconcilingConvexProjectId={null}
@@ -1637,9 +1667,34 @@ function VaultDashboardConnectConvexOpenFixture() {
           projects={[
             {
               teamId: "samebase-team-id",
+              projectId: "analytics",
+              projectName: "Analytics",
+              projectSlug: "analytics",
+              teamSlug: "samebase",
+              workerReferences: [],
+            },
+            {
+              teamId: "samebase-team-id",
               projectId: "jaded-heron-123",
               projectName: "samebase-app",
               projectSlug: "samebase-app",
+              teamSlug: "samebase",
+              workerReferences: [
+                {
+                  accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+                  workerName: "app-start-workers",
+                  workerTag: "72dc5c8bc9104b20af13ac36dcdbe9d1",
+                  rootDirectory: "apps/atelier",
+                  markerTeamId: "samebase-team-id",
+                  access: "configured",
+                },
+              ],
+            },
+            {
+              teamId: "samebase-team-id",
+              projectId: "website",
+              projectName: "Website",
+              projectSlug: "website",
               teamSlug: "samebase",
               workerReferences: [],
             },
@@ -1657,7 +1712,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           onSubmit={() => {}}
           open={true}
           repairProject={null}
-          selectedProjectConfigPaths={{ "jaded-heron-123": "convex.json" }}
+          selectedProjectConfigPaths={{}}
           sourceCompleteness="complete"
           vault={{
             id: fakeVaultId(),

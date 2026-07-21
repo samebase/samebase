@@ -43,8 +43,9 @@ attachment.
    exact match to the vault's immutable GitHub repository ID.
 4. A selectable Worker has one unambiguous normalized root across its active production and preview
    triggers. The root is displayed read-only.
-5. The user may select several Workers. Samebase may also show their readable
-   `SAMEBASE_CONVEX_PROJECT` evidence without persisting a relation.
+5. Every selectable Worker starts selected because its exact repository connection has already been
+   verified. The user may deselect any Worker before confirming. Samebase may also show their
+   readable `SAMEBASE_CONVEX_PROJECT` evidence without persisting a relation.
 6. Confirmation re-reads every selected identity, repository connection, root, and marker, then
    writes all attachments in one transaction. Any conflict rejects the whole confirmation.
 
@@ -87,11 +88,15 @@ state, but is not removal authority.
 Attaching a Worker does not imply that Samebase may rewrite an existing Worker. GitHub Builds setup
 and Convex deploy-key rotation remain explicit operations.
 
-When the user selects an attached Convex project for build access, Samebase writes the two secret
-deploy keys and the readable
-`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to the production
-and preview triggers. That live Cloudflare configuration is the relationship. Samebase does not
-persist a Worker-to-project edge.
+When build access has no trustworthy attached target, `Use <project> for Workers Builds` names each
+available destination explicitly. When a Worker's marker already names an attached project but its
+keys are incomplete or its team coordinate is stale, `Repair keys for <project>` offers only that
+project. A healthy attached target offers no write action.
+
+After the user chooses the exact attached Convex project, Samebase writes the two secret deploy keys
+and the readable `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to
+the production and preview triggers. That live Cloudflare configuration is the relationship.
+Samebase does not persist a Worker-to-project edge.
 
 ## Non-Goals
 
@@ -105,5 +110,6 @@ persist a Worker-to-project edge.
 - Provider tests cover pagination beyond 100 Workers, partial fallback, provider type, exact repo
   identity, ambiguous roots, production/preview disagreement, and marker disagreement.
 - Mutation tests cover atomic batches, global identity conflicts, idempotency, and origin upgrade.
-- UI tests cover vault-level routing, multiple selection, grouping by read-only live root, count
-  copy, root drift, rootless Builds repair, and `Needs attention`.
+- UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
+  count copy, exact Convex action targets, root drift, rootless Builds repair, and
+  `Needs attention`.

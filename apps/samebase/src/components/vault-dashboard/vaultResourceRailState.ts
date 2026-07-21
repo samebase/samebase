@@ -163,12 +163,41 @@ function joinDescriptions(...descriptions: (string | undefined)[]): string | und
   return presentDescriptions.length > 0 ? presentDescriptions.join(" ") : undefined;
 }
 
+function resolveConvexProjectActionLabel(
+  project: VaultDashboardConvexProject,
+  observationState: VaultProviderObservationState<VaultConvexProjectObservation>,
+): string {
+  if (observationState.state !== "loaded") {
+    return project.projectId;
+  }
+  const observation = observationState.observations.find(
+    (candidate) => candidate.convexProjectId === project.convexProjectId,
+  );
+  if (!observation) {
+    return project.projectId;
+  }
+  switch (observation.provider.state) {
+    case "current":
+    case "moved":
+      return observation.provider.projectSlug;
+    case "missing_ambiguous":
+    case "unavailable":
+      return project.projectId;
+  }
+  observation.provider satisfies never;
+  return project.projectId;
+}
+
 function buildConvexBuildAccessActions({
+  actionIntent,
+  convexProjectActionLabels,
   convexProjects,
   isRotatingConvexDeployKeysForWorkersBuilds,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   workerId,
 }: {
+  actionIntent: "repair" | "use";
+  convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
   isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -191,18 +220,23 @@ function buildConvexBuildAccessActions({
   const actions = sortedProjects.map((project) => {
     const isRotating =
       isRotatingConvexDeployKeysForWorkersBuilds?.(workerId, project.convexProjectId) ?? false;
+    const projectLabel =
+      convexProjectActionLabels.get(project.convexProjectId) ?? project.projectId;
     const label =
-      sortedProjects.length === 1
+      actionIntent === "repair"
         ? isRotating
-          ? "Rotating Convex deploy keys for Workers Builds..."
-          : "Rotate Convex deploy keys for Workers Builds"
+          ? `Repairing keys for ${projectLabel}...`
+          : `Repair keys for ${projectLabel}`
         : isRotating
-          ? `Rotating keys for ${project.projectId}...`
-          : `Rotate keys for ${project.projectId}`;
+          ? `Using ${projectLabel}...`
+          : `Use ${projectLabel} for Workers Builds`;
     return {
       kind: "configure" as const,
       label,
-      ariaLabel: `${label} for ${project.projectId}`,
+      ariaLabel:
+        actionIntent === "repair"
+          ? `Repair Convex deploy keys for ${projectLabel} in Workers Builds (${project.teamId}/${project.projectId})`
+          : `Use Convex project ${projectLabel} for Workers Builds (${project.teamId}/${project.projectId})`,
       disabled: isRotating || !rotateConvexDeployKeysForWorkersBuildsOnClick,
       onClick: rotateConvexDeployKeysForWorkersBuildsOnClick
         ? () => rotateConvexDeployKeysForWorkersBuildsOnClick(workerId, project.convexProjectId)
@@ -214,12 +248,14 @@ function buildConvexBuildAccessActions({
 }
 
 function formatCloudflareConvexBuildAccessState({
+  convexProjectActionLabels,
   convexProjects,
   isRotatingConvexDeployKeysForWorkersBuilds,
   observation,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   workerId,
 }: {
+  convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
   isRotatingConvexDeployKeysForWorkersBuilds?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -233,23 +269,50 @@ function formatCloudflareConvexBuildAccessState({
   workerId: Id<"vaultCloudflareWorkers">;
 }): { actions?: VaultResourceRailActionList; description?: string } {
   const access = observation.convexBuildAccess;
-  if (access.state === "configured" && access.convexProject.state === "attached") {
+  if (
+    access.state === "configured" &&
+    access.convexProject.state === "attached" &&
+    access.convexProject.teamState === "matches"
+  ) {
     return {
       description: `Convex deploy keys use ${access.convexProject.projectId}.`,
     };
   }
 
-  const actions = buildConvexBuildAccessActions({
-    convexProjects,
-    isRotatingConvexDeployKeysForWorkersBuilds,
-    rotateConvexDeployKeysForWorkersBuildsOnClick,
-    workerId,
-  });
+  let actions: VaultResourceRailActionList | undefined;
+  if (
+    (access.state === "configured" || access.state === "incomplete") &&
+    access.convexProject.state === "attached"
+  ) {
+    const convexProjectId = access.convexProject.convexProjectId;
+    actions = buildConvexBuildAccessActions({
+      actionIntent: "repair",
+      convexProjectActionLabels,
+      convexProjects: convexProjects.filter(
+        (project) => project.convexProjectId === convexProjectId,
+      ),
+      isRotatingConvexDeployKeysForWorkersBuilds,
+      rotateConvexDeployKeysForWorkersBuildsOnClick,
+      workerId,
+    });
+  } else {
+    actions = buildConvexBuildAccessActions({
+      actionIntent: "use",
+      convexProjectActionLabels,
+      convexProjects,
+      isRotatingConvexDeployKeysForWorkersBuilds,
+      rotateConvexDeployKeysForWorkersBuildsOnClick,
+      workerId,
+    });
+  }
   switch (access.state) {
     case "configured":
       return {
         actions,
-        description: `Convex deploy keys target ${access.convexProject.teamId}/${access.convexProject.projectId}, which is not attached to this vault.`,
+        description:
+          access.convexProject.state === "attached"
+            ? `Convex deploy keys still use ${access.convexProject.teamId}/${access.convexProject.projectId}.`
+            : `Convex deploy keys target ${access.convexProject.teamId}/${access.convexProject.projectId}, which is not attached to this vault.`,
       };
     case "incomplete":
       return {
@@ -276,6 +339,7 @@ function formatCloudflareConvexBuildAccessState({
 }
 
 function buildCloudflareRow({
+  convexProjectActionLabels,
   convexProjects,
   configureWorkersBuildsForGitHubOnClick,
   isConfiguringWorkersBuildsForGitHub,
@@ -286,6 +350,7 @@ function buildCloudflareRow({
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   worker,
 }: {
+  convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
   configureWorkersBuildsForGitHubOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -464,6 +529,7 @@ function buildCloudflareRow({
       }
 
       const convexBuildAccessState = formatCloudflareConvexBuildAccessState({
+        convexProjectActionLabels,
         convexProjects,
         isRotatingConvexDeployKeysForWorkersBuilds,
         observation: buildAccessObservation,
@@ -745,6 +811,12 @@ export function buildVaultDashboardResourceRailState({
   }
 
   const rowsByRoot = new Map<string, VaultResourceRailRowState<"cloudflare" | "convex">[]>();
+  const convexProjectActionLabels = new Map(
+    vault.convexProjects.map((project) => [
+      project.convexProjectId,
+      resolveConvexProjectActionLabel(project, convexObservations),
+    ]),
+  );
   const addRowToRoot = (
     rootDirectory: string,
     row: VaultResourceRailRowState<"cloudflare" | "convex">,
@@ -783,6 +855,7 @@ export function buildVaultDashboardResourceRailState({
       left.workerId.localeCompare(right.workerId),
   )) {
     const row = buildCloudflareRow({
+      convexProjectActionLabels,
       convexProjects: vault.convexProjects,
       configureWorkersBuildsForGitHubOnClick,
       isConfiguringWorkersBuildsForGitHub,

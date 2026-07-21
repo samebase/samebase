@@ -92,14 +92,16 @@ There is no `?add-app-root` route and no `app-root` query parameter.
 
 The Cloudflare dialog scans the selected account for Workers connected to the vault's immutable
 GitHub repository identity. It groups selectable Workers by their read-only live root and supports
-attaching several Workers in one confirmation. Confirmation re-reads the selected Worker identities,
-repository triggers, roots, and markers before one atomic attachment mutation. A request-provided
-root is never attachment authority.
+attaching several Workers in one confirmation. Every verified selectable Worker starts selected, and
+the user may deselect any of them. Confirmation re-reads the selected Worker identities, repository
+triggers, roots, and markers before one atomic attachment mutation. A request-provided root is never
+attachment authority.
 
 The Convex dialog discovers regular `convex.json` files from the exact default-branch Git tree and
 blob contents. It supports selecting several projects and requires one discovered config path for
-each selected project. Confirmation re-reads every selected config blob and project before one
-atomic attachment mutation.
+each selected project. Projects referenced by discovered Worker markers sort first and show that
+evidence, but remain unselected until the user expresses attachment intent. Confirmation re-reads
+every selected config blob and project before one atomic attachment mutation.
 
 Creating a Worker may ask for a repository root because the same operation writes that value to
 Cloudflare Workers Builds. Samebase records the created provider identity and `provisioned`
@@ -166,8 +168,9 @@ never use the derived root tree as authority.
 - Convex tests cover project continuity by `projectId`, verified team reconciliation, concurrent
   changes, and inaccessible projects that fail closed.
 - Route and UI tests cover bare provider flags, multi-selection, closed config selectors, read-only
-  observed Worker roots, exact root grouping, `Needs attention`, and project-attachment Data and
-  Schema routes.
+  observed Worker roots, default Worker selection, Worker-referenced Convex ordering, exact build
+  access targets, exact root grouping, `Needs attention`, and project-attachment Data and Schema
+  routes.
 
 ## Rollout
 

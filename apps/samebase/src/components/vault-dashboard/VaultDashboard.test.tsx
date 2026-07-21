@@ -100,6 +100,10 @@ type AvailableResourceRailCloudflareBuildsObservation = Extract<
   VaultCloudflareWorkerBuildsObservation,
   { state: "available" }
 >;
+type AvailableResourceRailCloudflareConvexBuildAccessObservation = Extract<
+  VaultCloudflareWorkerConvexBuildAccessObservation,
+  { state: "available" }
+>;
 
 function getResourceRailRootRow(
   state: ReturnType<typeof buildVaultDashboardResourceRailState>,
@@ -1068,6 +1072,8 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
 });
 
 describe("VaultDashboardConvexDialog", () => {
+  type ConvexDialogProps = Parameters<typeof VaultDashboardConvexDialog>[0];
+
   const vault = {
     id: fakeVaultId(),
     repositoryFullName: "ada/demo",
@@ -1123,7 +1129,7 @@ describe("VaultDashboardConvexDialog", () => {
         configs={configs}
         createConfigPath="convex.json"
         createProjectName=""
-        projects={projects}
+        projects={[projects[1], projects[0]]}
         error={null}
         isLoading={false}
         isSubmitting={false}
@@ -1151,7 +1157,80 @@ describe("VaultDashboardConvexDialog", () => {
     expect(markup).toContain("API");
     expect(markup).toContain("Used by web-worker");
     expect(markup).toContain("Add 2 projects");
+    expect(markup.indexOf(">Web<")).toBeLessThan(markup.indexOf(">API<"));
     expect(markup).not.toContain("App root");
+  });
+
+  it("shows empty discovery messages only after a successful complete scan", () => {
+    const renderDiscoveryState = ({
+      configs,
+      error,
+      isLoading,
+      sourceCompleteness,
+    }: Pick<ConvexDialogProps, "configs" | "error" | "isLoading" | "sourceCompleteness">) =>
+      renderToStaticMarkup(
+        <VaultDashboardConvexDialog
+          configs={configs}
+          createConfigPath=""
+          createProjectName=""
+          projects={[]}
+          error={error}
+          isLoading={isLoading}
+          isSubmitting={false}
+          mode="existing"
+          onCreateConfigPathChange={() => {}}
+          onCreateProjectNameChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onProjectConfigPathChange={() => {}}
+          onProjectToggle={() => {}}
+          onSubmit={() => {}}
+          open
+          repairProject={null}
+          selectedProjectConfigPaths={{}}
+          sourceCompleteness={sourceCompleteness}
+          vault={vault}
+        />,
+      );
+
+    const beforeDiscoveryStarts = renderDiscoveryState({
+      configs: [],
+      error: null,
+      isLoading: false,
+      sourceCompleteness: null,
+    });
+    const whileLoading = renderDiscoveryState({
+      configs: [],
+      error: null,
+      isLoading: true,
+      sourceCompleteness: null,
+    });
+    const afterFailure = renderDiscoveryState({
+      configs: [],
+      error: "Could not discover Convex projects.",
+      isLoading: false,
+      sourceCompleteness: null,
+    });
+    const completeWithoutConfigs = renderDiscoveryState({
+      configs: [],
+      error: null,
+      isLoading: false,
+      sourceCompleteness: "complete",
+    });
+    const completeWithoutProjects = renderDiscoveryState({
+      configs,
+      error: null,
+      isLoading: false,
+      sourceCompleteness: "complete",
+    });
+
+    for (const markup of [beforeDiscoveryStarts, whileLoading, afterFailure]) {
+      expect(markup).not.toContain("No valid convex.json files were found");
+      expect(markup).not.toContain("No unattached Convex projects are available");
+    }
+    expect(afterFailure).toContain("Could not discover Convex projects.");
+    expect(completeWithoutConfigs).toContain("No valid convex.json files were found");
+    expect(completeWithoutProjects).toContain("No unattached Convex projects are available");
   });
 
   it("uses the same closed config selector to repair a moved code location", () => {
@@ -1484,6 +1563,150 @@ describe("buildVaultDashboardResourceRailState", () => {
       convexRow.status === "available" ? convexRow.actions?.map((action) => action.label) : [],
     ).toEqual(["Change code location", "Use current team", "Remove from vault"]);
     expect(state.vaultActionRows.map((row) => row.rowId)).toEqual(["convex:add", "cloudflare:add"]);
+  });
+
+  it("names exact Convex targets and limits key repair to the observed attachment", () => {
+    const workerId = fakeCloudflareWorkerId("worker-build-access");
+    const alphaProjectId = fakeConvexProjectId("convex-alpha");
+    const betaProjectId = fakeConvexProjectId("convex-beta");
+    const rotate = vi.fn();
+    const vaultWithBuildAccess = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+      convexProjects: [
+        makeResourceRailConvexProject({
+          convexProjectId: alphaProjectId,
+          projectId: "alpha-project-id",
+          teamId: "team-alpha",
+        }),
+        makeResourceRailConvexProject({
+          convexProjectId: betaProjectId,
+          projectId: "beta-project-id",
+          teamId: "team-beta",
+        }),
+      ],
+    });
+    const convexObservations = {
+      state: "loaded" as const,
+      reload: () => {},
+      observations: [
+        {
+          observedAt: 1,
+          convexProjectId: alphaProjectId,
+          projectId: "alpha-project-id",
+          convexConfigPath: "convex.json",
+          source: { state: "valid" as const, blobSha: "alpha-blob" },
+          provider: {
+            state: "current" as const,
+            teamId: "team-alpha",
+            projectName: "Alpha",
+            projectSlug: "alpha",
+            teamSlug: "ada",
+            productionDeployment: { state: "missing" as const },
+          },
+        },
+        {
+          observedAt: 1,
+          convexProjectId: betaProjectId,
+          projectId: "beta-project-id",
+          convexConfigPath: "convex.json",
+          source: { state: "valid" as const, blobSha: "beta-blob" },
+          provider: {
+            state: "current" as const,
+            teamId: "team-beta",
+            projectName: "Beta",
+            projectSlug: "beta",
+            teamSlug: "ada",
+            productionDeployment: { state: "missing" as const },
+          },
+        },
+      ],
+    };
+    const readCloudflareRow = (
+      convexBuildAccess: AvailableResourceRailCloudflareConvexBuildAccessObservation["convexBuildAccess"],
+    ) => {
+      const state = buildVaultDashboardResourceRailState({
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+          builds: [
+            makeAvailableResourceRailCloudflareBuildsObservation({
+              workerId,
+              repository: {
+                state: "ready",
+                rootDirectory: "/",
+                builds: {
+                  state: "available",
+                  productionTriggerUuid: "production-trigger",
+                  previewTriggerUuid: "preview-trigger",
+                },
+              },
+              builds: {
+                state: "connected",
+                productionTriggerUuid: "production-trigger",
+                previewTriggerUuid: "preview-trigger",
+              },
+            }),
+          ],
+          convexBuildAccess: [
+            {
+              state: "available",
+              observedAt: 1,
+              workerId,
+              convexBuildAccess,
+            },
+          ],
+        }),
+        convexObservations,
+        githubRepositoryUrl: "https://github.com/ada/demo",
+        rotateConvexDeployKeysForWorkersBuildsOnClick: rotate,
+        vault: vaultWithBuildAccess,
+      });
+      const row = getResourceRailRootRow(state, "/", "cloudflare");
+      if (row.status !== "available") {
+        throw new Error("Expected an available Cloudflare row.");
+      }
+      return row;
+    };
+
+    const unconfiguredRow = readCloudflareRow({ state: "not_configured" });
+    expect(unconfiguredRow.actions?.map((action) => action.label)).toEqual([
+      "Use alpha for Workers Builds",
+      "Use beta for Workers Builds",
+    ]);
+    unconfiguredRow.actions?.[0].onClick?.();
+    expect(rotate).toHaveBeenLastCalledWith(workerId, alphaProjectId);
+
+    const attachedProject = {
+      state: "attached" as const,
+      convexProjectId: alphaProjectId,
+      teamId: "team-alpha",
+      attachedTeamId: "team-alpha",
+      teamState: "matches" as const,
+      projectId: "alpha-project-id",
+    };
+    const incompleteRow = readCloudflareRow({
+      state: "incomplete",
+      convexProject: attachedProject,
+    });
+    expect(incompleteRow.actions?.map((action) => action.label)).toEqual(["Repair keys for alpha"]);
+    incompleteRow.actions?.[0].onClick?.();
+    expect(rotate).toHaveBeenLastCalledWith(workerId, alphaProjectId);
+
+    const healthyRow = readCloudflareRow({
+      state: "configured",
+      convexProject: attachedProject,
+    });
+    expect(healthyRow.actions).toBeUndefined();
+
+    const staleTeamRow = readCloudflareRow({
+      state: "configured",
+      convexProject: {
+        ...attachedProject,
+        teamId: "team-old",
+        teamState: "differs",
+      },
+    });
+    expect(staleTeamRow.description).toContain("still use team-old/alpha-project-id");
+    expect(staleTeamRow.actions?.map((action) => action.label)).toEqual(["Repair keys for alpha"]);
   });
 });
 

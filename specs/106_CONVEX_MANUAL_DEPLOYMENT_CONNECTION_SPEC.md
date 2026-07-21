@@ -53,10 +53,12 @@ The config path selector is closed over discovered files. There is no free-form 
 ### Existing project flow
 
 1. Samebase lists projects visible through the connected Convex credential.
-2. The user may select several projects.
-3. The user selects one discovered `convex.json` path for every selected project. Several projects
+2. Projects named by discovered Workers' readable `SAMEBASE_CONVEX_PROJECT` markers sort first and
+   show that evidence. Observation alone never selects a project.
+3. The user may select several projects.
+4. The user selects one discovered `convex.json` path for every selected project. Several projects
    may select the same path.
-4. Samebase re-reads every exact config blob and project, then writes the full selection in one
+5. Samebase re-reads every exact config blob and project, then writes the full selection in one
    transaction. Any invalid source, inaccessible project, or attachment conflict rejects the whole
    confirmation.
 
@@ -113,5 +115,6 @@ project by config root and never choose the first project at a shared path.
 - Mutation tests cover atomic batches, global `projectId` uniqueness, shared config paths,
   idempotency, origin upgrade, config-path compare-and-swap, and team compare-and-swap.
 - Provider tests cover transfers, inaccessible projects, stale markers, and writes that fail closed.
-- UI and route tests cover multi-selection, closed config selectors, moved configs, shared roots,
-  team reconciliation, explicit removal, and attachment-ID Data and Schema routes.
+- UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
+  closed config selectors, moved configs, shared roots, team reconciliation, explicit removal, and
+  attachment-ID Data and Schema routes.
