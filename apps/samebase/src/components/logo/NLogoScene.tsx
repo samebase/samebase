@@ -26,6 +26,11 @@ import {
 } from "@/components/logo/logoSurfaceModel";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
+  getLogoPresentationTiltTransitionAlpha,
+  resolveLogoPresentationTiltTarget,
+  type LogoPresentationTiltTarget,
+} from "@/components/logo/logoPresentationTilt";
+import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logo/logoViewDragConstants";
@@ -44,7 +49,11 @@ import {
   type VoxelEdit,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
-import { resolveLogoViewState, type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
+import {
+  resolveLogoViewState,
+  type LogoViewDragConfig,
+  type LogoViewState,
+} from "@/components/logo/logoViewDrag";
 import {
   useEffect,
   useRef,
@@ -65,6 +74,7 @@ const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
 const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
 const LEFT_FACE_STRIPE_ANIMATION_DURATION_MS = 4000;
 const THREE_RENDER_PIXEL_RATIO_MAX = 4;
+const LOGO_PRESENTATION_TILT_SETTLED_DEGREES = 0.01;
 const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
 const THREE_RECURSIVE_TILE_DEPTH = 3;
 const LEFT_FACE_STRIPE_MASK_GLSL = `
@@ -241,9 +251,9 @@ type LogoGeometryRenderState = {
 
 type SceneInteraction = {
   button: 0 | null;
+  currentView: LogoViewState;
   pointerId: number | null;
-  startElevationDegrees: number;
-  startRotationDegrees: number;
+  startView: LogoViewState;
   startX: number;
   startY: number;
   status: "idle" | "pending" | "dragging";
@@ -305,6 +315,7 @@ type SceneState = {
   logoGroup: THREE.Group;
   logoMeshes: LogoSceneMesh[];
   opacity: number;
+  presentationTiltGroup: THREE.Group;
   raycaster: THREE.Raycaster;
   recursiveRenderDepth: number | null;
   recursiveTileState: RecursiveTileSceneState | null;
@@ -377,11 +388,12 @@ type NLogoSceneProps = {
   leftFaceStyle?: LogoLeftFaceStyle;
   opacity: number;
   onInteractionStart?: () => void;
-  onInteractionEnd?: () => void;
+  onInteractionEnd?: (finalView: LogoViewState) => void;
   onRenderReady?: () => void;
   onRenderUnavailable?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
+  presentationTiltTarget?: LogoPresentationTiltTarget;
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
@@ -1650,7 +1662,7 @@ function syncRecursiveTileInstanceOrder(sceneState: SceneState) {
 
 function syncTransparentFaceRenderOrder(sceneState: SceneState) {
   sceneState.camera.updateMatrixWorld();
-  sceneState.logoGroup.updateMatrixWorld(true);
+  sceneState.presentationTiltGroup.updateMatrixWorld(true);
   syncRecursiveSurfaceDrawOrder(sceneState);
   syncRecursiveTileInstanceOrder(sceneState);
 
@@ -2102,6 +2114,7 @@ export function NLogoScene({
   onRenderUnavailable,
   onViewChange,
   onVoxelEdit,
+  presentationTiltTarget,
   rotationAxisMode = "cube-y",
   rotationDegrees,
   shuffleAnimation,
@@ -2117,8 +2130,7 @@ export function NLogoScene({
   const baseGridSizeRef = useRef(baseGridSize);
   const backgroundColorRef = useRef(backgroundColor);
   const editModeRef = useRef(editMode);
-  const rotationDegreesRef = useRef(rotationDegrees);
-  const elevationDegreesRef = useRef(elevationDegrees);
+  const renderViewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
   const rotationAxisModeRef = useRef(rotationAxisMode);
   const voxelGridRef = useRef(voxelGrid);
   const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
@@ -2127,26 +2139,25 @@ export function NLogoScene({
   const faceColorsRef = useRef(faceColors);
   const leftFaceStyleRef = useRef(normalizeLogoLeftFaceStyle(leftFaceStyle));
   const opacityRef = useRef(opacity);
+  const presentationTiltTargetRef = useRef(
+    resolveLogoPresentationTiltTarget(presentationTiltTarget),
+  );
   const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
   const animateFaceColorsRef = useRef(animateFaceColors);
   const faceColorAnimationStartedAtRef = useRef<number | null>(null);
   const animateLeftFaceStripesRef = useRef(animateLeftFaceStripes);
   const leftFaceStripeAnimationStartedAtRef = useRef<number | null>(null);
   const shuffleAnimationRef = useRef(shuffleAnimation);
-  const onInteractionStartRef = useRef(onInteractionStart);
-  const onInteractionEndRef = useRef(onInteractionEnd);
   const onRenderReadyRef = useRef(onRenderReady);
   const onRenderUnavailableRef = useRef(onRenderUnavailable);
-  const onViewChangeRef = useRef(onViewChange);
-  const onVoxelEditRef = useRef(onVoxelEdit);
   const renderSceneRef = useRef<(timestampMs: number) => void>(() => {});
   const syncAnimationLoopRef = useRef<() => void>(() => {});
   const lastMovedCubeKeyRef = useRef<string | null>(null);
   const interactionRef = useRef<SceneInteraction>({
     button: null,
+    currentView: { elevationDegrees, rotationDegrees },
     pointerId: null,
-    startElevationDegrees: elevationDegrees,
-    startRotationDegrees: rotationDegrees,
+    startView: { elevationDegrees, rotationDegrees },
     startX: 0,
     startY: 0,
     status: "idle",
@@ -2177,14 +2188,17 @@ export function NLogoScene({
   }, [voxelEditingEnabled]);
 
   useEffect(() => {
-    rotationDegreesRef.current = rotationDegrees;
+    // The persistent Three.js scene mirrors the controlled view as one pose,
+    // never as independently updated elevation and rotation values.
+    renderViewRef.current = { elevationDegrees, rotationDegrees };
     renderSceneRef.current(performance.now());
-  }, [rotationDegrees]);
+  }, [elevationDegrees, rotationDegrees]);
 
   useEffect(() => {
-    elevationDegreesRef.current = elevationDegrees;
+    presentationTiltTargetRef.current = resolveLogoPresentationTiltTarget(presentationTiltTarget);
     renderSceneRef.current(performance.now());
-  }, [elevationDegrees]);
+    syncAnimationLoopRef.current();
+  }, [presentationTiltTarget]);
 
   useEffect(() => {
     rotationAxisModeRef.current = rotationAxisMode;
@@ -2210,14 +2224,6 @@ export function NLogoScene({
   }, [distanceScale]);
 
   useEffect(() => {
-    onInteractionStartRef.current = onInteractionStart;
-  }, [onInteractionStart]);
-
-  useEffect(() => {
-    onInteractionEndRef.current = onInteractionEnd;
-  }, [onInteractionEnd]);
-
-  useEffect(() => {
     opacityRef.current = opacity;
   }, [opacity]);
 
@@ -2228,14 +2234,6 @@ export function NLogoScene({
   useEffect(() => {
     onRenderUnavailableRef.current = onRenderUnavailable;
   }, [onRenderUnavailable]);
-
-  useEffect(() => {
-    onViewChangeRef.current = onViewChange;
-  }, [onViewChange]);
-
-  useEffect(() => {
-    onVoxelEditRef.current = onVoxelEdit;
-  }, [onVoxelEdit]);
 
   useEffect(() => {
     const wasEnabled = shuffleAnimationRef.current.enabled;
@@ -2329,10 +2327,18 @@ export function NLogoScene({
     for (const logoMesh of logoMeshes) {
       logoGroup.add(logoMesh);
     }
-    scene.add(logoGroup);
+    // Transient input wraps the persisted view so it never changes the pose
+    // that dragging reads or stores.
+    const presentationTiltGroup = new THREE.Group();
+    presentationTiltGroup.add(logoGroup);
+    scene.add(presentationTiltGroup);
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
     const initialCameraFitRadius = initialGeometry.cameraFitRadius;
     const rotationAxisVector = new THREE.Vector3();
+    const presentationTiltAxisVector = new THREE.Vector3();
+    const presentationTiltScreenRightVector = new THREE.Vector3();
+    const presentationTiltTargetQuaternion = new THREE.Quaternion();
+    let lastPresentationTiltFrameTimeMs: number | null = null;
 
     const getCameraFitRadius = () =>
       sceneStateRef.current?.cameraFitRadius ?? initialCameraFitRadius;
@@ -2343,22 +2349,79 @@ export function NLogoScene({
       resolveLogoSceneCameraDepthBounds(getCameraFitRadius()).distance;
 
     const updateCameraPosition = () => {
-      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(elevationDegreesRef.current);
+      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(
+        renderViewRef.current.elevationDegrees,
+      );
       camera.position.set(cameraX, cameraY, cameraZ).setLength(getCameraDistance());
-      const [upX, upY, upZ] = getWorldScreenVerticalAxis(elevationDegreesRef.current);
+      const [upX, upY, upZ] = getWorldScreenVerticalAxis(renderViewRef.current.elevationDegrees);
       camera.up.set(upX, upY, upZ);
       camera.lookAt(0, 0, 0);
     };
 
     const applyLogoRotation = () => {
       const [axisX, axisY, axisZ] = getLogoRotationAxis({
-        elevationDegrees: elevationDegreesRef.current,
+        elevationDegrees: renderViewRef.current.elevationDegrees,
         mode: rotationAxisModeRef.current,
       });
       rotationAxisVector.set(axisX, axisY, axisZ);
       logoGroup.quaternion.setFromAxisAngle(
         rotationAxisVector,
-        THREE.MathUtils.degToRad(toRenderedRotationDegrees(rotationDegreesRef.current)),
+        THREE.MathUtils.degToRad(toRenderedRotationDegrees(renderViewRef.current.rotationDegrees)),
+      );
+    };
+
+    const updatePresentationTiltTargetQuaternion = () => {
+      if (interactionRef.current.status !== "idle") {
+        // Direct manipulation owns the rendered pose until drop. Holding the
+        // current presentation quaternion prevents an unrelated pitch change
+        // during a horizontal drag.
+        presentationTiltTargetQuaternion.copy(presentationTiltGroup.quaternion);
+        return;
+      }
+
+      const target = presentationTiltTargetRef.current;
+      const magnitude = Math.hypot(target.horizontal, target.vertical);
+      if (magnitude === 0) {
+        presentationTiltTargetQuaternion.identity();
+        return;
+      }
+
+      presentationTiltScreenRightVector.crossVectors(camera.up, camera.position).normalize();
+      presentationTiltAxisVector
+        .copy(presentationTiltScreenRightVector)
+        .multiplyScalar(-target.vertical)
+        .addScaledVector(camera.up, target.horizontal)
+        .normalize();
+      presentationTiltTargetQuaternion.setFromAxisAngle(
+        presentationTiltAxisVector,
+        THREE.MathUtils.degToRad(magnitude),
+      );
+    };
+
+    const applyPresentationTilt = (timestampMs: number) => {
+      updatePresentationTiltTargetQuaternion();
+      const remainingAngle = presentationTiltGroup.quaternion.angleTo(
+        presentationTiltTargetQuaternion,
+      );
+      if (remainingAngle <= THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_SETTLED_DEGREES)) {
+        presentationTiltGroup.quaternion.copy(presentationTiltTargetQuaternion);
+        lastPresentationTiltFrameTimeMs = timestampMs;
+        return;
+      }
+
+      const previousFrameTimeMs = lastPresentationTiltFrameTimeMs;
+      lastPresentationTiltFrameTimeMs = timestampMs;
+      if (previousFrameTimeMs === null) {
+        // Arm timing on the first frame instead of snapping after idle or drop.
+        return;
+      }
+
+      presentationTiltGroup.quaternion.slerp(
+        presentationTiltTargetQuaternion,
+        getLogoPresentationTiltTransitionAlpha({
+          deltaSeconds: (timestampMs - previousFrameTimeMs) / 1000,
+          remainingDegrees: THREE.MathUtils.radToDeg(remainingAngle),
+        }),
       );
     };
 
@@ -2407,6 +2470,7 @@ export function NLogoScene({
       logoGroup,
       logoMeshes,
       opacity: initialOpacity,
+      presentationTiltGroup,
       raycaster: new THREE.Raycaster(),
       recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
       recursiveTileState: initialGeometry.recursiveTileState,
@@ -2433,15 +2497,21 @@ export function NLogoScene({
         window.cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
       }
+      lastPresentationTiltFrameTimeMs = null;
     };
 
     const hasActiveLeftFaceStripeAnimation = () =>
       animateLeftFaceStripesRef.current && leftFaceStyleRef.current.kind === "striped";
 
+    const hasActivePresentationTilt = () =>
+      presentationTiltGroup.quaternion.angleTo(presentationTiltTargetQuaternion) >
+      THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_SETTLED_DEGREES);
+
     const hasActiveAnimation = () =>
       shuffleAnimationRef.current.enabled ||
       animateFaceColorsRef.current ||
-      hasActiveLeftFaceStripeAnimation();
+      hasActiveLeftFaceStripeAnimation() ||
+      hasActivePresentationTilt();
 
     const renderScene = (timestampMs: number) => {
       timer.update(timestampMs);
@@ -2449,11 +2519,11 @@ export function NLogoScene({
       if (sceneState && shuffleAnimationRef.current.enabled) {
         syncCubeShuffleAnimation(
           sceneState,
-          elevationDegreesRef.current,
+          renderViewRef.current.elevationDegrees,
           lastMovedCubeKeyRef,
           shuffleAnimationRef.current.parallelMoves,
           rotationAxisModeRef.current,
-          rotationDegreesRef.current,
+          renderViewRef.current.rotationDegrees,
           timestampMs,
         );
       }
@@ -2480,6 +2550,7 @@ export function NLogoScene({
       }
       updateCameraPosition();
       applyLogoRotation();
+      applyPresentationTilt(timestampMs);
       if (sceneState) {
         syncTransparentFaceRenderOrder(sceneState);
       }
@@ -2494,6 +2565,7 @@ export function NLogoScene({
       }
 
       animationFrameId = null;
+      lastPresentationTiltFrameTimeMs = null;
     };
 
     renderSceneRef.current = renderScene;
@@ -2727,23 +2799,27 @@ export function NLogoScene({
   };
 
   const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
-    const wasDragging = interactionRef.current.status === "dragging";
+    const interaction = interactionRef.current;
+    const wasDragging = interaction.status === "dragging";
+    const finalView = interaction.currentView;
     if (target.hasPointerCapture(pointerId)) {
       target.releasePointerCapture(pointerId);
-    }
-    if (wasDragging) {
-      onInteractionEndRef.current?.();
     }
 
     interactionRef.current = {
       button: null,
+      currentView: finalView,
       pointerId: null,
-      startElevationDegrees: elevationDegreesRef.current,
-      startRotationDegrees: rotationDegreesRef.current,
+      startView: finalView,
       startX: 0,
       startY: 0,
       status: "idle",
     };
+    if (wasDragging) {
+      onInteractionEnd?.(finalView);
+    }
+    renderSceneRef.current(performance.now());
+    syncAnimationLoopRef.current();
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -2752,15 +2828,18 @@ export function NLogoScene({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    const currentView = { elevationDegrees, rotationDegrees };
     interactionRef.current = {
       button: event.button,
+      currentView,
       pointerId: event.pointerId,
-      startElevationDegrees: elevationDegreesRef.current,
-      startRotationDegrees: rotationDegreesRef.current,
+      startView: currentView,
       startX: event.clientX,
       startY: event.clientY,
       status: "pending",
     };
+    renderSceneRef.current(performance.now());
+    syncAnimationLoopRef.current();
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -2773,27 +2852,27 @@ export function NLogoScene({
     const deltaY = event.clientY - interaction.startY;
 
     if (interaction.status === "pending" && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX) {
-      interactionRef.current.status = "dragging";
-      onInteractionStartRef.current?.();
+      interaction.status = "dragging";
+      onInteractionStart?.();
     }
 
-    if (interactionRef.current.status !== "dragging") {
+    if (interaction.status !== "dragging") {
       return;
     }
 
     const disableSnap = event.altKey || event.shiftKey;
-    onViewChangeRef.current(
-      resolveLogoViewState({
-        config: viewDragConfig,
-        disableSnap,
-        view: {
-          elevationDegrees:
-            interaction.startElevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-          rotationDegrees:
-            interaction.startRotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
-        },
-      }),
-    );
+    const nextView = resolveLogoViewState({
+      config: viewDragConfig,
+      disableSnap,
+      view: {
+        elevationDegrees:
+          interaction.startView.elevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+        rotationDegrees:
+          interaction.startView.rotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
+      },
+    });
+    interaction.currentView = nextView;
+    onViewChange(nextView);
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -2805,7 +2884,7 @@ export function NLogoScene({
     if (interaction.status !== "dragging") {
       const edit = pickVoxelEdit(event.clientX, event.clientY, editModeRef.current);
       if (edit) {
-        onVoxelEditRef.current(edit);
+        onVoxelEdit(edit);
       }
     }
 

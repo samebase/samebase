@@ -970,8 +970,8 @@ async function expectLandingLogoCanBeDragged(page: Page) {
 
   const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
   expect(viewBeforeDrag).toEqual({
-    elevationDegrees: "35.264",
-    rotationDegrees: "45.000",
+    elevationDegrees: "0.000",
+    rotationDegrees: "0.000",
   });
 
   const canvasBounds = await landingLogoCanvas.boundingBox();
@@ -1576,10 +1576,19 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({ page },
   const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
   const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
   await expectLandingLogoReady(landingLogo);
+  await expect
+    .poll(async () =>
+      landingLogo.evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return `${style.transitionProperty} ${style.transitionDuration}`;
+      }),
+    )
+    .toBe("opacity 0.3s");
 
   const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
   await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
+  await landingLogoStage.hover();
 
   const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
@@ -1590,6 +1599,35 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({ page },
     maxDiffPixelRatio: 0.015,
     testInfo,
   });
+});
+
+test("public landing logo tilts toward the pointer outside its grab surface", async ({ page }) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
+  await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
+
+  const stageBounds = await landingLogoStage.boundingBox();
+  expect(stageBounds).not.toBeNull();
+  if (stageBounds === null) {
+    return;
+  }
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  if (viewport === null) {
+    return;
+  }
+
+  await page.mouse.move(viewport.width - 1, stageBounds.y + stageBounds.height / 2);
+  await page.waitForTimeout(1_000);
+
+  await expect(landingLogoStage).toHaveScreenshot(
+    "public-landing-logo-pointer-right.png",
+    strictScreenshotOptions,
+  );
 });
 
 test("public landing recursive logo depth keeps the orthographic square size", async ({ page }) => {
@@ -1623,6 +1661,71 @@ test("public landing logo becomes draggable after the SVG fallback is removed", 
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expectLandingLogoCanBeDragged(page);
+});
+
+test("public landing horizontal drag keeps its elevation after drop", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect
+    .poll(() => readLandingLogoSceneView(landingLogoScene))
+    .toEqual({
+      elevationDegrees: "0.000",
+      rotationDegrees: "0.000",
+    });
+
+  const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (canvasBounds === null) {
+    return;
+  }
+
+  const centerX = canvasBounds.x + canvasBounds.width / 2;
+  const centerY = canvasBounds.y + canvasBounds.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 16, centerY);
+
+  const heldView = {
+    elevationDegrees: "0.000",
+    rotationDegrees: "5.600",
+  };
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
+
+  await page.mouse.up();
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
+  expect(new URL(page.url()).search).toBe("?rot=5.6");
+});
+
+test("public landing logo composes pointer tilt with the dragged view", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  await expectLandingLogoSceneReady(landingLogoScene);
+
+  const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (canvasBounds === null) {
+    return;
+  }
+
+  const centerX = canvasBounds.x + canvasBounds.width / 2;
+  const centerY = canvasBounds.y + canvasBounds.height / 2;
+  const startingView = await readLandingLogoSceneView(landingLogoScene);
+  await page.mouse.move(centerX, centerY);
+  await page.waitForTimeout(250);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 320, centerY, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+
+  const droppedView = await readLandingLogoSceneView(landingLogoScene);
+  expect(droppedView).not.toEqual(startingView);
+
+  await page.mouse.move(centerX - 320, centerY);
+  await page.waitForTimeout(1_000);
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(droppedView);
 });
 
 test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) => {

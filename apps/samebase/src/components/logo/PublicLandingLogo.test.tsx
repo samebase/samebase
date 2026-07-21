@@ -9,6 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
 import { LOGO_SECONDARY_LEFT_FACE_STYLE } from "@/components/logo/logoLeftFaceStyle";
+import {
+  NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+  type LogoPresentationTiltTarget,
+} from "@/components/logo/logoPresentationTilt";
 import { STATIC_LOGO_GRID_SIZE } from "@/components/logo/logoStaticSvgContract";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import {
@@ -28,14 +32,19 @@ import {
   clearRotatedLogoViewStates,
   DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
 } from "@/lib/rotatedLogoViewState";
-import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
+import {
+  PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
+  PUBLIC_LANDING_LOGO_TEST_ID,
+} from "@/lib/publicLandingLogo";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 
 type MockLandingLogoSceneProps = {
   elevationDegrees: number;
   onInteractionStart?: () => void;
-  onInteractionEnd?: () => void;
+  onInteractionEnd?: (finalView: { elevationDegrees: number; rotationDegrees: number }) => void;
+  onRenderReady?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
+  presentationTiltTarget?: LogoPresentationTiltTarget;
   rotationDegrees: number;
   voxelGrid: unknown;
 };
@@ -56,6 +65,8 @@ vi.mock("@/components/logo/NLogoScene", () => ({
 }));
 
 const { act } = React;
+const originalMatchMedia = window.matchMedia;
+
 function installLocalStorageStub() {
   const entries = new Map<string, string>();
   const localStorageStub: Storage = {
@@ -83,6 +94,39 @@ function installLocalStorageStub() {
     configurable: true,
     value: localStorageStub,
   });
+}
+
+function installMotionMediaQueries({
+  finePointer,
+  reducedMotion,
+}: {
+  finePointer: boolean;
+  reducedMotion: boolean;
+}) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+      matches:
+        (query === "(hover: hover) and (pointer: fine)" && finePointer) ||
+        (query === "(prefers-reduced-motion: reduce)" && reducedMotion),
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  });
+}
+
+function dispatchPrimaryMouseMove(clientX: number, clientY: number) {
+  const event = new MouseEvent("pointermove", { clientX, clientY });
+  Object.defineProperties(event, {
+    isPrimary: { value: true },
+    pointerType: { value: "mouse" },
+  });
+  window.dispatchEvent(event);
 }
 
 function installImmediateIdleCallback() {
@@ -182,7 +226,138 @@ describe("PublicLandingLogo", () => {
       configurable: true,
       value: undefined,
     });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: originalMatchMedia,
+    });
     vi.unstubAllGlobals();
+  });
+
+  it("forwards a normalized mouse target without changing the dragged view", async () => {
+    installImmediateIdleCallback();
+    installMotionMediaQueries({ finePointer: true, reducedMotion: false });
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingLogo enablePointerTilt routeSearchSource="static" />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const stage = rootElement.querySelector(`[data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}"]`);
+    if (!(stage instanceof HTMLDivElement)) {
+      throw new Error("Expected landing logo stage.");
+    }
+    vi.spyOn(stage, "getBoundingClientRect").mockReturnValue({
+      bottom: 300,
+      height: 200,
+      left: 100,
+      right: 300,
+      top: 100,
+      width: 200,
+      x: 100,
+      y: 100,
+      toJSON: () => ({}),
+    });
+
+    const initialSceneProps = latestLandingLogoSceneProps.current;
+    if (initialSceneProps === null) {
+      throw new Error("Expected mocked logo scene props.");
+    }
+    await act(async () => {
+      initialSceneProps.onRenderReady?.();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      dispatchPrimaryMouseMove(550, 200);
+    });
+
+    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
+      horizontal: 6,
+      vertical: 0,
+    });
+    expect(latestLandingLogoSceneProps.current?.elevationDegrees).toBe(
+      initialSceneProps.elevationDegrees,
+    );
+    expect(latestLandingLogoSceneProps.current?.rotationDegrees).toBe(
+      initialSceneProps.rotationDegrees,
+    );
+
+    await act(async () => {
+      dispatchPrimaryMouseMove(200, 200);
+    });
+    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
+      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+    );
+  });
+
+  it("keeps the pointer tilt neutral when reduced motion is requested", async () => {
+    installImmediateIdleCallback();
+    installMotionMediaQueries({ finePointer: true, reducedMotion: true });
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingLogo enablePointerTilt routeSearchSource="static" />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const sceneProps = latestLandingLogoSceneProps.current;
+    if (sceneProps === null) {
+      throw new Error("Expected mocked logo scene props.");
+    }
+    await act(async () => {
+      sceneProps.onRenderReady?.();
+      dispatchPrimaryMouseMove(550, 200);
+      await Promise.resolve();
+    });
+
+    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
+      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+    );
+    const logoImage = getLogoImage(rootElement);
+    expect(logoImage.className).toContain("transition-opacity");
+    expect(logoImage.className).toContain("duration-300");
+    expect(logoImage.className).not.toContain("motion-reduce:transition-none");
+  });
+
+  it("keeps the pointer tilt neutral without a fine hover pointer", async () => {
+    installImmediateIdleCallback();
+    installMotionMediaQueries({ finePointer: false, reducedMotion: false });
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingLogo enablePointerTilt routeSearchSource="static" />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const sceneProps = latestLandingLogoSceneProps.current;
+    if (sceneProps === null) {
+      throw new Error("Expected mocked logo scene props.");
+    }
+    await act(async () => {
+      sceneProps.onRenderReady?.();
+      dispatchPrimaryMouseMove(550, 200);
+      await Promise.resolve();
+    });
+
+    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
+      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+    );
   });
 
   it("renders the initial static fallback from persisted device view state", async () => {
@@ -235,7 +410,7 @@ describe("PublicLandingLogo", () => {
     );
   });
 
-  it("keeps cleared route view at the committed default instead of mount-time device view", async () => {
+  it("keeps cleared route view at the supplied default instead of mount-time device view", async () => {
     installImmediateIdleCallback();
     window.localStorage.setItem(
       "samebase:logo-view:dashboard-empty",
@@ -253,6 +428,7 @@ describe("PublicLandingLogo", () => {
     function renderLogo(routeSearch: LogoRouteSearch) {
       localRoot.render(
         <PublicLandingLogo
+          defaultView={{ elevationDegrees: 0, rotationDegrees: 0 }}
           replaceRouteSearch={(nextSearch) => {
             replacedSearches.push(nextSearch);
             flushSync(() => {
@@ -282,13 +458,16 @@ describe("PublicLandingLogo", () => {
 
     await act(async () => {
       sceneProps.onViewChange({
-        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
-        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        elevationDegrees: 0,
+        rotationDegrees: 0,
       });
     });
 
     await act(async () => {
-      sceneProps.onInteractionEnd?.();
+      sceneProps.onInteractionEnd?.({
+        elevationDegrees: 0,
+        rotationDegrees: 0,
+      });
     });
 
     const replacedSearch = replacedSearches[0];
@@ -302,8 +481,92 @@ describe("PublicLandingLogo", () => {
     if (finalSceneProps === null) {
       throw new Error("Expected mocked logo scene props after cleared route search.");
     }
-    expect(finalSceneProps.elevationDegrees).toBe(DEFAULT_ELEVATION_DEGREES);
-    expect(finalSceneProps.rotationDegrees).toBe(DEFAULT_ROTATION_DEGREES);
+    expect(finalSceneProps.elevationDegrees).toBe(0);
+    expect(finalSceneProps.rotationDegrees).toBe(0);
+  });
+
+  it("omits the default elevation after a horizontal drag", async () => {
+    installImmediateIdleCallback();
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+    const replacedSearches: LogoRouteSearch[] = [];
+    function renderLogo(routeSearch: LogoRouteSearch) {
+      localRoot.render(
+        <PublicLandingLogo
+          defaultView={{ elevationDegrees: 0, rotationDegrees: 0 }}
+          replaceRouteSearch={(nextSearch) => {
+            replacedSearches.push(nextSearch);
+            flushSync(() => {
+              renderLogo(nextSearch);
+            });
+          }}
+          routeSearch={routeSearch}
+        />,
+      );
+    }
+
+    await act(async () => {
+      renderLogo({});
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const draggedView = {
+      elevationDegrees: 0,
+      rotationDegrees: 5.6,
+    };
+    const sceneProps = latestLandingLogoSceneProps.current;
+    if (sceneProps === null) {
+      throw new Error("Expected mocked logo scene props before horizontal drag.");
+    }
+
+    await act(async () => {
+      sceneProps.onViewChange(draggedView);
+    });
+    await act(async () => {
+      sceneProps.onInteractionEnd?.(draggedView);
+    });
+
+    expect(replacedSearches[0]).toMatchObject({
+      elev: undefined,
+      rot: 5.6,
+    });
+    const finalSceneProps = latestLandingLogoSceneProps.current;
+    if (finalSceneProps === null) {
+      throw new Error("Expected mocked logo scene props after horizontal drag.");
+    }
+    expect(finalSceneProps.elevationDegrees).toBe(0);
+    expect(finalSceneProps.rotationDegrees).toBe(5.6);
+  });
+
+  it("uses the supplied view default for a missing route axis", async () => {
+    installImmediateIdleCallback();
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          defaultView={{ elevationDegrees: 0, rotationDegrees: 0 }}
+          routeSearch={{ rot: 5.6 }}
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const sceneProps = latestLandingLogoSceneProps.current;
+    if (sceneProps === null) {
+      throw new Error("Expected mocked logo scene props for partial route view.");
+    }
+    expect(sceneProps.elevationDegrees).toBe(0);
+    expect(sceneProps.rotationDegrees).toBe(5.6);
   });
 
   it("keeps the shuffled voxel grid stable after a persisted view drag", async () => {
@@ -343,7 +606,10 @@ describe("PublicLandingLogo", () => {
     });
 
     await act(async () => {
-      latestLandingLogoSceneProps.current?.onInteractionEnd?.();
+      latestLandingLogoSceneProps.current?.onInteractionEnd?.({
+        elevationDegrees: 16.7,
+        rotationDegrees: 5.8,
+      });
     });
 
     expect(latestLandingLogoSceneProps.current?.voxelGrid).toBe(initialVoxelGrid);
