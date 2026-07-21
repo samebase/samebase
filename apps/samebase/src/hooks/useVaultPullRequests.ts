@@ -12,11 +12,11 @@ import {
 import { summarizePullRequestChecks, type PullRequestCheckSummary } from "@/lib/pullRequestChecks";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 const PULL_REQUEST_STALE_MS = 60_000;
 const PULL_REQUEST_GC_MS = 5 * 60_000;
-const PULL_REQUEST_PAGE_SIZE = 25;
+const PULL_REQUEST_PAGE_SIZE = 6;
 const INITIAL_PULL_REQUEST_CURSOR: string | null = null;
 
 type ObservedPullRequestPage = {
@@ -52,8 +52,6 @@ type SettledPullRequests = {
   isLoadingMore: boolean;
   canLoadMore: boolean;
   loadMoreFailed: boolean;
-  reload: () => void;
-  reloadResources: () => void;
   loadMore: () => void;
 };
 
@@ -217,9 +215,16 @@ export function useVaultPullRequests(args: {
       : resourceStates.includes("loading")
         ? "loading"
         : "current";
-  const reloadResources = () => {
-    void resourceQuery.refetch();
-  };
+  const fetchNextPage = pullRequestQuery.fetchNextPage;
+  const hasNextPage = pullRequestQuery.hasNextPage;
+  const isFetchNextPageError = pullRequestQuery.isFetchNextPageError;
+  const isFetchingNextPage = pullRequestQuery.isFetchingNextPage;
+  const loadMore = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage || isFetchNextPageError) {
+      return;
+    }
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage]);
   const reload = () => {
     void pullRequestQuery.refetch();
   };
@@ -236,7 +241,7 @@ export function useVaultPullRequests(args: {
     throw new Error("Pull request query returned no provider pages.");
   }
   const hasMore = nextCursor(lastPage) !== null;
-  const canLoadMore = hasMore && !pullRequestQuery.isFetchingNextPage;
+  const canLoadMore = hasMore && !isFetchingNextPage && !isFetchNextPageError;
   const firstPageObservedAt = observedPages?.at(0)?.observedAt;
   if (firstPageObservedAt === undefined) {
     throw new Error("Pull request query returned an unobserved provider page.");
@@ -253,15 +258,9 @@ export function useVaultPullRequests(args: {
     resourceState,
     resourcesByPullRequestId,
     hasMore,
-    isLoadingMore: pullRequestQuery.isFetchingNextPage,
+    isLoadingMore: isFetchingNextPage,
     canLoadMore,
-    loadMoreFailed: pullRequestQuery.isFetchNextPageError,
-    reload,
-    reloadResources,
-    loadMore: () => {
-      if (canLoadMore) {
-        void pullRequestQuery.fetchNextPage();
-      }
-    },
+    loadMoreFailed: isFetchNextPageError,
+    loadMore,
   };
 }

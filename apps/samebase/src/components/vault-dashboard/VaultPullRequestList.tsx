@@ -27,6 +27,7 @@ import {
   GitBranch,
   Loader2,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import type { PullRequestWorkerResource } from "../../../convex/vault/pullRequestResources";
 
 type PullRequest = VaultPullRequest;
@@ -35,7 +36,6 @@ type PullRequestChecks = PullRequest["checks"];
 export type VaultPullRequestListProps = {
   buildSamebaseUrl: (branchName: string) => string | null;
   pullRequests: VaultPullRequestsState;
-  repositoryFullName: string;
 };
 
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -368,10 +368,37 @@ function PullRequestRow({
   );
 }
 
+function PullRequestLoadMoreSentinel({ loadMore }: { loadMore: () => void }) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        loadMore();
+      }
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  return (
+    <div
+      ref={sentinelRef}
+      aria-hidden="true"
+      className="h-4"
+      data-pull-request-load-more-sentinel=""
+    />
+  );
+}
+
 export function VaultPullRequestList({
   buildSamebaseUrl,
   pullRequests,
-  repositoryFullName,
 }: VaultPullRequestListProps) {
   if (pullRequests.state === "not_requested") {
     return null;
@@ -395,49 +422,21 @@ export function VaultPullRequestList({
     );
   }
 
-  const repositoryUrl = `https://github.com/${repositoryFullName}`;
+  const statusMessage =
+    pullRequests.state === "stale" || pullRequests.resourceState === "stale"
+      ? "Pull request data may be out of date"
+      : pullRequests.resourceState === "failed"
+        ? "Deploy status unavailable"
+        : null;
   return (
     <section
       data-vault-pull-request-list=""
       aria-label="Open pull requests"
       aria-busy={pullRequests.refreshing}
     >
-      {pullRequests.state === "stale" ? (
-        <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2 text-sm">
-          <span className="text-muted-foreground">Pull requests may be out of date</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={pullRequests.refreshing}
-            onClick={pullRequests.reload}
-          >
-            {pullRequests.refreshing ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : null}
-            {pullRequests.refreshing ? "Refreshing" : "Retry"}
-          </Button>
-        </div>
-      ) : null}
-      {pullRequests.resourceState === "failed" || pullRequests.resourceState === "stale" ? (
-        <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2 text-sm">
-          <span className="text-muted-foreground">
-            {pullRequests.resourceState === "stale"
-              ? "Deploy status may be out of date"
-              : "Deploy status unavailable"}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={pullRequests.refreshing}
-            onClick={pullRequests.reloadResources}
-          >
-            {pullRequests.refreshing ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : null}
-            {pullRequests.refreshing ? "Refreshing" : "Retry"}
-          </Button>
+      {statusMessage ? (
+        <div className="border-b border-border/40 px-3 py-2 text-sm text-muted-foreground">
+          {statusMessage}
         </div>
       ) : null}
       {pullRequests.pullRequests.map((pullRequest) => (
@@ -457,36 +456,21 @@ export function VaultPullRequestList({
               : "No open pull requests"}
         </div>
       ) : null}
-      {pullRequests.hasMore ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 px-3 py-3 text-sm">
-          <span className="text-muted-foreground">
-            {pullRequests.loadMoreFailed
-              ? "Could not load more pull requests"
-              : "More pull requests available"}
-          </span>
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!pullRequests.canLoadMore}
-              onClick={pullRequests.loadMore}
-            >
-              {pullRequests.isLoadingMore ? (
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              ) : null}
-              {pullRequests.isLoadingMore ? "Loading" : "Load more"}
-            </Button>
-            <a
-              href={`${repositoryUrl}/pulls`}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={linkStyle}
-            >
-              GitHub
-            </a>
-          </div>
+      {pullRequests.isLoadingMore ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex h-8 items-center gap-2 px-3 text-sm text-muted-foreground"
+        >
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          Loading more pull requests
         </div>
+      ) : pullRequests.loadMoreFailed ? (
+        <div role="status" className="px-3 py-2 text-sm text-muted-foreground">
+          Could not load more pull requests
+        </div>
+      ) : pullRequests.canLoadMore ? (
+        <PullRequestLoadMoreSentinel loadMore={pullRequests.loadMore} />
       ) : null}
     </section>
   );

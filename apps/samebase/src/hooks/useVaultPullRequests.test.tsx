@@ -209,7 +209,7 @@ describe("useVaultPullRequests", () => {
     expect(listHandler).toHaveBeenCalledTimes(1);
     expect(listHandler.mock.calls[0]?.[0]).toEqual({
       vaultId: fakeVaultId(),
-      first: 25,
+      first: 6,
       after: null,
     });
     expect(settledState().pullRequests).toEqual([]);
@@ -225,6 +225,39 @@ describe("useVaultPullRequests", () => {
     expect(listHandler).toHaveBeenCalledTimes(2);
     expect(listHandler.mock.calls[1]?.[0]).toMatchObject({ after: "cursor:2" });
     expect(settledState().pullRequests.map((pullRequest) => pullRequest.number)).toEqual([1259]);
+  });
+
+  it("stops automatic pagination after a later provider page fails", async () => {
+    const listHandler = vi.fn(async (value: unknown) => {
+      if (!value || typeof value !== "object" || !("after" in value)) {
+        throw new Error("Provider cursor is required.");
+      }
+      if (value.after === null) {
+        return page({ number: 1260, endCursor: "cursor:2" });
+      }
+      throw new Error("GitHub unavailable");
+    });
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    installResourceHandler();
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 1,
+    );
+
+    act(() => settledState().loadMore());
+    await waitFor(
+      (state) => (state.state === "current" || state.state === "stale") && state.loadMoreFailed,
+    );
+    expect(settledState().canLoadMore).toBe(false);
+
+    act(() => settledState().loadMore());
+    expect(listHandler).toHaveBeenCalledTimes(2);
   });
 
   it("reapplies browser filters without requesting another provider page", async () => {
@@ -305,7 +338,11 @@ describe("useVaultPullRequests", () => {
         (state.state === "current" || state.state === "stale") &&
         state.allPullRequests.length === 2,
     );
-    act(() => settledState().reload());
+    await act(async () => {
+      await queryClient.refetchQueries({
+        queryKey: ["vault-pull-requests", fakeVaultId()],
+      });
+    });
     await waitFor(
       (state) =>
         state.state === "stale" &&
@@ -361,7 +398,11 @@ describe("useVaultPullRequests", () => {
         state.allPullRequests.length === 2,
     );
 
-    act(() => settledState().reload());
+    await act(async () => {
+      await queryClient.refetchQueries({
+        queryKey: ["vault-pull-requests", fakeVaultId()],
+      });
+    });
     await waitFor(
       (state) =>
         state.state === "current" &&

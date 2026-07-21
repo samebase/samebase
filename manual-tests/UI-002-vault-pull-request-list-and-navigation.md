@@ -9,7 +9,7 @@ branch.
 ## Preconditions
 
 - `pnpm dev` can run in the current checkout.
-- A connected vault has an authenticated GitHub connection and at least two open pull requests.
+- A connected vault has an authenticated GitHub connection and at least seven open pull requests.
 - One same-repository pull request has a Cloudflare Worker build whose trigger, repository, root,
   commit, and pull request evidence match a stable vault app.
 - For full preview coverage, that Worker build targets a Convex preview from the stable Convex
@@ -35,9 +35,12 @@ branch.
    reload and the list still represents a fresh provider observation.
 10. If a fork pull request is available, confirm it does not offer Samebase `View changes` and does
     not infer a Convex preview from a matching branch name.
-11. Temporarily make one provider unavailable. Confirm the dashboard distinguishes unavailable or
+11. Confirm the first request loads six pull requests. Scroll to the end and confirm the next page
+    loads automatically without a `Load more` control or a second GitHub link.
+12. Temporarily make one provider unavailable. Confirm the dashboard distinguishes unavailable or
     failed observation state from an observed absence, while retaining any still-usable cached
-    observation as stale.
+    observation as stale. Confirm stale pull requests and deploy resources have no separate retry
+    controls and that reloading the document recreates the requests.
 
 ## Expected Results
 

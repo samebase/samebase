@@ -38,8 +38,8 @@ generations, server-side filter scans, or persisted rows.
 
 The browser owns pagination and presentation:
 
-- the first page loads automatically;
-- later pages load only when requested;
+- the first page loads the six most recently updated open pull requests;
+- later six-item pages load automatically when the scroll sentinel enters view;
 - one TanStack infinite query owns all loaded pages and refreshes them together;
 - label and draft filters run over the pages already loaded;
 - check counts are converted to display state in the browser;
@@ -47,9 +47,12 @@ The browser owns pagination and presentation:
 - loading a later page does not renew the first page's observation time;
 - a failed background refresh may show the previous response as stale.
 
-Filtering can produce no matches while GitHub still has another page. The UI must keep `Load more`
-available and must not claim the repository has no matching pull requests until the provider pages
-are exhausted.
+Stale pull requests and deploy resources do not expose separate retry controls. Reloading the
+document recreates their provider requests.
+
+Filtering can produce no matches while GitHub still has another page. The scroll sentinel remains
+active so another provider page loads automatically. The UI must not claim the repository has no
+matching pull requests until the provider pages are exhausted.
 
 ## Visible Provider Resources
 
@@ -132,8 +135,9 @@ not retain optional validators, readers, writers, or migration code after the cu
 Tests must prove:
 
 - one action call maps to one GitHub page request and forwards the provider cursor;
+- the first provider page requests six pull requests;
 - filters are absent from the server request and run over loaded browser pages;
-- another provider page remains loadable after a filtered-empty loaded page;
+- another provider page loads automatically after a filtered-empty loaded page;
 - a background failure retains stale browser data without calling it current;
 - refreshing a multi-page query retains all previous pages if any provider request fails;
 - same-repository and fork heads stay distinct;

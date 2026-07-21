@@ -45,8 +45,8 @@ Filter options are derived from all pull requests currently loaded, not only the
 Labels are sorted deterministically.
 
 When no loaded row matches but GitHub reports another page, the UI states that no matching pull
-requests are loaded and keeps `Load more` available. It must not claim the complete provider result
-is empty.
+requests are loaded and keeps its automatic pagination sentinel active. It must not claim the
+complete provider result is empty.
 
 ## Validation
 
@@ -54,7 +54,7 @@ is empty.
 - `includeNoLabel` is required at every schema, mutation, and test boundary.
 - Provider action arguments contain no filter state.
 - Toggling filters does not refetch GitHub.
-- A filtered-empty page preserves provider pagination.
+- A filtered-empty page continues provider pagination automatically.
 
 ## Non-Goals
 

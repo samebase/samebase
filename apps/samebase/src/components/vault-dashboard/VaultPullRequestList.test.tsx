@@ -96,8 +96,6 @@ function settledState(
     isLoadingMore: false,
     canLoadMore: args.hasMore ?? false,
     loadMoreFailed: false,
-    reload: () => {},
-    reloadResources: () => {},
     loadMore: () => {},
   };
 }
@@ -108,7 +106,6 @@ function renderList(pullRequests: VaultPullRequestsState): string {
       <VaultPullRequestList
         buildSamebaseUrl={(branchName) => `/vault/samebase/samebase/fs/${branchName}?compare`}
         pullRequests={pullRequests}
-        repositoryFullName="samebase/samebase"
       />
     </TestRouterProvider>,
   );
@@ -136,13 +133,29 @@ describe("VaultPullRequestList", () => {
     expect(renderList({ state: "problem", reload: () => {} })).toContain(
       "Could not load pull requests",
     );
-    expect(renderList(settledState({ state: "stale" }))).toContain(
-      "Pull requests may be out of date",
-    );
+    expect(renderList({ state: "problem", reload: () => {} })).toContain("Retry");
+    const staleMarkup = renderList(settledState({ state: "stale", resourceState: "stale" }));
+    expect(staleMarkup).toContain("Pull request data may be out of date");
+    expect(staleMarkup).not.toContain("Retry");
     const markup = renderList(settledState({ pullRequests: [], hasMore: true }));
     expect(markup).toContain("No matching pull requests loaded");
-    expect(markup).toContain("Load more");
-    expect(markup).toContain('href="https://github.com/samebase/samebase/pulls"');
+    expect(markup).toContain('data-pull-request-load-more-sentinel=""');
+    expect(markup).not.toContain("Load more");
+    expect(markup).not.toContain('href="https://github.com/samebase/samebase/pulls"');
+    expect(
+      renderList({
+        ...settledState({ hasMore: true }),
+        isLoadingMore: true,
+        canLoadMore: false,
+      }),
+    ).toContain("Loading more pull requests");
+    expect(
+      renderList({
+        ...settledState({ hasMore: true }),
+        canLoadMore: false,
+        loadMoreFailed: true,
+      }),
+    ).toContain("Could not load more pull requests");
   });
 
   it("does not claim the repository is empty when filters hide every loaded pull request", () => {

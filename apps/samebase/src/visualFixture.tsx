@@ -199,6 +199,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-source-setup-failed",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
+  "vault-pull-request-auto-pagination",
   "vault-pull-request-filters",
 ] as const satisfies readonly VaultDashboardVisualMode[];
 
@@ -396,6 +397,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-source-setup-failed" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||
+    mode === "vault-pull-request-auto-pagination" ||
     mode === "vault-pull-request-filters"
   ) {
     return <VaultDashboardVisualFixture mode={mode} />;

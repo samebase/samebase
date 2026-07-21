@@ -980,6 +980,32 @@ test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
 });
 
+test("vault dashboard automatically loads the next pull request page at the scroll end", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 520 });
+  await openVaultDashboardVisualFixture(page, "vault-pull-request-auto-pagination");
+
+  const list = page.getByRole("region", { name: "Open pull requests" });
+  const sentinel = list.locator("[data-pull-request-load-more-sentinel]");
+  await expect(list.locator("[data-pull-request-row]")).toHaveCount(6);
+  await expect(list.getByText("Pull request data may be out of date")).toBeVisible();
+  await expect(list.getByRole("button", { name: "Retry" })).toHaveCount(0);
+  await expect(list.getByRole("button", { name: "Load more" })).toHaveCount(0);
+  await expect(list.getByRole("link", { name: "GitHub", exact: true })).toHaveCount(0);
+  await expect(sentinel).toHaveCount(1);
+  await expect(page).toHaveScreenshot("vault-pull-request-auto-pagination.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await sentinel.evaluate((element) => element.scrollIntoView({ block: "end" }));
+  await expect(list.locator("[data-pull-request-row]")).toHaveCount(8);
+  await expect(sentinel).toHaveCount(0);
+});
+
 test("vault dashboard fixture (pull request filters popover)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 560 });
   await openVaultDashboardVisualFixture(page, "vault-pull-request-filters");
