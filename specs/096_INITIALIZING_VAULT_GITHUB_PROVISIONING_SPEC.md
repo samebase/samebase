@@ -21,8 +21,8 @@ This replaces the pre-vault run gap with a stable `vaultId` while preserving the
 that repository-backed behavior requires a connected GitHub repository. GitHub connection means
 durable repository identity, not a fresh branch tree. Branch tree data is cache state and
 repo-backed file/tree behavior must still fail closed until the relevant branch snapshot exists.
-Convex project and Cloudflare Worker attachment rows only exist for connected GitHub vaults, so those
-integrations cannot exist while GitHub is still provisioning or failed.
+Convex project and Cloudflare Worker attachment rows only exist for connected GitHub vaults, so
+those integrations cannot exist while GitHub is still provisioning or failed.
 
 The temporary compatibility layers have been removed. The primary product promise is still simple:
 the user clicks New App and either gets a usable app or a clear setup failure.
@@ -38,7 +38,9 @@ GitHub connection, source setup, and exact tree availability are separate facts:
 2. the establishing provisioning run proves whether initial source setup is running, failed, or
    complete;
 3. `observations_vaultRepository_branchTrees` caches only one exact branch tree for editor and file
-   work, and a missing row is hydrated on demand.
+   work, and a missing row is hydrated on demand;
+4. connected vault variants keep only the live tree-refresh claim, latest failure, and cooldown
+   fields needed to coordinate those on-demand hydrations.
 
 The dashboard does not use tree-cache presence as repository readiness. It can show live pull
 requests while initial tree sync is running or failed, while editor/file controls still fail closed
@@ -218,6 +220,21 @@ type VaultGitHubState =
 
       /** Timestamp when the vault first became a usable source workspace. */
       connectedAt: number;
+
+      /** Timestamp of the current vault-wide tree-refresh claim, if one is active. */
+      treeRefreshStartedAt?: number;
+
+      /** Timestamp of the latest tree-refresh failure that has not been superseded. */
+      lastTreeRefreshFailedAt?: number;
+
+      /** Classifies the latest tree-refresh failure for UI and cooldown behavior. */
+      treeRefreshFailureKind?: "failed" | "rate_limited";
+
+      /** User-safe detail for the latest tree-refresh failure. */
+      treeRefreshFailureMessage?: string;
+
+      /** Provider cooldown deadline after which another tree refresh may be claimed. */
+      treeRefreshCooldownUntil?: number;
     } & GitHubRepositoryWithVisibility)
   | ({
       /** Latest GitHub repository creation attempt failed. */
@@ -378,10 +395,22 @@ Connected GitHub fields:
 5. `visibility`: current repository visibility from GitHub metadata.
 6. `defaultBranch`: repository metadata needed for default source views.
 7. `connectedAt`: audit timestamp for when the vault first became a usable repository workspace.
+8. `treeRefreshStartedAt`: the live vault-wide refresh claim. It prevents concurrent tree fetches
+   and is ignored after the shared stale-lock threshold.
+9. `lastTreeRefreshFailedAt`: timestamp of the latest tree-refresh failure. Surfaces compare it with
+   the relevant branch observation's `lastTreeRefreshAt` so a later successful refresh wins.
+10. `treeRefreshFailureKind`: distinguishes an ordinary failure from provider rate limiting without
+    turning either into GitHub connection state.
+11. `treeRefreshFailureMessage`: user-safe detail for the current failure. It is cleared by a later
+    successful claim unless a newer cooldown failure must be preserved.
+12. `treeRefreshCooldownUntil`: the live provider backoff deadline. Claims fail closed while it is
+    active.
 
 Branch tree state lives only in `observations_vaultRepository_branchTrees`. Each row requires the
 branch head `commitSHA`, stores its tree SHA as `treeData.sha`, and rejects truncated trees. The
-vault row has no tree snapshot mirror or fallback.
+vault row has no tree snapshot mirror or fallback. The five optional tree-refresh fields above are
+connected-variant coordination and failure state, not cached tree data or repository identity. They
+must not appear on pre-connection or top-level failed variants.
 
 ## Removed Compatibility Surfaces
 
@@ -563,8 +592,8 @@ Backend:
 14. source and staging paths read exact branch state from `observations_vaultRepository_branchTrees`
     without a vault-row fallback
 15. provisioning events require `runId` and provisioning runs require `vaultId`
-16. dashboard/provisioning summaries derive from direct attachments, live provider observations,
-    and run/write-lock state
+16. dashboard/provisioning summaries derive from direct attachments, live provider observations, and
+    run/write-lock state
 17. the vault row has no aggregate `vaults.infra*` mirrors
 18. when backend retries ship, retried provider steps prove idempotency and keep terminal failures
     visible through the same run/event summaries

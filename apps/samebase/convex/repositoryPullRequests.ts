@@ -6,51 +6,46 @@ import { z } from "zod";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
+import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
 import { isLiveConnectedVault } from "./vault/state";
 
 const { array, boolean, id, literal, null: vNull, number, object, string, union } = v;
 
+const GITHUB_CHECK_RUN_STATES = [
+  "ACTION_REQUIRED",
+  "CANCELLED",
+  "COMPLETED",
+  "FAILURE",
+  "IN_PROGRESS",
+  "NEUTRAL",
+  "PENDING",
+  "QUEUED",
+  "SKIPPED",
+  "STALE",
+  "STARTUP_FAILURE",
+  "SUCCESS",
+  "TIMED_OUT",
+  "WAITING",
+] as const;
+const GITHUB_STATUS_STATES = ["ERROR", "EXPECTED", "FAILURE", "PENDING", "SUCCESS"] as const;
+const UNKNOWN_GITHUB_STATE = "UNKNOWN" as const;
 const checkRunState = union(
-  literal("ACTION_REQUIRED"),
-  literal("CANCELLED"),
-  literal("COMPLETED"),
-  literal("FAILURE"),
-  literal("IN_PROGRESS"),
-  literal("NEUTRAL"),
-  literal("PENDING"),
-  literal("QUEUED"),
-  literal("SKIPPED"),
-  literal("STALE"),
-  literal("STARTUP_FAILURE"),
-  literal("SUCCESS"),
-  literal("TIMED_OUT"),
-  literal("WAITING"),
+  ...[...GITHUB_CHECK_RUN_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
 );
-const statusContextState = union(
-  literal("ERROR"),
-  literal("EXPECTED"),
-  literal("FAILURE"),
-  literal("PENDING"),
-  literal("SUCCESS"),
-);
-const statusCheckRollupState = union(
-  literal("ERROR"),
-  literal("EXPECTED"),
-  literal("FAILURE"),
-  literal("PENDING"),
-  literal("SUCCESS"),
+const statusState = union(
+  ...[...GITHUB_STATUS_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
 );
 const checkCountFields = {
   totalCount: number(),
   checkRunCount: number(),
   statusContextCount: number(),
   checkRunCountsByState: array(object({ state: checkRunState, count: number() })),
-  statusContextCountsByState: array(object({ state: statusContextState, count: number() })),
+  statusContextCountsByState: array(object({ state: statusState, count: number() })),
 };
 const vStatusCheckRollup = union(
   vNull(),
   object({
-    state: statusCheckRollupState,
+    state: statusState,
     contexts: object(checkCountFields),
   }),
 );
@@ -114,37 +109,32 @@ const vBranchPullRequest = object({
 type BranchPullRequest = Infer<typeof vBranchPullRequest>;
 
 const countSchema = z.number().int().nonnegative();
+function providerEnumWithUnknown<const T extends readonly [string, ...string[]]>(values: T) {
+  const knownValues = z.enum(values);
+  return z.string().transform((value) => {
+    const parsed = knownValues.safeParse(value);
+    return parsed.success ? parsed.data : UNKNOWN_GITHUB_STATE;
+  });
+}
+
+const providerCheckRunStateSchema = providerEnumWithUnknown(GITHUB_CHECK_RUN_STATES);
+const providerStatusStateSchema = providerEnumWithUnknown(GITHUB_STATUS_STATES);
 const statusCheckRollupSchema = z
   .object({
-    state: z.enum(["ERROR", "EXPECTED", "FAILURE", "PENDING", "SUCCESS"]),
+    state: providerStatusStateSchema,
     contexts: z.object({
       totalCount: countSchema,
       checkRunCount: countSchema,
       statusContextCount: countSchema,
       checkRunCountsByState: z.array(
         z.object({
-          state: z.enum([
-            "ACTION_REQUIRED",
-            "CANCELLED",
-            "COMPLETED",
-            "FAILURE",
-            "IN_PROGRESS",
-            "NEUTRAL",
-            "PENDING",
-            "QUEUED",
-            "SKIPPED",
-            "STALE",
-            "STARTUP_FAILURE",
-            "SUCCESS",
-            "TIMED_OUT",
-            "WAITING",
-          ]),
+          state: providerCheckRunStateSchema,
           count: countSchema,
         }),
       ),
       statusContextCountsByState: z.array(
         z.object({
-          state: z.enum(["ERROR", "EXPECTED", "FAILURE", "PENDING", "SUCCESS"]),
+          state: providerStatusStateSchema,
           count: countSchema,
         }),
       ),
@@ -155,13 +145,13 @@ const providerPullRequestSchema = z.object({
   id: z.string().min(1),
   number: z.number().int().positive(),
   title: z.string(),
-  url: z.string().url(),
+  url: z.url(),
   isDraft: z.boolean(),
   isCrossRepository: z.boolean(),
   additions: countSchema,
   deletions: countSchema,
   changedFiles: countSchema,
-  updatedAt: z.string().datetime(),
+  updatedAt: z.iso.datetime(),
   baseRefName: z.string().min(1),
   headRefName: z.string().min(1),
   headRefOid: z.string().min(1),
@@ -367,16 +357,15 @@ export const listOpenPullRequests = action({
       throw new Error("GitHub connection unavailable.");
     }
 
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-      request: { timeout: 15_000 },
-    });
+    const octokit = new Octokit({ auth: githubConnection.auth.credential });
+    const signal = createGitHubRequestDeadlineSignal();
     const page = normalizeGitHubPullRequestPage(
       await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
         owner: vault.owner,
         name: vault.name,
         first: args.first,
         after: args.after,
+        request: { signal },
       }),
     );
     if (page.repository === null) {
@@ -418,15 +407,14 @@ export const getOpenPullRequestForBranch = action({
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub connection unavailable.");
     }
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-      request: { timeout: 15_000 },
-    });
+    const octokit = new Octokit({ auth: githubConnection.auth.credential });
+    const signal = createGitHubRequestDeadlineSignal();
     const [comparison, pullRequests] = await Promise.all([
       octokit.rest.repos.compareCommitsWithBasehead({
         owner: vault.owner,
         repo: vault.name,
         basehead: `${vault.defaultBranch}...${branch}`,
+        request: { signal },
       }),
       octokit.rest.pulls.list({
         owner: vault.owner,
@@ -436,6 +424,7 @@ export const getOpenPullRequestForBranch = action({
         sort: "updated",
         direction: "desc",
         per_page: 1,
+        request: { signal },
       }),
     ]);
     const pullRequest = pullRequests.data.at(0);

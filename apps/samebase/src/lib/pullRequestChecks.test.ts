@@ -44,4 +44,27 @@ describe("summarizePullRequestChecks", () => {
       unknownCount: 0,
     });
   });
+
+  it("surfaces provider states that were normalized to unknown", () => {
+    const rollup = {
+      state: "UNKNOWN",
+      contexts: {
+        totalCount: 2,
+        checkRunCount: 1,
+        statusContextCount: 1,
+        checkRunCountsByState: [{ state: "UNKNOWN", count: 1 }],
+        statusContextCountsByState: [{ state: "UNKNOWN", count: 1 }],
+      },
+    } satisfies StatusCheckRollup;
+
+    expect(summarizePullRequestChecks(rollup)).toEqual({
+      state: "unknown",
+      totalCount: 2,
+      successCount: 0,
+      failureCount: 0,
+      runningCount: 0,
+      neutralCount: 0,
+      unknownCount: 2,
+    });
+  });
 });

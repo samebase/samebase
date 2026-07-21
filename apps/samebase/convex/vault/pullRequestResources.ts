@@ -17,7 +17,7 @@ import {
   type CloudflareWorkerBuild,
 } from "../cloudflareResources";
 import { action } from "../functions";
-import { fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { createGitHubRequestDeadlineSignal, fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
@@ -25,7 +25,7 @@ const { array, id, literal, object, string, union } = v;
 
 const CLOUDFLARE_BUILD_PAGE_SIZE = 100;
 const CLOUDFLARE_BUILD_MAX_PAGES = 2;
-const GITHUB_PULL_REQUEST_NODE_BATCH_SIZE = 100;
+const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 
 const vCloudflareBuildState = union(
   literal("queued"),
@@ -84,7 +84,7 @@ const providerPullRequestResourceIdentitySchema = z.object({
   repository: z.object({ databaseId: z.number().int().positive() }),
 });
 const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentitySchema.extend({
-  url: z.string().url(),
+  url: z.url(),
   isCrossRepository: z.boolean(),
   state: z.literal("OPEN"),
   headRepository: z.object({ id: z.string().min(1) }).nullable(),
@@ -92,6 +92,19 @@ const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentit
   headRefOid: z.string().min(1),
 });
 const providerPullRequestResourceHeadsSchema = z.object({ nodes: z.array(z.unknown()) });
+const providerMissingPullRequestNodeErrorsSchema = z
+  .array(
+    z.object({
+      type: z.literal("NOT_FOUND"),
+      path: z.tuple([z.literal("nodes")]).rest(z.union([z.string(), z.number()])),
+    }),
+  )
+  .nonempty();
+const providerMissingPullRequestNodesErrorSchema = z.object({
+  name: z.literal("GraphqlResponseError"),
+  errors: providerMissingPullRequestNodeErrorsSchema,
+  data: z.unknown(),
+});
 type ProviderPullRequestResourceHead = z.infer<typeof providerPullRequestResourceHeadSchema>;
 export type PullRequestResourceHead = Pick<
   ProviderPullRequestResourceHead,
@@ -160,6 +173,14 @@ export function normalizeGitHubPullRequestResourceHeadReads(
   });
 }
 
+export function recoverGitHubPullRequestResourceHeadsFromError(error: unknown): unknown {
+  const parsed = providerMissingPullRequestNodesErrorSchema.safeParse(error);
+  if (!parsed.success) {
+    throw error;
+  }
+  return parsed.data.data;
+}
+
 type StableWorker = VaultProviderObservationContext["cloudflareWorkers"][number];
 type StableConvexProject = VaultProviderObservationContext["convexProjects"][number];
 type CloudflareBuildState = Infer<typeof vCloudflareBuildState>;
@@ -185,6 +206,32 @@ type ConvexPreviewRead =
 type ConvexBuildAccessRead =
   | { state: "available"; buildAccess: CloudflareConvexBuildAccessObservation }
   | { state: "failed" };
+type PullRequestProviderFailureOperation =
+  | "read_cloudflare_convex_build_access"
+  | "read_cloudflare_worker_resources"
+  | "read_convex_preview"
+  | "resolve_cloudflare_connection";
+
+function providerFailureKind(error: unknown): "error" | "timeout" | "unknown" {
+  if (!(error instanceof Error)) {
+    return "unknown";
+  }
+  return error.name === "AbortError" || error.name === "TimeoutError" ? "timeout" : "error";
+}
+
+function reportPullRequestProviderFailure(args: {
+  operation: PullRequestProviderFailureOperation;
+  error: unknown;
+  workerId?: StableWorker["workerId"];
+  convexProjectId?: string;
+}): void {
+  console.warn("Pull request resource provider read failed.", {
+    operation: args.operation,
+    failureKind: providerFailureKind(args.error),
+    ...(args.workerId ? { workerId: args.workerId } : {}),
+    ...(args.convexProjectId ? { convexProjectId: args.convexProjectId } : {}),
+  });
+}
 
 function workerResourceIdentity(worker: StableWorker) {
   return {
@@ -424,7 +471,12 @@ async function readConvexPreview(args: {
       teamSlug: details.teamSlug,
       deployments,
     };
-  } catch {
+  } catch (error) {
+    reportPullRequestProviderFailure({
+      operation: "read_convex_preview",
+      error,
+      convexProjectId: args.project.convexProjectId,
+    });
     return { state: "failed" };
   }
 }
@@ -511,7 +563,14 @@ async function readWorkerResourcesForHeads(args: {
       previewTriggerUuid: connectedBuilds.previewTriggerUuid,
     }).then(
       (buildAccess) => ({ state: "available" as const, buildAccess }),
-      () => ({ state: "failed" as const }),
+      (error) => {
+        reportPullRequestProviderFailure({
+          operation: "read_cloudflare_convex_build_access",
+          error,
+          workerId: args.worker.workerId,
+        });
+        return { state: "failed" as const };
+      },
     );
     convexBuildAccessRead = request;
     return request;
@@ -608,6 +667,40 @@ async function readWorkerResourcesForHeads(args: {
   );
 }
 
+export function validatePullRequestResourceIds(pullRequestIds: readonly string[]): void {
+  if (pullRequestIds.length < 1 || pullRequestIds.length > GITHUB_PULL_REQUEST_RESOURCE_LIMIT) {
+    throw new Error("Pull request resource count must be between 1 and 100.");
+  }
+  const seenPullRequests = new Set<string>();
+  for (const pullRequestId of pullRequestIds) {
+    if (!pullRequestId || seenPullRequests.has(pullRequestId)) {
+      throw new Error("Pull request identity was invalid or duplicated.");
+    }
+    seenPullRequests.add(pullRequestId);
+  }
+}
+
+async function readGitHubPullRequestResourceHeadReads(args: {
+  octokit: Octokit;
+  signal: AbortSignal;
+  ghRepoId: string;
+  pullRequestIds: readonly string[];
+}): Promise<PullRequestResourceHeadRead[]> {
+  let response: unknown;
+  try {
+    response = await args.octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, {
+      ids: args.pullRequestIds,
+      request: { signal: args.signal },
+    });
+  } catch (error) {
+    response = recoverGitHubPullRequestResourceHeadsFromError(error);
+  }
+  return normalizeGitHubPullRequestResourceHeadReads(response, {
+    ghRepoId: args.ghRepoId,
+    pullRequestIds: args.pullRequestIds,
+  });
+}
+
 export const getPullRequestResources = action({
   access: "access_dashboard",
   args: {
@@ -616,13 +709,7 @@ export const getPullRequestResources = action({
   },
   returns: array(vPullRequestResources),
   handler: async (ctx, args): Promise<PullRequestResources[]> => {
-    const seenPullRequests = new Set<string>();
-    for (const pullRequestId of args.pullRequestIds) {
-      if (!pullRequestId || seenPullRequests.has(pullRequestId)) {
-        throw new Error("Pull request identity was invalid or duplicated.");
-      }
-      seenPullRequests.add(pullRequestId);
-    }
+    validatePullRequestResourceIds(args.pullRequestIds);
 
     const [context, githubConnection, cloudflareConnection, convexConnection] = await Promise.all([
       ctx.runQuery(internal.vault.providerObservationQueries.readVaultProviderObservationContext, {
@@ -637,7 +724,13 @@ export const getPullRequestResources = action({
         .runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
           userId: ctx.viewer.userId,
         })
-        .catch(() => null),
+        .catch((error) => {
+          reportPullRequestProviderFailure({
+            operation: "resolve_cloudflare_connection",
+            error,
+          });
+          return null;
+        }),
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId: ctx.viewer.userId,
         kind: "convex",
@@ -646,40 +739,23 @@ export const getPullRequestResources = action({
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub connection unavailable.");
     }
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-      request: { timeout: 15_000 },
-    });
-    const pullRequestIdBatches: string[][] = [];
-    for (
-      let index = 0;
-      index < args.pullRequestIds.length;
-      index += GITHUB_PULL_REQUEST_NODE_BATCH_SIZE
-    ) {
-      pullRequestIdBatches.push(
-        args.pullRequestIds.slice(index, index + GITHUB_PULL_REQUEST_NODE_BATCH_SIZE),
-      );
-    }
-    const [repository, headReadBatches] = await Promise.all([
+    const octokit = new Octokit({ auth: githubConnection.auth.credential });
+    const signal = createGitHubRequestDeadlineSignal();
+    const [repository, headReads] = await Promise.all([
       fetchGitHubRepoIdentity({
         githubAccessToken: githubConnection.auth.credential,
         owner: context.owner,
         repo: context.name,
         expectedRepoId: context.ghRepoId,
+        signal,
       }),
-      Promise.all(
-        pullRequestIdBatches.map(async (pullRequestIds) =>
-          normalizeGitHubPullRequestResourceHeadReads(
-            await octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, { ids: pullRequestIds }),
-            {
-              ghRepoId: context.ghRepoId,
-              pullRequestIds,
-            },
-          ),
-        ),
-      ),
+      readGitHubPullRequestResourceHeadReads({
+        octokit,
+        signal,
+        ghRepoId: context.ghRepoId,
+        pullRequestIds: args.pullRequestIds,
+      }),
     ]);
-    const headReads = headReadBatches.flat();
     const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
     const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
     const convexToken =
@@ -733,7 +809,12 @@ export const getPullRequestResources = action({
               convexTeamId,
               previewReads,
             });
-          } catch {
+          } catch (error) {
+            reportPullRequestProviderFailure({
+              operation: "read_cloudflare_worker_resources",
+              error,
+              workerId: worker.workerId,
+            });
             return unavailableWorkerResources({
               heads,
               worker,

@@ -43,11 +43,11 @@ function providerPage() {
                     statusCheckRollup: {
                       state: "SUCCESS",
                       contexts: {
-                        totalCount: 1,
+                        totalCount: 2,
                         checkRunCount: 1,
-                        statusContextCount: 0,
+                        statusContextCount: 1,
                         checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
-                        statusContextCountsByState: [],
+                        statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
                       },
                     },
                   },
@@ -82,6 +82,31 @@ describe("normalizeGitHubPullRequestPage", () => {
             }),
           ],
         },
+      },
+    });
+  });
+
+  it("normalizes future GitHub check enums without rejecting the page", () => {
+    const value = providerPage();
+    const rollup = value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup;
+    rollup.state = "FUTURE_ROLLUP_STATE";
+    rollup.contexts.totalCount = 2;
+    rollup.contexts.statusContextCount = 1;
+    rollup.contexts.checkRunCountsByState = [{ state: "FUTURE_CHECK_RUN_STATE", count: 1 }];
+    rollup.contexts.statusContextCountsByState = [
+      { state: "FUTURE_STATUS_CONTEXT_STATE", count: 1 },
+    ];
+
+    expect(
+      normalizeGitHubPullRequestPage(value).repository?.pullRequests.nodes[0].statusCheckRollup,
+    ).toEqual({
+      state: "UNKNOWN",
+      contexts: {
+        totalCount: 2,
+        checkRunCount: 1,
+        statusContextCount: 1,
+        checkRunCountsByState: [{ state: "UNKNOWN", count: 1 }],
+        statusContextCountsByState: [{ state: "UNKNOWN", count: 1 }],
       },
     });
   });

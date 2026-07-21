@@ -5,7 +5,9 @@ import type { CloudflareWorkerBuild } from "../cloudflareResources";
 import {
   matchCloudflareWorkerBuild,
   normalizeGitHubPullRequestResourceHeadReads,
+  recoverGitHubPullRequestResourceHeadsFromError,
   resolveConvexPreviewDeployment,
+  validatePullRequestResourceIds,
   type PullRequestResourceHead,
 } from "./pullRequestResources";
 
@@ -84,6 +86,23 @@ function previewDeployment(
     reference: args.reference ?? "preview/feature/live-truth",
     region: "aws-us-east-1",
   };
+}
+
+function pullRequestNodeGraphqlError(args: { data: unknown; type?: string }) {
+  const error = new Error("Request failed due to following response errors");
+  error.name = "GraphqlResponseError";
+  return Object.assign(error, {
+    data: args.data,
+    errors: [
+      {
+        type: args.type ?? "NOT_FOUND",
+        message: "Could not resolve to a node.",
+        path: ["nodes"],
+        extensions: {},
+        locations: [{ line: 1, column: 34 }],
+      },
+    ],
+  });
 }
 
 describe("matchCloudflareWorkerBuild", () => {
@@ -233,6 +252,61 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
       { state: "unavailable", pullRequestId: "PR_17" },
       { state: "unavailable", pullRequestId: "PR_18" },
     ]);
+  });
+
+  it("recovers valid siblings when GitHub reports only missing nodes", () => {
+    const error = pullRequestNodeGraphqlError({ data: { nodes: [providerHead, null] } });
+    const response = recoverGitHubPullRequestResourceHeadsFromError(error);
+
+    expect(
+      normalizeGitHubPullRequestResourceHeadReads(response, {
+        ghRepoId: "42",
+        pullRequestIds: ["PR_17", "PR_18"],
+      }),
+    ).toEqual([
+      { state: "available", head },
+      { state: "unavailable", pullRequestId: "PR_18" },
+    ]);
+  });
+
+  it("rejects a partial response when any GraphQL failure is not a missing node", () => {
+    const error = pullRequestNodeGraphqlError({ data: { nodes: [providerHead, null] } });
+    error.errors.push({
+      type: "FORBIDDEN",
+      message: "Resource not accessible by integration.",
+      path: ["nodes"],
+      extensions: {},
+      locations: [{ line: 1, column: 34 }],
+    });
+
+    expect(() => recoverGitHubPullRequestResourceHeadsFromError(error)).toThrow(
+      "Request failed due to following response errors",
+    );
+  });
+});
+
+describe("validatePullRequestResourceIds", () => {
+  it("accepts a single provider identity and the maximum batch", () => {
+    expect(() => validatePullRequestResourceIds(["PR_1"])).not.toThrow();
+    expect(() =>
+      validatePullRequestResourceIds(
+        Array.from({ length: 100 }, (_value, index) => `PR_${index + 1}`),
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects empty, oversized, and duplicate batches before provider work", () => {
+    expect(() => validatePullRequestResourceIds([])).toThrow(
+      "Pull request resource count must be between 1 and 100.",
+    );
+    expect(() =>
+      validatePullRequestResourceIds(
+        Array.from({ length: 101 }, (_value, index) => `PR_${index + 1}`),
+      ),
+    ).toThrow("Pull request resource count must be between 1 and 100.");
+    expect(() => validatePullRequestResourceIds(["PR_1", "PR_1"])).toThrow(
+      "Pull request identity was invalid or duplicated.",
+    );
   });
 });
 

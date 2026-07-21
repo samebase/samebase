@@ -253,6 +253,50 @@ describe("vault dashboard Convex contract", () => {
     );
   });
 
+  it("lists pull request filters in stable vault order", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const firstVaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const secondVaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const vaultIds = [firstVaultId, secondVaultId].sort((left, right) =>
+        left.localeCompare(right),
+      );
+
+      for (const vaultId of [...vaultIds].reverse()) {
+        await ctx.db.insert("ui_vaultPullRequests_filters", {
+          userId,
+          vaultId,
+          hiddenLabels: [`hidden-${vaultId}`],
+          includeDrafts: false,
+          includeNoLabel: true,
+        });
+      }
+
+      return { userId, vaultIds };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const filters = await asUser.query(api.vault.dashboard.getUserVaultPullRequestFilters);
+
+    expect(filters.map((filter) => filter.vaultId)).toEqual(ids.vaultIds);
+  });
+
   it("rejects duplicate existing repository targets before GitHub fetch", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

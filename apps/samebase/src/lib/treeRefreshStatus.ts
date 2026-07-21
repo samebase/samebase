@@ -19,8 +19,8 @@ type TreeRefreshUiState =
   | { kind: "idle" };
 
 /**
- * Collapses the shared repo refresh timestamps into the UI state used by the
- * dashboard and sync strip.
+ * Collapses the connected vault's live tree-refresh coordination fields into
+ * the state rendered by FileView's repository sync status.
  *
  * Precedence matters here: a non-stale treeRefreshStartedAt lock wins first,
  * then an active treeRefreshCooldownUntil window, then a lastTreeRefreshFailedAt

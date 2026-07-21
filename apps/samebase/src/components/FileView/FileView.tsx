@@ -767,7 +767,7 @@ function FileViewInner({
     queryFn: () => getOpenPullRequestForBranch({ vaultId: vault._id, branch }),
     enabled: !isDefaultBranch,
     staleTime: 60_000,
-    retry: 1,
+    retry: false,
   });
   const selectedFileIsRenderableMedia = isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;
@@ -2637,9 +2637,10 @@ function FileViewInner({
           Commit failed: {commitError}
         </div>
       ) : null}
-      {draftPullRequestError ? (
-        <DraftPullRequestFeedbackBanner message={draftPullRequestError} />
-      ) : null}
+      <DraftPullRequestFeedbackBanner
+        message={draftPullRequestError}
+        branchPullRequestLookupFailed={!isDefaultBranch && branchPullRequestQuery.isError}
+      />
       {branchComparePreviewError ? (
         <div className="mb-3 corner-notch-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
           {branchComparePreviewError}

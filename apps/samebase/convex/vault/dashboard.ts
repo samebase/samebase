@@ -420,7 +420,7 @@ export const getUserVaultPullRequestFilters = query({
   args: {},
   returns: array(vVaultPullRequestFilters),
   handler: async (ctx) => {
-    return (
+    const filters = (
       await ctx.db
         .query("ui_vaultPullRequests_filters")
         .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
@@ -431,6 +431,8 @@ export const getUserVaultPullRequestFilters = query({
       includeDrafts: vaultPullRequestFilter.includeDrafts,
       includeNoLabel: vaultPullRequestFilter.includeNoLabel,
     }));
+
+    return filters.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
   },
 });
 

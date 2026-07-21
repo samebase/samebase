@@ -37,10 +37,11 @@ function checkRunState(state: CheckRunProviderState): CheckState {
     case "SKIPPED":
       return "neutral";
     case "COMPLETED":
+    case "UNKNOWN":
       return "unknown";
     default:
       state satisfies never;
-      throw new Error("Unknown GitHub check state.");
+      return "unknown";
   }
 }
 
@@ -54,9 +55,11 @@ function statusContextState(state: StatusContextProviderState): CheckState {
     case "EXPECTED":
     case "PENDING":
       return "running";
+    case "UNKNOWN":
+      return "unknown";
     default:
       state satisfies never;
-      throw new Error("Unknown GitHub status state.");
+      return "unknown";
   }
 }
 
