@@ -1031,6 +1031,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/vault-dashboard/VaultResourceRail.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultResourceRailVisualFixture.tsx",
   "apps/samebase/src/components/vault-dashboard/samebaseSchemaGraphZones.ts",
+  "apps/samebase/src/components/vault-dashboard/useVaultProviderObservations.test.tsx",
   "apps/samebase/src/components/vault-dashboard/useVaultProviderObservations.ts",
   "apps/samebase/src/components/vault-dashboard/vaultDashboardBranchFilters.test.ts",
   "apps/samebase/src/components/vault-dashboard/vaultDashboardBranchFilters.ts",

@@ -4151,6 +4151,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           blobSha: config.blobSha,
         });
       }
+      void providerObservations.invalidate();
       setConvexConfigPathRepairTarget(null);
       resetConvexDialogState();
       closeVaultDashboardDialog("add-convex");
@@ -4184,6 +4185,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           workerTag: cloudflareWorkerToConnect.workerTag,
           rootDirectory: cloudflareCreateRootDirectory,
         });
+        void providerObservations.invalidate();
         markCloudflareConnectDialogWorkerAdded(cloudflareWorkerToConnect.workerTag);
         if (result.state === "added_with_notice") {
           setCloudflareConnectDialogError(result.message);
@@ -4216,6 +4218,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           rootDirectory: cloudflareCreateRootDirectory,
         });
       }
+      void providerObservations.invalidate();
       setCloudflareBuildsRepairTarget(null);
       resetCloudflareDialogState();
       closeVaultDashboardDialog("add-cloudflare");
