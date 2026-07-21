@@ -6,7 +6,7 @@
 - Owner: Samebase frontend/editor and Convex vault/GitHub
 - Last updated: 2026-07-21
 - Related specs:
-  - [Pull request provider query](./115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
+  - [Pull request provider query](./116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
   - [Vault route surface](./110_VAULT_ROUTE_SURFACE_SPEC.md)
 
 ## Current Contract

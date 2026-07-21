@@ -376,7 +376,7 @@ function compareConvexProjectSortOrder(left: ConvexProject, right: ConvexProject
   );
 }
 
-const vVaultBranchFilters = object({
+const vVaultPullRequestFilters = object({
   vaultId: id("vaults"),
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
@@ -415,10 +415,10 @@ export const listVaultRepositoryFolderSuggestions = query({
   },
 });
 
-export const getUserVaultBranchFilters = query({
+export const getUserVaultPullRequestFilters = query({
   access: "access_dashboard",
   args: {},
-  returns: array(vVaultBranchFilters),
+  returns: array(vVaultPullRequestFilters),
   handler: async (ctx) => {
     return (
       await ctx.db
@@ -489,9 +489,9 @@ export const setVaultResourceLinksOpen = mutation({
   },
 });
 
-export const setVaultBranchFilters = mutation({
+export const setVaultPullRequestFilters = mutation({
   access: "access_dashboard",
-  args: vVaultBranchFilters,
+  args: vVaultPullRequestFilters,
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;

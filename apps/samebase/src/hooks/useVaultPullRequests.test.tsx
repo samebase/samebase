@@ -34,6 +34,16 @@ function fakeVaultId(): Id<"vaults"> {
   return "vault:test";
 }
 
+function fakeCloudflareWorkerId(): Id<"vaultCloudflareWorkers"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
+  return "worker:test";
+}
+
+function fakeConvexProjectId(): Id<"vaultConvexProjects"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
+  return "project:test";
+}
+
 function page(args: {
   number: number;
   endCursor: string | null;
@@ -89,13 +99,25 @@ let currentFilters = {
   includeDrafts: false,
   includeNoLabel: true,
 };
+let currentCloudflareWorkers: Array<{
+  workerId: Id<"vaultCloudflareWorkers">;
+  accountId: string;
+  workerName: string;
+  workerTag: string;
+}> = [];
+let currentConvexProjects: Array<{
+  convexProjectId: Id<"vaultConvexProjects">;
+  teamId: string;
+  projectId: string;
+  convexConfigPath: string;
+}> = [];
 
 function Harness() {
   latestState = useVaultPullRequests({
     vault: {
       _id: fakeVaultId(),
-      cloudflareWorkers: [],
-      convexProjects: [],
+      cloudflareWorkers: currentCloudflareWorkers,
+      convexProjects: currentConvexProjects,
     },
     filters: currentFilters,
     now: Date.now(),
@@ -154,6 +176,8 @@ beforeEach(() => {
     includeDrafts: false,
     includeNoLabel: true,
   };
+  currentCloudflareWorkers = [];
+  currentConvexProjects = [];
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -299,6 +323,70 @@ describe("useVaultPullRequests", () => {
 
     expect(listHandler).toHaveBeenCalledTimes(1);
     expect(resourceHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("caches resource enrichment by provider page and exact attachment coordinates", async () => {
+    const listHandler = vi.fn(async (value: unknown) => {
+      if (!value || typeof value !== "object" || !("after" in value)) {
+        throw new Error("Provider cursor is required.");
+      }
+      return value.after === null
+        ? page({ number: 1260, endCursor: "cursor:2" })
+        : page({ number: 1259, endCursor: null });
+    });
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    const resourceHandler = installResourceHandler();
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") && state.resourceState === "current",
+    );
+    act(() => settledState().loadMore());
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 2 &&
+        state.resourceState === "current",
+    );
+
+    expect(resourceHandler.mock.calls.map((call) => call[0])).toEqual([
+      { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1260"] },
+      { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1259"] },
+    ]);
+
+    currentCloudflareWorkers = [
+      {
+        workerId: fakeCloudflareWorkerId(),
+        accountId: "account:test",
+        workerName: "samebase-worker",
+        workerTag: "worker-tag:test",
+      },
+    ];
+    currentConvexProjects = [
+      {
+        convexProjectId: fakeConvexProjectId(),
+        teamId: "team:test",
+        projectId: "project:test",
+        convexConfigPath: "apps/samebase/convex.json",
+      },
+    ];
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        resourceHandler.mock.calls.length === 4 &&
+        state.resourceState === "current",
+    );
+
+    expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
+      { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1260"] },
+      { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1259"] },
+    ]);
+    expect(listHandler).toHaveBeenCalledTimes(2);
   });
 
   it("retains every loaded provider page as stale when a reload fails", async () => {

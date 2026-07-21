@@ -1,6 +1,5 @@
 import { linkStyle } from "@/components/styles";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -413,11 +412,8 @@ export function VaultPullRequestList({
   }
   if (pullRequests.state === "problem") {
     return (
-      <div className="flex min-h-14 items-center justify-between gap-3 px-3 py-3.5 text-sm">
-        <span className="text-muted-foreground">Could not load pull requests</span>
-        <Button type="button" variant="ghost" size="sm" onClick={pullRequests.reload}>
-          Retry
-        </Button>
+      <div className="min-h-14 px-3 py-3.5 text-sm text-muted-foreground">
+        Could not load pull requests
       </div>
     );
   }

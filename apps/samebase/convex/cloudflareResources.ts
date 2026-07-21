@@ -325,7 +325,7 @@ function readTrimmedCloudflareString(value: string | undefined): string | null {
   return trimmed && trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeCloudflareBuildRoot(value: string | null | undefined): string | null {
+export function normalizeCloudflareBuildRoot(value: string | null | undefined): string | null {
   let root = value?.trim();
   if (!root) {
     return null;

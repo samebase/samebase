@@ -733,11 +733,14 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
+  const resourceRail = fixture.getByTestId("vault-resource-rail");
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
+  await expect(resourceRail.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(
+    0,
+  );
   await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
@@ -747,12 +750,14 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
-  await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
-  await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
-  await expect(fixture.getByText("apps/samebase", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("Needs attention", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("domain-router", { exact: true })).toBeVisible();
+  await expect(
+    resourceRail.getByRole("link", { name: "Open GitHub: samebase/samebase" }),
+  ).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Convex...")).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Cloudflare...")).toHaveCount(2);
+  await expect(resourceRail.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("Needs attention", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("domain-router", { exact: true })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "Open pull request 1260 on GitHub",
@@ -889,11 +894,14 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
+  const resourceRail = fixture.getByTestId("vault-resource-rail");
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
+  await expect(resourceRail.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(
+    0,
+  );
   await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -903,12 +911,14 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
-  await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
-  await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
-  await expect(fixture.getByText("apps/samebase", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("Needs attention", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("domain-router", { exact: true })).toBeVisible();
+  await expect(
+    resourceRail.getByRole("link", { name: "Open GitHub: samebase/samebase" }),
+  ).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Convex...")).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Cloudflare...")).toHaveCount(2);
+  await expect(resourceRail.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("Needs attention", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("domain-router", { exact: true })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "Open pull request 1260 on GitHub",

@@ -21,7 +21,7 @@
 
 The persisted refresh and check-snapshot design below has been deleted. The dashboard now reads
 GitHub pull request pages and grouped check counts live under
-`specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
+`specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
 
 ## Problem
 

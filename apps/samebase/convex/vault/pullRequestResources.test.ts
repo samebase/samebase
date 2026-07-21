@@ -24,9 +24,12 @@ function cloudflareBuild(
     commitHash?: string;
     createdOn?: string;
     externalScriptId?: string;
+    metadataDeployCommand?: string;
+    metadataRootDirectory?: string;
     pullRequestUrl?: string;
     repoId?: string;
     rootDirectory?: string;
+    triggerDeployCommand?: string;
     triggerUuid?: string;
   } = {},
 ): CloudflareWorkerBuild {
@@ -45,11 +48,11 @@ function cloudflareBuild(
       branch: "feature/live-truth",
       build_trigger_source: "pull_request",
       commit_hash: args.commitHash ?? "abc123",
-      deploy_command: "pnpm run deploy:preview",
-      root_directory: rootDirectory,
+      deploy_command: args.metadataDeployCommand ?? "pnpm run deploy:preview",
+      root_directory: args.metadataRootDirectory ?? rootDirectory,
     },
     trigger: {
-      deploy_command: "pnpm run deploy:preview",
+      deploy_command: args.triggerDeployCommand ?? "pnpm run deploy:preview",
       external_script_id: args.externalScriptId ?? "stable-worker-tag",
       repo_connection: { repo_id: args.repoId ?? "42" },
       root_directory: rootDirectory,
@@ -92,7 +95,6 @@ describe("matchCloudflareWorkerBuild", () => {
         worker: { workerTag: "stable-worker-tag", rootDirectory: "/" },
         ghRepoId: "42",
         previewTriggerUuid: "preview-trigger",
-        previewDeployCommand: "pnpm run deploy:preview",
       }),
     ).toEqual({
       state: "available",
@@ -105,7 +107,7 @@ describe("matchCloudflareWorkerBuild", () => {
   it.each([
     ["Worker tag", { externalScriptId: "replacement-tag" }],
     ["repository", { repoId: "99" }],
-    ["app root", { rootDirectory: "apps/docs" }],
+    ["Workers Builds root", { rootDirectory: "apps/docs" }],
     ["preview trigger", { triggerUuid: "production-trigger" }],
   ])("refuses exact commit evidence when the %s disagrees", (_label, overrides) => {
     expect(
@@ -115,7 +117,6 @@ describe("matchCloudflareWorkerBuild", () => {
         worker: { workerTag: "stable-worker-tag", rootDirectory: "/" },
         ghRepoId: "42",
         previewTriggerUuid: "preview-trigger",
-        previewDeployCommand: "pnpm run deploy:preview",
       }),
     ).toEqual({ state: "provider_disagreement" });
   });
@@ -133,7 +134,6 @@ describe("matchCloudflareWorkerBuild", () => {
         worker: { workerTag: "stable-worker-tag", rootDirectory: "/" },
         ghRepoId: "42",
         previewTriggerUuid: "preview-trigger",
-        previewDeployCommand: "pnpm run deploy:preview",
       }),
     ).toEqual({ state: "absent" });
   });
@@ -154,13 +154,41 @@ describe("matchCloudflareWorkerBuild", () => {
       worker: { workerTag: "stable-worker-tag", rootDirectory: "/" },
       ghRepoId: "42",
       previewTriggerUuid: "preview-trigger",
-      previewDeployCommand: "pnpm run deploy:preview",
     });
 
     expect(result).toMatchObject({
       state: "available",
       createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
     });
+  });
+
+  it("normalizes equivalent Cloudflare root spellings", () => {
+    expect(
+      matchCloudflareWorkerBuild({
+        builds: [
+          cloudflareBuild({
+            rootDirectory: "./apps/site/",
+            metadataRootDirectory: "/apps/site",
+          }),
+        ],
+        head,
+        worker: { workerTag: "stable-worker-tag", rootDirectory: "apps/site" },
+        ghRepoId: "42",
+        previewTriggerUuid: "preview-trigger",
+      }),
+    ).toMatchObject({ state: "available" });
+  });
+
+  it("rejects build metadata that disagrees with its trigger deploy command", () => {
+    expect(
+      matchCloudflareWorkerBuild({
+        builds: [cloudflareBuild({ metadataDeployCommand: "pnpm run deploy:other" })],
+        head,
+        worker: { workerTag: "stable-worker-tag", rootDirectory: "/" },
+        ghRepoId: "42",
+        previewTriggerUuid: "preview-trigger",
+      }),
+    ).toEqual({ state: "provider_disagreement" });
   });
 });
 

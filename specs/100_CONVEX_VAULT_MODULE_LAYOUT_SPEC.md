@@ -7,7 +7,7 @@
 - Last updated: 2026-07-21
 - Related docs:
   - [Vault deletion workflow](./098_VAULT_DELETION_WORKFLOW_SPEC.md)
-  - [Pull request provider query](./115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
+  - [Pull request provider query](./116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 
 ## Current Contract
 

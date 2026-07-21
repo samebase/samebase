@@ -12,7 +12,7 @@
   - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 
 The branch-tip table and commit-check snapshot model below has been deleted. The current dashboard
-is a live pull request surface governed by `specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
+is a live pull request surface governed by `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
 
 ## Problem
 

@@ -15,7 +15,7 @@
 
 The direct-link model in this RFC depended on the deleted `vaultDomains` and branch mirrors. The
 current dashboard resolves Worker builds and Convex previews live for GitHub pull request ids under
-`specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`. Thumbnail ideas below remain historical research,
+`specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`. Thumbnail ideas below remain historical research,
 not an active storage proposal.
 
 ## Summary

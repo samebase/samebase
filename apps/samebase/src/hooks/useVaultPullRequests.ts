@@ -10,7 +10,7 @@ import {
   type VaultPullRequestFilters,
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import { summarizePullRequestChecks, type PullRequestCheckSummary } from "@/lib/pullRequestChecks";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
 
@@ -26,8 +26,18 @@ type ObservedPullRequestPage = {
 
 type VaultPullRequestTarget = {
   _id: Id<"vaults">;
-  cloudflareWorkers: readonly { workerId: Id<"vaultCloudflareWorkers"> }[];
-  convexProjects: readonly { convexProjectId: Id<"vaultConvexProjects"> }[];
+  cloudflareWorkers: readonly {
+    workerId: Id<"vaultCloudflareWorkers">;
+    accountId: string;
+    workerName: string;
+    workerTag: string;
+  }[];
+  convexProjects: readonly {
+    convexProjectId: Id<"vaultConvexProjects">;
+    teamId: string;
+    projectId: string;
+    convexConfigPath: string;
+  }[];
 };
 
 export type VaultPullRequest = Omit<RepositoryPullRequest, "labels"> & {
@@ -58,7 +68,7 @@ type SettledPullRequests = {
 export type VaultPullRequestsState =
   | { state: "not_requested" }
   | { state: "loading" }
-  | { state: "problem"; reload: () => void }
+  | { state: "problem" }
   | SettledPullRequests;
 
 function pullRequestsFromPage(
@@ -111,6 +121,20 @@ function uniquePullRequests(pages: readonly RepositoryPullRequestPage[]): Reposi
   );
 }
 
+function uniquePullRequestIdPages(pages: readonly RepositoryPullRequestPage[]): string[][] {
+  const seen = new Set<string>();
+  return pages.flatMap((page) => {
+    const pullRequestIds = pullRequestsFromPage(page).flatMap((pullRequest) => {
+      if (seen.has(pullRequest.id)) {
+        return [];
+      }
+      seen.add(pullRequest.id);
+      return [pullRequest.id];
+    });
+    return pullRequestIds.length > 0 ? [pullRequestIds] : [];
+  });
+}
+
 export function useVaultPullRequests(args: {
   vault: VaultPullRequestTarget | null;
   filters: VaultPullRequestFilters;
@@ -119,12 +143,22 @@ export function useVaultPullRequests(args: {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const getPullRequestResources = useAction(api.vault.pullRequestResources.getPullRequestResources);
   const vaultId = args.vault?._id;
-  const workerIds = [...(args.vault?.cloudflareWorkers ?? [])]
-    .map((worker) => worker.workerId)
-    .sort((left, right) => left.localeCompare(right));
-  const projectIds = [...(args.vault?.convexProjects ?? [])]
-    .map((project) => project.convexProjectId)
-    .sort((left, right) => left.localeCompare(right));
+  const workerAttachments = [...(args.vault?.cloudflareWorkers ?? [])]
+    .map((worker) => ({
+      workerId: worker.workerId,
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    }))
+    .sort((left, right) => left.workerId.localeCompare(right.workerId));
+  const projectAttachments = [...(args.vault?.convexProjects ?? [])]
+    .map((project) => ({
+      convexProjectId: project.convexProjectId,
+      teamId: project.teamId,
+      projectId: project.projectId,
+      convexConfigPath: project.convexConfigPath,
+    }))
+    .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
   const pullRequestQuery = useInfiniteQuery({
     queryKey: ["vault-pull-requests", vaultId],
     queryFn: async ({ pageParam }) => {
@@ -163,49 +197,58 @@ export function useVaultPullRequests(args: {
     () => filterVaultPullRequests(allPullRequests, args.filters),
     [allPullRequests, args.filters],
   );
-  const pullRequestIds = useMemo(
-    () => allPullRequests.map((pullRequest) => pullRequest.id),
-    [allPullRequests],
-  );
-  const resourceQuery = useQuery({
-    queryKey: ["vault-pull-request-resources", vaultId, workerIds, projectIds, pullRequestIds],
-    queryFn: async () => {
-      if (!vaultId) {
-        throw new Error("Vault is required to load pull request resources.");
-      }
-      return await getPullRequestResources({ vaultId, pullRequestIds });
-    },
-    enabled: Boolean(vaultId && pullRequestIds.length > 0),
-    staleTime: PULL_REQUEST_STALE_MS,
-    gcTime: PULL_REQUEST_GC_MS,
-    retry: false,
-    refetchInterval: (query: { state: { data: PullRequestResources[] | undefined } }) =>
-      resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
-    refetchIntervalInBackground: false,
+  const pullRequestIdPages = useMemo(() => uniquePullRequestIdPages(pages), [pages]);
+  const resourceQueries = useQueries({
+    queries: pullRequestIdPages.map((pagePullRequestIds) => ({
+      queryKey: [
+        "vault-provider-observations",
+        vaultId,
+        "pull-request-resources",
+        workerAttachments,
+        projectAttachments,
+        pagePullRequestIds,
+      ],
+      queryFn: async () => {
+        if (!vaultId) {
+          throw new Error("Vault is required to load pull request resources.");
+        }
+        return await getPullRequestResources({ vaultId, pullRequestIds: pagePullRequestIds });
+      },
+      enabled: Boolean(vaultId),
+      staleTime: PULL_REQUEST_STALE_MS,
+      gcTime: PULL_REQUEST_GC_MS,
+      retry: false,
+      refetchInterval: (query: { state: { data: PullRequestResources[] | undefined } }) =>
+        resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
+      refetchIntervalInBackground: false,
+    })),
   });
 
   const resourcesByPullRequestId = useMemo(() => {
     const resources = new Map<string, PullRequestResourceState>();
-    const byPullRequestId = new Map(
-      (resourceQuery.data ?? []).map((pullRequest) => [pullRequest.pullRequestId, pullRequest]),
-    );
-    for (const pullRequestId of pullRequestIds) {
-      const pullRequestResources = byPullRequestId.get(pullRequestId);
-      if (!pullRequestResources) {
-        resources.set(pullRequestId, { state: resourceQuery.isError ? "failed" : "loading" });
-        continue;
+    pullRequestIdPages.forEach((pagePullRequestIds, pageIndex) => {
+      const resourceQuery = resourceQueries[pageIndex];
+      const byPullRequestId = new Map(
+        (resourceQuery.data ?? []).map((pullRequest) => [pullRequest.pullRequestId, pullRequest]),
+      );
+      for (const pullRequestId of pagePullRequestIds) {
+        const pullRequestResources = byPullRequestId.get(pullRequestId);
+        if (!pullRequestResources) {
+          resources.set(pullRequestId, { state: resourceQuery.isError ? "failed" : "loading" });
+          continue;
+        }
+        resources.set(pullRequestId, {
+          state:
+            resourceQuery.isRefetchError ||
+            args.now > resourceQuery.dataUpdatedAt + PULL_REQUEST_STALE_MS
+              ? "stale"
+              : "current",
+          resources: pullRequestResources,
+        });
       }
-      resources.set(pullRequestId, {
-        state:
-          resourceQuery.isRefetchError ||
-          args.now > resourceQuery.dataUpdatedAt + PULL_REQUEST_STALE_MS
-            ? "stale"
-            : "current",
-        resources: pullRequestResources,
-      });
-    }
+    });
     return resources;
-  }, [args.now, pullRequestIds, resourceQuery]);
+  }, [args.now, pullRequestIdPages, resourceQueries]);
 
   const resourceStates = [...resourcesByPullRequestId.values()].map((resource) => resource.state);
   const resourceState = resourceStates.includes("failed")
@@ -225,15 +268,11 @@ export function useVaultPullRequests(args: {
     }
     void fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage]);
-  const reload = () => {
-    void pullRequestQuery.refetch();
-  };
-
   if (!vaultId) {
     return { state: "not_requested" };
   }
   if (!pullRequestQuery.data) {
-    return pullRequestQuery.isError ? { state: "problem", reload } : { state: "loading" };
+    return pullRequestQuery.isError ? { state: "problem" } : { state: "loading" };
   }
 
   const lastPage = pages.at(-1);
@@ -254,7 +293,7 @@ export function useVaultPullRequests(args: {
         : "current",
     pullRequests,
     allPullRequests,
-    refreshing: pullRequestQuery.isFetching || resourceQuery.isFetching,
+    refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),
     resourceState,
     resourcesByPullRequestId,
     hasMore,

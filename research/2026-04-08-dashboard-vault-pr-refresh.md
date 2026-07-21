@@ -17,7 +17,7 @@ when the repository has changed upstream.
 ## Supersession Note
 
 This investigation and the later repository refresh queue are both superseded. Use
-`specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`: the dashboard reads GitHub pull request pages live
+`specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`: the dashboard reads GitHub pull request pages live
 through TanStack Query and has no repository refresh queue or branch mirror. The remainder of this
 file is historical investigation, not current implementation guidance.
 

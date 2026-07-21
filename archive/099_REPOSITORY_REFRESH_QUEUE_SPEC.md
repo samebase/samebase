@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Superseded by `specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`
+- Status: Superseded by `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`
 - Owner: dashboard reload, GitHub sync, branch cache freshness
 - Created: 2026-05-11
 - Related docs:

@@ -91,7 +91,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId: ids.vaultId,
         branch: "main",
-        treeSHA: "tree",
         commitSHA: "commit",
         lastTreeRefreshAt: 30,
         treeData: {
@@ -147,7 +146,6 @@ describe("vault dashboard Convex contract", () => {
       _id: ids.vaultId,
       hasConnectedGitHubRepository: false,
       repositoryFullName: "ada/existing-app",
-      state: "copying_files",
       sourceSetup: {
         status: "running",
         runId: ids.runId,
@@ -448,7 +446,6 @@ describe("vault dashboard Convex contract", () => {
       _id: ids.vaultId,
       hasConnectedGitHubRepository: true,
       repositoryFullName: "ada/imported",
-      state: "copying_files",
       sourceSetup: {
         status: "failed",
         runId: ids.runId,
@@ -578,7 +575,6 @@ describe("vault dashboard Convex contract", () => {
       _id: ids.vaultId,
       hasConnectedGitHubRepository: true,
       repositoryFullName: "ada/source-setup-failed",
-      state: "copying_files",
       sourceSetup: {
         status: "failed",
         runId: ids.runId,
@@ -641,7 +637,6 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       hasConnectedGitHubRepository: true,
-      state: "copying_files",
       sourceSetup: {
         status: "failed",
         runId: ids.runId,
@@ -692,7 +687,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
         commitSHA: "commit",
         treeData: {
           sha: "tree",
@@ -723,7 +717,6 @@ describe("vault dashboard Convex contract", () => {
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
-      state: "ready",
       hasConvexProvision: true,
       hasCloudflareProvision: false,
       providerSetup: {
@@ -798,7 +791,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
         commitSHA: "commit",
         treeData: {
           sha: "tree",
@@ -900,7 +892,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
         commitSHA: "commit",
         treeData: {
           sha: "tree",
@@ -1046,7 +1037,6 @@ describe("vault dashboard Convex contract", () => {
         await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
           branch: "main",
-          treeSHA: "tree",
           commitSHA: "commit",
           treeData: {
             sha: "tree",
@@ -1081,7 +1071,7 @@ describe("vault dashboard Convex contract", () => {
     }
   });
 
-  it("keeps setup progress visible before provisioning lock acquisition", async () => {
+  it("keeps source setup progress visible before provider provisioning starts", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -1121,7 +1111,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
         commitSHA: "commit",
         treeData: {
           sha: "tree",
@@ -1143,15 +1132,13 @@ describe("vault dashboard Convex contract", () => {
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
-      state: "ready",
-      sourceSetup: { status: "ready" },
-      providerSetup: {
+      sourceSetup: {
         status: "running",
-        provider: "convex",
         runId: ids.runId,
         step: "sync_tree",
         updatedAt: 30,
       },
+      providerSetup: { status: "not_applicable" },
     });
   });
 
@@ -1196,7 +1183,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
         commitSHA: "commit",
         treeData: {
           sha: "tree",
@@ -1314,7 +1300,6 @@ describe("vault dashboard Convex contract", () => {
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
-      state: "failed",
       deletion: { state: "delete_failed" },
       hasConvexProvision: true,
       canRemoveConvexProvision: true,
@@ -1339,7 +1324,7 @@ describe("vault dashboard Convex contract", () => {
         await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
           branch: `branch-${index}`,
-          treeSHA: `tree-${index}`,
+          commitSHA: `commit-${index}`,
           treeData: {
             sha: `tree-${index}`,
             truncated: false,
@@ -1502,7 +1487,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
+        commitSHA: "commit",
         treeData: {
           sha: "tree",
           truncated: false,

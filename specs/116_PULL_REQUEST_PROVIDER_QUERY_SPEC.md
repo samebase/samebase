@@ -19,7 +19,7 @@ Samebase persists only state it owns:
 
 - vault and repository identity;
 - saved pull request filter preferences;
-- stable app, Worker, and Convex project attachments;
+- stable Worker and Convex project attachments;
 - durable workflow plans, runs, events, and locks for operations Samebase performs.
 
 GitHub owns pull request fields and checks. Cloudflare owns Worker builds. Convex owns preview
@@ -62,9 +62,12 @@ re-reads those open pull requests from GitHub, verifies their repository identit
 and derives URL, fork, head repository, branch, and commit identity from that response. Client data
 never proves resource ownership.
 
-The request joins live GitHub, Cloudflare, and Convex responses against the stable attachment graph;
-it does not persist a pull request resource model. Resource requests are independent of browser
-filters so changing presentation preferences does not repeat provider scans.
+The request joins live GitHub, Cloudflare, and Convex responses against the direct Worker and Convex
+project attachments. It does not persist a pull request resource model. The browser caches one
+resource request for each loaded GitHub page under the common vault-provider observation namespace,
+keyed by the exact attachment coordinates and pull request node ids. Loading another page does not
+re-read resource data for earlier pages. Resource requests are independent of browser filters, so
+changing presentation preferences does not repeat provider scans.
 
 The stable GitHub repository id proves repository identity. A repository coordinate rename does not
 invalidate that identity. If one requested pull request closes, merges, or disappears between the
@@ -72,15 +75,21 @@ page read and the resource read, only that row becomes unavailable; the rest of 
 still resolves.
 
 A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, GitHub
-repository id, app root, preview trigger, pull request URL, head SHA, branch, and deploy command.
+repository id, live normalized Builds root, preview trigger, pull request URL, head SHA, branch, and
+the deploy command reported by both the trigger and build metadata. Samebase does not compare that
+provider-owned command with a locally generated template. If Samebase cannot observe the Worker and
+its Builds repository, the row exposes only stable Worker identity and does not invent a root.
 
 A Convex preview belongs to that build only when:
 
 1. the pull request head is in the vault repository;
 2. the Worker build succeeded;
-3. the Worker's current build configuration points to the attached Convex project for the same app;
-4. one provider deployment matches the branch identifier and reference;
-5. the deployment time falls inside the Worker build interval.
+3. both Worker triggers expose one consistent `SAMEBASE_CONVEX_PROJECT` marker whose stable
+   `projectId` resolves to a direct Convex attachment;
+4. the current Convex credential can read that exact project under its current team, even when the
+   attachment's stored team coordinate has drifted;
+5. one provider deployment matches the branch identifier and reference;
+6. the deployment time falls inside the Worker build interval.
 
 Failure to prove a relationship yields absent or unavailable presentation state. Names alone never
 create resource ownership.

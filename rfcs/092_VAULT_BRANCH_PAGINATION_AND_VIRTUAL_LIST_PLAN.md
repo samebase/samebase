@@ -30,7 +30,7 @@
 
 This plan describes the deleted Convex branch catalog and server-side ranking model. The current
 dashboard forwards GitHub's native pull request cursor through a browser-owned TanStack infinite
-query as specified by `specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
+query as specified by `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
 
 ## Summary
 

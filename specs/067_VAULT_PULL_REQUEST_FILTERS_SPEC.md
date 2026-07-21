@@ -5,7 +5,7 @@
 - Status: Accepted and implemented
 - Owner: Samebase dashboard/frontend
 - Last updated: 2026-07-21
-- Related spec: [Pull request provider query](./115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
+- Related spec: [Pull request provider query](./116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 
 ## Current Contract
 

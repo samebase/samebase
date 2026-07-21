@@ -16,7 +16,7 @@
   - [GitHub REST: pull requests](https://docs.github.com/en/rest/pulls/pulls)
 
 The compare-mode behavior remains current. Its original branch-mirror backend notes are superseded
-by `specs/115_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`: FileView resolves the exact branch's open pull
+by `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`: FileView resolves the exact branch's open pull
 request live and caches only that branch's exact repository tree.
 
 ## Summary

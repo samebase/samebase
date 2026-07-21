@@ -130,10 +130,8 @@ describe("VaultPullRequestList", () => {
 
   it("keeps provider pagination available when the loaded page has no filter matches", () => {
     expect(renderList({ state: "loading" })).toContain("Loading pull requests");
-    expect(renderList({ state: "problem", reload: () => {} })).toContain(
-      "Could not load pull requests",
-    );
-    expect(renderList({ state: "problem", reload: () => {} })).toContain("Retry");
+    expect(renderList({ state: "problem" })).toContain("Could not load pull requests");
+    expect(renderList({ state: "problem" })).not.toContain("Retry");
     const staleMarkup = renderList(settledState({ state: "stale", resourceState: "stale" }));
     expect(staleMarkup).toContain("Pull request data may be out of date");
     expect(staleMarkup).not.toContain("Retry");

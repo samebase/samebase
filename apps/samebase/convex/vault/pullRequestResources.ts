@@ -8,6 +8,7 @@ import { internal } from "../_generated/api";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
+  normalizeCloudflareBuildRoot,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
   readCloudflareWorkerBuildsPage,
   readCloudflareWorkerConvexBuildAccess,
@@ -16,8 +17,8 @@ import {
   type CloudflareWorkerBuild,
 } from "../cloudflareResources";
 import { action } from "../functions";
+import { fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
-import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
 const { array, id, literal, object, string, union } = v;
@@ -44,25 +45,28 @@ const vConvexPreview = union(
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
 );
-const workerIdentityFields = {
+const stableWorkerIdentityFields = {
   workerId: id("vaultCloudflareWorkers"),
-  rootDirectory: string(),
   workerName: string(),
+};
+const observedWorkerIdentityFields = {
+  ...stableWorkerIdentityFields,
+  rootDirectory: string(),
 };
 const vPullRequestWorkerResource = union(
   object({
     state: literal("available"),
-    ...workerIdentityFields,
+    ...observedWorkerIdentityFields,
     buildState: vCloudflareBuildState,
     convexPreview: vConvexPreview,
   }),
   object({
     state: literal("absent"),
-    ...workerIdentityFields,
+    ...observedWorkerIdentityFields,
   }),
   object({
     state: literal("unavailable"),
-    ...workerIdentityFields,
+    ...stableWorkerIdentityFields,
   }),
 );
 const vPullRequestResources = object({
@@ -185,8 +189,14 @@ type ConvexBuildAccessRead =
 function workerResourceIdentity(worker: StableWorker) {
   return {
     workerId: worker.workerId,
-    rootDirectory: worker.rootDirectory,
     workerName: worker.workerName,
+  };
+}
+
+function observedWorkerResourceIdentity(worker: StableWorker, rootDirectory: string) {
+  return {
+    ...workerResourceIdentity(worker),
+    rootDirectory,
   };
 }
 
@@ -265,7 +275,6 @@ export function matchCloudflareWorkerBuild(args: {
   };
   ghRepoId: string;
   previewTriggerUuid: string;
-  previewDeployCommand: string;
 }): BuildMatch {
   const expectedPullRequestUrl = normalizeGitHubPullRequestUrl(args.head.url);
   if (expectedPullRequestUrl === null) {
@@ -298,19 +307,25 @@ export function matchCloudflareWorkerBuild(args: {
   const metadata = build.build_trigger_metadata;
   const createdAt = candidate.createdAt;
   const finishedAt = providerTimestamp(build.stopped_on);
+  const rootDirectory = normalizeCloudflareBuildRoot(args.worker.rootDirectory);
+  const triggerRootDirectory = normalizeCloudflareBuildRoot(trigger?.root_directory);
+  const metadataRootDirectory = normalizeCloudflareBuildRoot(metadata?.root_directory);
+  const triggerDeployCommand = trigger?.deploy_command?.trim();
+  const metadataDeployCommand = metadata?.deploy_command?.trim();
   if (
     !trigger ||
     !metadata ||
     createdAt === null ||
+    rootDirectory === null ||
     trigger.external_script_id !== args.worker.workerTag ||
     trigger.trigger_uuid !== args.previewTriggerUuid ||
     trigger.repo_connection?.repo_id !== args.ghRepoId ||
-    trigger.root_directory !== args.worker.rootDirectory ||
-    metadata.root_directory !== args.worker.rootDirectory ||
+    triggerRootDirectory !== rootDirectory ||
+    metadataRootDirectory !== rootDirectory ||
     metadata.build_trigger_source !== "pull_request" ||
     metadata.branch !== args.head.headRefName ||
-    trigger.deploy_command !== args.previewDeployCommand ||
-    metadata.deploy_command !== args.previewDeployCommand
+    !triggerDeployCommand ||
+    triggerDeployCommand !== metadataDeployCommand
   ) {
     return { state: "provider_disagreement" };
   }
@@ -375,32 +390,25 @@ function unavailableWorkerResources(args: {
 }
 
 function resolveAttachedConvexProject(args: {
-  worker: StableWorker;
   projects: readonly StableConvexProject[];
   buildAccess: CloudflareConvexBuildAccessObservation;
 }): StableConvexProject | null {
-  if (args.buildAccess.state !== "configured") {
+  if (args.buildAccess.state !== "configured" && args.buildAccess.state !== "incomplete") {
     return null;
   }
   const reference = args.buildAccess.convexProject;
-  return (
-    args.projects.find(
-      (project) =>
-        project.appId === args.worker.appId &&
-        project.teamId === reference.teamId &&
-        project.projectId === reference.projectId,
-    ) ?? null
-  );
+  return args.projects.find((project) => project.projectId === reference.projectId) ?? null;
 }
 
 async function readConvexPreview(args: {
   token: string;
+  teamId: string;
   project: StableConvexProject;
 }): Promise<ConvexPreviewRead> {
   try {
     const details = await readConvexProjectResource({
       token: args.token,
-      teamId: args.project.teamId,
+      teamId: args.teamId,
       projectId: args.project.projectId,
     });
     if (!details) {
@@ -433,6 +441,7 @@ async function readWorkerResourcesForHeads(args: {
   context: VaultProviderObservationContext;
   worker: StableWorker;
   heads: readonly PullRequestResourceHead[];
+  defaultBranch: string;
   cloudflareToken: string;
   cloudflareTransport: ReturnType<typeof resolveCloudflareApiTransport>;
   convexToken: string;
@@ -452,27 +461,17 @@ async function readWorkerResourcesForHeads(args: {
     });
   }
 
-  const config = buildVaultCloudflareBuildConfigForRootDirectory({
-    rootDirectory: args.worker.rootDirectory,
-  });
   const discovery = await readCloudflareWorkerBuildsDiscoveryForIdentity({
     token: args.cloudflareToken,
     transport: args.cloudflareTransport,
     accountId: args.worker.accountId,
     workerTag: args.worker.workerTag,
-    defaultBranch: args.context.defaultBranch,
+    defaultBranch: args.defaultBranch,
     expectedRepoId: args.context.ghRepoId,
-    buildConfig: {
-      rootDir: config.rootDirectory,
-      buildCommand: config.buildCommand,
-      deployCommand: config.deployCommand,
-      previewDeployCommand: config.previewDeployCommand,
-      pathIncludes: config.pathIncludes,
-      pathExcludes: config.pathExcludes,
-    },
   });
+  const repository = discovery.repository;
   const connectedBuilds = discovery.builds;
-  if (connectedBuilds.state !== "connected") {
+  if (repository.state !== "ready" || connectedBuilds.state !== "connected") {
     return unavailableWorkerResources({
       heads: args.heads,
       worker: args.worker,
@@ -497,7 +496,7 @@ async function readWorkerResourcesForHeads(args: {
     }
   }
 
-  const identityFields = workerResourceIdentity(args.worker);
+  const identityFields = observedWorkerResourceIdentity(args.worker, repository.rootDirectory);
   let convexBuildAccessRead: Promise<ConvexBuildAccessRead> | undefined;
   const readConvexBuildAccess = () => {
     const existing = convexBuildAccessRead;
@@ -523,10 +522,12 @@ async function readWorkerResourcesForHeads(args: {
       const match = matchCloudflareWorkerBuild({
         builds,
         head,
-        worker: args.worker,
+        worker: {
+          workerTag: args.worker.workerTag,
+          rootDirectory: repository.rootDirectory,
+        },
         ghRepoId: args.context.ghRepoId,
         previewTriggerUuid: connectedBuilds.previewTriggerUuid,
-        previewDeployCommand: config.previewDeployCommand,
       });
       if (match.state === "absent") {
         return exhausted
@@ -550,19 +551,19 @@ async function readWorkerResourcesForHeads(args: {
         convexPreview = unavailablePreview();
       } else {
         const attachedProject = resolveAttachedConvexProject({
-          worker: args.worker,
           projects: args.context.convexProjects,
           buildAccess: buildAccessRead.buildAccess,
         });
         if (!attachedProject) {
           convexPreview = unavailablePreview();
-        } else if (!args.convexToken || attachedProject.teamId !== args.convexTeamId) {
+        } else if (!args.convexToken || !args.convexTeamId) {
           convexPreview = unavailablePreview();
         } else {
           let previewRead = args.previewReads.get(attachedProject.convexProjectId);
           if (!previewRead) {
             previewRead = readConvexPreview({
               token: args.convexToken,
+              teamId: args.convexTeamId,
               project: attachedProject,
             });
             args.previewReads.set(attachedProject.convexProjectId, previewRead);
@@ -659,8 +660,14 @@ export const getPullRequestResources = action({
         args.pullRequestIds.slice(index, index + GITHUB_PULL_REQUEST_NODE_BATCH_SIZE),
       );
     }
-    const headReads = (
-      await Promise.all(
+    const [repository, headReadBatches] = await Promise.all([
+      fetchGitHubRepoIdentity({
+        githubAccessToken: githubConnection.auth.credential,
+        owner: context.owner,
+        repo: context.name,
+        expectedRepoId: context.ghRepoId,
+      }),
+      Promise.all(
         pullRequestIdBatches.map(async (pullRequestIds) =>
           normalizeGitHubPullRequestResourceHeadReads(
             await octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, { ids: pullRequestIds }),
@@ -670,8 +677,9 @@ export const getPullRequestResources = action({
             },
           ),
         ),
-      )
-    ).flat();
+      ),
+    ]);
+    const headReads = headReadBatches.flat();
     const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
     const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
     const convexToken =
@@ -718,6 +726,7 @@ export const getPullRequestResources = action({
               context,
               worker,
               heads,
+              defaultBranch: repository.defaultBranch,
               cloudflareToken,
               cloudflareTransport,
               convexToken,
