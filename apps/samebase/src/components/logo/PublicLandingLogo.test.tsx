@@ -230,6 +230,7 @@ describe("PublicLandingLogo", () => {
       configurable: true,
       value: originalMatchMedia,
     });
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -296,7 +297,54 @@ describe("PublicLandingLogo", () => {
     );
   });
 
-  it("keeps the pointer tilt neutral when reduced motion is requested", async () => {
+  it("applies an external presentation tilt without changing the view", async () => {
+    installImmediateIdleCallback();
+    installMotionMediaQueries({ finePointer: false, reducedMotion: false });
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          presentationTiltTarget={{ horizontal: 6, vertical: 0 }}
+          routeSearchSource="static"
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const initialSceneProps = latestLandingLogoSceneProps.current;
+    if (initialSceneProps === null) {
+      throw new Error("Expected mocked logo scene props.");
+    }
+    expect(initialSceneProps.presentationTiltTarget).toEqual({ horizontal: 6, vertical: 0 });
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          presentationTiltTarget={{ horizontal: 12, vertical: 0 }}
+          routeSearchSource="static"
+        />,
+      );
+    });
+
+    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
+      horizontal: 12,
+      vertical: 0,
+    });
+    expect(latestLandingLogoSceneProps.current?.elevationDegrees).toBe(
+      initialSceneProps.elevationDegrees,
+    );
+    expect(latestLandingLogoSceneProps.current?.rotationDegrees).toBe(
+      initialSceneProps.rotationDegrees,
+    );
+  });
+
+  it("suppresses presentation tilt when reduced motion is requested", async () => {
     installImmediateIdleCallback();
     installMotionMediaQueries({ finePointer: true, reducedMotion: true });
 
@@ -306,7 +354,13 @@ describe("PublicLandingLogo", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingLogo enablePointerTilt routeSearchSource="static" />);
+      localRoot.render(
+        <PublicLandingLogo
+          enablePointerTilt
+          presentationTiltTarget={{ horizontal: 12, vertical: 0 }}
+          routeSearchSource="static"
+        />,
+      );
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -321,9 +375,7 @@ describe("PublicLandingLogo", () => {
       await Promise.resolve();
     });
 
-    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBe(
-      NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
-    );
+    expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toBeUndefined();
     const logoImage = getLogoImage(rootElement);
     expect(logoImage.className).toContain("transition-opacity");
     expect(logoImage.className).toContain("duration-300");

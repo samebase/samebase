@@ -114,6 +114,7 @@ export function PublicLandingLogo({
   enablePointerTilt = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
+  presentationTiltTarget,
   replaceRouteSearch,
   routeSearch = EMPTY_LOGO_ROUTE_SEARCH,
   routeSearchSource = "url",
@@ -127,6 +128,7 @@ export function PublicLandingLogo({
   enablePointerTilt?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
+  presentationTiltTarget?: LogoPresentationTiltTarget;
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
   routeSearch?: LogoRouteSearch;
   /**
@@ -207,7 +209,7 @@ export function PublicLandingLogo({
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
-  const [presentationTiltTarget, setPresentationTiltTarget] = useState<LogoPresentationTiltTarget>(
+  const [pointerTiltTarget, setPointerTiltTarget] = useState<LogoPresentationTiltTarget>(
     NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   );
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -283,10 +285,28 @@ export function PublicLandingLogo({
   }, []);
 
   useEffect(() => {
-    // The page-wide pointer supplies ambient direction while the scene keeps
-    // its own direct-manipulation events for dragging.
-    const resetPresentationTilt = () => {
-      setPresentationTiltTarget(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
+    // The page-wide mouse supplies ambient direction while the scene keeps its
+    // own direct-manipulation events for dragging.
+    const resetPointerTilt = () => {
+      setPointerTiltTarget(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
+    };
+    const setPointerTiltFromPoint = (clientX: number, clientY: number) => {
+      const stage = stageRef.current;
+      if (!stage) {
+        return;
+      }
+
+      const nextTarget = getPointerLogoPresentationTiltTarget({
+        bounds: stage.getBoundingClientRect(),
+        clientX,
+        clientY,
+      });
+      setPointerTiltTarget((currentTarget) =>
+        currentTarget.horizontal === nextTarget.horizontal &&
+        currentTarget.vertical === nextTarget.vertical
+          ? currentTarget
+          : nextTarget,
+      );
     };
 
     if (
@@ -295,45 +315,30 @@ export function PublicLandingLogo({
       prefersReducedMotion ||
       typeof window.matchMedia !== "function"
     ) {
-      resetPresentationTilt();
+      resetPointerTilt();
       return;
     }
 
     const pointerMediaQuery = window.matchMedia(POINTER_TILT_MEDIA_QUERY);
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!pointerMediaQuery.matches || !event.isPrimary || event.pointerType !== "mouse") {
+    const handleMousePointerMove = (event: PointerEvent) => {
+      if (!event.isPrimary || event.pointerType !== "mouse" || !pointerMediaQuery.matches) {
         return;
       }
 
-      const stage = stageRef.current;
-      if (!stage) {
-        return;
-      }
-
-      const nextTarget = getPointerLogoPresentationTiltTarget({
-        bounds: stage.getBoundingClientRect(),
-        clientX: event.clientX,
-        clientY: event.clientY,
-      });
-      setPresentationTiltTarget((currentTarget) =>
-        currentTarget.horizontal === nextTarget.horizontal &&
-        currentTarget.vertical === nextTarget.vertical
-          ? currentTarget
-          : nextTarget,
-      );
+      setPointerTiltFromPoint(event.clientX, event.clientY);
     };
     const handlePointerCapabilityChange = () => {
       if (!pointerMediaQuery.matches) {
-        resetPresentationTilt();
+        resetPointerTilt();
       }
     };
 
-    window.addEventListener("blur", resetPresentationTilt);
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("blur", resetPointerTilt);
+    window.addEventListener("pointermove", handleMousePointerMove, { passive: true });
     pointerMediaQuery.addEventListener("change", handlePointerCapabilityChange);
     return () => {
-      window.removeEventListener("blur", resetPresentationTilt);
-      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("blur", resetPointerTilt);
+      window.removeEventListener("pointermove", handleMousePointerMove);
       pointerMediaQuery.removeEventListener("change", handlePointerCapabilityChange);
     };
   }, [enablePointerTilt, isSceneInteractive, prefersReducedMotion]);
@@ -466,6 +471,10 @@ export function PublicLandingLogo({
     };
   }, [isAutoRotating]);
 
+  const activePresentationTiltTarget = prefersReducedMotion
+    ? undefined
+    : (presentationTiltTarget ?? (enablePointerTilt ? pointerTiltTarget : undefined));
+
   return (
     <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE[stage]}>
       <div
@@ -493,6 +502,10 @@ export function PublicLandingLogo({
             data-testid={PUBLIC_LANDING_LOGO_SCENE_TEST_ID}
             data-state={isSceneReady ? "ready" : "loading"}
             data-elevation-degrees={view.elevationDegrees.toFixed(3)}
+            data-presentation-horizontal-degrees={activePresentationTiltTarget?.horizontal.toFixed(
+              3,
+            )}
+            data-presentation-vertical-degrees={activePresentationTiltTarget?.vertical.toFixed(3)}
             data-rotation-degrees={view.rotationDegrees.toFixed(3)}
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
@@ -542,7 +555,7 @@ export function PublicLandingLogo({
                 setView(nextView);
               }}
               onVoxelEdit={ignoreLogoVoxelEdit}
-              presentationTiltTarget={enablePointerTilt ? presentationTiltTarget : undefined}
+              presentationTiltTarget={activePresentationTiltTarget}
               rotationAxisMode={routeState.rotationAxisMode}
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={shuffleAnimation}

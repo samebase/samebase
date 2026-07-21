@@ -284,6 +284,40 @@ export function getMobilePaneScrollLeftPx(
   );
 }
 
+/**
+ * Normalizes the native carousel position around main. Side panes are the
+ * signed endpoints so consumers can respond throughout browser momentum and
+ * scroll snapping without owning the gesture.
+ */
+export function getMobilePaneScrollProgress(
+  args: Parameters<typeof getMobilePaneScrollOffsets>[0] & {
+    scrollLeftPx: number;
+  },
+) {
+  if (args.mergedSurfaceSide !== null) {
+    return 0;
+  }
+
+  const mainScrollLeftPx = getMobilePaneScrollLeftPx("main", args);
+  if (args.scrollLeftPx < mainScrollLeftPx && args.hasLeftPane) {
+    const leftScrollLeftPx = getMobilePaneScrollLeftPx("left", args);
+    const distanceToLeftPx = mainScrollLeftPx - leftScrollLeftPx;
+    return distanceToLeftPx <= 0
+      ? 0
+      : -clampNumber((mainScrollLeftPx - args.scrollLeftPx) / distanceToLeftPx, 0, 1);
+  }
+
+  if (args.scrollLeftPx > mainScrollLeftPx && args.hasRightPane) {
+    const rightScrollLeftPx = getMobilePaneScrollLeftPx("right", args);
+    const distanceToRightPx = rightScrollLeftPx - mainScrollLeftPx;
+    return distanceToRightPx <= 0
+      ? 0
+      : clampNumber((args.scrollLeftPx - mainScrollLeftPx) / distanceToRightPx, 0, 1);
+  }
+
+  return 0;
+}
+
 export function getMobilePaneFromScrollLeft(args: {
   hasLeftPane: boolean;
   hasRightPane: boolean;

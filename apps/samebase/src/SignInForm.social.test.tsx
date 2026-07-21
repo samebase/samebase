@@ -14,6 +14,13 @@ vi.mock("@/components/logo/PublicLandingLogo", () => ({
   PublicLandingLogo: () => <div>Logo</div>,
 }));
 
+vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
+  useWorkspaceLayoutV2Selector: (
+    selector: (state: { mobile: { paneScrollProgress: number } }) => unknown,
+  ) => selector({ mobile: { paneScrollProgress: 0 } }),
+  useWorkspacePaneState: () => ({ isMobile: false }),
+}));
+
 vi.mock("@/routeSearch/root", () => ({
   replaceRootLogoRouteSearch: (currentSearch: Record<string, unknown>) => currentSearch,
   useRootRouteSearch: () => ({}),
