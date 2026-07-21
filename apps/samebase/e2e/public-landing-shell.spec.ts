@@ -1638,6 +1638,45 @@ test("public landing logo tilts toward the pointer outside its grab surface", as
 test.describe("public landing mobile logo tilt", () => {
   test.use(mobileLandingDevice);
 
+  test("keeps swipe tilt after the sidebar was narrowed to merge width", async ({ page }) => {
+    const narrowedRightSidebarState = {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 240,
+      leftMobileWidthPx: 240,
+      mobilePane: "main",
+      mobileSurface: { kind: "unmerged" },
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 96,
+    } satisfies WorkspaceSidebarState;
+    await page.addInitScript(
+      ({ state, storageKey, storageVersion }) => {
+        window.localStorage.setItem(storageKey, JSON.stringify({ state, version: storageVersion }));
+      },
+      {
+        state: narrowedRightSidebarState,
+        storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+        storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+      },
+    );
+    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+    await expectLandingLogoSceneReady(landingLogoScene);
+
+    await carousel.evaluate((element) => {
+      element.style.scrollSnapType = "none";
+      element.scrollLeft = 48;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+
+    await expect(landingLogoScene).toHaveAttribute(
+      "data-presentation-horizontal-degrees",
+      "12.000",
+    );
+  });
+
   test("tilts throughout a swipe to the right sidebar", async ({ page }, testInfo) => {
     await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
@@ -1854,7 +1893,7 @@ test.describe("public landing mobile logo tilt", () => {
     await page.waitForTimeout(200);
     await expect(landingLogoScene).toHaveAttribute(
       "data-presentation-horizontal-degrees",
-      "12.000",
+      "24.000",
     );
 
     const partialHandleBounds = await rightResizeHandle.boundingBox();

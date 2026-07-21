@@ -39,13 +39,17 @@ function LandingPageLogo({
   const mobilePaneScrollProgress = useWorkspaceLayoutV2Selector(
     (state) => state.mobile.paneScrollProgress,
   );
-  const mobileRightSidebarExposure = clampNumber(
-    (rightMobileWidthPx - WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX) /
-      (APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX -
-        WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX),
-    0,
-    1,
-  );
+  const activeResizeSide = useWorkspaceLayoutV2Selector((state) => state.activeResizeSide);
+  const mobileRightSidebarResizeTiltScale =
+    activeResizeSide === "right"
+      ? clampNumber(
+          (rightMobileWidthPx - WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX) /
+            (APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX -
+              WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX),
+          0,
+          1,
+        )
+      : 1;
 
   return (
     <PublicLandingLogo
@@ -59,7 +63,7 @@ function LandingPageLogo({
           ? {
               horizontal:
                 mobilePaneScrollProgress *
-                mobileRightSidebarExposure *
+                mobileRightSidebarResizeTiltScale *
                 MOBILE_SIDEBAR_LOGO_TILT_DEGREES,
               vertical: 0,
             }
