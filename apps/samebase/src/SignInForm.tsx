@@ -2,6 +2,10 @@ import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LOGO_IDENTITY_VIEW_CONTRACTS } from "@/components/logo/logoStaticSvgContract";
+import {
+  useWorkspaceLayoutV2Selector,
+  useWorkspacePaneState,
+} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -18,9 +22,52 @@ type SignInFormProps = {
 };
 
 const [LANDING_LOGO_STARTING_VIEW] = LOGO_IDENTITY_VIEW_CONTRACTS;
+const MOBILE_SIDEBAR_LOGO_TILT_DEGREES = 24;
+
+function LandingPageLogo({
+  landingDevModeEnabled,
+  rootRouteSearch,
+}: {
+  landingDevModeEnabled: boolean;
+  rootRouteSearch: ReturnType<typeof useRootRouteSearch>;
+}) {
+  const navigate = useNavigate();
+  const { isMobile } = useWorkspacePaneState();
+  const mobilePaneScrollProgress = useWorkspaceLayoutV2Selector(
+    (state) => state.mobile.paneScrollProgress,
+  );
+
+  return (
+    <PublicLandingLogo
+      animateLeftFaceStripes
+      autoRotate={landingDevModeEnabled}
+      defaultView={LANDING_LOGO_STARTING_VIEW}
+      enablePointerTilt
+      enableViewSnapping={!landingDevModeEnabled}
+      presentationTiltTarget={
+        isMobile
+          ? {
+              horizontal: mobilePaneScrollProgress * MOBILE_SIDEBAR_LOGO_TILT_DEGREES,
+              vertical: 0,
+            }
+          : undefined
+      }
+      replaceRouteSearch={(nextSearch) => {
+        void navigate({
+          hash: true,
+          replace: true,
+          resetScroll: false,
+          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+          state: true,
+          to: ".",
+        });
+      }}
+      routeSearch={rootRouteSearch}
+    />
+  );
+}
 
 export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: SignInFormProps) {
-  const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown);
@@ -33,23 +80,9 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
           className="max-w-[384px] mx-auto flex flex-col my-auto gap-4"
         >
           {topNotice}
-          <PublicLandingLogo
-            animateLeftFaceStripes
-            autoRotate={landingDevModeEnabled}
-            defaultView={LANDING_LOGO_STARTING_VIEW}
-            enablePointerTilt
-            enableViewSnapping={!landingDevModeEnabled}
-            replaceRouteSearch={(nextSearch) => {
-              void navigate({
-                hash: true,
-                replace: true,
-                resetScroll: false,
-                search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
-                state: true,
-                to: ".",
-              });
-            }}
-            routeSearch={rootRouteSearch}
+          <LandingPageLogo
+            landingDevModeEnabled={landingDevModeEnabled}
+            rootRouteSearch={rootRouteSearch}
           />
           <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
             <LandingCopy

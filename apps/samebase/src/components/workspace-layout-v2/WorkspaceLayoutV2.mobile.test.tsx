@@ -9,7 +9,10 @@ import {
 } from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
+import {
+  getMobilePaneScrollProgress,
+  type WorkspaceLayoutV2MobileMinResizeBehavior,
+} from "./WorkspaceLayoutV2Geometry";
 import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";
 import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
 import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
@@ -237,6 +240,36 @@ function expectMobileLayoutOwnedSeparators(
   expect(root.querySelector("[data-workspace-layout-v2-mobile-separator-pane]")).toBeNull();
   expect(getMobileSeparatorEdges(root)).toEqual(["left-main", "main-right"]);
 }
+
+describe("getMobilePaneScrollProgress", () => {
+  const threePaneGeometry = {
+    hasLeftPane: true,
+    hasRightPane: true,
+    leftWidthPx: 240,
+    mainWidthPx: 390,
+    mergedSurfaceSide: null,
+    rightWidthPx: 288,
+    viewportWidthPx: 390,
+  } as const;
+
+  it("maps native carousel positions to signed progress around main", () => {
+    expect(getMobilePaneScrollProgress({ ...threePaneGeometry, scrollLeftPx: 0 })).toBe(-1);
+    expect(getMobilePaneScrollProgress({ ...threePaneGeometry, scrollLeftPx: 240 })).toBe(0);
+    expect(getMobilePaneScrollProgress({ ...threePaneGeometry, scrollLeftPx: 384 })).toBe(0.5);
+    expect(getMobilePaneScrollProgress({ ...threePaneGeometry, scrollLeftPx: 528 })).toBe(1);
+  });
+
+  it("uses the main-to-right distance when the landing has no left pane", () => {
+    expect(
+      getMobilePaneScrollProgress({
+        ...threePaneGeometry,
+        hasLeftPane: false,
+        leftWidthPx: 0,
+        scrollLeftPx: 144,
+      }),
+    ).toBe(0.5);
+  });
+});
 
 describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   let rootElement: HTMLDivElement | null = null;
