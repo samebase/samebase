@@ -16,7 +16,9 @@ import {
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
+import { VaultDefaultBranch } from "./VaultDefaultBranch";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
+import { buildVaultProductionRoots } from "./vaultProductionRoots";
 import type {
   VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerBuildsObservation,
@@ -210,6 +212,7 @@ function makeResourceRailBuilderVault(
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",
+    defaultBranch: "main",
     fileCount: 0,
     sourceSetup: { status: "ready" },
     providerSetup: { status: "not_applicable" },
@@ -228,6 +231,192 @@ function makeResourceRailBuilderVault(
   };
   return { ...vault, ...overrides };
 }
+
+describe("VaultDefaultBranch", () => {
+  it("keeps the durable default branch visible without provider observations", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultDefaultBranch
+          defaultBranch="release/2026 Q3"
+          githubBranchUrl="https://github.com/ada/demo/tree/release/2026%20Q3"
+          productionRoots={[]}
+          samebaseEditorUrl="/vault/ada/demo/fs/release%2F2026%20Q3"
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-vault-default-branch=""');
+    expect(markup).toContain('aria-label="Default branch release/2026 Q3"');
+    expect(markup).toContain('href="https://github.com/ada/demo/tree/release/2026%20Q3"');
+    expect(markup).toContain('href="/vault/ada/demo/fs/release%2F2026%20Q3"');
+    expect(markup).toContain("<span>Edit</span>");
+    expect(markup).not.toContain("?compare");
+    expect(markup).not.toContain("Pull request");
+  });
+
+  it("renders every live production root without turning one into a pull request", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultDefaultBranch
+          defaultBranch="main"
+          githubBranchUrl="https://github.com/ada/demo/tree/main"
+          samebaseEditorUrl="/vault/ada/demo/fs/main"
+          productionRoots={[
+            {
+              rootDirectory: "apps/api",
+              links: [
+                {
+                  href: "https://api.ada.workers.dev",
+                  label: "api.ada.workers.dev",
+                  provider: "cloudflare",
+                  title: "Open production app for apps/api",
+                },
+              ],
+            },
+            {
+              rootDirectory: "apps/web",
+              links: [
+                {
+                  href: "https://web.ada.workers.dev",
+                  label: "web.ada.workers.dev",
+                  provider: "cloudflare",
+                  title: "Open production app for apps/web",
+                },
+                {
+                  href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+                  label: "calm-swan-123",
+                  provider: "convex",
+                  title: "Open production Convex deployment calm-swan-123",
+                },
+              ],
+            },
+          ]}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("apps/api");
+    expect(markup).toContain('href="https://api.ada.workers.dev"');
+    expect(markup).toContain("apps/web");
+    expect(markup).toContain('href="https://web.ada.workers.dev"');
+    expect(markup).toContain('href="https://dashboard.convex.dev/t/ada/demo/calm-swan-123"');
+    expect(markup).not.toContain("PR #");
+  });
+});
+
+describe("buildVaultProductionRoots", () => {
+  it("joins direct attachments to matching live Worker and Convex observations", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const convexProjectId = fakeConvexProjectId();
+    const vault = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+      convexProjects: [
+        makeResourceRailConvexProject({
+          convexProjectId,
+          convexConfigPath: "apps/web/convex.json",
+        }),
+      ],
+    });
+
+    const roots = buildVaultProductionRoots({
+      vault,
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+        builds: [
+          makeAvailableResourceRailCloudflareBuildsObservation({
+            workerId,
+            repository: {
+              state: "ready",
+              rootDirectory: "apps/web",
+              builds: { state: "not_available" },
+            },
+          }),
+        ],
+        convexBuildAccess: [],
+      }),
+      convexObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [
+          {
+            observedAt: 1,
+            convexProjectId,
+            projectId: "demo-project-id",
+            convexConfigPath: "apps/web/convex.json",
+            source: { state: "valid", blobSha: "blob-1" },
+            provider: {
+              state: "current",
+              teamId: "team-1",
+              projectName: "Demo",
+              projectSlug: "demo",
+              teamSlug: "ada",
+              productionDeployment: {
+                state: "available",
+                deploymentName: "calm-swan-123",
+                cloudUrl: "https://calm-swan-123.convex.cloud",
+                siteUrl: "https://calm-swan-123.convex.site",
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    expect(roots).toEqual([
+      {
+        rootDirectory: "apps/web",
+        links: [
+          {
+            href: "https://demo-worker.ada.workers.dev",
+            label: "demo-worker.ada.workers.dev",
+            provider: "cloudflare",
+            title: "Open production app for apps/web",
+          },
+          {
+            href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+            label: "calm-swan-123",
+            provider: "convex",
+            title: "Open production Convex deployment calm-swan-123",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("does not manufacture links from attachments when live resources are missing", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const convexProjectId = fakeConvexProjectId();
+    const vault = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+      convexProjects: [makeResourceRailConvexProject({ convexProjectId })],
+    });
+
+    expect(
+      buildVaultProductionRoots({
+        vault,
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [{ state: "missing", observedAt: 1, workerId }],
+          builds: [],
+          convexBuildAccess: [],
+        }),
+        convexObservations: {
+          state: "loaded",
+          reload: () => {},
+          observations: [
+            {
+              observedAt: 1,
+              convexProjectId,
+              projectId: "demo-project-id",
+              convexConfigPath: "convex.json",
+              source: { state: "valid", blobSha: "blob-1" },
+              provider: { state: "missing_ambiguous", teamId: "team-1" },
+            },
+          ],
+        },
+      }),
+    ).toEqual([]);
+  });
+});
 
 describe("VaultDashboardRepositoryCard", () => {
   it("renders the onboarding empty state when the loaded vault list is empty", () => {
@@ -337,9 +526,16 @@ describe("VaultDashboardRepositoryCard", () => {
     );
 
     expect(markup).toContain("Initial tree sync failed.");
+    expect(markup).toContain('data-vault-default-branch=""');
+    expect(markup).toContain('href="https://github.com/ada/demo/tree/main"');
+    expect(markup).toContain('href="/vault/ada/demo/fs/main"');
+    expect(markup.indexOf('data-vault-default-branch=""')).toBeLessThan(
+      markup.indexOf('aria-label="Open pull requests"'),
+    );
     expect(markup).toContain('aria-label="Open pull requests"');
     expect(markup).toContain("No open pull requests");
     expect(markup).not.toContain("bg-muted/30 opacity-75");
+    expect(markup).not.toContain("/fs/main?compare");
   });
 
   it("renders the root dashboard vault picker in the main pane", () => {

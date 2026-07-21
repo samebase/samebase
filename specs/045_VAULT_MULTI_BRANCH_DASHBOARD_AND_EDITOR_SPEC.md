@@ -70,6 +70,16 @@ repository.
 The dashboard's primary branch comes from `vault.defaultBranch`, not from a branch catalog or a pull
 request response.
 
+The durable default branch is always a first-class surface above the pull request list. Its branch
+name links to the exact GitHub tree, and its Samebase action opens the exact branch editor route
+without compare mode. The surface remains present even when live provider observations have not
+resolved any production resources.
+
+Production Worker and Convex links are presentation derived from direct vault resource attachments
+joined with current provider observations. They are not pull request fields, persisted branch
+resources, or a compatibility mirror. The default-branch surface and the open pull request list
+remain structurally separate.
+
 ## Deleted Model
 
 There is no `observations_vaultRepository_branches` table, repository-wide branch synchronization,

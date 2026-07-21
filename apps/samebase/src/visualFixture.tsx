@@ -196,6 +196,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-root-picker",
   "vault-dashboard-sidebar-list",
   "vault-dashboard-list-spacing",
+  "vault-dashboard-default-branch",
   "vault-dashboard-source-setup-failed",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
@@ -394,6 +395,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-root-picker" ||
     mode === "vault-dashboard-sidebar-list" ||
     mode === "vault-dashboard-list-spacing" ||
+    mode === "vault-dashboard-default-branch" ||
     mode === "vault-dashboard-source-setup-failed" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||

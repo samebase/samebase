@@ -12,19 +12,21 @@
 
 ## Current Contract
 
-The selected-vault dashboard is a pull request surface. It is a thin authenticated client of the
-GitHub API, not a normalized repository, branch, pull request, or check database.
+The selected-vault dashboard has two independent primary features: a durable default-branch surface
+rooted in `vault.defaultBranch`, and a live open pull request list read from GitHub. The dashboard
+is a thin authenticated client for provider facts, not a normalized repository, branch, pull
+request, check, Worker, or deployment database.
 
 Samebase persists only state it owns:
 
-- vault and repository identity;
+- vault and repository identity, including the durable default branch;
 - saved pull request filter preferences;
 - stable Worker and Convex project attachments;
 - durable workflow plans, runs, events, and locks for operations Samebase performs.
 
-GitHub owns pull request fields and checks. Cloudflare owns Worker builds. Convex owns preview
-deployments. Samebase reads those facts when a screen needs them and does not mirror them into
-Convex tables.
+GitHub owns pull request fields and checks. Cloudflare owns Workers and builds. Convex owns
+production and preview deployments. Samebase reads those facts when a screen needs them and does not
+mirror them into Convex tables.
 
 ## GitHub Page Boundary
 
@@ -53,6 +55,12 @@ document recreates their provider requests.
 Filtering can produce no matches while GitHub still has another page. The scroll sentinel remains
 active so another provider page loads automatically. The UI must not claim the repository has no
 matching pull requests until the provider pages are exhausted.
+
+The default-branch surface is not part of this pull request resource query. It is a separate,
+always-visible dashboard feature sourced from `vault.defaultBranch`; its production resource group
+joins the stable Worker and Convex attachments to the vault-level live provider observations. No
+default branch, production Worker, or production Convex deployment is fabricated as a pull request
+or copied into pull request state.
 
 ## Visible Provider Resources
 

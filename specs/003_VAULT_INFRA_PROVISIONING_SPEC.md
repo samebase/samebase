@@ -367,8 +367,16 @@ Dashboard external links:
   `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/settings`.
 - A live Convex observation provides the `Project settings` link for the project-scoped settings
   page: `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
-- The production Convex link renders on the default branch row, not in the repository-title service
-  row, because the production deployment follows that branch.
+- The durable default branch renders as its own surface above the open pull request list. It remains
+  visible when provider observations are loading, failed, or yield no production links; it is never
+  represented as a pull request.
+- The default-branch surface links the exact branch to its GitHub tree and to the branch editor at
+  `/vault/:owner/:repo/fs/:branch` without compare mode.
+- Live workers.dev URLs render in the surface's production resource group only after the direct
+  Worker attachment joins matching Worker identity and Builds-root observations. No provider URL or
+  repository root is copied into another Samebase model.
+- The production Convex link renders on the default-branch surface, not in the repository-title
+  service row, because the production deployment follows that branch.
 - The production Convex link uses the observed team slug, project slug, and deployment name:
   `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
 - Service links are mobile-friendly text links with service icons. Labels should stay concise; the

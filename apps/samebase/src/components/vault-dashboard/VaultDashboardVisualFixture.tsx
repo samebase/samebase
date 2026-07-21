@@ -32,7 +32,11 @@ import {
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import type { VaultPullRequest, VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import { validateRootRouteSearch } from "@/routeSearch/root";
-import type { VaultCloudflareProviderObservationState } from "@/components/vault-dashboard/useVaultProviderObservations";
+import type {
+  VaultCloudflareProviderObservationState,
+  VaultConvexProjectObservation,
+  VaultProviderObservationState,
+} from "@/components/vault-dashboard/useVaultProviderObservations";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
@@ -51,6 +55,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-root-picker"
   | "vault-dashboard-sidebar-list"
   | "vault-dashboard-list-spacing"
+  | "vault-dashboard-default-branch"
   | "vault-dashboard-source-setup-failed"
   | "vault-convex-schema-graph"
   | "vault-convex-schema-route-mobile"
@@ -223,6 +228,89 @@ const LIST_SPACING_VAULT = {
     },
   ],
 } satisfies VaultDashboardVault;
+
+const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
+  workers: {
+    state: "loaded",
+    reload: () => {},
+    observations: [
+      {
+        state: "available",
+        observedAt: FIXTURE_NOW,
+        workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+        workersDev: {
+          state: "enabled",
+          url: "https://domain-router.samebase.workers.dev",
+        },
+      },
+      {
+        state: "available",
+        observedAt: FIXTURE_NOW,
+        workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
+        workersDev: {
+          state: "enabled",
+          url: "https://samebase.samebase.workers.dev",
+        },
+      },
+    ],
+  },
+  builds: {
+    state: "loaded",
+    reload: () => {},
+    observations: [
+      {
+        state: "available",
+        observedAt: FIXTURE_NOW,
+        workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+        repository: {
+          state: "ready",
+          rootDirectory: "apps/domain-router",
+          builds: { state: "not_available" },
+        },
+        builds: { state: "not_connected" },
+      },
+      {
+        state: "available",
+        observedAt: FIXTURE_NOW,
+        workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
+        repository: {
+          state: "ready",
+          rootDirectory: "apps/samebase",
+          builds: { state: "not_available" },
+        },
+        builds: { state: "not_connected" },
+      },
+    ],
+  },
+  convexBuildAccess: { state: "loaded", reload: () => {}, observations: [] },
+} satisfies VaultCloudflareProviderObservationState;
+
+const LIST_SPACING_CONVEX_OBSERVATIONS = {
+  state: "loaded",
+  reload: () => {},
+  observations: [
+    {
+      observedAt: FIXTURE_NOW,
+      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
+      projectId: "samebase",
+      convexConfigPath: "apps/samebase/convex.json",
+      source: { state: "valid", blobSha: "fixture-samebase-convex-config" },
+      provider: {
+        state: "current",
+        teamId: "samebase-team-id",
+        projectName: "Samebase",
+        projectSlug: "samebase",
+        teamSlug: "samebase",
+        productionDeployment: {
+          state: "available",
+          deploymentName: "calm-swan-123",
+          cloudUrl: "https://calm-swan-123.convex.cloud",
+          siteUrl: "https://calm-swan-123.convex.site",
+        },
+      },
+    },
+  ],
+} satisfies VaultProviderObservationState<VaultConvexProjectObservation>;
 
 const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8e");
 const CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID = fakeCloudflareWorkerId(
@@ -493,13 +581,20 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
   const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>([
     [LIST_SPACING_VAULT_ID, resourceLinksOpen],
   ]);
+  const showDefaultProductionResources = mode === "vault-dashboard-default-branch";
   const dashboardView = (
     <VaultDashboardView
       deleteModeActive={false}
       developerToolsVisible={false}
-      cloudflareObservations={LOADING_CLOUDFLARE_OBSERVATIONS}
+      cloudflareObservations={
+        showDefaultProductionResources
+          ? LIST_SPACING_CLOUDFLARE_OBSERVATIONS
+          : LOADING_CLOUDFLARE_OBSERVATIONS
+      }
       cloudflareWorkerConfigurationActionInFlight={null}
-      convexObservations={{ state: "loading" }}
+      convexObservations={
+        showDefaultProductionResources ? LIST_SPACING_CONVEX_OBSERVATIONS : { state: "loading" }
+      }
       isRemovingVault={false}
       providerAttachmentDetachmentInFlight={null}
       pullRequests={pullRequests}
@@ -1794,6 +1889,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (
     mode === "vault-dashboard-list-spacing" ||
+    mode === "vault-dashboard-default-branch" ||
     mode === "vault-dashboard-source-setup-failed" ||
     mode === "vault-dashboard-sticky-header" ||
     mode === "vault-pull-request-auto-pagination" ||

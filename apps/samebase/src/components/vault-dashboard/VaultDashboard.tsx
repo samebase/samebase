@@ -7,10 +7,12 @@ import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
+import { VaultDefaultBranch } from "@/components/vault-dashboard/VaultDefaultBranch";
 import { VaultPullRequestList } from "@/components/vault-dashboard/VaultPullRequestList";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
 import { VaultRepositoryRootInput } from "@/components/vault-dashboard/VaultRepositoryRootInput";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
+import { buildVaultProductionRoots } from "@/components/vault-dashboard/vaultProductionRoots";
 import { TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
@@ -80,6 +82,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { tryParseRepositoryFullName } from "../../../shared/repoName";
 import {
   useVaultProviderObservations,
@@ -1956,7 +1959,7 @@ export function VaultDashboardView({
           persistedVaultResourceLinksOpenByVaultId.get(vault._id) ?? false;
         const settledPullRequests =
           pullRequests.state === "current" || pullRequests.state === "stale" ? pullRequests : null;
-        const primaryBranch = vault.defaultBranch ?? null;
+        const primaryBranch = vault.defaultBranch?.trim() || null;
         const chatRoute =
           primaryBranch && !isDeletingVault
             ? buildVaultCodespaceChatRoute({
@@ -2051,6 +2054,11 @@ export function VaultDashboardView({
                   onRotateConvexDeployKeysForWorkersBuilds(vault._id, workerId, convexProjectId);
                 },
         });
+        const productionRoots = buildVaultProductionRoots({
+          cloudflareObservations,
+          convexObservations,
+          vault,
+        });
         const pullRequestFilterOptions = buildVaultPullRequestFilterOptions({
           pullRequests: settledPullRequests?.allPullRequests ?? [],
           hiddenLabels: vaultPullRequestFilters.hiddenLabels,
@@ -2107,6 +2115,29 @@ export function VaultDashboardView({
             pullRequests={pullRequests}
           />
         ) : undefined;
+        const defaultBranchSection =
+          primaryBranch && !isDeletingVault ? (
+            <VaultDefaultBranch
+              defaultBranch={primaryBranch}
+              githubBranchUrl={buildGitHubBranchTreeUrl({
+                repositoryFullName: vault.repositoryFullName,
+                branchName: primaryBranch,
+              })}
+              productionRoots={productionRoots}
+              samebaseEditorUrl={buildVaultFileRoute({
+                owner: vault.ghRepoOwner,
+                repoName: vault.ghRepoName,
+                branch: primaryBranch,
+              })}
+            />
+          ) : undefined;
+        const primarySection =
+          defaultBranchSection || pullRequestSection ? (
+            <>
+              {defaultBranchSection}
+              {pullRequestSection}
+            </>
+          ) : undefined;
 
         return (
           <div key={vault._id} data-vault-dashboard-repository-card="">
@@ -2163,7 +2194,7 @@ export function VaultDashboardView({
                   />
                 ) : undefined
               }
-              primarySection={pullRequestSection}
+              primarySection={primarySection}
               developerToolsSection={
                 canObservePullRequests || hasProvisioningLog
                   ? {
@@ -2254,7 +2285,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         : null,
     [selectedVault, vaults],
   );
-  const now = useNow();
+  const now = useNow({ intervalMs: 15_000 });
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
   const retryInfrastructureProvisioning = useAction(

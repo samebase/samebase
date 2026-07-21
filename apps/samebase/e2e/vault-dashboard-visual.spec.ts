@@ -709,11 +709,55 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
     name: "Configure tmp-my-super-app-234 Builds",
   });
   await expect(repairDialog).toBeVisible();
-  await expect(repairDialog.getByRole("combobox", { name: "Repository root" })).toHaveValue("/");
+  const repositoryRoot = repairDialog.getByRole("combobox", { name: "Repository root" });
+  await expect(repositoryRoot).toHaveValue("/");
+  await expect(repositoryRoot).toHaveAttribute("aria-expanded", "true");
+  await repositoryRoot.press("Escape");
+  await expect(repositoryRoot).toHaveAttribute("aria-expanded", "false");
   await expect(
     repairDialog.getByRole("button", { name: "Configure Workers Builds" }),
   ).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-cloudflare-builds-repair-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (default branch surface)", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 620 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-default-branch");
+
+  const defaultBranchSurface = page.getByRole("region", { name: "Default branch main" });
+  const pullRequests = page.getByRole("region", { name: "Open pull requests" });
+  await expect(defaultBranchSurface).toBeVisible();
+  await expect(
+    defaultBranchSurface.getByRole("link", { name: "Open main branch on GitHub" }),
+  ).toHaveAttribute("href", "https://github.com/samebase/samebase/tree/main");
+  const samebaseEditor = defaultBranchSurface.getByRole("link", { name: "Edit" });
+  await expect(samebaseEditor).toHaveAttribute("href", "/vault/samebase/samebase/fs/main");
+  await expect(samebaseEditor).not.toHaveAttribute("href", /compare/);
+  await expect(
+    defaultBranchSurface.getByRole("link", { name: "domain-router.samebase.workers.dev" }),
+  ).toHaveAttribute("href", "https://domain-router.samebase.workers.dev");
+  await expect(
+    defaultBranchSurface.getByRole("link", { name: "samebase.samebase.workers.dev" }),
+  ).toHaveAttribute("href", "https://samebase.samebase.workers.dev");
+  await expect(defaultBranchSurface.getByRole("link", { name: "calm-swan-123" })).toHaveAttribute(
+    "href",
+    "https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123",
+  );
+  await expect(defaultBranchSurface.locator("[data-pull-request-row]")).toHaveCount(0);
+  await expect(pullRequests.locator("[data-pull-request-row]")).toHaveCount(2);
+  const [defaultBranchBounds, pullRequestBounds] = await Promise.all([
+    readRequiredBounds(defaultBranchSurface, "default branch surface"),
+    readRequiredBounds(pullRequests, "pull request list"),
+  ]);
+  expect(defaultBranchBounds.y + defaultBranchBounds.height).toBeLessThanOrEqual(
+    pullRequestBounds.y + 1,
+  );
+  await expect(defaultBranchSurface).toHaveScreenshot("vault-dashboard-default-branch.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
