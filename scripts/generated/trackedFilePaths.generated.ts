@@ -514,6 +514,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/mcp-consent-sign-in-no-left-sidebar.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-button.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-signup-closed.png",
+  "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-logo-merged-right.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-logo-pointer-right.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-logo-swipe-right-sidebar.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-mobile-sidebar-toggle.png",

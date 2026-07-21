@@ -269,6 +269,33 @@ describe("getMobilePaneScrollProgress", () => {
       }),
     ).toBe(0.5);
   });
+
+  it("becomes neutral when main is fully merged into a sidebar", () => {
+    expect(
+      getMobilePaneScrollProgress({
+        hasLeftPane: false,
+        hasRightPane: true,
+        leftWidthPx: 0,
+        mainWidthPx: 294,
+        mergedSurfaceSide: "right",
+        rightWidthPx: 96,
+        scrollLeftPx: 0,
+        viewportWidthPx: 390,
+      }),
+    ).toBe(0);
+    expect(
+      getMobilePaneScrollProgress({
+        hasLeftPane: true,
+        hasRightPane: false,
+        leftWidthPx: 96,
+        mainWidthPx: 294,
+        mergedSurfaceSide: "left",
+        rightWidthPx: 0,
+        scrollLeftPx: 0,
+        viewportWidthPx: 390,
+      }),
+    ).toBe(0);
+  });
 });
 
 describe("WorkspaceLayoutV2 mobile boot alignment", () => {

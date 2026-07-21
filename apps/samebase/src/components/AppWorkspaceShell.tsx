@@ -27,7 +27,11 @@ import {
   appWorkspaceMobilePanePrehydrationScript,
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import {
+  APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+  APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
+  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+} from "@/lib/appWorkspaceSidebarPreferences";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 
@@ -77,8 +81,6 @@ type AppWorkspaceRouteWithStaticData = {
   };
 };
 
-const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
-const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
 

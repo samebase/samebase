@@ -393,6 +393,8 @@ type NLogoSceneProps = {
   onRenderUnavailable?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
+  /** Zero captures the rendered tilt; one renders exact neutral. */
+  presentationTiltNeutralProgress?: number;
   presentationTiltTarget?: LogoPresentationTiltTarget;
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
@@ -2114,6 +2116,7 @@ export function NLogoScene({
   onRenderUnavailable,
   onViewChange,
   onVoxelEdit,
+  presentationTiltNeutralProgress,
   presentationTiltTarget,
   rotationAxisMode = "cube-y",
   rotationDegrees,
@@ -2142,6 +2145,7 @@ export function NLogoScene({
   const presentationTiltTargetRef = useRef(
     resolveLogoPresentationTiltTarget(presentationTiltTarget),
   );
+  const presentationTiltNeutralProgressRef = useRef(presentationTiltNeutralProgress);
   const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
   const animateFaceColorsRef = useRef(animateFaceColors);
   const faceColorAnimationStartedAtRef = useRef<number | null>(null);
@@ -2196,9 +2200,10 @@ export function NLogoScene({
 
   useEffect(() => {
     presentationTiltTargetRef.current = resolveLogoPresentationTiltTarget(presentationTiltTarget);
+    presentationTiltNeutralProgressRef.current = presentationTiltNeutralProgress;
     renderSceneRef.current(performance.now());
     syncAnimationLoopRef.current();
-  }, [presentationTiltTarget]);
+  }, [presentationTiltNeutralProgress, presentationTiltTarget]);
 
   useEffect(() => {
     rotationAxisModeRef.current = rotationAxisMode;
@@ -2337,7 +2342,10 @@ export function NLogoScene({
     const rotationAxisVector = new THREE.Vector3();
     const presentationTiltAxisVector = new THREE.Vector3();
     const presentationTiltScreenRightVector = new THREE.Vector3();
+    const presentationTiltResizeStartQuaternion = new THREE.Quaternion();
     const presentationTiltTargetQuaternion = new THREE.Quaternion();
+    const neutralPresentationTiltQuaternion = new THREE.Quaternion();
+    let isTrackingPresentationTiltToNeutral = false;
     let lastPresentationTiltFrameTimeMs: number | null = null;
 
     const getCameraFitRadius = () =>
@@ -2399,6 +2407,25 @@ export function NLogoScene({
     };
 
     const applyPresentationTilt = (timestampMs: number) => {
+      const neutralProgress = presentationTiltNeutralProgressRef.current;
+      if (neutralProgress !== undefined) {
+        if (!isTrackingPresentationTiltToNeutral) {
+          // The actual quaternion can still be settling toward its target when
+          // resize begins, so capture it instead of deriving another pose.
+          presentationTiltResizeStartQuaternion.copy(presentationTiltGroup.quaternion);
+          isTrackingPresentationTiltToNeutral = true;
+        }
+        presentationTiltGroup.quaternion.slerpQuaternions(
+          presentationTiltResizeStartQuaternion,
+          neutralPresentationTiltQuaternion,
+          THREE.MathUtils.clamp(neutralProgress, 0, 1),
+        );
+        presentationTiltTargetQuaternion.copy(presentationTiltGroup.quaternion);
+        lastPresentationTiltFrameTimeMs = timestampMs;
+        return;
+      }
+
+      isTrackingPresentationTiltToNeutral = false;
       updatePresentationTiltTargetQuaternion();
       const remainingAngle = presentationTiltGroup.quaternion.angleTo(
         presentationTiltTargetQuaternion,

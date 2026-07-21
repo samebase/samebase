@@ -6,6 +6,11 @@ import {
   useWorkspaceLayoutV2Selector,
   useWorkspacePaneState,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
+import {
+  WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+} from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
+import { clampNumber } from "@/lib/clampNumber";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -32,10 +37,30 @@ function LandingPageLogo({
   rootRouteSearch: ReturnType<typeof useRootRouteSearch>;
 }) {
   const navigate = useNavigate();
-  const { isMobile } = useWorkspacePaneState();
+  const { isMobile, mobileSurface, rightMobileWidthPx } = useWorkspacePaneState();
   const mobilePaneScrollProgress = useWorkspaceLayoutV2Selector(
     (state) => state.mobile.paneScrollProgress,
   );
+  const mobileGrip = useWorkspaceLayoutV2Selector((state) => state.mobile.grip);
+  const mobileMergeCommitWidthPx =
+    WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX +
+    WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
+  let presentationTiltNeutralProgress: number | undefined;
+  if (isMobile && mobileGrip.kind === "dragging" && mobileGrip.side === "right") {
+    presentationTiltNeutralProgress =
+      mobileGrip.startSideWidthPx > mobileMergeCommitWidthPx
+        ? clampNumber(
+            (mobileGrip.startSideWidthPx - rightMobileWidthPx) /
+              (mobileGrip.startSideWidthPx - mobileMergeCommitWidthPx),
+            0,
+            1,
+          )
+        : rightMobileWidthPx <= mobileMergeCommitWidthPx
+          ? 1
+          : undefined;
+  } else if (isMobile && mobileSurface.kind === "merged" && mobileSurface.side === "right") {
+    presentationTiltNeutralProgress = 1;
+  }
 
   return (
     <PublicLandingLogo
@@ -44,6 +69,7 @@ function LandingPageLogo({
       defaultView={LANDING_LOGO_STARTING_VIEW}
       enablePointerTilt
       enableViewSnapping={!landingDevModeEnabled}
+      presentationTiltNeutralProgress={presentationTiltNeutralProgress}
       presentationTiltTarget={
         isMobile
           ? {
