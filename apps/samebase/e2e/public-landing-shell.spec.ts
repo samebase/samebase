@@ -1882,19 +1882,22 @@ test.describe("public landing mobile logo tilt", () => {
     };
     await page.mouse.move(defaultHandleCenter.x, defaultHandleCenter.y);
     await page.mouse.down();
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "0.000");
     await page.mouse.move(defaultHandleCenter.x + 96, defaultHandleCenter.y, { steps: 4 });
 
     await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "192");
     await expect(landingLogoScene).toHaveAttribute(
       "data-presentation-horizontal-degrees",
-      "12.000",
+      "24.000",
     );
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "0.527");
     await page.mouse.up();
     await page.waitForTimeout(200);
     await expect(landingLogoScene).toHaveAttribute(
       "data-presentation-horizontal-degrees",
       "24.000",
     );
+    await expect(landingLogoScene).not.toHaveAttribute("data-presentation-neutral-progress", /.+/);
 
     const partialHandleBounds = await rightResizeHandle.boundingBox();
     expect(partialHandleBounds).not.toBeNull();
@@ -1907,14 +1910,38 @@ test.describe("public landing mobile logo tilt", () => {
     };
     await page.mouse.move(partialHandleCenter.x, partialHandleCenter.y);
     await page.mouse.down();
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "0.000");
+    await expect(landingLogoScene).toHaveAttribute(
+      "data-presentation-horizontal-degrees",
+      "24.000",
+    );
     await page.mouse.move(partialHandleCenter.x + 96, partialHandleCenter.y, { steps: 4 });
 
     await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "96");
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+    await expect(landingLogoScene).toHaveAttribute(
+      "data-presentation-horizontal-degrees",
+      "24.000",
+    );
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "1.000");
     await page.mouse.up();
     await expect(workspace).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "right");
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
     await expect(landingLogoScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "1.000");
+    await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
+    await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
+    expect(
+      readLandingLogoPaintMetrics(
+        await landingLogoStage.screenshot({
+          animations: "disabled",
+          caret: "hide",
+          scale: "css",
+        }),
+      ),
+    ).toEqual({
+      bounds: { height: 108, width: 108 },
+      paintedPixelCount: 10_368,
+    });
     await page.waitForTimeout(750);
     await expect(landingLogoStage).toHaveScreenshot(
       "public-landing-logo-merged-right.png",

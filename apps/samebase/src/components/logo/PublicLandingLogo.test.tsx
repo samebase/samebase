@@ -44,6 +44,7 @@ type MockLandingLogoSceneProps = {
   onInteractionEnd?: (finalView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onRenderReady?: () => void;
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
+  presentationTiltNeutralProgress?: number;
   presentationTiltTarget?: LogoPresentationTiltTarget;
   rotationDegrees: number;
   voxelGrid: unknown;
@@ -309,6 +310,7 @@ describe("PublicLandingLogo", () => {
     await act(async () => {
       localRoot.render(
         <PublicLandingLogo
+          presentationTiltNeutralProgress={0.25}
           presentationTiltTarget={{ horizontal: 6, vertical: 0 }}
           routeSearchSource="static"
         />,
@@ -321,17 +323,20 @@ describe("PublicLandingLogo", () => {
     if (initialSceneProps === null) {
       throw new Error("Expected mocked logo scene props.");
     }
+    expect(initialSceneProps.presentationTiltNeutralProgress).toBe(0.25);
     expect(initialSceneProps.presentationTiltTarget).toEqual({ horizontal: 6, vertical: 0 });
 
     await act(async () => {
       localRoot.render(
         <PublicLandingLogo
+          presentationTiltNeutralProgress={1}
           presentationTiltTarget={{ horizontal: 12, vertical: 0 }}
           routeSearchSource="static"
         />,
       );
     });
 
+    expect(latestLandingLogoSceneProps.current?.presentationTiltNeutralProgress).toBe(1);
     expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
       horizontal: 12,
       vertical: 0,

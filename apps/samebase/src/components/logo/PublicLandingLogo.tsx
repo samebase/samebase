@@ -114,6 +114,7 @@ export function PublicLandingLogo({
   enablePointerTilt = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
+  presentationTiltNeutralProgress,
   presentationTiltTarget,
   replaceRouteSearch,
   routeSearch = EMPTY_LOGO_ROUTE_SEARCH,
@@ -128,6 +129,8 @@ export function PublicLandingLogo({
   enablePointerTilt?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
+  /** Zero captures the rendered tilt; one renders exact neutral. */
+  presentationTiltNeutralProgress?: number;
   presentationTiltTarget?: LogoPresentationTiltTarget;
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
   routeSearch?: LogoRouteSearch;
@@ -505,6 +508,7 @@ export function PublicLandingLogo({
             data-presentation-horizontal-degrees={activePresentationTiltTarget?.horizontal.toFixed(
               3,
             )}
+            data-presentation-neutral-progress={presentationTiltNeutralProgress?.toFixed(3)}
             data-presentation-vertical-degrees={activePresentationTiltTarget?.vertical.toFixed(3)}
             data-rotation-degrees={view.rotationDegrees.toFixed(3)}
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
@@ -555,6 +559,7 @@ export function PublicLandingLogo({
                 setView(nextView);
               }}
               onVoxelEdit={ignoreLogoVoxelEdit}
+              presentationTiltNeutralProgress={presentationTiltNeutralProgress}
               presentationTiltTarget={activePresentationTiltTarget}
               rotationAxisMode={routeState.rotationAxisMode}
               rotationDegrees={view.rotationDegrees}
