@@ -6,9 +6,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
+import { VaultRepositoryRootInput } from "@/components/vault-dashboard/VaultRepositoryRootInput";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
@@ -28,7 +30,6 @@ import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
-import { highlightMatches, rankFuzzyPathMatches } from "@/lib/fuzzySearch.tsx";
 import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import { useNow } from "@/hooks/useNow";
 import {
@@ -41,13 +42,10 @@ import {
 import {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type FormEvent,
-  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch/fileView";
@@ -93,8 +91,6 @@ import {
 } from "@/components/vault-dashboard/vaultProviderSetup";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
-  DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
-  DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM,
   clearVaultDashboardQueryDialogSearch,
   replaceRootLogoRouteSearch,
   type RootRouteSearch,
@@ -123,8 +119,8 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
 import { tryParseRepositoryFullName } from "../../../shared/repoName";
-import { VAULT_ROOT_DIRECTORY } from "../../../shared/vaultRootDirectory";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -133,19 +129,11 @@ import {
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand";
-import type {
-  CloudflareWorkerOption,
-  CloudflareWorkerRepositoryEvidence,
-} from "@/components/vault-dashboard/vaultDashboardCloudflareWorkerSelection";
 import {
-  isSelectableCloudflareWorker,
-  readDefaultCloudflareWorkerSelection,
-} from "@/components/vault-dashboard/vaultDashboardCloudflareWorkerSelection";
-import {
-  buildVaultProductionApps,
-  type VaultBranchProductionApp,
+  buildVaultProductionRoots,
+  type VaultBranchProductionRoot,
   type VaultBranchProductionLinkProvider,
-} from "@/components/vault-dashboard/vaultProductionApps";
+} from "@/components/vault-dashboard/vaultProductionRoots";
 import {
   useVaultProviderObservations,
   type VaultCloudflareProviderObservationState,
@@ -159,6 +147,7 @@ const VAULT_BRANCH_LOAD_MORE_PAGE_SIZE = 25;
 const VAULT_BRANCH_ROW_ESTIMATE_PX = 92;
 const VAULT_BRANCH_LOADER_ROW_KEY = "vault-branch-loader";
 const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
+const EMPTY_REPOSITORY_FOLDER_SUGGESTIONS: readonly string[] = [];
 
 export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
@@ -211,122 +200,34 @@ export type VaultDeleteDialogTarget = {
 type VaultDeleteIntent = VaultDeleteDialogTarget & {
   id: Id<"vaults">;
 };
-type VaultAppRootDialogTarget = {
-  hasAppRoots: boolean;
-  hasRootAppRoot: boolean;
-  id: Id<"vaults">;
-  repositoryFullName: string;
-};
-const EMPTY_APP_ROOT_FOLDER_SUGGESTIONS: readonly string[] = [];
 type VaultCloudflareDialogTarget = {
-  appId: Id<"vaultApps">;
   id: Id<"vaults">;
   repositoryFullName: string;
   repositoryName: string;
-  rootDirectory: string;
 };
 type VaultConvexDialogTarget = {
-  appId: Id<"vaultApps">;
   id: Id<"vaults">;
   repositoryFullName: string;
   repositoryName: string;
-  rootDirectory: string;
 };
-type CloudflareWorkerConnectMode = "existing" | "create";
-type ConvexProjectOption = {
-  projectId: string;
-  projectName: string;
-  projectSlug: string;
-  teamSlug: string;
+type CloudflareWorkerConnectMode = "existing" | "create" | "connect";
+type CloudflareWorkerConnectTarget = {
+  workerName: string;
+  workerTag: string;
 };
+type CloudflareWorkerOption =
+  (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["workers"][number];
+type CloudflareInventoryState =
+  (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["inventoryState"];
+type ConvexProjectOption =
+  (typeof api.vault.convex.discoverProjects)["_returnType"]["projects"][number];
+type ConvexConfigOption = Extract<
+  (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["configs"][number],
+  { state: "valid" }
+>;
+type ConvexSourceCompleteness =
+  (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["completeness"];
 type ConvexProjectConnectMode = "existing" | "create";
-
-function compareCloudflareWorkerOptions(
-  left: CloudflareWorkerOption,
-  right: CloudflareWorkerOption,
-) {
-  return (
-    getCloudflareWorkerDiscoveryRank(left) - getCloudflareWorkerDiscoveryRank(right) ||
-    left.workerName.localeCompare(right.workerName) ||
-    left.workerTag.localeCompare(right.workerTag)
-  );
-}
-
-function getCloudflareWorkerDiscoveryRank(worker: CloudflareWorkerOption): number {
-  switch (worker.discovery.classification) {
-    case "recommended":
-      return 0;
-    case "blocked":
-      return worker.discovery.evidence.state === "same_repo_different_root" ? 1 : 4;
-    case "available":
-      return 2;
-    case "unknown":
-      return 3;
-    default:
-      worker.discovery.classification satisfies never;
-      return 4;
-  }
-}
-
-function formatCloudflareWorkerRepositoryEvidence(
-  evidence: CloudflareWorkerRepositoryEvidence,
-): string {
-  switch (evidence.state) {
-    case "none":
-      return "No active Builds repo trigger";
-    case "matching_repo":
-      return `Builds repo ${formatCloudflareWorkerRepositoryLabel(evidence)}, root ${formatCloudflareWorkerRootLabel(evidence.rootDirectory)}`;
-    case "same_repo_different_root":
-      return `Builds root ${formatCloudflareWorkerRootLabel(evidence.rootDirectory)}, expected ${formatCloudflareWorkerRootLabel(evidence.expectedRootDirectory)}`;
-    case "different_repo":
-      return `Builds repo ${formatCloudflareWorkerRepositoryLabel(evidence)}`;
-    case "deleted_repo_connection":
-      return "Builds repo connection was deleted";
-    case "missing_repo_id":
-      return "Builds repo id missing";
-    case "missing_root_directory":
-      return `Builds root missing, expected ${formatCloudflareWorkerRootLabel(evidence.expectedRootDirectory)}`;
-    case "trigger_read_failed":
-      return "Builds triggers could not be read";
-    default:
-      evidence satisfies never;
-      return "";
-  }
-}
-
-function formatCloudflareWorkerRepositoryLabel(args: {
-  repoId: string;
-  repoName: string | null;
-}): string {
-  return args.repoName ? `${args.repoName} (${args.repoId})` : args.repoId;
-}
-
-function formatCloudflareWorkerRootLabel(rootDirectory: string): string {
-  return rootDirectory === "/" ? "/" : rootDirectory;
-}
-
-function formatCloudflareWorkerDiscoveryLabel(worker: CloudflareWorkerOption): string {
-  switch (worker.discovery.classification) {
-    case "recommended":
-      return "Recommended";
-    case "available":
-      return "Available";
-    case "blocked":
-      if (worker.discovery.evidence.state === "same_repo_different_root") {
-        return "Same repo, different root";
-      }
-      return "Different repo";
-    case "unknown":
-      return "Cannot inspect";
-    default:
-      worker.discovery.classification satisfies never;
-      return "";
-  }
-}
-
-function formatCloudflareWorkerDiscoveryDescription(worker: CloudflareWorkerOption): string {
-  return `${formatCloudflareWorkerDiscoveryLabel(worker)}: ${formatCloudflareWorkerRepositoryEvidence(worker.discovery.evidence)}`;
-}
 
 type VaultDashboardDeletion = VaultDashboardVault["deletion"];
 type VaultDashboardDeleteAction = Extract<
@@ -349,7 +250,7 @@ type CloudflareWorkerConfigurationActionInFlight =
       workerId: Id<"vaultCloudflareWorkers">;
       convexProjectId: Id<"vaultConvexProjects">;
     };
-type ProviderAttachmentRemovalInFlight =
+type ProviderAttachmentDetachmentInFlight =
   | {
       provider: "cloudflare";
       vaultId: Id<"vaults">;
@@ -360,6 +261,14 @@ type ProviderAttachmentRemovalInFlight =
       vaultId: Id<"vaults">;
       convexProjectId: Id<"vaultConvexProjects">;
     };
+type ConvexConfigPathRepairTarget = {
+  convexProjectId: Id<"vaultConvexProjects">;
+  vaultId: Id<"vaults">;
+};
+type CloudflareBuildsRepairTarget = {
+  vaultId: Id<"vaults">;
+  workerId: Id<"vaultCloudflareWorkers">;
+};
 
 function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProviderSetup): string {
   switch (providerSetup.status) {
@@ -376,53 +285,48 @@ function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProvider
   return "Providers";
 }
 
-function buildConvexProjectOptionKey(project: ConvexProjectOption): string {
-  return project.projectId;
-}
+export type VaultDeleteOptionKey =
+  | "removeCodespaces"
+  | "removeConvexProvision"
+  | "removeGithubRepo"
+  | "removeCloudflareProvision";
 
 function compareConvexProjectOption(left: ConvexProjectOption, right: ConvexProjectOption): number {
   return (
+    Number(right.workerReferences.length > 0) - Number(left.workerReferences.length > 0) ||
     left.projectName.localeCompare(right.projectName) ||
     left.projectSlug.localeCompare(right.projectSlug) ||
     left.projectId.localeCompare(right.projectId)
   );
 }
 
-export type VaultDeleteOptionKey =
-  | "removeCodespaces"
-  | "removeConvexProvision"
-  | "removeGithubRepo"
-  | "removeCloudflareProvision";
-type AddAppRootMode = "app" | "monorepo";
-
 type VaultDashboardLocalState = {
-  addAppRootDialog: {
-    appRoot: string;
-    error: string | null;
-    isSubmitting: boolean;
-    mode: AddAppRootMode;
-  };
   cloudflareConnectDialog: {
     accounts: CloudflareAccountOption[];
-    appRoot: string;
     connectMode: CloudflareWorkerConnectMode;
+    createRootDirectory: string;
     createWorkerName: string;
+    didAddWorker: boolean;
     error: string | null;
+    inventoryState: CloudflareInventoryState | null;
     isLoadingResources: boolean;
     isSubmittingWorker: boolean;
     selectedAccountId: string;
-    selectedWorkerName: string;
+    selectedWorkerTags: string[];
+    workerToConnect: CloudflareWorkerConnectTarget | null;
     workers: CloudflareWorkerOption[];
   };
   convexConnectDialog: {
-    appRoot: string;
+    configs: ConvexConfigOption[];
     connectMode: ConvexProjectConnectMode;
+    createConfigPath: string;
     createProjectName: string;
-    projects: ConvexProjectOption[];
     error: string | null;
     isLoadingResources: boolean;
     isSubmittingProject: boolean;
-    selectedProjectId: string;
+    projects: ConvexProjectOption[];
+    selectedProjectConfigPaths: Record<string, string | undefined>;
+    sourceCompleteness: ConvexSourceCompleteness | null;
   };
   commitError: string | null;
   deleteError: string | null;
@@ -441,35 +345,34 @@ type VaultDashboardLocalState = {
 
 function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convexConnectDialog"] {
   return {
-    appRoot: VAULT_ROOT_DIRECTORY,
+    configs: [],
     connectMode: "existing",
+    createConfigPath: "",
     createProjectName: "",
-    projects: [],
     error: null,
     isLoadingResources: false,
     isSubmittingProject: false,
-    selectedProjectId: "",
+    projects: [],
+    selectedProjectConfigPaths: {},
+    sourceCompleteness: null,
   };
 }
 
 function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
   return {
-    addAppRootDialog: {
-      appRoot: VAULT_ROOT_DIRECTORY,
-      error: null,
-      isSubmitting: false,
-      mode: "app",
-    },
     cloudflareConnectDialog: {
       accounts: [],
-      appRoot: VAULT_ROOT_DIRECTORY,
       connectMode: "existing",
+      createRootDirectory: "/",
       createWorkerName: "",
+      didAddWorker: false,
       error: null,
+      inventoryState: null,
       isLoadingResources: false,
       isSubmittingWorker: false,
       selectedAccountId: "",
-      selectedWorkerName: "",
+      selectedWorkerTags: [],
+      workerToConnect: null,
       workers: [],
     },
     convexConnectDialog: readInitialConvexConnectDialogState(),
@@ -491,62 +394,6 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
 
 function useVaultDashboardLocalStore() {
   return useCreateStore(readVaultDashboardInitialLocalState(), ({ setState }) => ({
-    resetAddAppRootDialogState: () => {
-      setState((state) => ({
-        ...state,
-        addAppRootDialog: {
-          appRoot: VAULT_ROOT_DIRECTORY,
-          error: null,
-          isSubmitting: false,
-          mode: "app",
-        },
-      }));
-    },
-    prepareAddAppRootDialog: ({ hasAppRoots }: { hasAppRoots: boolean }) => {
-      setState((state) => ({
-        ...state,
-        addAppRootDialog: {
-          appRoot: hasAppRoots ? "" : VAULT_ROOT_DIRECTORY,
-          error: null,
-          isSubmitting: false,
-          mode: hasAppRoots ? "monorepo" : "app",
-        },
-      }));
-    },
-    setAddAppRootDialogAppRoot: (appRoot: string) => {
-      setState((state) => ({
-        ...state,
-        addAppRootDialog: { ...state.addAppRootDialog, appRoot, error: null },
-      }));
-    },
-    setAddAppRootDialogMode: (mode: AddAppRootMode) => {
-      setState((state) => ({
-        ...state,
-        addAppRootDialog: {
-          ...state.addAppRootDialog,
-          appRoot:
-            mode === "app"
-              ? VAULT_ROOT_DIRECTORY
-              : state.addAppRootDialog.appRoot === VAULT_ROOT_DIRECTORY
-                ? ""
-                : state.addAppRootDialog.appRoot,
-          error: null,
-          mode,
-        },
-      }));
-    },
-    setAddAppRootDialogError: (error: string | null) => {
-      setState((state) => ({
-        ...state,
-        addAppRootDialog: { ...state.addAppRootDialog, error },
-      }));
-    },
-    setAddAppRootDialogSubmitting: (isSubmitting: boolean) => {
-      setState((state) => ({
-        ...state,
-        addAppRootDialog: { ...state.addAppRootDialog, isSubmitting },
-      }));
-    },
     prepareDeleteDialog: () => {
       setState((state) => ({
         ...state,
@@ -567,14 +414,17 @@ function useVaultDashboardLocalStore() {
         ...state,
         cloudflareConnectDialog: {
           accounts: [],
-          appRoot: VAULT_ROOT_DIRECTORY,
           connectMode: "existing",
+          createRootDirectory: "/",
           createWorkerName: "",
+          didAddWorker: false,
           error: null,
+          inventoryState: null,
           isLoadingResources: false,
           isSubmittingWorker: false,
           selectedAccountId: "",
-          selectedWorkerName: "",
+          selectedWorkerTags: [],
+          workerToConnect: null,
           workers: [],
         },
       }));
@@ -603,22 +453,44 @@ function useVaultDashboardLocalStore() {
         cloudflareConnectDialog: { ...state.cloudflareConnectDialog, accounts },
       }));
     },
-    setCloudflareConnectDialogAppRoot: (appRoot: string) => {
+    setCloudflareConnectDialogCreateRootDirectory: (createRootDirectory: string) => {
       setState((state) => ({
         ...state,
-        cloudflareConnectDialog: { ...state.cloudflareConnectDialog, appRoot },
+        cloudflareConnectDialog: { ...state.cloudflareConnectDialog, createRootDirectory },
       }));
     },
     setCloudflareConnectDialogConnectMode: (connectMode: CloudflareWorkerConnectMode) => {
       setState((state) => ({
         ...state,
-        cloudflareConnectDialog: { ...state.cloudflareConnectDialog, connectMode },
+        cloudflareConnectDialog: {
+          ...state.cloudflareConnectDialog,
+          connectMode,
+          createRootDirectory:
+            connectMode === "connect" ? "" : state.cloudflareConnectDialog.createRootDirectory,
+          error: null,
+          workerToConnect: null,
+        },
       }));
     },
     setCloudflareConnectDialogCreateWorkerName: (createWorkerName: string) => {
       setState((state) => ({
         ...state,
         cloudflareConnectDialog: { ...state.cloudflareConnectDialog, createWorkerName },
+      }));
+    },
+    setCloudflareConnectDialogWorkerToConnect: (
+      workerToConnect: CloudflareWorkerConnectTarget | null,
+    ) => {
+      setState((state) => ({
+        ...state,
+        cloudflareConnectDialog: {
+          ...state.cloudflareConnectDialog,
+          createRootDirectory: workerToConnect
+            ? ""
+            : state.cloudflareConnectDialog.createRootDirectory,
+          error: null,
+          workerToConnect,
+        },
       }));
     },
     setCloudflareConnectDialogError: (error: string | null) => {
@@ -633,16 +505,29 @@ function useVaultDashboardLocalStore() {
         cloudflareConnectDialog: { ...state.cloudflareConnectDialog, isLoadingResources },
       }));
     },
+    setCloudflareConnectDialogInventoryState: (inventoryState: CloudflareInventoryState | null) => {
+      setState((state) => ({
+        ...state,
+        cloudflareConnectDialog: { ...state.cloudflareConnectDialog, inventoryState },
+      }));
+    },
     setCloudflareConnectDialogSelectedAccountId: (selectedAccountId: string) => {
       setState((state) => ({
         ...state,
         cloudflareConnectDialog: { ...state.cloudflareConnectDialog, selectedAccountId },
       }));
     },
-    setCloudflareConnectDialogSelectedWorkerName: (selectedWorkerName: string) => {
+    toggleCloudflareConnectDialogWorker: (workerTag: string) => {
       setState((state) => ({
         ...state,
-        cloudflareConnectDialog: { ...state.cloudflareConnectDialog, selectedWorkerName },
+        cloudflareConnectDialog: {
+          ...state.cloudflareConnectDialog,
+          selectedWorkerTags: state.cloudflareConnectDialog.selectedWorkerTags.includes(workerTag)
+            ? state.cloudflareConnectDialog.selectedWorkerTags.filter(
+                (candidate) => candidate !== workerTag,
+              )
+            : [...state.cloudflareConnectDialog.selectedWorkerTags, workerTag],
+        },
       }));
     },
     setCloudflareConnectDialogSubmitting: (isSubmittingWorker: boolean) => {
@@ -656,11 +541,28 @@ function useVaultDashboardLocalStore() {
         ...state,
         cloudflareConnectDialog: {
           ...state.cloudflareConnectDialog,
-          selectedWorkerName: readDefaultCloudflareWorkerSelection(
-            workers,
-            state.cloudflareConnectDialog.selectedWorkerName,
-          ),
+          selectedWorkerTags: workers
+            .filter((worker) => worker.repository.state === "ready")
+            .map((worker) => worker.workerTag),
           workers,
+        },
+      }));
+    },
+    markCloudflareConnectDialogWorkerAdded: (workerTag: string) => {
+      setState((state) => ({
+        ...state,
+        cloudflareConnectDialog: {
+          ...state.cloudflareConnectDialog,
+          didAddWorker: true,
+          connectMode: "existing",
+          error: null,
+          selectedWorkerTags: state.cloudflareConnectDialog.selectedWorkerTags.filter(
+            (candidate) => candidate !== workerTag,
+          ),
+          workerToConnect: null,
+          workers: state.cloudflareConnectDialog.workers.filter(
+            (worker) => worker.workerTag !== workerTag,
+          ),
         },
       }));
     },
@@ -676,22 +578,24 @@ function useVaultDashboardLocalStore() {
         convexConnectDialog: { ...state.convexConnectDialog, createProjectName },
       }));
     },
-    setConvexConnectDialogAppRoot: (appRoot: string) => {
-      setState((state) => ({
-        ...state,
-        convexConnectDialog: { ...state.convexConnectDialog, appRoot },
-      }));
-    },
-    setConvexConnectDialogProjects: (projects: ConvexProjectOption[]) => {
-      const sortedProjects = [...projects].sort(compareConvexProjectOption);
+    setConvexConnectDialogConfigs: (configs: ConvexConfigOption[]) => {
       setState((state) => ({
         ...state,
         convexConnectDialog: {
           ...state.convexConnectDialog,
-          projects: sortedProjects,
-          selectedProjectId: sortedProjects[0]
-            ? buildConvexProjectOptionKey(sortedProjects[0])
-            : "",
+          configs,
+          createConfigPath: configs[0]?.convexConfigPath ?? "",
+          selectedProjectConfigPaths: {},
+        },
+      }));
+    },
+    setConvexConnectDialogProjects: (projects: ConvexProjectOption[]) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: {
+          ...state.convexConnectDialog,
+          projects,
+          selectedProjectConfigPaths: {},
         },
       }));
     },
@@ -707,11 +611,54 @@ function useVaultDashboardLocalStore() {
         convexConnectDialog: { ...state.convexConnectDialog, isLoadingResources },
       }));
     },
-    setConvexConnectDialogSelectedProjectId: (selectedProjectId: string) => {
+    setConvexConnectDialogSourceCompleteness: (
+      sourceCompleteness: ConvexSourceCompleteness | null,
+    ) => {
       setState((state) => ({
         ...state,
-        convexConnectDialog: { ...state.convexConnectDialog, selectedProjectId },
+        convexConnectDialog: { ...state.convexConnectDialog, sourceCompleteness },
       }));
+    },
+    setConvexConnectDialogCreateConfigPath: (createConfigPath: string) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, createConfigPath },
+      }));
+    },
+    setConvexConnectDialogProjectConfigPath: (projectId: string, convexConfigPath: string) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: {
+          ...state.convexConnectDialog,
+          selectedProjectConfigPaths: {
+            ...state.convexConnectDialog.selectedProjectConfigPaths,
+            [projectId]: convexConfigPath,
+          },
+        },
+      }));
+    },
+    toggleConvexConnectDialogProject: (projectId: string) => {
+      setState((state) => {
+        const selectedConfigPath = state.convexConnectDialog.selectedProjectConfigPaths[projectId];
+        const selectedProjectConfigPaths =
+          selectedConfigPath !== undefined
+            ? Object.fromEntries(
+                Object.entries(state.convexConnectDialog.selectedProjectConfigPaths).filter(
+                  ([candidate]) => candidate !== projectId,
+                ),
+              )
+            : {
+                ...state.convexConnectDialog.selectedProjectConfigPaths,
+                [projectId]: state.convexConnectDialog.configs[0]?.convexConfigPath ?? "",
+              };
+        return {
+          ...state,
+          convexConnectDialog: {
+            ...state.convexConnectDialog,
+            selectedProjectConfigPaths,
+          },
+        };
+      });
     },
     setConvexConnectDialogSubmitting: (isSubmittingProject: boolean) => {
       setState((state) => ({
@@ -1149,383 +1096,225 @@ export function VaultDashboardDeleteDialog({
   );
 }
 
-export function VaultDashboardAppRootDialog({
-  appRoot,
-  error,
-  folderSuggestions,
-  isSubmitting,
-  mode,
-  onAppRootChange,
-  onModeChange,
-  onOpenChange,
-  onSubmit,
-  open,
-  vault,
-}: {
-  appRoot: string;
-  error: string | null;
-  folderSuggestions: readonly string[];
-  isSubmitting: boolean;
-  mode: AddAppRootMode;
-  onAppRootChange: (appRoot: string) => void;
-  onModeChange: (mode: AddAppRootMode) => void;
-  onOpenChange: (isOpen: boolean) => void;
-  onSubmit: () => void;
-  open: boolean;
-  vault: VaultAppRootDialogTarget | null;
-}) {
-  const canSelectAppMode = vault ? !vault.hasAppRoots : false;
-  const effectiveMode = canSelectAppMode ? mode : "monorepo";
-  const isRepositoryAppMode = effectiveMode === "app";
-  const showAppRootInput = !isRepositoryAppMode;
-  const submitDisabled = isSubmitting || (showAppRootInput && !appRoot.trim());
-  const submitLabel = isRepositoryAppMode ? "Use as app" : "Add app root";
-  const title = vault ? `Add app root ${vault.repositoryFullName}` : "Add app root";
-  const description = canSelectAppMode
-    ? "Choose whether this repository is one app or a monorepo."
-    : vault?.hasRootAppRoot
-      ? "Add a folder app root to convert this repository to a monorepo."
-      : "Add another folder app root.";
-  const appRootSuggestionContainerRef = useRef<HTMLDivElement>(null);
-  const appRootSuggestionListId = useId();
-  const [appRootSuggestionsOpen, setAppRootSuggestionsOpen] = useState(false);
-  const [selectedAppRootSuggestionIndex, setSelectedAppRootSuggestionIndex] = useState<
-    number | null
-  >(null);
-  const appRootQuery = appRoot.trim();
-  const appRootSuggestionMatches = useMemo(() => {
-    if (!showAppRootInput || appRootQuery.length === 0) {
-      return [];
-    }
-
-    return rankFuzzyPathMatches({
-      paths: folderSuggestions,
-      query: appRootQuery,
-      limit: 8,
-    });
-  }, [appRootQuery, folderSuggestions, showAppRootInput]);
-  const showAppRootSuggestions =
-    appRootSuggestionsOpen && showAppRootInput && appRootSuggestionMatches.length > 0;
-  const activeAppRootSuggestionIndex =
-    selectedAppRootSuggestionIndex === null || appRootSuggestionMatches.length === 0
-      ? null
-      : Math.min(selectedAppRootSuggestionIndex, appRootSuggestionMatches.length - 1);
-  const selectedAppRootSuggestion =
-    showAppRootSuggestions && activeAppRootSuggestionIndex !== null
-      ? appRootSuggestionMatches[activeAppRootSuggestionIndex]
-      : undefined;
-  const activeAppRootSuggestionId = selectedAppRootSuggestion
-    ? `${appRootSuggestionListId}-${activeAppRootSuggestionIndex}`
-    : undefined;
-  useEffect(() => {
-    const handleDocumentPointerDown = (event: PointerEvent) => {
-      if (!(event.target instanceof Node)) {
-        return;
-      }
-
-      const container = appRootSuggestionContainerRef.current;
-      if (container && !container.contains(event.target)) {
-        setAppRootSuggestionsOpen(false);
-        setSelectedAppRootSuggestionIndex(null);
-      }
-    };
-
-    document.addEventListener("pointerdown", handleDocumentPointerDown);
-    return () => document.removeEventListener("pointerdown", handleDocumentPointerDown);
-  }, []);
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (submitDisabled) {
-      return;
-    }
-    onSubmit();
-  };
-  const handleAppRootSuggestionSelect = (folderPath: string) => {
-    onAppRootChange(folderPath);
-    setAppRootSuggestionsOpen(false);
-    setSelectedAppRootSuggestionIndex(null);
-  };
-  const handleAppRootInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    switch (event.key) {
-      case "ArrowDown":
-        if (appRootSuggestionMatches.length > 0) {
-          event.preventDefault();
-          setAppRootSuggestionsOpen(true);
-          setSelectedAppRootSuggestionIndex((current) =>
-            current === null || !appRootSuggestionsOpen
-              ? 0
-              : Math.min(current + 1, appRootSuggestionMatches.length - 1),
-          );
-        }
-        return;
-      case "ArrowUp":
-        if (appRootSuggestionMatches.length > 0) {
-          event.preventDefault();
-          setAppRootSuggestionsOpen(true);
-          setSelectedAppRootSuggestionIndex((current) =>
-            current === null || !appRootSuggestionsOpen
-              ? appRootSuggestionMatches.length - 1
-              : Math.max(current - 1, 0),
-          );
-        }
-        return;
-      case "Enter":
-        if (selectedAppRootSuggestion) {
-          event.preventDefault();
-          handleAppRootSuggestionSelect(selectedAppRootSuggestion.path);
-        }
-        return;
-      case "Escape":
-        if (appRootSuggestionsOpen) {
-          event.preventDefault();
-          event.stopPropagation();
-          setAppRootSuggestionsOpen(false);
-          setSelectedAppRootSuggestionIndex(null);
-        }
-        return;
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
-          </DialogHeader>
-          {vault ? (
-            <div className="space-y-3">
-              {canSelectAppMode ? (
-                <div className="grid grid-cols-2" role="group" aria-label="App root mode">
-                  <button
-                    type="button"
-                    className={clsx(
-                      buttonVariants({
-                        variant: isRepositoryAppMode ? "default" : "outline",
-                        size: "sm",
-                      }),
-                      "rounded-r-none",
-                    )}
-                    aria-pressed={isRepositoryAppMode}
-                    onClick={() => onModeChange("app")}
-                    disabled={isSubmitting}
-                  >
-                    App
-                  </button>
-                  <button
-                    type="button"
-                    className={clsx(
-                      buttonVariants({
-                        variant: isRepositoryAppMode ? "outline" : "default",
-                        size: "sm",
-                      }),
-                      "rounded-l-none border-l-0",
-                    )}
-                    aria-pressed={!isRepositoryAppMode}
-                    onClick={() => onModeChange("monorepo")}
-                    disabled={isSubmitting}
-                  >
-                    Monorepo
-                  </button>
-                </div>
-              ) : null}
-              {showAppRootInput ? (
-                <div ref={appRootSuggestionContainerRef} className="relative">
-                  <Input
-                    aria-activedescendant={activeAppRootSuggestionId}
-                    aria-autocomplete="list"
-                    aria-controls={showAppRootSuggestions ? appRootSuggestionListId : undefined}
-                    aria-expanded={showAppRootSuggestions}
-                    aria-label="App root"
-                    autoComplete="off"
-                    value={appRoot}
-                    onChange={(event) => {
-                      const nextAppRoot = event.target.value;
-                      onAppRootChange(nextAppRoot);
-                      setAppRootSuggestionsOpen(nextAppRoot.trim().length > 0);
-                      setSelectedAppRootSuggestionIndex(null);
-                    }}
-                    onFocus={() => setAppRootSuggestionsOpen(appRootQuery.length > 0)}
-                    onKeyDown={handleAppRootInputKeyDown}
-                    disabled={isSubmitting}
-                    placeholder="apps/samebase"
-                  />
-                  {showAppRootSuggestions ? (
-                    <div
-                      id={appRootSuggestionListId}
-                      role="listbox"
-                      aria-label="App root suggestions"
-                      className="corner-notch-1 absolute z-50 mt-1 max-h-56 w-full overflow-y-auto border bg-popover text-popover-foreground shadow-md"
-                    >
-                      {appRootSuggestionMatches.map((suggestion, index) => (
-                        <button
-                          key={suggestion.path}
-                          id={`${appRootSuggestionListId}-${index}`}
-                          type="button"
-                          role="option"
-                          aria-selected={index === activeAppRootSuggestionIndex}
-                          className={clsx(
-                            "block w-full cursor-pointer truncate px-3 py-2 text-left font-mono text-sm hover:bg-accent hover:text-accent-foreground",
-                            index === activeAppRootSuggestionIndex &&
-                              "bg-accent text-accent-foreground",
-                          )}
-                          onPointerDown={(event) => {
-                            event.preventDefault();
-                            handleAppRootSuggestionSelect(suggestion.path);
-                          }}
-                          onClick={() => handleAppRootSuggestionSelect(suggestion.path)}
-                        >
-                          {highlightMatches(suggestion.path, suggestion.matches)}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {error ? <div className="text-sm text-red-600">{error}</div> : null}
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                onOpenChange(false);
-              }}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitDisabled}>
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {submitLabel}
-            </Button>
-          </DialogFooter>
-        </form>
-      </AppDialogContent>
-    </Dialog>
-  );
-}
-
 export function VaultDashboardConvexDialog({
-  appRoot,
-  appRootReadOnly,
+  configs,
+  createConfigPath,
   createProjectName,
   projects,
   error,
   isLoading,
   isSubmitting,
   mode,
+  onCreateConfigPathChange,
   onCreateProjectNameChange,
-  onAppRootChange,
-  onProjectChange,
   onModeChange,
   onOpenChange,
+  onProjectConfigPathChange,
+  onProjectToggle,
   onSubmit,
   open,
-  selectedProjectId,
+  repairProject,
+  selectedProjectConfigPaths,
+  sourceCompleteness,
   vault,
 }: {
-  appRoot: string;
-  appRootReadOnly: boolean;
+  configs: readonly ConvexConfigOption[];
+  createConfigPath: string;
   createProjectName: string;
-  projects: ConvexProjectOption[];
+  projects: readonly ConvexProjectOption[];
   error: string | null;
   isLoading: boolean;
   isSubmitting: boolean;
   mode: ConvexProjectConnectMode;
-  onAppRootChange: (appRoot: string) => void;
+  onCreateConfigPathChange: (convexConfigPath: string) => void;
   onCreateProjectNameChange: (projectName: string) => void;
-  onProjectChange: (projectId: string) => void;
   onModeChange: (mode: ConvexProjectConnectMode) => void;
   onOpenChange: (isOpen: boolean) => void;
+  onProjectConfigPathChange: (projectId: string, convexConfigPath: string) => void;
+  onProjectToggle: (projectId: string) => void;
   onSubmit: () => void;
   open: boolean;
-  selectedProjectId: string;
+  repairProject: { convexConfigPath: string; projectId: string } | null;
+  selectedProjectConfigPaths: Readonly<Record<string, string | undefined>>;
+  sourceCompleteness: ConvexSourceCompleteness | null;
   vault: VaultConvexDialogTarget | null;
 }) {
-  const sortedProjects = [...projects].sort(compareConvexProjectOption);
-  const selectedProject = sortedProjects.find(
-    (project) => buildConvexProjectOptionKey(project) === selectedProjectId,
-  );
-  const showAppRootInput = appRoot !== VAULT_ROOT_DIRECTORY;
+  const configPaths = configs.map((config) => config.convexConfigPath);
+  const sortedProjects = useMemo(() => [...projects].sort(compareConvexProjectOption), [projects]);
+  const discoveryResultsAvailable = !isLoading && sourceCompleteness !== null;
+  const selectedProjectCount = Object.keys(selectedProjectConfigPaths).length;
   const submitDisabled =
     isLoading ||
     isSubmitting ||
-    !appRoot.trim() ||
-    (mode === "existing" ? !selectedProject : !createProjectName.trim());
+    configPaths.length === 0 ||
+    (repairProject
+      ? !createConfigPath
+      : mode === "existing"
+        ? selectedProjectCount === 0 ||
+          Object.values(selectedProjectConfigPaths).some((path) => !path)
+        : !createProjectName.trim() || !createConfigPath);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent>
         <DialogHeader>
           <DialogTitle>
-            {vault ? `Connect Convex ${vault.repositoryFullName}` : "Connect Convex"}
+            {vault
+              ? repairProject
+                ? `Change ${repairProject.projectId} code location`
+                : `Add Convex to ${vault.repositoryFullName}`
+              : "Add Convex"}
           </DialogTitle>
-          <DialogDescription>Convex project.</DialogDescription>
+          <DialogDescription>
+            {repairProject
+              ? `Choose the convex.json file for this project. Current location: ${repairProject.convexConfigPath}.`
+              : mode === "existing"
+                ? "Choose one or more projects and the convex.json file for each."
+                : "Choose a project name and its convex.json file."}
+          </DialogDescription>
         </DialogHeader>
         {vault ? (
           <div className="space-y-3">
-            {showAppRootInput ? (
-              <Input
-                value={appRoot}
-                onChange={(event) => onAppRootChange(event.target.value)}
-                disabled={isLoading || isSubmitting}
-                readOnly={appRootReadOnly}
-                aria-label="App root"
-                placeholder="App root"
-              />
+            {!repairProject ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={mode === "existing" ? "default" : "outline"}
+                  onClick={() => onModeChange("existing")}
+                  disabled={isLoading || isSubmitting}
+                >
+                  Existing
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === "create" ? "default" : "outline"}
+                  onClick={() => onModeChange("create")}
+                  disabled={isLoading || isSubmitting}
+                >
+                  Create
+                </Button>
+              </div>
             ) : null}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={mode === "existing" ? "default" : "outline"}
-                onClick={() => onModeChange("existing")}
-                disabled={isLoading || isSubmitting}
-              >
-                Existing
-              </Button>
-              <Button
-                type="button"
-                variant={mode === "create" ? "default" : "outline"}
-                onClick={() => onModeChange("create")}
-                disabled={isLoading || isSubmitting}
-              >
-                Create
-              </Button>
-            </div>
-            {mode === "existing" ? (
+            {discoveryResultsAvailable && sourceCompleteness === "partial" ? (
+              <div className="text-sm text-muted-foreground">
+                The repository could not be fully scanned. Verified configs found so far are shown.
+              </div>
+            ) : null}
+            {!discoveryResultsAvailable ? null : configPaths.length === 0 ? (
+              sourceCompleteness === "complete" ? (
+                <div className="text-sm text-muted-foreground">
+                  No valid convex.json files were found on the default branch.
+                </div>
+              ) : null
+            ) : repairProject ? (
               <Select
-                // The dialog owns modality; a second modal lock here can shift mobile focus/scroll during open.
                 modal={false}
-                value={selectedProjectId}
-                onValueChange={onProjectChange}
-                disabled={isLoading || sortedProjects.length === 0}
+                value={createConfigPath}
+                onValueChange={onCreateConfigPathChange}
+                disabled={isSubmitting}
               >
-                <SelectTrigger aria-label="Convex project" className="w-full">
-                  <SelectValue placeholder={isLoading ? "Loading projects" : "Convex project"}>
-                    {selectedProject ? selectedProject.projectName : undefined}
-                  </SelectValue>
+                <SelectTrigger aria-label="New Convex config path" className="w-full">
+                  <SelectValue placeholder="convex.json" />
                 </SelectTrigger>
                 <AppSelectContent>
-                  {sortedProjects.map((project) => {
-                    const key = buildConvexProjectOptionKey(project);
-                    return (
-                      <AppSelectItem key={key} value={key}>
-                        {project.projectName}
-                      </AppSelectItem>
-                    );
-                  })}
+                  {configPaths.map((path) => (
+                    <AppSelectItem key={path} value={path}>
+                      <span className="font-mono">{path}</span>
+                    </AppSelectItem>
+                  ))}
                 </AppSelectContent>
               </Select>
+            ) : mode === "existing" ? (
+              sortedProjects.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No unattached Convex projects are available.
+                </div>
+              ) : (
+                <div className="grid max-h-80 gap-3 overflow-y-auto">
+                  {sortedProjects.map((project) => {
+                    const selectedConfigPath = selectedProjectConfigPaths[project.projectId];
+                    const selected = selectedConfigPath !== undefined;
+                    return (
+                      <div
+                        key={project.projectId}
+                        className="grid gap-2 border-b pb-3 last:border-b-0"
+                      >
+                        <label className="flex min-w-0 items-start gap-2">
+                          <Checkbox
+                            checked={selected}
+                            disabled={isSubmitting}
+                            onCheckedChange={() => onProjectToggle(project.projectId)}
+                          />
+                          <span className="grid min-w-0 gap-0.5">
+                            <span className="truncate text-sm">{project.projectName}</span>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {project.teamSlug}/{project.projectSlug}
+                            </span>
+                            {project.workerReferences.length > 0 ? (
+                              <span className="truncate text-xs text-muted-foreground">
+                                Used by{" "}
+                                {project.workerReferences
+                                  .map((worker) => worker.workerName)
+                                  .join(", ")}
+                              </span>
+                            ) : null}
+                          </span>
+                        </label>
+                        {selected ? (
+                          <Select
+                            modal={false}
+                            value={selectedConfigPath}
+                            onValueChange={(convexConfigPath) =>
+                              onProjectConfigPathChange(project.projectId, convexConfigPath)
+                            }
+                            disabled={isSubmitting}
+                          >
+                            <SelectTrigger
+                              aria-label={`convex.json for ${project.projectName}`}
+                              className="w-full"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <AppSelectContent>
+                              {configPaths.map((path) => (
+                                <AppSelectItem key={path} value={path}>
+                                  <span className="font-mono">{path}</span>
+                                </AppSelectItem>
+                              ))}
+                            </AppSelectContent>
+                          </Select>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             ) : (
-              <Input
-                value={createProjectName}
-                onChange={(event) => onCreateProjectNameChange(event.target.value)}
-                disabled={isLoading || isSubmitting}
-                placeholder="Project name"
-              />
+              <div className="grid gap-3">
+                <Input
+                  value={createProjectName}
+                  onChange={(event) => onCreateProjectNameChange(event.target.value)}
+                  disabled={isSubmitting}
+                  placeholder="Project name"
+                />
+                <Select
+                  modal={false}
+                  value={createConfigPath}
+                  onValueChange={onCreateConfigPathChange}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger aria-label="Convex config path" className="w-full">
+                    <SelectValue placeholder="convex.json" />
+                  </SelectTrigger>
+                  <AppSelectContent>
+                    {configPaths.map((path) => (
+                      <AppSelectItem key={path} value={path}>
+                        <span className="font-mono">{path}</span>
+                      </AppSelectItem>
+                    ))}
+                  </AppSelectContent>
+                </Select>
+              </div>
             )}
             {error ? <div className="text-sm text-red-600">{error}</div> : null}
           </div>
@@ -1542,7 +1331,13 @@ export function VaultDashboardConvexDialog({
           </Button>
           <Button onClick={onSubmit} disabled={submitDisabled}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {mode === "existing" ? "Connect Project" : "Create Project"}
+            {repairProject
+              ? "Change code location"
+              : mode === "existing"
+                ? selectedProjectCount === 0
+                  ? "Add projects"
+                  : `Add ${selectedProjectCount} project${selectedProjectCount === 1 ? "" : "s"}`
+                : "Create project"}
           </Button>
         </DialogFooter>
       </AppDialogContent>
@@ -1552,163 +1347,301 @@ export function VaultDashboardConvexDialog({
 
 export function VaultDashboardCloudflareDialog({
   accounts,
-  appRoot,
-  appRootReadOnly,
+  createRootDirectory,
   createWorkerName,
+  didAddWorker,
   error,
+  folderSuggestions,
   isLoading,
   isSubmitting,
+  inventoryState,
   mode,
   onAccountChange,
-  onAppRootChange,
+  onCreateRootDirectoryChange,
   onCreateWorkerNameChange,
+  onConnectWorker,
+  onConnectWorkerBack,
   onModeChange,
   onOpenChange,
   onSubmit,
-  onWorkerChange,
+  onWorkerToggle,
   open,
   selectedAccountId,
-  selectedWorkerName,
+  selectedWorkerTags,
+  repairWorker,
   vault,
+  workerToConnect,
   workers,
 }: {
-  accounts: CloudflareAccountOption[];
-  appRoot: string;
-  appRootReadOnly: boolean;
+  accounts: readonly CloudflareAccountOption[];
+  createRootDirectory: string;
   createWorkerName: string;
+  didAddWorker: boolean;
   error: string | null;
+  folderSuggestions: readonly string[];
   isLoading: boolean;
   isSubmitting: boolean;
+  inventoryState: CloudflareInventoryState | null;
   mode: CloudflareWorkerConnectMode;
   onAccountChange: (accountId: string) => void;
-  onAppRootChange: (appRoot: string) => void;
+  onCreateRootDirectoryChange: (rootDirectory: string) => void;
   onCreateWorkerNameChange: (workerName: string) => void;
+  onConnectWorker: (worker: CloudflareWorkerConnectTarget) => void;
+  onConnectWorkerBack: () => void;
   onModeChange: (mode: CloudflareWorkerConnectMode) => void;
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: () => void;
-  onWorkerChange: (workerName: string) => void;
+  onWorkerToggle: (workerTag: string) => void;
   open: boolean;
   selectedAccountId: string;
-  selectedWorkerName: string;
+  selectedWorkerTags: readonly string[];
+  repairWorker: { workerName: string } | null;
   vault: VaultCloudflareDialogTarget | null;
-  workers: CloudflareWorkerOption[];
+  workerToConnect: CloudflareWorkerConnectTarget | null;
+  workers: readonly CloudflareWorkerOption[];
 }) {
   const sortedAccounts = useMemo(
     () => [...accounts].sort(compareCloudflareAccountOptions),
     [accounts],
   );
-  const sortedWorkers = useMemo(() => [...workers].sort(compareCloudflareWorkerOptions), [workers]);
+  const workerGroups = useMemo(() => {
+    const workersByRoot = new Map<string, CloudflareWorkerOption[]>();
+    for (const worker of workers) {
+      if (worker.repository.state !== "ready") {
+        continue;
+      }
+      const workersAtRoot = workersByRoot.get(worker.repository.rootDirectory);
+      if (workersAtRoot) {
+        workersAtRoot.push(worker);
+      } else {
+        workersByRoot.set(worker.repository.rootDirectory, [worker]);
+      }
+    }
+    return [...workersByRoot.entries()]
+      .sort(([leftRoot], [rightRoot]) => {
+        if (leftRoot === rightRoot) {
+          return 0;
+        }
+        if (leftRoot === "/") {
+          return -1;
+        }
+        if (rightRoot === "/") {
+          return 1;
+        }
+        return leftRoot.localeCompare(rightRoot);
+      })
+      .map(([rootDirectory, workersAtRoot]) => ({
+        rootDirectory,
+        workers: workersAtRoot.sort(
+          (left, right) =>
+            left.workerName.localeCompare(right.workerName) ||
+            left.workerTag.localeCompare(right.workerTag),
+        ),
+      }));
+  }, [workers]);
+  const unconnectedWorkers = useMemo(
+    () =>
+      workers
+        .filter((worker) => worker.repository.state === "not_connected")
+        .sort(
+          (left, right) =>
+            left.workerName.localeCompare(right.workerName) ||
+            left.workerTag.localeCompare(right.workerTag),
+        ),
+    [workers],
+  );
   const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
-  const selectedWorker = sortedWorkers.find((worker) => worker.workerName === selectedWorkerName);
-  const selectedWorkerSelectable = selectedWorker
-    ? isSelectableCloudflareWorker(selectedWorker)
-    : false;
-  const showAppRootInput = appRoot !== VAULT_ROOT_DIRECTORY;
   const submitDisabled =
-    isLoading ||
     isSubmitting ||
-    !appRoot.trim() ||
-    !selectedAccountId ||
-    (mode === "existing"
-      ? !selectedWorkerName || !selectedWorkerSelectable
-      : !createWorkerName.trim());
+    (repairWorker
+      ? !createRootDirectory.trim()
+      : isLoading ||
+        !selectedAccountId ||
+        (mode === "existing"
+          ? selectedWorkerTags.length === 0
+          : mode === "connect"
+            ? !workerToConnect || !createRootDirectory.trim()
+            : !createWorkerName.trim() || !createRootDirectory.trim()));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent>
         <DialogHeader>
           <DialogTitle>
-            {vault ? `Connect Cloudflare ${vault.repositoryFullName}` : "Connect Cloudflare"}
+            {vault
+              ? repairWorker
+                ? `Configure ${repairWorker.workerName} Builds`
+                : mode === "connect"
+                  ? `Connect a Worker to ${vault.repositoryFullName}`
+                  : `Add Cloudflare to ${vault.repositoryFullName}`
+              : "Add Cloudflare"}
           </DialogTitle>
-          <DialogDescription>Choose a Cloudflare account and Worker.</DialogDescription>
+          <DialogDescription>
+            {repairWorker
+              ? "Choose the repository root Cloudflare should build."
+              : mode === "connect"
+                ? "Choose the Worker and its repository root."
+                : mode === "existing"
+                  ? "Choose Workers connected to this repository, or connect another Worker."
+                  : "Create a Worker and choose the repository root Cloudflare should build."}
+          </DialogDescription>
         </DialogHeader>
         {vault ? (
           <div className="space-y-3">
-            <Select value={selectedAccountId} onValueChange={onAccountChange} disabled={isLoading}>
-              <SelectTrigger aria-label="Cloudflare account" className="w-full">
-                <SelectValue placeholder={isLoading ? "Loading accounts" : "Cloudflare account"}>
-                  {selectedAccount?.accountName}
-                </SelectValue>
-              </SelectTrigger>
-              <AppSelectContent>
-                {sortedAccounts.map((account) => (
-                  <AppSelectItem key={account.accountId} value={account.accountId}>
-                    {account.accountName}
-                  </AppSelectItem>
-                ))}
-              </AppSelectContent>
-            </Select>
-            {showAppRootInput ? (
-              <Input
-                value={appRoot}
-                onChange={(event) => onAppRootChange(event.target.value)}
-                disabled={isLoading || isSubmitting}
-                readOnly={appRootReadOnly}
-                aria-label="App root"
-                placeholder="App root"
+            {repairWorker ? (
+              <VaultRepositoryRootInput
+                disabled={isSubmitting}
+                folderSuggestions={folderSuggestions}
+                onValueChange={onCreateRootDirectoryChange}
+                value={createRootDirectory}
               />
-            ) : null}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={mode === "existing" ? "default" : "outline"}
-                onClick={() => onModeChange("existing")}
-                disabled={isLoading || isSubmitting}
-              >
-                Existing
-              </Button>
-              <Button
-                type="button"
-                variant={mode === "create" ? "default" : "outline"}
-                onClick={() => onModeChange("create")}
-                disabled={isLoading || isSubmitting}
-              >
-                Create
-              </Button>
-            </div>
-            {mode === "existing" ? (
-              <Select
-                // The dialog owns modality; a second modal lock here can shift mobile focus/scroll during open.
-                modal={false}
-                value={selectedWorkerName}
-                onValueChange={onWorkerChange}
-                disabled={isLoading || workers.length === 0}
-              >
-                <SelectTrigger aria-label="Cloudflare Worker" className="w-full">
-                  <SelectValue placeholder={isLoading ? "Loading Workers" : "Cloudflare Worker"}>
-                    {selectedWorker?.workerName}
-                  </SelectValue>
-                </SelectTrigger>
-                <AppSelectContent>
-                  {sortedWorkers.map((worker) => (
-                    <AppSelectItem
-                      key={worker.workerTag}
-                      value={worker.workerName}
-                      disabled={!isSelectableCloudflareWorker(worker)}
-                    >
-                      <span className="flex min-w-0 flex-col">
-                        <span>{worker.workerName}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatCloudflareWorkerDiscoveryDescription(worker)}
-                        </span>
-                      </span>
-                    </AppSelectItem>
-                  ))}
-                </AppSelectContent>
-              </Select>
-            ) : (
-              <Input
-                value={createWorkerName}
-                onChange={(event) => onCreateWorkerNameChange(event.target.value)}
-                disabled={isLoading || isSubmitting}
-                placeholder="Worker name"
-              />
-            )}
-            {mode === "existing" && selectedWorker ? (
-              <div className="text-xs text-muted-foreground">
-                {formatCloudflareWorkerDiscoveryDescription(selectedWorker)}
+            ) : mode === "connect" ? (
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cloudflare-worker-to-connect">Worker</Label>
+                  <Select
+                    value={workerToConnect?.workerTag ?? ""}
+                    onValueChange={(workerTag) => {
+                      const worker = unconnectedWorkers.find(
+                        (candidate) => candidate.workerTag === workerTag,
+                      );
+                      if (worker) {
+                        onConnectWorker({
+                          workerName: worker.workerName,
+                          workerTag: worker.workerTag,
+                        });
+                      }
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="cloudflare-worker-to-connect" className="w-full">
+                      <SelectValue placeholder="Choose a Worker">
+                        {workerToConnect?.workerName}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <AppSelectContent>
+                      {unconnectedWorkers.map((worker) => (
+                        <AppSelectItem key={worker.workerTag} value={worker.workerTag}>
+                          {worker.workerName}
+                        </AppSelectItem>
+                      ))}
+                    </AppSelectContent>
+                  </Select>
+                </div>
+                <VaultRepositoryRootInput
+                  disabled={isSubmitting}
+                  folderSuggestions={folderSuggestions}
+                  onValueChange={onCreateRootDirectoryChange}
+                  value={createRootDirectory}
+                />
               </div>
-            ) : null}
+            ) : (
+              <>
+                <Select
+                  value={selectedAccountId}
+                  onValueChange={onAccountChange}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger aria-label="Cloudflare account" className="w-full">
+                    <SelectValue
+                      placeholder={isLoading ? "Loading accounts" : "Cloudflare account"}
+                    >
+                      {selectedAccount?.accountName}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <AppSelectContent>
+                    {sortedAccounts.map((account) => (
+                      <AppSelectItem key={account.accountId} value={account.accountId}>
+                        {account.accountName}
+                      </AppSelectItem>
+                    ))}
+                  </AppSelectContent>
+                </Select>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={mode === "existing" ? "default" : "outline"}
+                    onClick={() => onModeChange("existing")}
+                    disabled={isLoading || isSubmitting}
+                  >
+                    Existing
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={mode === "create" ? "default" : "outline"}
+                    onClick={() => onModeChange("create")}
+                    disabled={isLoading || isSubmitting}
+                  >
+                    Create
+                  </Button>
+                </div>
+                {inventoryState === "partial" ? (
+                  <div className="text-sm text-muted-foreground">
+                    The Worker list may be incomplete. Verified Workers found so far are shown.
+                  </div>
+                ) : null}
+                {mode === "existing" ? (
+                  <div className="grid gap-3">
+                    {workerGroups.length > 0 ? (
+                      <div className="grid max-h-80 gap-3 overflow-y-auto">
+                        {workerGroups.map((group) => (
+                          <div key={group.rootDirectory} className="grid gap-1.5">
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {group.rootDirectory}
+                            </div>
+                            {group.workers.map((worker) => (
+                              <label
+                                key={worker.workerTag}
+                                className="flex min-w-0 items-center gap-2"
+                              >
+                                <Checkbox
+                                  checked={selectedWorkerTags.includes(worker.workerTag)}
+                                  disabled={isLoading || isSubmitting}
+                                  onCheckedChange={() => onWorkerToggle(worker.workerTag)}
+                                />
+                                <span className="truncate text-sm">{worker.workerName}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    ) : !isLoading &&
+                      selectedAccountId &&
+                      inventoryState !== "partial" &&
+                      unconnectedWorkers.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        No available Workers were found.
+                      </div>
+                    ) : null}
+                    {unconnectedWorkers.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isLoading || isSubmitting}
+                        onClick={() => onModeChange("connect")}
+                      >
+                        Connect another Worker
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    <Input
+                      value={createWorkerName}
+                      onChange={(event) => onCreateWorkerNameChange(event.target.value)}
+                      disabled={isLoading || isSubmitting}
+                      placeholder="Worker name"
+                    />
+                    <VaultRepositoryRootInput
+                      disabled={isLoading || isSubmitting}
+                      folderSuggestions={folderSuggestions}
+                      onValueChange={onCreateRootDirectoryChange}
+                      value={createRootDirectory}
+                    />
+                  </div>
+                )}
+              </>
+            )}
             {error ? <div className="text-sm text-red-600">{error}</div> : null}
           </div>
         ) : null}
@@ -1716,15 +1649,33 @@ export function VaultDashboardCloudflareDialog({
           <Button
             variant="outline"
             onClick={() => {
-              onOpenChange(false);
+              if (mode === "connect") {
+                onConnectWorkerBack();
+              } else {
+                onOpenChange(false);
+              }
             }}
             disabled={isSubmitting}
           >
-            Cancel
+            {mode === "connect"
+              ? "Back"
+              : didAddWorker
+                ? selectedWorkerTags.length > 0
+                  ? "Close"
+                  : "Done"
+                : "Cancel"}
           </Button>
           <Button onClick={onSubmit} disabled={submitDisabled}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {mode === "existing" ? "Connect Worker" : "Create Worker"}
+            {repairWorker
+              ? "Configure Workers Builds"
+              : mode === "connect"
+                ? "Connect and add"
+                : mode === "existing"
+                  ? selectedWorkerTags.length === 0
+                    ? "Add Workers"
+                    : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
+                  : "Create Worker"}
           </Button>
         </DialogFooter>
       </AppDialogContent>
@@ -1745,9 +1696,8 @@ interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
-  apps?: readonly VaultDashboardVault["apps"][number][];
   convexProjects?: readonly VaultDashboardConvexProject[];
-  productionApps?: readonly VaultBranchProductionApp[];
+  productionRoots?: readonly VaultBranchProductionRoot[];
   schemaGraphAccessEnabled?: boolean;
   stagedSummary?: StagedSummary;
 }
@@ -1763,51 +1713,51 @@ const BRANCH_PRODUCTION_LINK_ICONS = {
   convex: ConvexProviderLogo,
 } satisfies Record<VaultBranchProductionLinkProvider, VaultDashboardLogoComponent>;
 
-const branchProductionAppRootClassName =
+const branchProductionRootClassName =
   "grid min-h-7 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-sm leading-6 text-muted-foreground";
-const branchProductionAppRootIconClassName = "h-3.5 w-3.5";
-const branchProductionAppRootValueClassName = "min-w-0 max-w-full truncate font-mono";
+const branchProductionRootIconClassName = "h-3.5 w-3.5";
+const branchProductionRootValueClassName = "min-w-0 max-w-full truncate font-mono";
 const branchProductionProviderRowsIndentClassName = "pl-6";
 const branchProductionLinkClassName =
   "group -mx-1.5 -my-1 grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 rounded-sm px-1.5 py-1 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 const branchProductionLinkLabelClassName = "min-w-0 break-all font-mono";
 
-function buildVaultBranchProductionAppRootLabel(rootDirectory: string): string {
+function buildVaultBranchProductionRootLabel(rootDirectory: string): string {
   if (rootDirectory === "/") {
     return "Repository root";
   }
   return rootDirectory;
 }
 
-function VaultBranchProductionApps({
-  productionApps,
+function VaultBranchProductionRoots({
+  productionRoots,
 }: {
-  productionApps: readonly VaultBranchProductionApp[];
+  productionRoots: readonly VaultBranchProductionRoot[];
 }) {
-  const showAppRootHeadings =
-    productionApps.length > 1 || productionApps.some((app) => app.rootDirectory !== "/");
+  const showRootHeadings =
+    productionRoots.length > 1 || productionRoots.some((root) => root.rootDirectory !== "/");
 
   return (
     <div className="grid min-w-0 gap-1">
-      {productionApps.map((app) => (
-        <div key={app.appId} className="grid min-w-0 gap-0.5">
-          {showAppRootHeadings ? (
-            <div className={branchProductionAppRootClassName}>
+      {productionRoots.map((root) => (
+        <div key={root.rootDirectory} className="grid min-w-0 gap-0.5">
+          {showRootHeadings ? (
+            <div className={branchProductionRootClassName}>
               <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                <ChevronDownIcon className={branchProductionAppRootIconClassName} />
+                <ChevronDownIcon className={branchProductionRootIconClassName} />
               </span>
-              <span className={branchProductionAppRootValueClassName}>
-                {buildVaultBranchProductionAppRootLabel(app.rootDirectory)}
+              <span className={branchProductionRootValueClassName}>
+                {buildVaultBranchProductionRootLabel(root.rootDirectory)}
               </span>
             </div>
           ) : null}
           <div
             className={clsx(
               "grid min-w-0 gap-0.5",
-              showAppRootHeadings && branchProductionProviderRowsIndentClassName,
+              showRootHeadings && branchProductionProviderRowsIndentClassName,
             )}
           >
-            {app.links.map((link) => {
+            {root.links.map((link) => {
               const Icon = BRANCH_PRODUCTION_LINK_ICONS[link.provider];
               return (
                 <a
@@ -1891,7 +1841,6 @@ function buildVaultDashboardBranchRoute(args: {
 function buildVaultDashboardBranchConvexLinks(args: {
   repositoryFullName: string;
   branchName: string;
-  apps: readonly VaultDashboardVault["apps"][number][];
   convexProjects: readonly VaultDashboardConvexProject[];
   schemaGraphAccessEnabled: boolean;
 }): VaultBranchConvexLink[] {
@@ -1900,38 +1849,28 @@ function buildVaultDashboardBranchConvexLinks(args: {
     return [];
   }
 
-  const projectsByAppId = new Map<string, VaultDashboardConvexProject[]>();
-  for (const project of args.convexProjects) {
-    const projects = projectsByAppId.get(project.appId) ?? [];
-    projects.push(project);
-    projectsByAppId.set(project.appId, projects);
-  }
-
-  return [...args.apps]
+  return [...args.convexProjects]
     .sort(
       (left, right) =>
-        left.rootDirectory.localeCompare(right.rootDirectory) ||
-        left.appId.localeCompare(right.appId),
+        left.convexConfigPath.localeCompare(right.convexConfigPath) ||
+        left.projectId.localeCompare(right.projectId) ||
+        left.convexProjectId.localeCompare(right.convexProjectId),
     )
-    .flatMap((app) => {
-      const projects = projectsByAppId.get(app.appId) ?? [];
-      if (projects.length !== 1) {
-        return [];
-      }
-      const project = projects[0];
+    .flatMap((project) => {
+      const rootDirectory = getConvexConfigRootDirectory(project.convexConfigPath);
       const links = [
         {
           href: buildVaultDatabaseRoute({
             owner: repository.owner,
             repoName: repository.name,
             branch: args.branchName,
-            appRoot: app.rootDirectory === "/" ? "." : app.rootDirectory,
+            convexProjectId: project.convexProjectId,
           }),
-          label: app.rootDirectory === "/" ? "Data" : `Data: ${app.rootDirectory}`,
+          label: rootDirectory === "/" ? "Data" : `Data: ${rootDirectory}`,
           title:
-            app.rootDirectory === "/"
+            rootDirectory === "/"
               ? `Open production data for ${project.projectId}`
-              : `Open production data for ${project.projectId} at ${app.rootDirectory}`,
+              : `Open production data for ${project.projectId} at ${rootDirectory}`,
         },
       ];
       if (args.schemaGraphAccessEnabled) {
@@ -1940,13 +1879,13 @@ function buildVaultDashboardBranchConvexLinks(args: {
             owner: repository.owner,
             repoName: repository.name,
             branch: args.branchName,
-            appRoot: app.rootDirectory === "/" ? "." : app.rootDirectory,
+            convexProjectId: project.convexProjectId,
           }),
-          label: app.rootDirectory === "/" ? "Schema" : `Schema: ${app.rootDirectory}`,
+          label: rootDirectory === "/" ? "Schema" : `Schema: ${rootDirectory}`,
           title:
-            app.rootDirectory === "/"
+            rootDirectory === "/"
               ? `Open Convex schema for ${project.projectId}`
-              : `Open Convex schema for ${project.projectId} at ${app.rootDirectory}`,
+              : `Open Convex schema for ${project.projectId} at ${rootDirectory}`,
         });
       }
       return links;
@@ -2139,16 +2078,14 @@ export function VaultDashboardRepositoryExternalLinks({
 export function VaultBranchLinkContent({
   repositoryFullName,
   branch,
-  apps = [],
   convexProjects = [],
-  productionApps = [],
+  productionRoots = [],
   schemaGraphAccessEnabled = false,
 }: {
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
-  apps?: readonly VaultDashboardVault["apps"][number][];
   convexProjects?: readonly VaultDashboardConvexProject[];
-  productionApps?: readonly VaultBranchProductionApp[];
+  productionRoots?: readonly VaultBranchProductionRoot[];
   schemaGraphAccessEnabled?: boolean;
 }) {
   const branchRow = buildVaultBranchRowViewModel({
@@ -2180,12 +2117,11 @@ export function VaultBranchLinkContent({
   const branchSamebaseLinkTitle = branchRow.isDefault
     ? "Open branch in Samebase"
     : "View changes in Samebase";
-  const activeProductionApps = branchRow.isDefault ? productionApps : [];
+  const activeProductionRoots = branchRow.isDefault ? productionRoots : [];
   const activeConvexLinks = branchRow.isDefault
     ? buildVaultDashboardBranchConvexLinks({
         repositoryFullName,
         branchName: branchRow.name,
-        apps,
         convexProjects,
         schemaGraphAccessEnabled,
       })
@@ -2223,8 +2159,8 @@ export function VaultBranchLinkContent({
               </span>
             </a>
           ) : null}
-          {activeProductionApps.length > 0 ? (
-            <VaultBranchProductionApps productionApps={activeProductionApps} />
+          {activeProductionRoots.length > 0 ? (
+            <VaultBranchProductionRoots productionRoots={activeProductionRoots} />
           ) : null}
           <a
             href={branchRow.githubUrl}
@@ -2314,9 +2250,8 @@ export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branch,
-  apps,
   convexProjects,
-  productionApps,
+  productionRoots,
   schemaGraphAccessEnabled,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
@@ -2333,9 +2268,8 @@ export function VaultBranchLinkRow({
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branch={branch}
-        apps={apps}
         convexProjects={convexProjects}
-        productionApps={productionApps}
+        productionRoots={productionRoots}
         schemaGraphAccessEnabled={schemaGraphAccessEnabled}
       />
       {showRowActions ? (
@@ -2359,12 +2293,11 @@ export function VaultBranchLinkRow({
 interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
-  apps?: readonly VaultDashboardVault["apps"][number][];
   convexProjects?: readonly VaultDashboardConvexProject[];
   loadMore: (numItems: number) => void;
   paginationStatus: PaginationStatus;
   remoteBranches: readonly VaultRemoteBranchListItem[];
-  productionApps?: readonly VaultBranchProductionApp[];
+  productionRoots?: readonly VaultBranchProductionRoot[];
   schemaGraphAccessEnabled?: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
 }
@@ -2372,12 +2305,11 @@ interface VaultBranchListProps {
 function VaultBranchList({
   vaultId,
   repositoryFullName,
-  apps,
   convexProjects,
   loadMore,
   paginationStatus,
   remoteBranches,
-  productionApps,
+  productionRoots,
   schemaGraphAccessEnabled,
   stagedSummaries,
 }: VaultBranchListProps) {
@@ -2529,9 +2461,8 @@ function VaultBranchList({
                   vaultId={vaultId}
                   repositoryFullName={repositoryFullName}
                   stagedSummary={summaryByBranch.get(branch.name)}
-                  apps={branch.isDefault ? apps : undefined}
                   convexProjects={branch.isDefault ? convexProjects : undefined}
-                  productionApps={branch.isDefault ? productionApps : undefined}
+                  productionRoots={branch.isDefault ? productionRoots : undefined}
                   schemaGraphAccessEnabled={schemaGraphAccessEnabled}
                 />
               ) : (
@@ -2593,24 +2524,22 @@ export function VaultBranchHeaderControls({
 }
 
 export function VaultBranchSection({
-  apps,
   convexProjects,
   filteredBranchCount,
   loadMore,
   paginationStatus,
-  productionApps,
+  productionRoots,
   repositoryFullName,
   schemaGraphAccessEnabled,
   stagedSummaries,
   vaultId,
   remoteBranches,
 }: {
-  apps?: readonly VaultDashboardVault["apps"][number][];
   convexProjects?: readonly VaultDashboardConvexProject[];
   filteredBranchCount: number;
   loadMore: (numItems: number) => void;
   paginationStatus: PaginationStatus;
-  productionApps?: readonly VaultBranchProductionApp[];
+  productionRoots?: readonly VaultBranchProductionRoot[];
   repositoryFullName: string;
   schemaGraphAccessEnabled: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
@@ -2626,9 +2555,8 @@ export function VaultBranchSection({
           remoteBranches={remoteBranches}
           loadMore={loadMore}
           paginationStatus={paginationStatus}
-          apps={apps}
           convexProjects={convexProjects}
-          productionApps={productionApps}
+          productionRoots={productionRoots}
           schemaGraphAccessEnabled={schemaGraphAccessEnabled}
           stagedSummaries={stagedSummaries}
         />
@@ -2940,7 +2868,8 @@ type VaultDashboardViewProps = {
   cloudflareWorkerConfigurationActionInFlight: CloudflareWorkerConfigurationActionInFlight | null;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   isRemovingVault: boolean;
-  providerAttachmentRemovalInFlight: ProviderAttachmentRemovalInFlight | null;
+  providerAttachmentDetachmentInFlight: ProviderAttachmentDetachmentInFlight | null;
+  reconcilingConvexProjectId: Id<"vaultConvexProjects"> | null;
   retryingDeletionRunId: Id<"workflow_vaultDeletion_runs"> | null;
   retryingInfrastructureVaultId: Id<"vaults"> | null;
   now: number;
@@ -2955,6 +2884,15 @@ type VaultDashboardViewProps = {
   onConfigureWorkersBuildsForGitHub: (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
+    rootDirectory: string | undefined,
+  ) => void;
+  onChangeConvexProjectConfigPath: (
+    vaultId: Id<"vaults">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
+  onReconcileConvexProjectTeam: (
+    vaultId: Id<"vaults">,
+    convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
   onRotateConvexDeployKeysForWorkersBuilds: (
     vaultId: Id<"vaults">,
@@ -2963,11 +2901,8 @@ type VaultDashboardViewProps = {
   ) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
-  onRemoveMissingCloudflareWorker: (
-    vaultId: Id<"vaults">,
-    workerId: Id<"vaultCloudflareWorkers">,
-  ) => void;
-  onRemoveMissingConvexProject: (
+  onDetachCloudflareWorker: (vaultId: Id<"vaults">, workerId: Id<"vaultCloudflareWorkers">) => void;
+  onDetachConvexProject: (
     vaultId: Id<"vaults">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
@@ -2981,52 +2916,30 @@ type VaultDashboardViewProps = {
 };
 
 function applyVaultDashboardProviderAddSearch({
-  appRoot,
   currentSearch,
   provider,
 }: {
-  appRoot: string | null;
   currentSearch: RootRouteSearch;
   provider: "cloudflare" | "convex";
 }): RootRouteSearch {
-  const appRootPatch = {
-    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: appRoot,
-  };
-
   return provider === "convex"
     ? applySearchPatch(currentSearch, {
         "add-convex": true,
         "add-cloudflare": null,
-        ...appRootPatch,
-        [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
         delete: null,
       })
     : applySearchPatch(currentSearch, {
         "add-cloudflare": true,
         "add-convex": null,
-        ...appRootPatch,
-        [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
         delete: null,
       });
 }
 
-function applyVaultDashboardAddAppRootSearch(currentSearch: RootRouteSearch): RootRouteSearch {
-  return applySearchPatch(currentSearch, {
-    [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: true,
-    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
-    "add-cloudflare": null,
-    "add-convex": null,
-    delete: null,
-  });
-}
-
 function buildVaultDashboardProviderAddHref({
-  appRoot,
   dashboardRoutePathname,
   provider,
   rootRouteSearch,
 }: {
-  appRoot: string;
   dashboardRoutePathname: string;
   provider: "cloudflare" | "convex";
   rootRouteSearch: RootRouteSearch;
@@ -3034,23 +2947,9 @@ function buildVaultDashboardProviderAddHref({
   return buildPathWithTanStackSearch({
     pathname: dashboardRoutePathname,
     search: applyVaultDashboardProviderAddSearch({
-      appRoot,
       currentSearch: rootRouteSearch,
       provider,
     }),
-  });
-}
-
-function buildVaultDashboardAddAppRootHref({
-  dashboardRoutePathname,
-  rootRouteSearch,
-}: {
-  dashboardRoutePathname: string;
-  rootRouteSearch: RootRouteSearch;
-}): string {
-  return buildPathWithTanStackSearch({
-    pathname: dashboardRoutePathname,
-    search: applyVaultDashboardAddAppRootSearch(rootRouteSearch),
   });
 }
 
@@ -3078,8 +2977,6 @@ export function VaultDashboardVaultList({
                   })}
                   search={(currentSearch) =>
                     applySearchPatch(currentSearch, {
-                      [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
-                      [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
                       "add-cloudflare": null,
                       "add-convex": null,
                       delete: null,
@@ -3134,7 +3031,8 @@ export function VaultDashboardView({
   cloudflareWorkerConfigurationActionInFlight,
   convexObservations,
   isRemovingVault,
-  providerAttachmentRemovalInFlight,
+  providerAttachmentDetachmentInFlight,
+  reconcilingConvexProjectId,
   retryingDeletionRunId,
   retryingInfrastructureVaultId,
   now,
@@ -3147,11 +3045,13 @@ export function VaultDashboardView({
   schemaGraphAccessEnabled,
   rootRouteSearch,
   onConfigureWorkersBuildsForGitHub,
+  onChangeConvexProjectConfigPath,
+  onReconcileConvexProjectTeam,
   onRotateConvexDeployKeysForWorkersBuilds,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
-  onRemoveMissingCloudflareWorker,
-  onRemoveMissingConvexProject,
+  onDetachCloudflareWorker,
+  onDetachConvexProject,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
@@ -3168,13 +3068,12 @@ export function VaultDashboardView({
     vaults,
   } = viewModel;
   const openProviderAddDialog = useCallback(
-    ({ appRoot, provider }: { appRoot: string; provider: "cloudflare" | "convex" }) => {
+    ({ provider }: { provider: "cloudflare" | "convex" }) => {
       void navigate({
         resetScroll: false,
         to: ".",
         search: (currentSearch) =>
           applyVaultDashboardProviderAddSearch({
-            appRoot,
             currentSearch,
             provider,
           }),
@@ -3186,17 +3085,6 @@ export function VaultDashboardView({
     },
     [navigate],
   );
-  const openAppRootAddDialog = useCallback(() => {
-    void navigate({
-      resetScroll: false,
-      to: ".",
-      search: applyVaultDashboardAddAppRootSearch,
-      state: (currentState) => ({
-        ...currentState,
-        vaultDashboardDialog: "add-app-root",
-      }),
-    });
-  }, [navigate]);
 
   if (vaults.length === 0) {
     return (
@@ -3238,39 +3126,32 @@ export function VaultDashboardView({
         const isCloudflareWorkerConfigurationActionInFlight =
           cloudflareWorkerConfigurationActionInFlight !== null;
         const resourceRailState = buildVaultDashboardResourceRailState({
-          buildAddAppRootHref: () =>
-            buildVaultDashboardAddAppRootHref({
-              dashboardRoutePathname,
-              rootRouteSearch,
-            }),
-          addAppRootOnClick: () => {
-            openAppRootAddDialog();
-          },
-          buildAddCloudflareWorkerHref: (rootDirectory) =>
+          buildAddCloudflareWorkerHref: () =>
             buildVaultDashboardProviderAddHref({
-              appRoot: rootDirectory,
               dashboardRoutePathname,
               provider: "cloudflare",
               rootRouteSearch,
             }),
-          addCloudflareWorkerOnClick: (_appId, rootDirectory) => {
-            openProviderAddDialog({ appRoot: rootDirectory, provider: "cloudflare" });
+          addCloudflareWorkerOnClick: () => {
+            openProviderAddDialog({ provider: "cloudflare" });
           },
-          buildAddConvexHref: (rootDirectory) =>
+          buildAddConvexHref: () =>
             buildVaultDashboardProviderAddHref({
-              appRoot: rootDirectory,
               dashboardRoutePathname,
               provider: "convex",
               rootRouteSearch,
             }),
-          addConvexOnClick: (_appId, rootDirectory) => {
-            openProviderAddDialog({ appRoot: rootDirectory, provider: "convex" });
+          addConvexOnClick: () => {
+            openProviderAddDialog({ provider: "convex" });
           },
           configureWorkersBuildsForGitHubOnClick: isCloudflareWorkerConfigurationActionInFlight
             ? undefined
-            : (workerId) => {
-                onConfigureWorkersBuildsForGitHub(vault._id, workerId);
+            : (workerId, rootDirectory) => {
+                onConfigureWorkersBuildsForGitHub(vault._id, workerId, rootDirectory);
               },
+          changeConvexProjectConfigPathOnClick: (convexProjectId) => {
+            onChangeConvexProjectConfigPath(vault._id, convexProjectId);
+          },
           cloudflareObservations,
           convexObservations,
           githubRepositoryUrl,
@@ -3279,14 +3160,16 @@ export function VaultDashboardView({
               "configure_workers_builds_for_github" &&
             cloudflareWorkerConfigurationActionInFlight.vaultId === vault._id &&
             cloudflareWorkerConfigurationActionInFlight.workerId === workerId,
-          isRemovingMissingCloudflareWorker: (workerId) =>
-            providerAttachmentRemovalInFlight?.provider === "cloudflare" &&
-            providerAttachmentRemovalInFlight.vaultId === vault._id &&
-            providerAttachmentRemovalInFlight.workerId === workerId,
-          isRemovingMissingConvexProject: (convexProjectId) =>
-            providerAttachmentRemovalInFlight?.provider === "convex" &&
-            providerAttachmentRemovalInFlight.vaultId === vault._id &&
-            providerAttachmentRemovalInFlight.convexProjectId === convexProjectId,
+          isDetachingCloudflareWorker: (workerId) =>
+            providerAttachmentDetachmentInFlight?.provider === "cloudflare" &&
+            providerAttachmentDetachmentInFlight.vaultId === vault._id &&
+            providerAttachmentDetachmentInFlight.workerId === workerId,
+          isDetachingConvexProject: (convexProjectId) =>
+            providerAttachmentDetachmentInFlight?.provider === "convex" &&
+            providerAttachmentDetachmentInFlight.vaultId === vault._id &&
+            providerAttachmentDetachmentInFlight.convexProjectId === convexProjectId,
+          isReconcilingConvexProjectTeam: (convexProjectId) =>
+            reconcilingConvexProjectId === convexProjectId,
           isRotatingConvexDeployKeysForWorkersBuilds: (workerId, convexProjectId) =>
             cloudflareWorkerConfigurationActionInFlight?.kind ===
               "rotate_convex_deploy_keys_for_workers_builds" &&
@@ -3294,15 +3177,20 @@ export function VaultDashboardView({
             cloudflareWorkerConfigurationActionInFlight.workerId === workerId &&
             cloudflareWorkerConfigurationActionInFlight.convexProjectId === convexProjectId,
           vault,
-          removeMissingCloudflareWorkerOnClick: providerAttachmentRemovalInFlight
+          detachCloudflareWorkerOnClick: providerAttachmentDetachmentInFlight
             ? undefined
             : (workerId) => {
-                onRemoveMissingCloudflareWorker(vault._id, workerId);
+                onDetachCloudflareWorker(vault._id, workerId);
               },
-          removeMissingConvexProjectOnClick: providerAttachmentRemovalInFlight
+          detachConvexProjectOnClick: providerAttachmentDetachmentInFlight
             ? undefined
             : (convexProjectId) => {
-                onRemoveMissingConvexProject(vault._id, convexProjectId);
+                onDetachConvexProject(vault._id, convexProjectId);
+              },
+          reconcileConvexProjectTeamOnClick: reconcilingConvexProjectId
+            ? undefined
+            : (convexProjectId) => {
+                onReconcileConvexProjectTeam(vault._id, convexProjectId);
               },
           rotateConvexDeployKeysForWorkersBuildsOnClick:
             isCloudflareWorkerConfigurationActionInFlight
@@ -3311,7 +3199,7 @@ export function VaultDashboardView({
                   onRotateConvexDeployKeysForWorkersBuilds(vault._id, workerId, convexProjectId);
                 },
         });
-        const productionApps = buildVaultProductionApps({
+        const productionRoots = buildVaultProductionRoots({
           cloudflareObservations,
           convexObservations,
           vault,
@@ -3377,7 +3265,6 @@ export function VaultDashboardView({
         const branchSection =
           isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
             <VaultBranchSection
-              apps={vault.apps}
               convexProjects={vault.convexProjects}
               filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
               loadMore={remoteBranchPage?.loadMore ?? ignoreVaultBranchLoadMore}
@@ -3386,7 +3273,7 @@ export function VaultDashboardView({
               vaultId={vault._id}
               repositoryFullName={vault.repositoryFullName}
               remoteBranches={filteredPaginatedRemoteBranches}
-              productionApps={productionApps}
+              productionRoots={productionRoots}
               stagedSummaries={stagedBranchSummaries}
             />
           ) : undefined;
@@ -3605,15 +3492,18 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     api.vault.actions.retryInfrastructureProvisioning,
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
-  const listConvexProjects = useAction(api.vault.convex.listProjects);
-  const connectExistingConvexProject = useAction(api.vault.convex.connectExistingProject);
+  const discoverConvexProjects = useAction(api.vault.convex.discoverProjects);
+  const attachConvexProjects = useAction(api.vault.convex.attachProjects);
+  const changeConvexProjectConfigPath = useAction(api.vault.convex.changeProjectConfigPath);
   const createConvexProject = useAction(api.vault.convex.createProject);
+  const reconcileConvexProjectTeam = useAction(api.vault.convex.reconcileProjectTeam);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
-  const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
-  const connectExistingCloudflareWorker = useAction(api.vault.cloudflare.connectExistingWorker);
+  const discoverCloudflareWorkers = useAction(api.vault.cloudflare.discoverWorkers);
+  const attachCloudflareWorkers = useAction(api.vault.cloudflare.attachWorkers);
+  const connectCloudflareWorker = useAction(api.vault.cloudflare.connectWorker);
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
-  const removeMissingCloudflareWorker = useAction(api.vault.cloudflare.removeMissingWorker);
-  const removeMissingConvexProject = useAction(api.vault.convex.removeMissingProject);
+  const detachCloudflareWorker = useAction(api.vault.cloudflare.detachWorker);
+  const detachConvexProject = useAction(api.vault.convex.detachProject);
   const configureWorkersBuildsForGitHub = useAction(
     api.vault.cloudflare.configureWorkersBuildsForGitHub,
   );
@@ -3626,9 +3516,14 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   ] = useState<CloudflareWorkerConfigurationActionInFlight | null>(null);
   const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
     useState<Id<"vaults"> | null>(null);
-  const [providerAttachmentRemovalInFlight, setProviderAttachmentRemovalInFlight] =
-    useState<ProviderAttachmentRemovalInFlight | null>(null);
-  const createVaultApp = useMutation(api.vault.dashboard.createVaultApp);
+  const [providerAttachmentDetachmentInFlight, setProviderAttachmentDetachmentInFlight] =
+    useState<ProviderAttachmentDetachmentInFlight | null>(null);
+  const [convexConfigPathRepairTarget, setConvexConfigPathRepairTarget] =
+    useState<ConvexConfigPathRepairTarget | null>(null);
+  const [cloudflareBuildsRepairTarget, setCloudflareBuildsRepairTarget] =
+    useState<CloudflareBuildsRepairTarget | null>(null);
+  const [reconcilingConvexProjectId, setReconcilingConvexProjectId] =
+    useState<Id<"vaultConvexProjects"> | null>(null);
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3662,11 +3557,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     cloudflareConnection?.connected === true ? cloudflareConnection : null;
   const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
-  const addAppRootModeActive = rootRouteSearch[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM] === true;
   const deleteModeActive = rootRouteSearch.delete === true;
   const addConvexModeActive = rootRouteSearch["add-convex"] === true;
   const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"] === true;
-  const providerAddAppRoot = rootRouteSearch[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM] ?? null;
   const setVaultBranchFilters = useMutation(
     api.vault.dashboard.setVaultBranchFilters,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3714,7 +3607,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
 
     localStore.setQuery(api.vault.dashboard.getUserVaultResourceLinksState, {}, nextState);
   });
-  const preparedAddAppRootRepositoryRef = useRef<string | null>(null);
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
   const preparedAddConvexRepositoryRef = useRef<string | null>(null);
   const preparedAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
@@ -3723,7 +3615,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const cloudflareDialogResourcesRequestIdRef = useRef(0);
   const dashboardLocalStore = useVaultDashboardLocalStore();
   const {
-    addAppRootDialog,
     cloudflareConnectDialog,
     commitError,
     convexConnectDialog,
@@ -3741,67 +3632,62 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     shouldAutoFocusChatInput,
   } = useSelector(dashboardLocalStore);
   const {
-    appRoot: addAppRootValue,
-    error: addAppRootError,
-    isSubmitting: isSubmittingAppRoot,
-    mode: addAppRootMode,
-  } = addAppRootDialog;
-  const {
     accounts: cloudflareAccounts,
-    appRoot: cloudflareAppRoot,
     connectMode: cloudflareConnectMode,
+    createRootDirectory: cloudflareCreateRootDirectory,
     createWorkerName: cloudflareCreateWorkerName,
+    didAddWorker: didAddCloudflareWorker,
     error: cloudflareDialogError,
+    inventoryState: cloudflareInventoryState,
     isLoadingResources: isLoadingCloudflareResources,
     isSubmittingWorker: isSubmittingCloudflareWorker,
     selectedAccountId: selectedCloudflareAccountId,
-    selectedWorkerName: selectedCloudflareWorkerName,
+    selectedWorkerTags: selectedCloudflareWorkerTags,
+    workerToConnect: cloudflareWorkerToConnect,
     workers: cloudflareWorkers,
   } = cloudflareConnectDialog;
   const {
-    appRoot: convexAppRoot,
+    configs: convexConfigs,
     connectMode: convexConnectMode,
+    createConfigPath: convexCreateConfigPath,
     createProjectName: convexCreateProjectName,
     projects: convexProjects,
     error: convexDialogError,
     isLoadingResources: isLoadingConvexResources,
     isSubmittingProject: isSubmittingConvexProject,
-    selectedProjectId: selectedConvexProjectId,
+    selectedProjectConfigPaths: selectedConvexProjectConfigPaths,
+    sourceCompleteness: convexSourceCompleteness,
   } = convexConnectDialog;
-  const selectedConvexProject = convexProjects.find(
-    (project) => buildConvexProjectOptionKey(project) === selectedConvexProjectId,
-  );
   const {
-    resetAddAppRootDialogState,
     markCommitAttempted,
-    prepareAddAppRootDialog,
+    markCloudflareConnectDialogWorkerAdded,
     prepareDeleteDialog,
     resetCloudflareConnectDialogState,
     resetConvexConnectDialogState,
     resetDeleteDialogState,
-    setAddAppRootDialogAppRoot,
-    setAddAppRootDialogError,
-    setAddAppRootDialogMode,
-    setAddAppRootDialogSubmitting,
     setCloudflareConnectDialogAccounts,
-    setCloudflareConnectDialogAppRoot,
     setCloudflareConnectDialogConnectMode,
+    setCloudflareConnectDialogCreateRootDirectory,
     setCloudflareConnectDialogCreateWorkerName,
     setCloudflareConnectDialogError,
+    setCloudflareConnectDialogInventoryState,
     setCloudflareConnectDialogLoading,
     setCloudflareConnectDialogSelectedAccountId,
-    setCloudflareConnectDialogSelectedWorkerName,
     setCloudflareConnectDialogSubmitting,
     setCloudflareConnectDialogWorkers,
-    setConvexConnectDialogAppRoot,
+    setCloudflareConnectDialogWorkerToConnect,
+    toggleCloudflareConnectDialogWorker,
     setCommitError,
     setConvexConnectDialogConnectMode,
+    setConvexConnectDialogConfigs,
+    setConvexConnectDialogCreateConfigPath,
     setConvexConnectDialogCreateProjectName,
     setConvexConnectDialogProjects,
     setConvexConnectDialogError,
     setConvexConnectDialogLoading,
-    setConvexConnectDialogSelectedProjectId,
+    setConvexConnectDialogProjectConfigPath,
     setConvexConnectDialogSubmitting,
+    setConvexConnectDialogSourceCompleteness,
     setDeleteError,
     setDeleteOption,
     setDeveloperToolsOpen,
@@ -3810,25 +3696,11 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setIsCommitting,
     setIsDeleting,
     setRetryingDeletionRunId,
+    toggleConvexConnectDialogProject,
   } = dashboardLocalStore.actions;
 
   const { enqueueManualRepositoryRefresh } = useDashboardRepositoryRefreshDemand();
 
-  const addAppRootDialogVault = addAppRootModeActive ? selectedVault : null;
-  const vaultToAddAppRoot = useMemo(
-    () =>
-      addAppRootDialogVault?.state === "ready"
-        ? {
-            hasAppRoots: addAppRootDialogVault.apps.length > 0,
-            hasRootAppRoot: addAppRootDialogVault.apps.some(
-              (app) => app.rootDirectory === VAULT_ROOT_DIRECTORY,
-            ),
-            id: addAppRootDialogVault._id,
-            repositoryFullName: addAppRootDialogVault.repositoryFullName,
-          }
-        : null,
-    [addAppRootDialogVault],
-  );
   const deleteDialogVault = deleteModeActive ? selectedVault : null;
   const canOpenDeleteDialog =
     deleteDialogVault?.deletion.state === "not_deleting" &&
@@ -3837,49 +3709,52 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
   const addConvexDialogVault = addConvexModeActive ? selectedVault : null;
   const vaultToConnectConvex = useMemo(() => {
-    if (addConvexDialogVault?.state !== "ready" || providerAddAppRoot === null) {
-      return null;
-    }
-    const app = addConvexDialogVault.apps.find(
-      (candidate) => candidate.rootDirectory === providerAddAppRoot,
-    );
-    if (!app) {
+    if (addConvexDialogVault?.state !== "ready") {
       return null;
     }
 
     return {
-      appId: app.appId,
       id: addConvexDialogVault._id,
       repositoryFullName: addConvexDialogVault.repositoryFullName,
       repositoryName: addConvexDialogVault.ghRepoName,
-      rootDirectory: app.rootDirectory,
     };
-  }, [addConvexDialogVault, providerAddAppRoot]);
+  }, [addConvexDialogVault]);
+  const convexConfigPathRepairProject =
+    vaultToConnectConvex && convexConfigPathRepairTarget?.vaultId === vaultToConnectConvex.id
+      ? (addConvexDialogVault?.convexProjects.find(
+          (project) => project.convexProjectId === convexConfigPathRepairTarget.convexProjectId,
+        ) ?? null)
+      : null;
+  const unattachedConvexProjects = useMemo(() => {
+    const attachedProjectIds = new Set(
+      addConvexDialogVault?.convexProjects.map((project) => project.projectId) ?? [],
+    );
+    return convexProjects.filter((project) => !attachedProjectIds.has(project.projectId));
+  }, [addConvexDialogVault?.convexProjects, convexProjects]);
   const addCloudflareWorkerDialogVault = addCloudflareWorkerModeActive ? selectedVault : null;
   const vaultToConnectCloudflare = useMemo(() => {
-    if (addCloudflareWorkerDialogVault?.state !== "ready" || providerAddAppRoot === null) {
-      return null;
-    }
-    const app = addCloudflareWorkerDialogVault.apps.find(
-      (candidate) => candidate.rootDirectory === providerAddAppRoot,
-    );
-    if (!app) {
+    if (addCloudflareWorkerDialogVault?.state !== "ready") {
       return null;
     }
 
     return {
-      appId: app.appId,
       id: addCloudflareWorkerDialogVault._id,
       repositoryFullName: addCloudflareWorkerDialogVault.repositoryFullName,
       repositoryName: addCloudflareWorkerDialogVault.ghRepoName,
-      rootDirectory: app.rootDirectory,
     };
-  }, [addCloudflareWorkerDialogVault, providerAddAppRoot]);
-  const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
-  const addAppRootFolderSuggestions = useConvexQuery(
-    api.vault.dashboard.listVaultRootDirectorySuggestions,
-    vaultToAddAppRoot ? { vaultId: vaultToAddAppRoot.id } : "skip",
+  }, [addCloudflareWorkerDialogVault]);
+  const cloudflareRepositoryFolderSuggestions = useConvexQuery(
+    api.vault.dashboard.listVaultRepositoryFolderSuggestions,
+    vaultToConnectCloudflare ? { vaultId: vaultToConnectCloudflare.id } : "skip",
   );
+  const cloudflareBuildsRepairWorker =
+    vaultToConnectCloudflare &&
+    cloudflareBuildsRepairTarget?.vaultId === vaultToConnectCloudflare.id
+      ? (addCloudflareWorkerDialogVault?.cloudflareWorkers.find(
+          (worker) => worker.workerId === cloudflareBuildsRepairTarget.workerId,
+        ) ?? null)
+      : null;
+  const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
   const connectedCodespacesCount = useConvexQuery(
     api.codespaces.mutations.getConnectedCodespacesCount,
     CODESPACES_ENABLED && vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
@@ -3915,8 +3790,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       replace: true,
       search: (currentSearch) =>
         applySearchPatch(currentSearch, {
-          [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
-          [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
           "add-cloudflare": null,
           "add-convex": null,
           delete: null,
@@ -3929,35 +3802,44 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     });
   }, [navigate]);
 
-  const loadConvexDialogResources = useCallback(async () => {
-    const requestId = convexDialogResourcesRequestIdRef.current + 1;
-    convexDialogResourcesRequestIdRef.current = requestId;
-    setConvexConnectDialogLoading(true);
-    setConvexConnectDialogError(null);
-    try {
-      const projects = await listConvexProjects({});
-      if (convexDialogResourcesRequestIdRef.current !== requestId) {
-        return;
+  const loadConvexDialogResources = useCallback(
+    async (vaultId: Id<"vaults">) => {
+      const requestId = convexDialogResourcesRequestIdRef.current + 1;
+      convexDialogResourcesRequestIdRef.current = requestId;
+      setConvexConnectDialogLoading(true);
+      setConvexConnectDialogError(null);
+      try {
+        const discovery = await discoverConvexProjects({ vaultId });
+        if (convexDialogResourcesRequestIdRef.current !== requestId) {
+          return;
+        }
+        setConvexConnectDialogConfigs(
+          discovery.source.configs.filter((config) => config.state === "valid"),
+        );
+        setConvexConnectDialogProjects(discovery.projects);
+        setConvexConnectDialogSourceCompleteness(discovery.source.completeness);
+      } catch (error) {
+        if (convexDialogResourcesRequestIdRef.current !== requestId) {
+          return;
+        }
+        setConvexConnectDialogError(
+          error instanceof Error ? error.message : "Could not discover Convex projects.",
+        );
+      } finally {
+        if (convexDialogResourcesRequestIdRef.current === requestId) {
+          setConvexConnectDialogLoading(false);
+        }
       }
-      setConvexConnectDialogProjects(projects);
-    } catch (error) {
-      if (convexDialogResourcesRequestIdRef.current !== requestId) {
-        return;
-      }
-      setConvexConnectDialogError(
-        error instanceof Error ? error.message : "Could not load Convex projects.",
-      );
-    } finally {
-      if (convexDialogResourcesRequestIdRef.current === requestId) {
-        setConvexConnectDialogLoading(false);
-      }
-    }
-  }, [
-    listConvexProjects,
-    setConvexConnectDialogProjects,
-    setConvexConnectDialogError,
-    setConvexConnectDialogLoading,
-  ]);
+    },
+    [
+      discoverConvexProjects,
+      setConvexConnectDialogConfigs,
+      setConvexConnectDialogError,
+      setConvexConnectDialogLoading,
+      setConvexConnectDialogProjects,
+      setConvexConnectDialogSourceCompleteness,
+    ],
+  );
 
   const resetConvexDialogState = useCallback(() => {
     convexDialogResourcesRequestIdRef.current += 1;
@@ -3965,27 +3847,34 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   }, [resetConvexConnectDialogState]);
 
   const loadCloudflareWorkersForAccount = useCallback(
-    async (args: { accountId: string; vaultId: Id<"vaults">; appId: Id<"vaultApps"> }) => {
+    async (args: { accountId: string; vaultId: Id<"vaults"> }) => {
       const requestId = cloudflareWorkersRequestIdRef.current + 1;
       cloudflareWorkersRequestIdRef.current = requestId;
       setCloudflareConnectDialogLoading(true);
       setCloudflareConnectDialogWorkers([]);
       try {
-        const workers = await listCloudflareWorkers({
+        const discovery = await discoverCloudflareWorkers({
           accountId: args.accountId,
           vaultId: args.vaultId,
-          appId: args.appId,
         });
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
           return;
         }
-        setCloudflareConnectDialogWorkers(workers);
+        const attachedWorkerTags = new Set(
+          (addCloudflareWorkerDialogVault?.cloudflareWorkers ?? [])
+            .filter((worker) => worker.accountId === args.accountId)
+            .map((worker) => worker.workerTag),
+        );
+        setCloudflareConnectDialogWorkers(
+          discovery.workers.filter((worker) => !attachedWorkerTags.has(worker.workerTag)),
+        );
+        setCloudflareConnectDialogInventoryState(discovery.inventoryState);
       } catch (error) {
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
           return;
         }
         setCloudflareConnectDialogError(
-          error instanceof Error ? error.message : "Could not load Cloudflare Workers.",
+          error instanceof Error ? error.message : "Could not discover Cloudflare Workers.",
         );
       } finally {
         if (cloudflareWorkersRequestIdRef.current === requestId) {
@@ -3994,19 +3883,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       }
     },
     [
-      listCloudflareWorkers,
+      addCloudflareWorkerDialogVault?.cloudflareWorkers,
+      discoverCloudflareWorkers,
       setCloudflareConnectDialogError,
       setCloudflareConnectDialogLoading,
+      setCloudflareConnectDialogInventoryState,
       setCloudflareConnectDialogWorkers,
     ],
   );
 
   const loadCloudflareDialogResources = useCallback(
-    async (args: {
-      preferredAccountId: string | undefined;
-      vaultId: Id<"vaults">;
-      appId: Id<"vaultApps">;
-    }) => {
+    async (args: { preferredAccountId: string | undefined; vaultId: Id<"vaults"> }) => {
       const requestId = cloudflareDialogResourcesRequestIdRef.current + 1;
       cloudflareDialogResourcesRequestIdRef.current = requestId;
       setCloudflareConnectDialogLoading(true);
@@ -4033,7 +3920,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         await loadCloudflareWorkersForAccount({
           accountId: selectedAccount.accountId,
           vaultId: args.vaultId,
-          appId: args.appId,
         });
       } catch (error) {
         if (cloudflareDialogResourcesRequestIdRef.current !== requestId) {
@@ -4066,33 +3952,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   }, [resetCloudflareConnectDialogState]);
 
   useEffect(() => {
-    if (!vaultToAddAppRoot) {
-      if (preparedAddAppRootRepositoryRef.current) {
-        preparedAddAppRootRepositoryRef.current = null;
-        resetAddAppRootDialogState();
-      }
-      if (addAppRootModeActive && vaults) {
-        replaceVaultDashboardDialogRoute("add-app-root");
-      }
-      return;
-    }
-
-    if (preparedAddAppRootRepositoryRef.current === vaultToAddAppRoot.repositoryFullName) {
-      return;
-    }
-
-    preparedAddAppRootRepositoryRef.current = vaultToAddAppRoot.repositoryFullName;
-    prepareAddAppRootDialog({ hasAppRoots: vaultToAddAppRoot.hasAppRoots });
-  }, [
-    addAppRootModeActive,
-    prepareAddAppRootDialog,
-    replaceVaultDashboardDialogRoute,
-    resetAddAppRootDialogState,
-    vaultToAddAppRoot,
-    vaults,
-  ]);
-
-  useEffect(() => {
     if (!vaultToDelete) {
       if (preparedDeleteRepositoryRef.current) {
         preparedDeleteRepositoryRef.current = null;
@@ -4108,22 +3967,21 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       return;
     }
 
-    // The URL owns which vault is targeted; local state only seeds editable
-    // cleanup options when that routed target changes.
     prepareDeleteDialog();
     preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
   }, [
+    deleteDialogVault,
     deleteModeActive,
     prepareDeleteDialog,
-    resetDeleteDialogState,
     replaceVaultDashboardDialogRoute,
-    deleteDialogVault,
+    resetDeleteDialogState,
     vaultToDelete,
     vaults,
   ]);
 
   useEffect(() => {
     if (!vaultToConnectConvex) {
+      setConvexConfigPathRepairTarget(null);
       if (preparedAddConvexRepositoryRef.current) {
         preparedAddConvexRepositoryRef.current = null;
         resetConvexDialogState();
@@ -4134,26 +3992,23 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       return;
     }
 
-    const preparedConvexKey = `${vaultToConnectConvex.repositoryFullName}\n${vaultToConnectConvex.appId}`;
-    if (preparedAddConvexRepositoryRef.current === preparedConvexKey) {
+    if (preparedAddConvexRepositoryRef.current === vaultToConnectConvex.repositoryFullName) {
       return;
     }
 
-    preparedAddConvexRepositoryRef.current = preparedConvexKey;
-    setConvexConnectDialogAppRoot(vaultToConnectConvex.rootDirectory);
+    preparedAddConvexRepositoryRef.current = vaultToConnectConvex.repositoryFullName;
     setConvexConnectDialogCreateProjectName(
       buildDefaultAppResourceName({
         repositoryName: vaultToConnectConvex.repositoryName,
         provider: "convex",
       }),
     );
-    void loadConvexDialogResources();
+    void loadConvexDialogResources(vaultToConnectConvex.id);
   }, [
     addConvexModeActive,
     loadConvexDialogResources,
     replaceVaultDashboardDialogRoute,
     resetConvexDialogState,
-    setConvexConnectDialogAppRoot,
     setConvexConnectDialogCreateProjectName,
     vaultToConnectConvex,
     vaults,
@@ -4161,6 +4016,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
 
   useEffect(() => {
     if (!vaultToConnectCloudflare) {
+      setCloudflareBuildsRepairTarget(null);
       if (preparedAddCloudflareWorkerRepositoryRef.current) {
         preparedAddCloudflareWorkerRepositoryRef.current = null;
         resetCloudflareDialogState();
@@ -4171,13 +4027,22 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       return;
     }
 
-    const preparedCloudflareKey = `${vaultToConnectCloudflare.repositoryFullName}\n${vaultToConnectCloudflare.appId}`;
-    if (preparedAddCloudflareWorkerRepositoryRef.current === preparedCloudflareKey) {
+    if (cloudflareBuildsRepairWorker) {
+      preparedAddCloudflareWorkerRepositoryRef.current =
+        vaultToConnectCloudflare.repositoryFullName;
+      setCloudflareConnectDialogError(null);
+      setCloudflareConnectDialogLoading(false);
       return;
     }
 
-    preparedAddCloudflareWorkerRepositoryRef.current = preparedCloudflareKey;
-    setCloudflareConnectDialogAppRoot(vaultToConnectCloudflare.rootDirectory);
+    if (
+      preparedAddCloudflareWorkerRepositoryRef.current ===
+      vaultToConnectCloudflare.repositoryFullName
+    ) {
+      return;
+    }
+
+    preparedAddCloudflareWorkerRepositoryRef.current = vaultToConnectCloudflare.repositoryFullName;
     setCloudflareConnectDialogCreateWorkerName(
       buildDefaultAppResourceName({
         repositoryName: vaultToConnectCloudflare.repositoryName,
@@ -4187,62 +4052,30 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     void loadCloudflareDialogResources({
       preferredAccountId: connectedCloudflareConnection?.accountId,
       vaultId: vaultToConnectCloudflare.id,
-      appId: vaultToConnectCloudflare.appId,
     });
   }, [
     addCloudflareWorkerModeActive,
+    cloudflareBuildsRepairWorker,
     connectedCloudflareConnection?.accountId,
     loadCloudflareDialogResources,
-    resetCloudflareDialogState,
     replaceVaultDashboardDialogRoute,
-    setCloudflareConnectDialogAppRoot,
+    resetCloudflareDialogState,
+    setCloudflareConnectDialogError,
     setCloudflareConnectDialogCreateWorkerName,
+    setCloudflareConnectDialogLoading,
     vaultToConnectCloudflare,
     vaults,
   ]);
-
-  const handleAddAppRootDialogOpenChange = (isOpen: boolean) => {
-    if (isOpen || isSubmittingAppRoot) {
-      return;
-    }
-    closeVaultDashboardDialog("add-app-root");
-  };
-
-  const handleSubmitAppRoot = async () => {
-    if (!vaultToAddAppRoot || isSubmittingAppRoot) {
-      return;
-    }
-    setAddAppRootDialogError(null);
-    setAddAppRootDialogSubmitting(true);
-    try {
-      const appRoot =
-        !vaultToAddAppRoot.hasAppRoots && addAppRootMode === "app"
-          ? VAULT_ROOT_DIRECTORY
-          : addAppRootValue;
-      await createVaultApp({
-        vaultId: vaultToAddAppRoot.id,
-        rootDirectory: appRoot,
-      });
-      resetAddAppRootDialogState();
-      closeVaultDashboardDialog("add-app-root");
-    } catch (error) {
-      setAddAppRootDialogError(error instanceof Error ? error.message : "Could not add app root.");
-    } finally {
-      setAddAppRootDialogSubmitting(false);
-    }
-  };
 
   const handleCloudflareAccountChange = (accountId: string) => {
     if (!vaultToConnectCloudflare) {
       return;
     }
     setCloudflareConnectDialogSelectedAccountId(accountId);
-    setCloudflareConnectDialogSelectedWorkerName("");
     setCloudflareConnectDialogError(null);
     void loadCloudflareWorkersForAccount({
       accountId,
       vaultId: vaultToConnectCloudflare.id,
-      appId: vaultToConnectCloudflare.appId,
     });
   };
 
@@ -4267,27 +4100,63 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setConvexConnectDialogError(null);
     setConvexConnectDialogSubmitting(true);
     try {
-      if (convexConnectMode === "existing") {
-        if (!selectedConvexProject) {
-          throw new Error("Convex project is required.");
+      const configsByPath = new Map(
+        convexConfigs.map((config) => [config.convexConfigPath, config]),
+      );
+      if (convexConfigPathRepairProject) {
+        const config = configsByPath.get(convexCreateConfigPath);
+        if (!config) {
+          throw new Error("Choose a discovered convex.json file.");
         }
-        await connectExistingConvexProject({
+        await changeConvexProjectConfigPath({
           vaultId: vaultToConnectConvex.id,
-          appId: vaultToConnectConvex.appId,
-          projectId: selectedConvexProject.projectId,
+          convexProjectId: convexConfigPathRepairProject.convexProjectId,
+          convexConfigPath: config.convexConfigPath,
+          blobSha: config.blobSha,
+        });
+      } else if (convexConnectMode === "existing") {
+        const projects = Object.entries(selectedConvexProjectConfigPaths).map(
+          ([projectId, convexConfigPath]) => {
+            if (!convexConfigPath) {
+              throw new Error("Choose a discovered convex.json file for every project.");
+            }
+            const config = configsByPath.get(convexConfigPath);
+            if (!config) {
+              throw new Error("Choose a discovered convex.json file for every project.");
+            }
+            return {
+              blobSha: config.blobSha,
+              convexConfigPath: config.convexConfigPath,
+              projectId,
+            };
+          },
+        );
+        if (projects.length === 0) {
+          throw new Error("Choose at least one Convex project.");
+        }
+        await attachConvexProjects({
+          vaultId: vaultToConnectConvex.id,
+          projects,
         });
       } else {
+        const config = configsByPath.get(convexCreateConfigPath);
+        if (!config) {
+          throw new Error("Choose a discovered convex.json file.");
+        }
         await createConvexProject({
           vaultId: vaultToConnectConvex.id,
-          appId: vaultToConnectConvex.appId,
           projectName: convexCreateProjectName,
+          convexConfigPath: config.convexConfigPath,
+          blobSha: config.blobSha,
         });
       }
+      void providerObservations.invalidate();
+      setConvexConfigPathRepairTarget(null);
       resetConvexDialogState();
       closeVaultDashboardDialog("add-convex");
     } catch (error) {
       setConvexConnectDialogError(
-        error instanceof Error ? error.message : "Could not connect Convex project.",
+        error instanceof Error ? error.message : "Could not add Convex projects.",
       );
     } finally {
       setConvexConnectDialogSubmitting(false);
@@ -4301,26 +4170,60 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setCloudflareConnectDialogError(null);
     setCloudflareConnectDialogSubmitting(true);
     try {
-      if (cloudflareConnectMode === "existing") {
-        await connectExistingCloudflareWorker({
+      if (cloudflareBuildsRepairWorker && cloudflareBuildsRepairTarget) {
+        await runConfigureWorkersBuildsForGitHub(
+          cloudflareBuildsRepairTarget.vaultId,
+          cloudflareBuildsRepairTarget.workerId,
+          cloudflareCreateRootDirectory,
+        );
+      } else if (cloudflareWorkerToConnect) {
+        const result = await connectCloudflareWorker({
           vaultId: vaultToConnectCloudflare.id,
-          appId: vaultToConnectCloudflare.appId,
           accountId: selectedCloudflareAccountId,
-          workerName: selectedCloudflareWorkerName,
+          workerName: cloudflareWorkerToConnect.workerName,
+          workerTag: cloudflareWorkerToConnect.workerTag,
+          rootDirectory: cloudflareCreateRootDirectory,
+        });
+        void providerObservations.invalidate();
+        markCloudflareConnectDialogWorkerAdded(cloudflareWorkerToConnect.workerTag);
+        if (result.state === "added_with_notice") {
+          setCloudflareConnectDialogError(result.message);
+        }
+        return;
+      } else if (cloudflareConnectMode === "existing") {
+        const workers = selectedCloudflareWorkerTags.map((workerTag) => {
+          const worker = cloudflareWorkers.find((candidate) => candidate.workerTag === workerTag);
+          if (!worker || worker.repository.state !== "ready") {
+            throw new Error("Choose Workers connected to this repository.");
+          }
+          return {
+            workerName: worker.workerName,
+            workerTag: worker.workerTag,
+          };
+        });
+        if (workers.length === 0) {
+          throw new Error("Choose at least one Cloudflare Worker.");
+        }
+        await attachCloudflareWorkers({
+          vaultId: vaultToConnectCloudflare.id,
+          accountId: selectedCloudflareAccountId,
+          workers,
         });
       } else {
         await createCloudflareWorker({
           vaultId: vaultToConnectCloudflare.id,
-          appId: vaultToConnectCloudflare.appId,
           accountId: selectedCloudflareAccountId,
           workerName: cloudflareCreateWorkerName,
+          rootDirectory: cloudflareCreateRootDirectory,
         });
       }
+      void providerObservations.invalidate();
+      setCloudflareBuildsRepairTarget(null);
       resetCloudflareDialogState();
       closeVaultDashboardDialog("add-cloudflare");
     } catch (error) {
       setCloudflareConnectDialogError(
-        error instanceof Error ? error.message : "Could not connect Cloudflare Worker.",
+        error instanceof Error ? error.message : "Could not add Cloudflare Workers.",
       );
     } finally {
       setCloudflareConnectDialogSubmitting(false);
@@ -4405,16 +4308,57 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
-  const handleRemoveMissingCloudflareWorker = async (
+  const handleChangeConvexProjectConfigPath = (
+    vaultId: Id<"vaults">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => {
+    setConvexConfigPathRepairTarget({ vaultId, convexProjectId });
+    void navigate({
+      resetScroll: false,
+      to: ".",
+      search: (currentSearch) =>
+        applyVaultDashboardProviderAddSearch({
+          currentSearch,
+          provider: "convex",
+        }),
+      state: (currentState) => ({
+        ...currentState,
+        vaultDashboardDialog: "add-convex",
+      }),
+    });
+  };
+
+  const handleReconcileConvexProjectTeam = async (
+    vaultId: Id<"vaults">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => {
+    if (reconcilingConvexProjectId) {
+      return;
+    }
+    setReconcilingConvexProjectId(convexProjectId);
+    try {
+      await reconcileConvexProjectTeam({ vaultId, convexProjectId });
+    } catch (error) {
+      toast({
+        title: "Could not update the Convex team",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setReconcilingConvexProjectId(null);
+    }
+  };
+
+  const handleDetachCloudflareWorker = async (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
   ) => {
-    if (providerAttachmentRemovalInFlight) {
+    if (providerAttachmentDetachmentInFlight) {
       return;
     }
-    setProviderAttachmentRemovalInFlight({ provider: "cloudflare", vaultId, workerId });
+    setProviderAttachmentDetachmentInFlight({ provider: "cloudflare", vaultId, workerId });
     try {
-      await removeMissingCloudflareWorker({ vaultId, workerId });
+      await detachCloudflareWorker({ vaultId, workerId });
     } catch (error) {
       toast({
         title: "Could not remove Cloudflare attachment",
@@ -4422,20 +4366,20 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         variant: "destructive",
       });
     } finally {
-      setProviderAttachmentRemovalInFlight(null);
+      setProviderAttachmentDetachmentInFlight(null);
     }
   };
 
-  const handleRemoveMissingConvexProject = async (
+  const handleDetachConvexProject = async (
     vaultId: Id<"vaults">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => {
-    if (providerAttachmentRemovalInFlight) {
+    if (providerAttachmentDetachmentInFlight) {
       return;
     }
-    setProviderAttachmentRemovalInFlight({ provider: "convex", vaultId, convexProjectId });
+    setProviderAttachmentDetachmentInFlight({ provider: "convex", vaultId, convexProjectId });
     try {
-      await removeMissingConvexProject({ vaultId, convexProjectId });
+      await detachConvexProject({ vaultId, convexProjectId });
     } catch (error) {
       toast({
         title: "Could not remove Convex attachment",
@@ -4443,16 +4387,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         variant: "destructive",
       });
     } finally {
-      setProviderAttachmentRemovalInFlight(null);
+      setProviderAttachmentDetachmentInFlight(null);
     }
   };
 
-  const handleConfigureWorkersBuildsForGitHub = async (
+  const runConfigureWorkersBuildsForGitHub = async (
     vaultId: Id<"vaults">,
     workerId: Id<"vaultCloudflareWorkers">,
+    rootDirectory: string,
   ) => {
     if (cloudflareWorkerConfigurationActionInFlight) {
-      return;
+      throw new Error("Another Cloudflare configuration change is already running.");
     }
 
     setCloudflareWorkerConfigurationActionInFlight({
@@ -4461,19 +4406,46 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       workerId,
     });
     try {
-      await configureWorkersBuildsForGitHub({ workerId, vaultId });
-    } catch (error) {
-      toast({
-        title: "Could not configure Workers Builds for GitHub",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
+      await configureWorkersBuildsForGitHub({ workerId, vaultId, rootDirectory });
     } finally {
       setCloudflareWorkerConfigurationActionInFlight(null);
       if (providerObservations.cloudflare.builds.state !== "loading") {
         providerObservations.cloudflare.builds.reload();
       }
     }
+  };
+
+  const handleConfigureWorkersBuildsForGitHub = (
+    vaultId: Id<"vaults">,
+    workerId: Id<"vaultCloudflareWorkers">,
+    rootDirectory: string | undefined,
+  ) => {
+    if (!rootDirectory) {
+      setCloudflareBuildsRepairTarget({ vaultId, workerId });
+      setCloudflareConnectDialogCreateRootDirectory("/");
+      void navigate({
+        resetScroll: false,
+        to: ".",
+        search: (currentSearch) =>
+          applyVaultDashboardProviderAddSearch({
+            currentSearch,
+            provider: "cloudflare",
+          }),
+        state: (currentState) => ({
+          ...currentState,
+          vaultDashboardDialog: "add-cloudflare",
+        }),
+      });
+      return;
+    }
+
+    void runConfigureWorkersBuildsForGitHub(vaultId, workerId, rootDirectory).catch((error) => {
+      toast({
+        title: "Could not configure Workers Builds for GitHub",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    });
   };
 
   const handleRotateConvexDeployKeysForWorkersBuilds = async (
@@ -4640,7 +4612,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         cloudflareWorkerConfigurationActionInFlight={cloudflareWorkerConfigurationActionInFlight}
         convexObservations={providerObservations.convex}
         isRemovingVault={isDeleting || isCommitting}
-        providerAttachmentRemovalInFlight={providerAttachmentRemovalInFlight}
+        providerAttachmentDetachmentInFlight={providerAttachmentDetachmentInFlight}
+        reconcilingConvexProjectId={reconcilingConvexProjectId}
         retryingDeletionRunId={retryingDeletionRunId}
         retryingInfrastructureVaultId={retryingInfrastructureVaultId}
         now={now}
@@ -4660,19 +4633,21 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
         schemaGraphAccessEnabled={schemaGraphAccessEnabled}
         rootRouteSearch={rootRouteSearch}
-        onConfigureWorkersBuildsForGitHub={(vaultId, workerId) => {
-          void handleConfigureWorkersBuildsForGitHub(vaultId, workerId);
+        onConfigureWorkersBuildsForGitHub={handleConfigureWorkersBuildsForGitHub}
+        onChangeConvexProjectConfigPath={handleChangeConvexProjectConfigPath}
+        onReconcileConvexProjectTeam={(vaultId, convexProjectId) => {
+          void handleReconcileConvexProjectTeam(vaultId, convexProjectId);
         }}
         onRotateConvexDeployKeysForWorkersBuilds={(vaultId, workerId, convexProjectId) => {
           void handleRotateConvexDeployKeysForWorkersBuilds(vaultId, workerId, convexProjectId);
         }}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
         onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
-        onRemoveMissingCloudflareWorker={(vaultId, workerId) => {
-          void handleRemoveMissingCloudflareWorker(vaultId, workerId);
+        onDetachCloudflareWorker={(vaultId, workerId) => {
+          void handleDetachCloudflareWorker(vaultId, workerId);
         }}
-        onRemoveMissingConvexProject={(vaultId, convexProjectId) => {
-          void handleRemoveMissingConvexProject(vaultId, convexProjectId);
+        onDetachConvexProject={(vaultId, convexProjectId) => {
+          void handleDetachConvexProject(vaultId, convexProjectId);
         }}
         onRetryInfrastructureProvisioning={(vaultId) => {
           void handleRetryInfrastructureProvisioning(vaultId);
@@ -4707,21 +4682,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     >
       {dashboardBody}
 
-      <VaultDashboardAppRootDialog
-        appRoot={addAppRootValue}
-        error={addAppRootError}
-        folderSuggestions={addAppRootFolderSuggestions ?? EMPTY_APP_ROOT_FOLDER_SUGGESTIONS}
-        isSubmitting={isSubmittingAppRoot}
-        mode={addAppRootMode}
-        onAppRootChange={setAddAppRootDialogAppRoot}
-        onModeChange={setAddAppRootDialogMode}
-        onOpenChange={handleAddAppRootDialogOpenChange}
-        onSubmit={() => {
-          void handleSubmitAppRoot();
-        }}
-        open={vaultToAddAppRoot !== null}
-        vault={vaultToAddAppRoot}
-      />
       <VaultDashboardDeleteDialog
         commitError={commitError}
         connectedCodespacesCount={connectedCodespacesCount}
@@ -4746,48 +4706,73 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         vaultToDelete={vaultToDelete}
       />
       <VaultDashboardConvexDialog
-        appRoot={convexAppRoot}
-        appRootReadOnly={vaultToConnectConvex !== null}
+        configs={convexConfigs}
+        createConfigPath={convexCreateConfigPath}
         createProjectName={convexCreateProjectName}
-        projects={convexProjects}
+        projects={unattachedConvexProjects}
+        repairProject={
+          convexConfigPathRepairProject
+            ? {
+                convexConfigPath: convexConfigPathRepairProject.convexConfigPath,
+                projectId: convexConfigPathRepairProject.projectId,
+              }
+            : null
+        }
         error={convexDialogError}
         isLoading={isLoadingConvexResources}
         isSubmitting={isSubmittingConvexProject}
         mode={convexConnectMode}
-        onAppRootChange={setConvexConnectDialogAppRoot}
+        onCreateConfigPathChange={setConvexConnectDialogCreateConfigPath}
         onCreateProjectNameChange={setConvexConnectDialogCreateProjectName}
-        onProjectChange={setConvexConnectDialogSelectedProjectId}
         onModeChange={setConvexConnectDialogConnectMode}
         onOpenChange={handleConnectConvexDialogOpenChange}
+        onProjectConfigPathChange={setConvexConnectDialogProjectConfigPath}
+        onProjectToggle={toggleConvexConnectDialogProject}
         onSubmit={() => {
           void handleSubmitConvexProject();
         }}
         open={vaultToConnectConvex !== null}
-        selectedProjectId={selectedConvexProjectId}
+        selectedProjectConfigPaths={selectedConvexProjectConfigPaths}
+        sourceCompleteness={convexSourceCompleteness}
         vault={vaultToConnectConvex}
       />
       <VaultDashboardCloudflareDialog
         accounts={cloudflareAccounts}
-        appRoot={cloudflareAppRoot}
-        appRootReadOnly={vaultToConnectCloudflare !== null}
+        createRootDirectory={cloudflareCreateRootDirectory}
         createWorkerName={cloudflareCreateWorkerName}
+        didAddWorker={didAddCloudflareWorker}
         error={cloudflareDialogError}
+        folderSuggestions={
+          cloudflareRepositoryFolderSuggestions ?? EMPTY_REPOSITORY_FOLDER_SUGGESTIONS
+        }
         isLoading={isLoadingCloudflareResources}
         isSubmitting={isSubmittingCloudflareWorker}
+        inventoryState={cloudflareInventoryState}
         mode={cloudflareConnectMode}
         onAccountChange={handleCloudflareAccountChange}
-        onAppRootChange={setCloudflareConnectDialogAppRoot}
+        onCreateRootDirectoryChange={setCloudflareConnectDialogCreateRootDirectory}
         onCreateWorkerNameChange={setCloudflareConnectDialogCreateWorkerName}
+        onConnectWorker={setCloudflareConnectDialogWorkerToConnect}
+        onConnectWorkerBack={() => {
+          setCloudflareConnectDialogWorkerToConnect(null);
+          setCloudflareConnectDialogConnectMode("existing");
+        }}
         onModeChange={setCloudflareConnectDialogConnectMode}
         onOpenChange={handleConnectCloudflareDialogOpenChange}
         onSubmit={() => {
           void handleSubmitCloudflareWorker();
         }}
-        onWorkerChange={setCloudflareConnectDialogSelectedWorkerName}
+        onWorkerToggle={toggleCloudflareConnectDialogWorker}
         open={vaultToConnectCloudflare !== null}
         selectedAccountId={selectedCloudflareAccountId}
-        selectedWorkerName={selectedCloudflareWorkerName}
+        selectedWorkerTags={selectedCloudflareWorkerTags}
+        repairWorker={
+          cloudflareBuildsRepairWorker
+            ? { workerName: cloudflareBuildsRepairWorker.workerName }
+            : null
+        }
         vault={vaultToConnectCloudflare}
+        workerToConnect={cloudflareWorkerToConnect}
         workers={cloudflareWorkers}
       />
     </AppWorkspaceRouteChrome>

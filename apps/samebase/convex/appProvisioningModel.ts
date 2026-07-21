@@ -65,16 +65,17 @@ export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
 
 export const vaultProvisioningTables = {
   /**
-   * The app root and exact Convex project and Cloudflare Worker choices for one
-   * vault. Retries read this row so every attempt uses the same provider names
-   * and Cloudflare account. `created` variants preserve identities returned by
-   * earlier provider-creation checkpoints. Recording a `created` checkpoint
-   * and its stable resource attachment is one database transaction.
+   * The exact Convex project and Cloudflare Worker choices for one vault.
+   * Retries read this row so every attempt uses the same provider names,
+   * Convex config path, Cloudflare account, and Worker build configuration.
+   * `created` variants preserve identities returned by earlier provider-creation
+   * checkpoints. Recording a `created` checkpoint and its stable resource
+   * attachment is one database transaction.
    */
   workflow_vaultProvisioning_plans: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),
-    appRoot: string(),
+    convexConfigPath: string(),
     convex: union(
       object({
         state: literal("planned"),

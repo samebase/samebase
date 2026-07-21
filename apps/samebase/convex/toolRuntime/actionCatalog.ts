@@ -2,11 +2,15 @@ import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticat
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
-import { convexListProjectsContract } from "../vault/contracts/convexListProjects";
 import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
-import { cloudflareListWorkersContract } from "../vault/contracts/cloudflareListWorkers";
-import { convexConnectExistingProjectContract } from "../vault/contracts/convexConnectExistingProject";
-import { cloudflareConnectExistingWorkerContract } from "../vault/contracts/cloudflareConnectExistingWorker";
+import {
+  cloudflareAttachWorkersContract,
+  cloudflareDiscoverWorkersContract,
+} from "../vault/contracts/cloudflareAttachments";
+import {
+  convexAttachProjectsContract,
+  convexDiscoverProjectsContract,
+} from "../vault/contracts/convexAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
@@ -27,11 +31,11 @@ export const actionContracts = [
   getUserVaultsContract,
   createRepositoryContract,
   connectRepositoryContract,
-  convexListProjectsContract,
+  convexDiscoverProjectsContract,
   cloudflareListAccountsContract,
-  cloudflareListWorkersContract,
-  convexConnectExistingProjectContract,
-  cloudflareConnectExistingWorkerContract,
+  cloudflareDiscoverWorkersContract,
+  convexAttachProjectsContract,
+  cloudflareAttachWorkersContract,
   cloudflareConfigureWorkersBuildsForGitHubContract,
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,

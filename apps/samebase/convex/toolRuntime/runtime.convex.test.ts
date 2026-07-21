@@ -13,7 +13,7 @@ mcp/http.convex.test.ts).
 describe("toolRuntime scope enforcement", () => {
   it("blocks every non-public catalog tool when the token grants no scopes", async () => {
     const t = makeConvexTest();
-    const { appId, convexProjectId, userId, vaultId, workerId } = await t.run(async (ctx) => {
+    const { convexProjectId, userId, vaultId, workerId } = await t.run(async (ctx) => {
       const seededUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
@@ -24,16 +24,9 @@ describe("toolRuntime scope enforcement", () => {
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      const seededAppId = await ctx.db.insert("vaultApps", {
-        vaultId: seededVaultId,
-        userId: seededUserId,
-        rootDirectory: "/",
-        createdAt: 1,
-      });
       const seededWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: seededVaultId,
         userId: seededUserId,
-        appId: seededAppId,
         accountId: "account_1",
         workerName: "worker-1",
         workerTag: "worker-tag-1",
@@ -43,14 +36,13 @@ describe("toolRuntime scope enforcement", () => {
       const seededConvexProjectId = await ctx.db.insert("vaultConvexProjects", {
         vaultId: seededVaultId,
         userId: seededUserId,
-        appId: seededAppId,
         teamId: "team_1",
         projectId: "project_1",
+        convexConfigPath: "convex.json",
         origin: "selected_existing",
         createdAt: 1,
       });
       return {
-        appId: seededAppId,
         convexProjectId: seededConvexProjectId,
         userId: seededUserId,
         vaultId: seededVaultId,
@@ -91,13 +83,17 @@ describe("toolRuntime scope enforcement", () => {
       text: "Insufficient scope for vault_actions_connectRepository.",
     });
 
-    const listProjects = await t.action(internal.toolRuntime.runtime.convexListProjectsTool, {
-      userId,
-      grantedScopes,
-    });
-    expect(listProjects).toMatchObject({
+    const discoverProjects = await t.action(
+      internal.toolRuntime.runtime.convexDiscoverProjectsTool,
+      {
+        userId,
+        grantedScopes,
+        vaultId,
+      },
+    );
+    expect(discoverProjects).toMatchObject({
       status: "blocked",
-      text: "Insufficient scope for vault_convex_listProjects.",
+      text: "Insufficient scope for vault_convex_discoverProjects.",
     });
 
     const listAccounts = await t.action(internal.toolRuntime.runtime.cloudflareListAccountsTool, {
@@ -109,47 +105,47 @@ describe("toolRuntime scope enforcement", () => {
       text: "Insufficient scope for vault_cloudflare_listAccounts.",
     });
 
-    const listWorkers = await t.action(internal.toolRuntime.runtime.cloudflareListWorkersTool, {
+    const discoverWorkers = await t.action(
+      internal.toolRuntime.runtime.cloudflareDiscoverWorkersTool,
+      {
+        userId,
+        grantedScopes,
+        vaultId,
+        accountId: "account_1",
+      },
+    );
+    expect(discoverWorkers).toMatchObject({
+      status: "blocked",
+      text: "Insufficient scope for vault_cloudflare_discoverWorkers.",
+    });
+
+    const attachProjects = await t.action(internal.toolRuntime.runtime.convexAttachProjectsTool, {
       userId,
       grantedScopes,
       vaultId,
-      appId,
+      projects: [
+        {
+          projectId: "project_1",
+          convexConfigPath: "convex.json",
+          blobSha: "blob_1",
+        },
+      ],
+    });
+    expect(attachProjects).toMatchObject({
+      status: "blocked",
+      text: "Insufficient scope for vault_convex_attachProjects.",
+    });
+
+    const attachWorkers = await t.action(internal.toolRuntime.runtime.cloudflareAttachWorkersTool, {
+      userId,
+      grantedScopes,
+      vaultId,
       accountId: "account_1",
+      workers: [{ workerName: "worker-1", workerTag: "worker-tag-1" }],
     });
-    expect(listWorkers).toMatchObject({
+    expect(attachWorkers).toMatchObject({
       status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_listWorkers.",
-    });
-
-    const connectProject = await t.action(
-      internal.toolRuntime.runtime.convexConnectExistingProjectTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-        appId,
-        projectId: "project_1",
-      },
-    );
-    expect(connectProject).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_convex_connectExistingProject.",
-    });
-
-    const connectWorker = await t.action(
-      internal.toolRuntime.runtime.cloudflareConnectExistingWorkerTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-        appId,
-        accountId: "account_1",
-        workerName: "worker-1",
-      },
-    );
-    expect(connectWorker).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_connectExistingWorker.",
+      text: "Insufficient scope for vault_cloudflare_attachWorkers.",
     });
 
     const configureWorkersBuildsForGitHub = await t.action(
@@ -159,6 +155,7 @@ describe("toolRuntime scope enforcement", () => {
         grantedScopes,
         vaultId,
         workerId,
+        rootDirectory: "/",
       },
     );
     expect(configureWorkersBuildsForGitHub).toMatchObject({

@@ -13,32 +13,23 @@ import {
   readCloudflareWorkersDevSubdomain,
   type CloudflareConvexBuildAccessObservation,
 } from "../cloudflareResources";
-import { vCloudflareWorkerRepositoryEvidence } from "./contracts/cloudflareListWorkers";
-import {
-  buildConvexSiteUrl,
-  readConvexProductionDeployment,
-  readConvexProjectResource,
-} from "./convexProjectResources";
+import { requestConvexManagementApi } from "../convexManagementApi/client";
+import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
+import { fetchGitHubConvexConfigDiscovery, fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
+import { buildConvexSiteUrl, readConvexProductionDeployment } from "./convexProjectResources";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
-import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
 
 const { array, id, literal, number, object, string, union } = v;
 
 const vObservationFailureReason = union(literal("connection_required"), literal("request_failed"));
-const vCloudflareRepositoryDiscovery = object({
-  classification: union(
-    literal("recommended"),
-    literal("available"),
-    literal("blocked"),
-    literal("unknown"),
-  ),
-  evidence: vCloudflareWorkerRepositoryEvidence,
-});
 const vObservedConvexProject = union(
   object({
     state: literal("attached"),
     convexProjectId: id("vaultConvexProjects"),
     teamId: string(),
+    attachedTeamId: string(),
+    teamState: union(literal("matches"), literal("differs")),
     projectId: string(),
   }),
   object({
@@ -92,7 +83,7 @@ const vCloudflareWorkerBuildsObservation = union(
     state: literal("available"),
     observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
-    repository: vCloudflareRepositoryDiscovery,
+    repository: vCloudflareWorkerRepositoryDiscovery,
     builds: vCloudflareBuildsObservation,
   }),
   object({
@@ -130,34 +121,62 @@ const vConvexProductionDeploymentObservation = union(
   }),
   object({ state: literal("missing") }),
 );
-const vConvexProjectObservation = union(
+const vConvexConfigPathObservation = union(
   object({
-    state: literal("available"),
-    observedAt: number(),
-    convexProjectId: id("vaultConvexProjects"),
-    projectName: string(),
-    projectSlug: string(),
-    teamSlug: string(),
-    productionDeployment: vConvexProductionDeploymentObservation,
+    state: literal("valid"),
+    blobSha: string(),
   }),
   object({
-    state: literal("missing"),
-    observedAt: number(),
-    convexProjectId: id("vaultConvexProjects"),
+    state: literal("invalid"),
+    blobSha: string(),
+  }),
+  object({ state: literal("missing") }),
+  object({ state: literal("unavailable_partial") }),
+  object({ state: literal("unavailable"), reason: vObservationFailureReason }),
+);
+const vConvexProviderProjectDetails = {
+  projectName: string(),
+  projectSlug: string(),
+  teamSlug: string(),
+  productionDeployment: vConvexProductionDeploymentObservation,
+};
+const vConvexProjectProviderObservation = union(
+  object({
+    state: literal("current"),
+    teamId: string(),
+    ...vConvexProviderProjectDetails,
   }),
   object({
-    state: literal("failed"),
-    observedAt: number(),
-    convexProjectId: id("vaultConvexProjects"),
+    state: literal("moved"),
+    previousTeamId: string(),
+    currentTeamId: string(),
+    ...vConvexProviderProjectDetails,
+  }),
+  object({
+    state: literal("missing_ambiguous"),
+    teamId: string(),
+  }),
+  object({
+    state: literal("unavailable"),
     reason: vObservationFailureReason,
   }),
 );
+const vConvexProjectObservation = object({
+  observedAt: number(),
+  convexProjectId: id("vaultConvexProjects"),
+  projectId: string(),
+  convexConfigPath: string(),
+  source: vConvexConfigPathObservation,
+  provider: vConvexProjectProviderObservation,
+});
 type CloudflareWorkerObservation = Infer<typeof vCloudflareWorkerObservation>;
 type CloudflareWorkerBuildsObservation = Infer<typeof vCloudflareWorkerBuildsObservation>;
 type CloudflareWorkerConvexBuildAccessObservation = Infer<
   typeof vCloudflareWorkerConvexBuildAccessObservation
 >;
 type ConvexProjectObservation = Infer<typeof vConvexProjectObservation>;
+type ConvexConfigPathObservation = ConvexProjectObservation["source"];
+type ConvexProjectProviderObservation = ConvexProjectObservation["provider"];
 
 function resolveObservedConvexBuildAccess(
   observation: CloudflareConvexBuildAccessObservation,
@@ -167,9 +186,7 @@ function resolveObservedConvexBuildAccess(
     case "configured":
     case "incomplete": {
       const attached = projects.find(
-        (project) =>
-          project.teamId === observation.convexProject.teamId &&
-          project.projectId === observation.convexProject.projectId,
+        (project) => project.projectId === observation.convexProject.projectId,
       );
       return {
         state: observation.state,
@@ -177,7 +194,12 @@ function resolveObservedConvexBuildAccess(
           ? {
               state: "attached" as const,
               convexProjectId: attached.convexProjectId,
-              teamId: attached.teamId,
+              teamId: observation.convexProject.teamId,
+              attachedTeamId: attached.teamId,
+              teamState:
+                attached.teamId === observation.convexProject.teamId
+                  ? ("matches" as const)
+                  : ("differs" as const),
               projectId: attached.projectId,
             }
           : { state: "external" as const, ...observation.convexProject },
@@ -201,6 +223,18 @@ async function readObservationContext(
     internal.vault.providerObservationQueries.readVaultProviderObservationContext,
     args,
   );
+}
+
+async function readGitHubAccessToken(
+  ctx: Pick<ActionCtx, "runQuery">,
+  userId: Id<"users">,
+): Promise<string | null> {
+  const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
+  const token = connection?.kind === "github" ? connection.auth.credential.trim() : "";
+  return token || null;
 }
 
 async function readCloudflareObservationInput(
@@ -345,27 +379,45 @@ export const observeCloudflareWorkerBuilds = action({
       }));
     }
 
+    const githubAccessToken = await readGitHubAccessToken(ctx, ctx.viewer.userId);
+    if (!githubAccessToken) {
+      const observedAt = Date.now();
+      return input.context.cloudflareWorkers.map((worker) => ({
+        state: "failed" as const,
+        observedAt,
+        workerId: worker.workerId,
+        reason: "connection_required" as const,
+      }));
+    }
+    let defaultBranch: string;
+    try {
+      const repository = await fetchGitHubRepoIdentity({
+        githubAccessToken,
+        owner: input.context.owner,
+        repo: input.context.name,
+        expectedRepoId: input.context.ghRepoId,
+      });
+      defaultBranch = repository.defaultBranch;
+    } catch {
+      const observedAt = Date.now();
+      return input.context.cloudflareWorkers.map((worker) => ({
+        state: "failed" as const,
+        observedAt,
+        workerId: worker.workerId,
+        reason: "request_failed" as const,
+      }));
+    }
+
     return await Promise.all(
       input.context.cloudflareWorkers.map(async (worker) => {
         try {
-          const config = buildVaultCloudflareBuildConfigForRootDirectory({
-            rootDirectory: worker.rootDirectory,
-          });
           const discovery = await readCloudflareWorkerBuildsDiscoveryForIdentity({
             token: input.token,
             transport: input.transport,
             accountId: worker.accountId,
             workerTag: worker.workerTag,
-            defaultBranch: input.context.defaultBranch,
+            defaultBranch,
             expectedRepoId: input.context.ghRepoId,
-            buildConfig: {
-              rootDir: config.rootDirectory,
-              buildCommand: config.buildCommand,
-              deployCommand: config.deployCommand,
-              previewDeployCommand: config.previewDeployCommand,
-              pathIncludes: config.pathIncludes,
-              pathExcludes: config.pathExcludes,
-            },
           });
           return {
             state: "available" as const,
@@ -460,58 +512,91 @@ export const observeConvexProjects = action({
   args: { vaultId: id("vaults") },
   returns: array(vConvexProjectObservation),
   handler: async (ctx, args): Promise<ConvexProjectObservation[]> => {
-    const context = await readObservationContext(ctx, {
+    const contextArgs = {
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
-    });
-    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "convex",
-    });
+    };
+    const [context, connection, githubAccessToken] = await Promise.all([
+      readObservationContext(ctx, contextArgs),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId: ctx.viewer.userId,
+        kind: "convex",
+      }),
+      readGitHubAccessToken(ctx, ctx.viewer.userId),
+    ]);
     const token = connection?.kind === "convex" ? connection.auth.credential.trim() : "";
     const teamId = connection?.kind === "convex" ? connection.teamId.trim() : "";
-    if (!token || !teamId) {
-      const observedAt = Date.now();
-      return context.convexProjects.map((project) => ({
-        state: "failed" as const,
-        observedAt,
-        convexProjectId: project.convexProjectId,
-        reason: "connection_required" as const,
-      }));
+
+    let sourceResolution:
+      | {
+          state: "available";
+          discovery: Awaited<ReturnType<typeof fetchGitHubConvexConfigDiscovery>>;
+        }
+      | { state: "unavailable"; reason: "connection_required" | "request_failed" };
+    if (!githubAccessToken) {
+      sourceResolution = { state: "unavailable", reason: "connection_required" };
+    } else {
+      try {
+        sourceResolution = {
+          state: "available",
+          discovery: await fetchGitHubConvexConfigDiscovery({
+            githubAccessToken,
+            owner: context.owner,
+            repo: context.name,
+            expectedRepoId: context.ghRepoId,
+          }),
+        };
+      } catch {
+        sourceResolution = { state: "unavailable", reason: "request_failed" };
+      }
     }
 
     return await Promise.all(
       context.convexProjects.map(async (project) => {
-        if (project.teamId !== teamId) {
+        let source: ConvexConfigPathObservation;
+        if (sourceResolution.state === "unavailable") {
+          source = { state: "unavailable", reason: sourceResolution.reason };
+        } else {
+          const config = sourceResolution.discovery.configs.find(
+            (candidate) => candidate.convexConfigPath === project.convexConfigPath,
+          );
+          if (config?.state === "valid") {
+            source = { state: "valid", blobSha: config.blobSha };
+          } else if (config?.state === "invalid") {
+            source = { state: "invalid", blobSha: config.blobSha };
+          } else {
+            source =
+              sourceResolution.discovery.completeness === "partial"
+                ? { state: "unavailable_partial" }
+                : { state: "missing" };
+          }
+        }
+
+        let provider: ConvexProjectProviderObservation;
+        if (!token || !teamId) {
+          provider = { state: "unavailable", reason: "connection_required" };
           return {
-            state: "failed" as const,
             observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
-            reason: "connection_required" as const,
+            projectId: project.projectId,
+            convexConfigPath: project.convexConfigPath,
+            source,
+            provider,
           };
         }
+
         try {
-          const details = await readConvexProjectResource({
-            token,
-            teamId: project.teamId,
-            projectId: project.projectId,
+          const details = await requestConvexManagementApi(token, "GET", "/projects/{project_id}", {
+            params: { path: { project_id: project.projectId } },
           });
-          const observedAt = Date.now();
-          if (!details) {
-            return {
-              state: "missing" as const,
-              observedAt,
-              convexProjectId: project.convexProjectId,
-            };
+          if (details.id !== project.projectId || details.teamId !== teamId) {
+            throw new Error("Convex returned an inconsistent project identity or team.");
           }
           const deployment = await readConvexProductionDeployment({
             token,
             projectId: project.projectId,
           });
-          return {
-            state: "available" as const,
-            observedAt: Date.now(),
-            convexProjectId: project.convexProjectId,
+          const providerDetails = {
             projectName: details.name,
             projectSlug: details.slug,
             teamSlug: details.teamSlug,
@@ -524,12 +609,38 @@ export const observeConvexProjects = action({
                 }
               : { state: "missing" as const },
           };
-        } catch {
+          provider =
+            details.teamId === project.teamId
+              ? {
+                  state: "current",
+                  teamId: details.teamId,
+                  ...providerDetails,
+                }
+              : {
+                  state: "moved",
+                  previousTeamId: project.teamId,
+                  currentTeamId: details.teamId,
+                  ...providerDetails,
+                };
           return {
-            state: "failed" as const,
             observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
-            reason: "request_failed" as const,
+            projectId: project.projectId,
+            convexConfigPath: project.convexConfigPath,
+            source,
+            provider,
+          };
+        } catch (error) {
+          provider = isConvexManagementNotFoundError(error)
+            ? { state: "missing_ambiguous", teamId: project.teamId }
+            : { state: "unavailable", reason: "request_failed" };
+          return {
+            observedAt: Date.now(),
+            convexProjectId: project.convexProjectId,
+            projectId: project.projectId,
+            convexConfigPath: project.convexConfigPath,
+            source,
+            provider,
           };
         }
       }),

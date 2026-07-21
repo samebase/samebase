@@ -38,20 +38,6 @@ export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
  * as requested intent; connected states use it as the latest GitHub metadata
  * observed by Samebase.
  */
-export const vVaultConvexProjectConnectionTarget = union(
-  object({
-    mode: literal("connect_existing_project"),
-    appId: id("vaultApps"),
-    projectId: string(),
-  }),
-  object({
-    mode: literal("create_project"),
-    appId: id("vaultApps"),
-    projectName: string(),
-  }),
-);
-export type VaultConvexProjectConnectionTarget = Infer<typeof vVaultConvexProjectConnectionTarget>;
-
 export const vVaultProviderResourceOrigin = union(
   literal("provisioned"),
   literal("selected_existing"),
@@ -246,22 +232,10 @@ export const vaultTables = {
     .index("by_owner_and_name", ["owner", "name"])
     .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
-  /** Stable app identities inside a repository-backed vault, identified by Cloudflare's root directory. */
-  vaultApps: defineTable({
-    vaultId: id("vaults"),
-    userId: id("users"),
-    rootDirectory: string(),
-    createdAt: number(),
-  })
-    .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
-    .index("by_vault_and_root_directory", ["vaultId", "rootDirectory"]),
-
-  /** Stable Cloudflare Worker identities attached to apps in a vault. */
+  /** Stable Cloudflare Worker identities attached to a repository-backed vault. */
   vaultCloudflareWorkers: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),
-    appId: id("vaultApps"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
@@ -270,24 +244,24 @@ export const vaultTables = {
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_app", ["appId"])
     .index("by_account_and_worker", ["accountId", "workerName"])
     .index("by_account_and_worker_tag", ["accountId", "workerTag"]),
 
-  /** Stable Convex project identities attached to apps in a vault. */
+  /** Stable Convex project identities attached to repository config paths in a vault. */
   vaultConvexProjects: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),
-    appId: id("vaultApps"),
     teamId: string(),
     projectId: string(),
+    convexConfigPath: string(),
     origin: vVaultProviderResourceOrigin,
     createdAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_app", ["appId"])
-    .index("by_team_and_project", ["teamId", "projectId"]),
+    .index("by_project", ["projectId"])
+    .index("by_team_and_project", ["teamId", "projectId"])
+    .index("by_vault_and_config_path", ["vaultId", "convexConfigPath"]),
 
   /** Branch-to-domain mappings observed or provisioned for a vault. */
   vaultDomains: defineTable({

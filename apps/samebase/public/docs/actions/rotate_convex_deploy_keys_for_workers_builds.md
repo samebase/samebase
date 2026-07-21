@@ -2,8 +2,8 @@
 
 # Rotate Convex deploy keys for Workers Builds (`rotate_convex_deploy_keys_for_workers_builds`)
 
-MCP tool `vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds` · scope `access_app_create` ·
-write
+MCP tool `vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds` · scope
+`access_provider_connections` · write
 
 The repair for builds that cannot deploy the backend: mints production and preview deploy keys on
 the selected Convex project's production and preview scopes. It writes `CONVEX_DEPLOY_KEY`,

@@ -77,7 +77,6 @@ machineRegistrationRateLimits
 machineCredentials
 machineControlTokens
 vaults
-vaultApps
 vaultCloudflareWorkers
 vaultConvexProjects
 vaultDomains

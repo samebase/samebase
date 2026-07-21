@@ -7,6 +7,7 @@ import { makeConvexTest } from "./test.setup";
 
 const workflowCloudflareActions = vi.hoisted(() => {
   const build = {
+    rootDirectory: "/",
     production: { triggerUuid: "production-trigger" },
     preview: { triggerUuid: "preview-trigger" },
   };
@@ -21,6 +22,7 @@ vi.mock("./vault/cloudflare", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./vault/cloudflare")>();
   const { id, null: nullValue, object, string } = v;
   const preparedBuilds = object({
+    rootDirectory: string(),
     production: object({ triggerUuid: string() }),
     preview: object({ triggerUuid: string() }),
   });
@@ -92,16 +94,10 @@ async function createComposedVault() {
       defaultBranch: "main",
       connectedAt: 12,
     });
-    const appId = await ctx.db.insert("vaultApps", {
+    const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
       userId,
-      rootDirectory: "/",
-      createdAt: 25,
-    });
-    await ctx.db.insert("workflow_vaultProvisioning_plans", {
-      vaultId,
-      userId,
-      appRoot: ".",
+      convexConfigPath: "convex.json",
       convex: {
         state: "planned",
         projectName: "composed-app",
@@ -122,7 +118,7 @@ async function createComposedVault() {
       createdAt: 30,
       updatedAt: 30,
     });
-    return { appId, runId, userId, vaultId };
+    return { planId, runId, userId, vaultId };
   });
   return { ids, t };
 }
@@ -132,19 +128,37 @@ async function attachComposedResources({
   t,
 }: Awaited<ReturnType<typeof createComposedVault>>) {
   return await t.run(async (ctx) => {
+    const plan = await ctx.db.get(ids.planId);
+    if (!plan) {
+      throw new Error("Expected provisioning plan.");
+    }
+    await ctx.db.patch(plan._id, {
+      convex: {
+        state: "created",
+        projectName: "composed-app",
+        teamId: "convex-team",
+        projectId: "convex-project",
+      },
+      cloudflare: {
+        state: "created",
+        accountId: "cloudflare-account",
+        workerName: "composed-app",
+        workerTag: "composed-worker-tag",
+        build: plan.cloudflare.build,
+      },
+    });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId: ids.vaultId,
       userId: ids.userId,
-      appId: ids.appId,
       teamId: "convex-team",
       projectId: "convex-project",
+      convexConfigPath: "convex.json",
       origin: "provisioned",
       createdAt: 40,
     });
     const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
       vaultId: ids.vaultId,
       userId: ids.userId,
-      appId: ids.appId,
       accountId: "cloudflare-account",
       workerName: "composed-app",
       workerTag: "composed-worker-tag",
@@ -165,7 +179,7 @@ describe("app provisioning workflow composition", () => {
     workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mockResolvedValue(null);
   });
 
-  it("maps the legacy root plan to the repository-root app and reads attachments", async () => {
+  it("maps the provisioning root to the Convex config path and reads exact attachments", async () => {
     const { ids, t } = await createComposedVault();
 
     await expect(
@@ -174,8 +188,7 @@ describe("app provisioning workflow composition", () => {
         vaultId: ids.vaultId,
       }),
     ).resolves.toEqual({
-      appId: ids.appId,
-      appRoot: ".",
+      convexConfigPath: "convex.json",
       convex: {
         state: "missing",
         projectName: "composed-app",

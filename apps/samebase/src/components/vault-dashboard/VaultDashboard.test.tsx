@@ -6,7 +6,6 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import {
-  VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
@@ -18,7 +17,6 @@ import {
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
-import { readDefaultCloudflareWorkerSelection } from "./vaultDashboardCloudflareWorkerSelection";
 import { buildVaultBranchRowViewModel } from "./vaultDashboardBranchRowViewModel";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
 import type {
@@ -31,7 +29,7 @@ import {
   resolveVaultProviderSetupStatus,
   resolveVaultProviderSetupStepProvider,
 } from "./vaultProviderSetup";
-import { buildVaultProductionApps } from "./vaultProductionApps";
+import { buildVaultProductionRoots } from "./vaultProductionRoots";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -44,7 +42,6 @@ vi.mock("convex/react", async (importOriginal) => {
     useQuery: vi.fn(),
   };
 });
-
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -58,11 +55,6 @@ function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable vault id for the query args.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
-}
-
-function fakeVaultAppId(value = "app-root"): Id<"vaultApps"> {
-  // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
-  return value;
 }
 
 function fakeCloudflareWorkerId(value = "worker-root"): Id<"vaultCloudflareWorkers"> {
@@ -91,10 +83,8 @@ function makeCloudflareDialogWorker(
   return {
     workerName: "demo-worker",
     workerTag: "worker-tag-1",
-    discovery: {
-      classification: "available",
-      evidence: { state: "none" },
-    },
+    repository: { state: "not_connected" },
+    convexBuildAccess: { state: "not_configured" },
     ...overrides,
   };
 }
@@ -115,18 +105,18 @@ type AvailableResourceRailCloudflareConvexBuildAccessObservation = Extract<
   { state: "available" }
 >;
 
-function getResourceRailAppRow(
+function getResourceRailRootRow(
   state: ReturnType<typeof buildVaultDashboardResourceRailState>,
   rootDirectory: string,
   provider: "cloudflare" | "convex",
 ) {
-  const app = state.apps.find((candidate) => candidate.rootDirectory === rootDirectory);
-  if (!app) {
-    throw new Error(`Expected ${rootDirectory} app group.`);
+  const root = state.roots.find((candidate) => candidate.rootDirectory === rootDirectory);
+  if (!root) {
+    throw new Error(`Expected ${rootDirectory} root group.`);
   }
-  const row = app.rows.find((candidate) => candidate.provider === provider);
+  const row = root.rows.find((candidate) => candidate.provider === provider);
   if (!row) {
-    throw new Error(`Expected ${provider} row in ${rootDirectory} app group.`);
+    throw new Error(`Expected ${provider} row in ${rootDirectory} root group.`);
   }
   return row;
 }
@@ -136,7 +126,6 @@ function makeResourceRailCloudflareWorker(
 ): ResourceRailCloudflareWorker {
   return {
     workerId: fakeCloudflareWorkerId(),
-    appId: fakeVaultAppId(),
     accountId: "account-1",
     workerName: "demo-worker",
     workerTag: "demo-worker-tag",
@@ -166,29 +155,11 @@ function makeAvailableResourceRailCloudflareBuildsObservation(
     state: "available",
     observedAt: 1,
     repository: {
-      classification: "recommended",
-      evidence: {
-        state: "matching_repo",
-        repoId: "123",
-        repoName: "ada/demo",
-        triggerName: "production",
-        rootDirectory: "/",
-      },
+      state: "ready",
+      rootDirectory: "/",
+      builds: { state: "not_available" },
     },
     builds: { state: "not_connected" },
-    ...overrides,
-  };
-}
-
-function makeAvailableResourceRailCloudflareConvexBuildAccessObservation(
-  overrides: Partial<AvailableResourceRailCloudflareConvexBuildAccessObservation> & {
-    workerId: Id<"vaultCloudflareWorkers">;
-  },
-): AvailableResourceRailCloudflareConvexBuildAccessObservation {
-  return {
-    state: "available",
-    observedAt: 1,
-    convexBuildAccess: { state: "not_configured" },
     ...overrides,
   };
 }
@@ -226,7 +197,7 @@ function makeResourceRailConvexProject(
 ): ResourceRailConvexProject {
   return {
     convexProjectId: fakeConvexProjectId(),
-    appId: fakeVaultAppId(),
+    convexConfigPath: "convex.json",
     teamId: "team-1",
     projectId: "demo-project-id",
     ...overrides,
@@ -256,7 +227,6 @@ function makeResourceRailBuilderVault(
     hasCloudflareProvision: false,
     canRemoveConvexProvision: false,
     canRemoveCloudflareProvision: false,
-    apps: [],
     cloudflareWorkers: [],
     convexProjects: [],
   };
@@ -526,7 +496,7 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).not.toContain("?compare");
   });
 
-  it("links default branch Convex tools to their app routes", () => {
+  it("links default branch Convex tools to their project attachment routes", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
@@ -540,11 +510,10 @@ describe("VaultBranchLinkContent", () => {
             lastSyncedAt: 0,
             remoteState: "active",
           }}
-          apps={[{ appId: fakeVaultAppId(), rootDirectory: "/" }]}
           convexProjects={[
             {
               convexProjectId: fakeConvexProjectId(),
-              appId: fakeVaultAppId(),
+              convexConfigPath: "convex.json",
               teamId: "team-1",
               projectId: "samebase-project",
             },
@@ -554,10 +523,12 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/samebase/samebase/db/main/root"');
+    expect(markup).toContain('href="/vault/samebase/samebase/db/main/project/convex-project-root"');
     expect(markup).toContain('title="Open production data for samebase-project"');
     expect(markup).toContain(">Data<");
-    expect(markup).toContain('href="/vault/samebase/samebase/schema/main/root"');
+    expect(markup).toContain(
+      'href="/vault/samebase/samebase/schema/main/project/convex-project-root"',
+    );
     expect(markup).toContain('title="Open Convex schema for samebase-project"');
     expect(markup).toContain(">Schema<");
   });
@@ -576,11 +547,10 @@ describe("VaultBranchLinkContent", () => {
             lastSyncedAt: 0,
             remoteState: "active",
           }}
-          apps={[{ appId: fakeVaultAppId(), rootDirectory: "/" }]}
           convexProjects={[
             {
               convexProjectId: fakeConvexProjectId(),
-              appId: fakeVaultAppId(),
+              convexConfigPath: "convex.json",
               teamId: "team-1",
               projectId: "samebase-project",
             },
@@ -589,9 +559,9 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/samebase/samebase/db/main/root"');
+    expect(markup).toContain('href="/vault/samebase/samebase/db/main/project/convex-project-root"');
     expect(markup).toContain(">Data<");
-    expect(markup).not.toContain("/schema/main/root");
+    expect(markup).not.toContain("/schema/main/project/");
     expect(markup).not.toContain(">Schema<");
   });
 
@@ -625,9 +595,8 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
-          productionApps={[
+          productionRoots={[
             {
-              appId: "app-root",
               rootDirectory: "/",
               links: [
                 {
@@ -660,14 +629,13 @@ describe("VaultBranchLinkContent", () => {
     );
   });
 
-  it("links the default branch to every monorepo production app URL", () => {
+  it("links the default branch to every monorepo production root URL", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="samebase/samebase"
-          productionApps={[
+          productionRoots={[
             {
-              appId: "app-api",
               rootDirectory: "apps/api",
               links: [
                 {
@@ -679,7 +647,6 @@ describe("VaultBranchLinkContent", () => {
               ],
             },
             {
-              appId: "app-samebase",
               rootDirectory: "apps/samebase",
               links: [
                 {
@@ -737,7 +704,8 @@ describe("VaultDashboardRepositoryCard", () => {
           cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}
           isRemovingVault={false}
-          providerAttachmentRemovalInFlight={null}
+          providerAttachmentDetachmentInFlight={null}
+          reconcilingConvexProjectId={null}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={0}
@@ -755,11 +723,13 @@ describe("VaultDashboardRepositoryCard", () => {
           schemaGraphAccessEnabled={false}
           rootRouteSearch={rootRouteSearch}
           onConfigureWorkersBuildsForGitHub={() => {}}
+          onChangeConvexProjectConfigPath={() => {}}
+          onReconcileConvexProjectTeam={() => {}}
           onRotateConvexDeployKeysForWorkersBuilds={() => {}}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
-          onRemoveMissingCloudflareWorker={() => {}}
-          onRemoveMissingConvexProject={() => {}}
+          onDetachCloudflareWorker={() => {}}
+          onDetachConvexProject={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
@@ -775,17 +745,15 @@ describe("VaultDashboardRepositoryCard", () => {
   });
 
   it("omits production links when live provider observations report missing resources", () => {
-    const appId = fakeVaultAppId();
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
     const vault = makeResourceRailBuilderVault({
-      apps: [{ appId, rootDirectory: "/" }],
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId, workerId })],
-      convexProjects: [makeResourceRailConvexProject({ appId, convexProjectId })],
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+      convexProjects: [makeResourceRailConvexProject({ convexProjectId })],
     });
 
     expect(
-      buildVaultProductionApps({
+      buildVaultProductionRoots({
         vault,
         cloudflareObservations: makeLoadedCloudflareObservations({
           workers: [{ state: "missing", observedAt: 1, workerId }],
@@ -795,7 +763,16 @@ describe("VaultDashboardRepositoryCard", () => {
         convexObservations: {
           state: "loaded",
           reload: () => {},
-          observations: [{ state: "missing", observedAt: 1, convexProjectId }],
+          observations: [
+            {
+              observedAt: 1,
+              convexProjectId,
+              projectId: "demo-project-id",
+              convexConfigPath: "convex.json",
+              source: { state: "valid", blobSha: "blob-1" },
+              provider: { state: "missing_ambiguous", teamId: "team-1" },
+            },
+          ],
         },
       }),
     ).toEqual([]);
@@ -1094,775 +1071,685 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
   });
 });
 
-describe("VaultDashboardAppRootDialog", () => {
-  it("renders app mode as the readonly repository root", () => {
-    const markup = renderToStaticMarkup(
-      <VaultDashboardAppRootDialog
-        appRoot="."
-        error={null}
-        folderSuggestions={[]}
-        isSubmitting={false}
-        mode="app"
-        onAppRootChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        open
-        vault={{
-          hasAppRoots: false,
-          hasRootAppRoot: false,
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-        }}
-      />,
-    );
-
-    expect(markup).toContain("<form");
-    expect(markup).toContain("Choose whether this repository is one app or a monorepo.");
-    expect(markup).toContain("App");
-    expect(markup).toContain("Monorepo");
-    expect(markup).not.toContain('aria-label="App root"');
-    expect(markup).toContain("Use as app");
-    expect(markup).toContain('type="submit"');
-  });
-
-  it("renders monorepo mode with an editable app root", () => {
-    const markup = renderToStaticMarkup(
-      <VaultDashboardAppRootDialog
-        appRoot="apps/domain-router"
-        error={null}
-        folderSuggestions={[]}
-        isSubmitting={false}
-        mode="monorepo"
-        onAppRootChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        open
-        vault={{
-          hasAppRoots: false,
-          hasRootAppRoot: false,
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-        }}
-      />,
-    );
-
-    expect(markup).toContain("<form");
-    expect(markup).toContain("Add app root ada/demo");
-    expect(markup).toContain("apps/domain-router");
-    expect(markup).not.toContain("readOnly");
-    expect(markup).toContain('type="button"');
-    expect(markup).toContain('type="submit"');
-  });
-
-  it("renders conversion copy for an existing root app", () => {
-    const markup = renderToStaticMarkup(
-      <VaultDashboardAppRootDialog
-        appRoot="apps/domain-router"
-        error={null}
-        folderSuggestions={[]}
-        isSubmitting={false}
-        mode="monorepo"
-        onAppRootChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        open
-        vault={{
-          hasAppRoots: true,
-          hasRootAppRoot: true,
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-        }}
-      />,
-    );
-
-    expect(markup).toContain("Add a folder app root to convert this repository to a monorepo.");
-    expect(markup).toContain("Add app root ada/demo");
-    expect(markup).not.toContain("App root mode");
-    expect(markup).toContain("apps/domain-router");
-    expect(markup).toContain("Add app root");
-  });
-});
-
 describe("VaultDashboardConvexDialog", () => {
-  it("hides the app root input for the repository root app", () => {
+  type ConvexDialogProps = Parameters<typeof VaultDashboardConvexDialog>[0];
+
+  const vault = {
+    id: fakeVaultId(),
+    repositoryFullName: "ada/demo",
+    repositoryName: "demo",
+  };
+
+  const configs = [
+    {
+      state: "valid" as const,
+      convexConfigPath: "convex.json",
+      rootDirectory: "/",
+      blobSha: "blob-root",
+    },
+    {
+      state: "valid" as const,
+      convexConfigPath: "apps/web/convex.json",
+      rootDirectory: "apps/web",
+      blobSha: "blob-web",
+    },
+  ];
+
+  const projects = [
+    {
+      teamId: "team-1",
+      projectId: "project-1",
+      projectName: "Web",
+      projectSlug: "web",
+      teamSlug: "ada",
+      workerReferences: [
+        {
+          accountId: "account-1",
+          workerName: "web-worker",
+          workerTag: "worker-tag",
+          rootDirectory: "apps/web",
+          markerTeamId: "team-1",
+          access: "configured" as const,
+        },
+      ],
+    },
+    {
+      teamId: "team-1",
+      projectId: "project-2",
+      projectName: "API",
+      projectSlug: "api",
+      teamSlug: "ada",
+      workerReferences: [],
+    },
+  ];
+
+  it("supports selecting multiple existing projects with an explicit config for each", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        appRoot="/"
-        appRootReadOnly={true}
-        createProjectName="demo"
-        projects={[
-          {
-            projectId: "project-1",
-            projectName: "Demo",
-            projectSlug: "demo",
-            teamSlug: "ada-team",
-          },
-        ]}
+        configs={configs}
+        createConfigPath="convex.json"
+        createProjectName=""
+        projects={[projects[1], projects[0]]}
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onAppRootChange={vi.fn()}
-        onCreateProjectNameChange={vi.fn()}
-        onProjectChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
+        onCreateConfigPathChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectConfigPathChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
         open
-        selectedProjectId="project-1"
-        vault={{
-          appId: fakeVaultAppId(),
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-          repositoryName: "demo",
-          rootDirectory: "/",
+        repairProject={null}
+        selectedProjectConfigPaths={{
+          "project-1": "apps/web/convex.json",
+          "project-2": "convex.json",
         }}
+        sourceCompleteness="complete"
+        vault={vault}
       />,
     );
 
-    expect(markup).toContain("Connect Convex ada/demo");
-    expect(markup).toContain("Demo");
-    expect(markup).not.toContain('placeholder="App root"');
-    expect(markup).not.toContain("readOnly");
-    expect(markup).toContain("Connect Project");
+    expect(markup).toContain("Add Convex to ada/demo");
+    expect(markup).toContain("Web");
+    expect(markup).toContain("API");
+    expect(markup).toContain("Used by web-worker");
+    expect(markup).toContain("Add 2 projects");
+    expect(markup.indexOf(">Web<")).toBeLessThan(markup.indexOf(">API<"));
+    expect(markup).not.toContain("App root");
   });
 
-  it("renders the app root input for monorepo app roots", () => {
+  it("keeps the discovered selection retryable after a submit error", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        appRoot="apps/samebase"
-        appRootReadOnly={true}
-        createProjectName="demo"
-        projects={[
-          {
-            projectId: "project-1",
-            projectName: "Demo",
-            projectSlug: "demo",
-            teamSlug: "ada-team",
-          },
-        ]}
+        configs={configs}
+        createConfigPath="convex.json"
+        createProjectName=""
+        projects={projects}
+        error="Could not attach the selected Convex project."
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onCreateConfigPathChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectConfigPathChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
+        open
+        repairProject={null}
+        selectedProjectConfigPaths={{ "project-1": "apps/web/convex.json" }}
+        sourceCompleteness="complete"
+        vault={vault}
+      />,
+    );
+    const addButton = markup.match(/<button[^>]*>Add 1 project<\/button>/)?.[0];
+
+    expect(markup).toContain("Could not attach the selected Convex project.");
+    expect(markup).toContain(">Web<");
+    expect(addButton).toBeDefined();
+    expect(addButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
+  it("shows empty discovery messages only after a successful complete scan", () => {
+    const renderDiscoveryState = ({
+      configs,
+      error,
+      isLoading,
+      sourceCompleteness,
+    }: Pick<ConvexDialogProps, "configs" | "error" | "isLoading" | "sourceCompleteness">) =>
+      renderToStaticMarkup(
+        <VaultDashboardConvexDialog
+          configs={configs}
+          createConfigPath=""
+          createProjectName=""
+          projects={[]}
+          error={error}
+          isLoading={isLoading}
+          isSubmitting={false}
+          mode="existing"
+          onCreateConfigPathChange={() => {}}
+          onCreateProjectNameChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onProjectConfigPathChange={() => {}}
+          onProjectToggle={() => {}}
+          onSubmit={() => {}}
+          open
+          repairProject={null}
+          selectedProjectConfigPaths={{}}
+          sourceCompleteness={sourceCompleteness}
+          vault={vault}
+        />,
+      );
+
+    const beforeDiscoveryStarts = renderDiscoveryState({
+      configs: [],
+      error: null,
+      isLoading: false,
+      sourceCompleteness: null,
+    });
+    const whileLoading = renderDiscoveryState({
+      configs: [],
+      error: null,
+      isLoading: true,
+      sourceCompleteness: null,
+    });
+    const afterFailure = renderDiscoveryState({
+      configs: [],
+      error: "Could not discover Convex projects.",
+      isLoading: false,
+      sourceCompleteness: null,
+    });
+    const completeWithoutConfigs = renderDiscoveryState({
+      configs: [],
+      error: null,
+      isLoading: false,
+      sourceCompleteness: "complete",
+    });
+    const completeWithoutProjects = renderDiscoveryState({
+      configs,
+      error: null,
+      isLoading: false,
+      sourceCompleteness: "complete",
+    });
+
+    for (const markup of [beforeDiscoveryStarts, whileLoading, afterFailure]) {
+      expect(markup).not.toContain("No valid convex.json files were found");
+      expect(markup).not.toContain("No unattached Convex projects are available");
+    }
+    expect(afterFailure).toContain("Could not discover Convex projects.");
+    expect(completeWithoutConfigs).toContain("No valid convex.json files were found");
+    expect(completeWithoutProjects).toContain("No unattached Convex projects are available");
+  });
+
+  it("uses the same closed config selector to repair a moved code location", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardConvexDialog
+        configs={configs}
+        createConfigPath="apps/web/convex.json"
+        createProjectName=""
+        projects={projects}
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onAppRootChange={vi.fn()}
-        onCreateProjectNameChange={vi.fn()}
-        onProjectChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
+        onCreateConfigPathChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectConfigPathChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
         open
-        selectedProjectId="project-1"
-        vault={{
-          appId: fakeVaultAppId(),
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-          repositoryName: "demo",
-          rootDirectory: "apps/samebase",
-        }}
+        repairProject={{ convexConfigPath: "convex.json", projectId: "project-1" }}
+        selectedProjectConfigPaths={{}}
+        sourceCompleteness="complete"
+        vault={vault}
       />,
     );
 
-    expect(markup).toContain("apps/samebase");
-    expect(markup).toContain('aria-label="App root"');
-    expect(markup).toContain('placeholder="App root"');
-    expect(markup).toContain("readOnly");
-    expect(markup).toContain("Connect Project");
+    expect(markup).toContain("Change project-1 code location");
+    expect(markup).toContain("Current location: convex.json");
+    expect(markup).toContain("Change code location");
+    expect(markup).not.toContain(">Existing<");
+    expect(markup).not.toContain(">Create<");
+  });
+
+  it("does not claim that no configs exist after a partial source scan", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardConvexDialog
+        configs={[]}
+        createConfigPath=""
+        createProjectName=""
+        projects={[]}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onCreateConfigPathChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectConfigPathChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
+        open
+        repairProject={null}
+        selectedProjectConfigPaths={{}}
+        sourceCompleteness="partial"
+        vault={vault}
+      />,
+    );
+
+    expect(markup).toContain("could not be fully scanned");
+    expect(markup).not.toContain("No valid convex.json files were found");
   });
 });
 
 describe("VaultDashboardCloudflareDialog", () => {
-  it("preselects the only recommended Cloudflare Worker", () => {
-    expect(
-      readDefaultCloudflareWorkerSelection(
-        [
-          makeCloudflareDialogWorker({
-            workerName: "samebase",
-            discovery: {
-              classification: "recommended",
-              evidence: {
-                state: "matching_repo",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "Production Deploy",
-                rootDirectory: "apps/samebase",
-              },
-            },
-          }),
-          makeCloudflareDialogWorker({
-            workerName: "available-worker",
-            workerTag: "worker-tag-2",
-          }),
-        ],
-        "",
-      ),
-    ).toBe("samebase");
-  });
+  const vault = {
+    id: fakeVaultId(),
+    repositoryFullName: "ada/demo",
+    repositoryName: "demo",
+  };
 
-  it("does not preselect when multiple Cloudflare Workers are recommended", () => {
-    expect(
-      readDefaultCloudflareWorkerSelection(
-        [
-          makeCloudflareDialogWorker({
-            workerName: "samebase",
-            discovery: {
-              classification: "recommended",
-              evidence: {
-                state: "matching_repo",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "Production Deploy",
-                rootDirectory: "apps/samebase",
-              },
-            },
-          }),
-          makeCloudflareDialogWorker({
-            workerName: "samebase-domains",
-            workerTag: "worker-tag-2",
-            discovery: {
-              classification: "recommended",
-              evidence: {
-                state: "matching_repo",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "Production Deploy",
-                rootDirectory: "apps/samebase",
-              },
-            },
-          }),
-        ],
-        "",
-      ),
-    ).toBe("");
-  });
-
-  it("clears a stale selected Cloudflare Worker when discovery blocks it", () => {
-    expect(
-      readDefaultCloudflareWorkerSelection(
-        [
-          makeCloudflareDialogWorker({
-            workerName: "admin-worker",
-            discovery: {
-              classification: "blocked",
-              evidence: {
-                state: "same_repo_different_root",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "Production Deploy",
-                rootDirectory: "apps/admin",
-                expectedRootDirectory: "apps/web",
-              },
-            },
-          }),
-          makeCloudflareDialogWorker({
-            workerName: "available-worker",
-            workerTag: "worker-tag-2",
-          }),
-        ],
-        "admin-worker",
-      ),
-    ).toBe("");
-  });
-
-  it("keeps a manually selected selectable Cloudflare Worker", () => {
-    expect(
-      readDefaultCloudflareWorkerSelection(
-        [
-          makeCloudflareDialogWorker({
-            workerName: "manual-worker",
-          }),
-          makeCloudflareDialogWorker({
-            workerName: "samebase",
-            workerTag: "worker-tag-2",
-            discovery: {
-              classification: "recommended",
-              evidence: {
-                state: "matching_repo",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "Production Deploy",
-                rootDirectory: "apps/samebase",
-              },
-            },
-          }),
-        ],
-        "manual-worker",
-      ),
-    ).toBe("manual-worker");
-  });
-
-  it("hides the app root input for the repository root app", () => {
+  it("separates connected selections and keeps them pending after another Worker is added", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog
-        accounts={[
-          {
-            accountId: "account-1",
-            accountName: "Ada Cloud",
-          },
-        ]}
-        appRoot="/"
-        appRootReadOnly={true}
-        createWorkerName="demo-worker"
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        createRootDirectory="/"
+        createWorkerName=""
+        didAddWorker
         error={null}
+        folderSuggestions={[]}
         isLoading={false}
         isSubmitting={false}
+        inventoryState="complete"
         mode="existing"
-        onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
-        onCreateWorkerNameChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        onWorkerChange={vi.fn()}
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
         open
+        repairWorker={null}
         selectedAccountId="account-1"
-        selectedWorkerName="demo-worker"
-        vault={{
-          appId: fakeVaultAppId(),
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-          repositoryName: "demo",
-          rootDirectory: "/",
-        }}
-        workers={[makeCloudflareDialogWorker({})]}
-      />,
-    );
-
-    expect(markup).toContain("Connect Cloudflare ada/demo");
-    expect(markup).toContain("demo-worker");
-    expect(markup).not.toContain('placeholder="App root"');
-    expect(markup).not.toContain("readOnly");
-  });
-
-  it("renders the app root input for monorepo app roots", () => {
-    const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
-        accounts={[
-          {
-            accountId: "account-1",
-            accountName: "Ada Cloud",
-          },
-        ]}
-        appRoot="apps/samebase"
-        appRootReadOnly={true}
-        createWorkerName="demo-worker"
-        error={null}
-        isLoading={false}
-        isSubmitting={false}
-        mode="existing"
-        onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
-        onCreateWorkerNameChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        onWorkerChange={vi.fn()}
-        open
-        selectedAccountId="account-1"
-        selectedWorkerName="demo-worker"
-        vault={{
-          appId: fakeVaultAppId(),
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-          repositoryName: "demo",
-          rootDirectory: "apps/samebase",
-        }}
-        workers={[makeCloudflareDialogWorker({})]}
-      />,
-    );
-
-    expect(markup).toContain("apps/samebase");
-    expect(markup).toContain('aria-label="App root"');
-    expect(markup).toContain('placeholder="App root"');
-    expect(markup).toContain("readOnly");
-  });
-
-  it("shows selected Worker discovery evidence", () => {
-    const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
-        accounts={[
-          {
-            accountId: "account-1",
-            accountName: "Ada Cloud",
-          },
-        ]}
-        appRoot="/"
-        appRootReadOnly={true}
-        createWorkerName="demo-worker"
-        error={null}
-        isLoading={false}
-        isSubmitting={false}
-        mode="existing"
-        onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
-        onCreateWorkerNameChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        onWorkerChange={vi.fn()}
-        open
-        selectedAccountId="account-1"
-        selectedWorkerName="demo-worker"
-        vault={{
-          appId: fakeVaultAppId(),
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-          repositoryName: "demo",
-          rootDirectory: "/",
-        }}
+        selectedWorkerTags={["root-tag", "web-tag"]}
+        vault={vault}
+        workerToConnect={null}
         workers={[
           makeCloudflareDialogWorker({
-            discovery: {
-              classification: "recommended",
-              evidence: {
-                state: "matching_repo",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "Production Deploy",
-                rootDirectory: "/",
-              },
+            workerName: "root-worker",
+            workerTag: "root-tag",
+            repository: {
+              state: "ready",
+              rootDirectory: "/",
+              builds: { state: "not_available" },
             },
           }),
           makeCloudflareDialogWorker({
-            workerName: "other-worker",
-            workerTag: "worker-tag-2",
-            discovery: {
-              classification: "blocked",
-              evidence: {
-                state: "different_repo",
-                repoId: "999",
-                repoName: "ada/other",
-                triggerName: "Production Deploy",
-              },
+            workerName: "web-worker",
+            workerTag: "web-tag",
+            repository: {
+              state: "ready",
+              rootDirectory: "apps/web",
+              builds: { state: "not_available" },
             },
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "portal-worker",
+            workerTag: "portal-tag",
+            repository: { state: "not_connected" },
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "other-repository",
+            workerTag: "other-tag",
+            repository: { state: "connected_elsewhere" },
           }),
         ]}
       />,
     );
 
-    expect(markup).toContain("Recommended: Builds repo ada/demo (123), root /");
+    expect(markup).toContain("Add Cloudflare to ada/demo");
+    expect(markup).toContain("root-worker");
+    expect(markup).toContain("apps/web");
+    expect(markup).toContain("web-worker");
+    expect(markup).toContain("Add 2 Workers");
+    expect(markup).toContain("Close");
+    expect(markup).toContain("Connect another Worker");
+    expect(markup).not.toContain("Done");
+    expect(markup).not.toContain("portal-worker");
+    expect(markup).not.toContain("other-repository");
+    expect(markup).not.toContain("App root");
   });
 
-  it("surfaces same-repo different-root Workers without enabling submit", () => {
+  it("asks for one repository root before connecting and adding an unconnected Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog
-        accounts={[
-          {
-            accountId: "account-1",
-            accountName: "Ada Cloud",
-          },
-        ]}
-        appRoot="apps/web"
-        appRootReadOnly={true}
-        createWorkerName="demo-worker"
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        createRootDirectory="apps/portal"
+        createWorkerName=""
+        didAddWorker={false}
         error={null}
+        folderSuggestions={["apps", "apps/portal", "packages/shared"]}
         isLoading={false}
         isSubmitting={false}
-        mode="existing"
-        onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
-        onCreateWorkerNameChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        onWorkerChange={vi.fn()}
+        inventoryState="complete"
+        mode="connect"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
         open
+        repairWorker={null}
         selectedAccountId="account-1"
-        selectedWorkerName="admin-worker"
-        vault={{
-          appId: fakeVaultAppId(),
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-          repositoryName: "demo",
-          rootDirectory: "apps/web",
-        }}
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={{ workerName: "portal-worker", workerTag: "portal-tag" }}
         workers={[
           makeCloudflareDialogWorker({
-            workerName: "available-worker",
-            workerTag: "worker-tag-3",
-          }),
-          makeCloudflareDialogWorker({
-            workerName: "admin-worker",
-            workerTag: "worker-tag-2",
-            discovery: {
-              classification: "blocked",
-              evidence: {
-                state: "same_repo_different_root",
-                repoId: "123",
-                repoName: "ada/demo",
-                triggerName: "Production Deploy",
-                rootDirectory: "apps/admin",
-                expectedRootDirectory: "apps/web",
-              },
-            },
+            workerName: "portal-worker",
+            workerTag: "portal-tag",
+            repository: { state: "not_connected" },
           }),
         ]}
       />,
     );
 
-    expect(markup).toContain(
-      "Same repo, different root: Builds root apps/admin, expected apps/web",
-    );
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Connect Worker<\/button>/);
+    expect(markup).toContain("Connect a Worker");
+    expect(markup).toContain("portal-worker");
+    expect(markup).toContain("Repository root");
+    expect(markup).toContain('value="apps/portal"');
+    expect(markup).toContain("Connect and add");
+    expect(markup).toContain("Back");
+    expect(markup).not.toContain("Cloudflare account");
+    expect(markup).not.toContain(">Existing<");
   });
 
-  it("disables submit when stale state selects a different-repo Worker", () => {
+  it("shows the repository root only when creating a Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog
-        accounts={[
-          {
-            accountId: "account-1",
-            accountName: "Ada Cloud",
-          },
-        ]}
-        appRoot="/"
-        appRootReadOnly={true}
-        createWorkerName="demo-worker"
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        createRootDirectory="apps/web"
+        createWorkerName="web-worker"
+        didAddWorker={false}
         error={null}
+        folderSuggestions={[]}
         isLoading={false}
         isSubmitting={false}
-        mode="existing"
-        onAccountChange={vi.fn()}
-        onAppRootChange={vi.fn()}
-        onCreateWorkerNameChange={vi.fn()}
-        onModeChange={vi.fn()}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        onWorkerChange={vi.fn()}
+        inventoryState="complete"
+        mode="create"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
         open
+        repairWorker={null}
         selectedAccountId="account-1"
-        selectedWorkerName="other-worker"
-        vault={{
-          appId: fakeVaultAppId(),
-          id: fakeVaultId(),
-          repositoryFullName: "ada/demo",
-          repositoryName: "demo",
-          rootDirectory: "/",
-        }}
-        workers={[
-          makeCloudflareDialogWorker({
-            workerName: "other-worker",
-            workerTag: "worker-tag-2",
-            discovery: {
-              classification: "blocked",
-              evidence: {
-                state: "different_repo",
-                repoId: "999",
-                repoName: "ada/other",
-                triggerName: "Production Deploy",
-              },
-            },
-          }),
-        ]}
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
+        workers={[]}
       />,
     );
 
-    expect(markup).toContain("Different repo: Builds repo ada/other (999)");
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Connect Worker<\/button>/);
+    expect(markup).toContain('role="combobox"');
+    expect(markup).toContain("Repository root");
+    expect(markup).toContain('value="apps/web"');
+    expect(markup).toContain("Create Worker");
+  });
+
+  it("uses the same dialog to repair Builds when no live root exists", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[]}
+        createRootDirectory="apps/web"
+        createWorkerName=""
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState={null}
+        mode="existing"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        open
+        repairWorker={{ workerName: "web-worker" }}
+        selectedAccountId=""
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+
+    expect(markup).toContain("Configure web-worker Builds");
+    expect(markup).toContain("Choose the repository root Cloudflare should build");
+    expect(markup).toContain("Repository root");
+    expect(markup).toContain('value="apps/web"');
+    expect(markup).toContain("Configure Workers Builds");
+    expect(markup).not.toContain(">Existing<");
+    expect(markup).not.toContain(">Create<");
+    expect(markup).not.toContain("Cloudflare account");
+  });
+
+  it("does not claim that no Workers exist after a partial inventory", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        createRootDirectory="/"
+        createWorkerName=""
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState="partial"
+        mode="existing"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        open
+        repairWorker={null}
+        selectedAccountId="account-1"
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+
+    expect(markup).toContain("Worker list may be incomplete");
+    expect(markup).not.toContain("No Workers connected to this repository were found");
   });
 });
 
 describe("buildVaultDashboardResourceRailState", () => {
-  it("groups stable resources by app identity and preserves multiple Workers", () => {
-    const appId = fakeVaultAppId();
-    const firstWorkerId = fakeCloudflareWorkerId("worker-first");
-    const secondWorkerId = fakeCloudflareWorkerId("worker-second");
-    const vault = makeResourceRailBuilderVault({
-      apps: [{ appId, rootDirectory: "/" }],
-      cloudflareWorkers: [
-        makeResourceRailCloudflareWorker({
-          appId,
-          workerId: firstWorkerId,
-          workerName: "first-worker",
-          workerTag: "first-worker-tag",
-        }),
-        makeResourceRailCloudflareWorker({
-          appId,
-          workerId: secondWorkerId,
-          workerName: "second-worker",
-          workerTag: "second-worker-tag",
-        }),
-      ],
-    });
-
+  it("groups resources by observed roots and keeps unresolved Workers in attention", () => {
+    const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
+    const unresolvedWorkerId = fakeCloudflareWorkerId("worker-unresolved");
+    const convexProjectId = fakeConvexProjectId();
     const state = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      convexObservations: { state: "loading" },
+      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
+      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [
+          makeAvailableResourceRailCloudflareObservation({ workerId: readyWorkerId }),
           makeAvailableResourceRailCloudflareObservation({
-            workerId: firstWorkerId,
-            workersDev: {
-              state: "enabled",
-              url: "https://first-worker.ada.workers.dev",
-            },
-          }),
-          makeAvailableResourceRailCloudflareObservation({
-            workerId: secondWorkerId,
+            workerId: unresolvedWorkerId,
             workersDev: { state: "disabled" },
           }),
         ],
         builds: [
           makeAvailableResourceRailCloudflareBuildsObservation({
-            workerId: firstWorkerId,
-            builds: {
-              state: "connected",
-              productionTriggerUuid: "production-trigger",
-              previewTriggerUuid: "preview-trigger",
+            workerId: readyWorkerId,
+            repository: {
+              state: "ready",
+              rootDirectory: "apps/web",
+              builds: { state: "not_available" },
             },
           }),
-          makeAvailableResourceRailCloudflareBuildsObservation({
-            workerId: secondWorkerId,
-            repository: {
-              classification: "available",
-              evidence: { state: "none" },
+          {
+            state: "failed",
+            observedAt: 1,
+            workerId: unresolvedWorkerId,
+            reason: "request_failed",
+          },
+        ],
+        convexBuildAccess: [],
+      }),
+      convexObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [
+          {
+            observedAt: 1,
+            convexProjectId,
+            projectId: "api-project",
+            convexConfigPath: "packages/api/convex.json",
+            source: { state: "missing" },
+            provider: {
+              state: "moved",
+              previousTeamId: "team-old",
+              currentTeamId: "team-new",
+              projectName: "API",
+              projectSlug: "api",
+              teamSlug: "ada",
+              productionDeployment: { state: "missing" },
             },
+          },
+        ],
+      },
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      changeConvexProjectConfigPathOnClick: () => {},
+      reconcileConvexProjectTeamOnClick: () => {},
+      detachCloudflareWorkerOnClick: () => {},
+      detachConvexProjectOnClick: () => {},
+      vault: makeResourceRailBuilderVault({
+        cloudflareWorkers: [
+          makeResourceRailCloudflareWorker({
+            workerId: readyWorkerId,
+            workerName: "web-worker",
+          }),
+          makeResourceRailCloudflareWorker({
+            workerId: unresolvedWorkerId,
+            workerName: "unresolved-worker",
           }),
         ],
-        convexBuildAccess: [
-          makeAvailableResourceRailCloudflareConvexBuildAccessObservation({
-            workerId: firstWorkerId,
+        convexProjects: [
+          makeResourceRailConvexProject({
+            convexProjectId,
+            convexConfigPath: "packages/api/convex.json",
+            projectId: "api-project",
           }),
         ],
       }),
     });
 
-    expect(state.apps).toHaveLength(1);
-    expect(state.apps[0]).toMatchObject({
-      appId,
-      rootDirectory: "/",
+    expect(state.roots.map((root) => root.rootDirectory)).toEqual(["apps/web", "packages/api"]);
+    expect(state.attentionRows).toHaveLength(1);
+    expect(state.attentionRows[0]).toMatchObject({
+      provider: "cloudflare",
+      value: "unresolved-worker",
     });
-    expect(state.apps[0]?.rows).toMatchObject([
-      {
-        provider: "convex",
-        rowId: `convex:add:${appId}`,
-        status: "action_required",
-      },
-      {
-        provider: "cloudflare",
-        rowId: `cloudflare:${firstWorkerId}`,
-        status: "available",
-        scope: "ada",
-        value: "first-worker",
-      },
-      {
-        provider: "cloudflare",
-        rowId: `cloudflare:${secondWorkerId}`,
-        status: "available",
-        value: "second-worker",
-        description: "Preview URL disabled. Cloudflare is not connected to this GitHub repository.",
-      },
-    ]);
-  });
-
-  it("offers explicit vault-wide Convex key rotation without inferring by app root", () => {
-    const frontendAppId = fakeVaultAppId("app-frontend");
-    const backendAppId = fakeVaultAppId("app-backend");
-    const workerId = fakeCloudflareWorkerId();
-    const convexProjectId = fakeConvexProjectId();
-    const rotateConvexDeployKeysForWorkersBuildsOnClick = vi.fn();
-    const vault = makeResourceRailBuilderVault({
-      apps: [
-        { appId: frontendAppId, rootDirectory: "apps/web" },
-        { appId: backendAppId, rootDirectory: "convex" },
-      ],
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId: frontendAppId, workerId })],
-      convexProjects: [makeResourceRailConvexProject({ appId: backendAppId, convexProjectId })],
-    });
-    const cloudflareObservations = makeLoadedCloudflareObservations({
-      workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
-      builds: [
-        makeAvailableResourceRailCloudflareBuildsObservation({
-          workerId,
-          builds: {
-            state: "connected",
-            productionTriggerUuid: "production-trigger",
-            previewTriggerUuid: "preview-trigger",
-          },
-        }),
-      ],
-      convexBuildAccess: [
-        makeAvailableResourceRailCloudflareConvexBuildAccessObservation({ workerId }),
-      ],
-    });
-
-    const state = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations,
-      convexObservations: { state: "loading" },
-      rotateConvexDeployKeysForWorkersBuildsOnClick,
-    });
-    const row = getResourceRailAppRow(state, "apps/web", "cloudflare");
-    expect(row).toMatchObject({
+    const convexRow = getResourceRailRootRow(state, "packages/api", "convex");
+    expect(convexRow).toMatchObject({
+      scope: "ada",
       status: "available",
-      description: "Convex deploy keys are not configured.",
-      actions: [
-        {
-          kind: "configure",
-          label: "Rotate Convex deploy keys for Workers Builds",
-          disabled: false,
-        },
-      ],
+      value: "api",
     });
-    if (row.status !== "available" || !row.actions) {
-      throw new Error("Expected an explicit Convex build access action.");
-    }
-    row.actions[0].onClick?.();
-    expect(rotateConvexDeployKeysForWorkersBuildsOnClick).toHaveBeenCalledWith(
-      workerId,
-      convexProjectId,
-    );
-
-    const pendingState = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations,
-      convexObservations: { state: "loading" },
-      rotateConvexDeployKeysForWorkersBuildsOnClick,
-      isRotatingConvexDeployKeysForWorkersBuilds: () => true,
-    });
-    expect(getResourceRailAppRow(pendingState, "apps/web", "cloudflare")).toMatchObject({
-      actions: [{ label: "Rotating Convex deploy keys for Workers Builds...", disabled: true }],
-    });
+    expect(
+      convexRow.status === "available" ? convexRow.actions?.map((action) => action.label) : [],
+    ).toEqual(["Change code location", "Use current team", "Remove from vault"]);
+    expect(state.vaultActionRows.map((row) => row.rowId)).toEqual(["convex:add", "cloudflare:add"]);
   });
 
-  it("shows configured, external, and ambiguous Convex targets truthfully", () => {
-    const appId = fakeVaultAppId();
-    const workerId = fakeCloudflareWorkerId();
-    const firstProjectId = fakeConvexProjectId("convex-project-first");
-    const secondProjectId = fakeConvexProjectId("convex-project-second");
-    const vault = makeResourceRailBuilderVault({
-      apps: [{ appId, rootDirectory: "/" }],
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId, workerId })],
+  it("names exact Convex targets and limits key repair to the observed attachment", () => {
+    const workerId = fakeCloudflareWorkerId("worker-build-access");
+    const alphaProjectId = fakeConvexProjectId("convex-alpha");
+    const betaProjectId = fakeConvexProjectId("convex-beta");
+    const rotate = vi.fn();
+    const vaultWithBuildAccess = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
       convexProjects: [
         makeResourceRailConvexProject({
-          appId,
-          convexProjectId: firstProjectId,
-          projectId: "alpha-project",
+          convexProjectId: alphaProjectId,
+          projectId: "alpha-project-id",
+          teamId: "team-alpha",
         }),
         makeResourceRailConvexProject({
-          appId,
-          convexProjectId: secondProjectId,
-          projectId: "beta-project",
+          convexProjectId: betaProjectId,
+          projectId: "beta-project-id",
+          teamId: "team-beta",
         }),
       ],
     });
-    const buildState = (
+    const convexObservations = {
+      state: "loaded" as const,
+      reload: () => {},
+      observations: [
+        {
+          observedAt: 1,
+          convexProjectId: alphaProjectId,
+          projectId: "alpha-project-id",
+          convexConfigPath: "convex.json",
+          source: { state: "valid" as const, blobSha: "alpha-blob" },
+          provider: {
+            state: "current" as const,
+            teamId: "team-alpha",
+            projectName: "Alpha",
+            projectSlug: "alpha",
+            teamSlug: "ada",
+            productionDeployment: { state: "missing" as const },
+          },
+        },
+        {
+          observedAt: 1,
+          convexProjectId: betaProjectId,
+          projectId: "beta-project-id",
+          convexConfigPath: "convex.json",
+          source: { state: "valid" as const, blobSha: "beta-blob" },
+          provider: {
+            state: "current" as const,
+            teamId: "team-beta",
+            projectName: "Beta",
+            projectSlug: "beta",
+            teamSlug: "ada",
+            productionDeployment: { state: "missing" as const },
+          },
+        },
+      ],
+    };
+    const readCloudflareRow = (
       convexBuildAccess: AvailableResourceRailCloudflareConvexBuildAccessObservation["convexBuildAccess"],
-    ) =>
-      buildVaultDashboardResourceRailState({
-        vault,
-        githubRepositoryUrl: "https://github.com/ada/demo",
+    ) => {
+      const state = buildVaultDashboardResourceRailState({
         cloudflareObservations: makeLoadedCloudflareObservations({
           workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
           builds: [
             makeAvailableResourceRailCloudflareBuildsObservation({
               workerId,
+              repository: {
+                state: "ready",
+                rootDirectory: "/",
+                builds: {
+                  state: "available",
+                  productionTriggerUuid: "production-trigger",
+                  previewTriggerUuid: "preview-trigger",
+                },
+              },
               builds: {
                 state: "connected",
                 productionTriggerUuid: "production-trigger",
@@ -1871,99 +1758,97 @@ describe("buildVaultDashboardResourceRailState", () => {
             }),
           ],
           convexBuildAccess: [
-            makeAvailableResourceRailCloudflareConvexBuildAccessObservation({
+            {
+              state: "available",
+              observedAt: 1,
               workerId,
               convexBuildAccess,
-            }),
+            },
           ],
         }),
-        convexObservations: { state: "loading" },
-        rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
+        convexObservations,
+        githubRepositoryUrl: "https://github.com/ada/demo",
+        rotateConvexDeployKeysForWorkersBuildsOnClick: rotate,
+        vault: vaultWithBuildAccess,
       });
+      const row = getResourceRailRootRow(state, "/", "cloudflare");
+      if (row.status !== "available") {
+        throw new Error("Expected an available Cloudflare row.");
+      }
+      return row;
+    };
 
-    expect(
-      getResourceRailAppRow(
-        buildState({
-          state: "configured",
-          convexProject: {
-            state: "attached",
-            convexProjectId: firstProjectId,
-            teamId: "team-1",
-            projectId: "alpha-project",
-          },
-        }),
-        "/",
-        "cloudflare",
-      ),
-    ).toMatchObject({
-      description: "Convex deploy keys use alpha-project.",
-      actions: undefined,
-    });
+    const unconfiguredRow = readCloudflareRow({ state: "not_configured" });
+    expect(unconfiguredRow.actions?.map((action) => action.label)).toEqual([
+      "Use alpha for Workers Builds",
+      "Use beta for Workers Builds",
+    ]);
+    unconfiguredRow.actions?.[0].onClick?.();
+    expect(rotate).toHaveBeenLastCalledWith(workerId, alphaProjectId);
 
-    expect(
-      getResourceRailAppRow(
-        buildState({
-          state: "configured",
-          convexProject: {
-            state: "external",
-            teamId: "external-team",
-            projectId: "external-project",
-          },
-        }),
-        "/",
-        "cloudflare",
-      ),
-    ).toMatchObject({
-      description:
-        "Convex deploy keys target external-team/external-project, which is not attached to this vault.",
-      actions: [
-        { label: "Rotate keys for alpha-project" },
-        { label: "Rotate keys for beta-project" },
-      ],
+    const attachedProject = {
+      state: "attached" as const,
+      convexProjectId: alphaProjectId,
+      teamId: "team-alpha",
+      attachedTeamId: "team-alpha",
+      teamState: "matches" as const,
+      projectId: "alpha-project-id",
+    };
+    const incompleteRow = readCloudflareRow({
+      state: "incomplete",
+      convexProject: attachedProject,
     });
+    expect(incompleteRow.actions?.map((action) => action.label)).toEqual(["Repair keys for alpha"]);
+    incompleteRow.actions?.[0].onClick?.();
+    expect(rotate).toHaveBeenLastCalledWith(workerId, alphaProjectId);
 
-    expect(
-      getResourceRailAppRow(buildState({ state: "target_unknown" }), "/", "cloudflare"),
-    ).toMatchObject({
-      description: "Convex deploy keys exist, but their project is unknown.",
+    const healthyRow = readCloudflareRow({
+      state: "configured",
+      convexProject: attachedProject,
     });
+    expect(healthyRow.actions).toBeUndefined();
+
+    const staleTeamRow = readCloudflareRow({
+      state: "configured",
+      convexProject: {
+        ...attachedProject,
+        teamId: "team-old",
+        teamState: "differs",
+      },
+    });
+    expect(staleTeamRow.description).toContain("still use team-old/alpha-project-id");
+    expect(staleTeamRow.actions?.map((action) => action.label)).toEqual(["Repair keys for alpha"]);
   });
+});
 
-  it("maps loading, missing, and failed provider observations without fallbacks", () => {
-    const appId = fakeVaultAppId();
+describe("buildVaultProductionRoots", () => {
+  it("combines live Cloudflare and Convex links at the same root", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
     const vault = makeResourceRailBuilderVault({
-      apps: [{ appId, rootDirectory: "/" }],
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId, workerId })],
-      convexProjects: [makeResourceRailConvexProject({ appId, convexProjectId })],
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+      convexProjects: [
+        makeResourceRailConvexProject({
+          convexProjectId,
+          convexConfigPath: "apps/web/convex.json",
+        }),
+      ],
     });
 
-    const loadingState = buildVaultDashboardResourceRailState({
+    const roots = buildVaultProductionRoots({
       vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations: makeLoadingCloudflareObservations(),
-      convexObservations: { state: "loading" },
-    });
-    expect(getResourceRailAppRow(loadingState, "/", "cloudflare")).toMatchObject({
-      rowId: `cloudflare:${workerId}`,
-      status: "loading",
-    });
-    expect(getResourceRailAppRow(loadingState, "/", "convex")).toMatchObject({
-      rowId: `convex:${convexProjectId}`,
-      status: "loading",
-    });
-
-    const removeMissingCloudflareWorker = vi.fn();
-    const removeMissingConvexProject = vi.fn();
-    const observedState = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      removeMissingCloudflareWorkerOnClick: removeMissingCloudflareWorker,
-      removeMissingConvexProjectOnClick: removeMissingConvexProject,
       cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [{ state: "missing", observedAt: 1, workerId }],
-        builds: [],
+        workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+        builds: [
+          makeAvailableResourceRailCloudflareBuildsObservation({
+            workerId,
+            repository: {
+              state: "ready",
+              rootDirectory: "apps/web",
+              builds: { state: "not_available" },
+            },
+          }),
+        ],
         convexBuildAccess: [],
       }),
       convexObservations: {
@@ -1971,231 +1856,31 @@ describe("buildVaultDashboardResourceRailState", () => {
         reload: () => {},
         observations: [
           {
-            state: "missing",
             observedAt: 1,
             convexProjectId,
-          },
-        ],
-      },
-    });
-    const missingCloudflareRow = getResourceRailAppRow(observedState, "/", "cloudflare");
-    const missingConvexRow = getResourceRailAppRow(observedState, "/", "convex");
-    expect(missingCloudflareRow).toMatchObject({
-      status: "missing",
-      description: "Missing from Cloudflare.",
-      actions: [{ label: "Remove from Samebase" }],
-    });
-    expect(missingConvexRow).toMatchObject({
-      status: "missing",
-      description: "Missing from Convex.",
-      actions: [{ label: "Remove from Samebase" }],
-    });
-    if (missingCloudflareRow.status !== "missing" || missingConvexRow.status !== "missing") {
-      throw new Error("Expected missing provider resource rows.");
-    }
-    missingCloudflareRow.actions?.[0].onClick?.();
-    missingConvexRow.actions?.[0].onClick?.();
-    expect(removeMissingCloudflareWorker).toHaveBeenCalledWith(workerId);
-    expect(removeMissingConvexProject).toHaveBeenCalledWith(convexProjectId);
-
-    const failedState = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      removeMissingCloudflareWorkerOnClick: removeMissingCloudflareWorker,
-      removeMissingConvexProjectOnClick: removeMissingConvexProject,
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [{ state: "failed", observedAt: 1, workerId, reason: "request_failed" }],
-        builds: [],
-        convexBuildAccess: [],
-      }),
-      convexObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [
-          { state: "failed", observedAt: 1, convexProjectId, reason: "request_failed" },
-        ],
-      },
-    });
-    expect(getResourceRailAppRow(failedState, "/", "cloudflare")).toMatchObject({
-      status: "failed",
-      actions: [{ label: "Reload" }],
-    });
-    expect(getResourceRailAppRow(failedState, "/", "convex")).toMatchObject({
-      status: "failed",
-      actions: [{ label: "Reload" }],
-    });
-  });
-
-  it("keeps a confirmed Worker available while later Cloudflare facts load", () => {
-    const appId = fakeVaultAppId();
-    const workerId = fakeCloudflareWorkerId();
-    const vault = makeResourceRailBuilderVault({
-      apps: [{ appId, rootDirectory: "/" }],
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId, workerId })],
-    });
-    const workers = {
-      state: "loaded" as const,
-      reload: () => {},
-      observations: [makeAvailableResourceRailCloudflareObservation({ workerId })],
-    };
-
-    const buildsLoadingState = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations: {
-        workers,
-        builds: { state: "loading" },
-        convexBuildAccess: { state: "loading" },
-      },
-      convexObservations: { state: "loading" },
-    });
-    expect(getResourceRailAppRow(buildsLoadingState, "/", "cloudflare")).toMatchObject({
-      status: "available",
-      scope: "ada",
-      value: "demo-worker",
-      href: "https://dash.cloudflare.com/?to=/account-1/workers/services/view/demo-worker/production/settings",
-      loadingDescription: "Loading Workers Builds...",
-    });
-
-    const accessLoadingState = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations: {
-        workers,
-        builds: {
-          state: "loaded",
-          reload: () => {},
-          observations: [
-            makeAvailableResourceRailCloudflareBuildsObservation({
-              workerId,
-              builds: {
-                state: "connected",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
-              },
-            }),
-          ],
-        },
-        convexBuildAccess: { state: "loading" },
-      },
-      convexObservations: { state: "loading" },
-    });
-    expect(getResourceRailAppRow(accessLoadingState, "/", "cloudflare")).toMatchObject({
-      status: "available",
-      scope: "ada",
-      value: "demo-worker",
-      loadingDescription: "Loading Convex deploy keys...",
-    });
-  });
-
-  it("offers provider attachment only when that app has no matching stable resource", () => {
-    const rootAppId = fakeVaultAppId("app-root");
-    const nestedAppId = fakeVaultAppId("app-nested");
-    const workerId = fakeCloudflareWorkerId();
-    const buildAddCloudflareWorkerHref = vi.fn(
-      (rootDirectory: string) =>
-        `/vault/ada/demo?add-cloudflare&app-root=${encodeURIComponent(rootDirectory)}`,
-    );
-    const buildAddConvexHref = vi.fn(
-      (rootDirectory: string) =>
-        `/vault/ada/demo?add-convex&app-root=${encodeURIComponent(rootDirectory)}`,
-    );
-    const vault = makeResourceRailBuilderVault({
-      apps: [
-        { appId: rootAppId, rootDirectory: "/" },
-        { appId: nestedAppId, rootDirectory: "apps/admin" },
-      ],
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId: rootAppId, workerId })],
-    });
-
-    const state = buildVaultDashboardResourceRailState({
-      vault,
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      buildAddCloudflareWorkerHref,
-      buildAddConvexHref,
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [{ state: "missing", observedAt: 1, workerId }],
-        builds: [],
-        convexBuildAccess: [],
-      }),
-      convexObservations: { state: "loading" },
-    });
-
-    expect(getResourceRailAppRow(state, "/", "cloudflare")).toMatchObject({
-      rowId: `cloudflare:${workerId}`,
-      status: "missing",
-    });
-    expect(getResourceRailAppRow(state, "/", "convex")).toMatchObject({
-      rowId: `convex:add:${rootAppId}`,
-      status: "action_required",
-    });
-    expect(getResourceRailAppRow(state, "apps/admin", "cloudflare")).toMatchObject({
-      rowId: `cloudflare:add:${nestedAppId}`,
-      status: "action_required",
-    });
-    expect(buildAddCloudflareWorkerHref).toHaveBeenCalledWith("apps/admin");
-    expect(buildAddConvexHref).toHaveBeenCalledWith("/");
-    expect(buildAddConvexHref).toHaveBeenCalledWith("apps/admin");
-  });
-
-  it("shows live production links only for available provider observations", () => {
-    const appId = fakeVaultAppId();
-    const workerId = fakeCloudflareWorkerId();
-    const convexProjectId = fakeConvexProjectId();
-    const vault = makeResourceRailBuilderVault({
-      apps: [{ appId, rootDirectory: "/" }],
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ appId, workerId })],
-      convexProjects: [makeResourceRailConvexProject({ appId, convexProjectId })],
-    });
-
-    expect(
-      buildVaultProductionApps({
-        vault,
-        cloudflareObservations: makeLoadedCloudflareObservations({
-          workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
-          builds: [],
-          convexBuildAccess: [],
-        }),
-        convexObservations: {
-          state: "loaded",
-          reload: () => {},
-          observations: [
-            {
-              state: "available",
-              observedAt: 1,
-              convexProjectId,
+            projectId: "demo-project-id",
+            convexConfigPath: "apps/web/convex.json",
+            source: { state: "valid", blobSha: "blob-1" },
+            provider: {
+              state: "current",
+              teamId: "team-1",
               projectName: "Demo",
               projectSlug: "demo",
               teamSlug: "ada",
               productionDeployment: {
                 state: "available",
-                deploymentName: "demo-production",
-                cloudUrl: "https://demo-production.convex.cloud",
-                siteUrl: "https://demo-production.convex.site",
+                deploymentName: "calm-swan-123",
+                cloudUrl: "https://calm-swan-123.convex.cloud",
+                siteUrl: "https://calm-swan-123.convex.site",
               },
             },
-          ],
-        },
-      }),
-    ).toEqual([
-      {
-        appId,
-        rootDirectory: "/",
-        links: [
-          {
-            provider: "cloudflare",
-            href: "https://demo-worker.ada.workers.dev",
-            label: "demo-worker.ada.workers.dev",
-            title: "Open production app",
-          },
-          {
-            provider: "convex",
-            href: "https://dashboard.convex.dev/t/ada/demo/demo-production",
-            label: "Production: demo-production",
-            title: "Open production Convex deployment demo-production",
           },
         ],
       },
-    ]);
+    });
+
+    expect(roots).toHaveLength(1);
+    expect(roots[0]?.rootDirectory).toBe("apps/web");
+    expect(roots[0]?.links.map((link) => link.provider)).toEqual(["cloudflare", "convex"]);
   });
 });

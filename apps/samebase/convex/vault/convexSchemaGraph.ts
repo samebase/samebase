@@ -1,12 +1,8 @@
 import { Infer, v } from "convex/values";
+import { getConvexConfigRootDirectory } from "../../shared/convexConfigPath";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-  type QueryCtx,
-} from "../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
@@ -35,12 +31,7 @@ const { array, id, literal, null: nullValue, number, object, optional, string, u
 type ConvexSchemaRefreshTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
   project: Doc<"vaultConvexProjects">;
-  rootDirectory: string;
   token: string;
-};
-type VaultConvexProjectNode = {
-  project: Doc<"vaultConvexProjects">;
-  rootDirectory: string;
 };
 type ConvexSystemQueryResponse = {
   value: unknown;
@@ -93,7 +84,6 @@ const vConvexSchemaRefreshTarget = object({
   token: string(),
   authMethod: vConvexProviderAuthMethod,
   project: vConnectedConvexProject,
-  rootDirectory: string(),
 });
 
 const vConvexSchemaGraphLayoutPoint = object({
@@ -104,7 +94,6 @@ const vConvexSchemaGraphLayoutPoint = object({
 
 const vConvexSchemaGraphProjectOption = object({
   convexProjectId: id("vaultConvexProjects"),
-  appId: id("vaultApps"),
   rootDirectory: string(),
   projectId: string(),
 });
@@ -117,26 +106,11 @@ const vConvexSchemaGraphSnapshotResult = object({
 });
 
 const vConvexSchemaGraphStateResult = object({
-  projects: array(vConvexSchemaGraphProjectOption),
-  selectedConvexProjectId: union(id("vaultConvexProjects"), nullValue()),
+  project: vConvexSchemaGraphProjectOption,
   snapshot: union(vConvexSchemaGraphSnapshotResult, nullValue()),
   layout: array(vConvexSchemaGraphLayoutPoint),
 });
 export type ConvexSchemaGraphStateResult = Infer<typeof vConvexSchemaGraphStateResult>;
-
-function compareProjectSortOrder(
-  left: VaultConvexProjectNode,
-  right: VaultConvexProjectNode,
-): number {
-  const leftRootOrder = left.rootDirectory === "/" ? 0 : 1;
-  const rightRootOrder = right.rootDirectory === "/" ? 0 : 1;
-  return (
-    leftRootOrder - rightRootOrder ||
-    left.rootDirectory.localeCompare(right.rootDirectory) ||
-    left.project.projectId.localeCompare(right.project.projectId) ||
-    left.project._id.localeCompare(right.project._id)
-  );
-}
 
 function compareGraphTable(left: ConvexSchemaGraphTable, right: ConvexSchemaGraphTable): number {
   return left.name.localeCompare(right.name);
@@ -173,43 +147,12 @@ function readSchemaGraphLayoutTableName(nodeId: string): string {
   return tableName.length > 0 ? tableName : nodeId;
 }
 
-function readProjectOption(node: VaultConvexProjectNode) {
+function readProjectOption(project: Doc<"vaultConvexProjects">) {
   return {
-    convexProjectId: node.project._id,
-    appId: node.project.appId,
-    rootDirectory: node.rootDirectory,
-    projectId: node.project.projectId,
+    convexProjectId: project._id,
+    rootDirectory: getConvexConfigRootDirectory(project.convexConfigPath),
+    projectId: project.projectId,
   };
-}
-
-async function readProjectsForVault(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<VaultConvexProjectNode[]> {
-  const projects = await ctx.db
-    .query("vaultConvexProjects")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .collect();
-  const nodes = await Promise.all(
-    projects.map(async (project) => {
-      const app = await ctx.db.get(project.appId);
-      if (!app || app.vaultId !== vaultId) {
-        throw new Error("Convex project references a missing vault app.");
-      }
-      return { project, rootDirectory: app.rootDirectory };
-    }),
-  );
-  return nodes.sort(compareProjectSortOrder);
-}
-
-function selectProject(args: {
-  projects: VaultConvexProjectNode[];
-  convexProjectId?: Id<"vaultConvexProjects">;
-}): VaultConvexProjectNode | null {
-  if (args.convexProjectId !== undefined) {
-    return args.projects.find((node) => node.project._id === args.convexProjectId) ?? null;
-  }
-  return args.projects[0] ?? null;
 }
 
 function readActiveSchemaJson(schemaResponse: unknown): string | undefined {
@@ -1015,7 +958,7 @@ export const get = query({
   access: "access_schema_graph",
   args: {
     vaultId: id("vaults"),
-    convexProjectId: optional(id("vaultConvexProjects")),
+    convexProjectId: id("vaultConvexProjects"),
   },
   returns: union(vConvexSchemaGraphStateResult, nullValue()),
   handler: async (ctx, args): Promise<ConvexSchemaGraphStateResult | null> => {
@@ -1024,27 +967,15 @@ export const get = query({
       return null;
     }
 
-    const projects = await readProjectsForVault(ctx, args.vaultId);
-    const selectedProject = selectProject({
-      projects,
-      convexProjectId: args.convexProjectId,
-    });
-    const projectOptions = projects.map(readProjectOption);
-    if (!selectedProject) {
-      return {
-        projects: projectOptions,
-        selectedConvexProjectId: null,
-        snapshot: null,
-        layout: [],
-      };
+    const project = await ctx.db.get(args.convexProjectId);
+    if (!project || project.vaultId !== args.vaultId || project.userId !== ctx.viewer.userId) {
+      return null;
     }
 
     const [snapshot, layoutRows] = await Promise.all([
       ctx.db
         .query("observations_vaultConvexSchema_snapshots")
-        .withIndex("by_project_and_fetched_at", (q) =>
-          q.eq("convexProjectId", selectedProject.project._id),
-        )
+        .withIndex("by_project_and_fetched_at", (q) => q.eq("convexProjectId", project._id))
         .order("desc")
         .first(),
       ctx.db
@@ -1053,14 +984,13 @@ export const get = query({
           q
             .eq("userId", ctx.viewer.userId)
             .eq("vaultId", args.vaultId)
-            .eq("convexProjectId", selectedProject.project._id),
+            .eq("convexProjectId", project._id),
         )
         .collect(),
     ]);
 
     return {
-      projects: projectOptions,
-      selectedConvexProjectId: selectedProject.project._id,
+      project: readProjectOption(project),
       snapshot: snapshot
         ? {
             _id: snapshot._id,
@@ -1150,7 +1080,7 @@ export const refresh = action({
   access: "access_schema_graph",
   args: {
     vaultId: id("vaults"),
-    convexProjectId: optional(id("vaultConvexProjects")),
+    convexProjectId: id("vaultConvexProjects"),
   },
   returns: object({ snapshotId: id("observations_vaultConvexSchema_snapshots") }),
   handler: async (
@@ -1188,7 +1118,6 @@ export const refresh = action({
         userId: ctx.viewer.userId,
         vaultId: args.vaultId,
         convexProjectId: target.project._id,
-        rootDirectory: target.rootDirectory,
         deploymentName: deployment.name,
         schemaHash: buildSchemaHash(graph),
         graph,
@@ -1220,7 +1149,7 @@ export const readRefreshTarget = internalQuery({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
-    convexProjectId: optional(id("vaultConvexProjects")),
+    convexProjectId: id("vaultConvexProjects"),
   },
   returns: vConvexSchemaRefreshTarget,
   handler: async (ctx, args): Promise<ConvexSchemaRefreshTarget> => {
@@ -1229,12 +1158,8 @@ export const readRefreshTarget = internalQuery({
       throw new Error("Vault not found.");
     }
 
-    const projects = await readProjectsForVault(ctx, args.vaultId);
-    const selected = selectProject({
-      projects,
-      convexProjectId: args.convexProjectId,
-    });
-    if (!selected || selected.project.userId !== args.userId) {
+    const project = await ctx.db.get(args.convexProjectId);
+    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
       throw new Error("Convex project not found.");
     }
 
@@ -1249,15 +1174,14 @@ export const readRefreshTarget = internalQuery({
     if (!token || !connection.teamId.trim()) {
       throw new Error("Convex connection is required.");
     }
-    if (connection.teamId !== selected.project.teamId) {
+    if (connection.teamId !== project.teamId) {
       throw new Error("Connect the Convex team that owns this project.");
     }
 
     return {
       token,
       authMethod: connection.auth.method,
-      project: selected.project,
-      rootDirectory: selected.rootDirectory,
+      project,
     };
   },
 });
@@ -1281,7 +1205,6 @@ export const recordSnapshot = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     convexProjectId: id("vaultConvexProjects"),
-    rootDirectory: string(),
     deploymentName: string(),
     schemaHash: string(),
     graph: vConvexSchemaGraph,
@@ -1292,15 +1215,7 @@ export const recordSnapshot = internalMutation({
   returns: id("observations_vaultConvexSchema_snapshots"),
   handler: async (ctx, args): Promise<Id<"observations_vaultConvexSchema_snapshots">> => {
     const project = await ctx.db.get(args.convexProjectId);
-    const app = project ? await ctx.db.get(project.appId) : null;
-    if (
-      !project ||
-      project.userId !== args.userId ||
-      project.vaultId !== args.vaultId ||
-      !app ||
-      app.vaultId !== args.vaultId ||
-      app.rootDirectory !== args.rootDirectory
-    ) {
+    if (!project || project.userId !== args.userId || project.vaultId !== args.vaultId) {
       throw new Error("Convex project not found.");
     }
 
@@ -1321,7 +1236,6 @@ export const recordSnapshot = internalMutation({
       userId: args.userId,
       vaultId: args.vaultId,
       convexProjectId: args.convexProjectId,
-      rootDirectory: args.rootDirectory,
       deploymentName: args.deploymentName,
       schemaHash: args.schemaHash,
       graph: args.graph,

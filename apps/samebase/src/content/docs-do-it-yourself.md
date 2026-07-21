@@ -84,10 +84,11 @@ The operate docs give the provider-direct commands for logs and domains:
   the app, provisions Convex and a Cloudflare Worker, wires Workers Builds, and installs the deploy
   keys.
 - `connect_existing_repository` imports a repository without touching Convex or Cloudflare.
-- `connect_convex_project` and `connect_cloudflare_worker` attach provider resources you created
-  yourself.
-- `get_user_vaults` returns the stored vault, app, Worker, and Convex project coordinates. The
-  dashboard loads current provider state directly from Cloudflare and Convex.
+- `discover_convex_projects` and `discover_cloudflare_workers` observe resources that can attach to
+  a vault. `attach_convex_projects` and `attach_cloudflare_workers` record the selected intent.
+- `get_user_vaults` returns the stored vault, Worker attachment, and Convex project attachment
+  coordinates. The dashboard loads current provider state directly from GitHub, Cloudflare, and
+  Convex.
 
 These are the same operations the dashboard buttons run and the Samebase MCP server exposes to
 coding agents.

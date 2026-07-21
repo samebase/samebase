@@ -1,23 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
 import { makeConvexTest } from "../test.setup";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
-
-const appRoot = ".";
-const rootDirectory = "/";
-
-async function insertVaultApp(
-  ctx: Pick<MutationCtx, "db">,
-  args: { vaultId: Id<"vaults">; userId: Id<"users">; rootDirectory: string },
-) {
-  return await ctx.db.insert("vaultApps", {
-    ...args,
-    createdAt: 21,
-  });
-}
 
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
@@ -70,6 +55,67 @@ describe("vault dashboard Convex contract", () => {
         message: "Queued existing repository connection.",
       },
     ]);
+  });
+
+  it("lists observed default-branch folders as repository root suggestions", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    const ids = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      },
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.replace(ids.vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: ids.runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "existing-app",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
+        vaultId: ids.vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        lastTreeRefreshAt: 30,
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [
+            { path: "docs/readme.md", mode: "100644", type: "blob", sha: "docs-readme" },
+            { path: "packages", mode: "040000", type: "tree", sha: "packages" },
+            { path: "apps/portal", mode: "040000", type: "tree", sha: "apps-portal" },
+            { path: "apps", mode: "040000", type: "tree", sha: "apps" },
+          ],
+        },
+      });
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(
+      asUser.query(api.vault.dashboard.listVaultRepositoryFolderSuggestions, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual(["apps", "apps/portal", "packages"]);
   });
 
   it("exposes initializing existing repository source setup", async () => {
@@ -413,240 +459,6 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
-  it("creates a folder app alongside the root app", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/demo",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 10,
-        updatedAt: 20,
-        completedAt: 20,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "demo",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 20,
-      });
-      await ctx.db.insert("vaultApps", {
-        vaultId,
-        userId,
-        rootDirectory,
-        createdAt: 21,
-      });
-      await ctx.db.insert("workflow_vaultProvisioning_plans", {
-        vaultId,
-        userId,
-        appRoot,
-        convex: {
-          state: "planned",
-          projectName: "demo",
-        },
-        cloudflare: {
-          state: "planned",
-          accountId: "cloudflare-account",
-          workerName: "demo",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
-        },
-        createdAt: 22,
-        updatedAt: 22,
-      });
-
-      return { userId, vaultId };
-    });
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
-    await asUser.mutation(api.vault.dashboard.createVaultApp, {
-      vaultId: ids.vaultId,
-      rootDirectory: "apps/samebase",
-    });
-
-    const rootDirectories = await t.run(async (ctx) => {
-      const apps = await ctx.db
-        .query("vaultApps")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
-      return apps.map((app) => app.rootDirectory).sort();
-    });
-
-    expect(rootDirectories).toEqual(["/", "apps/samebase"]);
-  });
-
-  it("lists app-root folder suggestions from the cached default branch tree", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/demo",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 10,
-        updatedAt: 20,
-        completedAt: 20,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "demo",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 20,
-      });
-      await ctx.db.insert("vaultApps", {
-        vaultId,
-        userId,
-        rootDirectory: "apps",
-        createdAt: 21,
-      });
-      await ctx.db.insert("observations_vaultRepository_branchTrees", {
-        vaultId,
-        branch: "main",
-        treeSHA: "tree",
-        commitSHA: "commit",
-        lastTreeRefreshAt: 30,
-        treeData: {
-          sha: "tree",
-          truncated: false,
-          tree: [
-            { path: "docs/readme.md", mode: "100644", type: "blob", sha: "docs-readme" },
-            { path: "apps/samebase", mode: "040000", type: "tree", sha: "apps-samebase" },
-            { path: "apps", mode: "040000", type: "tree", sha: "apps" },
-            { path: "packages", mode: "040000", type: "tree", sha: "packages" },
-          ],
-        },
-      });
-
-      return { userId, vaultId };
-    });
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
-    await expect(
-      asUser.query(api.vault.dashboard.listVaultRootDirectorySuggestions, {
-        vaultId: ids.vaultId,
-      }),
-    ).resolves.toEqual(["apps/samebase", "packages"]);
-  });
-
-  it("allows a folder app alongside a root app with an attached project", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/demo",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 10,
-        updatedAt: 20,
-        completedAt: 20,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "demo",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 20,
-      });
-      const appId = await ctx.db.insert("vaultApps", {
-        vaultId,
-        userId,
-        rootDirectory,
-        createdAt: 21,
-      });
-      await ctx.db.insert("vaultConvexProjects", {
-        vaultId,
-        userId,
-        appId,
-        teamId: "team-id",
-        projectId: "convex-project",
-        origin: "selected_existing",
-        createdAt: 22,
-      });
-
-      return { userId, vaultId };
-    });
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
-    await expect(
-      asUser.mutation(api.vault.dashboard.createVaultApp, {
-        vaultId: ids.vaultId,
-        rootDirectory: "apps/samebase",
-      }),
-    ).resolves.toBeDefined();
-  });
-
   it("records initializing vault creation before external GitHub work", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -889,11 +701,10 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      const appId = await insertVaultApp(ctx, { vaultId, userId, rootDirectory });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         userId,
-        appId,
+        convexConfigPath: "convex.json",
         teamId: "provider-state-team-id",
         projectId: "convex-project",
         origin: "provisioned",
@@ -975,11 +786,10 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
       });
-      const appId = await insertVaultApp(ctx, { vaultId, userId, rootDirectory });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         userId,
-        appId,
+        convexConfigPath: "convex.json",
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
         origin: "provisioned",
@@ -1078,11 +888,10 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
       });
-      const appId = await insertVaultApp(ctx, { vaultId, userId, rootDirectory });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         userId,
-        appId,
+        convexConfigPath: "convex.json",
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
         origin: "provisioned",
@@ -1216,11 +1025,10 @@ describe("vault dashboard Convex contract", () => {
           defaultBranch: "main",
           connectedAt: 20,
         });
-        const appId = await insertVaultApp(ctx, { vaultId, userId, rootDirectory });
         await ctx.db.insert("vaultConvexProjects", {
           vaultId,
           userId,
-          appId,
+          convexConfigPath: "convex.json",
           teamId: `provider-${testCase.label}-team-id`,
           projectId: "convex-project",
           origin: "provisioned",
@@ -1229,7 +1037,6 @@ describe("vault dashboard Convex contract", () => {
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
           userId,
-          appId,
           accountId: "cloudflare-account",
           workerName: `provider-${testCase.label}-worker`,
           workerTag: `provider-${testCase.label}-worker-tag`,
@@ -1414,6 +1221,103 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "not_applicable",
       },
+    });
+  });
+
+  it("keeps provisioned Convex cleanup available after vault deletion fails", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/delete-retry",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: provisioningRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "delete-retry",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 2,
+      });
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        userId,
+        convexConfigPath: "convex.json",
+        teamId: "team-id",
+        projectId: "project-id",
+        origin: "provisioned",
+        createdAt: 3,
+      });
+      const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "failed",
+        userId,
+        vaultId,
+        repositoryFullName: "ada/delete-retry",
+        createdAt: 4,
+        updatedAt: 5,
+        attempt: { kind: "initial" },
+        workflow: { state: "started", workflowId: "delete-workflow" },
+        currentStep: "delete_convex",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "samebase_managed_repository",
+              ghRepoId: "123",
+              owner: "ada",
+              name: "delete-retry",
+              repositoryFullName: "ada/delete-retry",
+            },
+            codespaces: { action: "skip", reason: "not_requested" },
+            convex: { action: "delete_project", teamId: "team-id", projectId: "project-id" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+        lastError: "Convex deletion failed.",
+        completedAt: 5,
+      });
+      await ctx.db.patch(vaultId, {
+        deletion: { state: "delete_failed", runId: deletionRunId, failedAt: 5 },
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      state: "failed",
+      deletion: { state: "delete_failed" },
+      hasConvexProvision: true,
+      canRemoveConvexProvision: true,
     });
   });
 
@@ -1625,11 +1529,10 @@ describe("vault dashboard Convex contract", () => {
         active: true,
         lastSyncedAt: 8,
       });
-      const appId = await insertVaultApp(ctx, { vaultId, userId, rootDirectory });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         userId,
-        appId,
+        convexConfigPath: "convex.json",
         teamId: "delete-team-id",
         projectId: "delete-convex-project",
         origin: "provisioned",

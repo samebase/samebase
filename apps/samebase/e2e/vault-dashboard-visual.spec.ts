@@ -145,7 +145,6 @@ async function expectOptionalCheckboxUnchecked(locator: Locator) {
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
-
 /**
  * expectElementInsideContainer checks boundingBox containment with 1px of
  * tolerance for sub-pixel layout rounding; missing boxes fail closed.
@@ -409,87 +408,59 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (add app root dialog)", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 360 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-add-app-root-open");
-
-  const appRootDialog = page.getByRole("dialog", {
-    name: "Add app root samebase/samebase",
-  });
-  await expect(appRootDialog).toBeVisible();
-  await expect(appRootDialog.getByText("convert this repository to a monorepo")).toBeVisible();
-  await expect(appRootDialog.getByRole("textbox", { name: "App root" })).toBeVisible();
-  await expect(
-    appRootDialog.getByRole("button", {
-      name: "Add app root",
-    }),
-  ).toBeDisabled();
-  await expect(page).toHaveScreenshot("vault-dashboard-add-app-root-dialog.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-
-  await appRootDialog.getByRole("textbox", { name: "App root" }).fill("same");
-  await expect(appRootDialog.getByRole("option", { name: "apps/samebase" })).toBeVisible();
-  await expect(page).toHaveScreenshot("vault-dashboard-add-app-root-suggestions.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-});
-
-test("vault dashboard fixture (add first app root dialog)", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 360 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-add-first-app-root-open");
-
-  const appRootDialog = page.getByRole("dialog", {
-    name: "Add app root samebase/atelier",
-  });
-  await expect(appRootDialog).toBeVisible();
-  await expect(appRootDialog.getByText("one app or a monorepo")).toBeVisible();
-  await expect(appRootDialog.getByRole("button", { name: "App", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await expect(appRootDialog.getByRole("textbox", { name: "App root" })).toHaveCount(0);
-  await expect(
-    appRootDialog.getByRole("button", {
-      name: "Use as app",
-    }),
-  ).toBeEnabled();
-  await expect(page).toHaveScreenshot("vault-dashboard-add-first-app-root-dialog.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-});
-
-test("vault dashboard fixture (connect Cloudflare dialog)", async ({ page }) => {
+test("vault dashboard fixture (add Cloudflare dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-cloudflare-open");
 
   const connectDialog = page.getByRole("dialog", {
-    name: "Connect Cloudflare samebase/atelier",
+    name: "Add Cloudflare to samebase/atelier",
   });
   await expect(connectDialog).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Existing" })).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Create" })).toBeVisible();
-  await expect(connectDialog.getByRole("button", { name: "Connect Worker" })).toBeVisible();
+  await expect(connectDialog.getByRole("button", { name: "Add 2 Workers" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-dialog.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+
+  await connectDialog.getByRole("button", { name: "Connect another Worker" }).click();
+  const workerDialog = page.getByRole("dialog", { name: "Connect a Worker" });
+  await workerDialog.getByLabel("Worker").click();
+  await page.getByRole("option", { name: "app-workers", exact: true }).click();
+  const rootInput = workerDialog.getByLabel("Repository root");
+  await expect(rootInput).toHaveValue("");
+  await rootInput.click();
+  const folderSuggestions = workerDialog.getByRole("listbox", {
+    name: "Repository folder suggestions",
+  });
+  await expect(folderSuggestions.getByRole("option")).toHaveText([
+    "apps",
+    "apps/admin",
+    "apps/atelier",
+    "apps/portal",
+    "packages/shared",
+  ]);
+  await expect(page).toHaveScreenshot("vault-dashboard-cloudflare-root-suggestions.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+  await folderSuggestions.getByRole("option", { name: "apps/portal", exact: true }).click();
+  await expect(rootInput).toHaveValue("apps/portal");
+  await expect(workerDialog.getByRole("button", { name: "Connect and add" })).toBeEnabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-unconnected-worker.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
-test("vault dashboard fixture (connect Cloudflare worker select mobile)", async ({
-  browser,
-}, testInfo) => {
+test("vault dashboard fixture (add Cloudflare Workers mobile)", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile fixture tests.");
@@ -513,7 +484,7 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
   );
 
   const connectDialog = page.getByRole("dialog", {
-    name: "Connect Cloudflare samebase/atelier",
+    name: "Add Cloudflare to samebase/atelier",
   });
   await expectElementInsideViewportInline(page, connectDialog);
 
@@ -529,13 +500,10 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
   expect(beforeOpen.bodyScrollWidth).toBeLessThanOrEqual(beforeOpen.htmlClientWidth);
   await expectElementInsideViewportInline(page, connectDialog);
 
-  const workerSelect = connectDialog.getByRole("combobox", {
-    name: "Cloudflare Worker",
-  });
-  await expectElementInsideViewportInline(page, workerSelect);
-  await workerSelect.tap();
-  const popup = page.getByRole("listbox").filter({ hasText: "tmp-my-asdf-app" });
-  await expect(page.getByRole("option", { name: "tmp-my-asdf-app" })).toBeVisible();
+  const rootWorker = connectDialog.getByRole("checkbox", { name: "app-start-workers" });
+  const adminWorker = connectDialog.getByRole("checkbox", { name: "app-admin" });
+  await expect(rootWorker).toBeChecked();
+  await expect(adminWorker).toBeChecked();
 
   const afterOpen = await page.evaluate(() => ({
     bodyScrollWidth: document.body.scrollWidth,
@@ -546,8 +514,8 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
   }));
   expect(afterOpen.visualViewportPageTop).toBe(beforeOpen.visualViewportPageTop);
   await expectElementInsideViewportInline(page, connectDialog);
-  await expectElementInsideViewportInline(page, workerSelect);
-  await expectElementInsideViewportInline(page, popup);
+  await expectElementInsideViewportInline(page, rootWorker);
+  await expectElementInsideViewportInline(page, adminWorker);
 
   await expect(page).toHaveScreenshot(
     "vault-dashboard-connect-cloudflare-worker-select-mobile.png",
@@ -562,18 +530,44 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
   await context.close();
 });
 
-test("vault dashboard fixture (connect Convex dialog)", async ({ page }) => {
+test("vault dashboard fixture (add Convex dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-convex-open");
 
   const connectDialog = page.getByRole("dialog", {
-    name: "Connect Convex samebase/app",
+    name: "Add Convex to samebase/app",
   });
   await expect(connectDialog).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Existing" })).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Create" })).toBeVisible();
-  await expect(connectDialog.getByRole("button", { name: "Connect Project" })).toBeVisible();
+  await expect(connectDialog.getByRole("checkbox").first()).toHaveAccessibleName(
+    /samebase-app.*Used by app-start-workers/,
+  );
+  for (const checkbox of await connectDialog.getByRole("checkbox").all()) {
+    await expect(checkbox).not.toBeChecked();
+  }
+  await expect(connectDialog.getByRole("button", { name: "Add projects" })).toBeDisabled();
   await expect(page).toHaveScreenshot("vault-dashboard-connect-convex-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (retry Convex dialog after error)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 640 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-convex-error");
+
+  const connectDialog = page.getByRole("dialog", {
+    name: "Add Convex to samebase/app",
+  });
+  await expect(
+    connectDialog.getByText("Could not attach the selected Convex project."),
+  ).toBeVisible();
+  await expect(connectDialog.getByRole("checkbox", { name: /samebase-app/ })).toBeChecked();
+  await expect(connectDialog.getByRole("button", { name: "Add 1 project" })).toBeEnabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-convex-error.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -698,20 +692,41 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
   await openVaultDashboardVisualFixture(page, "vault-dashboard-cloudflare-build-trigger-missing");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(fixture.getByText("nicu-chiciuc/tmp-my-super-app-2")).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "Open GitHub: nicu-chiciuc/tmp-my-super-app-2",
+    }),
+  ).toBeVisible();
   await expect(fixture.getByText("pfp/tmp-my-super-app-234")).toBeVisible();
   await expect(
     fixture.getByText("Cloudflare is not connected to this GitHub repository."),
   ).toBeVisible();
-  await expect(
-    fixture.getByRole("button", { name: "Configure Workers Builds for GitHub Cloudflare" }),
-  ).toBeVisible();
+  const configureBuilds = fixture.getByRole("button", {
+    name: "Configure Workers Builds for GitHub Cloudflare",
+  });
+  await expect(configureBuilds).toBeVisible();
   await expect(
     fixture.getByRole("button", {
-      name: "Rotate Convex deploy keys for Workers Builds for tmp-my-super-app-2",
+      name: "Repair Convex deploy keys for tmp-my-super-app-2 in Workers Builds (nicu-team-id/tmp-my-super-app-2)",
     }),
   ).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-dashboard-cloudflare-build-trigger-missing.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await configureBuilds.click();
+  const repairDialog = page.getByRole("dialog", {
+    name: "Configure tmp-my-super-app-234 Builds",
+  });
+  await expect(repairDialog).toBeVisible();
+  await expect(repairDialog.getByRole("combobox", { name: "Repository root" })).toHaveValue("/");
+  await expect(
+    repairDialog.getByRole("button", { name: "Configure Workers Builds" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-cloudflare-builds-repair-dialog.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -748,8 +763,9 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
   await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
   await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
-  await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
-  await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
+  await expect(fixture.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("Needs attention", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("domain-router", { exact: true })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",
@@ -880,8 +896,9 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
   await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
   await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
-  await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
-  await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
+  await expect(fixture.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("Needs attention", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("domain-router", { exact: true })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",

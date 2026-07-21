@@ -1,13 +1,12 @@
 import { v } from "convex/values";
 
-import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { id } = v;
 
 export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   id: "rotate_convex_deploy_keys_for_workers_builds",
-  access: ACCESS_APP_CREATE,
+  access: "access_provider_connections",
   args: {
     vaultId: id("vaults"),
     workerId: id("vaultCloudflareWorkers"),

@@ -53,7 +53,7 @@ export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
   {
     id: "vault",
     label: "Vault core",
-    description: "Durable app containers, app roots, and domains.",
+    description: "Repository connections, provider attachments, and domains.",
     column: 1,
     order: 0,
   },
@@ -122,7 +122,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   ui_vaultFileTree_folderExpansions: "workspace",
 
   vaults: "vault",
-  vaultApps: "vault",
   vaultDomains: "vault",
 
   observations_vaultRepository_branches: "repository",

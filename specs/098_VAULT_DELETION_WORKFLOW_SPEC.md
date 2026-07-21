@@ -670,28 +670,33 @@ user's rows.
 Delete rows:
 
 1. `ui_vaultBranches_filters` via `by_vault`
-2. `vaultStagedFiles` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
+2. `ui_vaultResourceLinks_settings` via `by_vault`
+3. `vaultStagedFiles` via `by_vault`; use `by_vault_and_storageId` when checking staged storage
    references and delete staged-only storage objects before rows
-3. `vaultStagedFileUpdates` via `by_vault`
-4. `observations_vaultFiles_blobs` via `by_vault`, deleting storage objects before rows
-5. `ui_vaultFileTree_folderExpansions` via `by_vault`
-6. `observations_vaultRepository_branches` via `by_vault`
-7. `observations_vaultRepository_branchTrees` via `by_vault_and_branch` with the `vaultId` prefix
-8. `vaultDomains` via `by_vault`
-9. `vaultInfrastructure` via `by_vault`, deleting all rows if more than one exists
-10. `workflow_vaultProvisioning_writeLocks` via `by_vault`
-11. `codespaces` via `by_vault`
-12. `ui_agentGraphNode_layouts` via `by_vault`
-13. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
-14. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
+4. `vaultStagedFileUpdates` via `by_vault`
+5. `observations_vaultFiles_blobs` via `by_vault`, deleting storage objects before rows
+6. `ui_vaultFileTree_folderExpansions` via `by_vault`
+7. `observations_vaultRepository_branches` via `by_vault`
+8. `observations_vaultRepository_branchTrees` via `by_vault_and_branch` with the `vaultId` prefix
+9. `vaultDomains` via `by_vault`
+10. `vaultConvexProjects` via `by_vault`
+11. `observations_vaultConvexSchema_snapshots` via `by_vault`
+12. `ui_vaultConvexSchemaGraph_nodeLayouts` via `by_vault`
+13. `vaultCloudflareWorkers` via `by_vault`
+14. `workflow_vaultProvisioning_plans` via `by_vault`
+15. `workflow_vaultProvisioning_writeLocks` via `by_vault`
+16. `codespaces` via `by_vault`
+17. `ui_agentGraphNode_layouts` via `by_vault`
+18. `vaultRepositoryRefreshRequests` via `by_vaultId_and_updatedAt`
+19. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
+20. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
 
 Patch or delete rows:
 
 1. `aiProductionReadRequests` via `by_vault`: clear `vaultId`; move `proposed` and `approved`
    requests to `expired`; preserve executed, failed, rejected, and already expired statuses for
    every matching request.
-2. `chatThreadContexts` via `by_vault`: either clear `vaultId`, `repositoryFullName`, `branch`, and
-   `filePath`, or delete the row if the legacy chat cleanup/removal path makes deletion simpler.
+2. `chatThreadContexts` via `by_vault`: delete each context and its `chatMessagePayloads` rows.
 
 Preserve rows:
 

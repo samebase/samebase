@@ -76,18 +76,12 @@ async function seedDatabaseEditorVault(
       defaultBranch: "main",
       connectedAt: 20,
     });
-    const appId = await ctx.db.insert("vaultApps", {
-      vaultId,
-      userId,
-      rootDirectory: "/",
-      createdAt: 25,
-    });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       userId,
-      appId,
       teamId: "1000",
       projectId: "1001",
+      convexConfigPath: "convex.json",
       origin: "selected_existing",
       createdAt: 25,
     });

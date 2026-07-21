@@ -21,8 +21,9 @@ This replaces the pre-vault run gap with a stable `vaultId` while preserving the
 that repository-backed behavior requires a connected GitHub repository. GitHub connection means
 durable repository identity, not a fresh branch tree. Branch tree data is cache state and
 repo-backed file/tree behavior must still fail closed until the relevant branch snapshot exists.
-Convex and Cloudflare app-root resource rows only exist for connected GitHub vaults, so those
-integrations cannot exist while GitHub is still provisioning or failed.
+Convex and Cloudflare resource attachments only exist for connected GitHub vaults, so those
+integrations cannot exist while GitHub is still provisioning or failed. Their durable attachment
+model is defined in `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`.
 
 After the vault-first creation path is visible and understandable, remove the temporary
 compatibility layers before treating manual retry UI as proof of the durable model. The primary
@@ -511,19 +512,19 @@ The vault label should be derived from GitHub state:
 3. not connected: generic GitHub connection prompt, unless a future feature adds a justified
    user-supplied placeholder name
 
-Provider rows should read from explicit state:
+Provider setup should read from explicit attachment and observation state:
 
 1. GitHub: not connected, provisioning, connected, failed
-2. Convex: unavailable until GitHub is connected, then not configured, provisioning, connected, or
-   failed
-3. Cloudflare: unavailable until GitHub is connected, then not configured, provisioning, connected,
-   or failed
+2. Convex: no attachment until GitHub is connected and the user or managed workflow attaches a
+   project; source placement and provider continuity are then observed independently
+3. Cloudflare: no attachment until GitHub is connected and the user or managed workflow attaches a
+   Worker; existence, URL, Builds placement, and Convex marker state are then observed live
 
 Repo-backed controls should stay hidden or disabled until GitHub is connected. If manual retry
 buttons later exist, they should target the failed provider state on that vault.
 
 Dashboard summary labels such as creating, active, degraded, or failed should be derived from
-provider states. For example:
+attachments, live observations, and active provisioning runs. For example:
 
 1. `creating`: one or more required provider states are provisioning
 2. `active`: GitHub is connected and required provider states are connected or intentionally not
@@ -548,8 +549,10 @@ The current target state model is:
 
 1. GitHub/source state says whether the vault has durable repository identity and enough tree data
    for source-backed work
-2. `vaultConvexDeployments` stores connected Convex production deployments by `vaultId` + `appRoot`
-3. `vaultCloudflareWorkers` stores connected Cloudflare Workers by `vaultId` + `appRoot`
+2. `vaultConvexProjects` stores attached Convex project identity plus its confirmed
+   `convexConfigPath`
+3. `vaultCloudflareWorkers` stores attached Cloudflare Worker identity; live Workers Builds supplies
+   its current root
 4. dashboard labels such as creating, active, degraded, failed, or partial are derived from those
    resource rows, the active provisioning write lock, and run/event state
 5. provider retry actions target the failed block run, not a generic aggregate infra status
@@ -557,14 +560,14 @@ The current target state model is:
 Top-level `vaults.infraState`, `vaults.infraLastError`, `vaults.infraLastProvisionedAt`, and
 `vaults.infraProvisioningStartedAt` are the current compatibility shortcut for dashboard and
 provisioning code. They should not gain new product meaning. Phase 5 should replace their reads and
-writes with explicit app-root resource rows and block-run state, then remove the aggregate fields
-from the vault row after production data is clean.
+writes with explicit provider attachments and block-run state, then remove the aggregate fields from
+the vault row after production data is clean.
 
-`vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultDomains`, and
-`workflow_vaultProvisioning_writeLocks` keep the external resource metadata and operational details
-needed to call providers, such as project ids, deployment names, account ids, deploy-key ids,
-domains, provisioning version, and ownership. They should not become a competing aggregate
-user-visible source of truth for whether the app is ready.
+`vaultConvexProjects` and `vaultCloudflareWorkers` keep only stable provider attachment identity,
+confirmed Convex source placement, origin, and creation time. `vaultDomains` stores explicit domain
+mappings, and `workflow_vaultProvisioning_writeLocks` stores active writer ownership. Deployment
+names, URLs, Workers Builds roots and triggers, deploy-key identities, and Worker-to-Convex markers
+remain live provider observations rather than durable attachment metadata.
 
 ## Migration
 
@@ -842,12 +845,12 @@ requiring the user to understand provider steps.
 
 Scope:
 
-1. make app-root resource rows plus block-run state the product-facing source of truth for provider
+1. make provider attachments plus block-run state the product-facing source of truth for provider
    setup progress, success, and failure
 2. update provisioning code to compose Convex and Cloudflare blocks separately while preserving
    connected GitHub state
 3. replace dashboard and query reads of top-level `vaults.infra*` fields with summaries derived from
-   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `workflow_vaultProvisioning_writeLocks`, and
+   `vaultConvexProjects`, `vaultCloudflareWorkers`, `workflow_vaultProvisioning_writeLocks`, and
    `workflow_vaultProvisioning_runs`
 4. keep provider resource metadata and the provisioning write lock outside the vault row instead of
    treating those details as user-visible readiness
@@ -945,7 +948,7 @@ Backend:
 15. after compatibility cleanup, supported provisioning events require `runId` and supported
     provisioning runs require `vaultId`
 16. Phase 5 replaces top-level `vaults.infra*` dashboard/provisioning reads with summaries derived
-    from app-root provider resource rows and block-run state
+    from provider attachments and block-run state
 17. Phase 5 removes the top-level `vaults.infra*` mirrors after production data is clean
 18. when backend retries ship, retried provider steps prove idempotency and keep terminal failures
     visible through the same run/event summaries

@@ -6,7 +6,7 @@
   / `#733`
 - Owner: Samebase existing repository onboarding, vault source setup, and provisioning runs
 - Created: 2026-05-08
-- Last updated: 2026-05-09
+- Last updated: 2026-07-21
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
@@ -29,7 +29,8 @@ app creation:
 2. fetch and validate the existing GitHub repository inside Workflow
 3. write connected GitHub identity before initial tree sync
 4. show source setup progress and failure from run/events
-5. keep Convex and Cloudflare unconfigured for imported repositories
+5. create no provider attachments for imported repositories; the standard vault-level discovery
+   flows attach Convex projects and Cloudflare Workers later when the user chooses them
 
 Manual provider retry remains parked. This spec is only about durable source onboarding for existing
 repositories.
@@ -150,8 +151,6 @@ Connected existing-repository vaults must store `runId` directly:
   name: string,
   visibility: "private" | "public",
   defaultBranch: string,
-  convex: { state: "not_configured" },
-  cloudflare: { state: "not_configured" },
   connectedAt: number,
 }
 ```
@@ -191,8 +190,10 @@ tree exists.
 ### Provider Setup Boundary
 
 Existing repositories do not auto-provision Convex or Cloudflare. Connected existing-repository rows
-initialize both provider states as `not_configured`, and dashboard provider setup remains
-`not_applicable`.
+start with no provider resource attachments. The standard vault dashboard immediately exposes
+`?add-cloudflare` and `?add-convex`; repository import does not add a separate provider-onboarding
+stage. Those vault-level dialogs perform verified resource discovery as defined in
+`specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`.
 
 ## Target Flow
 
@@ -220,7 +221,7 @@ The connect-existing Workflow runs:
    immutable GitHub repository id
 3. reject the run if the fetched `ghRepoId` belongs to another connected vault for the same user
 4. `connect_github`: patch this vault to connected GitHub state with the same `runId`, canonical
-   owner/name, visibility, default branch, and `not_configured` provider states
+   owner/name, visibility, and default branch; do not create provider attachments
 5. `sync_tree`: fetch and write the recursive default-branch tree into
    `observations_vaultRepository_branchTrees`
 6. `finish`: mark the run succeeded
@@ -381,7 +382,7 @@ Backend:
 1. connecting an existing repository inserts a vault before external GitHub fetches
 2. the run uses trigger `connect_existing_repository`
 3. successful connect writes connected existing-repository state with `runId`, `ghRepoId`, canonical
-   owner/name, visibility, default branch, and `not_configured` providers
+   owner/name, visibility, and default branch, with no provider attachments
 4. pre-connected GitHub fetch or validation failure moves the vault to failed existing-repository
    state
 5. tree sync failure after connected state preserves connected GitHub identity

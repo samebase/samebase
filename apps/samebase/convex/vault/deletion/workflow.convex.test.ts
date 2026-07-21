@@ -213,16 +213,9 @@ describe("vault deletion workflow", () => {
         visibility: "private",
         connectedAt: 8,
       });
-      const appId = await ctx.db.insert("vaultApps", {
-        vaultId,
-        userId,
-        rootDirectory: "/",
-        createdAt: 6,
-      });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         userId,
-        appId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
@@ -232,7 +225,6 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         userId,
-        appId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-selected-worker",
         workerTag: "selected-worker-tag",
@@ -274,16 +266,9 @@ describe("vault deletion workflow", () => {
   it("keeps an attached Cloudflare Worker when provider cleanup is not selected", async () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
-      const appId = await ctx.db.insert("vaultApps", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        rootDirectory: "/",
-        createdAt: 6,
-      });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        appId,
         accountId: "cloudflare-account",
         workerName: "unchecked-worker",
         workerTag: "unchecked-worker-tag",
@@ -489,16 +474,9 @@ describe("vault deletion workflow", () => {
           lastTreeRefreshAt: 5 + index,
         });
       }
-      const appId = await ctx.db.insert("vaultApps", {
-        vaultId,
-        userId,
-        rootDirectory: "/",
-        createdAt: 6,
-      });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         userId,
-        appId,
         accountId: "cloudflare-account",
         workerName: "delete-me-worker",
         workerTag: "worker-tag",

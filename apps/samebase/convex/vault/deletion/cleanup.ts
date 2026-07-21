@@ -12,7 +12,6 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("ui_vaultFileTree_folderExpansions"),
   literal("observations_vaultRepository_branches"),
   literal("vaultDomains"),
-  literal("vaultApps"),
   literal("vaultConvexProjects"),
   literal("observations_vaultConvexSchema_snapshots"),
   literal("ui_vaultConvexSchemaGraph_nodeLayouts"),
@@ -304,10 +303,6 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultCloudflareWorkers"),
   },
   {
-    table: "vaultApps",
-    cleanup: deleteByVaultBatch("vaultApps"),
-  },
-  {
     table: "workflow_vaultProvisioning_plans",
     cleanup: deleteByVaultBatch("workflow_vaultProvisioning_plans"),
   },
@@ -368,7 +363,6 @@ const vaultLocalCleanupRegistryByStep = {
     "observations_vaultConvexSchema_snapshots",
     "ui_vaultConvexSchemaGraph_nodeLayouts",
     "vaultCloudflareWorkers",
-    "vaultApps",
     "workflow_vaultProvisioning_plans",
     "workflow_vaultProvisioning_writeLocks",
     "codespaces",

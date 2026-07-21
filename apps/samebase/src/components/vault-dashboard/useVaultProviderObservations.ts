@@ -1,6 +1,6 @@
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 
 export type VaultCloudflareWorkerObservation =
@@ -26,7 +26,12 @@ export type VaultCloudflareProviderObservationState = {
 type VaultProviderObservationTarget = {
   _id: Id<"vaults">;
   cloudflareWorkers: readonly { workerId: Id<"vaultCloudflareWorkers"> }[];
-  convexProjects: readonly { convexProjectId: Id<"vaultConvexProjects"> }[];
+  convexProjects: readonly {
+    convexConfigPath: string;
+    convexProjectId: Id<"vaultConvexProjects">;
+    projectId: string;
+    teamId: string;
+  }[];
 };
 
 const PROVIDER_OBSERVATION_STALE_TIME_MS = 60 * 1000;
@@ -35,7 +40,9 @@ const PROVIDER_OBSERVATION_GC_TIME_MS = 5 * 60 * 1000;
 export function useVaultProviderObservations(vault: VaultProviderObservationTarget | null): {
   cloudflare: VaultCloudflareProviderObservationState;
   convex: VaultProviderObservationState<VaultConvexProjectObservation>;
+  invalidate: () => Promise<void>;
 } {
+  const queryClient = useQueryClient();
   const observeCloudflareWorkers = useAction(
     api.vault.providerObservations.observeCloudflareWorkers,
   );
@@ -50,12 +57,17 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const cloudflareWorkerIds = [...(vault?.cloudflareWorkers ?? [])]
     .map((worker) => worker.workerId)
     .sort((left, right) => left.localeCompare(right));
-  const convexProjectIds = [...(vault?.convexProjects ?? [])]
-    .map((project) => project.convexProjectId)
-    .sort((left, right) => left.localeCompare(right));
+  const convexProjectTargets = [...(vault?.convexProjects ?? [])]
+    .map((project) => ({
+      convexConfigPath: project.convexConfigPath,
+      convexProjectId: project.convexProjectId,
+      projectId: project.projectId,
+      teamId: project.teamId,
+    }))
+    .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
 
   const cloudflareWorkersQuery = useQuery({
-    queryKey: ["vault-provider-observations", "cloudflare-workers", vaultId, cloudflareWorkerIds],
+    queryKey: ["vault-provider-observations", vaultId, "cloudflare-workers", cloudflareWorkerIds],
     queryFn: async () => {
       if (!vaultId) {
         throw new Error("Vault is required to observe Cloudflare Workers.");
@@ -69,8 +81,8 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const cloudflareBuildsQuery = useQuery({
     queryKey: [
       "vault-provider-observations",
-      "cloudflare-worker-builds",
       vaultId,
+      "cloudflare-worker-builds",
       cloudflareWorkerIds,
     ],
     queryFn: async () => {
@@ -99,9 +111,10 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const cloudflareConvexBuildAccessQuery = useQuery({
     queryKey: [
       "vault-provider-observations",
-      "cloudflare-worker-convex-build-access",
       vaultId,
+      "cloudflare-worker-convex-build-access",
       cloudflareBuildAccessTargets,
+      convexProjectTargets,
     ],
     queryFn: async () => {
       if (!vaultId) {
@@ -120,14 +133,14 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
   const convexQuery = useQuery({
-    queryKey: ["vault-provider-observations", "convex", vaultId, convexProjectIds],
+    queryKey: ["vault-provider-observations", vaultId, "convex", convexProjectTargets],
     queryFn: async () => {
       if (!vaultId) {
         throw new Error("Vault is required to observe Convex projects.");
       }
       return await observeConvexProjects({ vaultId });
     },
-    enabled: Boolean(vaultId && convexProjectIds.length > 0),
+    enabled: Boolean(vaultId && convexProjectTargets.length > 0),
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
@@ -143,6 +156,11 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   };
   const reloadConvex = () => {
     void convexQuery.refetch();
+  };
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ["vault-provider-observations", vaultId],
+    });
   };
 
   return {
@@ -190,5 +208,6 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       : convexQuery.data
         ? { state: "loaded", observations: convexQuery.data, reload: reloadConvex }
         : { state: "loading" },
+    invalidate,
   };
 }

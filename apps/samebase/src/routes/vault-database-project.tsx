@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
-const pathname = "/vault/$owner/$repo/db/$branch/mono/$";
+const pathname = "/vault/$owner/$repo/db/$branch/project/$convexProjectId";
 
 const VaultDatabaseView = lazy(async () => {
   const module = await import("@/components/VaultDatabaseView");
@@ -12,20 +11,21 @@ const VaultDatabaseView = lazy(async () => {
 });
 
 function VaultDatabaseRouteComponent() {
-  const { _splat, branch, owner, repo } = Route.useParams();
-
-  if (!_splat) {
-    return <NotFoundRoutePage />;
-  }
+  const { branch, convexProjectId, owner, repo } = Route.useParams();
 
   return (
     <AuthenticatedAppRoutePage>
-      <VaultDatabaseView owner={owner} repoName={repo} branch={branch} appRoot={_splat} />
+      <VaultDatabaseView
+        owner={owner}
+        repoName={repo}
+        branch={branch}
+        convexProjectId={convexProjectId}
+      />
     </AuthenticatedAppRoutePage>
   );
 }
 
-export const Route = createFileRoute("/vault/$owner/$repo/db/$branch/mono/$")({
+export const Route = createFileRoute("/vault/$owner/$repo/db/$branch/project/$convexProjectId")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: VaultDatabaseRouteComponent,
 });

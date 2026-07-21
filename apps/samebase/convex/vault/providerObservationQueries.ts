@@ -7,6 +7,8 @@ const { array, id, object, string } = v;
 
 const vVaultProviderObservationContext = object({
   ghRepoId: string(),
+  owner: string(),
+  name: string(),
   defaultBranch: string(),
   cloudflareWorkers: array(
     object({
@@ -14,7 +16,6 @@ const vVaultProviderObservationContext = object({
       accountId: string(),
       workerName: string(),
       workerTag: string(),
-      rootDirectory: string(),
     }),
   ),
   convexProjects: array(
@@ -22,10 +23,36 @@ const vVaultProviderObservationContext = object({
       convexProjectId: id("vaultConvexProjects"),
       teamId: string(),
       projectId: string(),
+      convexConfigPath: string(),
     }),
   ),
 });
 export type VaultProviderObservationContext = Infer<typeof vVaultProviderObservationContext>;
+
+export const readProviderAttachmentVaultContext = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+  },
+  returns: object({
+    ghRepoId: string(),
+    owner: string(),
+    name: string(),
+    defaultBranch: string(),
+  }),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    return {
+      ghRepoId: vault.ghRepoId,
+      owner: vault.owner,
+      name: vault.name,
+      defaultBranch: vault.defaultBranch,
+    };
+  },
+});
 
 export const readVaultProviderObservationContext = internalQuery({
   args: {
@@ -38,11 +65,7 @@ export const readVaultProviderObservationContext = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const [apps, workers, projects] = await Promise.all([
-      ctx.db
-        .query("vaultApps")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        .collect(),
+    const [workers, projects] = await Promise.all([
       ctx.db
         .query("vaultCloudflareWorkers")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -52,28 +75,21 @@ export const readVaultProviderObservationContext = internalQuery({
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
     ]);
-    const appsById = new Map(apps.map((app) => [app._id, app]));
 
     return {
       ghRepoId: vault.ghRepoId,
+      owner: vault.owner,
+      name: vault.name,
       defaultBranch: vault.defaultBranch,
       cloudflareWorkers: workers
-        .map((worker) => {
-          const app = appsById.get(worker.appId);
-          if (!app) {
-            throw new Error("Cloudflare Worker references a missing vault app.");
-          }
-          return {
-            workerId: worker._id,
-            accountId: worker.accountId,
-            workerName: worker.workerName,
-            workerTag: worker.workerTag,
-            rootDirectory: app.rootDirectory,
-          };
-        })
+        .map((worker) => ({
+          workerId: worker._id,
+          accountId: worker.accountId,
+          workerName: worker.workerName,
+          workerTag: worker.workerTag,
+        }))
         .sort(
           (left, right) =>
-            left.rootDirectory.localeCompare(right.rootDirectory) ||
             left.workerName.localeCompare(right.workerName) ||
             left.workerId.localeCompare(right.workerId),
         ),
@@ -82,9 +98,11 @@ export const readVaultProviderObservationContext = internalQuery({
           convexProjectId: project._id,
           teamId: project.teamId,
           projectId: project.projectId,
+          convexConfigPath: project.convexConfigPath,
         }))
         .sort(
           (left, right) =>
+            left.convexConfigPath.localeCompare(right.convexConfigPath) ||
             left.projectId.localeCompare(right.projectId) ||
             left.convexProjectId.localeCompare(right.convexProjectId),
         ),

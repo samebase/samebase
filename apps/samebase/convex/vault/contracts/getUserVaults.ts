@@ -117,16 +117,9 @@ const vUserVaultsResult = array(
     hasCloudflareProvision: boolean(),
     canRemoveConvexProvision: boolean(),
     canRemoveCloudflareProvision: boolean(),
-    apps: array(
-      object({
-        appId: id("vaultApps"),
-        rootDirectory: string(),
-      }),
-    ),
     cloudflareWorkers: array(
       object({
         workerId: id("vaultCloudflareWorkers"),
-        appId: id("vaultApps"),
         accountId: string(),
         workerName: string(),
         workerTag: string(),
@@ -135,9 +128,9 @@ const vUserVaultsResult = array(
     convexProjects: array(
       object({
         convexProjectId: id("vaultConvexProjects"),
-        appId: id("vaultApps"),
         teamId: string(),
         projectId: string(),
+        convexConfigPath: string(),
       }),
     ),
   }),
@@ -150,10 +143,10 @@ export const getUserVaultsContract = {
   returns: vUserVaultsResult,
   structuredContent: object({ vaults: vUserVaultsResult }),
   mcp: {
-    title: "List Samebase apps",
+    title: "List Samebase vaults",
     name: "vault_dashboard_getUserVaults",
     description:
-      "List the Samebase apps and repositories available to the authenticated user, including the durable app and provider-resource graph.",
+      "List the Samebase vaults available to the authenticated user, including attached provider resources.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,

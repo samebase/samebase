@@ -320,7 +320,9 @@ Before deploying the Workers-only provisioning path, choose one rollout data str
 
 Do not design the runtime model around indefinite Pages compatibility. Do not keep duplicate
 infrastructure status fields that can disagree with the vault provider states. `vaultInfrastructure`
-is only the Convex resource record; Cloudflare state belongs on `vaults.cloudflare`.
+must be removed rather than repurposed. Stable Cloudflare Worker identity belongs in
+`vaultCloudflareWorkers`; current Worker, URL, Builds, root, and marker state is observed live from
+Cloudflare.
 
 Rollout checklist:
 

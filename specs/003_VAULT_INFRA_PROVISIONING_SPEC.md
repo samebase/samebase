@@ -9,9 +9,10 @@
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
 - Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
+- Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
-> Note: this spec now describes the Workers-only, app-root-scoped provisioning model. Older
-> Cloudflare Pages and `vaultInfrastructure` aggregate models are superseded.
+> Note: this spec describes the Workers-only provisioning workflow. Durable resource attachment
+> identity and read-time root projection are defined in spec 115.
 
 ## Summary
 
@@ -19,8 +20,8 @@ For samebase-managed vaults, infrastructure is composed from the same narrow blo
 resource attachment:
 
 1. create/connect the GitHub source and sync the default-branch tree
-2. attach or create the Convex project for the target app
-3. attach or create the Cloudflare Worker for the target app
+2. attach or create the Convex project at the plan's confirmed `convex.json` path
+3. attach or create the Cloudflare Worker named by the plan
 4. configure the Worker's Workers Builds triggers for GitHub
 5. rotate and install the selected Convex project's deploy keys, then start the first production
    build
@@ -57,24 +58,10 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 ## Data Model
 
-### `vaultApps`
-
-- `vaultId`, `userId`, `rootDirectory`, `createdAt`
-
-The vault owns the repository. Provider resources attach to a stable `vaultApps` row through its
-`appId`. `rootDirectory` has exactly the same meaning and spelling as Cloudflare Workers Builds'
-`root_directory`; `/` is the repository root.
-
-Indexes:
-
-- `by_vault`
-- `by_user`
-- `by_vault_and_root_directory`
-
 ### `workflow_vaultProvisioning_plans`
 
 - `vaultId`, `userId`
-- `appRoot`
+- `convexConfigPath`
 - `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName, teamId }`, or
   `{ state: "created", projectName, teamId, projectId }`
 - `cloudflare`: `{ state: "planned", accountId, workerName, build }`,
@@ -94,36 +81,36 @@ tables used by the dashboard.
 Indexes:
 
 - `by_vault`
-- `by_user`
 
 ### `vaultConvexProjects`
 
-- `vaultId`, `userId`, `appId`
-- `teamId`, `projectId`
+- `vaultId`, `userId`
+- `teamId`, `projectId`, `convexConfigPath`
 - `origin: "provisioned" | "selected_existing"`, `createdAt`
 
-This table is the durable attachment between a vault app and a Convex project. It stores only stable
-provider coordinates, provenance, and the time of attachment. Current project slugs, team slugs,
-production and preview deployments, URLs, and deploy keys are provider state and must not be
-mirrored into this row. One app can attach at most one Convex project, and one exact Convex project
-identity can appear in at most one Samebase app.
+This table is the durable attachment between a vault and a Convex project. It stores stable provider
+coordinates, the user-confirmed repository config path, provenance, and the time of attachment.
+Current project slugs, team slugs, production and preview deployments, URLs, and deploy keys are
+provider state and must not be mirrored into this row. `projectId` is globally exclusive. Several
+projects may intentionally share one `convexConfigPath`.
 
 Indexes:
 
 - `by_vault`
 - `by_user`
-- `by_app`
-- `by_team_and_project` (global attachment exclusivity)
+- `by_project` (global attachment exclusivity)
+- `by_team_and_project`
+- `by_vault_and_config_path`
 
 ### `vaultCloudflareWorkers`
 
-- `vaultId`, `userId`, `appId`
+- `vaultId`, `userId`
 - `accountId`, `workerName`, `workerTag`
 - `origin: "provisioned" | "selected_existing"`, `createdAt`
 
-This table is the durable attachment between a vault app and a Cloudflare Worker. Current
-workers.dev URLs, Worker existence, Workers Builds triggers, repository configuration, and Convex
-deploy keys are provider state and must not be mirrored into this row.
+This table is the durable attachment between a vault and a Cloudflare Worker. Current workers.dev
+URLs, Worker existence, Workers Builds triggers, repository configuration, root directory, and
+Convex deploy keys are provider state and must not be mirrored into this row.
 
 ### Worker-to-Convex build relationship
 
@@ -154,11 +141,14 @@ The live observation reports these states without guessing:
 
 ### Provider observation boundary
 
-Provider-owned state is observed directly from Convex and Cloudflare for one requested vault. Each
-observation axis returns explicit `available`, `missing`, or `failed` results with an observation
-timestamp. The dashboard may cache those results in the browser for a short bounded interval, but
-the actions do not write them to Convex tables. Stable attachment rows remain unchanged when a
-provider resource changes or disappears.
+Provider-owned state is observed directly from Convex and Cloudflare for one requested vault.
+Cloudflare Worker axes return explicit `available`, `missing`, or `failed` results where those
+states apply. Each Convex attachment returns source placement as `valid`, `invalid`, `missing`,
+`unavailable_partial`, or `unavailable`, and provider continuity as `current`, `moved`,
+`missing_ambiguous`, or `unavailable`. Every result carries an observation timestamp. The dashboard
+may cache those results in the browser for a short bounded interval, but the actions do not write
+them to Convex tables. Stable attachment rows remain unchanged when a provider resource changes or
+disappears.
 
 Cloudflare uses three independently loading observation axes:
 
@@ -190,7 +180,6 @@ Indexes:
 
 - `by_vault`
 - `by_user`
-- `by_app`
 - `by_account_and_worker` (global attachment exclusivity)
 - `by_account_and_worker_tag` (global attachment exclusivity)
 
@@ -239,7 +228,7 @@ Repository default branch:
 
 3. `api.vault.dashboard.getUserVaults`
 
-- Returns: stable app, Worker, and Convex project attachments for the authenticated user
+- Returns: stable Worker and Convex project attachments for the authenticated user
 
 4. `api.vault.providerObservations.observeCloudflareWorkers`
 
@@ -256,6 +245,35 @@ Repository default branch:
 - Args:
   `{ vaultId: Id<"vaults">, targets: { workerId, productionTriggerUuid, previewTriggerUuid }[] }`
 - Returns: bounded live Convex marker and deploy-key classification without provider secret values
+
+7. `api.vault.providerObservations.observeConvexProjects`
+
+- Args: `{ vaultId: Id<"vaults"> }`
+- Returns: live source-placement and provider-continuity observations for every attached project
+
+8. `api.vault.cloudflare.discoverWorkers` and `api.vault.cloudflare.attachWorkers`
+
+- Discover returns Workers connected to the vault repository with their current verified roots.
+- Attach accepts several selected provider identities and commits the whole selection atomically.
+
+9. `api.vault.cloudflare.createWorker` and `api.vault.cloudflare.detachWorker`
+
+- Create records a provisioned attachment before later provider configuration can fail.
+- Detach changes only Samebase user intent and never deletes a selected existing Worker.
+
+10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
+
+- Discover returns provider projects plus exact discovered `convex.json` candidates.
+- Attach requires one verified config path per selected project and commits the batch atomically.
+
+11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
+
+- Create records the provider checkpoint and provisioned attachment before metadata refresh.
+- Detach changes only Samebase user intent.
+
+12. `api.vault.convex.changeProjectConfigPath` and `api.vault.convex.reconcileProjectTeam`
+
+- Both are explicit provider-verified compare-and-swap repairs of one attachment field.
 
 ### Internal
 
@@ -301,8 +319,9 @@ sequenceDiagram
 
 ## State Machine
 
-- `vaultConvexProjects` exists when `attach_convex` has attached the app's project.
-- `vaultCloudflareWorkers` exists when `attach_worker` has attached the app's Worker.
+- `vaultConvexProjects` exists when `attach_convex` has attached the plan's exact project and config
+  path.
+- `vaultCloudflareWorkers` exists when `attach_worker` has attached the plan's exact Worker.
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
   current state.
@@ -320,17 +339,18 @@ In `VaultDashboard`:
   or partially complete
 - Failed Samebase-managed Convex or Cloudflare setup shows a `Retry` action that calls
   `api.vault.actions.retryInfrastructureProvisioning`.
-- A live provider observation that proves an attached Worker or Convex project is missing offers an
-  explicit local attachment removal. The server repeats the provider read before deleting the
-  Samebase attachment. A failed provider read never authorizes removal.
+- Missing or inaccessible provider resources remain attached and surface attention. Removal is an
+  explicit change to user intent and never follows automatically from provider absence. A Convex 404
+  under the stored team is ambiguous because the project may have transferred.
 - An attached Cloudflare Worker whose Builds connection is missing shows
   `Cloudflare is not connected to this GitHub repository.` with a
   `Configure Workers Builds for GitHub` action.
 - An attached Cloudflare Worker with connected Builds can receive deploy keys for one explicitly
-  selected attached Convex project through `Rotate Convex deploy keys for Workers Builds`. The
-  action patches `CONVEX_DEPLOY_KEY`, `PREVIEW_CONVEX_DEPLOY_KEY`, and `SAMEBASE_CONVEX_PROJECT`
-  into both triggers. The selected project is operation input, not a persisted Samebase dependency
-  row.
+  selected attached Convex project through `Use <project> for Workers Builds`. If the Worker's live
+  marker already names an attached project but the access needs repair, the UI offers only
+  `Repair keys for <project>`. The action patches `CONVEX_DEPLOY_KEY`, `PREVIEW_CONVEX_DEPLOY_KEY`,
+  and `SAMEBASE_CONVEX_PROJECT` into both triggers. The selected project is operation input, not a
+  persisted Samebase dependency row.
 - The dashboard derives the current deploy-key configuration state from the two live Cloudflare
   triggers. Loading, configured, not configured, incomplete, target unknown, inconsistent, invalid,
   externally configured, and provider-read failure are distinct states.

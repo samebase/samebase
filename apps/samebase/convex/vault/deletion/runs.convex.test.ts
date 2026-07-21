@@ -44,16 +44,10 @@ async function createExistingRepositoryVaultWithConvex(args: {
       defaultBranch: "main",
       connectedAt: 12,
     });
-    const appId = await ctx.db.insert("vaultApps", {
-      vaultId,
-      userId,
-      rootDirectory,
-      createdAt: 13,
-    });
     await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       userId,
-      appId,
+      convexConfigPath: "convex.json",
       teamId: "team-id",
       projectId: "convex-project",
       origin: args.origin,
@@ -144,16 +138,10 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       createdAt: 15,
       updatedAt: 15,
     });
-    const appId = await ctx.db.insert("vaultApps", {
-      vaultId,
-      userId,
-      rootDirectory,
-      createdAt: 13,
-    });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
       userId,
-      appRoot: ".",
+      convexConfigPath: "convex.json",
       convex: { state: "planned", projectName: "managed-convex" },
       cloudflare: {
         state: "planned",
@@ -175,7 +163,7 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         userId,
-        appId,
+        convexConfigPath: "convex.json",
         teamId: "team-id",
         projectId: "convex-project",
         origin: "provisioned",
@@ -267,17 +255,10 @@ describe("vault deletion Convex resource planning", () => {
       origin: "provisioned",
     });
     await t.run(async (ctx) => {
-      const app = await ctx.db
-        .query("vaultApps")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .unique();
-      if (!app) {
-        throw new Error("Test app not found.");
-      }
       await ctx.db.insert("vaultConvexProjects", {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        appId: app._id,
+        convexConfigPath: "convex.json",
         teamId: "other-team",
         projectId: "other-project",
         origin: "provisioned",

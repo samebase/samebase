@@ -9,21 +9,25 @@ import { VaultResourceRail, type VaultResourceRailState } from "./VaultResourceR
 
 const { act } = React;
 type VaultResourceRailGithubRow = VaultResourceRailState["githubRow"];
-type VaultResourceRailAppRow = VaultResourceRailState["apps"][number]["rows"][number];
+type VaultResourceRailRootRow = VaultResourceRailState["roots"][number]["rows"][number];
 
 let rootElement: HTMLDivElement | null = null;
 let root: Root | null = null;
 
 function buildRootResourceRailState({
-  appRows,
+  rootRows,
   githubRow,
+  vaultActionRows = [],
 }: {
-  appRows: readonly VaultResourceRailAppRow[];
+  rootRows: readonly VaultResourceRailRootRow[];
   githubRow: VaultResourceRailGithubRow;
+  vaultActionRows?: VaultResourceRailState["vaultActionRows"];
 }): VaultResourceRailState {
   return {
+    attentionRows: [],
     githubRow,
-    apps: [{ appId: "app-root", rootDirectory: "/", rows: appRows }],
+    roots: [{ rootDirectory: "/", rows: rootRows }],
+    vaultActionRows,
   };
 }
 
@@ -66,7 +70,7 @@ describe("VaultResourceRail", () => {
   it("renders available provider resources with scoped links", () => {
     const state = buildRootResourceRailState({
       githubRow: availableGithubRow(),
-      appRows: [
+      rootRows: [
         {
           provider: "convex",
           rowId: "convex:project-1",
@@ -99,7 +103,7 @@ describe("VaultResourceRail", () => {
   it("shows loading, missing, and failed as different truthful states", () => {
     const state = buildRootResourceRailState({
       githubRow: availableGithubRow(),
-      appRows: [
+      rootRows: [
         {
           provider: "convex",
           rowId: "convex:project-1",
@@ -140,7 +144,7 @@ describe("VaultResourceRail", () => {
   it("keeps an available Worker link usable while its Builds details load", () => {
     const state = buildRootResourceRailState({
       githubRow: availableGithubRow(),
-      appRows: [
+      rootRows: [
         {
           provider: "cloudflare",
           rowId: "cloudflare:worker-1",
@@ -161,10 +165,10 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
   });
 
-  it("renders every Worker attached to the same app", () => {
+  it("renders every Worker attached to the same root", () => {
     const state = buildRootResourceRailState({
       githubRow: availableGithubRow(),
-      appRows: [
+      rootRows: [
         {
           provider: "cloudflare",
           rowId: "cloudflare:worker-web",
@@ -191,10 +195,11 @@ describe("VaultResourceRail", () => {
   it("renders provider add actions as query links", () => {
     const state = buildRootResourceRailState({
       githubRow: availableGithubRow(),
-      appRows: [
+      rootRows: [],
+      vaultActionRows: [
         {
           provider: "convex",
-          rowId: "convex:add:app-root",
+          rowId: "convex:add",
           status: "action_required",
           actions: [
             {
@@ -206,7 +211,7 @@ describe("VaultResourceRail", () => {
         },
         {
           provider: "cloudflare",
-          rowId: "cloudflare:add:app-root",
+          rowId: "cloudflare:add",
           status: "action_required",
           actions: [
             {
@@ -231,16 +236,17 @@ describe("VaultResourceRail", () => {
     const onClick = vi.fn();
     const state = buildRootResourceRailState({
       githubRow: availableGithubRow(),
-      appRows: [
+      rootRows: [],
+      vaultActionRows: [
         {
           provider: "convex",
-          rowId: "convex:add:app-root",
+          rowId: "convex:add",
           status: "action_required",
           actions: [
             {
               kind: "add",
               label: "?add-convex",
-              href: "/vault/nicu-chiciuc/weight_tsx?add-convex&app-root=apps%2Fnoter",
+              href: "/vault/nicu-chiciuc/weight_tsx?add-convex",
               onClick,
             },
           ],
@@ -277,12 +283,12 @@ describe("VaultResourceRail", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it("keeps repository-root resources top-level and groups nested apps", () => {
+  it("keeps repository-root resources top-level and groups nested roots", () => {
     const state = {
+      attentionRows: [],
       githubRow: availableGithubRow(),
-      apps: [
+      roots: [
         {
-          appId: "app-root",
           rootDirectory: "/",
           rows: [
             {
@@ -294,7 +300,6 @@ describe("VaultResourceRail", () => {
           ],
         },
         {
-          appId: "app-api",
           rootDirectory: "apps/api",
           rows: [
             {
@@ -306,6 +311,7 @@ describe("VaultResourceRail", () => {
           ],
         },
       ],
+      vaultActionRows: [],
     } satisfies VaultResourceRailState;
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
