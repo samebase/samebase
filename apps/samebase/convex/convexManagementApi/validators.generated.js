@@ -9137,7 +9137,6 @@ const schema123 = {
           "deployment:usageLimits:view",
           "deployment:usageLimits:write",
           "deployment:usage:view",
-          "deployment:data:sync",
         ],
       },
     },
@@ -9309,8 +9308,7 @@ function validate55(
               data1 === "deployment:auditLog:view" ||
               data1 === "deployment:usageLimits:view" ||
               data1 === "deployment:usageLimits:write" ||
-              data1 === "deployment:usage:view" ||
-              data1 === "deployment:data:sync"
+              data1 === "deployment:usage:view"
             )
           ) {
             const err5 = {
@@ -15671,7 +15669,6 @@ const schema204 = {
     "deployment:metrics:view",
     "deployment:data:view",
     "deployment:data:write",
-    "deployment:data:sync",
     "deployment:backups:download",
     "deployment:functions:actAsUser",
     "deployment:functions:runInternalQueries",
@@ -15844,7 +15841,6 @@ function validate116(
           data0 === "deployment:metrics:view" ||
           data0 === "deployment:data:view" ||
           data0 === "deployment:data:write" ||
-          data0 === "deployment:data:sync" ||
           data0 === "deployment:backups:download" ||
           data0 === "deployment:functions:actAsUser" ||
           data0 === "deployment:functions:runInternalQueries" ||
