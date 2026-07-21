@@ -9,7 +9,7 @@ import {
 } from "@/lib/publicLanding";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { useNavigate } from "@tanstack/react-router";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 type SignInFormProps = {
   authPlacement: "inline" | "sidebar";
@@ -24,9 +24,14 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown);
+  const touchTiltRootRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID} className="flex min-h-0 flex-1 flex-col">
+    <div
+      ref={touchTiltRootRef}
+      data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <div className="container my-auto px-2">
         <div
           data-testid="public-landing-content"
@@ -50,6 +55,7 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
               });
             }}
             routeSearch={rootRouteSearch}
+            touchTiltRootRef={touchTiltRootRef}
           />
           <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
             <LandingCopy

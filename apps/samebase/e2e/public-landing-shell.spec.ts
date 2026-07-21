@@ -1630,6 +1630,70 @@ test("public landing logo tilts toward the pointer outside its grab surface", as
   );
 });
 
+test.describe("public landing mobile logo tilt", () => {
+  test.use(mobileLandingDevice);
+
+  test("tilts toward a held page touch outside its grab surface", async ({ page }, testInfo) => {
+    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+    const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
+    const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
+    await expectLandingLogoSceneReady(landingLogoScene);
+    await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
+    await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
+
+    const copyBounds = await landingCopy.boundingBox();
+    expect(copyBounds).not.toBeNull();
+    if (copyBounds === null) {
+      return;
+    }
+    const touchPoint = {
+      force: 1,
+      id: 1,
+      radiusX: 4,
+      radiusY: 4,
+      x: copyBounds.x + copyBounds.width - 8,
+      y: copyBounds.y + copyBounds.height - 8,
+    };
+    const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+    const session = await page.context().newCDPSession(page);
+
+    try {
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [touchPoint],
+      });
+      await page.waitForTimeout(1_000);
+
+      await expect(landingLogoStage).toHaveScreenshot(
+        "public-landing-logo-touch-lower-right.png",
+        strictScreenshotOptions,
+      );
+      await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
+      await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
+    } finally {
+      await session
+        .send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        })
+        .catch(() => undefined);
+      await session.detach().catch(() => undefined);
+    }
+
+    await page.waitForTimeout(1_000);
+    const settledLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+    await expectScreenshotsToMatch({
+      actual: settledLogoScreenshot,
+      artifactPrefix: "public-landing-logo-mobile-touch-settle",
+      expected: initialLogoScreenshot,
+      maxDiffPixelRatio: 0.015,
+      testInfo,
+    });
+  });
+});
+
 test("public landing recursive logo depth keeps the orthographic square size", async ({ page }) => {
   const baseMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=1");
   const recursiveMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=2");
