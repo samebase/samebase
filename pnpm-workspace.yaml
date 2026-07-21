@@ -9,13 +9,14 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future Convex releases do not bypass the
 # cooling period automatically.
 minimumReleaseAgeExclude:
-  # TODO(2026-06-25): Remove the dompurify@3.4.11 and undici@7.28.0 release-age
-  # exceptions after the normal 7-day cooling period has passed. Keep the
-  # overrides below until upstream packages no longer resolve vulnerable
-  # versions.
-  - dompurify@3.4.11
+  # TODO(2026-07-22): Remove the fast-uri@3.1.4 and @hono/node-server@2.0.10
+  # exceptions after the normal 7-day cooling period has passed.
+  - "@hono/node-server@2.0.10"
+  - fast-uri@3.1.4
   - protobufjs@7.6.3
   - qs@6.15.2
+  # TODO(2026-06-25): Remove this release-age exception after upstream
+  # packages no longer resolve the vulnerable version.
   - undici@7.28.0
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
@@ -31,6 +32,7 @@ trustPolicyExclude:
   - undici-types@6.21.0
 overrides:
   "@babel/core": 7.29.7
+  "@hono/node-server": 2.0.10
   "@protobufjs/utf8": 1.1.1
   "ajv@6": 6.15.0
   "ajv@8": 8.18.0
@@ -38,11 +40,11 @@ overrides:
   "brace-expansion@2": 2.1.2
   "brace-expansion@5": 5.0.7
   body-parser: 2.3.0
-  dompurify: 3.4.11
+  dompurify: 3.4.12
   esbuild: 0.28.1
-  fast-uri: 3.1.2
+  fast-uri: 3.1.4
   flatted: 3.4.2
-  hono: 4.12.25
+  hono: 4.12.27
   ip-address: 10.1.1
   js-yaml: 4.3.0
   mailparser: 3.9.8
@@ -52,6 +54,7 @@ overrides:
   postcss: 8.5.10
   protobufjs: 7.6.3
   qs: 6.15.2
+  sharp: 0.35.3
   "semver@6": 7.7.4
   shell-quote: 1.9.0
   undici: 7.28.0
