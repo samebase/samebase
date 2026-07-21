@@ -40,7 +40,8 @@ attachment.
 2. Samebase reads the complete Worker inventory. If only legacy inventory is available, the scan is
    explicitly partial and cannot support a negative conclusion.
 3. For each Worker, Samebase reads Workers Builds triggers and requires GitHub provider type plus an
-   exact match to the vault's immutable GitHub repository ID.
+   exact match to the vault's immutable GitHub repository ID for direct selection. A Worker with no
+   active trigger is observed separately from a Worker connected to another repository.
 4. A selectable Worker has one unambiguous normalized root across its active production and preview
    triggers. The root is displayed read-only.
 5. Every selectable Worker starts selected because its exact repository connection has already been
@@ -48,6 +49,21 @@ attachment.
    readable `SAMEBASE_CONVEX_PROJECT` evidence without persisting a relation.
 6. Confirmation re-reads every selected identity, repository connection, root, and marker, then
    writes all attachments in one transaction. Any conflict rejects the whole confirmation.
+
+When at least one Worker has no active Workers Builds triggers, the existing view offers
+`Connect another Worker` instead of mixing account-wide unconnected Workers into the verified
+checkbox list. The focused view asks for one Worker and its repository root, then confirms
+`Connect and add`. Samebase re-reads the exact Worker identity and requires that it still has no
+active triggers. It records the `selected_existing` attachment before configuring GitHub Builds,
+then re-reads Cloudflare and requires the requested root. Each unconnected Worker is configured
+individually because roots are per Worker and Cloudflare writes are not batch-atomic.
+
+If Cloudflare reports an error after attachment, Samebase re-observes the Worker before explaining
+the recovery. A Worker with no completed repository connection stays under `Needs attention`. A
+Worker with a partial or complete connection appears under Cloudflare's observed root, and the
+message names the recovery action for the observed state. The attachment always remains. A Worker
+with active triggers for another repository is not available in this flow. Samebase never silently
+replaces that connection.
 
 The client never supplies a root as attachment authority.
 
@@ -85,8 +101,10 @@ state, but is not removal authority.
 
 ### Deployment configuration
 
-Attaching a Worker does not imply that Samebase may rewrite an existing Worker. GitHub Builds setup
-and Convex deploy-key rotation remain explicit operations.
+Attaching a Worker does not imply that Samebase may rewrite an existing Worker. `Connect and add`
+explicitly authorizes initial GitHub Builds setup only after Samebase verifies that the Worker has
+no active Builds triggers. GitHub Builds repair and Convex deploy-key rotation remain explicit
+operations.
 
 When build access has no trustworthy attached target, `Use <project> for Workers Builds` names each
 available destination explicitly. When a Worker's marker already names an attached project but its
@@ -107,9 +125,10 @@ Samebase does not persist a Worker-to-project edge.
 
 ## Validation
 
-- Provider tests cover pagination beyond 100 Workers, partial fallback, provider type, exact repo
-  identity, ambiguous roots, production/preview disagreement, and marker disagreement.
+- Provider tests cover pagination beyond 100 Workers, partial fallback, zero-trigger Workers,
+  different-repository Workers, provider type, exact repo identity, ambiguous roots,
+  production/preview disagreement, and marker disagreement.
 - Mutation tests cover atomic batches, global identity conflicts, idempotency, and origin upgrade.
 - UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
-  count copy, exact Convex action targets, root drift, rootless Builds repair, and
-  `Needs attention`.
+  the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
+  rootless Builds repair, and `Needs attention`.

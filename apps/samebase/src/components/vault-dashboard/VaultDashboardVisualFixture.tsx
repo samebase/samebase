@@ -898,6 +898,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           accounts={[]}
           createRootDirectory={rootDirectory}
           createWorkerName=""
+          didAddWorker={false}
           error={null}
           isLoading={false}
           isSubmitting={false}
@@ -906,6 +907,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           onAccountChange={() => {}}
           onCreateRootDirectoryChange={setRootDirectory}
           onCreateWorkerNameChange={() => {}}
+          onConnectWorker={() => {}}
+          onConnectWorkerBack={() => {}}
           onModeChange={() => {}}
           onOpenChange={setRepairOpen}
           onSubmit={() => {
@@ -921,6 +924,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
             repositoryFullName: "nicu-chiciuc/tmp-my-super-app-2",
             repositoryName: "tmp-my-super-app-2",
           }}
+          workerToConnect={null}
           workers={[]}
         />
       </TestRouterProvider>
@@ -1549,6 +1553,13 @@ function VaultDashboardDeleteOpenFixture() {
 }
 
 function FixtureCloudflareConnectDialog() {
+  const [mode, setMode] = useState<"connect" | "create" | "existing">("existing");
+  const [rootDirectory, setRootDirectory] = useState("apps/atelier");
+  const [workerToConnect, setWorkerToConnect] = useState<{
+    workerName: string;
+    workerTag: string;
+  } | null>(null);
+
   return (
     <VaultDashboardCloudflareDialog
       accounts={[
@@ -1557,17 +1568,29 @@ function FixtureCloudflareConnectDialog() {
           accountName: "Samebase",
         },
       ]}
-      createRootDirectory="apps/atelier"
+      createRootDirectory={rootDirectory}
       createWorkerName="atelier"
+      didAddWorker={false}
       error={null}
       isLoading={false}
       isSubmitting={false}
       inventoryState="complete"
-      mode="existing"
+      mode={mode}
       onAccountChange={() => {}}
-      onCreateRootDirectoryChange={() => {}}
+      onCreateRootDirectoryChange={setRootDirectory}
       onCreateWorkerNameChange={() => {}}
-      onModeChange={() => {}}
+      onConnectWorker={setWorkerToConnect}
+      onConnectWorkerBack={() => {
+        setMode("existing");
+        setWorkerToConnect(null);
+      }}
+      onModeChange={(nextMode) => {
+        setMode(nextMode);
+        setWorkerToConnect(null);
+        if (nextMode === "connect") {
+          setRootDirectory("/");
+        }
+      }}
       onOpenChange={() => {}}
       onSubmit={() => {}}
       onWorkerToggle={() => {}}
@@ -1580,6 +1603,7 @@ function FixtureCloudflareConnectDialog() {
         repositoryFullName: "samebase/atelier",
         repositoryName: "atelier",
       }}
+      workerToConnect={workerToConnect}
       workers={FIXTURE_CLOUDFLARE_WORKERS}
     />
   );

@@ -112,6 +112,16 @@ JSON Schema for the tool's `structuredContent`:
                 "type": "object",
                 "properties": {
                   "state": {
+                    "const": "connected_elsewhere"
+                  }
+                },
+                "required": ["state"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
                     "const": "ambiguous"
                   },
                   "reason": {

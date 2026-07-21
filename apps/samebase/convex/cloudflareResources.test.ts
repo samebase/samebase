@@ -101,6 +101,7 @@ function buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(): Parameters<
     vaultId: "vault-id",
     workerName: "samebase-app",
     workerTag: "worker-tag",
+    existingBuilds: "preserve_repository",
     cloudflareToken: "oauth-token",
     cloudflareAuthMethod: "oauth",
     accountId: "account-id",
@@ -856,61 +857,6 @@ describe("cloudflare resources", () => {
     expect(requests.some((request) => request.method === "DELETE")).toBe(false);
   });
 
-  it("leaves a failed trigger rebind forward-repairable", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      failCreateTriggerNumber: 1,
-      triggers: [
-        buildMatchingProductionTrigger({
-          repo_connection: {
-            repo_connection_uuid: "other-repo-connection",
-            repo_id: "999",
-            repo_name: "ada/other-app",
-          },
-        }),
-        buildMatchingPreviewTrigger(),
-      ],
-    });
-
-    await expect(
-      configureCloudflareWorkerBuildsForGitHub({
-        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-        triggerInitialBuild: false,
-      }),
-    ).rejects.toThrow("Workers Builds trigger creation failed");
-
-    const deleteIndex = requests.findIndex(
-      (request) =>
-        request.method === "DELETE" &&
-        request.path === "/client/v4/accounts/account-id/builds/triggers/production-trigger",
-    );
-    const createRequests = requests.filter(
-      (request) =>
-        request.method === "POST" &&
-        request.path === "/client/v4/accounts/account-id/builds/triggers",
-    );
-    expect(deleteIndex).toBeGreaterThanOrEqual(0);
-    expect(createRequests).toHaveLength(1);
-    const firstCreateRequest = createRequests[0];
-    expect(requests.indexOf(firstCreateRequest)).toBeGreaterThan(deleteIndex);
-
-    const retryRequests: RecordedCloudflareRequest[] = [];
-    stubEnsureCloudflareResourcesFetch({
-      requests: retryRequests,
-      triggers: [],
-    });
-    await expect(
-      configureCloudflareWorkerBuildsForGitHub({
-        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-        triggerInitialBuild: false,
-      }),
-    ).resolves.toMatchObject({
-      production: { triggerUuid: "created-trigger-1" },
-      preview: { triggerUuid: "created-trigger-2" },
-    });
-  });
-
   it("leaves a successfully created production trigger for retry when preview creation fails", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
@@ -1503,6 +1449,68 @@ describe("cloudflare resources", () => {
     ).toBe(false);
   });
 
+  it("does not replace an existing Builds connection when an unconnected Worker is required", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        buildMatchingProductionTrigger({
+          trigger_uuid: "conflicting-production-trigger",
+          repo_connection: {
+            repo_connection_uuid: "other-repo-connection",
+            repo_id: "999",
+            repo_name: "ada/other-app",
+          },
+        }),
+      ],
+    });
+
+    await expect(
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+        existingBuilds: "require_unconnected",
+      }),
+    ).rejects.toThrow("already has a Workers Builds connection");
+    expect(requests.every((request) => request.method === "GET")).toBe(true);
+  });
+
+  it("does not create triggers when an unconnected Worker gains a Builds connection during setup", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [],
+      triggerReads: [
+        [],
+        [
+          buildMatchingProductionTrigger({
+            trigger_uuid: "concurrent-production-trigger",
+            repo_connection: {
+              repo_connection_uuid: "other-repo-connection",
+              repo_id: "999",
+              repo_name: "ada/other-app",
+            },
+          }),
+        ],
+      ],
+    });
+
+    await expect(
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+        existingBuilds: "require_unconnected",
+      }),
+    ).rejects.toThrow("already has a Workers Builds connection");
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "DELETE" ||
+          request.method === "PATCH" ||
+          (request.method === "POST" &&
+            request.path === "/client/v4/accounts/account-id/builds/triggers"),
+      ),
+    ).toBe(false);
+  });
+
   it("fails closed before writes when multiple conflicting trigger candidates exist", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     const otherRepository = {
@@ -1581,7 +1589,7 @@ describe("cloudflare resources", () => {
     ).toBe(false);
   });
 
-  it("recreates an existing Workers Builds trigger connected to a different GitHub repository", async () => {
+  it("does not replace a trigger connected to a different GitHub repository", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -1600,32 +1608,20 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await configureCloudflareWorkerBuildsForGitHub(
-      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-    );
+    await expect(
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
+    ).rejects.toThrow("connected to another or deleted repository");
     expect(
       requests.some(
         (request) =>
-          request.method === "PATCH" &&
-          request.path ===
-            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+          request.method === "DELETE" ||
+          request.method === "PATCH" ||
+          (request.method === "POST" &&
+            request.path === "/client/v4/accounts/account-id/builds/triggers"),
       ),
     ).toBe(false);
-    expect(
-      requests.some(
-        (request) =>
-          request.method === "DELETE" &&
-          request.path ===
-            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
-      ),
-    ).toBe(true);
-    expect(
-      requests.some(
-        (request) =>
-          request.method === "POST" &&
-          request.path === "/client/v4/accounts/account-id/builds/triggers",
-      ),
-    ).toBe(true);
   });
 
   it("patches an existing Workers Builds trigger when its repository connection id matches", async () => {
@@ -1711,44 +1707,7 @@ describe("cloudflare resources", () => {
     ).toBe(false);
   });
 
-  it("does not delete a conflicting trigger whose repository binding changes during configuration", async () => {
-    const requests: RecordedCloudflareRequest[] = [];
-    const conflictingTrigger = buildMatchingProductionTrigger({
-      trigger_uuid: "existing-production-trigger",
-      build_token_uuid: "reusable-build-token",
-      repo_connection: {
-        repo_connection_uuid: "other-repo-connection",
-        repo_id: "999",
-        repo_name: "ada/other-app",
-      },
-    });
-    stubEnsureCloudflareResourcesFetch({
-      requests,
-      triggers: [],
-      triggerReads: [
-        [conflictingTrigger],
-        [
-          buildMatchingProductionTrigger({
-            trigger_uuid: "existing-production-trigger",
-            build_token_uuid: "reusable-build-token",
-          }),
-        ],
-      ],
-    });
-
-    await expect(
-      configureCloudflareWorkerBuildsForGitHub(
-        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-      ),
-    ).rejects.toThrow("repository binding changed during configuration");
-    expect(
-      requests.some(
-        (request) => request.method === "DELETE" && request.path.includes("/builds/triggers/"),
-      ),
-    ).toBe(false);
-  });
-
-  it("recreates an existing Workers Builds trigger connected through a deleted repository connection", async () => {
+  it("does not replace a trigger connected through a deleted repository connection", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -1768,32 +1727,20 @@ describe("cloudflare resources", () => {
       ],
     });
 
-    await configureCloudflareWorkerBuildsForGitHub(
-      buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-    );
+    await expect(
+      configureCloudflareWorkerBuildsForGitHub(
+        buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+      ),
+    ).rejects.toThrow("connected to another or deleted repository");
     expect(
       requests.some(
         (request) =>
-          request.method === "PATCH" &&
-          request.path ===
-            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+          request.method === "DELETE" ||
+          request.method === "PATCH" ||
+          (request.method === "POST" &&
+            request.path === "/client/v4/accounts/account-id/builds/triggers"),
       ),
     ).toBe(false);
-    expect(
-      requests.some(
-        (request) =>
-          request.method === "DELETE" &&
-          request.path ===
-            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
-      ),
-    ).toBe(true);
-    expect(
-      requests.some(
-        (request) =>
-          request.method === "POST" &&
-          request.path === "/client/v4/accounts/account-id/builds/triggers",
-      ),
-    ).toBe(true);
   });
 
   it("ignores deleted Workers Builds triggers when connecting a GitHub repository", async () => {
@@ -1895,7 +1842,7 @@ describe("cloudflare resources", () => {
     ).toEqual({ state: "ambiguous", reason: "missing_provider_type" });
   });
 
-  it("does not match a non-GitHub or different repository", () => {
+  it("distinguishes another provider or repository from no Builds connection", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
@@ -1918,6 +1865,14 @@ describe("cloudflare resources", () => {
             },
           }),
         ],
+      }),
+    ).toEqual({ state: "connected_elsewhere" });
+
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        defaultBranch: "main",
+        triggers: [],
       }),
     ).toEqual({ state: "not_connected" });
   });
@@ -2323,6 +2278,7 @@ describe("cloudflare resources", () => {
       vaultId: "vault-id",
       workerName: "samebase-app",
       workerTag: "worker-tag",
+      existingBuilds: "preserve_repository",
       cloudflareToken: "oauth-token",
       cloudflareAuthMethod: "oauth",
       accountId: "account-id",

@@ -128,6 +128,11 @@ function formatCloudflareRepositoryState(
         canConnect: true,
         description: "Cloudflare is not connected to this GitHub repository.",
       };
+    case "connected_elsewhere":
+      return {
+        canConnect: false,
+        description: "Cloudflare Builds is connected to another repository.",
+      };
     case "ambiguous":
       return {
         canConnect: false,

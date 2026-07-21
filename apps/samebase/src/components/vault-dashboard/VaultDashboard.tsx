@@ -6,6 +6,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
@@ -207,7 +208,11 @@ type VaultConvexDialogTarget = {
   repositoryFullName: string;
   repositoryName: string;
 };
-type CloudflareWorkerConnectMode = "existing" | "create";
+type CloudflareWorkerConnectMode = "existing" | "create" | "connect";
+type CloudflareWorkerConnectTarget = {
+  workerName: string;
+  workerTag: string;
+};
 type CloudflareWorkerOption =
   (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["workers"][number];
 type CloudflareInventoryState =
@@ -299,12 +304,14 @@ type VaultDashboardLocalState = {
     connectMode: CloudflareWorkerConnectMode;
     createRootDirectory: string;
     createWorkerName: string;
+    didAddWorker: boolean;
     error: string | null;
     inventoryState: CloudflareInventoryState | null;
     isLoadingResources: boolean;
     isSubmittingWorker: boolean;
     selectedAccountId: string;
     selectedWorkerTags: string[];
+    workerToConnect: CloudflareWorkerConnectTarget | null;
     workers: CloudflareWorkerOption[];
   };
   convexConnectDialog: {
@@ -356,12 +363,14 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
       connectMode: "existing",
       createRootDirectory: "/",
       createWorkerName: "",
+      didAddWorker: false,
       error: null,
       inventoryState: null,
       isLoadingResources: false,
       isSubmittingWorker: false,
       selectedAccountId: "",
       selectedWorkerTags: [],
+      workerToConnect: null,
       workers: [],
     },
     convexConnectDialog: readInitialConvexConnectDialogState(),
@@ -406,12 +415,14 @@ function useVaultDashboardLocalStore() {
           connectMode: "existing",
           createRootDirectory: "/",
           createWorkerName: "",
+          didAddWorker: false,
           error: null,
           inventoryState: null,
           isLoadingResources: false,
           isSubmittingWorker: false,
           selectedAccountId: "",
           selectedWorkerTags: [],
+          workerToConnect: null,
           workers: [],
         },
       }));
@@ -449,13 +460,35 @@ function useVaultDashboardLocalStore() {
     setCloudflareConnectDialogConnectMode: (connectMode: CloudflareWorkerConnectMode) => {
       setState((state) => ({
         ...state,
-        cloudflareConnectDialog: { ...state.cloudflareConnectDialog, connectMode },
+        cloudflareConnectDialog: {
+          ...state.cloudflareConnectDialog,
+          connectMode,
+          createRootDirectory:
+            connectMode === "connect" ? "/" : state.cloudflareConnectDialog.createRootDirectory,
+          error: null,
+          workerToConnect: null,
+        },
       }));
     },
     setCloudflareConnectDialogCreateWorkerName: (createWorkerName: string) => {
       setState((state) => ({
         ...state,
         cloudflareConnectDialog: { ...state.cloudflareConnectDialog, createWorkerName },
+      }));
+    },
+    setCloudflareConnectDialogWorkerToConnect: (
+      workerToConnect: CloudflareWorkerConnectTarget | null,
+    ) => {
+      setState((state) => ({
+        ...state,
+        cloudflareConnectDialog: {
+          ...state.cloudflareConnectDialog,
+          createRootDirectory: workerToConnect
+            ? "/"
+            : state.cloudflareConnectDialog.createRootDirectory,
+          error: null,
+          workerToConnect,
+        },
       }));
     },
     setCloudflareConnectDialogError: (error: string | null) => {
@@ -510,6 +543,24 @@ function useVaultDashboardLocalStore() {
             .filter((worker) => worker.repository.state === "ready")
             .map((worker) => worker.workerTag),
           workers,
+        },
+      }));
+    },
+    markCloudflareConnectDialogWorkerAdded: (workerTag: string) => {
+      setState((state) => ({
+        ...state,
+        cloudflareConnectDialog: {
+          ...state.cloudflareConnectDialog,
+          didAddWorker: true,
+          connectMode: "existing",
+          error: null,
+          selectedWorkerTags: state.cloudflareConnectDialog.selectedWorkerTags.filter(
+            (candidate) => candidate !== workerTag,
+          ),
+          workerToConnect: null,
+          workers: state.cloudflareConnectDialog.workers.filter(
+            (worker) => worker.workerTag !== workerTag,
+          ),
         },
       }));
     },
@@ -1297,6 +1348,7 @@ export function VaultDashboardCloudflareDialog({
   accounts,
   createRootDirectory,
   createWorkerName,
+  didAddWorker,
   error,
   isLoading,
   isSubmitting,
@@ -1305,6 +1357,8 @@ export function VaultDashboardCloudflareDialog({
   onAccountChange,
   onCreateRootDirectoryChange,
   onCreateWorkerNameChange,
+  onConnectWorker,
+  onConnectWorkerBack,
   onModeChange,
   onOpenChange,
   onSubmit,
@@ -1314,11 +1368,13 @@ export function VaultDashboardCloudflareDialog({
   selectedWorkerTags,
   repairWorker,
   vault,
+  workerToConnect,
   workers,
 }: {
   accounts: readonly CloudflareAccountOption[];
   createRootDirectory: string;
   createWorkerName: string;
+  didAddWorker: boolean;
   error: string | null;
   isLoading: boolean;
   isSubmitting: boolean;
@@ -1327,6 +1383,8 @@ export function VaultDashboardCloudflareDialog({
   onAccountChange: (accountId: string) => void;
   onCreateRootDirectoryChange: (rootDirectory: string) => void;
   onCreateWorkerNameChange: (workerName: string) => void;
+  onConnectWorker: (worker: CloudflareWorkerConnectTarget) => void;
+  onConnectWorkerBack: () => void;
   onModeChange: (mode: CloudflareWorkerConnectMode) => void;
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: () => void;
@@ -1336,6 +1394,7 @@ export function VaultDashboardCloudflareDialog({
   selectedWorkerTags: readonly string[];
   repairWorker: { workerName: string } | null;
   vault: VaultCloudflareDialogTarget | null;
+  workerToConnect: CloudflareWorkerConnectTarget | null;
   workers: readonly CloudflareWorkerOption[];
 }) {
   const sortedAccounts = useMemo(
@@ -1377,6 +1436,17 @@ export function VaultDashboardCloudflareDialog({
         ),
       }));
   }, [workers]);
+  const unconnectedWorkers = useMemo(
+    () =>
+      workers
+        .filter((worker) => worker.repository.state === "not_connected")
+        .sort(
+          (left, right) =>
+            left.workerName.localeCompare(right.workerName) ||
+            left.workerTag.localeCompare(right.workerTag),
+        ),
+    [workers],
+  );
   const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
   const submitDisabled =
     isSubmitting ||
@@ -1386,7 +1456,9 @@ export function VaultDashboardCloudflareDialog({
         !selectedAccountId ||
         (mode === "existing"
           ? selectedWorkerTags.length === 0
-          : !createWorkerName.trim() || !createRootDirectory.trim()));
+          : mode === "connect"
+            ? !workerToConnect || !createRootDirectory.trim()
+            : !createWorkerName.trim() || !createRootDirectory.trim()));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1396,27 +1468,78 @@ export function VaultDashboardCloudflareDialog({
             {vault
               ? repairWorker
                 ? `Configure ${repairWorker.workerName} Builds`
-                : `Add Cloudflare to ${vault.repositoryFullName}`
+                : mode === "connect"
+                  ? `Connect a Worker to ${vault.repositoryFullName}`
+                  : `Add Cloudflare to ${vault.repositoryFullName}`
               : "Add Cloudflare"}
           </DialogTitle>
           <DialogDescription>
             {repairWorker
               ? "Choose the repository root Cloudflare should build."
-              : mode === "existing"
-                ? "Choose one or more Workers currently connected to this repository."
-                : "Create a Worker and choose the repository root Cloudflare should build."}
+              : mode === "connect"
+                ? "Choose the Worker and its repository root."
+                : mode === "existing"
+                  ? "Choose Workers connected to this repository, or connect another Worker."
+                  : "Create a Worker and choose the repository root Cloudflare should build."}
           </DialogDescription>
         </DialogHeader>
         {vault ? (
           <div className="space-y-3">
             {repairWorker ? (
-              <Input
-                value={createRootDirectory}
-                onChange={(event) => onCreateRootDirectoryChange(event.target.value)}
-                disabled={isSubmitting}
-                aria-label="Repository root"
-                placeholder="/"
-              />
+              <div className="grid gap-1.5">
+                <Label htmlFor="cloudflare-repository-root">Repository root</Label>
+                <Input
+                  id="cloudflare-repository-root"
+                  value={createRootDirectory}
+                  onChange={(event) => onCreateRootDirectoryChange(event.target.value)}
+                  disabled={isSubmitting}
+                  placeholder="/"
+                />
+              </div>
+            ) : mode === "connect" ? (
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cloudflare-worker-to-connect">Worker</Label>
+                  <Select
+                    value={workerToConnect?.workerTag ?? ""}
+                    onValueChange={(workerTag) => {
+                      const worker = unconnectedWorkers.find(
+                        (candidate) => candidate.workerTag === workerTag,
+                      );
+                      if (worker) {
+                        onConnectWorker({
+                          workerName: worker.workerName,
+                          workerTag: worker.workerTag,
+                        });
+                      }
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="cloudflare-worker-to-connect" className="w-full">
+                      <SelectValue placeholder="Choose a Worker">
+                        {workerToConnect?.workerName}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <AppSelectContent>
+                      {unconnectedWorkers.map((worker) => (
+                        <AppSelectItem key={worker.workerTag} value={worker.workerTag}>
+                          {worker.workerName}
+                        </AppSelectItem>
+                      ))}
+                    </AppSelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cloudflare-repository-root">Repository root</Label>
+                  <Input
+                    id="cloudflare-repository-root"
+                    value={createRootDirectory}
+                    onChange={(event) => onCreateRootDirectoryChange(event.target.value)}
+                    disabled={isSubmitting}
+                    placeholder="/"
+                  />
+                </div>
+              </div>
             ) : (
               <>
                 <Select
@@ -1463,34 +1586,49 @@ export function VaultDashboardCloudflareDialog({
                   </div>
                 ) : null}
                 {mode === "existing" ? (
-                  workerGroups.length > 0 ? (
-                    <div className="grid max-h-80 gap-3 overflow-y-auto">
-                      {workerGroups.map((group) => (
-                        <div key={group.rootDirectory} className="grid gap-1.5">
-                          <div className="font-mono text-xs text-muted-foreground">
-                            {group.rootDirectory}
+                  <div className="grid gap-3">
+                    {workerGroups.length > 0 ? (
+                      <div className="grid max-h-80 gap-3 overflow-y-auto">
+                        {workerGroups.map((group) => (
+                          <div key={group.rootDirectory} className="grid gap-1.5">
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {group.rootDirectory}
+                            </div>
+                            {group.workers.map((worker) => (
+                              <label
+                                key={worker.workerTag}
+                                className="flex min-w-0 items-center gap-2"
+                              >
+                                <Checkbox
+                                  checked={selectedWorkerTags.includes(worker.workerTag)}
+                                  disabled={isLoading || isSubmitting}
+                                  onCheckedChange={() => onWorkerToggle(worker.workerTag)}
+                                />
+                                <span className="truncate text-sm">{worker.workerName}</span>
+                              </label>
+                            ))}
                           </div>
-                          {group.workers.map((worker) => (
-                            <label
-                              key={worker.workerTag}
-                              className="flex min-w-0 items-center gap-2"
-                            >
-                              <Checkbox
-                                checked={selectedWorkerTags.includes(worker.workerTag)}
-                                disabled={isLoading || isSubmitting}
-                                onCheckedChange={() => onWorkerToggle(worker.workerTag)}
-                              />
-                              <span className="truncate text-sm">{worker.workerName}</span>
-                            </label>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  ) : !isLoading && selectedAccountId && inventoryState !== "partial" ? (
-                    <div className="text-sm text-muted-foreground">
-                      No unattached Workers connected to this repository were found.
-                    </div>
-                  ) : null
+                        ))}
+                      </div>
+                    ) : !isLoading &&
+                      selectedAccountId &&
+                      inventoryState !== "partial" &&
+                      unconnectedWorkers.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        No available Workers were found.
+                      </div>
+                    ) : null}
+                    {unconnectedWorkers.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isLoading || isSubmitting}
+                        onClick={() => onModeChange("connect")}
+                      >
+                        Connect another Worker
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="grid gap-3">
                     <Input
@@ -1517,21 +1655,33 @@ export function VaultDashboardCloudflareDialog({
           <Button
             variant="outline"
             onClick={() => {
-              onOpenChange(false);
+              if (mode === "connect") {
+                onConnectWorkerBack();
+              } else {
+                onOpenChange(false);
+              }
             }}
             disabled={isSubmitting}
           >
-            Cancel
+            {mode === "connect"
+              ? "Back"
+              : didAddWorker
+                ? selectedWorkerTags.length > 0
+                  ? "Close"
+                  : "Done"
+                : "Cancel"}
           </Button>
           <Button onClick={onSubmit} disabled={submitDisabled}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {repairWorker
               ? "Configure Workers Builds"
-              : mode === "existing"
-                ? selectedWorkerTags.length === 0
-                  ? "Add Workers"
-                  : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
-                : "Create Worker"}
+              : mode === "connect"
+                ? "Connect and add"
+                : mode === "existing"
+                  ? selectedWorkerTags.length === 0
+                    ? "Add Workers"
+                    : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
+                  : "Create Worker"}
           </Button>
         </DialogFooter>
       </AppDialogContent>
@@ -3356,6 +3506,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const discoverCloudflareWorkers = useAction(api.vault.cloudflare.discoverWorkers);
   const attachCloudflareWorkers = useAction(api.vault.cloudflare.attachWorkers);
+  const connectCloudflareWorker = useAction(api.vault.cloudflare.connectWorker);
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
   const detachCloudflareWorker = useAction(api.vault.cloudflare.detachWorker);
   const detachConvexProject = useAction(api.vault.convex.detachProject);
@@ -3491,12 +3642,14 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     connectMode: cloudflareConnectMode,
     createRootDirectory: cloudflareCreateRootDirectory,
     createWorkerName: cloudflareCreateWorkerName,
+    didAddWorker: didAddCloudflareWorker,
     error: cloudflareDialogError,
     inventoryState: cloudflareInventoryState,
     isLoadingResources: isLoadingCloudflareResources,
     isSubmittingWorker: isSubmittingCloudflareWorker,
     selectedAccountId: selectedCloudflareAccountId,
     selectedWorkerTags: selectedCloudflareWorkerTags,
+    workerToConnect: cloudflareWorkerToConnect,
     workers: cloudflareWorkers,
   } = cloudflareConnectDialog;
   const {
@@ -3513,6 +3666,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   } = convexConnectDialog;
   const {
     markCommitAttempted,
+    markCloudflareConnectDialogWorkerAdded,
     prepareDeleteDialog,
     resetCloudflareConnectDialogState,
     resetConvexConnectDialogState,
@@ -3527,6 +3681,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setCloudflareConnectDialogSelectedAccountId,
     setCloudflareConnectDialogSubmitting,
     setCloudflareConnectDialogWorkers,
+    setCloudflareConnectDialogWorkerToConnect,
     toggleCloudflareConnectDialogWorker,
     setCommitError,
     setConvexConnectDialogConnectMode,
@@ -4022,6 +4177,19 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           cloudflareBuildsRepairTarget.workerId,
           cloudflareCreateRootDirectory,
         );
+      } else if (cloudflareWorkerToConnect) {
+        const result = await connectCloudflareWorker({
+          vaultId: vaultToConnectCloudflare.id,
+          accountId: selectedCloudflareAccountId,
+          workerName: cloudflareWorkerToConnect.workerName,
+          workerTag: cloudflareWorkerToConnect.workerTag,
+          rootDirectory: cloudflareCreateRootDirectory,
+        });
+        markCloudflareConnectDialogWorkerAdded(cloudflareWorkerToConnect.workerTag);
+        if (result.state === "added_with_notice") {
+          setCloudflareConnectDialogError(result.message);
+        }
+        return;
       } else if (cloudflareConnectMode === "existing") {
         const workers = selectedCloudflareWorkerTags.map((workerTag) => {
           const worker = cloudflareWorkers.find((candidate) => candidate.workerTag === workerTag);
@@ -4571,6 +4739,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         accounts={cloudflareAccounts}
         createRootDirectory={cloudflareCreateRootDirectory}
         createWorkerName={cloudflareCreateWorkerName}
+        didAddWorker={didAddCloudflareWorker}
         error={cloudflareDialogError}
         isLoading={isLoadingCloudflareResources}
         isSubmitting={isSubmittingCloudflareWorker}
@@ -4579,6 +4748,11 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         onAccountChange={handleCloudflareAccountChange}
         onCreateRootDirectoryChange={setCloudflareConnectDialogCreateRootDirectory}
         onCreateWorkerNameChange={setCloudflareConnectDialogCreateWorkerName}
+        onConnectWorker={setCloudflareConnectDialogWorkerToConnect}
+        onConnectWorkerBack={() => {
+          setCloudflareConnectDialogWorkerToConnect(null);
+          setCloudflareConnectDialogConnectMode("existing");
+        }}
         onModeChange={setCloudflareConnectDialogConnectMode}
         onOpenChange={handleConnectCloudflareDialogOpenChange}
         onSubmit={() => {
@@ -4594,6 +4768,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
             : null
         }
         vault={vaultToConnectCloudflare}
+        workerToConnect={cloudflareWorkerToConnect}
         workers={cloudflareWorkers}
       />
     </AppWorkspaceRouteChrome>

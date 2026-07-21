@@ -37,6 +37,7 @@ export const vCloudflareWorkerRepositoryDiscovery = union(
     builds: vCloudflareWorkerBuildTriggerPair,
   }),
   object({ state: literal("not_connected") }),
+  object({ state: literal("connected_elsewhere") }),
   object({
     state: literal("ambiguous"),
     reason: union(
@@ -129,6 +130,25 @@ export const cloudflareAttachWorkersContract = {
   doc: `Re-reads every selected Worker and requires one current root for the vault's immutable
 GitHub repository identity before writing any attachment. The final Samebase mutation is atomic:
 either every selected Worker is attached or none are. Cloudflare configuration is not changed.`,
+} as const;
+
+export const cloudflareConnectWorkerContract = {
+  access: providerConnectionAccess,
+  args: {
+    vaultId: id("vaults"),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
+    rootDirectory: string(),
+  },
+  returns: union(
+    object({ state: literal("ready"), workerId: id("vaultCloudflareWorkers") }),
+    object({
+      state: literal("added_with_notice"),
+      workerId: id("vaultCloudflareWorkers"),
+      message: string(),
+    }),
+  ),
 } as const;
 
 export const cloudflareCreateWorkerContract = {

@@ -1304,12 +1304,13 @@ describe("VaultDashboardCloudflareDialog", () => {
     repositoryName: "demo",
   };
 
-  it("groups selectable Workers by their verified live root and supports multiple selection", () => {
+  it("separates connected selections and keeps them pending after another Worker is added", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="/"
         createWorkerName=""
+        didAddWorker
         error={null}
         isLoading={false}
         isSubmitting={false}
@@ -1318,6 +1319,8 @@ describe("VaultDashboardCloudflareDialog", () => {
         onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
         onSubmit={() => {}}
@@ -1327,6 +1330,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         selectedAccountId="account-1"
         selectedWorkerTags={["root-tag", "web-tag"]}
         vault={vault}
+        workerToConnect={null}
         workers={[
           makeCloudflareDialogWorker({
             workerName: "root-worker",
@@ -1347,9 +1351,14 @@ describe("VaultDashboardCloudflareDialog", () => {
             },
           }),
           makeCloudflareDialogWorker({
+            workerName: "portal-worker",
+            workerTag: "portal-tag",
+            repository: { state: "not_connected" },
+          }),
+          makeCloudflareDialogWorker({
             workerName: "other-repository",
             workerTag: "other-tag",
-            repository: { state: "not_connected" },
+            repository: { state: "connected_elsewhere" },
           }),
         ]}
       />,
@@ -1360,24 +1369,31 @@ describe("VaultDashboardCloudflareDialog", () => {
     expect(markup).toContain("apps/web");
     expect(markup).toContain("web-worker");
     expect(markup).toContain("Add 2 Workers");
+    expect(markup).toContain("Close");
+    expect(markup).toContain("Connect another Worker");
+    expect(markup).not.toContain("Done");
+    expect(markup).not.toContain("portal-worker");
     expect(markup).not.toContain("other-repository");
     expect(markup).not.toContain("App root");
   });
 
-  it("shows the repository root only when creating a Worker", () => {
+  it("asks for one repository root before connecting and adding an unconnected Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
-        createRootDirectory="apps/web"
-        createWorkerName="web-worker"
+        createRootDirectory="apps/portal"
+        createWorkerName=""
+        didAddWorker={false}
         error={null}
         isLoading={false}
         isSubmitting={false}
         inventoryState="complete"
-        mode="create"
+        mode="connect"
         onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
         onSubmit={() => {}}
@@ -1387,6 +1403,54 @@ describe("VaultDashboardCloudflareDialog", () => {
         selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
+        workerToConnect={{ workerName: "portal-worker", workerTag: "portal-tag" }}
+        workers={[
+          makeCloudflareDialogWorker({
+            workerName: "portal-worker",
+            workerTag: "portal-tag",
+            repository: { state: "not_connected" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Connect a Worker");
+    expect(markup).toContain("portal-worker");
+    expect(markup).toContain("Repository root");
+    expect(markup).toContain('value="apps/portal"');
+    expect(markup).toContain("Connect and add");
+    expect(markup).toContain("Back");
+    expect(markup).not.toContain("Cloudflare account");
+    expect(markup).not.toContain(">Existing<");
+  });
+
+  it("shows the repository root only when creating a Worker", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        createRootDirectory="apps/web"
+        createWorkerName="web-worker"
+        didAddWorker={false}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState="complete"
+        mode="create"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        open
+        repairWorker={null}
+        selectedAccountId="account-1"
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
         workers={[]}
       />,
     );
@@ -1402,6 +1466,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         accounts={[]}
         createRootDirectory="apps/web"
         createWorkerName=""
+        didAddWorker={false}
         error={null}
         isLoading={false}
         isSubmitting={false}
@@ -1410,6 +1475,8 @@ describe("VaultDashboardCloudflareDialog", () => {
         onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
         onSubmit={() => {}}
@@ -1419,13 +1486,14 @@ describe("VaultDashboardCloudflareDialog", () => {
         selectedAccountId=""
         selectedWorkerTags={[]}
         vault={vault}
+        workerToConnect={null}
         workers={[]}
       />,
     );
 
     expect(markup).toContain("Configure web-worker Builds");
     expect(markup).toContain("Choose the repository root Cloudflare should build");
-    expect(markup).toContain('aria-label="Repository root"');
+    expect(markup).toContain("Repository root");
     expect(markup).toContain('value="apps/web"');
     expect(markup).toContain("Configure Workers Builds");
     expect(markup).not.toContain(">Existing<");
@@ -1439,6 +1507,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="/"
         createWorkerName=""
+        didAddWorker={false}
         error={null}
         isLoading={false}
         isSubmitting={false}
@@ -1447,6 +1516,8 @@ describe("VaultDashboardCloudflareDialog", () => {
         onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
         onSubmit={() => {}}
@@ -1456,6 +1527,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
+        workerToConnect={null}
         workers={[]}
       />,
     );

@@ -425,6 +425,20 @@ test("vault dashboard fixture (add Cloudflare dialog)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+
+  await connectDialog.getByRole("button", { name: "Connect another Worker" }).click();
+  const workerDialog = page.getByRole("dialog", { name: "Connect a Worker" });
+  await workerDialog.getByLabel("Worker").click();
+  await page.getByRole("option", { name: "app-workers", exact: true }).click();
+  await expect(workerDialog.getByLabel("Repository root")).toHaveValue("/");
+  await workerDialog.getByLabel("Repository root").fill("apps/portal");
+  await expect(workerDialog.getByRole("button", { name: "Connect and add" })).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-unconnected-worker.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (add Cloudflare Workers mobile)", async ({ browser }, testInfo) => {

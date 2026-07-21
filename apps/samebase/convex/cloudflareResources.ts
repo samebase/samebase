@@ -235,6 +235,7 @@ export type CloudflareWorkerRepositoryDiscovery =
       builds: CloudflareWorkerBuildTriggerPair;
     }
   | { state: "not_connected" }
+  | { state: "connected_elsewhere" }
   | {
       state: "ambiguous";
       reason:
@@ -571,14 +572,16 @@ export function classifyCloudflareWorkerRepositoryDiscovery(args: {
   expectedRepoId: string;
   defaultBranch: string;
 }): CloudflareWorkerRepositoryDiscovery {
+  const activeTriggers = args.triggers.filter((trigger) => !trigger.deleted_on);
+  if (activeTriggers.length === 0) {
+    return { state: "not_connected" };
+  }
+
   const matchingTriggers: CloudflareBuildTrigger[] = [];
   let ambiguousReason:
     | Extract<CloudflareWorkerRepositoryDiscovery, { state: "ambiguous" }>["reason"]
     | null = null;
-  for (const trigger of args.triggers) {
-    if (trigger.deleted_on) {
-      continue;
-    }
+  for (const trigger of activeTriggers) {
     const repoConnection = trigger.repo_connection;
     if (!repoConnection || !readTrimmedCloudflareString(repoConnection.repo_id)) {
       ambiguousReason = "missing_repo_id";
@@ -609,7 +612,7 @@ export function classifyCloudflareWorkerRepositoryDiscovery(args: {
     return { state: "ambiguous", reason: ambiguousReason };
   }
   if (matchingTriggers.length === 0) {
-    return { state: "not_connected" };
+    return { state: "connected_elsewhere" };
   }
 
   const rootDirectories = new Set(
@@ -1259,28 +1262,6 @@ async function listBuildTriggers(
   );
 }
 
-async function deleteBuildTrigger(
-  args: {
-    token: string;
-    accountId: string;
-    triggerUuid: string;
-  } & CloudflareApiCallOptions,
-): Promise<void> {
-  await requestCloudflareApi({
-    token: args.token,
-    method: "DELETE",
-    path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
-    transport: args.transport,
-    params: {
-      path: {
-        account_id: args.accountId,
-        trigger_uuid: args.triggerUuid,
-      },
-    },
-    recordApiCall: args.recordApiCall,
-  });
-}
-
 type CloudflareBuildTriggerRepositoryMatch = "conflict" | "target" | "unknown";
 
 function classifyBuildTriggerRepository(args: {
@@ -1353,7 +1334,9 @@ function selectBuildTriggerForRepository(args: {
       `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: Cloudflare did not return enough repository identity for the existing trigger. Retry after Cloudflare reports its repository connection, or disconnect the trigger in Cloudflare.`,
     );
   }
-  return candidate;
+  throw new Error(
+    `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: it is connected to another or deleted repository. Disconnect the trigger in Cloudflare and retry.`,
+  );
 }
 
 function readExpectedBuildTriggerUuid(args: {
@@ -1457,48 +1440,9 @@ async function upsertBuildTrigger(
       });
       return existingTriggerUuid;
     }
-    if (repositoryMatch === "unknown") {
-      throw new Error(
-        `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: Cloudflare did not return enough repository identity for the existing trigger. Retry after Cloudflare reports its repository connection, or disconnect the trigger in Cloudflare.`,
-      );
-    }
-
-    const currentTriggers = await listBuildTriggers({
-      token: args.token,
-      accountId: args.accountId,
-      workerTag: args.workerTag,
-      transport: args.transport,
-      recordApiCall: args.recordApiCall,
-    });
-    const currentTrigger = currentTriggers.find(
-      (trigger) => !trigger.deleted_on && trigger.trigger_uuid === existingTriggerUuid,
+    throw new Error(
+      `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: its repository connection is not the target repository.`,
     );
-    if (currentTrigger) {
-      const currentRepositoryMatch = classifyBuildTriggerRepository({
-        trigger: currentTrigger,
-        expectedRepoId: args.expectedRepoId,
-        expectedRepoConnectionUuid: args.repoConnectionUuid,
-      });
-      if (
-        currentRepositoryMatch !== "conflict" ||
-        !matchesTriggerKind({
-          trigger: currentTrigger,
-          kind: args.kind,
-          defaultBranch: args.defaultBranch,
-        })
-      ) {
-        throw new Error(
-          `Cannot replace ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: its repository binding changed during configuration. Retry the operation.`,
-        );
-      }
-      await deleteBuildTrigger({
-        token: args.token,
-        accountId: args.accountId,
-        triggerUuid: existingTriggerUuid,
-        transport: args.transport,
-        recordApiCall: args.recordApiCall,
-      });
-    }
   }
 
   try {
@@ -1702,6 +1646,7 @@ type ConfigureCloudflareWorkerBuildsArgs = {
   cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
   workerTag: string;
+  existingBuilds: "preserve_repository" | "require_unconnected";
   buildConfig: CloudflareBuildConfig;
   transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
@@ -1717,6 +1662,7 @@ type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
   vaultId: string;
   workerName: string;
   workerTag: string;
+  existingBuilds: "preserve_repository" | "require_unconnected";
   cloudflareToken: string;
   cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
@@ -1972,9 +1918,35 @@ export async function readCloudflareWorkerConvexBuildAccess(
   return verifyConvexBuildAccess({ productionEnvVars, previewEnvVars });
 }
 
+function assertCloudflareWorkerHasNoBuildsConnection(args: {
+  triggers: readonly CloudflareBuildTrigger[];
+  workerTag: string;
+}): void {
+  const activeTriggers = args.triggers.filter((trigger) => !trigger.deleted_on);
+  if (activeTriggers.length > 0) {
+    throw new Error(
+      `Cannot connect Cloudflare Worker ${args.workerTag}: it already has a Workers Builds connection. Scan the account again.`,
+    );
+  }
+}
+
 async function configureCloudflareWorkerBuilds(
   args: ConfigureCloudflareWorkerBuildsArgs,
 ): Promise<CloudflareConnectedWorkersBuilds> {
+  if (args.existingBuilds === "require_unconnected") {
+    const priorTriggers = await listBuildTriggers({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      workerTag: args.workerTag,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    });
+    assertCloudflareWorkerHasNoBuildsConnection({
+      triggers: priorTriggers,
+      workerTag: args.workerTag,
+    });
+  }
+
   const repoConnectionUuid = await ensureRepositoryConnection({
     token: args.cloudflareToken,
     accountId: args.accountId,
@@ -1993,6 +1965,12 @@ async function configureCloudflareWorkerBuilds(
     transport: args.transport,
     recordApiCall: args.recordApiCall,
   });
+  if (args.existingBuilds === "require_unconnected") {
+    assertCloudflareWorkerHasNoBuildsConnection({
+      triggers: existingTriggers,
+      workerTag: args.workerTag,
+    });
+  }
 
   const existingProductionTrigger = selectBuildTriggerForRepository({
     triggers: existingTriggers,
@@ -2093,6 +2071,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
       cloudflareAuthMethod: args.cloudflareAuthMethod,
       accountId: args.accountId,
       workerTag: args.workerTag,
+      existingBuilds: args.existingBuilds,
       buildConfig: args.buildConfig,
       transport,
       recordApiCall: args.recordApiCall,

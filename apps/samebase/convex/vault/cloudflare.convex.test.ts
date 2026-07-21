@@ -182,6 +182,59 @@ function stubExistingWorkersProvider(
   return fetchMock;
 }
 
+function stubConnectWorkerProvider(
+  failure: "initial_build" | "preview_trigger" | "production_trigger",
+): ReturnType<typeof vi.fn> {
+  let triggers: ReturnType<typeof buildTriggers> = [];
+  let triggerCreateCount = 0;
+  const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+    if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
+      return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
+    }
+    if (url.pathname === "/client/v4/accounts") {
+      return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+    }
+    if (url.pathname.endsWith("/workers/workers/portal")) {
+      return cloudflareResponse(workerDetails("portal", "portal-tag"));
+    }
+    if (url.pathname.endsWith("/builds/workers/portal-tag/triggers")) {
+      return cloudflareResponse(triggers);
+    }
+    if (url.pathname.endsWith("/builds/repos/connections")) {
+      return cloudflareResponse({ repo_connection_uuid: "repo-connection" });
+    }
+    if (url.pathname.endsWith("/builds/tokens")) {
+      return cloudflareResponse([
+        {
+          build_token_uuid: "build-token",
+          build_token_name: "samebase build token",
+          cloudflare_token_id: "opaque-oauth-token-id",
+        },
+      ]);
+    }
+    if (method === "POST" && url.pathname.endsWith("/builds/triggers")) {
+      triggerCreateCount += 1;
+      if (
+        (failure === "production_trigger" && triggerCreateCount === 1) ||
+        (failure === "preview_trigger" && triggerCreateCount === 2)
+      ) {
+        return cloudflareResponse(null, 500);
+      }
+      const trigger = buildTriggers("apps/portal")[triggerCreateCount - 1];
+      triggers = [...triggers, trigger];
+      return cloudflareResponse({ trigger_uuid: trigger.trigger_uuid });
+    }
+    if (method === "POST" && url.pathname.endsWith("/builds")) {
+      return failure === "initial_build" ? cloudflareResponse(null, 500) : cloudflareResponse({});
+    }
+    throw new Error(`Unexpected provider request: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 describe("vault Cloudflare Worker attachments", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -217,6 +270,60 @@ describe("vault Cloudflare Worker attachments", () => {
       ]),
     );
   });
+
+  it.each([
+    {
+      failure: "production_trigger" as const,
+      expectedMessage: "Use Configure Workers Builds under Needs attention.",
+    },
+    {
+      failure: "preview_trigger" as const,
+      expectedMessage:
+        "portal was added at apps/portal, but its Builds setup is incomplete. Use Configure Workers Builds on the Worker.",
+    },
+    {
+      failure: "initial_build" as const,
+      expectedMessage:
+        "portal was added and GitHub Builds is connected, but Cloudflare reported an error after setup.",
+    },
+  ])(
+    "keeps an existing Worker attached after a $failure failure and reports its observed recovery path",
+    async ({ failure, expectedMessage }) => {
+      const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+      stubConnectWorkerProvider(failure);
+
+      await expect(
+        asUser.action(api.vault.cloudflare.connectWorker, {
+          vaultId,
+          accountId,
+          workerName: "portal",
+          workerTag: "portal-tag",
+          rootDirectory: "apps/portal",
+        }),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          state: "added_with_notice",
+          message: expect.stringContaining(expectedMessage),
+        }),
+      );
+      await expect(
+        t.run(
+          async (ctx) =>
+            await ctx.db
+              .query("vaultCloudflareWorkers")
+              .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+              .unique(),
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          userId,
+          workerName: "portal",
+          workerTag: "portal-tag",
+          origin: "selected_existing",
+        }),
+      );
+    },
+  );
 
   it("rejects the whole selection when one live Worker placement becomes ambiguous", async () => {
     const { asUser, t, vaultId } = await createCloudflareConnectedVault();
