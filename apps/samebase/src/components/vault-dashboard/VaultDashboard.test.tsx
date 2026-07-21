@@ -1161,6 +1161,39 @@ describe("VaultDashboardConvexDialog", () => {
     expect(markup).not.toContain("App root");
   });
 
+  it("keeps the discovered selection retryable after a submit error", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardConvexDialog
+        configs={configs}
+        createConfigPath="convex.json"
+        createProjectName=""
+        projects={projects}
+        error="Could not attach the selected Convex project."
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onCreateConfigPathChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectConfigPathChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
+        open
+        repairProject={null}
+        selectedProjectConfigPaths={{ "project-1": "apps/web/convex.json" }}
+        sourceCompleteness="complete"
+        vault={vault}
+      />,
+    );
+    const addButton = markup.match(/<button[^>]*>Add 1 project<\/button>/)?.[0];
+
+    expect(markup).toContain("Could not attach the selected Convex project.");
+    expect(markup).toContain(">Web<");
+    expect(addButton).toBeDefined();
+    expect(addButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
   it("shows empty discovery messages only after a successful complete scan", () => {
     const renderDiscoveryState = ({
       configs,

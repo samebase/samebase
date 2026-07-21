@@ -555,6 +555,26 @@ test("vault dashboard fixture (add Convex dialog)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (retry Convex dialog after error)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 640 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-convex-error");
+
+  const connectDialog = page.getByRole("dialog", {
+    name: "Add Convex to samebase/app",
+  });
+  await expect(
+    connectDialog.getByText("Could not attach the selected Convex project."),
+  ).toBeVisible();
+  await expect(connectDialog.getByRole("checkbox", { name: /samebase-app/ })).toBeChecked();
+  await expect(connectDialog.getByRole("button", { name: "Add 1 project" })).toBeEnabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-convex-error.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {

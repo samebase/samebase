@@ -1224,6 +1224,103 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("keeps provisioned Convex cleanup available after vault deletion fails", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/delete-retry",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: provisioningRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "delete-retry",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 2,
+      });
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        userId,
+        convexConfigPath: "convex.json",
+        teamId: "team-id",
+        projectId: "project-id",
+        origin: "provisioned",
+        createdAt: 3,
+      });
+      const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "failed",
+        userId,
+        vaultId,
+        repositoryFullName: "ada/delete-retry",
+        createdAt: 4,
+        updatedAt: 5,
+        attempt: { kind: "initial" },
+        workflow: { state: "started", workflowId: "delete-workflow" },
+        currentStep: "delete_convex",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "samebase_managed_repository",
+              ghRepoId: "123",
+              owner: "ada",
+              name: "delete-retry",
+              repositoryFullName: "ada/delete-retry",
+            },
+            codespaces: { action: "skip", reason: "not_requested" },
+            convex: { action: "delete_project", teamId: "team-id", projectId: "project-id" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+        lastError: "Convex deletion failed.",
+        completedAt: 5,
+      });
+      await ctx.db.patch(vaultId, {
+        deletion: { state: "delete_failed", runId: deletionRunId, failedAt: 5 },
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      state: "failed",
+      deletion: { state: "delete_failed" },
+      hasConvexProvision: true,
+      canRemoveConvexProvision: true,
+    });
+  });
+
   it("keeps the vault row until branch-heavy local cleanup finishes", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

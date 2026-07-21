@@ -188,6 +188,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-connect-cloudflare-open",
   "vault-dashboard-connect-cloudflare-mobile-shell-open",
   "vault-dashboard-connect-convex-open",
+  "vault-dashboard-connect-convex-error",
   "vault-dashboard-delete-open",
   "vault-dashboard-infra-setup",
   "vault-dashboard-cloudflare-github-app-auth-failure",
@@ -388,6 +389,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-connect-cloudflare-open" ||
     mode === "vault-dashboard-connect-cloudflare-mobile-shell-open" ||
     mode === "vault-dashboard-connect-convex-open" ||
+    mode === "vault-dashboard-connect-convex-error" ||
     mode === "vault-dashboard-delete-open" ||
     mode === "vault-dashboard-infra-setup" ||
     mode === "vault-dashboard-cloudflare-github-app-auth-failure" ||

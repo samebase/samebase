@@ -564,6 +564,9 @@ async function readUserVaults(
       );
       const hasConvexProvision = convexProjects.length > 0;
       const hasCloudflareProvision = cloudflareWorkers.length > 0;
+      const canRemoveConvexProvision = convexProjects.some(
+        (project) => project.origin === "provisioned",
+      );
       const canRemoveCloudflareProvision = cloudflareWorkers.some(
         (worker) => worker.origin === "provisioned",
       );
@@ -603,7 +606,7 @@ async function readUserVaults(
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
-          canRemoveConvexProvision: false,
+          canRemoveConvexProvision,
           canRemoveCloudflareProvision,
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexProjects: convexProjectSummaries,
@@ -637,9 +640,6 @@ async function readUserVaults(
       const providerSetup = hasUsableDefaultBranchTree
         ? await resolveProviderSetupSummary(ctx, vault, convexProjects, cloudflareWorkers)
         : { status: "not_applicable" as const };
-      const canRemoveConvexProvision = convexProjects.some(
-        (project) => project.origin === "provisioned",
-      );
       return {
         _id: vault._id,
         _creationTime: vault._creationTime,

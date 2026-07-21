@@ -1141,12 +1141,11 @@ export function VaultDashboardConvexDialog({
 }) {
   const configPaths = configs.map((config) => config.convexConfigPath);
   const sortedProjects = useMemo(() => [...projects].sort(compareConvexProjectOption), [projects]);
-  const discoveryResultsAvailable = !isLoading && sourceCompleteness !== null && !error;
+  const discoveryResultsAvailable = !isLoading && sourceCompleteness !== null;
   const selectedProjectCount = Object.keys(selectedProjectConfigPaths).length;
   const submitDisabled =
     isLoading ||
     isSubmitting ||
-    Boolean(error) ||
     configPaths.length === 0 ||
     (repairProject
       ? !createConfigPath

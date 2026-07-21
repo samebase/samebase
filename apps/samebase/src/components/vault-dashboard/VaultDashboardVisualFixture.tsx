@@ -50,6 +50,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-connect-cloudflare-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-connect-convex-open"
+  | "vault-dashboard-connect-convex-error"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
   | "vault-dashboard-cloudflare-github-app-auth-failure"
@@ -1660,7 +1661,13 @@ function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
   );
 }
 
-function VaultDashboardConnectConvexOpenFixture() {
+function VaultDashboardConnectConvexOpenFixture({
+  error,
+  selectedProjectConfigPaths,
+}: {
+  error: string | null;
+  selectedProjectConfigPaths: Readonly<Record<string, string | undefined>>;
+}) {
   return (
     <div
       data-testid="vault-dashboard-visual-fixture"
@@ -1725,7 +1732,7 @@ function VaultDashboardConnectConvexOpenFixture() {
               workerReferences: [],
             },
           ]}
-          error={null}
+          error={error}
           isLoading={false}
           isSubmitting={false}
           mode="existing"
@@ -1738,7 +1745,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           onSubmit={() => {}}
           open={true}
           repairProject={null}
-          selectedProjectConfigPaths={{}}
+          selectedProjectConfigPaths={selectedProjectConfigPaths}
           sourceCompleteness="complete"
           vault={{
             id: fakeVaultId(),
@@ -2096,7 +2103,16 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
   }
 
   if (mode === "vault-dashboard-connect-convex-open") {
-    return <VaultDashboardConnectConvexOpenFixture />;
+    return <VaultDashboardConnectConvexOpenFixture error={null} selectedProjectConfigPaths={{}} />;
+  }
+
+  if (mode === "vault-dashboard-connect-convex-error") {
+    return (
+      <VaultDashboardConnectConvexOpenFixture
+        error="Could not attach the selected Convex project."
+        selectedProjectConfigPaths={{ "jaded-heron-123": "convex.json" }}
+      />
+    );
   }
 
   if (mode === "vault-dashboard-delete-open") {
