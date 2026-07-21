@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
+import { VaultRepositoryRootInput } from "@/components/vault-dashboard/VaultRepositoryRootInput";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
@@ -146,6 +147,7 @@ const VAULT_BRANCH_LOAD_MORE_PAGE_SIZE = 25;
 const VAULT_BRANCH_ROW_ESTIMATE_PX = 92;
 const VAULT_BRANCH_LOADER_ROW_KEY = "vault-branch-loader";
 const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
+const EMPTY_REPOSITORY_FOLDER_SUGGESTIONS: readonly string[] = [];
 
 export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
@@ -464,7 +466,7 @@ function useVaultDashboardLocalStore() {
           ...state.cloudflareConnectDialog,
           connectMode,
           createRootDirectory:
-            connectMode === "connect" ? "/" : state.cloudflareConnectDialog.createRootDirectory,
+            connectMode === "connect" ? "" : state.cloudflareConnectDialog.createRootDirectory,
           error: null,
           workerToConnect: null,
         },
@@ -484,7 +486,7 @@ function useVaultDashboardLocalStore() {
         cloudflareConnectDialog: {
           ...state.cloudflareConnectDialog,
           createRootDirectory: workerToConnect
-            ? "/"
+            ? ""
             : state.cloudflareConnectDialog.createRootDirectory,
           error: null,
           workerToConnect,
@@ -1350,6 +1352,7 @@ export function VaultDashboardCloudflareDialog({
   createWorkerName,
   didAddWorker,
   error,
+  folderSuggestions,
   isLoading,
   isSubmitting,
   inventoryState,
@@ -1376,6 +1379,7 @@ export function VaultDashboardCloudflareDialog({
   createWorkerName: string;
   didAddWorker: boolean;
   error: string | null;
+  folderSuggestions: readonly string[];
   isLoading: boolean;
   isSubmitting: boolean;
   inventoryState: CloudflareInventoryState | null;
@@ -1486,16 +1490,12 @@ export function VaultDashboardCloudflareDialog({
         {vault ? (
           <div className="space-y-3">
             {repairWorker ? (
-              <div className="grid gap-1.5">
-                <Label htmlFor="cloudflare-repository-root">Repository root</Label>
-                <Input
-                  id="cloudflare-repository-root"
-                  value={createRootDirectory}
-                  onChange={(event) => onCreateRootDirectoryChange(event.target.value)}
-                  disabled={isSubmitting}
-                  placeholder="/"
-                />
-              </div>
+              <VaultRepositoryRootInput
+                disabled={isSubmitting}
+                folderSuggestions={folderSuggestions}
+                onValueChange={onCreateRootDirectoryChange}
+                value={createRootDirectory}
+              />
             ) : mode === "connect" ? (
               <div className="grid gap-3">
                 <div className="grid gap-1.5">
@@ -1529,16 +1529,12 @@ export function VaultDashboardCloudflareDialog({
                     </AppSelectContent>
                   </Select>
                 </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="cloudflare-repository-root">Repository root</Label>
-                  <Input
-                    id="cloudflare-repository-root"
-                    value={createRootDirectory}
-                    onChange={(event) => onCreateRootDirectoryChange(event.target.value)}
-                    disabled={isSubmitting}
-                    placeholder="/"
-                  />
-                </div>
+                <VaultRepositoryRootInput
+                  disabled={isSubmitting}
+                  folderSuggestions={folderSuggestions}
+                  onValueChange={onCreateRootDirectoryChange}
+                  value={createRootDirectory}
+                />
               </div>
             ) : (
               <>
@@ -1637,12 +1633,11 @@ export function VaultDashboardCloudflareDialog({
                       disabled={isLoading || isSubmitting}
                       placeholder="Worker name"
                     />
-                    <Input
-                      value={createRootDirectory}
-                      onChange={(event) => onCreateRootDirectoryChange(event.target.value)}
+                    <VaultRepositoryRootInput
                       disabled={isLoading || isSubmitting}
-                      aria-label="Repository root"
-                      placeholder="/"
+                      folderSuggestions={folderSuggestions}
+                      onValueChange={onCreateRootDirectoryChange}
+                      value={createRootDirectory}
                     />
                   </div>
                 )}
@@ -3749,6 +3744,10 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       repositoryName: addCloudflareWorkerDialogVault.ghRepoName,
     };
   }, [addCloudflareWorkerDialogVault]);
+  const cloudflareRepositoryFolderSuggestions = useConvexQuery(
+    api.vault.dashboard.listVaultRepositoryFolderSuggestions,
+    vaultToConnectCloudflare ? { vaultId: vaultToConnectCloudflare.id } : "skip",
+  );
   const cloudflareBuildsRepairWorker =
     vaultToConnectCloudflare &&
     cloudflareBuildsRepairTarget?.vaultId === vaultToConnectCloudflare.id
@@ -4741,6 +4740,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         createWorkerName={cloudflareCreateWorkerName}
         didAddWorker={didAddCloudflareWorker}
         error={cloudflareDialogError}
+        folderSuggestions={
+          cloudflareRepositoryFolderSuggestions ?? EMPTY_REPOSITORY_FOLDER_SUGGESTIONS
+        }
         isLoading={isLoadingCloudflareResources}
         isSubmitting={isSubmittingCloudflareWorker}
         inventoryState={cloudflareInventoryState}

@@ -1312,6 +1312,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         createWorkerName=""
         didAddWorker
         error={null}
+        folderSuggestions={[]}
         isLoading={false}
         isSubmitting={false}
         inventoryState="complete"
@@ -1385,6 +1386,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         createWorkerName=""
         didAddWorker={false}
         error={null}
+        folderSuggestions={["apps", "apps/portal", "packages/shared"]}
         isLoading={false}
         isSubmitting={false}
         inventoryState="complete"
@@ -1432,6 +1434,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         createWorkerName="web-worker"
         didAddWorker={false}
         error={null}
+        folderSuggestions={[]}
         isLoading={false}
         isSubmitting={false}
         inventoryState="complete"
@@ -1455,7 +1458,8 @@ describe("VaultDashboardCloudflareDialog", () => {
       />,
     );
 
-    expect(markup).toContain('aria-label="Repository root"');
+    expect(markup).toContain('role="combobox"');
+    expect(markup).toContain("Repository root");
     expect(markup).toContain('value="apps/web"');
     expect(markup).toContain("Create Worker");
   });
@@ -1468,6 +1472,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         createWorkerName=""
         didAddWorker={false}
         error={null}
+        folderSuggestions={[]}
         isLoading={false}
         isSubmitting={false}
         inventoryState={null}
@@ -1509,6 +1514,7 @@ describe("VaultDashboardCloudflareDialog", () => {
         createWorkerName=""
         didAddWorker={false}
         error={null}
+        folderSuggestions={[]}
         isLoading={false}
         isSubmitting={false}
         inventoryState="partial"

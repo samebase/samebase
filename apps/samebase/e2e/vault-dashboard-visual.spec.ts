@@ -430,9 +430,28 @@ test("vault dashboard fixture (add Cloudflare dialog)", async ({ page }) => {
   const workerDialog = page.getByRole("dialog", { name: "Connect a Worker" });
   await workerDialog.getByLabel("Worker").click();
   await page.getByRole("option", { name: "app-workers", exact: true }).click();
-  await expect(workerDialog.getByLabel("Repository root")).toHaveValue("/");
-  await workerDialog.getByLabel("Repository root").fill("apps/portal");
-  await expect(workerDialog.getByRole("button", { name: "Connect and add" })).toBeVisible();
+  const rootInput = workerDialog.getByLabel("Repository root");
+  await expect(rootInput).toHaveValue("");
+  await rootInput.click();
+  const folderSuggestions = workerDialog.getByRole("listbox", {
+    name: "Repository folder suggestions",
+  });
+  await expect(folderSuggestions.getByRole("option")).toHaveText([
+    "apps",
+    "apps/admin",
+    "apps/atelier",
+    "apps/portal",
+    "packages/shared",
+  ]);
+  await expect(page).toHaveScreenshot("vault-dashboard-cloudflare-root-suggestions.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+  await folderSuggestions.getByRole("option", { name: "apps/portal", exact: true }).click();
+  await expect(rootInput).toHaveValue("apps/portal");
+  await expect(workerDialog.getByRole("button", { name: "Connect and add" })).toBeEnabled();
   await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-unconnected-worker.png", {
     animations: "disabled",
     caret: "hide",
@@ -683,7 +702,7 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
     name: "Configure tmp-my-super-app-234 Builds",
   });
   await expect(repairDialog).toBeVisible();
-  await expect(repairDialog.getByRole("textbox", { name: "Repository root" })).toHaveValue("/");
+  await expect(repairDialog.getByRole("combobox", { name: "Repository root" })).toHaveValue("/");
   await expect(
     repairDialog.getByRole("button", { name: "Configure Workers Builds" }),
   ).toBeVisible();

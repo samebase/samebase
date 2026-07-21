@@ -3,7 +3,12 @@ import { internal } from "../_generated/api";
 import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
-import { isConnectedVault, isSamebaseManagedVault, type ConnectedVault } from "./state";
+import {
+  isConnectedVault,
+  isLiveConnectedVault,
+  isSamebaseManagedVault,
+  type ConnectedVault,
+} from "./state";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { hasBranchStagingChanges } from "./branches";
@@ -320,8 +325,38 @@ const vVaultBranchFilters = object({
   includeDrafts: boolean(),
   includeNoLabel: optional(boolean()),
 });
+const vVaultRepositoryFolderSuggestions = array(string());
 
 // MARK: Public
+
+export const listVaultRepositoryFolderSuggestions = query({
+  access: "access_repo_connect",
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: vVaultRepositoryFolderSuggestions,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== ctx.viewer.userId) {
+      return [];
+    }
+
+    const defaultBranchTree = await ctx.db
+      .query("observations_vaultRepository_branchTrees")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", vault.defaultBranch),
+      )
+      .first();
+    if (!defaultBranchTree) {
+      return [];
+    }
+
+    return defaultBranchTree.treeData.tree
+      .filter((item) => item.type === "tree")
+      .map((item) => item.path)
+      .sort((left, right) => left.localeCompare(right));
+  },
+});
 
 export const getUserVaultBranchFilters = query({
   access: "access_dashboard",

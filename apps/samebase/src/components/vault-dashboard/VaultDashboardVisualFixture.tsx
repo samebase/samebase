@@ -900,6 +900,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           createWorkerName=""
           didAddWorker={false}
           error={null}
+          folderSuggestions={["apps", "apps/web", "packages/shared"]}
           isLoading={false}
           isSubmitting={false}
           inventoryState={null}
@@ -1572,6 +1573,7 @@ function FixtureCloudflareConnectDialog() {
       createWorkerName="atelier"
       didAddWorker={false}
       error={null}
+      folderSuggestions={["apps", "apps/admin", "apps/atelier", "apps/portal", "packages/shared"]}
       isLoading={false}
       isSubmitting={false}
       inventoryState="complete"
@@ -1588,7 +1590,7 @@ function FixtureCloudflareConnectDialog() {
         setMode(nextMode);
         setWorkerToConnect(null);
         if (nextMode === "connect") {
-          setRootDirectory("/");
+          setRootDirectory("");
         }
       }}
       onOpenChange={() => {}}

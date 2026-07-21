@@ -57,6 +57,67 @@ describe("vault dashboard Convex contract", () => {
     ]);
   });
 
+  it("lists observed default-branch folders as repository root suggestions", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    const ids = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      },
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.replace(ids.vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: ids.runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "existing-app",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
+        vaultId: ids.vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        lastTreeRefreshAt: 30,
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [
+            { path: "docs/readme.md", mode: "100644", type: "blob", sha: "docs-readme" },
+            { path: "packages", mode: "040000", type: "tree", sha: "packages" },
+            { path: "apps/portal", mode: "040000", type: "tree", sha: "apps-portal" },
+            { path: "apps", mode: "040000", type: "tree", sha: "apps" },
+          ],
+        },
+      });
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(
+      asUser.query(api.vault.dashboard.listVaultRepositoryFolderSuggestions, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual(["apps", "apps/portal", "packages"]);
+  });
+
   it("exposes initializing existing repository source setup", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
