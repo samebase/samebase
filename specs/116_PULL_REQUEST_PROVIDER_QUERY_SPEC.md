@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-07-21
+- Last updated: 2026-07-22
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -60,7 +60,8 @@ The default-branch surface is not part of this pull request resource query. It i
 always-visible dashboard feature sourced from `vault.defaultBranch`; its production resource group
 joins the stable Worker and Convex attachments to the vault-level live provider observations. No
 default branch, production Worker, or production Convex deployment is fabricated as a pull request
-or copied into pull request state.
+or copied into pull request state. Its attached Convex projects retain Samebase Data links and
+access-gated Schema links for the production deployment.
 
 ## Visible Provider Resources
 
@@ -82,11 +83,22 @@ invalidate that identity. If one requested pull request closes, merges, or disap
 page read and the resource read, only that row becomes unavailable; the rest of the resource batch
 still resolves.
 
-A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, GitHub
-repository id, live normalized Builds root, preview trigger, pull request URL, head SHA, branch, and
-the deploy command reported by both the trigger and build metadata. Samebase does not compare that
-provider-owned command with a locally generated template. If Samebase cannot observe the Worker and
-its Builds repository, the row exposes only stable Worker identity and does not invent a root.
+A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, build UUID,
+GitHub repository id, live normalized Builds root, preview trigger, pull request URL, head SHA,
+branch, and the deploy command reported by both the trigger and build metadata. Samebase does not
+compare that provider-owned command with a locally generated template. If Samebase cannot observe
+the Worker and its Builds repository, the row exposes only stable Worker identity and does not
+invent a root. An available build exposes its state and a direct Cloudflare dashboard link to the
+exact build's logs. That URL is derived from the verified account, Worker, and build identities in
+the same live resource result.
+
+The resource read asks GitHub for check suites filtered to Cloudflare's stable GitHub App id on the
+pull request head commit. A Cloudflare branch preview belongs to a build only when one filtered
+check run has an `externalId` equal to the verified Cloudflare build UUID and names the same Worker.
+The row links the `Preview Alias URL` published by that exact check because it remains stable as new
+commits build on the branch. The version-specific `Preview URL` is not the row's navigation target.
+Samebase never downloads general pull request comments or guesses Cloudflare's alias normalization
+from the branch name. Missing, incomplete, malformed, or contradictory check output fails closed.
 
 A Convex preview belongs to that build only when:
 
@@ -101,6 +113,10 @@ A Convex preview belongs to that build only when:
 
 Failure to prove a relationship yields absent or unavailable presentation state. Names alone never
 create resource ownership.
+
+An available Convex preview exposes both its deployment dashboard and a direct link to that exact
+deployment's Data page. Both links use the same provider URL returned by the verified resource
+result. Samebase does not create a second preview resolver or embedded preview credential flow.
 
 ## Exact Branch Trees
 
@@ -161,6 +177,8 @@ Tests must prove:
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
 - resource links require exact cross-provider identity;
+- an exact Cloudflare build exposes its provider logs link;
+- an exact Cloudflare build check exposes its stable branch preview instead of its version preview;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.
 

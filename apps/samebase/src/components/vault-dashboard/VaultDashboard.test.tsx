@@ -237,10 +237,14 @@ describe("VaultDefaultBranch", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
         <VaultDefaultBranch
+          convexProjects={[]}
           defaultBranch="release/2026 Q3"
           githubBranchUrl="https://github.com/ada/demo/tree/release/2026%20Q3"
+          owner="ada"
           productionRoots={[]}
+          repoName="demo"
           samebaseEditorUrl="/vault/ada/demo/fs/release%2F2026%20Q3"
+          schemaGraphAccessEnabled={false}
         />
       </TestRouterProvider>,
     );
@@ -258,9 +262,19 @@ describe("VaultDefaultBranch", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
         <VaultDefaultBranch
+          convexProjects={[
+            {
+              convexProjectId: fakeConvexProjectId(),
+              convexConfigPath: "apps/web/convex.json",
+              projectId: "demo-project-id",
+            },
+          ]}
           defaultBranch="main"
           githubBranchUrl="https://github.com/ada/demo/tree/main"
+          owner="ada"
+          repoName="demo"
           samebaseEditorUrl="/vault/ada/demo/fs/main"
+          schemaGraphAccessEnabled={true}
           productionRoots={[
             {
               rootDirectory: "apps/api",
@@ -300,7 +314,37 @@ describe("VaultDefaultBranch", () => {
     expect(markup).toContain("apps/web");
     expect(markup).toContain('href="https://web.ada.workers.dev"');
     expect(markup).toContain('href="https://dashboard.convex.dev/t/ada/demo/calm-swan-123"');
+    expect(markup).toContain(`href="/vault/ada/demo/db/main/project/${fakeConvexProjectId()}"`);
+    expect(markup).toContain(`href="/vault/ada/demo/schema/main/project/${fakeConvexProjectId()}"`);
+    expect(markup).toContain("Data: apps/web");
+    expect(markup).toContain("Schema: apps/web");
     expect(markup).not.toContain("PR #");
+  });
+
+  it("keeps Schema gated while retaining Data", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultDefaultBranch
+          convexProjects={[
+            {
+              convexProjectId: fakeConvexProjectId(),
+              convexConfigPath: "convex.json",
+              projectId: "demo-project-id",
+            },
+          ]}
+          defaultBranch="main"
+          githubBranchUrl="https://github.com/ada/demo/tree/main"
+          owner="ada"
+          productionRoots={[]}
+          repoName="demo"
+          samebaseEditorUrl="/vault/ada/demo/fs/main"
+          schemaGraphAccessEnabled={false}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(`href="/vault/ada/demo/db/main/project/${fakeConvexProjectId()}"`);
+    expect(markup).not.toContain("/schema/");
   });
 });
 
@@ -426,6 +470,7 @@ describe("VaultDashboardRepositoryCard", () => {
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
+          schemaGraphAccessEnabled={false}
           cloudflareObservations={makeLoadingCloudflareObservations()}
           cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}
@@ -470,6 +515,7 @@ describe("VaultDashboardRepositoryCard", () => {
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
+          schemaGraphAccessEnabled={false}
           cloudflareObservations={makeLoadingCloudflareObservations()}
           cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{ state: "loading" }}

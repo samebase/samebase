@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
-import type { CloudflareWorkerBuild, CloudflareWorkerVersion } from "../cloudflareResources";
+import type { CloudflareWorkerBuild } from "../cloudflareResources";
 import {
+  cloudflareBuildLogsUrl,
   matchCloudflareWorkerBuild,
   normalizeGitHubPullRequestResourceHeadReads,
   recoverGitHubPullRequestResourceHeadsFromError,
-  resolveCloudflarePreviewUrl,
+  resolveCloudflareBranchPreviewUrl,
   resolveConvexPreviewDeployment,
   validatePullRequestResourceIds,
   type PullRequestResourceHead,
@@ -19,6 +20,22 @@ const head: PullRequestResourceHead = {
   headRepositoryId: "R_base",
   headRefName: "feature/live-truth",
   headRefOid: "abc123",
+  cloudflareChecks: {
+    state: "available",
+    runs: [
+      {
+        name: "Workers Builds: samebase-worker",
+        externalId: "build-1",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+        summary: `
+Build ID: [build-1](https://dash.cloudflare.com/example/build-1)
+Preview URL: https://a1b2c3d4-samebase-worker.samebase.workers.dev
+Preview Alias URL: https://feature-live-truth-samebase-worker.samebase.workers.dev
+`,
+      },
+    ],
+  },
 };
 
 function cloudflareBuild(
@@ -60,20 +77,6 @@ function cloudflareBuild(
       root_directory: rootDirectory,
       trigger_uuid: args.triggerUuid ?? "preview-trigger",
     },
-  };
-}
-
-function cloudflareVersion(args: {
-  createdOn?: string;
-  id?: string;
-  urls?: string[];
-}): CloudflareWorkerVersion {
-  return {
-    created_on: args.createdOn ?? "2026-07-20T10:00:30.000Z",
-    id: args.id ?? "version-1",
-    number: 1,
-    urls: args.urls ?? ["https://a1b2c3d4-samebase-worker.samebase.workers.dev"],
-    usage_model: "standard",
   };
 }
 
@@ -131,6 +134,7 @@ describe("matchCloudflareWorkerBuild", () => {
       }),
     ).toEqual({
       state: "available",
+      buildUuid: "build-1",
       buildState: "success",
       createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
       finishedAt: Date.parse("2026-07-20T10:01:00.000Z"),
@@ -138,6 +142,7 @@ describe("matchCloudflareWorkerBuild", () => {
   });
 
   it.each([
+    ["build UUID", { buildUuid: "" }],
     ["Worker tag", { externalScriptId: "replacement-tag" }],
     ["repository", { repoId: "99" }],
     ["Workers Builds root", { rootDirectory: "apps/docs" }],
@@ -239,47 +244,81 @@ describe("matchCloudflareWorkerBuild", () => {
   });
 });
 
-describe("resolveCloudflarePreviewUrl", () => {
+describe("cloudflareBuildLogsUrl", () => {
+  it("links the verified account, Worker, and build identities to the exact Cloudflare logs", () => {
+    expect(
+      cloudflareBuildLogsUrl({
+        accountId: "account/id",
+        workerName: "samebase worker",
+        buildUuid: "build/id",
+      }),
+    ).toBe(
+      "https://dash.cloudflare.com/account%2Fid/workers/services/view/samebase%20worker/production/builds/build%2Fid",
+    );
+  });
+});
+
+describe("resolveCloudflareBranchPreviewUrl", () => {
   const build = {
+    buildUuid: "build-1",
     buildState: "success" as const,
-    createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
-    finishedAt: Date.parse("2026-07-20T10:01:00.000Z"),
   };
 
-  it("returns Cloudflare's exact URL for the version created by the build", () => {
+  it("returns the branch alias from the exact Cloudflare build check", () => {
     expect(
-      resolveCloudflarePreviewUrl({
-        versions: [cloudflareVersion({})],
+      resolveCloudflareBranchPreviewUrl({
+        checks: head.cloudflareChecks,
         workerName: "samebase-worker",
         build,
       }),
     ).toEqual({
       state: "available",
-      url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
+      url: "https://feature-live-truth-samebase-worker.samebase.workers.dev",
     });
   });
 
-  it("does not guess a preview when no version URL belongs to the build", () => {
+  it("does not guess a branch alias when no check belongs to the build", () => {
     expect(
-      resolveCloudflarePreviewUrl({
-        versions: [
-          cloudflareVersion({ createdOn: "2026-07-20T09:59:59.000Z" }),
-          cloudflareVersion({ urls: [] }),
-        ],
+      resolveCloudflareBranchPreviewUrl({
+        checks: head.cloudflareChecks,
         workerName: "samebase-worker",
-        build,
+        build: { ...build, buildUuid: "build-2" },
       }),
     ).toEqual({ state: "absent" });
   });
 
-  it("refuses ambiguous build versions", () => {
+  it("refuses a check whose Worker identity disagrees", () => {
     expect(
-      resolveCloudflarePreviewUrl({
-        versions: [cloudflareVersion({ id: "version-1" }), cloudflareVersion({ id: "version-2" })],
+      resolveCloudflareBranchPreviewUrl({
+        checks: head.cloudflareChecks,
+        workerName: "other-worker",
+        build,
+      }),
+    ).toEqual({ state: "unavailable", reason: "provider_disagreement" });
+  });
+
+  it("refuses malformed or repeated alias lines", () => {
+    const run = head.cloudflareChecks.state === "available" ? head.cloudflareChecks.runs[0] : null;
+    if (run === null) {
+      throw new Error("Expected available Cloudflare check fixture.");
+    }
+
+    expect(
+      resolveCloudflareBranchPreviewUrl({
+        checks: {
+          state: "available",
+          runs: [
+            {
+              ...run,
+              summary: `Preview Alias URL: https://feature-live-truth-samebase-worker.samebase.workers.dev
+Preview Alias URL: https://other-samebase-worker.samebase.workers.dev`,
+            },
+          ],
+        },
         workerName: "samebase-worker",
         build,
       }),
-    ).toEqual({ state: "unavailable", reason: "version_ambiguous" });
+    ).toEqual({ state: "unavailable", reason: "url_ambiguous" });
   });
 });
 
@@ -294,6 +333,27 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     headRepository: { id: "R_base" },
     headRefName: "feature/live-truth",
     headRefOid: "abc123",
+    commits: {
+      nodes: [
+        {
+          commit: {
+            oid: "abc123",
+            checkSuites: {
+              totalCount: 1,
+              nodes: [
+                {
+                  checkRuns: {
+                    totalCount: 1,
+                    nodes:
+                      head.cloudflareChecks.state === "available" ? head.cloudflareChecks.runs : [],
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
   };
 
   it("derives resource identity from the server-observed GitHub node", () => {
@@ -303,6 +363,39 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
         { ghRepoId: "42", pullRequestIds: ["PR_17"] },
       ),
     ).toEqual([{ state: "available", head }]);
+  });
+
+  it("marks Cloudflare checks unavailable when GitHub truncates the filtered connection", () => {
+    expect(
+      normalizeGitHubPullRequestResourceHeadReads(
+        {
+          nodes: [
+            {
+              ...providerHead,
+              commits: {
+                nodes: [
+                  {
+                    commit: {
+                      ...providerHead.commits.nodes[0].commit,
+                      checkSuites: {
+                        ...providerHead.commits.nodes[0].commit.checkSuites,
+                        totalCount: 2,
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+      ),
+    ).toEqual([
+      {
+        state: "available",
+        head: { ...head, cloudflareChecks: { state: "unavailable" } },
+      },
+    ]);
   });
 
   it("rejects a pull request from another repository", () => {

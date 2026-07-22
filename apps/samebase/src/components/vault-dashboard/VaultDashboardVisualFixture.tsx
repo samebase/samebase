@@ -488,10 +488,15 @@ function fixturePullRequests(
                       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
                       rootDirectory: "apps/samebase",
                       workerName: "samebase-worker",
-                      buildState: "success" as const,
-                      cloudflarePreview: {
+                      cloudflareBuild: {
+                        uuid: "da8f8183-6ef8-4e92-bc32-34c04f117f6f",
+                        state: "success" as const,
+                        logsUrl:
+                          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/da8f8183-6ef8-4e92-bc32-34c04f117f6f",
+                      },
+                      cloudflareBranchPreview: {
                         state: "available" as const,
-                        url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
+                        url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
                       },
                       convexPreview: {
                         state: "available" as const,
@@ -508,8 +513,13 @@ function fixturePullRequests(
                         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
                         rootDirectory: "apps/domain-router",
                         workerName: "domain-router",
-                        buildState: "running" as const,
-                        cloudflarePreview: { state: "absent" as const },
+                        cloudflareBuild: {
+                          uuid: "running-build-1259",
+                          state: "running" as const,
+                          logsUrl:
+                            "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/running-build-1259",
+                        },
+                        cloudflareBranchPreview: { state: "absent" as const },
                         convexPreview: { state: "unavailable" as const },
                       },
                     ]
@@ -591,6 +601,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
     <VaultDashboardView
       deleteModeActive={false}
       developerToolsVisible={false}
+      schemaGraphAccessEnabled={showDefaultProductionResources}
       cloudflareObservations={
         showDefaultProductionResources
           ? LIST_SPACING_CLOUDFLARE_OBSERVATIONS
@@ -674,6 +685,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
+          schemaGraphAccessEnabled={false}
           cloudflareObservations={{
             workers: {
               state: "loaded",
@@ -866,6 +878,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
           <VaultDashboardView
             deleteModeActive={false}
             developerToolsVisible={false}
+            schemaGraphAccessEnabled={false}
             cloudflareObservations={LOADING_CLOUDFLARE_OBSERVATIONS}
             cloudflareWorkerConfigurationActionInFlight={null}
             convexObservations={{ state: "loading" }}
