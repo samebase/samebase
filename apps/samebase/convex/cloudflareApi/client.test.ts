@@ -77,6 +77,63 @@ describe("Cloudflare API response validators", () => {
     ).toBe(true);
   });
 
+  it("accepts observed Workers Builds metadata", () => {
+    const validate =
+      cloudflareApiResponseValidators.GET[
+        "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+      ];
+
+    expect(
+      validate({
+        success: true,
+        errors: [],
+        messages: [],
+        result: [
+          {
+            build_trigger_metadata: {
+              build_trigger_source: "push_event",
+              environment_variables: {
+                SECRET_TOKEN: {
+                  created_on: "2026-07-22T00:00:00Z",
+                  is_secret: true,
+                  value: null,
+                },
+                PUBLIC_VALUE: {
+                  created_on: "2026-07-22T00:00:00Z",
+                  is_secret: false,
+                  value: "production",
+                },
+              },
+            },
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts successful Worker version lists with null message fields", () => {
+    const validate =
+      cloudflareApiResponseValidators.GET[
+        "/accounts/{account_id}/workers/workers/{worker_id}/versions"
+      ];
+
+    expect(
+      validate({
+        success: true,
+        errors: null,
+        messages: null,
+        result: [
+          {
+            created_on: "2026-07-22T00:00:00Z",
+            id: "version-id",
+            number: 17,
+            urls: ["https://a1b2c3d4-samebase.example.workers.dev"],
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
   it("accepts Worker detail domain references without certificate ids", async () => {
     vi.stubGlobal(
       "fetch",

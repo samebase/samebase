@@ -163,6 +163,13 @@ function readOptionalString(record: JsonRecord, key: string): string | undefined
 
 function normalizeCloudflareApiValidationDocument(document: OpenAPI3): AnySchema {
   const normalizedDocument: unknown = structuredClone(document);
+  if (!isRecord(normalizedDocument)) {
+    throw new Error("Failed to clone the Cloudflare API validation schema.");
+  }
+  // Cloudflare's Workers API returns null for the empty `errors` and `messages`
+  // fields in successful responses, while the published schema permits only
+  // arrays.
+  markSchemaNullable(normalizedDocument, "#/components/schemas/workers_messages");
   normalizeOpenApiSchemaKeywords(normalizedDocument);
 
   if (isJsonSchemaDocument(normalizedDocument)) {
@@ -303,6 +310,10 @@ function normalizeObservedCloudflareApiResponseShapes(document: JsonRecord) {
     pointer: "#/components/schemas/workers_Worker/properties/references/properties/domains/items",
     property: "certificate_id",
   });
+  // Workers Builds history returns push_event and response-shaped environment
+  // variable objects, while the upstream metadata schema declares push and a
+  // string map. Patch the schema boundary instead of rewriting provider data.
+  normalizeObservedCloudflareBuildMetadataResponse(document);
   // Workers Builds operation schemas own the concrete result shape. The shared
   // envelope currently says result is an object, which rejects list endpoints
   // whose documented and observed result is an array.
@@ -334,6 +345,47 @@ function markSchemaPropertyOptional(args: {
     throw new Error(`Expected Cloudflare API schema ${args.pointer} to require ${args.property}.`);
   }
   schema["required"] = required.filter((field) => field !== args.property);
+}
+
+function normalizeObservedCloudflareBuildMetadataResponse(document: JsonRecord): void {
+  const triggerSource = readRecordPath(document, [
+    "components",
+    "schemas",
+    "builds_BuildTriggerSource",
+  ]);
+  const publishedTriggerSources = ["push", "pull_request", "manual", "api"];
+  const triggerSources = triggerSource["enum"];
+  if (
+    triggerSource["type"] !== "string" ||
+    !Array.isArray(triggerSources) ||
+    triggerSources.length !== publishedTriggerSources.length ||
+    triggerSources.some((value, index) => value !== publishedTriggerSources[index])
+  ) {
+    throw new Error("Expected the unpatched Cloudflare Builds trigger source schema.");
+  }
+  triggerSource["enum"] = ["push", "push_event", "pull_request", "manual", "api"];
+
+  const metadata = readRecordPath(document, [
+    "components",
+    "schemas",
+    "builds_BuildTriggerMetadataResponse",
+  ]);
+  const properties = readRecordPath(metadata, ["properties"]);
+  const environmentVariables = properties["environment_variables"];
+  if (!isRecord(environmentVariables)) {
+    throw new Error("Expected the Cloudflare Builds metadata environment variable schema.");
+  }
+  const values = environmentVariables["additionalProperties"];
+  if (
+    environmentVariables["type"] !== "object" ||
+    !isRecord(values) ||
+    values["type"] !== "string"
+  ) {
+    throw new Error("Expected the unpatched Cloudflare Builds metadata string map.");
+  }
+  properties["environment_variables"] = {
+    $ref: "#/components/schemas/builds_EnvironmentVariablesResponse",
+  };
 }
 
 /**
