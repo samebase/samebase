@@ -48,6 +48,23 @@ function providerPage() {
                         statusContextCount: 1,
                         checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
                         statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+                        nodes: [
+                          {
+                            __typename: "CheckRun",
+                            name: "checks (24.x)",
+                            status: "COMPLETED",
+                            conclusion: "SUCCESS",
+                            detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
+                            title: null,
+                          },
+                          {
+                            __typename: "StatusContext",
+                            context: "Cloudflare Workers",
+                            state: "SUCCESS",
+                            targetUrl: "https://dash.cloudflare.com/builds/1",
+                            description: "Build succeeded",
+                          },
+                        ],
                       },
                     },
                   },
@@ -107,8 +124,47 @@ describe("normalizeGitHubPullRequestPage", () => {
         statusContextCount: 1,
         checkRunCountsByState: [{ state: "UNKNOWN", count: 1 }],
         statusContextCountsByState: [{ state: "UNKNOWN", count: 1 }],
+        nodes: [
+          {
+            kind: "check_run",
+            name: "checks (24.x)",
+            status: "COMPLETED",
+            conclusion: "SUCCESS",
+            detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
+            title: null,
+          },
+          {
+            kind: "status_context",
+            context: "Cloudflare Workers",
+            state: "SUCCESS",
+            targetUrl: "https://dash.cloudflare.com/builds/1",
+            description: "Build succeeded",
+          },
+        ],
       },
     });
+  });
+
+  it("normalizes individual check states that GitHub adds in the future", () => {
+    const value = providerPage();
+    const nodes =
+      value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup.contexts
+        .nodes;
+    nodes[0].status = "FUTURE_CHECK_STATUS";
+    nodes[0].conclusion = "FUTURE_CHECK_CONCLUSION";
+    nodes[1].state = "FUTURE_STATUS_CONTEXT_STATE";
+
+    expect(
+      normalizeGitHubPullRequestPage(value).repository?.pullRequests.nodes[0].statusCheckRollup
+        ?.contexts.nodes,
+    ).toEqual([
+      expect.objectContaining({
+        kind: "check_run",
+        status: "UNKNOWN",
+        conclusion: "UNKNOWN",
+      }),
+      expect.objectContaining({ kind: "status_context", state: "UNKNOWN" }),
+    ]);
   });
 
   it("preserves GitHub's null repository result", () => {

@@ -817,7 +817,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
       name: "Open pull request 1260 on GitHub",
     }),
   ).toBeVisible();
-  await expect(fixture.getByText("4 passed", { exact: true })).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "4 passed", exact: true })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
   await expect(
     fixture
@@ -978,7 +978,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
       name: "Open pull request 1260 on GitHub",
     }),
   ).toBeVisible();
-  await expect(fixture.getByText("4 passed", { exact: true })).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "4 passed", exact: true })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
   await expect(
     fixture
@@ -986,6 +986,35 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
       .getByText("samebase-worker", { exact: true }),
   ).toBeVisible();
   await expect(fixture.getByRole("link", { name: "precise-otter-1260" })).toBeVisible();
+});
+
+test("vault dashboard fixture (pull request checks popover)", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await fixture.getByRole("button", { name: "4 passed", exact: true }).click();
+
+  const popover = page.locator('[data-slot="popover-content"]');
+  await expect(popover).toBeVisible();
+  await expect(popover.getByText("Pull request checks", { exact: true })).toBeVisible();
+  await expect(
+    popover.getByRole("link", { name: "Open checks (24.x) check details" }),
+  ).toHaveAttribute("href", "https://github.com/samebase/samebase/actions/runs/1/job/2");
+  await expect(
+    popover.getByRole("link", { name: "Open Workers Builds: samebase check details" }),
+  ).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/account-1/workers/services/view/samebase/production/builds/build-1",
+  );
+  await expect(popover.getByText("Deployment completed", { exact: true })).toBeVisible();
+  await expect(popover.getByText("Passed", { exact: true })).toHaveCount(4);
+  await expect(popover).toHaveScreenshot("vault-pull-request-checks-popover.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (sticky repository header)", async ({ page }) => {

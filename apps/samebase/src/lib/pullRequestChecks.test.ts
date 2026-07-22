@@ -31,6 +31,7 @@ describe("summarizePullRequestChecks", () => {
           { state: "NEUTRAL", count: 1 },
         ],
         statusContextCountsByState: [{ state: "FAILURE", count: 1 }],
+        nodes: [],
       },
     } satisfies StatusCheckRollup;
 
@@ -54,6 +55,7 @@ describe("summarizePullRequestChecks", () => {
         statusContextCount: 1,
         checkRunCountsByState: [{ state: "UNKNOWN", count: 1 }],
         statusContextCountsByState: [{ state: "UNKNOWN", count: 1 }],
+        nodes: [],
       },
     } satisfies StatusCheckRollup;
 

@@ -28,6 +28,25 @@ const GITHUB_CHECK_RUN_STATES = [
   "WAITING",
 ] as const;
 const GITHUB_STATUS_STATES = ["ERROR", "EXPECTED", "FAILURE", "PENDING", "SUCCESS"] as const;
+const GITHUB_CHECK_STATUSES = [
+  "REQUESTED",
+  "QUEUED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "WAITING",
+  "PENDING",
+] as const;
+const GITHUB_CHECK_CONCLUSIONS = [
+  "ACTION_REQUIRED",
+  "TIMED_OUT",
+  "CANCELLED",
+  "FAILURE",
+  "SUCCESS",
+  "NEUTRAL",
+  "SKIPPED",
+  "STARTUP_FAILURE",
+  "STALE",
+] as const;
 const UNKNOWN_GITHUB_STATE = "UNKNOWN" as const;
 const checkRunState = union(
   ...[...GITHUB_CHECK_RUN_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
@@ -35,12 +54,36 @@ const checkRunState = union(
 const statusState = union(
   ...[...GITHUB_STATUS_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
 );
+const checkStatus = union(
+  ...[...GITHUB_CHECK_STATUSES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
+);
+const checkConclusion = union(
+  ...[...GITHUB_CHECK_CONCLUSIONS, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
+);
+const checkContext = union(
+  object({
+    kind: literal("check_run"),
+    name: string(),
+    status: checkStatus,
+    conclusion: union(vNull(), checkConclusion),
+    detailsUrl: union(vNull(), string()),
+    title: union(vNull(), string()),
+  }),
+  object({
+    kind: literal("status_context"),
+    context: string(),
+    state: statusState,
+    targetUrl: union(vNull(), string()),
+    description: union(vNull(), string()),
+  }),
+);
 const checkCountFields = {
   totalCount: number(),
   checkRunCount: number(),
   statusContextCount: number(),
   checkRunCountsByState: array(object({ state: checkRunState, count: number() })),
   statusContextCountsByState: array(object({ state: statusState, count: number() })),
+  nodes: array(checkContext),
 };
 const vStatusCheckRollup = union(
   vNull(),
@@ -119,6 +162,25 @@ function providerEnumWithUnknown<const T extends readonly [string, ...string[]]>
 
 const providerCheckRunStateSchema = providerEnumWithUnknown(GITHUB_CHECK_RUN_STATES);
 const providerStatusStateSchema = providerEnumWithUnknown(GITHUB_STATUS_STATES);
+const providerCheckStatusSchema = providerEnumWithUnknown(GITHUB_CHECK_STATUSES);
+const providerCheckConclusionSchema = providerEnumWithUnknown(GITHUB_CHECK_CONCLUSIONS);
+const providerCheckContextSchema = z.discriminatedUnion("__typename", [
+  z.object({
+    __typename: z.literal("CheckRun"),
+    name: z.string().min(1),
+    status: providerCheckStatusSchema,
+    conclusion: providerCheckConclusionSchema.nullable(),
+    detailsUrl: z.url().nullable(),
+    title: z.string().nullable(),
+  }),
+  z.object({
+    __typename: z.literal("StatusContext"),
+    context: z.string().min(1),
+    state: providerStatusStateSchema,
+    targetUrl: z.url().nullable(),
+    description: z.string().nullable(),
+  }),
+]);
 const statusCheckRollupSchema = z
   .object({
     state: providerStatusStateSchema,
@@ -138,6 +200,7 @@ const statusCheckRollupSchema = z
           count: countSchema,
         }),
       ),
+      nodes: z.array(providerCheckContextSchema),
     }),
   })
   .nullable();
@@ -241,12 +304,28 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
                 oid
                 statusCheckRollup {
                   state
-                  contexts(first: 1) {
+                  contexts(first: 100) {
                     totalCount
                     checkRunCount
                     statusContextCount
                     checkRunCountsByState { state count }
                     statusContextCountsByState { state count }
+                    nodes {
+                      __typename
+                      ... on CheckRun {
+                        name
+                        status
+                        conclusion
+                        detailsUrl
+                        title
+                      }
+                      ... on StatusContext {
+                        context
+                        state
+                        targetUrl
+                        description
+                      }
+                    }
                   }
                 }
               }
@@ -322,7 +401,38 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
             headRefOid: pullRequest.headRefOid,
             headRepository: pullRequest.headRepository,
             labels: { nodes: pullRequest.labels.nodes },
-            statusCheckRollup: commit.statusCheckRollup,
+            statusCheckRollup:
+              rollup === null
+                ? null
+                : {
+                    state: rollup.state,
+                    contexts: {
+                      totalCount: rollup.contexts.totalCount,
+                      checkRunCount: rollup.contexts.checkRunCount,
+                      statusContextCount: rollup.contexts.statusContextCount,
+                      checkRunCountsByState: rollup.contexts.checkRunCountsByState,
+                      statusContextCountsByState: rollup.contexts.statusContextCountsByState,
+                      nodes: rollup.contexts.nodes.map((context) => {
+                        if (context.__typename === "CheckRun") {
+                          return {
+                            kind: "check_run" as const,
+                            name: context.name,
+                            status: context.status,
+                            conclusion: context.conclusion,
+                            detailsUrl: context.detailsUrl,
+                            title: context.title,
+                          };
+                        }
+                        return {
+                          kind: "status_context" as const,
+                          context: context.context,
+                          state: context.state,
+                          targetUrl: context.targetUrl,
+                          description: context.description,
+                        };
+                      }),
+                    },
+                  },
           };
         }),
       },

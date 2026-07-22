@@ -389,15 +389,62 @@ const FIXTURE_NO_CHECKS = {
 
 type FixturePullRequest = VaultPullRequest;
 
+const FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP = {
+  state: "SUCCESS",
+  contexts: {
+    totalCount: 4,
+    checkRunCount: 3,
+    statusContextCount: 1,
+    checkRunCountsByState: [{ state: "SUCCESS", count: 3 }],
+    statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+    nodes: [
+      {
+        kind: "check_run",
+        name: "supply-chain",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+        detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
+        title: null,
+      },
+      {
+        kind: "check_run",
+        name: "checks (24.x)",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+        detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/2",
+        title: null,
+      },
+      {
+        kind: "check_run",
+        name: "Workers Builds: samebase",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+        detailsUrl:
+          "https://dash.cloudflare.com/account-1/workers/services/view/samebase/production/builds/build-1",
+        title: "Workers Builds: samebase",
+      },
+      {
+        kind: "status_context",
+        context: "Cloudflare Workers",
+        state: "SUCCESS",
+        targetUrl: "https://dash.cloudflare.com/builds/legacy-1",
+        description: "Deployment completed",
+      },
+    ],
+  },
+} satisfies NonNullable<FixturePullRequest["statusCheckRollup"]>;
+
 function fixturePullRequest({
   index,
   labels = [],
   checks = FIXTURE_NO_CHECKS,
+  statusCheckRollup = null,
   isDraft = false,
 }: {
   index: number;
   labels?: FixturePullRequest["labels"];
   checks?: FixturePullRequest["checks"];
+  statusCheckRollup?: FixturePullRequest["statusCheckRollup"];
   isDraft?: boolean;
 }): FixturePullRequest {
   const number = 1_260 - index;
@@ -428,7 +475,7 @@ function fixturePullRequest({
       owner: { login: "samebase" },
     },
     labels,
-    statusCheckRollup: null,
+    statusCheckRollup,
     checks,
   };
 }
@@ -446,6 +493,7 @@ const LIST_SPACING_PULL_REQUESTS = [
       totalCount: 4,
       successCount: 4,
     },
+    statusCheckRollup: FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP,
   }),
   fixturePullRequest({
     index: 1,
