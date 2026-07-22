@@ -2246,9 +2246,7 @@ export interface components {
       /** @example Add new feature */
       commit_message?: string;
       deploy_command?: components["schemas"]["builds_deploy_command"];
-      environment_variables?: {
-        [key: string]: string;
-      };
+      environment_variables?: components["schemas"]["builds_EnvironmentVariablesResponse"];
       provider_account_name?: components["schemas"]["builds_provider_account_name"];
       provider_type?: components["schemas"]["builds_SCMProviderType"];
       repo_name?: components["schemas"]["builds_repo_name"];
@@ -2272,7 +2270,7 @@ export interface components {
      * @example push
      * @enum {string}
      */
-    builds_BuildTriggerSource: "push" | "pull_request" | "manual" | "api";
+    builds_BuildTriggerSource: "push" | "push_event" | "pull_request" | "manual" | "api";
     /**
      * @description Git commit hash
      * @example abc123def456
@@ -3008,14 +3006,25 @@ export interface components {
     workers_etag: string;
     /**
      * @description Declarative exports for the Worker, keyed by export name. Worker
-     *     entrypoint entries carry cache configuration for that entrypoint.
-     *     Durable Object entries are also configured here.
+     *     entrypoint entries (`type: worker`) carry cache configuration for
+     *     that entrypoint. Durable Object entries (`type: durable-object`)
+     *     are also configured here and drive namespace reconciliation. At
+     *     most 100 entries; class names are at most 128 characters.
      * @example {
      *       "Admin": {
      *         "cache": {
      *           "enabled": true
      *         },
      *         "type": "worker"
+     *       },
+     *       "Counter": {
+     *         "storage": "sqlite",
+     *         "type": "durable-object"
+     *       },
+     *       "OldCounter": {
+     *         "renamed_to": "Counter",
+     *         "state": "renamed",
+     *         "type": "durable-object"
      *       },
      *       "default": {
      *         "cache": {
@@ -3031,67 +3040,42 @@ export interface components {
     /**
      * @description A single entry in the `exports` map, keyed by export name (a
      *     `WorkerEntrypoint` class name, a Durable Object class name, or
-     *     `default` for the Worker's default export). Worker entrypoint
-     *     entries set `type: worker` and may carry `cache` configuration
-     *     for that entrypoint. Durable Object entries set
-     *     `type: durable-object` and carry additional provisioning fields.
+     *     `default` for the Worker's default export). The `type`
+     *     discriminator selects the top-level shape: `worker` entrypoint
+     *     entries may carry `cache` configuration, while `durable-object`
+     *     entries are further refined by the optional `state` field
+     *     (default `created`). Tombstone states (`deleted`, `renamed`,
+     *     `transferred`) express destructive lifecycle operations
+     *     declaratively; `expecting-transfer` is the live target side of a
+     *     transfer. The server validates the exact per-(type, state) field
+     *     combinations; fields not listed for a variant are rejected.
      */
-    workers_export_config: {
+    workers_export_config:
+      | components["schemas"]["workers_worker_export"]
+      | components["schemas"]["workers_durable_object_export_variants"];
+    /**
+     * @description A named Worker entrypoint export (`type: worker`). Worker
+     *     entrypoints are always live (`state: created`) and carry no
+     *     storage or lifecycle fields. The optional `cache` block overrides
+     *     the Worker's global `cache_options.enabled` for this entrypoint.
+     */
+    workers_worker_export: {
       /**
-       * @description Cache override for this entrypoint. It applies only to
-       *     `type: worker` entries and overrides the Worker's global
-       *     `cache_options.enabled` for that entrypoint.
+       * @description Cache override for this entrypoint. Overrides the Worker's
+       *     global `cache_options.enabled` for this entrypoint only.
        */
       cache?: components["schemas"]["workers_entrypoint_cache_options"];
       /**
-       * @description Destination class name for a `state: renamed` tombstone. The
-       *     target must appear as a live (`created`) entry in the same
-       *     `exports` map. Write-only: never present in GET responses.
-       */
-      renamed_to?: $Write<string>;
-      /**
-       * @description Lifecycle state of the export entry. Defaults to `created`
-       *     (a normal, live export) when omitted.
-       *
-       *     `deleted`, `renamed`, and `transferred` are tombstones:
-       *     write-only lifecycle operations that retire, rename, or hand
-       *     off a provisioned Durable Object namespace. They are applied
-       *     at upload and are filtered out of GET responses, so a read
-       *     only ever returns `created` or `expecting-transfer`.
-       *
-       *     `expecting-transfer` is a live export whose data is being
-       *     received from another script via the two-phase transfer flow;
-       *     it carries `storage` and `transfer_from`.
+       * @description Live export. May be omitted; defaults to `created`.
+       * @default created
        * @enum {string}
        */
-      state?: "created" | "deleted" | "renamed" | "transferred" | "expecting-transfer";
+      state: "created";
       /**
-       * @description Storage backend for a `type: durable-object` export. Required
-       *     for live Durable Object entries (`created` and
-       *     `expecting-transfer`). `sqlite` selects SQLite-backed storage;
-       *     `legacy-kv` selects the legacy key-value storage.
+       * @description Marks this entry as a Worker entrypoint export. (enum property replaced by openapi-typescript)
        * @enum {string}
        */
-      storage?: "sqlite" | "legacy-kv";
-      /**
-       * @description Source script for a `state: expecting-transfer` entry. The
-       *     namespace on this script is materialised from the source
-       *     script's data via the pending-transfer flow. Present on reads
-       *     for `expecting-transfer` entries.
-       */
-      transfer_from?: string;
-      /**
-       * @description Destination script for a `state: transferred` tombstone. Must
-       *     reference a script in the same account; cross-dispatch-namespace
-       *     transfers are rejected. Write-only: never present in GET
-       *     responses.
-       */
-      transferred_to?: $Write<string>;
-      /**
-       * @description The kind of export.
-       * @enum {string}
-       */
-      type: "worker" | "durable-object";
+      type: "worker";
     };
     /**
      * @description CacheW configuration for a single `type: worker` entrypoint.
@@ -3105,6 +3089,169 @@ export interface components {
        * @example true
        */
       enabled: boolean;
+    };
+    /**
+     * @description Any Durable Object export entry (`type: durable-object`), across
+     *     all lifecycle states. The optional `state` field selects the
+     *     variant (default `created`); the tombstone states (`deleted`,
+     *     `renamed`, `transferred`) and the live transfer target
+     *     (`expecting-transfer`) are the alternatives. The server validates
+     *     the exact per-state field combinations; fields not listed for a
+     *     variant are rejected.
+     */
+    workers_durable_object_export_variants:
+      | components["schemas"]["workers_durable_object_export"]
+      | components["schemas"]["workers_durable_object_deleted_export"]
+      | components["schemas"]["workers_durable_object_renamed_export"]
+      | components["schemas"]["workers_durable_object_transferred_export"]
+      | components["schemas"]["workers_durable_object_expecting_transfer_export"];
+    /**
+     * @description A live Durable Object export (`state: created`, the default). The
+     *     platform auto-provisions the namespace on first deploy, matches it
+     *     on subsequent deploys, and never mutates or deletes it as a side
+     *     effect of a code-only change. `storage` is required; `renamed_to`,
+     *     `transferred_to` and `transfer_from` are not allowed on a live
+     *     entry.
+     */
+    workers_durable_object_export: {
+      /**
+       * @description Name of the container (declared in the upload's
+       *     `metadata.containers`) that backs this Durable Object. When
+       *     set, the namespace is container-enabled. Valid only on live
+       *     entries.
+       * @example my-container
+       */
+      container?: string;
+      /**
+       * @description Live export. May be omitted; defaults to `created`.
+       * @default created
+       * @enum {string}
+       */
+      state: "created";
+      storage: components["schemas"]["workers_export_storage"];
+      /**
+       * @description Marks this entry as a Durable Object export.
+       * @enum {string}
+       */
+      type: "durable-object";
+    };
+    /**
+     * @description Durable Object storage backend. `sqlite` is the recommended (and
+     *     only) backend for new namespaces. `legacy-kv` is accepted only for
+     *     a class whose namespace already exists as KV-backed; the `exports`
+     *     flow never provisions a new `legacy-kv` namespace.
+     * @enum {string}
+     */
+    workers_export_storage: "sqlite" | "legacy-kv";
+    /**
+     * @description A `deleted` tombstone: retires the provisioned namespace for this
+     *     class and all of its data. The class must be absent from the
+     *     uploaded code and no other Worker in the account may bind to the
+     *     namespace, otherwise the deploy is rejected. No other fields are
+     *     allowed. Deletion is irreversible.
+     */
+    workers_durable_object_deleted_export: {
+      /**
+       * @description Tombstone that deletes the namespace.
+       * @enum {string}
+       */
+      state: "deleted";
+      /**
+       * @description Marks this entry as a Durable Object export.
+       * @enum {string}
+       */
+      type: "durable-object";
+    };
+    /**
+     * @description A `renamed` tombstone: rewrites the provisioned namespace's class
+     *     name from this map key to `renamed_to`. The source class may stay
+     *     in code during the rollout window (an info notice is emitted).
+     *     `storage`, `transferred_to` and `transfer_from` are not allowed.
+     */
+    workers_durable_object_renamed_export: {
+      /**
+       * @description The destination class name. Must differ from the source class
+       *     (the map key) and must be declared as a live (`created`) entry
+       *     in the same `exports` map. Write-only: never present in GET
+       *     responses.
+       * @example NewName
+       */
+      renamed_to: $Write<string>;
+      /**
+       * @description Tombstone that renames the namespace's class.
+       * @enum {string}
+       */
+      state: "renamed";
+      /**
+       * @description Marks this entry as a Durable Object export.
+       * @enum {string}
+       */
+      type: "durable-object";
+    };
+    /**
+     * @description A `transferred` tombstone (source side of a two-phase transfer):
+     *     hands ownership of the provisioned namespace to another script in
+     *     the same account, named by `transferred_to`. The target must have
+     *     already deployed a matching `expecting-transfer` entry. The source
+     *     class may stay in code during the rollout window (an info notice
+     *     is emitted). `storage`, `renamed_to` and `transfer_from` are not
+     *     allowed.
+     */
+    workers_durable_object_transferred_export: {
+      /**
+       * @description Tombstone that transfers the namespace to another script.
+       * @enum {string}
+       */
+      state: "transferred";
+      /**
+       * @description The destination script name. Must be in the same account and
+       *     the same dispatch-namespace context (or both non-dispatch).
+       *     Cross-dispatch-namespace transfers are rejected. Write-only:
+       *     never present in GET responses.
+       * @example target-worker
+       */
+      transferred_to: $Write<string>;
+      /**
+       * @description Marks this entry as a Durable Object export.
+       * @enum {string}
+       */
+      type: "durable-object";
+    };
+    /**
+     * @description The target side of a two-phase transfer (`state:
+     *     expecting-transfer`). Declares that this script expects to receive
+     *     a namespace for this class from the `transfer_from` script. This
+     *     is a live entry, not a tombstone: bindings resolve through the
+     *     source's namespace until the source commits with a `transferred`
+     *     tombstone. `storage` and `transfer_from` are required; `renamed_to`
+     *     and `transferred_to` are not allowed.
+     */
+    workers_durable_object_expecting_transfer_export: {
+      /**
+       * @description Name of the container (declared in the upload's
+       *     `metadata.containers`) that backs this Durable Object once the
+       *     transfer settles. Valid only on live entries.
+       * @example my-container
+       */
+      container?: string;
+      /**
+       * @description Target side of a two-phase transfer.
+       * @enum {string}
+       */
+      state: "expecting-transfer";
+      storage: components["schemas"]["workers_export_storage"];
+      /**
+       * @description The source script name to receive the namespace from. Must be
+       *     in the same account and dispatch-namespace context. Present on
+       *     reads for `expecting-transfer` entries.
+       * @example source-worker
+       */
+      transfer_from: string;
+      /**
+       * @description Marks this entry as a Durable Object export.
+       * @enum {string}
+       */
+      type: "durable-object";
     };
     /**
      * @description Whether a Worker contains assets.
@@ -3395,6 +3542,14 @@ export interface components {
          *     that entrypoint.
          */
         exports?: $Write<components["schemas"]["workers_exports_config_map"]>;
+        /**
+         * @description Summary of the declarative exports reconciliation that ran
+         *     on this upload. Populated only when the uploaded metadata
+         *     included an `exports` block. Durable Object entries drive
+         *     reconciliation; `type: worker` entries do not contribute to
+         *     this summary.
+         */
+        exports_reconciliation?: components["schemas"]["workers_exports_reconciliation_result"];
         /**
          * @description Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token. An explicit `assets` upload takes precedence over `keep_assets`.
          * @example false
@@ -4118,6 +4273,155 @@ export interface components {
        */
       type: "vpc_network";
     };
+    /**
+     * @description Summary of what the declarative exports reconciliation did on this
+     *     upload. Present only on uploads that included an `exports` block.
+     *     Reconciliation acts on Durable Object entries; `type: worker`
+     *     entries in the same map do not participate. Every array is always
+     *     present (possibly empty) so clients can iterate unconditionally.
+     *     Clients should surface `warnings` prominently, render `info` at
+     *     lower visibility, and use `removable_entries` as the "safe to
+     *     delete from your config" hint.
+     */
+    workers_exports_reconciliation_result: {
+      /** @description Class names for which a new namespace was provisioned. */
+      created: string[];
+      /** @description Class names whose namespace was deleted by a `deleted` tombstone. */
+      deleted: string[];
+      /**
+       * @description Non-blocking info entries (stale tombstones, tombstone applied
+       *     with class still in code). See `exports_reconciliation_info`.
+       */
+      info: components["schemas"]["workers_exports_reconciliation_info"][];
+      /**
+       * @description Source class names whose tombstone entry is now stale and safe
+       *     to delete from `exports` (no remaining referencing scripts).
+       */
+      removable_entries: string[];
+      /** @description Applied `renamed` tombstones. */
+      renamed: components["schemas"]["workers_exports_reconciliation_rename"][];
+      /** @description Phase-1 transfer hints recorded on the target side. */
+      transfer_pending: components["schemas"]["workers_exports_reconciliation_transfer_pending"][];
+      /** @description Committed `transferred` tombstones (phase-2). */
+      transferred: components["schemas"]["workers_exports_reconciliation_transfer"][];
+      /** @description Class names whose provisioned namespace was mutated in place. */
+      updated: string[];
+      /** @description Non-blocking warnings. See `exports_reconciliation_warning`. */
+      warnings: components["schemas"]["workers_exports_reconciliation_warning"][];
+    };
+    /**
+     * @description A non-blocking reconciliation info entry. Emitted for stale
+     *     tombstones (a no-op on this deploy) and for tombstones applied
+     *     with the source class still in code (the supported zero-downtime
+     *     rollout pattern).
+     */
+    workers_exports_reconciliation_info: {
+      /** @description The class name the info entry is about. */
+      class: string;
+      /** @description Human-readable explanation. */
+      message: string;
+      /**
+       * Format: uuid
+       * @description The provisioned namespace the entry relates to, when applicable.
+       */
+      namespace_id?: string;
+      /**
+       * @description Other Workers in the account that still bind to the affected
+       *     class. Advisory: while non-empty the tombstone is not yet safe
+       *     to remove - redeploy these Workers with bindings re-pointed
+       *     first.
+       */
+      referencing_scripts?: string[];
+      scenario: components["schemas"]["workers_exports_reconciliation_scenario"];
+    };
+    /**
+     * @description Stable, machine-readable tag identifying which reconciliation
+     *     scenario produced an error, warning, or info entry. Clients may
+     *     branch on this value instead of parsing `message`.
+     * @enum {string}
+     */
+    workers_exports_reconciliation_scenario:
+      | "code_class_not_in_exports"
+      | "provisioned_class_missing_from_config"
+      | "config_export_not_in_code"
+      | "config_references_nonexistent_class"
+      | "orphaned_provisioned_namespace"
+      | "storage_type_mismatch"
+      | "free_tier_requires_sqlite"
+      | "invalid_export"
+      | "tombstone_delete_class_still_in_code"
+      | "tombstone_delete_blocked_by_external_bindings"
+      | "tombstone_renamed_to_occupied"
+      | "transferred_pending_not_found"
+      | "transferred_target_missing"
+      | "transferred_target_mismatch"
+      | "phase_one_transfer_source_missing"
+      | "phase_one_transfer_source_namespace_missing"
+      | "phase_one_transfer_target_class_provisioned"
+      | "phase_one_transfer_after_commit_mismatch"
+      | "phase_one_transfer_duplicate"
+      | "phase_one_transfer_target_in_dispatch_namespace"
+      | "phase_one_transfer_source_in_dispatch_namespace"
+      | "transferred_source_in_dispatch_namespace"
+      | "transferred_target_in_dispatch_namespace"
+      | "container_undeclared_reference"
+      | "container_class_not_durable_object"
+      | "container_wiring_inconsistent"
+      | "container_multiple_durable_objects"
+      | "transfer_container_parity_mismatch"
+      | "transfer_container_parity_mismatch_on_commit"
+      | "tombstone_class_still_in_code"
+      | "stale_tombstone"
+      | "transfer_receive_already_applied"
+      | "transfer_receive_cleanup_complete";
+    /** @description A single applied `renamed` tombstone. */
+    workers_exports_reconciliation_rename: {
+      /** @description The original (source) class name. */
+      from: string;
+      /** @description The new class name (`renamed_to`). */
+      to: string;
+    };
+    /**
+     * @description A single phase-1 transfer hint recorded on the target side (a live
+     *     `expecting-transfer` entry).
+     */
+    workers_exports_reconciliation_transfer_pending: {
+      /** @description The target-side class name awaiting transfer. */
+      class: string;
+      /** @description The source script the namespace will be transferred from. */
+      from: string;
+    };
+    /** @description A single committed `transferred` tombstone (phase-2 commit). */
+    workers_exports_reconciliation_transfer: {
+      /** @description The source class name that was transferred. */
+      class: string;
+      /**
+       * @description The transfer phase. Currently always `committed`.
+       * @example committed
+       * @enum {string}
+       */
+      phase: "committed";
+      /** @description The destination script that now owns the namespace. */
+      to: string;
+    };
+    /**
+     * @description A non-blocking reconciliation warning. Reserved: no scenario
+     *     populates this array today (`code_class_not_in_exports` is
+     *     surfaced as info and `provisioned_class_missing_from_config` is a
+     *     hard error). Clients should still surface any entries that appear.
+     */
+    workers_exports_reconciliation_warning: {
+      /** @description The class name the warning is about. */
+      class: string;
+      /** @description Human-readable explanation of the warning. */
+      message: string;
+      /**
+       * Format: uuid
+       * @description The provisioned namespace the warning relates to, when applicable.
+       */
+      namespace_id?: string;
+      scenario: components["schemas"]["workers_exports_reconciliation_scenario"];
+    };
     /** @description Limits to apply for this Worker. */
     workers_limits: {
       /**
@@ -4184,6 +4488,68 @@ export interface components {
       entry_point?: $Read<string>;
       /** @example 10 */
       startup_time_ms: $Read<number>;
+    };
+    /**
+     * @description The v4 error envelope returned with HTTP 400 when one or more
+     *     declared `exports` entries fail reconciliation (error code
+     *     100402). The top-level error `message` aggregates the per-class
+     *     failures as human-readable prose; the structured per-class payload
+     *     is carried in `errors[].meta.details`, sorted by class name.
+     */
+    workers_exports_reconciliation_error_response: {
+      errors: {
+        /**
+         * @example 100402
+         * @enum {integer}
+         */
+        code: 100402;
+        /**
+         * @description Aggregate, multi-line, human-readable summary of every
+         *     per-class reconciliation failure.
+         */
+        message: string;
+        meta: {
+          /**
+           * @description Structured per-class reconciliation failures, sorted
+           *     by class name.
+           */
+          details: components["schemas"]["workers_exports_reconciliation_error"][];
+        };
+      }[];
+      messages: unknown[];
+      /** @enum {object|null} */
+      result: never | null;
+      /**
+       * @example false
+       * @enum {boolean}
+       */
+      success: false;
+    };
+    /**
+     * @description A single blocking reconciliation error. Returned in the v4 error
+     *     envelope under `meta.details` on the exports reconciliation
+     *     failure error (code 100402). All per-class failures are reported
+     *     together, sorted by class name.
+     */
+    workers_exports_reconciliation_error: {
+      /** @description The class name the error is about. */
+      class: string;
+      /** @description Human-readable explanation. */
+      message: string;
+      /**
+       * Format: uuid
+       * @description The provisioned namespace the error relates to, when applicable.
+       */
+      namespace_id?: string;
+      /**
+       * @description Other Workers in the account whose bindings block the
+       *     operation (e.g. a `deleted` tombstone blocked by external
+       *     bindings).
+       */
+      referencing_scripts?: string[];
+      scenario: components["schemas"]["workers_exports_reconciliation_scenario"];
+      /** @description An actionable hint for resolving the error, when available. */
+      suggestion?: string;
     };
     "workers_create-assets-upload-session-object": {
       /** @description A manifest ([path]: {hash, size}) map of files to upload. As an example, `/blog/hello-world.html` would be a valid path key. */
@@ -4254,6 +4620,13 @@ export interface components {
        *     (`type: worker`) carry cache configuration for that entrypoint.
        */
       exports?: $Write<components["schemas"]["workers_exports_config_map"]>;
+      /**
+       * @description Summary of the declarative exports reconciliation that ran on
+       *     this upload. Populated only when the uploaded metadata included
+       *     an `exports` block. Durable Object entries drive reconciliation;
+       *     `type: worker` entries do not contribute to this summary.
+       */
+      exports_reconciliation?: components["schemas"]["workers_exports_reconciliation_result"];
       limits?: components["schemas"]["workers_limits"];
       logpush?: components["schemas"]["workers_logpush"];
       /** @description Migrations to apply for Durable Objects associated with this Worker. */
@@ -5101,6 +5474,13 @@ export interface components {
        *     (`type: worker`) carry cache configuration for that entrypoint.
        */
       exports?: $Write<components["schemas"]["workers_exports_config_map"]>;
+      /**
+       * @description Summary of the declarative exports reconciliation that ran on
+       *     this upload. Populated only when the uploaded metadata included
+       *     an `exports` block. Durable Object entries drive reconciliation;
+       *     `type: worker` entries do not contribute to this summary.
+       */
+      exports_reconciliation?: components["schemas"]["workers_exports_reconciliation_result"];
       limits?: components["schemas"]["workers_limits"];
       logpush?: components["schemas"]["workers_logpush"];
       /** @description Migrations to apply for Durable Objects associated with this Worker. */
@@ -5225,6 +5605,14 @@ export interface components {
       result: components["schemas"]["workers_version-item-uploaded"];
     };
     "workers_version-item-uploaded": components["schemas"]["workers_version-item-full"] & {
+      /**
+       * @description Summary of the declarative exports reconciliation that
+       *     ran on this upload. Populated only when the uploaded
+       *     metadata included an `exports` block. Durable Object
+       *     entries drive reconciliation; `type: worker` entries do
+       *     not contribute to this summary.
+       */
+      exports_reconciliation?: components["schemas"]["workers_exports_reconciliation_result"];
       /**
        * @description Time in milliseconds spent on [Worker startup](https://developers.cloudflare.com/workers/platform/limits/#worker-startup-time).
        * @example 10
@@ -5820,6 +6208,13 @@ export interface components {
        */
       exports?: components["schemas"]["workers_exports_config_map"];
       /**
+       * @description Summary of the declarative exports reconciliation that ran on
+       *     this upload. Populated only when the uploaded metadata included
+       *     an `exports` block. Durable Object entries drive reconciliation;
+       *     `type: worker` entries do not contribute to this summary.
+       */
+      exports_reconciliation?: components["schemas"]["workers_exports_reconciliation_result"];
+      /**
        * Format: uuid
        * @description Version identifier.
        */
@@ -6089,13 +6484,21 @@ export interface components {
           Record<string, unknown>;
       };
     };
-    /** @description Upload Worker Module response failure. */
+    /**
+     * @description Upload Worker Module response failure. When the upload uses the
+     *     declarative `exports` field and one or more entries fail
+     *     reconciliation, the response is the exports reconciliation
+     *     error envelope (error code 100402) with per-class detail in
+     *     `errors[].meta.details`.
+     */
     workers_4XX: {
       headers: {
         [name: string]: unknown;
       };
       content: {
-        "application/json": components["schemas"]["workers_api-response-common-failure"];
+        "application/json":
+          | components["schemas"]["workers_api-response-common-failure"]
+          | components["schemas"]["workers_exports_reconciliation_error_response"];
       };
     };
     /** @description Authentication required or insufficient permissions. */
@@ -6388,8 +6791,21 @@ export type WorkersCompatibilityFlag = components["schemas"]["workers_compatibil
 export type WorkersEtag = components["schemas"]["workers_etag"];
 export type WorkersExportsConfigMap = components["schemas"]["workers_exports_config_map"];
 export type WorkersExportConfig = components["schemas"]["workers_export_config"];
+export type WorkersWorkerExport = components["schemas"]["workers_worker_export"];
 export type WorkersEntrypointCacheOptions =
   components["schemas"]["workers_entrypoint_cache_options"];
+export type WorkersDurableObjectExportVariants =
+  components["schemas"]["workers_durable_object_export_variants"];
+export type WorkersDurableObjectExport = components["schemas"]["workers_durable_object_export"];
+export type WorkersExportStorage = components["schemas"]["workers_export_storage"];
+export type WorkersDurableObjectDeletedExport =
+  components["schemas"]["workers_durable_object_deleted_export"];
+export type WorkersDurableObjectRenamedExport =
+  components["schemas"]["workers_durable_object_renamed_export"];
+export type WorkersDurableObjectTransferredExport =
+  components["schemas"]["workers_durable_object_transferred_export"];
+export type WorkersDurableObjectExpectingTransferExport =
+  components["schemas"]["workers_durable_object_expecting_transfer_export"];
 export type WorkersHasAssets = components["schemas"]["workers_has_assets"];
 export type WorkersHasModules = components["schemas"]["workers_has_modules"];
 export type WorkersLogpush = components["schemas"]["workers_logpush"];
@@ -6459,6 +6875,20 @@ export type WorkersBindingKindVpcService =
   components["schemas"]["workers_binding_kind_vpc_service"];
 export type WorkersBindingKindVpcNetwork =
   components["schemas"]["workers_binding_kind_vpc_network"];
+export type WorkersExportsReconciliationResult =
+  components["schemas"]["workers_exports_reconciliation_result"];
+export type WorkersExportsReconciliationInfo =
+  components["schemas"]["workers_exports_reconciliation_info"];
+export type WorkersExportsReconciliationScenario =
+  components["schemas"]["workers_exports_reconciliation_scenario"];
+export type WorkersExportsReconciliationRename =
+  components["schemas"]["workers_exports_reconciliation_rename"];
+export type WorkersExportsReconciliationTransferPending =
+  components["schemas"]["workers_exports_reconciliation_transfer_pending"];
+export type WorkersExportsReconciliationTransfer =
+  components["schemas"]["workers_exports_reconciliation_transfer"];
+export type WorkersExportsReconciliationWarning =
+  components["schemas"]["workers_exports_reconciliation_warning"];
 export type WorkersLimits = components["schemas"]["workers_limits"];
 export type WorkersSingleStepMigrations = components["schemas"]["workers_single_step_migrations"];
 export type WorkersMigrationTagConditions =
@@ -6469,6 +6899,10 @@ export type WorkersMultipleStepMigrations =
 export type WorkersScriptResponseUploadSingle =
   components["schemas"]["workers_script-response-upload-single"];
 export type WorkersScriptResponseUpload = components["schemas"]["workers_script-response-upload"];
+export type WorkersExportsReconciliationErrorResponse =
+  components["schemas"]["workers_exports_reconciliation_error_response"];
+export type WorkersExportsReconciliationError =
+  components["schemas"]["workers_exports_reconciliation_error"];
 export type WorkersCreateAssetsUploadSessionObject =
   components["schemas"]["workers_create-assets-upload-session-object"];
 export type WorkersManifestValue = components["schemas"]["workers_manifest-value"];
@@ -8463,13 +8897,21 @@ export interface operations {
           };
         };
       };
-      /** @description Patch script settings failure. */
+      /**
+       * @description Patch script settings failure. When the patch uses the
+       *     declarative `exports` field and one or more entries fail
+       *     reconciliation, the response is the exports reconciliation
+       *     error envelope (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
@@ -11495,13 +11937,21 @@ export interface operations {
             Record<string, unknown>;
         };
       };
-      /** @description Upload Worker Module response failure. */
+      /**
+       * @description Upload Worker Module response failure. When the upload uses the
+       *     declarative `exports` field and one or more entries fail
+       *     reconciliation, the response is the exports reconciliation
+       *     error envelope (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
@@ -11949,13 +12399,21 @@ export interface operations {
           "application/json": components["schemas"]["workers_script-settings-response"];
         };
       };
-      /** @description Patch script settings failure. */
+      /**
+       * @description Patch script settings failure. When the patch uses the
+       *     declarative `exports` field and one or more entries fail
+       *     reconciliation, the response is the exports reconciliation
+       *     error envelope (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
@@ -12220,13 +12678,21 @@ export interface operations {
           "application/json": components["schemas"]["workers_script-and-version-settings-response"];
         };
       };
-      /** @description Patch settings failure. */
+      /**
+       * @description Patch settings failure. When the patch uses the declarative
+       *     `exports` field and one or more entries fail reconciliation,
+       *     the response is the exports reconciliation error envelope
+       *     (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
@@ -12592,14 +13058,22 @@ export interface operations {
           "application/json": components["schemas"]["workers_versions-upload-response"];
         };
       };
-      /** @description Upload Version response failure. */
+      /**
+       * @description Upload Version response failure. When the upload uses the
+       *     declarative `exports` field and one or more entries fail
+       *     reconciliation, the response is the exports reconciliation
+       *     error envelope (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_versions-upload-response"] &
-            components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | (components["schemas"]["workers_versions-upload-response"] &
+                components["schemas"]["workers_api-response-common-failure"])
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
@@ -12788,13 +13262,21 @@ export interface operations {
           "application/json": components["schemas"]["workers_script-settings-response"];
         };
       };
-      /** @description Patch script settings failure. */
+      /**
+       * @description Patch script settings failure. When the patch uses the
+       *     declarative `exports` field and one or more entries fail
+       *     reconciliation, the response is the exports reconciliation
+       *     error envelope (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
@@ -13310,13 +13792,21 @@ export interface operations {
           };
         };
       };
-      /** @description Create version failure. */
+      /**
+       * @description Create version failure. When the upload uses the declarative
+       *     `exports` field and one or more entries fail reconciliation,
+       *     the response is the exports reconciliation error envelope
+       *     (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
@@ -13423,13 +13913,21 @@ export interface operations {
           };
         };
       };
-      /** @description Patch version failure. */
+      /**
+       * @description Patch version failure. When the patch uses the declarative
+       *     `exports` field and one or more entries fail reconciliation,
+       *     the response is the exports reconciliation error envelope
+       *     (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common-failure"];
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
         };
       };
     };
