@@ -238,6 +238,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
         state: "available",
         observedAt: FIXTURE_NOW,
         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+        customDomains: [],
         workersDev: {
           state: "enabled",
           url: "https://domain-router.samebase.workers.dev",
@@ -247,6 +248,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
         state: "available",
         observedAt: FIXTURE_NOW,
         workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
+        customDomains: ["samebase.com"],
         workersDev: {
           state: "enabled",
           url: "https://samebase.samebase.workers.dev",
@@ -695,6 +697,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                   state: "available",
                   observedAt: FIXTURE_NOW,
                   workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+                  customDomains: [],
                   workersDev: {
                     state: "enabled",
                     url: "https://tmp-my-super-app-234.pfp.workers.dev",
@@ -704,6 +707,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                   state: "available",
                   observedAt: FIXTURE_NOW,
                   workerId: CLOUDFLARE_BUILD_ACCESS_MISSING_WORKER_ID,
+                  customDomains: [],
                   workersDev: {
                     state: "enabled",
                     url: "https://tmp-my-super-app-admin.pfp.workers.dev",

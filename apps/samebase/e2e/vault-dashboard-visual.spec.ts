@@ -747,6 +747,10 @@ test("vault dashboard fixture (default branch surface)", async ({ page }) => {
   await expect(
     defaultBranchSurface.getByRole("link", { name: "domain-router.samebase.workers.dev" }),
   ).toHaveAttribute("href", "https://domain-router.samebase.workers.dev");
+  await expect(defaultBranchSurface.getByRole("link", { name: "samebase.com" })).toHaveAttribute(
+    "href",
+    "https://samebase.com",
+  );
   await expect(
     defaultBranchSurface.getByRole("link", { name: "samebase.samebase.workers.dev" }),
   ).toHaveAttribute("href", "https://samebase.samebase.workers.dev");

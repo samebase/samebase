@@ -140,6 +140,7 @@ function makeAvailableResourceRailCloudflareObservation(
   return {
     state: "available",
     observedAt: 1,
+    customDomains: [],
     workersDev: { state: "enabled", url: "https://demo-worker.ada.workers.dev" },
     ...overrides,
   };
@@ -365,7 +366,12 @@ describe("buildVaultProductionRoots", () => {
     const roots = buildVaultProductionRoots({
       vault,
       cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+        workers: [
+          makeAvailableResourceRailCloudflareObservation({
+            workerId,
+            customDomains: ["www.example.com", "app.example.com"],
+          }),
+        ],
         builds: [
           makeAvailableResourceRailCloudflareBuildsObservation({
             workerId,
@@ -411,6 +417,18 @@ describe("buildVaultProductionRoots", () => {
         rootDirectory: "apps/web",
         links: [
           {
+            href: "https://app.example.com",
+            label: "app.example.com",
+            provider: "cloudflare",
+            title: "Open production app for apps/web",
+          },
+          {
+            href: "https://www.example.com",
+            label: "www.example.com",
+            provider: "cloudflare",
+            title: "Open production app for apps/web",
+          },
+          {
             href: "https://demo-worker.ada.workers.dev",
             label: "demo-worker.ada.workers.dev",
             provider: "cloudflare",
@@ -421,6 +439,43 @@ describe("buildVaultProductionRoots", () => {
             label: "calm-swan-123",
             provider: "convex",
             title: "Open production Convex deployment calm-swan-123",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps custom domains visible when workers.dev is disabled", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const vault = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+    });
+
+    const roots = buildVaultProductionRoots({
+      vault,
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [
+          makeAvailableResourceRailCloudflareObservation({
+            workerId,
+            customDomains: ["app.example.com"],
+            workersDev: { state: "disabled" },
+          }),
+        ],
+        builds: [makeAvailableResourceRailCloudflareBuildsObservation({ workerId })],
+        convexBuildAccess: [],
+      }),
+      convexObservations: { state: "loaded", reload: () => {}, observations: [] },
+    });
+
+    expect(roots).toEqual([
+      {
+        rootDirectory: "/",
+        links: [
+          {
+            href: "https://app.example.com",
+            label: "app.example.com",
+            provider: "cloudflare",
+            title: "Open production app",
           },
         ],
       },
