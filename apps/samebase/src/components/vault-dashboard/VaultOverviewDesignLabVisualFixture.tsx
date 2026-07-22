@@ -740,9 +740,9 @@ const SCENARIOS = {
     productionRoots: STRESS_PRODUCTION_ROOTS,
     productionVisibleRootCount: 5,
     pullRequests: STRESS_PULL_REQUESTS,
-    repositoryName: "commerce-platform",
+    repositoryName: "commerce-order-fulfillment-platform",
     repositoryOwner: "samebase",
-    repositoryUrl: "https://github.com/samebase/commerce-platform",
+    repositoryUrl: "https://github.com/samebase/commerce-order-fulfillment-platform",
   },
   "vault-overview-lab-attention": {
     alert: {
@@ -1027,7 +1027,7 @@ function LabHeader({
 
 function VaultSidebar({ mode }: { mode: VaultOverviewDesignLabVisualMode }) {
   return (
-    <nav aria-label="Vaults" className="min-h-full py-2">
+    <nav aria-label="Vaults" className="@container min-h-full py-2">
       {LAB_MODES.map((option) => {
         const scenario = SCENARIOS[option.mode];
         const active = option.mode === mode;
@@ -1040,29 +1040,43 @@ function VaultSidebar({ mode }: { mode: VaultOverviewDesignLabVisualMode }) {
         return (
           <Link
             key={option.mode}
+            aria-label={`${scenario.repositoryOwner}/${scenario.repositoryName}, main ${compactChecksLabel}, ${appCount} ${appCount === 1 ? "app" : "apps"}${pullRequestCount > 0 ? `, ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}` : ""}`}
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "mx-2 block min-w-0 bg-muted px-2 py-2.5 text-left"
-                : "mx-2 block min-w-0 px-2 py-2.5 text-left hover:bg-muted"
+                ? "mx-2 block min-w-0 bg-muted px-2 py-2.5 text-left @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
+                : "mx-2 block min-w-0 px-2 py-2.5 text-left hover:bg-muted @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
             }
             search={(current) => ({ ...current, mode: option.mode })}
+            title={`${scenario.repositoryOwner}/${scenario.repositoryName}`}
             to="/visual-fixture"
           >
-            <span className="flex min-w-0 items-baseline gap-1 truncate text-sm">
-              <span className="truncate text-muted-foreground">{scenario.repositoryOwner}</span>
-              <span className="text-muted-foreground">/</span>
-              <span className="truncate font-medium text-foreground">
+            <span className="flex min-w-0 items-baseline text-sm leading-5">
+              <span
+                className="mr-1 shrink-0 text-muted-foreground @max-[200px]:hidden"
+                data-vault-sidebar-owner
+              >
+                {scenario.repositoryOwner} /
+              </span>
+              <span className="min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
                 {scenario.repositoryName}
               </span>
             </span>
-            <span className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
-              <span className={commitStateStyle.dot} />
-              <span className="truncate">
-                main {compactChecksLabel} · {appCount} {appCount === 1 ? "app" : "apps"}
-                {pullRequestCount > 0
-                  ? ` · ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}`
-                  : ""}
+            <span className="mt-1 flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
+              <span className="mt-1 flex shrink-0">
+                <span className={commitStateStyle.dot} />
+              </span>
+              <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+                <span className="@max-[120px]:hidden" data-vault-sidebar-branch>
+                  main{" "}
+                </span>
+                <span data-vault-sidebar-checks>{compactChecksLabel}</span>
+                <span className="@max-[200px]:hidden" data-vault-sidebar-totals>
+                  {` · ${appCount} ${appCount === 1 ? "app" : "apps"}`}
+                  {pullRequestCount > 0
+                    ? ` · ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}`
+                    : ""}
+                </span>
               </span>
             </span>
           </Link>

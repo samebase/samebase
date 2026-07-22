@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { VaultOverviewDesignLabVisualMode } from "../src/components/vault-dashboard/VaultOverviewDesignLabVisualFixture";
+import { WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX } from "../src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 
@@ -15,13 +16,17 @@ const VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE = {
   rightMobileWidthPx: 288,
 } satisfies WorkspaceSidebarState;
 
-async function openVaultOverviewDesignLab(page: Page, mode: VaultOverviewDesignLabVisualMode) {
+async function openVaultOverviewDesignLab(
+  page: Page,
+  mode: VaultOverviewDesignLabVisualMode,
+  sidebarState: WorkspaceSidebarState = VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+) {
   await page.addInitScript(
     ({ state, storageKey, version }) => {
       window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
     },
     {
-      state: VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+      state: sidebarState,
       storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
       version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
     },
@@ -76,6 +81,26 @@ test("keeps the large monorepo compact until apps are requested", async ({ page 
   });
 });
 
+test("keeps repository identity useful at the desktop sidebar floor", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 720 });
+  const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-stress", {
+    ...VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+    leftDesktopWidthPx: 160,
+  });
+
+  const activeVault = page.getByRole("link", {
+    name: "samebase/commerce-order-fulfillment-platform, main 24/24, 12 apps, 6 PRs",
+  });
+  await expect(activeVault).toBeVisible();
+  await expect(activeVault.locator("[data-vault-sidebar-owner]")).toBeHidden();
+  await expect(lab).toHaveScreenshot("vault-overview-design-lab-narrow-sidebar.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
 test("keeps repair context beside the affected resource", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-attention");
@@ -97,6 +122,29 @@ test.describe("touch-first phone", () => {
     hasTouch: true,
     isMobile: true,
     viewport: { width: 390, height: 844 },
+  });
+
+  test("keeps vault navigation readable at the minimum mobile pane width", async ({ page }) => {
+    const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-stress", {
+      ...VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+      leftMobileWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+      mobilePane: "left",
+    });
+
+    const activeVault = page.getByRole("link", {
+      name: "samebase/commerce-order-fulfillment-platform, main 24/24, 12 apps, 6 PRs",
+    });
+    await expect(activeVault).toBeVisible();
+    await expect(activeVault.locator("[data-vault-sidebar-owner]")).toBeHidden();
+    await expect(activeVault.locator("[data-vault-sidebar-branch]")).toBeHidden();
+    await expect(activeVault.locator("[data-vault-sidebar-totals]")).toBeHidden();
+    await expect(activeVault.locator("[data-vault-sidebar-checks]")).toHaveText("24/24");
+    await expect(lab).toHaveScreenshot("vault-overview-design-lab-minimum-mobile-sidebar.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
   });
 
   test("collapses a single-root app without losing its resources", async ({ page }) => {
