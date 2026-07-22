@@ -6,6 +6,7 @@ import {
   PullRequestStateLogo,
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
+import { VaultPullRequestChecks } from "@/components/vault-dashboard/VaultPullRequestChecks";
 import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabelColor,
@@ -17,20 +18,11 @@ import type {
 } from "@/hooks/useVaultPullRequests";
 import { useRouter } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import {
-  CircleAlert,
-  CircleCheck,
-  CircleDashed,
-  CircleDot,
-  CircleX,
-  GitBranch,
-  Loader2,
-} from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleX, GitBranch, Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { PullRequestWorkerResource } from "../../../convex/vault/pullRequestResources";
 
 type PullRequest = VaultPullRequest;
-type PullRequestChecks = PullRequest["checks"];
 
 export type VaultPullRequestListProps = {
   buildSamebaseUrl: (branchName: string) => string | null;
@@ -68,81 +60,6 @@ function SamebaseLink({ href }: { href: string }) {
       <SamebaseLogoMark />
       View changes
     </a>
-  );
-}
-
-function checksLabel(checks: PullRequestChecks): string {
-  switch (checks.state) {
-    case "none":
-      return "No checks";
-    case "success":
-      return checks.neutralCount > 0
-        ? `${checks.successCount} passed · ${checks.neutralCount} neutral`
-        : `${checks.successCount} passed`;
-    case "failure":
-      return `${checks.failureCount} failed`;
-    case "running":
-      return `${checks.runningCount} pending`;
-    case "neutral":
-      return `${checks.neutralCount} neutral`;
-    case "unknown":
-      return `${checks.totalCount} unknown`;
-    default:
-      checks.state satisfies never;
-      return "Checks unavailable";
-  }
-}
-
-function ChecksIcon({ checks }: { checks: PullRequestChecks }) {
-  switch (checks.state) {
-    case "success":
-      return <CircleCheck aria-hidden="true" className="h-4 w-4" />;
-    case "failure":
-      return <CircleX aria-hidden="true" className="h-4 w-4" />;
-    case "running":
-      return <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />;
-    case "none":
-      return <CircleDashed aria-hidden="true" className="h-4 w-4" />;
-    case "neutral":
-      return <CircleDot aria-hidden="true" className="h-4 w-4" />;
-    case "unknown":
-      return <CircleAlert aria-hidden="true" className="h-4 w-4" />;
-    default:
-      checks.state satisfies never;
-      return null;
-  }
-}
-
-function CheckSummary({ checks }: { checks: PullRequestChecks }) {
-  const className = (() => {
-    switch (checks.state) {
-      case "success":
-        return "text-emerald-600";
-      case "failure":
-        return "text-destructive";
-      case "running":
-        return "text-blue-600";
-      case "none":
-      case "neutral":
-      case "unknown":
-        return "text-muted-foreground";
-      default:
-        checks.state satisfies never;
-        return "text-muted-foreground";
-    }
-  })();
-
-  return (
-    <span
-      className={clsx(
-        "inline-flex min-h-8 items-center gap-1.5 rounded-sm px-1.5 font-mono text-sm tabular-nums",
-        className,
-      )}
-      title={`${checks.totalCount} checks`}
-    >
-      <ChecksIcon checks={checks} />
-      {checksLabel(checks)}
-    </span>
   );
 }
 
@@ -442,7 +359,7 @@ function PullRequestRow({
           ))}
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-          <CheckSummary checks={pullRequest.checks} />
+          <VaultPullRequestChecks pullRequest={pullRequest} />
           <span className="font-mono text-sm tabular-nums">
             +{numberFormatter.format(pullRequest.additions)} −
             {numberFormatter.format(pullRequest.deletions)} · {changedFilesLabel}

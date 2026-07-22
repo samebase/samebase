@@ -33,7 +33,33 @@ function pullRequest(args: { number?: number; fork?: boolean } = {}): VaultPullR
       owner: { login: args.fork ? "contributor" : "samebase" },
     },
     labels: [{ name: "product", color: "0969da" }],
-    statusCheckRollup: null,
+    statusCheckRollup: {
+      state: "SUCCESS",
+      contexts: {
+        totalCount: 4,
+        checkRunCount: 3,
+        statusContextCount: 1,
+        checkRunCountsByState: [{ state: "SUCCESS", count: 3 }],
+        statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+        nodes: [
+          {
+            kind: "check_run",
+            name: "checks (24.x)",
+            status: "COMPLETED",
+            conclusion: "SUCCESS",
+            detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
+            title: null,
+          },
+          {
+            kind: "status_context",
+            context: "Cloudflare Workers",
+            state: "SUCCESS",
+            targetUrl: "https://dash.cloudflare.com/builds/1",
+            description: "Build succeeded",
+          },
+        ],
+      },
+    },
     checks: {
       state: "success",
       totalCount: 4,
@@ -89,6 +115,7 @@ function settledState(
   );
   return {
     state: args.state ?? "current",
+    defaultBranchChecks: null,
     refreshing: false,
     pullRequests,
     allPullRequests: args.allPullRequests ?? pullRequests,
@@ -125,6 +152,8 @@ describe("VaultPullRequestList", () => {
     const markup = renderList(settledState());
     expect(markup).toContain("PR #1243 Use live provider truth");
     expect(markup).toContain("4 passed");
+    expect(markup).toContain('title="Show pull request checks"');
+    expect(markup).not.toContain('href="https://github.com/samebase/samebase/pull/1243/checks"');
     expect(markup).toContain("samebase-worker");
     expect(markup).toContain(
       'href="https://dash.cloudflare.com/account-1/workers/services/view/samebase-worker/production/builds/build-1243"',

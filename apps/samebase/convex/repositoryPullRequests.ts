@@ -28,6 +28,25 @@ const GITHUB_CHECK_RUN_STATES = [
   "WAITING",
 ] as const;
 const GITHUB_STATUS_STATES = ["ERROR", "EXPECTED", "FAILURE", "PENDING", "SUCCESS"] as const;
+const GITHUB_CHECK_STATUSES = [
+  "REQUESTED",
+  "QUEUED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "WAITING",
+  "PENDING",
+] as const;
+const GITHUB_CHECK_CONCLUSIONS = [
+  "ACTION_REQUIRED",
+  "TIMED_OUT",
+  "CANCELLED",
+  "FAILURE",
+  "SUCCESS",
+  "NEUTRAL",
+  "SKIPPED",
+  "STARTUP_FAILURE",
+  "STALE",
+] as const;
 const UNKNOWN_GITHUB_STATE = "UNKNOWN" as const;
 const checkRunState = union(
   ...[...GITHUB_CHECK_RUN_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
@@ -35,12 +54,36 @@ const checkRunState = union(
 const statusState = union(
   ...[...GITHUB_STATUS_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
 );
+const checkStatus = union(
+  ...[...GITHUB_CHECK_STATUSES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
+);
+const checkConclusion = union(
+  ...[...GITHUB_CHECK_CONCLUSIONS, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
+);
+const checkContext = union(
+  object({
+    kind: literal("check_run"),
+    name: string(),
+    status: checkStatus,
+    conclusion: union(vNull(), checkConclusion),
+    detailsUrl: union(vNull(), string()),
+    title: union(vNull(), string()),
+  }),
+  object({
+    kind: literal("status_context"),
+    context: string(),
+    state: statusState,
+    targetUrl: union(vNull(), string()),
+    description: union(vNull(), string()),
+  }),
+);
 const checkCountFields = {
   totalCount: number(),
   checkRunCount: number(),
   statusContextCount: number(),
   checkRunCountsByState: array(object({ state: checkRunState, count: number() })),
   statusContextCountsByState: array(object({ state: statusState, count: number() })),
+  nodes: array(checkContext),
 };
 const vStatusCheckRollup = union(
   vNull(),
@@ -76,6 +119,14 @@ const vPullRequest = object({
   }),
   statusCheckRollup: vStatusCheckRollup,
 });
+const vRepositoryDefaultBranch = union(
+  vNull(),
+  object({
+    name: string(),
+    headCommitOid: string(),
+    statusCheckRollup: vStatusCheckRollup,
+  }),
+);
 const vRepositoryPullRequestPage = object({
   repository: union(
     vNull(),
@@ -83,6 +134,7 @@ const vRepositoryPullRequestPage = object({
       id: string(),
       databaseId: number(),
       nameWithOwner: string(),
+      defaultBranch: vRepositoryDefaultBranch,
       pullRequests: object({
         totalCount: number(),
         pageInfo: object({
@@ -96,6 +148,7 @@ const vRepositoryPullRequestPage = object({
 });
 export type RepositoryPullRequestPage = Infer<typeof vRepositoryPullRequestPage>;
 export type RepositoryPullRequest = Infer<typeof vPullRequest>;
+export type RepositoryStatusCheckRollup = Infer<typeof vStatusCheckRollup>;
 const vBranchPullRequest = object({
   aheadBy: number(),
   pullRequest: union(
@@ -119,6 +172,25 @@ function providerEnumWithUnknown<const T extends readonly [string, ...string[]]>
 
 const providerCheckRunStateSchema = providerEnumWithUnknown(GITHUB_CHECK_RUN_STATES);
 const providerStatusStateSchema = providerEnumWithUnknown(GITHUB_STATUS_STATES);
+const providerCheckStatusSchema = providerEnumWithUnknown(GITHUB_CHECK_STATUSES);
+const providerCheckConclusionSchema = providerEnumWithUnknown(GITHUB_CHECK_CONCLUSIONS);
+const providerCheckContextSchema = z.discriminatedUnion("__typename", [
+  z.object({
+    __typename: z.literal("CheckRun"),
+    name: z.string().min(1),
+    status: providerCheckStatusSchema,
+    conclusion: providerCheckConclusionSchema.nullable(),
+    detailsUrl: z.url().nullable(),
+    title: z.string().nullable(),
+  }),
+  z.object({
+    __typename: z.literal("StatusContext"),
+    context: z.string().min(1),
+    state: providerStatusStateSchema,
+    targetUrl: z.url().nullable(),
+    description: z.string().nullable(),
+  }),
+]);
 const statusCheckRollupSchema = z
   .object({
     state: providerStatusStateSchema,
@@ -138,6 +210,7 @@ const statusCheckRollupSchema = z
           count: countSchema,
         }),
       ),
+      nodes: z.array(providerCheckContextSchema),
     }),
   })
   .nullable();
@@ -182,12 +255,23 @@ const providerPullRequestSchema = z.object({
     ),
   }),
 });
+const providerDefaultBranchSchema = z
+  .object({
+    name: z.string().min(1),
+    target: z.object({
+      __typename: z.literal("Commit"),
+      oid: z.string().min(1),
+      statusCheckRollup: statusCheckRollupSchema,
+    }),
+  })
+  .nullable();
 const providerPageSchema = z.object({
   repository: z
     .object({
       id: z.string().min(1),
       databaseId: z.number().int().positive(),
       nameWithOwner: z.string().min(3),
+      defaultBranch: providerDefaultBranchSchema,
       pullRequests: z.object({
         totalCount: countSchema,
         pageInfo: z.object({
@@ -204,6 +288,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
   query RepositoryPullRequestPage(
     $owner: String!
     $name: String!
+    $defaultBranchRef: String!
     $first: Int!
     $after: String
   ) {
@@ -211,6 +296,16 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
       id
       databaseId
       nameWithOwner
+      defaultBranch: ref(qualifiedName: $defaultBranchRef) {
+        name
+        target {
+          __typename
+          ... on Commit {
+            oid
+            statusCheckRollup { ...StatusCheckRollupFields }
+          }
+        }
+      }
       pullRequests(
         first: $first
         after: $after
@@ -239,16 +334,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
             nodes {
               commit {
                 oid
-                statusCheckRollup {
-                  state
-                  contexts(first: 1) {
-                    totalCount
-                    checkRunCount
-                    statusContextCount
-                    checkRunCountsByState { state count }
-                    statusContextCountsByState { state count }
-                  }
-                }
+                statusCheckRollup { ...StatusCheckRollupFields }
               }
             }
           }
@@ -256,7 +342,88 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
       }
     }
   }
+
+  fragment StatusCheckRollupFields on StatusCheckRollup {
+    state
+    contexts(first: 100) {
+      totalCount
+      checkRunCount
+      statusContextCount
+      checkRunCountsByState { state count }
+      statusContextCountsByState { state count }
+      nodes {
+        __typename
+        ... on CheckRun {
+          name
+          status
+          conclusion
+          detailsUrl
+          title
+        }
+        ... on StatusContext {
+          context
+          state
+          targetUrl
+          description
+        }
+      }
+    }
+  }
 `;
+
+type ProviderStatusCheckRollup = z.infer<typeof statusCheckRollupSchema>;
+
+function normalizeStatusCheckRollup(
+  rollup: ProviderStatusCheckRollup,
+): RepositoryStatusCheckRollup {
+  if (rollup === null) {
+    return null;
+  }
+  const checkRunCount = rollup.contexts.checkRunCountsByState.reduce(
+    (total, count) => total + count.count,
+    0,
+  );
+  const statusContextCount = rollup.contexts.statusContextCountsByState.reduce(
+    (total, count) => total + count.count,
+    0,
+  );
+  if (
+    checkRunCount !== rollup.contexts.checkRunCount ||
+    statusContextCount !== rollup.contexts.statusContextCount ||
+    checkRunCount + statusContextCount !== rollup.contexts.totalCount
+  ) {
+    throw new Error("GitHub returned inconsistent check counts.");
+  }
+  return {
+    state: rollup.state,
+    contexts: {
+      totalCount: rollup.contexts.totalCount,
+      checkRunCount: rollup.contexts.checkRunCount,
+      statusContextCount: rollup.contexts.statusContextCount,
+      checkRunCountsByState: rollup.contexts.checkRunCountsByState,
+      statusContextCountsByState: rollup.contexts.statusContextCountsByState,
+      nodes: rollup.contexts.nodes.map((context) => {
+        if (context.__typename === "CheckRun") {
+          return {
+            kind: "check_run" as const,
+            name: context.name,
+            status: context.status,
+            conclusion: context.conclusion,
+            detailsUrl: context.detailsUrl,
+            title: context.title,
+          };
+        }
+        return {
+          kind: "status_context" as const,
+          context: context.context,
+          state: context.state,
+          targetUrl: context.targetUrl,
+          description: context.description,
+        };
+      }),
+    },
+  };
+}
 
 export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRequestPage {
   const parsed = providerPageSchema.parse(value);
@@ -273,6 +440,16 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
       id: repository.id,
       databaseId: repository.databaseId,
       nameWithOwner: repository.nameWithOwner,
+      defaultBranch:
+        repository.defaultBranch === null
+          ? null
+          : {
+              name: repository.defaultBranch.name,
+              headCommitOid: repository.defaultBranch.target.oid,
+              statusCheckRollup: normalizeStatusCheckRollup(
+                repository.defaultBranch.target.statusCheckRollup,
+              ),
+            },
       pullRequests: {
         totalCount: repository.pullRequests.totalCount,
         pageInfo: repository.pullRequests.pageInfo,
@@ -287,24 +464,6 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
             commit.oid !== pullRequest.headRefOid
           ) {
             throw new Error("GitHub did not return the pull request head commit.");
-          }
-          const rollup = commit.statusCheckRollup;
-          if (rollup) {
-            const checkRunCount = rollup.contexts.checkRunCountsByState.reduce(
-              (total, count) => total + count.count,
-              0,
-            );
-            const statusContextCount = rollup.contexts.statusContextCountsByState.reduce(
-              (total, count) => total + count.count,
-              0,
-            );
-            if (
-              checkRunCount !== rollup.contexts.checkRunCount ||
-              statusContextCount !== rollup.contexts.statusContextCount ||
-              checkRunCount + statusContextCount !== rollup.contexts.totalCount
-            ) {
-              throw new Error("GitHub returned inconsistent check counts.");
-            }
           }
           return {
             id: pullRequest.id,
@@ -322,7 +481,7 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
             headRefOid: pullRequest.headRefOid,
             headRepository: pullRequest.headRepository,
             labels: { nodes: pullRequest.labels.nodes },
-            statusCheckRollup: commit.statusCheckRollup,
+            statusCheckRollup: normalizeStatusCheckRollup(commit.statusCheckRollup),
           };
         }),
       },
@@ -363,6 +522,7 @@ export const listOpenPullRequests = action({
       await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
         owner: vault.owner,
         name: vault.name,
+        defaultBranchRef: `refs/heads/${vault.defaultBranch}`,
         first: args.first,
         after: args.after,
         request: { signal },
@@ -373,6 +533,12 @@ export const listOpenPullRequests = action({
     }
     if (String(page.repository.databaseId) !== vault.ghRepoId) {
       throw new Error("GitHub repository identity changed.");
+    }
+    if (
+      page.repository.defaultBranch !== null &&
+      page.repository.defaultBranch.name !== vault.defaultBranch
+    ) {
+      throw new Error("GitHub returned another default branch ref.");
     }
     return page;
   },
