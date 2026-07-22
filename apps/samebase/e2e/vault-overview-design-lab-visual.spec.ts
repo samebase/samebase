@@ -40,7 +40,7 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
 
-test("shows production and pull request apps in the monorepo concept", async ({ page }) => {
+test("shows default branch and pull request apps in the monorepo concept", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-monorepo");
 
@@ -103,7 +103,8 @@ test.describe("touch-first phone", () => {
     const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-simple");
 
     await expect(page.getByText("guestbook", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Production deployment", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Cloudflare").first()).toBeVisible();
+    await expect(page.getByLabel("Convex").first()).toBeVisible();
     await expect(page.locator('[data-root-directory="/"]')).toHaveCount(0);
     await expect(lab).toHaveScreenshot("vault-overview-design-lab-simple-mobile.png", {
       animations: "disabled",

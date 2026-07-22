@@ -5,8 +5,6 @@ import {
   Check,
   ChevronDown,
   CircleDot,
-  Cloud,
-  Database,
   ExternalLink,
   GitBranch,
   GitPullRequest,
@@ -14,6 +12,10 @@ import {
   Settings,
 } from "lucide-react";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
 
 export type VaultOverviewDesignLabVisualMode =
   | "vault-overview-lab-simple"
@@ -28,7 +30,6 @@ type EventState = "attention" | "building" | "live" | "ready";
 type LabResource = {
   kind: ResourceKind;
   label: string;
-  detail: string;
   href: string | null;
   relationship: string | null;
   state: ResourceState;
@@ -63,14 +64,13 @@ type LabScenario = {
     author: string;
     checksLabel: string;
     hash: string;
+    state: EventState;
     title: string;
     updatedAt: string;
   };
   defaultExpandedPullRequest: number | null;
   label: string;
-  productionLabel: string;
   productionRoots: readonly LabRootGroup[];
-  productionUrl: string;
   productionVisibleRootCount: number;
   pullRequests: readonly LabPullRequest[];
   repositoryName: string;
@@ -147,7 +147,6 @@ const MONOREPO_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "domain-router",
-        detail: "Worker",
         href: "https://domain-router.samebase.workers.dev",
         relationship: null,
         state: "live",
@@ -161,7 +160,6 @@ const MONOREPO_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "posthog-proxy",
-        detail: "Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -175,7 +173,6 @@ const MONOREPO_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "samebase-worker",
-        detail: "Worker",
         href: "https://samebase.com",
         relationship: null,
         state: "live",
@@ -184,7 +181,6 @@ const MONOREPO_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "samebase",
-        detail: "Production deployment",
         href: null,
         relationship: null,
         state: "live",
@@ -207,7 +203,6 @@ const MONOREPO_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "samebase-worker",
-            detail: "Preview deployment",
             href: "https://1263.samebase.workers.dev",
             relationship: "Convex preview verified from this build",
             state: "ready",
@@ -233,7 +228,6 @@ const MONOREPO_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "domain-router",
-            detail: "Preview deployment",
             href: "https://1262.domain-router.workers.dev",
             relationship: null,
             state: "ready",
@@ -247,7 +241,6 @@ const MONOREPO_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "samebase-worker",
-            detail: "Preview deployment",
             href: null,
             relationship: "Waiting for the verified Convex preview",
             state: "building",
@@ -273,7 +266,6 @@ const MONOREPO_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "samebase-worker",
-            detail: "Production deployment reused",
             href: "https://samebase.com",
             relationship: null,
             state: "reused",
@@ -296,7 +288,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-edge",
-        detail: "Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -310,7 +301,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "accounts",
-        detail: "Production deployment",
         href: null,
         relationship: null,
         state: "live",
@@ -324,7 +314,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-admin",
-        detail: "Worker",
         href: "https://admin.commerce.example",
         relationship: null,
         state: "live",
@@ -338,7 +327,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-analytics",
-        detail: "Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -352,7 +340,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "catalog",
-        detail: "Production deployment",
         href: null,
         relationship: null,
         state: "live",
@@ -366,7 +353,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-checkout",
-        detail: "Worker",
         href: "https://checkout.commerce.example",
         relationship: null,
         state: "live",
@@ -375,7 +361,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "checkout",
-        detail: "Production deployment",
         href: null,
         relationship: null,
         state: "live",
@@ -389,7 +374,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-content",
-        detail: "Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -403,7 +387,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "notifications",
-        detail: "Production deployment",
         href: null,
         relationship: null,
         state: "live",
@@ -417,7 +400,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-search",
-        detail: "Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -431,7 +413,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-storefront",
-        detail: "Worker",
         href: "https://commerce.example",
         relationship: null,
         state: "live",
@@ -440,7 +421,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-images",
-        detail: "Image Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -449,7 +429,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "storefront",
-        detail: "Production deployment",
         href: null,
         relationship: null,
         state: "live",
@@ -463,7 +442,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-email",
-        detail: "Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -477,7 +455,6 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "cloudflare",
         label: "commerce-webhooks",
-        detail: "Worker",
         href: null,
         relationship: null,
         state: "live",
@@ -500,7 +477,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-checkout",
-            detail: "Preview deployment",
             href: "https://842.checkout.commerce.example",
             relationship: "Convex preview verified from this build",
             state: "ready",
@@ -514,7 +490,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-storefront",
-            detail: "Preview deployment",
             href: "https://842.commerce.example",
             relationship: null,
             state: "ready",
@@ -523,7 +498,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-images",
-            detail: "No matching preview build",
             href: null,
             relationship: null,
             state: "unavailable",
@@ -549,7 +523,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-search",
-            detail: "Preview deployment",
             href: "https://841.search.commerce.example",
             relationship: null,
             state: "ready",
@@ -575,7 +548,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-email",
-            detail: "Production deployment reused",
             href: null,
             relationship: null,
             state: "reused",
@@ -601,7 +573,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-admin",
-            detail: "Preview deployment",
             href: null,
             relationship: null,
             state: "building",
@@ -627,7 +598,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-analytics",
-            detail: "No matching preview build",
             href: null,
             relationship: null,
             state: "unavailable",
@@ -653,7 +623,6 @@ const STRESS_PULL_REQUESTS = [
           {
             kind: "cloudflare",
             label: "commerce-webhooks",
-            detail: "Preview deployment",
             href: "https://832.webhooks.commerce.example",
             relationship: null,
             state: "ready",
@@ -676,12 +645,12 @@ const SCENARIOS = {
       author: "noter-guest",
       checksLabel: "6/6 checks",
       hash: "8f2ac16",
+      state: "ready",
       title: "Polish the empty guestbook state",
       updatedAt: "11 min ago",
     },
     defaultExpandedPullRequest: 48,
     label: "Simple app",
-    productionLabel: "guestbook.samebase.app",
     productionRoots: [
       {
         rootDirectory: "/",
@@ -689,7 +658,6 @@ const SCENARIOS = {
           {
             kind: "cloudflare",
             label: "guestbook",
-            detail: "Worker",
             href: "https://guestbook.samebase.app",
             relationship: null,
             state: "live",
@@ -698,7 +666,6 @@ const SCENARIOS = {
           {
             kind: "convex",
             label: "guestbook",
-            detail: "Production deployment",
             href: null,
             relationship: null,
             state: "live",
@@ -707,7 +674,6 @@ const SCENARIOS = {
         ],
       },
     ],
-    productionUrl: "https://guestbook.samebase.app",
     productionVisibleRootCount: 1,
     pullRequests: [
       {
@@ -722,7 +688,6 @@ const SCENARIOS = {
               {
                 kind: "cloudflare",
                 label: "guestbook",
-                detail: "Preview deployment",
                 href: "https://48.guestbook.samebase.app",
                 relationship: "Convex preview verified from this build",
                 state: "ready",
@@ -747,14 +712,13 @@ const SCENARIOS = {
       author: "nicu",
       checksLabel: "14/14 checks",
       hash: "9111562",
+      state: "ready",
       title: "Discover default-layout Convex projects",
       updatedAt: "23 min ago",
     },
     defaultExpandedPullRequest: 1263,
     label: "Monorepo",
-    productionLabel: "samebase.com",
     productionRoots: MONOREPO_PRODUCTION_ROOTS,
-    productionUrl: "https://samebase.com",
     productionVisibleRootCount: 3,
     pullRequests: MONOREPO_PULL_REQUESTS,
     repositoryName: "samebase",
@@ -767,14 +731,13 @@ const SCENARIOS = {
       author: "maya",
       checksLabel: "24/24 checks",
       hash: "4ad90cb",
+      state: "ready",
       title: "Keep fulfillment events ordered across regions",
       updatedAt: "7 min ago",
     },
     defaultExpandedPullRequest: 842,
     label: "Large monorepo",
-    productionLabel: "commerce.example",
     productionRoots: STRESS_PRODUCTION_ROOTS,
-    productionUrl: "https://commerce.example",
     productionVisibleRootCount: 5,
     pullRequests: STRESS_PULL_REQUESTS,
     repositoryName: "commerce-platform",
@@ -790,12 +753,12 @@ const SCENARIOS = {
       author: "nicu",
       checksLabel: "13/14 checks",
       hash: "a12fbc8",
+      state: "attention",
       title: "Keep plugin preview URLs stable across renames",
       updatedAt: "16 min ago",
     },
     defaultExpandedPullRequest: 217,
     label: "Needs attention",
-    productionLabel: "plugins.samebase.com",
     productionRoots: [
       {
         rootDirectory: "Needs attention",
@@ -803,7 +766,6 @@ const SCENARIOS = {
           {
             kind: "cloudflare",
             label: "plugin-preview-router",
-            detail: "Worker root could not be verified",
             href: null,
             relationship: null,
             state: "attention",
@@ -817,7 +779,6 @@ const SCENARIOS = {
           {
             kind: "cloudflare",
             label: "plugin-directory",
-            detail: "Worker",
             href: "https://plugins.samebase.com",
             relationship: null,
             state: "live",
@@ -831,7 +792,6 @@ const SCENARIOS = {
           {
             kind: "convex",
             label: "plugin-registry",
-            detail: "Production deployment",
             href: null,
             relationship: null,
             state: "live",
@@ -840,7 +800,6 @@ const SCENARIOS = {
         ],
       },
     ],
-    productionUrl: "https://plugins.samebase.com",
     productionVisibleRootCount: 3,
     pullRequests: [
       {
@@ -855,7 +814,6 @@ const SCENARIOS = {
               {
                 kind: "cloudflare",
                 label: "plugin-preview-router",
-                detail: "Preview could not be placed",
                 href: null,
                 relationship: null,
                 state: "attention",
@@ -869,7 +827,6 @@ const SCENARIOS = {
               {
                 kind: "cloudflare",
                 label: "plugin-directory",
-                detail: "Preview deployment",
                 href: "https://217.plugins.samebase.com",
                 relationship: null,
                 state: "ready",
@@ -895,7 +852,6 @@ const SCENARIOS = {
               {
                 kind: "cloudflare",
                 label: "plugin-registry-api",
-                detail: "Preview deployment",
                 href: "https://214.registry.samebase.com",
                 relationship: "Convex preview verified from this build",
                 state: "ready",
@@ -919,9 +875,9 @@ const SCENARIOS = {
 function ResourceIcon({ kind }: { kind: ResourceKind }) {
   switch (kind) {
     case "cloudflare":
-      return <Cloud className="h-4 w-4" />;
+      return <CloudflareProviderLogo />;
     case "convex":
-      return <Database className="h-4 w-4" />;
+      return <ConvexProviderLogo />;
     default:
       kind satisfies never;
       return null;
@@ -937,7 +893,11 @@ function ResourceRow({ resource }: { resource: LabResource }) {
   return (
     <div className="grid min-w-0 gap-2 py-2.5 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
       <div className="flex min-w-0 items-start gap-2.5">
-        <span className="mt-0.5 shrink-0 text-muted-foreground">
+        <span
+          aria-label={resource.kind === "cloudflare" ? "Cloudflare" : "Convex"}
+          className="mt-0.5 flex h-4 w-5 shrink-0 items-center justify-center"
+          role="img"
+        >
           <ResourceIcon kind={resource.kind} />
         </span>
         <div className="min-w-0">
@@ -955,7 +915,6 @@ function ResourceRow({ resource }: { resource: LabResource }) {
             ) : (
               title
             )}
-            <span className="text-xs text-muted-foreground">{resource.detail}</span>
           </div>
           {resource.relationship ? (
             <div className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -1072,42 +1031,41 @@ function VaultSidebar({ mode }: { mode: VaultOverviewDesignLabVisualMode }) {
       {LAB_MODES.map((option) => {
         const scenario = SCENARIOS[option.mode];
         const active = option.mode === mode;
-        const appCount = scenario.productionRoots.length;
+        const appCount = scenario.productionRoots.filter(
+          (root) => root.rootDirectory !== "Needs attention",
+        ).length;
         const pullRequestCount = scenario.pullRequests.length;
+        const commitStateStyle = EVENT_STATE_STYLE[scenario.commit.state];
+        const compactChecksLabel = scenario.commit.checksLabel.replace(" checks", "");
         return (
-          <div
+          <Link
             key={option.mode}
+            aria-current={active ? "page" : undefined}
             className={
               active
-                ? "mx-2 grid grid-cols-[minmax(0,1fr)_2rem] bg-muted"
-                : "mx-2 grid grid-cols-[minmax(0,1fr)_2rem]"
+                ? "mx-2 block min-w-0 bg-muted px-2 py-2.5 text-left"
+                : "mx-2 block min-w-0 px-2 py-2.5 text-left hover:bg-muted"
             }
+            search={(current) => ({ ...current, mode: option.mode })}
+            to="/visual-fixture"
           >
-            <Link
-              aria-current={active ? "page" : undefined}
-              className="min-w-0 px-2 py-2.5 text-left hover:bg-muted"
-              search={(current) => ({ ...current, mode: option.mode })}
-              to="/visual-fixture"
-            >
-              <span className="block truncate text-sm font-medium text-foreground">
+            <span className="flex min-w-0 items-baseline gap-1 truncate text-sm">
+              <span className="truncate text-muted-foreground">{scenario.repositoryOwner}</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="truncate font-medium text-foreground">
                 {scenario.repositoryName}
               </span>
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                {scenario.repositoryOwner} · {appCount} {appCount === 1 ? "app" : "apps"} ·{" "}
-                {pullRequestCount} {pullRequestCount === 1 ? "PR" : "PRs"}
+            </span>
+            <span className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+              <span className={commitStateStyle.dot} />
+              <span className="truncate">
+                main {compactChecksLabel} · {appCount} {appCount === 1 ? "app" : "apps"}
+                {pullRequestCount > 0
+                  ? ` · ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}`
+                  : ""}
               </span>
-            </Link>
-            <a
-              aria-label={`Open ${scenario.productionLabel}`}
-              className="flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground"
-              href={scenario.productionUrl}
-              rel="noreferrer"
-              target="_blank"
-              title={scenario.productionLabel}
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
+            </span>
+          </Link>
         );
       })}
     </nav>
@@ -1162,7 +1120,7 @@ function AttentionNotice({ alert }: { alert: LabAlert }) {
   );
 }
 
-function ProductionSection({ scenario }: { scenario: LabScenario }) {
+function DefaultBranchSection({ scenario }: { scenario: LabScenario }) {
   const [showAllRoots, setShowAllRoots] = useState(false);
   const visibleRoots = showAllRoots
     ? scenario.productionRoots
@@ -1170,23 +1128,14 @@ function ProductionSection({ scenario }: { scenario: LabScenario }) {
   const hiddenRootCount = scenario.productionRoots.length - visibleRoots.length;
 
   return (
-    <section aria-labelledby="vault-overview-production-heading">
-      <div className="mb-3 flex items-center justify-between gap-4">
+    <section aria-labelledby="vault-overview-default-branch-heading">
+      <div className="mb-3">
         <h2
-          id="vault-overview-production-heading"
+          id="vault-overview-default-branch-heading"
           className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
         >
-          Production
+          Default branch
         </h2>
-        <a
-          className="inline-flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-          href={scenario.productionUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {scenario.productionLabel}
-          <ExternalLink className="h-3 w-3 shrink-0" />
-        </a>
       </div>
 
       <div className="border-y border-border py-4">
@@ -1202,12 +1151,11 @@ function ProductionSection({ scenario }: { scenario: LabScenario }) {
               </div>
               <div className="mt-1 text-sm leading-6 text-foreground">{scenario.commit.title}</div>
               <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                {scenario.commit.author} · {scenario.commit.updatedAt} ·{" "}
-                {scenario.commit.checksLabel}
+                {scenario.commit.author} · {scenario.commit.updatedAt}
               </div>
             </div>
           </div>
-          <EventStatus label="Live" state="live" />
+          <EventStatus label={scenario.commit.checksLabel} state={scenario.commit.state} />
         </div>
 
         <div className="mt-3">
@@ -1319,7 +1267,7 @@ function VaultOverview({ scenario }: { scenario: LabScenario }) {
       <RepositoryHeader scenario={scenario} />
       <main className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
         {scenario.alert ? <AttentionNotice alert={scenario.alert} /> : null}
-        <ProductionSection scenario={scenario} />
+        <DefaultBranchSection scenario={scenario} />
         <PullRequestSection
           defaultExpandedPullRequest={scenario.defaultExpandedPullRequest}
           pullRequests={scenario.pullRequests}
