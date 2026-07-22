@@ -1008,7 +1008,8 @@ test("vault dashboard fixture (pull request checks popover)", async ({ page }) =
     "https://dash.cloudflare.com/account-1/workers/services/view/samebase/production/builds/build-1",
   );
   await expect(popover.getByText("Deployment completed", { exact: true })).toBeVisible();
-  await expect(popover.getByText("Passed", { exact: true })).toHaveCount(4);
+  await expect(popover.getByText("Passed", { exact: true })).toHaveCount(0);
+  await expect(popover.getByText("Neutral", { exact: true })).toHaveCount(0);
   await expect(popover).toHaveScreenshot("vault-pull-request-checks-popover.png", {
     animations: "disabled",
     caret: "hide",

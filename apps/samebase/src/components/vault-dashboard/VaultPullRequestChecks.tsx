@@ -110,24 +110,6 @@ function checkState(check: PullRequestCheck): PullRequestCheckState {
   }
 }
 
-function checkStateLabel(state: PullRequestCheckState): string {
-  switch (state) {
-    case "success":
-      return "Passed";
-    case "failure":
-      return "Failed";
-    case "running":
-      return "Pending";
-    case "neutral":
-      return "Neutral";
-    case "unknown":
-      return "Unknown";
-    default:
-      state satisfies never;
-      return "Unknown";
-  }
-}
-
 function checkStateClassName(state: PullRequestChecks["state"]): string {
   switch (state) {
     case "success":
@@ -231,9 +213,6 @@ export function VaultPullRequestChecks({ pullRequest }: { pullRequest: PullReque
                         {description}
                       </span>
                     ) : null}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {checkStateLabel(state)}
                   </span>
                 </li>
               );
