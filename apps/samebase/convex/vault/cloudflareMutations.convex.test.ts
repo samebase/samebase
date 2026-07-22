@@ -341,7 +341,6 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         convexProjectId,
         teamId: "team-1",
         projectId: "shared-backend",
-        convexConfigPath: "apps/api/convex.json",
       },
     });
   });
