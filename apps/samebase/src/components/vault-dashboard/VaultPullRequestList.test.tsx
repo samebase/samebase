@@ -124,6 +124,9 @@ describe("VaultPullRequestList", () => {
     expect(markup).toContain("a1b2c3d4-samebase-worker.samebase.workers.dev");
     expect(markup).toContain('href="https://a1b2c3d4-samebase-worker.samebase.workers.dev"');
     expect(markup).toContain("precise-otter-1243");
+    expect(markup).toContain(
+      'href="https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1243/data"',
+    );
     expect(markup).toContain("View changes");
   });
 

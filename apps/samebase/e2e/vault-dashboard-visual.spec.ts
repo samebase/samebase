@@ -739,6 +739,12 @@ test("vault dashboard fixture (default branch surface)", async ({ page }) => {
   await expect(samebaseEditor).toHaveAttribute("href", "/vault/samebase/samebase/fs/main");
   await expect(samebaseEditor).not.toHaveAttribute("href", /compare/);
   await expect(
+    defaultBranchSurface.getByRole("link", { name: "Data: apps/samebase" }),
+  ).toHaveAttribute("href", "/vault/samebase/samebase/db/main/project/convex-project-samebase");
+  await expect(
+    defaultBranchSurface.getByRole("link", { name: "Schema: apps/samebase" }),
+  ).toHaveAttribute("href", "/vault/samebase/samebase/schema/main/project/convex-project-samebase");
+  await expect(
     defaultBranchSurface.getByRole("link", { name: "domain-router.samebase.workers.dev" }),
   ).toHaveAttribute("href", "https://domain-router.samebase.workers.dev");
   await expect(
@@ -1050,6 +1056,10 @@ test("vault dashboard automatically loads the next pull request page at the scro
   await expect(list.getByRole("button", { name: "Retry" })).toHaveCount(0);
   await expect(list.getByRole("button", { name: "Load more" })).toHaveCount(0);
   await expect(list.getByRole("link", { name: "GitHub", exact: true })).toHaveCount(0);
+  await expect(list.getByRole("link", { name: "Data", exact: true })).toHaveAttribute(
+    "href",
+    "https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1260/data",
+  );
   await expect(sentinel).toHaveCount(1);
   await expect(page).toHaveScreenshot("vault-pull-request-auto-pagination.png", {
     animations: "disabled",

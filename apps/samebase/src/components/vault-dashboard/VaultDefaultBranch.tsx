@@ -4,6 +4,7 @@ import {
   ConvexProviderLogo,
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
+import { buildVaultDatabaseRoute, buildVaultSchemaRoute } from "@/lib/vaultRoutes";
 import type {
   VaultProductionLinkProvider,
   VaultProductionRoot,
@@ -12,12 +13,23 @@ import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { GitBranch } from "lucide-react";
 import type { ReactNode } from "react";
+import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
+
+type VaultDefaultBranchConvexProject = {
+  convexConfigPath: string;
+  convexProjectId: string;
+  projectId: string;
+};
 
 type VaultDefaultBranchProps = {
+  convexProjects: readonly VaultDefaultBranchConvexProject[];
   defaultBranch: string;
   githubBranchUrl: string;
+  owner: string;
   productionRoots: readonly VaultProductionRoot[];
+  repoName: string;
   samebaseEditorUrl: string;
+  schemaGraphAccessEnabled: boolean;
 };
 
 const productionLinkIcons = {
@@ -82,11 +94,53 @@ function ProductionLinks({ roots }: { roots: readonly VaultProductionRoot[] }) {
  * does not share pull-request row types or presentation.
  */
 export function VaultDefaultBranch({
+  convexProjects,
   defaultBranch,
   githubBranchUrl,
+  owner,
   productionRoots,
+  repoName,
   samebaseEditorUrl,
+  schemaGraphAccessEnabled,
 }: VaultDefaultBranchProps) {
+  const convexLinks = [...convexProjects]
+    .sort(
+      (left, right) =>
+        left.convexConfigPath.localeCompare(right.convexConfigPath) ||
+        left.projectId.localeCompare(right.projectId) ||
+        left.convexProjectId.localeCompare(right.convexProjectId),
+    )
+    .flatMap((project) => {
+      const rootDirectory = getConvexConfigRootDirectory(project.convexConfigPath);
+      const rootLabel = rootDirectory === "/" ? "" : `: ${rootDirectory}`;
+      const rootTitle = rootDirectory === "/" ? "" : ` at ${rootDirectory}`;
+      const links = [
+        {
+          href: buildVaultDatabaseRoute({
+            owner,
+            repoName,
+            branch: defaultBranch,
+            convexProjectId: project.convexProjectId,
+          }),
+          label: `Data${rootLabel}`,
+          title: `Open production data for ${project.projectId}${rootTitle}`,
+        },
+      ];
+      if (schemaGraphAccessEnabled) {
+        links.push({
+          href: buildVaultSchemaRoute({
+            owner,
+            repoName,
+            branch: defaultBranch,
+            convexProjectId: project.convexProjectId,
+          }),
+          label: `Schema${rootLabel}`,
+          title: `Open Convex schema for ${project.projectId}${rootTitle}`,
+        });
+      }
+      return links;
+    });
+
   return (
     <section
       data-vault-default-branch=""
@@ -118,6 +172,17 @@ export function VaultDefaultBranch({
               <SamebaseLogoMark />
               <span>Edit</span>
             </Link>
+            {convexLinks.map((link) => (
+              <Link
+                key={link.href}
+                to={link.href}
+                className={clsx(interactiveLinkClassName, "font-mono text-sm")}
+                title={link.title}
+              >
+                <ConvexProviderLogo />
+                <span>{link.label}</span>
+              </Link>
+            ))}
           </div>
         </div>
         <ProductionLinks roots={productionRoots} />

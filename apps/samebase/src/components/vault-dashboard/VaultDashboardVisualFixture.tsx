@@ -591,6 +591,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
     <VaultDashboardView
       deleteModeActive={false}
       developerToolsVisible={false}
+      schemaGraphAccessEnabled={showDefaultProductionResources}
       cloudflareObservations={
         showDefaultProductionResources
           ? LIST_SPACING_CLOUDFLARE_OBSERVATIONS
@@ -674,6 +675,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
+          schemaGraphAccessEnabled={false}
           cloudflareObservations={{
             workers: {
               state: "loaded",
@@ -866,6 +868,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
           <VaultDashboardView
             deleteModeActive={false}
             developerToolsVisible={false}
+            schemaGraphAccessEnabled={false}
             cloudflareObservations={LOADING_CLOUDFLARE_OBSERVATIONS}
             cloudflareWorkerConfigurationActionInFlight={null}
             convexObservations={{ state: "loading" }}

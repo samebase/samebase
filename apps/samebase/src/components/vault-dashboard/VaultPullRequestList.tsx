@@ -233,16 +233,27 @@ function WorkerResource({ worker }: { worker: PullRequestWorkerResource }) {
         </a>
       ) : null}
       {worker.convexPreview.state === "available" ? (
-        <a
-          href={worker.convexPreview.dashboardUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={metadataLinkClassName}
-          title={`Open Convex preview deployment ${worker.convexPreview.deploymentName}`}
-        >
-          <ConvexProviderLogo />
-          {worker.convexPreview.deploymentName}
-        </a>
+        <>
+          <a
+            href={worker.convexPreview.dashboardUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={metadataLinkClassName}
+            title={`Open Convex preview deployment ${worker.convexPreview.deploymentName}`}
+          >
+            <ConvexProviderLogo />
+            {worker.convexPreview.deploymentName}
+          </a>
+          <a
+            href={`${worker.convexPreview.dashboardUrl}/data`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={metadataLinkClassName}
+            title={`Open preview data for ${worker.convexPreview.deploymentName}`}
+          >
+            Data
+          </a>
+        </>
       ) : worker.convexPreview.state === "absent" ? (
         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
           <ConvexProviderLogo />

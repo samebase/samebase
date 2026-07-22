@@ -1723,6 +1723,7 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
 type VaultDashboardViewProps = {
   deleteModeActive: boolean;
   developerToolsVisible: boolean;
+  schemaGraphAccessEnabled: boolean;
   cloudflareObservations: VaultCloudflareProviderObservationState;
   cloudflareWorkerConfigurationActionInFlight: CloudflareWorkerConfigurationActionInFlight | null;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
@@ -1884,6 +1885,7 @@ export function VaultDashboardPaneMessage({ children }: { children: ReactNode })
 export function VaultDashboardView({
   deleteModeActive,
   developerToolsVisible,
+  schemaGraphAccessEnabled,
   cloudflareObservations,
   cloudflareWorkerConfigurationActionInFlight,
   convexObservations,
@@ -2118,17 +2120,21 @@ export function VaultDashboardView({
         const defaultBranchSection =
           primaryBranch && !isDeletingVault ? (
             <VaultDefaultBranch
+              convexProjects={vault.convexProjects}
               defaultBranch={primaryBranch}
               githubBranchUrl={buildGitHubBranchTreeUrl({
                 repositoryFullName: vault.repositoryFullName,
                 branchName: primaryBranch,
               })}
+              owner={vault.ghRepoOwner}
               productionRoots={productionRoots}
+              repoName={vault.ghRepoName}
               samebaseEditorUrl={buildVaultFileRoute({
                 owner: vault.ghRepoOwner,
                 repoName: vault.ghRepoName,
                 branch: primaryBranch,
               })}
+              schemaGraphAccessEnabled={schemaGraphAccessEnabled}
             />
           ) : undefined;
         const primarySection =
@@ -2367,6 +2373,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const userVaultResourceLinksState = useConvexQuery(
     api.vault.dashboard.getUserVaultResourceLinksState,
   );
+  const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
+  const schemaGraphAccessEnabled =
+    viewerAccess?.accessKeys.includes("access_schema_graph") === true;
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const connectedCloudflareConnection =
     cloudflareConnection?.connected === true ? cloudflareConnection : null;
@@ -3427,6 +3436,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       <VaultDashboardView
         deleteModeActive={deleteModeActive}
         developerToolsVisible={developerToolsVisible}
+        schemaGraphAccessEnabled={schemaGraphAccessEnabled}
         cloudflareObservations={providerObservations.cloudflare}
         cloudflareWorkerConfigurationActionInFlight={cloudflareWorkerConfigurationActionInFlight}
         convexObservations={providerObservations.convex}

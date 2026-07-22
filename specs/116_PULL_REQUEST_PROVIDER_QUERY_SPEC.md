@@ -60,7 +60,8 @@ The default-branch surface is not part of this pull request resource query. It i
 always-visible dashboard feature sourced from `vault.defaultBranch`; its production resource group
 joins the stable Worker and Convex attachments to the vault-level live provider observations. No
 default branch, production Worker, or production Convex deployment is fabricated as a pull request
-or copied into pull request state.
+or copied into pull request state. Its attached Convex projects retain Samebase Data links and
+access-gated Schema links for the production deployment.
 
 ## Visible Provider Resources
 
@@ -101,6 +102,10 @@ A Convex preview belongs to that build only when:
 
 Failure to prove a relationship yields absent or unavailable presentation state. Names alone never
 create resource ownership.
+
+An available Convex preview exposes both its deployment dashboard and a direct link to that exact
+deployment's Data page. Both links use the same provider URL returned by the verified resource
+result. Samebase does not create a second preview resolver or embedded preview credential flow.
 
 ## Exact Branch Trees
 

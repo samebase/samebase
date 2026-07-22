@@ -70,6 +70,11 @@ Preview branch database routes may reuse the same shape later, after Samebase ca
 matching Convex preview deployment for a branch. Until that resolver exists, non-default branch
 database links should not silently show production data.
 
+When the pull request resource query has already verified one exact Convex preview deployment, the
+pull request row may link directly to that deployment's Data page in the Convex dashboard. This does
+not make the embedded `/db/` route preview-aware and does not mint Samebase dashboard credentials
+for the preview.
+
 The embedded database surface is an editor, not a read-only viewer. OAuth-backed embedded dashboard
 credentials use the connected user's normal Convex grant, and must not send request-scoped
 `allowedActions` or `expiresAt` options because Convex reuses the OAuth token grant for those deploy
