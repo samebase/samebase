@@ -20,6 +20,7 @@ async function openVaultOverviewDesignLab(
   page: Page,
   mode: VaultOverviewDesignLabVisualMode,
   sidebarState: WorkspaceSidebarState = VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+  view: "overview" | "settings" = "overview",
 ) {
   await page.addInitScript(
     ({ state, storageKey, version }) => {
@@ -31,7 +32,8 @@ async function openVaultOverviewDesignLab(
       version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
     },
   );
-  await page.goto(`/visual-fixture?mode=${mode}`, {
+  const viewSearch = view === "settings" ? "&view=settings" : "";
+  await page.goto(`/visual-fixture?mode=${mode}${viewSearch}`, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -115,6 +117,51 @@ test("keeps repair context beside the affected resource", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+});
+
+test("keeps repository connections and uncommon repairs in settings", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const lab = await openVaultOverviewDesignLab(
+    page,
+    "vault-overview-lab-stress",
+    VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+    "settings",
+  );
+
+  await expect(page.getByRole("link", { name: "Settings" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.getByRole("button", { name: "Add Cloudflare" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add Convex" })).toBeVisible();
+  await expect(page.locator('[data-settings-root="apps/checkout"]')).toBeVisible();
+  await expect(page.getByText("Worker", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Production deployment", { exact: true })).toHaveCount(0);
+  await expect(lab).toHaveScreenshot("vault-overview-design-lab-settings.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("localizes root repair controls to the affected settings row", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openVaultOverviewDesignLab(
+    page,
+    "vault-overview-lab-attention",
+    VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+    "settings",
+  );
+
+  const attentionRoot = page.locator('[data-settings-root="Needs attention"]');
+  await expect(attentionRoot.getByText("plugin-preview-router")).toBeVisible();
+  await expect(attentionRoot.getByRole("button", { name: "Configure Builds" })).toBeVisible();
+  await expect(
+    page.locator('[data-settings-root="packages/codex-plugin"]').getByRole("button", {
+      name: "Configure Builds",
+    }),
+  ).toHaveCount(0);
 });
 
 test.describe("touch-first phone", () => {

@@ -17,6 +17,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardVisualFixture";
 import {
   VaultOverviewDesignLabVisualFixture,
+  type VaultOverviewDesignLabPage,
   type VaultOverviewDesignLabVisualMode,
 } from "@/components/vault-dashboard/VaultOverviewDesignLabVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
@@ -336,7 +337,7 @@ function readSelection(modeSearchValue: string | undefined): VisualFixtureSelect
   };
 }
 
-function renderVisualFixture(mode: VisualFixtureMode) {
+function renderVisualFixture(mode: VisualFixtureMode, page: VaultOverviewDesignLabPage) {
   if (mode === "account-deletion-running" || mode === "account-deletion-attention") {
     return <AccountDeletionStatusVisualFixture mode={mode} />;
   }
@@ -351,7 +352,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-overview-lab-stress" ||
     mode === "vault-overview-lab-attention"
   ) {
-    return <VaultOverviewDesignLabVisualFixture key={mode} mode={mode} />;
+    return <VaultOverviewDesignLabVisualFixture key={`${mode}:${page}`} mode={mode} page={page} />;
   }
 
   if (
@@ -537,8 +538,9 @@ function renderVisualFixtureModeDirectory({ invalidMode }: { invalidMode?: strin
   );
 }
 
-export function VisualFixturePage(props: { mode?: string }) {
+export function VisualFixturePage(props: { mode?: string; view?: string }) {
   const selection = readSelection(props.mode);
+  const page = props.view === "settings" ? "settings" : "overview";
 
   return (
     <DialogProvider>
@@ -548,7 +550,7 @@ export function VisualFixturePage(props: { mode?: string }) {
           ? renderVisualFixtureModeDirectory({
               invalidMode: selection.value,
             })
-          : renderVisualFixture(selection.mode)}
+          : renderVisualFixture(selection.mode, page)}
     </DialogProvider>
   );
 }

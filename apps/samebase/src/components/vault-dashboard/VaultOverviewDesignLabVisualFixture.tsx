@@ -9,12 +9,21 @@ import {
   GitBranch,
   GitPullRequest,
   LoaderCircle,
+  MoreHorizontal,
   Settings,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
+  GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 
 export type VaultOverviewDesignLabVisualMode =
@@ -22,6 +31,8 @@ export type VaultOverviewDesignLabVisualMode =
   | "vault-overview-lab-monorepo"
   | "vault-overview-lab-stress"
   | "vault-overview-lab-attention";
+
+export type VaultOverviewDesignLabPage = "overview" | "settings";
 
 type ResourceKind = "cloudflare" | "convex";
 type ResourceState = "attention" | "building" | "live" | "ready" | "reused" | "unavailable";
@@ -985,9 +996,11 @@ function EventStatus({ label, state }: { label: string; state: EventState }) {
 
 function LabHeader({
   mode,
+  page,
   scenario,
 }: {
   mode: VaultOverviewDesignLabVisualMode;
+  page: VaultOverviewDesignLabPage;
   scenario: LabScenario;
 }) {
   return (
@@ -1010,7 +1023,11 @@ function LabHeader({
                   ? "flex h-full items-center border-b-2 border-foreground px-2 text-xs font-medium text-foreground"
                   : "flex h-full items-center border-b-2 border-transparent px-2 text-xs text-muted-foreground hover:text-foreground"
               }
-              search={(current) => ({ ...current, mode: option.mode })}
+              search={(current) => ({
+                ...current,
+                mode: option.mode,
+                view: page === "settings" ? "settings" : undefined,
+              })}
               to="/visual-fixture"
             >
               {option.label}
@@ -1025,7 +1042,13 @@ function LabHeader({
   );
 }
 
-function VaultSidebar({ mode }: { mode: VaultOverviewDesignLabVisualMode }) {
+function VaultSidebar({
+  mode,
+  page,
+}: {
+  mode: VaultOverviewDesignLabVisualMode;
+  page: VaultOverviewDesignLabPage;
+}) {
   return (
     <nav aria-label="Vaults" className="@container min-h-full py-2">
       {LAB_MODES.map((option) => {
@@ -1047,7 +1070,11 @@ function VaultSidebar({ mode }: { mode: VaultOverviewDesignLabVisualMode }) {
                 ? "mx-2 block min-w-0 bg-muted px-2 py-2.5 text-left @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
                 : "mx-2 block min-w-0 px-2 py-2.5 text-left hover:bg-muted @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
             }
-            search={(current) => ({ ...current, mode: option.mode })}
+            search={(current) => ({
+              ...current,
+              mode: option.mode,
+              view: page === "settings" ? "settings" : undefined,
+            })}
             title={`${scenario.repositoryOwner}/${scenario.repositoryName}`}
             to="/visual-fixture"
           >
@@ -1086,7 +1113,13 @@ function VaultSidebar({ mode }: { mode: VaultOverviewDesignLabVisualMode }) {
   );
 }
 
-function RepositoryHeader({ scenario }: { scenario: LabScenario }) {
+function RepositoryHeader({
+  page,
+  scenario,
+}: {
+  page: VaultOverviewDesignLabPage;
+  scenario: LabScenario;
+}) {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
       <div className="mx-auto flex w-full max-w-[1100px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 @3xl:px-6 @5xl:px-8">
@@ -1107,13 +1140,31 @@ function RepositoryHeader({ scenario }: { scenario: LabScenario }) {
             GitHub
             <ExternalLink className="h-3 w-3" />
           </a>
-          <span aria-current="page" className="font-medium text-foreground">
+          <Link
+            aria-current={page === "overview" ? "page" : undefined}
+            className={
+              page === "overview"
+                ? "font-medium text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }
+            search={(current) => ({ ...current, view: undefined })}
+            to="/visual-fixture"
+          >
             Overview
-          </span>
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
+          </Link>
+          <Link
+            aria-current={page === "settings" ? "page" : undefined}
+            className={
+              page === "settings"
+                ? "inline-flex items-center gap-1 font-medium text-foreground"
+                : "inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            }
+            search={(current) => ({ ...current, view: "settings" })}
+            to="/visual-fixture"
+          >
             <Settings className="h-3.5 w-3.5" />
             Settings
-          </span>
+          </Link>
         </div>
       </div>
     </header>
@@ -1275,10 +1326,185 @@ function PullRequestSection({
   );
 }
 
+function SettingsResourceRow({ resource }: { resource: LabResource }) {
+  const needsAttention = resource.state === "attention";
+
+  return (
+    <div className="grid min-w-0 gap-3 border-b border-border/40 py-3 last:border-b-0 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <span
+          aria-label={resource.kind === "cloudflare" ? "Cloudflare" : "Convex"}
+          className="mt-0.5 flex h-4 w-5 shrink-0 items-center justify-center"
+          role="img"
+        >
+          <ResourceIcon kind={resource.kind} />
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium text-foreground">{resource.label}</div>
+          {needsAttention ? (
+            <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {resource.stateLabel}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 justify-self-start @3xl:justify-self-end">
+        {needsAttention ? (
+          <Button className="shadow-none" size="sm" type="button" variant="outline">
+            {resource.kind === "cloudflare" ? "Configure Builds" : "Change code location"}
+          </Button>
+        ) : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild nativeButton>
+            <Button
+              aria-label={`Actions for ${resource.label}`}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40 rounded-none shadow-none">
+            <DropdownMenuItem variant="destructive">Remove from vault</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+}
+
+function SettingsRootGroup({ group }: { group: LabRootGroup }) {
+  const needsAttention = group.rootDirectory === "Needs attention";
+
+  return (
+    <div
+      className="grid min-w-0 border-b border-border/60 last:border-b-0 @4xl:grid-cols-[minmax(10rem,0.32fr)_minmax(0,1fr)]"
+      data-settings-root={group.rootDirectory}
+    >
+      <div
+        className={
+          needsAttention
+            ? "min-w-0 py-3 font-mono text-xs font-medium text-red-700 @4xl:pr-5"
+            : "min-w-0 py-3 font-mono text-xs font-medium text-foreground @4xl:pr-5"
+        }
+      >
+        <span className="block [overflow-wrap:anywhere]">{group.rootDirectory}</span>
+      </div>
+      <div className="min-w-0 border-t border-border/40 @4xl:border-l @4xl:border-t-0 @4xl:pl-5">
+        {group.resources.map((resource) => (
+          <SettingsResourceRow key={`${resource.kind}-${resource.label}`} resource={resource} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RepositorySettings({ scenario }: { scenario: LabScenario }) {
+  return (
+    <div className="min-h-full bg-background text-foreground">
+      <RepositoryHeader page="settings" scenario={scenario} />
+      <main className="mx-auto grid w-full max-w-[960px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
+        <section aria-labelledby="vault-settings-repository-heading">
+          <h2
+            id="vault-settings-repository-heading"
+            className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
+          >
+            Repository
+          </h2>
+          <div className="grid gap-3 border-y border-border py-4 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
+            <div className="flex min-w-0 items-start gap-3">
+              <span
+                aria-label="GitHub"
+                className="mt-0.5 flex h-4 w-5 shrink-0 items-center justify-center"
+                role="img"
+              >
+                <GitHubProviderLogo />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-foreground">
+                  {scenario.repositoryOwner}/{scenario.repositoryName}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Default branch <span className="font-mono text-foreground">main</span>
+                </div>
+              </div>
+            </div>
+            <a
+              className="inline-flex items-center gap-1 justify-self-start text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @3xl:justify-self-end"
+              href={scenario.repositoryUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Open on GitHub
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </section>
+
+        <section aria-labelledby="vault-settings-connections-heading">
+          <div className="mb-3 grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-end">
+            <div>
+              <h2
+                id="vault-settings-connections-heading"
+                className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                Connections
+              </h2>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Resources are grouped by their repository root.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button className="shadow-none" size="sm" type="button" variant="outline">
+                <CloudflareProviderLogo />
+                Add Cloudflare
+              </Button>
+              <Button className="shadow-none" size="sm" type="button" variant="outline">
+                <ConvexProviderLogo />
+                Add Convex
+              </Button>
+            </div>
+          </div>
+          <div className="border-y border-border">
+            {scenario.productionRoots.map((root) => (
+              <SettingsRootGroup key={root.rootDirectory} group={root} />
+            ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="vault-settings-remove-heading">
+          <h2
+            id="vault-settings-remove-heading"
+            className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
+          >
+            Remove vault
+          </h2>
+          <div className="grid gap-3 border-y border-border py-4 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
+            <p className="max-w-xl text-xs leading-5 text-muted-foreground">
+              Review repository and provider cleanup before anything is removed.
+            </p>
+            <Button
+              className="justify-self-start @3xl:justify-self-end"
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              Remove vault
+            </Button>
+          </div>
+        </section>
+        <div aria-hidden="true" className="h-[20svh] min-h-20" />
+      </main>
+    </div>
+  );
+}
+
 function VaultOverview({ scenario }: { scenario: LabScenario }) {
   return (
     <div className="min-h-full bg-background text-foreground">
-      <RepositoryHeader scenario={scenario} />
+      <RepositoryHeader page="overview" scenario={scenario} />
       <main className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
         {scenario.alert ? <AttentionNotice alert={scenario.alert} /> : null}
         <DefaultBranchSection scenario={scenario} />
@@ -1298,8 +1524,10 @@ function VaultOverview({ scenario }: { scenario: LabScenario }) {
  */
 export function VaultOverviewDesignLabVisualFixture({
   mode,
+  page = "overview",
 }: {
   mode: VaultOverviewDesignLabVisualMode;
+  page?: VaultOverviewDesignLabPage;
 }) {
   const scenario = SCENARIOS[mode];
 
@@ -1313,11 +1541,16 @@ export function VaultOverviewDesignLabVisualFixture({
             <span className="tabular-nums text-muted-foreground">{LAB_MODES.length}</span>
           </div>
         ),
-        content: <VaultSidebar mode={mode} />,
+        content: <VaultSidebar mode={mode} page={page} />,
       }}
       main={{
-        content: <VaultOverview scenario={scenario} />,
-        headerAccessory: <LabHeader mode={mode} scenario={scenario} />,
+        content:
+          page === "settings" ? (
+            <RepositorySettings scenario={scenario} />
+          ) : (
+            <VaultOverview scenario={scenario} />
+          ),
+        headerAccessory: <LabHeader mode={mode} page={page} scenario={scenario} />,
       }}
       shortcutPaneSide="left"
     />
