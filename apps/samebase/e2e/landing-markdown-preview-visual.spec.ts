@@ -213,6 +213,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article).toContainText("Cloudflare");
+  await expect(article).toContainText("The starter runs natively on macOS, Linux, and Windows.");
   await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
   // The closing band keeps the one interactive logo slot on the page.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
@@ -245,6 +246,14 @@ test("landing preview route renders the React overview in workspace chrome", asy
       scale: "css",
     },
   );
+  await expect(
+    article.getByText("The starter runs natively on macOS, Linux, and Windows.", { exact: false }),
+  ).toHaveScreenshot("landing-preview-platform-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("link", { name: "Do it yourself", exact: true })
@@ -359,6 +368,14 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
       scale: "css",
     },
   );
+  await expect(
+    article.getByText("The starter runs natively on macOS, Linux, and Windows.", { exact: false }),
+  ).toHaveScreenshot("landing-preview-platform-narrow-pane.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 });
 
 test("landing document navigation resets new articles and restores history positions", async ({
@@ -481,6 +498,16 @@ test.describe("mobile landing preview", () => {
         scale: "css",
       },
     );
+    await expect(
+      article.getByText("The starter runs natively on macOS, Linux, and Windows.", {
+        exact: false,
+      }),
+    ).toHaveScreenshot("landing-preview-platform-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
 
     await article.getByRole("button", { name: "Open Samebase" }).first().click();
 

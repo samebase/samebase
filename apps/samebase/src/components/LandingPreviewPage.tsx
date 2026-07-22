@@ -678,7 +678,10 @@ function LandingPreviewOverview() {
               role="deploys + domains + edge"
             />
           </div>
-          <p className="mt-7 text-sm text-primary">
+          <p className="mt-7 max-w-[62ch] text-sm leading-relaxed text-primary">
+            The starter runs natively on macOS, Linux, and Windows. Node 24 runs its repository
+            automation directly from TypeScript, so the core workflow does not depend on Bash or
+            WSL.{" "}
             <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>The stack, in detail</LandingInlineLink>
           </p>
         </LandingSection>

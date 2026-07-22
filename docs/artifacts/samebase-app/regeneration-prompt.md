@@ -81,10 +81,13 @@ For a Workers/TanStack Start version:
   hard-code the Worker `name` in `wrangler.jsonc`; use repo-owned deploy scripts
   to pass the connected Cloudflare Worker name to Wrangler. Keep
   `build.command` out of the reusable `wrangler.jsonc` so Workers Builds and
-  local Wrangler checks have one clear build owner each. If Node-invoked
-  deploy/build helpers are TypeScript, pin Node 24 with `.node-version` or
-  `NODE_VERSION`; otherwise use plain ESM JavaScript helpers or an explicit
-  TypeScript runner.
+  local Wrangler checks have one clear build owner each. Keep Node-invoked
+  repository automation in erasable TypeScript runnable by plain `node`, and
+  pin Node 24 with `.node-version` or `NODE_VERSION`. The core workflow must run
+  natively on macOS, Linux, and Windows. Do not add Bash scripts, POSIX-only
+  inline environment assignment, shell parameter expansion, or required
+  Unix-only utilities; use Node process APIs and handle Windows `.cmd` entry
+  points explicitly when needed.
 - Use the Convex deploy-key contract: `CONVEX_DEPLOY_KEY` for the production
   branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches.
 - Treat `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as Samebase's

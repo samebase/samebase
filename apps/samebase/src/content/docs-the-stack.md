@@ -9,9 +9,9 @@ template carries a real product later.
 ## One toolchain
 
 The template runs on [Vite Plus](https://viteplus.dev): one `vp` command that is the dev server,
-test runner, linter, formatter, and bundler in a single tool. Node is the only runtime, every script
-in the repo is TypeScript, and the official installers cover macOS, Linux, and Windows, so the repo
-starts the same on all three.
+test runner, linter, formatter, and bundler in a single tool. Node 24 is the only JavaScript
+runtime. The repository's automation is TypeScript run directly by Node, not Bash, so the core local
+workflow runs natively on macOS, Linux, and Windows without WSL.
 
 Since June 2026,
 [Cloudflare owns VoidZero](https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/),

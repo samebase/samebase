@@ -3,7 +3,7 @@
 ## Status
 
 - Status: Research / idea capture, not an accepted product spec.
-- Last updated: 2026-06-28.
+- Last updated: 2026-07-23.
 - Source: operator landing-preview discussion, especially the June 2026 iteration around
   `/landing-preview` becoming the future `/` page.
 - Related PR: https://github.com/samebase/samebase/pull/1112
@@ -119,6 +119,16 @@ These are related facts and should probably be explained as "work lanes":
 
 The point is not just "we have previews." The point is that each lane can have an isolated surface
 for code, data, and review.
+
+### Native Windows Support Is A Stack Claim
+
+The starter's core local workflow runs natively on macOS, Linux, and Windows. Windows is the
+surprising part and should be named directly on the landing page, not left inside setup docs.
+
+The reason is concrete: Node 24 runs the repository's automation directly from TypeScript, while the
+scripts pass environment, working-directory, and process arguments through Node APIs instead of
+requiring Bash or WSL. Keep the public claim scoped to the starter's core workflow until the starter
+itself has full multi-OS CI.
 
 ## Audience Trust Model
 

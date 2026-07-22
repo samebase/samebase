@@ -9,6 +9,9 @@ touching its providers. A connected app can remain GitHub-only or attach Convex 
 later. In a monorepo, Samebase derives resource locations from each selected convex.json file and
 each Worker's live Workers Builds root.
 
+The Samebase starter's core local workflow runs natively on macOS, Linux, and Windows. Its
+repository automation is TypeScript run directly by Node 24, so it does not require Bash or WSL.
+
 The dashboard gives humans one inventory of every repository they connect, its provider resources,
 derived locations, current state, direct provider coordinates, and provider or connection repair
 actions.

@@ -120,6 +120,10 @@ describe("LandingPreviewPage", () => {
     );
     expect(markup).toContain("Samebase repeats it, so you never choose again.");
     expect(markup).toContain("deploys + domains + edge");
+    expect(markup).toContain("The starter runs natively on macOS, Linux, and Windows.");
+    expect(markup).toContain(
+      "Node 24 runs its repository automation directly from TypeScript, so the core workflow does not depend on Bash or WSL.",
+    );
     expect(markup).toContain('href="/docs/the-stack"');
 
     // Ask your agent.
