@@ -107,7 +107,6 @@ async function insertProject(
     projectId: args.projectId,
     convexConfigPath,
     origin: args.origin,
-    createdAt: Date.now(),
   });
 }
 
@@ -295,44 +294,13 @@ export const attachProjects = internalMutation({
       projectIds.add(project.projectId);
     }
 
-    const existingProjects = await Promise.all(
-      projects.map(async (project) => await readProjectByProjectId(ctx, project.projectId)),
-    );
-    for (const [index, existing] of existingProjects.entries()) {
-      if (!existing) {
-        continue;
-      }
-      const project = projects[index];
-      if (
-        existing.vaultId !== args.vaultId ||
-        existing.userId !== args.userId ||
-        existing.teamId !== project.teamId ||
-        existing.convexConfigPath !== project.convexConfigPath
-      ) {
-        throw new Error("Convex project is already attached.");
-      }
-    }
-
-    const now = Date.now();
     const projectAttachmentIds: Array<Id<"vaultConvexProjects">> = [];
-    for (const [index, project] of projects.entries()) {
-      const existing = existingProjects[index];
-      if (existing) {
-        if (project.origin === "provisioned" && existing.origin !== "provisioned") {
-          await ctx.db.patch(existing._id, { origin: "provisioned" });
-        }
-        projectAttachmentIds.push(existing._id);
-        continue;
-      }
+    for (const project of projects) {
       projectAttachmentIds.push(
-        await ctx.db.insert("vaultConvexProjects", {
+        await insertProject(ctx, {
           vaultId: args.vaultId,
           userId: args.userId,
-          teamId: project.teamId,
-          projectId: project.projectId,
-          convexConfigPath: project.convexConfigPath,
-          origin: project.origin,
-          createdAt: now,
+          ...project,
         }),
       );
     }

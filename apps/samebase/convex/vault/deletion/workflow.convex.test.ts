@@ -220,7 +220,6 @@ describe("vault deletion workflow", () => {
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        createdAt: 7,
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
@@ -229,7 +228,6 @@ describe("vault deletion workflow", () => {
         workerName: "existing-repo-selected-worker",
         workerTag: "selected-worker-tag",
         origin: "selected_existing",
-        createdAt: 8,
       });
 
       return { userId, vaultId };
@@ -273,7 +271,6 @@ describe("vault deletion workflow", () => {
         workerName: "unchecked-worker",
         workerTag: "unchecked-worker-tag",
         origin: "provisioned",
-        createdAt: 7,
       });
     });
 
@@ -459,7 +456,6 @@ describe("vault deletion workflow", () => {
         workerName: "delete-me-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        createdAt: 7,
       });
 
       return { userId, vaultId };

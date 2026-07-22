@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-21
+- Last updated: 2026-07-22
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
@@ -28,13 +28,12 @@ Convex project connection combines two facts:
   projectId;
   convexConfigPath;
   origin;
-  createdAt;
 }
 ```
 
 `projectId` is the stable global continuity key. `teamId` is the last provider team under which
 Samebase verified the project. Several projects may intentionally select the same
-`convexConfigPath`.
+`convexConfigPath`. Convex `_creationTime` records when the attachment was created.
 
 Project names, slugs, deployments, URLs, deploy keys, current team, and current repository file
 existence remain live provider observations.

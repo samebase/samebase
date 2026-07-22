@@ -365,11 +365,6 @@ async function createWorkerForManagedWorkflow(
       workerName: validation.value,
     },
   );
-  if (checkpoint.state === "creating") {
-    throw new Error(
-      "The previous Cloudflare Worker create may have completed without recording its identity. Inspect Cloudflare before retrying.",
-    );
-  }
   const connection = await resolveCloudflareConnection(ctx, args.userId);
   const account = await resolveAccount({
     token: connection.token,
@@ -398,17 +393,24 @@ async function createWorkerForManagedWorkflow(
       workerName: validation.value,
     });
     if (existing) {
+      if (checkpoint.state === "creating") {
+        throw new Error(
+          `Cloudflare Worker ${validation.value} exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.`,
+        );
+      }
       throw new Error(
         `Cloudflare Worker name ${validation.value} already exists. Choose another Worker name and try again.`,
       );
     }
-    await ctx.runMutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
-      vaultId: args.vaultId,
-      runId: args.runId,
-      userId: args.userId,
-      accountId: account.accountId,
-      workerName: validation.value,
-    });
+    if (checkpoint.state === "planned") {
+      await ctx.runMutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        accountId: account.accountId,
+        workerName: validation.value,
+      });
+    }
     worker = await createCloudflareWorker({
       token: connection.token,
       transport: connection.transport,

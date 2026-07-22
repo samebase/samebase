@@ -140,7 +140,6 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       projectId: "1001",
       convexConfigPath: "convex.json",
       origin: "selected_existing",
-      createdAt: 25,
     });
 
     return { convexProjectId, userId, vaultId };

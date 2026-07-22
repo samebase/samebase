@@ -746,7 +746,6 @@ describe("vault dashboard Convex contract", () => {
         teamId: "provider-state-team-id",
         projectId: "convex-project",
         origin: "provisioned",
-        createdAt: 24,
       });
 
       return { runId, userId, vaultId };
@@ -830,7 +829,6 @@ describe("vault dashboard Convex contract", () => {
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
         origin: "provisioned",
-        createdAt: 24,
       });
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
@@ -931,7 +929,6 @@ describe("vault dashboard Convex contract", () => {
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
         origin: "provisioned",
-        createdAt: 24,
       });
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
@@ -1067,7 +1064,6 @@ describe("vault dashboard Convex contract", () => {
           teamId: `provider-${testCase.label}-team-id`,
           projectId: "convex-project",
           origin: "provisioned",
-          createdAt: 24,
         });
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
@@ -1076,7 +1072,6 @@ describe("vault dashboard Convex contract", () => {
           workerName: `provider-${testCase.label}-worker`,
           workerTag: `provider-${testCase.label}-worker-tag`,
           origin: "provisioned",
-          createdAt: 26,
         });
         await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
@@ -1298,7 +1293,6 @@ describe("vault dashboard Convex contract", () => {
         teamId: "team-id",
         projectId: "project-id",
         origin: "provisioned",
-        createdAt: 3,
       });
       const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
         state: "failed",
@@ -1546,7 +1540,6 @@ describe("vault dashboard Convex contract", () => {
         teamId: "delete-team-id",
         projectId: "delete-convex-project",
         origin: "provisioned",
-        createdAt: 9,
       });
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,

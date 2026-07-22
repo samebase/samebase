@@ -194,7 +194,6 @@ async function insertWorker(
     workerName: args.workerName,
     workerTag: args.workerTag,
     origin: args.origin,
-    createdAt: Date.now(),
   });
 }
 
@@ -227,45 +226,13 @@ export const attachWorkers = internalMutation({
       workerTags.add(tagIdentity);
     }
 
-    const existingWorkers = await Promise.all(
-      args.workers.map(async (worker) => await readWorkerMatches(ctx, worker)),
-    );
-    for (const [index, existing] of existingWorkers.entries()) {
-      if (!existing) {
-        continue;
-      }
-      const worker = args.workers[index];
-      if (
-        existing.vaultId !== args.vaultId ||
-        existing.userId !== args.userId ||
-        existing.accountId !== worker.accountId ||
-        existing.workerName !== worker.workerName ||
-        existing.workerTag !== worker.workerTag
-      ) {
-        throw new Error("Cloudflare Worker is already attached.");
-      }
-    }
-
-    const now = Date.now();
     const workerAttachmentIds: Array<Id<"vaultCloudflareWorkers">> = [];
-    for (const [index, worker] of args.workers.entries()) {
-      const existing = existingWorkers[index];
-      if (existing) {
-        if (worker.origin === "provisioned" && existing.origin !== "provisioned") {
-          await ctx.db.patch(existing._id, { origin: "provisioned" });
-        }
-        workerAttachmentIds.push(existing._id);
-        continue;
-      }
+    for (const worker of args.workers) {
       workerAttachmentIds.push(
-        await ctx.db.insert("vaultCloudflareWorkers", {
+        await insertWorker(ctx, {
           vaultId: args.vaultId,
           userId: args.userId,
-          accountId: worker.accountId,
-          workerName: worker.workerName,
-          workerTag: worker.workerTag,
-          origin: worker.origin,
-          createdAt: now,
+          ...worker,
         }),
       );
     }

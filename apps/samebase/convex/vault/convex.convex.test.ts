@@ -139,6 +139,58 @@ async function createConnectedVault(teamId = "1000") {
   };
 }
 
+async function createManagedProjectCreatingFixture() {
+  const fixture = await createConnectedVault();
+  const runId = await fixture.t.run(async (ctx) => {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      userId: fixture.userId,
+      vaultId: fixture.vaultId,
+      repositoryFullName: "ada/demo",
+      trigger: "retry",
+      state: "running",
+      currentStep: "attach_convex",
+      createdAt: 3,
+      updatedAt: 3,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+      vaultId: fixture.vaultId,
+      runId,
+      state: "active",
+      updatedAt: 3,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_plans", {
+      vaultId: fixture.vaultId,
+      userId: fixture.userId,
+      convexConfigPath: "convex.json",
+      convex: { state: "planned", projectName: "managed-project" },
+      cloudflare: {
+        state: "planned",
+        accountId: "cloudflare-account",
+        workerName: "managed-worker",
+        build: {
+          rootDirectory: "/",
+          buildCommand: "pnpm run build",
+          deployCommand: "pnpm run deploy",
+          previewDeployCommand: "pnpm run deploy:preview",
+          pathIncludes: ["*"],
+          pathExcludes: [],
+        },
+      },
+      createdAt: 3,
+      updatedAt: 3,
+    });
+    return runId;
+  });
+  await fixture.t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+    vaultId: fixture.vaultId,
+    runId,
+    userId: fixture.userId,
+    projectName: "managed-project",
+    teamId: "1000",
+  });
+  return { ...fixture, runId };
+}
+
 describe("vault Convex project attachments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -244,6 +296,78 @@ describe("vault Convex project attachments", () => {
       "vault:convex:create_project:metadata_refresh_failed",
       expect.objectContaining({ convexProjectId, vaultId }),
     );
+  });
+
+  it("requires dashboard deletion when an interrupted managed create left a project", async () => {
+    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({
+          items: [
+            {
+              createTime: 1_710_000_000_000,
+              id: 1003,
+              name: "managed-project",
+              slug: "managed-project",
+              teamId: 1000,
+              teamSlug: "team-1000",
+            },
+          ],
+          pagination: { hasMore: false },
+        });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexProjectConnection, {
+        vaultId,
+        runId,
+        userId,
+        convexConfigPath: "convex.json",
+        projectName: "managed-project",
+      }),
+    ).rejects.toThrow("Delete it in the Convex dashboard, then retry.");
+    expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("vaultConvexProjects").collect()),
+    ).resolves.toEqual([]);
+  });
+
+  it("retries an interrupted managed create after the project was deleted", async () => {
+    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      if (input.url.endsWith("/teams/1000/create_project")) {
+        return jsonResponse({ id: 1003, projectId: 1003, slug: "managed-project" });
+      }
+      if (input.url.endsWith("/projects/1003")) {
+        return convexProjectResponse("1003", "1000");
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const convexProjectId = await t.action(internal.vault.convex.ensureConvexProjectConnection, {
+      vaultId,
+      runId,
+      userId,
+      convexConfigPath: "convex.json",
+      projectName: "managed-project",
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
+      vaultId,
+      userId,
+      teamId: "1000",
+      projectId: "1003",
+      convexConfigPath: "convex.json",
+      origin: "provisioned",
+    });
+    expect(fetchMock.mock.calls.filter(([input]) => input.method === "POST")).toHaveLength(1);
   });
 
   it("rejects the whole selection when the selected GitHub blob changed", async () => {

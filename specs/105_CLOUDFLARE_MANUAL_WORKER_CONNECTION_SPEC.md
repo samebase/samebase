@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-21
+- Last updated: 2026-07-22
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
@@ -24,9 +24,10 @@ credential connection and separate from deployment configuration.
   workerName;
   workerTag;
   origin;
-  createdAt;
 }
 ```
+
+Convex `_creationTime` records when the attachment was created.
 
 Worker existence, workers.dev URLs, GitHub repository connection, build triggers, root directory,
 and Convex build variables are current Cloudflare observations. They are not mirrored into the

@@ -189,7 +189,6 @@ export const vaultTables = {
     workerName: string(),
     workerTag: string(),
     origin: vVaultProviderResourceOrigin,
-    createdAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
@@ -204,11 +203,8 @@ export const vaultTables = {
     projectId: string(),
     convexConfigPath: string(),
     origin: vVaultProviderResourceOrigin,
-    createdAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
-    .index("by_project", ["projectId"])
-    .index("by_team_and_project", ["teamId", "projectId"])
-    .index("by_vault_and_config_path", ["vaultId", "convexConfigPath"]),
+    .index("by_project", ["projectId"]),
 };

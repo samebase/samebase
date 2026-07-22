@@ -71,12 +71,14 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 The plan row records user-selected provider names before side effects happen so retries use the same
 configuration. `creating` means the provider create request started but Samebase never recorded a
-confirmed result. Retry and cleanup stop in that state rather than guessing that a same-named
-resource belongs to the run. `created` is the exact provider identity checkpoint used by retry.
-Samebase writes that checkpoint and its stable `provisioned` resource attachment in one database
-transaction. Checkbox-controlled cleanup derives ownership only from the stable attachment, never
-from an unattached checkpoint. Current connected resource identities live in the durable resource
-tables used by the dashboard.
+confirmed result. Retry checks the exact planned name. If that provider resource exists, Samebase
+requires the user to delete it in the provider dashboard before retrying. If it is absent, Samebase
+repeats the create request without adding another workflow state. A same-named resource is never
+adopted implicitly. `created` is the exact provider identity checkpoint used by retry. Samebase
+writes that checkpoint and its stable `provisioned` resource attachment in one database transaction.
+Checkbox-controlled cleanup derives ownership only from the stable attachment, never from an
+unattached checkpoint. Current connected resource identities live in the durable resource tables
+used by the dashboard.
 
 Indexes:
 
@@ -86,31 +88,30 @@ Indexes:
 
 - `vaultId`, `userId`
 - `teamId`, `projectId`, `convexConfigPath`
-- `origin: "provisioned" | "selected_existing"`, `createdAt`
+- `origin: "provisioned" | "selected_existing"`
 
 This table is the durable attachment between a vault and a Convex project. It stores stable provider
-coordinates, the user-confirmed repository config path, provenance, and the time of attachment.
-Current project slugs, team slugs, production and preview deployments, URLs, and deploy keys are
-provider state and must not be mirrored into this row. `projectId` is globally exclusive. Several
-projects may intentionally share one `convexConfigPath`.
+coordinates, the user-confirmed repository config path, and provenance. Convex `_creationTime`
+records when the attachment was created. Current project slugs, team slugs, production and preview
+deployments, URLs, and deploy keys are provider state and must not be mirrored into this row.
+`projectId` is globally exclusive. Several projects may intentionally share one `convexConfigPath`.
 
 Indexes:
 
 - `by_vault`
 - `by_user`
 - `by_project` (global attachment exclusivity)
-- `by_team_and_project`
-- `by_vault_and_config_path`
 
 ### `vaultCloudflareWorkers`
 
 - `vaultId`, `userId`
 - `accountId`, `workerName`, `workerTag`
-- `origin: "provisioned" | "selected_existing"`, `createdAt`
+- `origin: "provisioned" | "selected_existing"`
 
 This table is the durable attachment between a vault and a Cloudflare Worker. Current workers.dev
 URLs, Worker existence, Workers Builds triggers, repository configuration, root directory, and
-Convex deploy keys are provider state and must not be mirrored into this row.
+Convex deploy keys are provider state and must not be mirrored into this row. Convex `_creationTime`
+records when the attachment was created.
 
 ### Worker-to-Convex build relationship
 
@@ -397,9 +398,11 @@ Dashboard external links:
   must link to Cloudflare's reinstall recovery steps, tell the user to uninstall the Cloudflare
   Workers and Pages GitHub App first, then reconnect GitHub from Workers & Pages before retrying.
 - Managed provisioning reuses confirmed provider checkpoints and does not auto-teardown resources on
-  vault deletion unless explicitly requested. An unconfirmed provider create outcome stops for
-  operator inspection instead of adopting or deleting a same-named resource. A confirmed checkpoint
-  and its stable provider attachment are recorded atomically.
+  vault deletion unless explicitly requested. After an unconfirmed provider create outcome, retry
+  stops when the same-named resource exists and tells the user to delete it in the provider
+  dashboard. Once the name is absent, retry repeats the create request. Samebase never adopts or
+  deletes the resource automatically. A confirmed checkpoint and its stable provider attachment are
+  recorded atomically.
 
 ## Deferred
 

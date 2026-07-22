@@ -57,7 +57,6 @@ describe("infra read Convex attachment targeting", () => {
           projectId: `${rootDirectory}-project`,
           convexConfigPath: `${rootDirectory}/convex.json`,
           origin: "selected_existing",
-          createdAt: 30,
         });
       }
     });
@@ -80,7 +79,6 @@ describe("infra read Convex attachment targeting", () => {
           workerName: rootDirectory.replace("/", "-"),
           workerTag: `${rootDirectory.replace("/", "-")}-tag`,
           origin: "selected_existing",
-          createdAt: 30,
         });
       }
     });

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-07-21
+- Last updated: 2026-07-22
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
@@ -31,7 +31,6 @@ The durable Cloudflare attachment is:
   workerName;
   workerTag;
   origin;
-  createdAt;
 }
 ```
 
@@ -45,9 +44,11 @@ The durable Convex attachment is:
   projectId;
   convexConfigPath;
   origin;
-  createdAt;
 }
 ```
+
+Convex `_creationTime` records when each attachment was created. The rows do not duplicate it as a
+domain field.
 
 `accountId` plus Worker identity and `teamId` plus `projectId` are provider coordinates. `projectId`
 is the stable Convex project continuity key. `teamId` is the last team under which Samebase verified

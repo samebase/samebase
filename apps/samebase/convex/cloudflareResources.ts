@@ -257,10 +257,6 @@ export type CloudflareWorkerProviderDiscoveryItem = CloudflareWorkerDiscoveryIte
   convexBuildAccess: CloudflareConvexBuildAccessObservation | { state: "unavailable" };
 };
 
-export type ExistingCloudflareWorkerIdentity =
-  | { state: "planned" }
-  | { state: "created"; workerTag: string };
-
 export function buildCloudflareWorkerCreateBody(workerName: string): CloudflareWorkerCreateBody {
   return {
     name: workerName,
@@ -751,47 +747,16 @@ export async function createCloudflareWorker(args: {
   workerName: string;
   transport: CloudflareApiTransport;
 }): Promise<CloudflareWorkerIdentity> {
-  return await ensureWorker({
-    token: args.token,
-    accountId: args.accountId,
-    workerName: args.workerName,
-    transport: args.transport,
-    existingWorker: {
-      state: "created",
-      workerTag: "",
-    },
-  });
-}
-
-async function ensureWorker(
-  args: {
-    token: string;
-    accountId: string;
-    workerName: string;
-    existingWorker: ExistingCloudflareWorkerIdentity;
-  } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkerIdentity> {
   const existing = await readWorker({
     token: args.token,
     accountId: args.accountId,
     workerName: args.workerName,
     transport: args.transport,
-    recordApiCall: args.recordApiCall,
   });
   if (existing) {
-    const workerTag = readCloudflareWorkerTag(existing, args.workerName);
-    if (args.existingWorker.state === "created" && args.existingWorker.workerTag !== workerTag) {
-      throw new Error(
-        `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
-      );
-    }
-    // The planned target owns the Worker name before provider writes. If the
-    // previous run created the Worker but failed before recording its tag, retry
-    // uses Cloudflare's identity as the missing checkpoint.
-    return {
-      workerName: args.workerName,
-      workerTag,
-    };
+    throw new Error(
+      `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
+    );
   }
 
   const createdRaw = await requestCloudflareApi({
@@ -804,7 +769,6 @@ async function ensureWorker(
         account_id: args.accountId,
       },
     },
-    recordApiCall: args.recordApiCall,
     body: buildCloudflareWorkerCreateBody(args.workerName),
   });
   const created = requireCloudflareResult(
