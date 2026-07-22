@@ -65,6 +65,7 @@ const vCloudflareWorkerObservation = union(
     state: literal("available"),
     observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
+    customDomains: array(string()),
     workersDev: vWorkersDevObservation,
   }),
   object({
@@ -353,6 +354,7 @@ export const observeCloudflareWorkers = action({
             state: "available" as const,
             observedAt,
             workerId: worker.workerId,
+            customDomains: identity.customDomains,
             workersDev,
           };
         } catch {

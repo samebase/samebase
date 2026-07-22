@@ -107,7 +107,6 @@ export function buildVaultProductionRoots({
           );
           if (
             workerObservation?.state !== "available" ||
-            workerObservation.workersDev.state !== "enabled" ||
             buildsObservation?.state !== "available" ||
             buildsObservation.repository.state !== "ready"
           ) {
@@ -115,19 +114,33 @@ export function buildVaultProductionRoots({
           }
 
           const rootDirectory = buildsObservation.repository.rootDirectory;
-          return [
-            {
-              rootDirectory,
-              href: workerObservation.workersDev.url,
-              label: buildProductionUrlLabel(workerObservation.workersDev.url),
-              provider: "cloudflare" as const,
-              sortKey: worker.workerName,
-              title:
-                rootDirectory === "/"
-                  ? "Open production app"
-                  : `Open production app for ${rootDirectory}`,
-            },
-          ];
+          const title =
+            rootDirectory === "/"
+              ? "Open production app"
+              : `Open production app for ${rootDirectory}`;
+          const customDomainLinks = workerObservation.customDomains.map((hostname) => ({
+            rootDirectory,
+            href: `https://${hostname}`,
+            label: hostname,
+            provider: "cloudflare" as const,
+            sortKey: `0:${hostname}`,
+            title,
+          }));
+          const workersDevLinks =
+            workerObservation.workersDev.state === "enabled"
+              ? [
+                  {
+                    rootDirectory,
+                    href: workerObservation.workersDev.url,
+                    label: buildProductionUrlLabel(workerObservation.workersDev.url),
+                    provider: "cloudflare" as const,
+                    sortKey: `1:${worker.workerName}`,
+                    title,
+                  },
+                ]
+              : [];
+
+          return [...customDomainLinks, ...workersDevLinks];
         })
       : [];
   const convexLinks: VaultProductionLinkInput[] =

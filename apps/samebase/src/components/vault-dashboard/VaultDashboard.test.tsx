@@ -140,6 +140,7 @@ function makeAvailableResourceRailCloudflareObservation(
   return {
     state: "available",
     observedAt: 1,
+    customDomains: [],
     workersDev: { state: "enabled", url: "https://demo-worker.ada.workers.dev" },
     ...overrides,
   };
@@ -239,7 +240,9 @@ describe("VaultDefaultBranch", () => {
         <VaultDefaultBranch
           convexProjects={[]}
           defaultBranch="release/2026 Q3"
+          defaultBranchChecks={null}
           githubBranchUrl="https://github.com/ada/demo/tree/release/2026%20Q3"
+          githubRepositoryUrl="https://github.com/ada/demo"
           owner="ada"
           productionRoots={[]}
           repoName="demo"
@@ -270,7 +273,40 @@ describe("VaultDefaultBranch", () => {
             },
           ]}
           defaultBranch="main"
+          defaultBranchChecks={{
+            headCommitOid: "abc123",
+            statusCheckRollup: {
+              state: "SUCCESS",
+              contexts: {
+                totalCount: 1,
+                checkRunCount: 1,
+                statusContextCount: 0,
+                checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
+                statusContextCountsByState: [],
+                nodes: [
+                  {
+                    kind: "check_run",
+                    name: "checks (24.x)",
+                    status: "COMPLETED",
+                    conclusion: "SUCCESS",
+                    detailsUrl: "https://github.com/ada/demo/actions/runs/1/job/1",
+                    title: null,
+                  },
+                ],
+              },
+            },
+            checks: {
+              state: "success",
+              totalCount: 1,
+              successCount: 1,
+              failureCount: 0,
+              runningCount: 0,
+              neutralCount: 0,
+              unknownCount: 0,
+            },
+          }}
           githubBranchUrl="https://github.com/ada/demo/tree/main"
+          githubRepositoryUrl="https://github.com/ada/demo"
           owner="ada"
           repoName="demo"
           samebaseEditorUrl="/vault/ada/demo/fs/main"
@@ -318,6 +354,8 @@ describe("VaultDefaultBranch", () => {
     expect(markup).toContain(`href="/vault/ada/demo/schema/main/project/${fakeConvexProjectId()}"`);
     expect(markup).toContain("Data: apps/web");
     expect(markup).toContain("Schema: apps/web");
+    expect(markup).toContain('title="Show default branch checks"');
+    expect(markup).toContain("1 passed");
     expect(markup).not.toContain("PR #");
   });
 
@@ -333,7 +371,9 @@ describe("VaultDefaultBranch", () => {
             },
           ]}
           defaultBranch="main"
+          defaultBranchChecks={null}
           githubBranchUrl="https://github.com/ada/demo/tree/main"
+          githubRepositoryUrl="https://github.com/ada/demo"
           owner="ada"
           productionRoots={[]}
           repoName="demo"
@@ -365,7 +405,12 @@ describe("buildVaultProductionRoots", () => {
     const roots = buildVaultProductionRoots({
       vault,
       cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+        workers: [
+          makeAvailableResourceRailCloudflareObservation({
+            workerId,
+            customDomains: ["www.example.com", "app.example.com"],
+          }),
+        ],
         builds: [
           makeAvailableResourceRailCloudflareBuildsObservation({
             workerId,
@@ -411,6 +456,18 @@ describe("buildVaultProductionRoots", () => {
         rootDirectory: "apps/web",
         links: [
           {
+            href: "https://app.example.com",
+            label: "app.example.com",
+            provider: "cloudflare",
+            title: "Open production app for apps/web",
+          },
+          {
+            href: "https://www.example.com",
+            label: "www.example.com",
+            provider: "cloudflare",
+            title: "Open production app for apps/web",
+          },
+          {
             href: "https://demo-worker.ada.workers.dev",
             label: "demo-worker.ada.workers.dev",
             provider: "cloudflare",
@@ -421,6 +478,43 @@ describe("buildVaultProductionRoots", () => {
             label: "calm-swan-123",
             provider: "convex",
             title: "Open production Convex deployment calm-swan-123",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps custom domains visible when workers.dev is disabled", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const vault = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+    });
+
+    const roots = buildVaultProductionRoots({
+      vault,
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [
+          makeAvailableResourceRailCloudflareObservation({
+            workerId,
+            customDomains: ["app.example.com"],
+            workersDev: { state: "disabled" },
+          }),
+        ],
+        builds: [makeAvailableResourceRailCloudflareBuildsObservation({ workerId })],
+        convexBuildAccess: [],
+      }),
+      convexObservations: { state: "loaded", reload: () => {}, observations: [] },
+    });
+
+    expect(roots).toEqual([
+      {
+        rootDirectory: "/",
+        links: [
+          {
+            href: "https://app.example.com",
+            label: "app.example.com",
+            provider: "cloudflare",
+            title: "Open production app",
           },
         ],
       },
@@ -523,6 +617,7 @@ describe("VaultDashboardRepositoryCard", () => {
           providerAttachmentDetachmentInFlight={null}
           pullRequests={{
             state: "current",
+            defaultBranchChecks: null,
             pullRequests: [],
             allPullRequests: [],
             refreshing: false,

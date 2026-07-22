@@ -4,6 +4,7 @@ import {
   ConvexProviderLogo,
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
+import { VaultDefaultBranchChecks } from "@/components/vault-dashboard/VaultDefaultBranchChecks";
 import { buildVaultDatabaseRoute, buildVaultSchemaRoute } from "@/lib/vaultRoutes";
 import type {
   VaultProductionLinkProvider,
@@ -18,6 +19,7 @@ import {
   getConvexCodeRootDirectory,
   type ConvexCodeLocation,
 } from "../../../shared/convexCodeLocation";
+import type { VaultDefaultBranchChecks as DefaultBranchChecks } from "@/hooks/useVaultPullRequests";
 
 type VaultDefaultBranchConvexProject = {
   codeLocation: ConvexCodeLocation;
@@ -28,7 +30,9 @@ type VaultDefaultBranchConvexProject = {
 type VaultDefaultBranchProps = {
   convexProjects: readonly VaultDefaultBranchConvexProject[];
   defaultBranch: string;
+  defaultBranchChecks: DefaultBranchChecks | null;
   githubBranchUrl: string;
+  githubRepositoryUrl: string;
   owner: string;
   productionRoots: readonly VaultProductionRoot[];
   repoName: string;
@@ -100,7 +104,9 @@ function ProductionLinks({ roots }: { roots: readonly VaultProductionRoot[] }) {
 export function VaultDefaultBranch({
   convexProjects,
   defaultBranch,
+  defaultBranchChecks,
   githubBranchUrl,
+  githubRepositoryUrl,
   owner,
   productionRoots,
   repoName,
@@ -178,6 +184,12 @@ export function VaultDefaultBranch({
               <SamebaseLogoMark />
               <span>Edit</span>
             </Link>
+            {defaultBranchChecks ? (
+              <VaultDefaultBranchChecks
+                checks={defaultBranchChecks}
+                githubRepositoryUrl={githubRepositoryUrl}
+              />
+            ) : null}
             {convexLinks.map((link) => (
               <Link
                 key={link.href}

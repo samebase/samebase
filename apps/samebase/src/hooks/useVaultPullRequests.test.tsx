@@ -55,6 +55,30 @@ function page(args: {
       id: "repository:samebase",
       databaseId: 919458151,
       nameWithOwner: "samebase/samebase",
+      defaultBranch: {
+        name: "main",
+        headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+        statusCheckRollup: {
+          state: "SUCCESS",
+          contexts: {
+            totalCount: 1,
+            checkRunCount: 1,
+            statusContextCount: 0,
+            checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
+            statusContextCountsByState: [],
+            nodes: [
+              {
+                kind: "check_run",
+                name: "checks (24.x)",
+                status: "COMPLETED",
+                conclusion: "SUCCESS",
+                detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
+                title: null,
+              },
+            ],
+          },
+        },
+      },
       pullRequests: {
         totalCount: 2,
         pageInfo: {
@@ -237,6 +261,10 @@ describe("useVaultPullRequests", () => {
       after: null,
     });
     expect(settledState().pullRequests).toEqual([]);
+    expect(settledState().defaultBranchChecks).toMatchObject({
+      headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+      checks: { state: "success", totalCount: 1, successCount: 1 },
+    });
     expect(settledState().hasMore).toBe(true);
 
     act(() => settledState().loadMore());
